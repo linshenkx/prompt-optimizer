@@ -1,9 +1,15 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
+import path from 'path'
 
 export default defineConfig({
   plugins: [vue()],
+  resolve: {
+    alias: {
+      '@ui': path.resolve(__dirname, '../ui')
+    }
+  },
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),

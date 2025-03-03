@@ -2,30 +2,31 @@
 <template>
   <div class="flex flex-col h-full">
     <div class="flex items-center justify-between mb-4">
-      <h3 class="text-lg font-semibold text-white/90">测试结果</h3>
+      <h3 class="text-lg font-semibold theme-title">测试结果</h3>
       <button
         v-if="result"
         @click="copySelectedText"
-        class="px-3 py-1.5 rounded-lg bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 transition-all transform hover:scale-105 flex items-center space-x-2"
+        class="px-3 py-1.5 theme-button-secondary flex items-center space-x-2"
       >
         <span>复制</span>
       </button>
     </div>
 
+
     <div class="flex-1 min-h-0 relative">
       <div class="h-full relative">
         <div
           ref="resultContainer"
-          class="absolute inset-0 w-full h-full p-4 rounded-xl bg-black/20 border border-purple-600/50 focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-white whitespace-pre-wrap overflow-auto"
+          class="absolute inset-0 w-full h-full p-4 rounded-xl theme-input whitespace-pre-wrap overflow-auto"
         >
-          <span v-if="!contentTokens.length">测试结果将显示在这里...</span>
-          <span v-else v-text="displayContent"></span>
+          <span v-if="!contentTokens.length" class="theme-text-secondary">测试结果将显示在这里...</span>
+          <span v-else v-text="displayContent" class="theme-text"></span>
         </div>
       </div>
 
       <div
         v-if="error"
-        class="absolute top-2 right-2 bg-red-500/90 text-white px-3 py-1.5 rounded-lg flex items-center space-x-2"
+        class="absolute top-2 right-2 theme-error px-3 py-1.5 rounded-lg flex items-center space-x-2"
       >
         <span>❌</span>
         <span>{{ error }}</span>
@@ -33,7 +34,7 @@
 
       <div
         v-if="loading && !isStreaming"
-        class="absolute top-2 right-2 bg-purple-500/90 text-white px-3 py-1.5 rounded-lg flex items-center space-x-2"
+        class="absolute top-2 right-2 theme-loading px-3 py-1.5 rounded-lg flex items-center space-x-2"
       >
         <span class="animate-spin">⏳</span>
         <span>处理中...</span>
@@ -164,4 +165,4 @@ const copySelectedText = async () => {
 .overflow-auto::-webkit-scrollbar {
   display: none; /* Chrome, Safari and Opera */
 }
-</style> 
+</style>

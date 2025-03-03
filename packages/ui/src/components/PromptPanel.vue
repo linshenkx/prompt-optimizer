@@ -3,7 +3,7 @@
     <!-- 标题和按钮区域 -->
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 mb-3 flex-none">
       <div class="flex items-center gap-3">
-        <h3 class="text-lg font-semibold text-white/90">优化后的提示词</h3>
+        <h3 class="text-lg font-semibold theme-text">优化后的提示词</h3>
         <div v-if="versions && versions.length > 0" class="flex items-center gap-1">
           <button
             v-for="version in versions.slice().reverse()"
@@ -12,8 +12,8 @@
             class="px-2 py-1 text-xs rounded transition-colors"
             :class="[
               currentVersionId === version.id
-                ? 'bg-purple-600/30 text-purple-300 font-medium'
-                : 'text-white/50 hover:text-white/70'
+                ? 'bg-purple-600/30 text-purple-300 dark:bg-purple-700/40 dark:text-purple-200 font-medium'
+                : 'text-white/50 hover:text-white/70 dark:text-white/40 dark:hover:text-white/60'
             ]"
           >
             V{{ version.version }}
@@ -24,7 +24,7 @@
         <button
           v-if="optimizedPrompt"
           @click="handleIterate"
-          class="px-3 py-1.5 rounded-lg bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 transition-all transform hover:scale-105 flex items-center space-x-2"
+          class="px-3 py-1.5 theme-button-secondary flex items-center space-x-2"
           :disabled="isIterating"
         >
           <span>{{ isIterating ? '优化中...' : '继续优化' }}</span>
@@ -32,7 +32,7 @@
         <button
           v-if="optimizedPrompt"
           @click="copyPrompt"
-          class="px-3 py-1.5 rounded-lg bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 transition-all transform hover:scale-105 flex items-center space-x-2"
+          class="px-3 py-1.5 theme-button-secondary flex items-center space-x-2"
         >
           <span>复制</span>
         </button>
@@ -40,13 +40,13 @@
     </div>
     
     <!-- 内容区域 -->
-    <div class="flex-1 min-h-0 bg-black/20 rounded-xl border border-purple-600/50 transition-colors overflow-hidden">
+    <div class="flex-1 min-h-0 theme-input overflow-hidden">
       <div class="h-full relative">
         <textarea
           ref="promptTextarea"
           :value="optimizedPrompt"
           @input="handleInput"
-          class="absolute inset-0 w-full h-full p-4 bg-transparent border-none focus:ring-2 focus:ring-purple-500/50 resize-none text-white/90 placeholder-gray-400 text-sm sm:text-base overflow-auto"
+          class="absolute inset-0 w-full h-full p-4 bg-transparent border-none theme-text placeholder-gray-400 dark:placeholder-gray-500 text-sm sm:text-base overflow-auto focus:ring-2 focus:ring-purple-500/50 dark:focus:ring-purple-600/50 resize-none"
           placeholder="优化后的提示词将显示在这里..."
         ></textarea>
       </div>
@@ -63,7 +63,7 @@
       
       <div class="space-y-4">
         <div>
-          <h4 class="text-sm font-medium text-white/90 mb-2">{{ templateSelectText }}</h4>
+          <h4 class="text-sm font-medium text-white/90 dark:text-white/80 mb-2">{{ templateSelectText }}</h4>
           <TemplateSelect
             :modelValue="selectedIterateTemplate"
             @update:modelValue="$emit('update:selectedIterateTemplate', $event)"
@@ -73,10 +73,10 @@
         </div>
         
         <div>
-          <h4 class="text-sm font-medium text-white/90 mb-2">请输入需要优化的方向：</h4>
+          <h4 class="text-sm font-medium text-white/90 dark:text-white/80 mb-2">请输入需要优化的方向：</h4>
           <textarea
             v-model="iterateInput"
-            class="w-full bg-black/30 border-none rounded-lg p-3 text-white/90 placeholder-gray-400 text-sm resize-none focus:ring-2 focus:ring-purple-500/50"
+            class="w-full bg-black/30 dark:bg-gray-900/80 border-none rounded-lg p-3 text-white/90 dark:text-white/80 placeholder-gray-400 dark:placeholder-gray-500 text-sm resize-none focus:ring-2 focus:ring-purple-500/50 dark:focus:ring-purple-600/50 transition-colors duration-300"
             placeholder="例如：使提示词更简洁、增加特定功能描述等..."
             rows="3"
           ></textarea>
@@ -86,13 +86,13 @@
       <template #footer>
         <button
           @click="cancelIterate"
-          class="px-4 py-2 text-sm text-white/70 hover:text-white/90 transition-colors"
+          class="px-4 py-2 text-sm text-white/70 hover:text-white/90 dark:text-white/60 dark:hover:text-white/80 transition-colors"
         >
           取消
         </button>
         <button
           @click="submitIterate"
-          class="px-4 py-2 text-sm bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          class="px-4 py-2 text-sm bg-purple-600 hover:bg-purple-500 dark:bg-purple-700 dark:hover:bg-purple-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           :disabled="!iterateInput.trim() || isIterating"
         >
           {{ isIterating ? '优化中...' : '确认优化' }}

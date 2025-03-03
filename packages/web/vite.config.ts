@@ -29,9 +29,10 @@ export default defineConfig(({ mode }) => {
       preserveSymlinks: true,
       alias: {
         '@': resolve(__dirname, 'src'),
+        '@ui': resolve(__dirname, '../ui'),
         '@prompt-optimizer/ui': resolve(__dirname, '../ui'),
-        '@prompt-optimizer/ui/dist/style.css': resolve(__dirname, '../ui/dist/style.css'),
-        '@prompt-optimizer/ui/style.css': resolve(__dirname, '../ui/dist/style.css')
+        // 简化样式导入
+        '@ui-styles': resolve(__dirname, '../ui/dist/style.css')
       }
     },
     optimizeDeps: {
@@ -48,4 +49,4 @@ export default defineConfig(({ mode }) => {
       }
     }
   }
-}) 
+})

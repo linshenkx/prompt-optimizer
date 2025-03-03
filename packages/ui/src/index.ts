@@ -23,6 +23,7 @@ export { default as InputPanelUI } from './components/InputPanel.vue'
 export { default as MainLayoutUI } from './components/MainLayout.vue'
 export { default as ContentCardUI } from './components/ContentCard.vue'
 export { default as ActionButtonUI } from './components/ActionButton.vue'
+export { default as ThemeToggleUI } from './components/ThemeToggleUI.vue'
 
 // 导出指令
 export { clickOutside } from './directives/clickOutside'

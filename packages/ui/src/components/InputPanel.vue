@@ -3,7 +3,7 @@
   <div class="space-y-3">
     <!-- 标题 -->
     <div class="flex justify-between items-center">
-      <label class="block text-sm font-medium text-white/90">{{ label }}</label>
+      <label class="block text-sm theme-label">{{ label }}</label>
     </div>
 
     <!-- 输入框 -->
@@ -11,7 +11,7 @@
       <textarea
         :value="modelValue"
         @input="$emit('update:modelValue', $event.target.value)"
-        class="w-full px-4 py-3 bg-black/20 border border-purple-600/50 rounded-xl text-white placeholder-white/30 focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all resize-none"
+        class="w-full px-4 py-3 theme-input resize-none"
         :placeholder="placeholder"
         rows="4"
       ></textarea>
@@ -21,13 +21,13 @@
     <div class="flex items-center gap-3">
       <!-- 模型选择 -->
       <div class="min-w-[120px] w-fit">
-        <label class="block text-sm font-medium text-white/90 mb-1.5">{{ modelLabel }}</label>
+        <label class="block text-sm theme-label mb-1.5">{{ modelLabel }}</label>
         <slot name="model-select"></slot>
       </div>
       
       <!-- 提示词模板选择 -->
       <div class="flex-1">
-        <label v-if="templateLabel" class="block text-sm font-medium text-white/90 mb-1.5">{{ templateLabel }}</label>
+        <label v-if="templateLabel" class="block text-sm theme-label mb-1.5">{{ templateLabel }}</label>
         <slot name="template-select"></slot>
       </div>
 
@@ -37,7 +37,7 @@
         <button
           @click="$emit('submit')"
           :disabled="loading || disabled || !modelValue.trim()"
-          class="w-full h-10 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-600/50 text-white rounded-lg transition-colors flex items-center justify-center space-x-2"
+          class="w-full h-10 theme-button-primary flex items-center justify-center space-x-2"
         >
           <span>{{ loading ? loadingText : buttonText }}</span>
         </button>
@@ -93,4 +93,4 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue', 'update:selectedModel', 'submit', 'configModel'])
-</script> 
+</script>

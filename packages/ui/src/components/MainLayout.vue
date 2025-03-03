@@ -1,9 +1,9 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-purple-900 to-purple-950 flex flex-col">
+  <div class="min-h-screen transition-colors duration-300">
     <!-- 顶部导航栏 -->
-    <header class="flex-none sticky top-0 z-40 bg-purple-800/90 backdrop-blur-sm border-b border-purple-700/50 shadow-lg">
+    <header class="theme-header">
       <div class="container mx-auto px-2 sm:px-4 py-2 sm:py-3 flex justify-between items-center">
-        <h1 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+        <h1 class="text-lg sm:text-xl font-bold theme-title flex items-center gap-2">
           <img src="../assets/logo.jpg" alt="Logo" class="h-8 w-8 rounded-lg" />
           <slot name="title">Prompt Optimizer</slot>
         </h1>
@@ -62,8 +62,17 @@ import { ToastUI } from '../index'
   background: rgba(255, 255, 255, 0.3);
 }
 
+/* 滚动条在暗色模式下的样式 */
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
 /* 隐藏水平滚动条 */
 ::-webkit-scrollbar-horizontal {
   display: none;
 }
-</style> 
+</style>

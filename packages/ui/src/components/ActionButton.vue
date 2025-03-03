@@ -1,6 +1,6 @@
 <template>
   <button
-    class="text-white/80 hover:text-white transition-colors flex items-center gap-1 hover:scale-105 transform px-1.5 py-1"
+    class="theme-icon-button flex items-center gap-1 px-1.5 py-1"
     @click="$emit('click')"
     :disabled="loading"
   >
@@ -19,4 +19,5 @@ defineProps<{
 
 defineEmits<{
   (e: 'click'): void
-}>()</script> 
+}>()
+</script>

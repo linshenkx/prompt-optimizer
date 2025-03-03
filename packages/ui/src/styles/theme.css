@@ -2,6 +2,202 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* 全局背景设置 - shadcn/ui 风格 */
 body {
-  @apply bg-gradient-to-br from-purple-400 via-pink-500 to-red-500 min-h-screen;
-} 
+  @apply bg-white text-black min-h-screen;
+}
+
+/* 暗色模式背景 - shadcn/ui 风格 */
+.dark body {
+  @apply bg-gray-950 text-white min-h-screen;
+}
+
+/* 定义通用主题类 */
+@layer components {
+  /* ===== 布局组件 ===== */
+  
+  /* 主题头部导航栏 */
+  .theme-header {
+    @apply sticky top-0 z-40 
+         bg-white/90 dark:bg-gray-900/90 
+         backdrop-blur-sm 
+         border-b border-gray-200 dark:border-gray-700 
+         shadow-sm transition-colors duration-300;
+  }
+  
+  /* 主题卡片 */
+  .theme-card {
+    @apply bg-white dark:bg-gray-900 rounded-lg shadow-sm 
+           border border-gray-200 dark:border-gray-800 overflow-hidden 
+           transition-colors duration-300;
+  }
+  
+  /* ===== 文本样式 ===== */
+  
+  /* 主标题 */
+  .theme-title {
+    @apply text-gray-900 dark:text-white font-bold transition-colors duration-300;
+  }
+  
+  /* 正文文本 */
+  .theme-text {
+    @apply text-gray-700 dark:text-gray-200 
+           transition-colors duration-300;
+  }
+  
+  /* 次要文本 */
+  .theme-text-secondary {
+    @apply text-gray-500 dark:text-gray-400 
+           transition-colors duration-300;
+  }
+  
+  /* 标签文本 */
+  .theme-label {
+    @apply text-gray-700 dark:text-gray-300 font-medium 
+           transition-colors duration-300;
+  }
+  
+  /* ===== 表单元素 ===== */
+  
+  /* 输入框 */
+  .theme-input {
+    @apply bg-white dark:bg-gray-950 
+           border border-gray-200 dark:border-gray-800 rounded-lg 
+           text-gray-900 dark:text-gray-100 
+           placeholder-gray-400 dark:placeholder-gray-600 
+           focus:ring-2 focus:ring-purple-500/50 dark:focus:ring-purple-600/50 
+           focus:border-transparent 
+           transition-colors duration-300;
+  }
+  
+  /* ===== 按钮 ===== */
+  
+  /* 主按钮 */
+  .theme-button-primary {
+    @apply bg-purple-600 hover:bg-purple-500 
+           dark:bg-purple-700 dark:hover:bg-purple-600 
+           text-white rounded-lg 
+           transition-colors duration-300
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  /* 次要按钮 */
+  .theme-button-secondary {
+    @apply bg-gray-100 text-gray-900 hover:bg-gray-200 
+           dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700 
+           rounded-lg 
+           transition-colors duration-300;
+  }
+  
+  /* 文本按钮 */
+  .theme-button-text {
+    @apply text-gray-700 hover:text-gray-900 
+           dark:text-gray-300 dark:hover:text-white 
+           transition-colors duration-300;
+  }
+  
+  /* 操作图标按钮 */
+  .theme-icon-button {
+    @apply text-gray-700 hover:text-purple-600 
+           dark:text-gray-300 dark:hover:text-purple-400 
+           transition-colors hover:scale-105 transform;
+  }
+  
+  /* ===== 状态指示器 ===== */
+  
+  /* 加载指示器 */
+  .theme-loading {
+    @apply bg-purple-500/90 dark:bg-purple-600/90 text-white 
+           transition-colors duration-300;
+  }
+  
+  /* 错误指示器 */
+  .theme-error {
+    @apply bg-red-500/90 text-white;
+  }
+  
+  /* 成功指示器 */
+  .theme-success {
+    @apply bg-green-500/90 text-white;
+  }
+}
+
+/* 自定义滚动条样式 */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-700 rounded;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400 dark:bg-gray-600;
+}
+
+/* 隐藏水平滚动条 */
+::-webkit-scrollbar-horizontal {
+  display: none;
+}
+
+/* ===== 下拉菜单 ===== */
+.theme-select-button {
+  @apply w-full h-10 px-3 
+         bg-white/10 dark:bg-gray-900/30
+         border border-gray-300/50 dark:border-gray-700/50 
+         rounded-lg text-gray-900 dark:text-white 
+         hover:border-purple-500/70 
+         focus:ring-2 focus:ring-purple-500/50 focus:border-transparent 
+         transition-all;
+}
+
+.theme-dropdown {
+  @apply absolute z-50 min-w-[300px] w-max max-w-[90vw] mt-1 
+         bg-white/95 dark:bg-gray-800/95 
+         backdrop-blur-sm rounded-lg 
+         border border-gray-200/50 dark:border-gray-700/50 
+         shadow-xl;
+}
+
+.theme-dropdown-item {
+  @apply px-3 py-2 rounded-lg cursor-pointer transition-colors;
+}
+
+.theme-dropdown-item-active {
+  @apply bg-purple-100/70 dark:bg-purple-800/50 
+         text-purple-800 dark:text-purple-200;
+}
+
+.theme-dropdown-item-inactive {
+  @apply hover:bg-gray-100/50 dark:hover:bg-gray-700/50 
+         text-gray-700 dark:text-gray-300;
+}
+
+.theme-dropdown-section {
+  @apply p-2 border-t border-gray-200/50 dark:border-gray-700/50;
+}
+
+.theme-dropdown-button {
+  @apply w-full px-3 py-2 text-sm rounded-lg 
+         bg-purple-100 dark:bg-purple-800/30 
+         text-purple-700 dark:text-purple-300 
+         hover:bg-purple-200 dark:hover:bg-purple-800/50 
+         transition-colors flex items-center justify-center space-x-1;
+}
+
+.theme-dropdown-empty {
+  @apply px-3 py-2 text-gray-500 dark:text-gray-400 text-sm;
+}
+
+/* 占位符文本 */
+.theme-placeholder {
+  @apply text-gray-400 dark:text-gray-500;
+}

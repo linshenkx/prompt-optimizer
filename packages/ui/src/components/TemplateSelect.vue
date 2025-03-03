@@ -2,18 +2,18 @@
   <div class="relative">
     <button
       @click.stop="isOpen = !isOpen"
-      class="template-select-button w-full h-10 px-3 bg-black/20 border border-purple-600/50 rounded-lg text-white hover:border-purple-500/70 focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all"
+      class="theme-select-button"
     >
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-2">
-          <span v-if="modelValue" class="text-white">
+          <span v-if="modelValue" class="theme-text">
             {{ modelValue.name }}
           </span>
-          <span v-else class="text-white/50">
+          <span v-else class="theme-placeholder">
             请选择提示词
           </span>
         </div>
-        <span class="text-purple-300">
+        <span class="text-purple-500 dark:text-purple-400">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
           </svg>
@@ -22,7 +22,7 @@
     </button>
 
     <div v-if="isOpen" 
-         class="absolute z-50 min-w-[300px] w-max max-w-[90vw] mt-1 bg-gray-800/95 backdrop-blur-sm rounded-lg border border-purple-600/30 shadow-xl"
+         class="theme-dropdown"
          :style="dropdownStyle"
          @click.stop
          v-click-outside="() => isOpen = false"
@@ -31,31 +31,30 @@
         <div v-for="template in templates" 
              :key="template.id"
              @click="selectTemplate(template)"
-             class="px-3 py-2 rounded-lg cursor-pointer transition-colors group relative"
+             class="theme-dropdown-item"
              :class="[
                modelValue?.id === template.id
-                 ? 'bg-purple-600/30 text-purple-200'
-                 : 'hover:bg-gray-700/50 text-gray-300'
+                 ? 'theme-dropdown-item-active'
+                 : 'theme-dropdown-item-inactive'
              ]"
         >
           <div class="flex items-center justify-between">
             <span>{{ template.name }}</span>
             <span v-if="template.isBuiltin" 
-                  class="text-xs px-1.5 py-0.5 rounded bg-purple-600/20 text-purple-300">
+                  class="text-xs px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-800/40 text-purple-700 dark:text-purple-300">
               内置
             </span>
           </div>
-          <p class="text-xs text-gray-400 mt-1"
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1"
              :title="template.metadata.description || '暂无描述'">
             {{ template.metadata.description || '暂无描述' }}
           </p>
         </div>
       </div>
-      <div class="p-2 border-t border-purple-600/20">
+      <div class="theme-dropdown-section">
         <button
           @click="$emit('manage')"
-          class="w-full px-3 py-2 text-sm rounded-lg bg-purple-600/20 text-purple-300 
-                 hover:bg-purple-600/30 transition-colors flex items-center justify-center space-x-1"
+          class="theme-dropdown-button"
         >
           <span>📝</span>
           <span>配置提示词</span>

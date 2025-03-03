@@ -154,6 +154,7 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import {
   // UI组件
   ToastUI,
@@ -183,6 +184,22 @@ import {
   templateManager,
   historyManager
 } from '@prompt-optimizer/ui'
+
+// 初始化主题
+onMounted(() => {
+  // 检查本地存储的主题偏好
+  const savedTheme = localStorage.getItem('theme')
+  
+  // 如果用户之前选择了深色模式，或者系统偏好是深色模式且用户没有明确选择
+  if (
+    savedTheme === 'dark' || 
+    (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  ) {
+    document.documentElement.classList.add('dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+  }
+})
 
 // 初始化 toast
 const toast = useToast()
