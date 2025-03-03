@@ -2,21 +2,41 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===== 全局样式 ===== */
 html {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* 全局背景设置 - shadcn/ui 风格 */
 body {
   @apply bg-white text-black min-h-screen;
 }
 
-/* 暗色模式背景 - shadcn/ui 风格 */
 .dark body {
   @apply bg-gray-950 text-white min-h-screen;
 }
 
-/* 定义通用主题类 */
+/* 自定义滚动条样式 */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-700 rounded;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400 dark:bg-gray-600;
+}
+
+/* 隐藏水平滚动条 */
+::-webkit-scrollbar-horizontal {
+  display: none;
+}
+
 @layer components {
   /* ===== 布局组件 ===== */
   
@@ -61,17 +81,26 @@ body {
            transition-colors duration-300;
   }
   
+  /* 占位符文本 */
+  .theme-placeholder {
+    @apply text-gray-400 dark:text-gray-500;
+  }
+  
   /* ===== 表单元素 ===== */
   
   /* 输入框 */
   .theme-input {
-    @apply bg-white dark:bg-gray-950 
-           border border-gray-200 dark:border-gray-800 rounded-lg 
-           text-gray-900 dark:text-gray-100 
-           placeholder-gray-400 dark:placeholder-gray-600 
+    @apply w-full px-4 py-2 rounded-xl 
+           bg-white/80 dark:bg-gray-900/80 
+           border border-gray-300/50 dark:border-gray-700/50 
+           text-gray-900 dark:text-white 
+           placeholder-gray-400 dark:placeholder-gray-500 
            focus:ring-2 focus:ring-purple-500/50 dark:focus:ring-purple-600/50 
-           focus:border-transparent 
-           transition-colors duration-300;
+           focus:border-transparent transition-all;
+  }
+  
+  .theme-textarea {
+    @apply theme-input resize-none;
   }
   
   /* ===== 按钮 ===== */
@@ -126,28 +155,6 @@ body {
   }
 }
 
-/* 自定义滚动条样式 */
-::-webkit-scrollbar {
-  width: 4px;
-}
-
-::-webkit-scrollbar-track {
-  @apply bg-transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 dark:bg-gray-700 rounded;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-400 dark:bg-gray-600;
-}
-
-/* 隐藏水平滚动条 */
-::-webkit-scrollbar-horizontal {
-  display: none;
-}
-
 /* ===== 下拉菜单 ===== */
 .theme-select-button {
   @apply w-full h-10 px-3 
@@ -197,7 +204,328 @@ body {
   @apply px-3 py-2 text-gray-500 dark:text-gray-400 text-sm;
 }
 
-/* 占位符文本 */
-.theme-placeholder {
-  @apply text-gray-400 dark:text-gray-500;
+/* ===== 模态框样式 ===== */
+.theme-modal-bg {
+  @apply fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm;
+}
+
+.theme-modal-overlay {
+  @apply fixed inset-0 bg-black/50 dark:bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center overflow-y-auto;
+}
+
+.theme-modal-content {
+  @apply relative bg-white/95 dark:bg-gray-900/95 rounded-xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50;
+}
+
+.theme-modal-container {
+  @apply relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-xl shadow-xl 
+         border border-gray-200/50 dark:border-gray-700/50 w-full 
+         transition-colors duration-300;
+}
+
+.theme-modal-title {
+  @apply text-xl font-semibold text-gray-900 dark:text-white/90;
+}
+
+.theme-modal-section {
+  @apply border-t border-gray-200/50 dark:border-gray-700/50 pt-6;
+}
+
+.theme-modal-item {
+  @apply p-4 rounded-xl border transition-colors;
+}
+
+.theme-modal-item-active {
+  @apply bg-white/50 dark:bg-gray-800/50 border-purple-300/50 dark:border-purple-700/50;
+}
+
+.theme-modal-item-inactive {
+  @apply bg-gray-50/50 dark:bg-gray-900/50 border-gray-200/50 dark:border-gray-800/50;
+}
+
+/* 表单元素 */
+.theme-modal-input {
+  @apply w-full px-4 py-2 rounded-xl 
+         bg-white/80 dark:bg-gray-900/80 
+         border border-gray-300/50 dark:border-gray-700/50 
+         text-gray-900 dark:text-white 
+         placeholder-gray-400 dark:placeholder-gray-500 
+         focus:ring-2 focus:ring-purple-500/50 dark:focus:ring-purple-600/50 
+         focus:border-transparent transition-all;
+}
+
+.theme-modal-textarea {
+  @apply theme-modal-input resize-none;
+}
+
+/* 模态框按钮 */
+.theme-modal-btn-primary {
+  @apply px-6 py-2 bg-purple-600 hover:bg-purple-500 dark:bg-purple-700 dark:hover:bg-purple-600 
+         text-white rounded-lg transition-colors;
+}
+
+.theme-modal-btn-secondary {
+  @apply px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 
+         text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white 
+         hover:border-gray-400 dark:hover:border-gray-600 transition-all;
+}
+
+.theme-modal-btn-action {
+  @apply px-3 py-1.5 text-sm rounded-lg bg-purple-100 dark:bg-purple-900/30 
+         text-purple-700 dark:text-purple-300 
+         hover:bg-purple-200 dark:hover:bg-purple-800/40 transition-colors;
+}
+
+.theme-modal-btn-danger {
+  @apply px-3 py-1.5 text-sm rounded-lg bg-red-100 dark:bg-red-900/30 
+         text-red-700 dark:text-red-300 
+         hover:bg-red-200 dark:hover:bg-red-800/40 transition-colors;
+}
+
+.theme-modal-btn-success {
+  @apply px-3 py-1.5 text-sm rounded-lg bg-green-100 dark:bg-green-900/30 
+         text-green-700 dark:text-green-300 
+         hover:bg-green-200 dark:hover:bg-green-800/40 transition-colors;
+}
+
+.theme-modal-tag {
+  @apply px-2 py-1 text-xs rounded-full bg-purple-100 dark:bg-purple-900/30 
+         text-purple-700 dark:text-purple-300;
+}
+
+.theme-modal-tag-alt {
+  @apply px-2 py-1 text-xs rounded-full bg-teal-100 dark:bg-teal-900/30 
+         text-teal-700 dark:text-teal-300;
+}
+
+/* ===== 列表项样式 ===== */
+.theme-list-item {
+  @apply p-4 rounded-xl border transition-colors;
+}
+
+.theme-list-item-active {
+  @apply bg-white/50 dark:bg-gray-800/50 border-purple-300/50 dark:border-purple-700/50;
+}
+
+.theme-list-item-inactive {
+  @apply bg-gray-50/50 dark:bg-gray-900/50 border-gray-200/50 dark:border-gray-800/50;
+}
+
+/* 项目标题和描述 */
+.theme-item-title {
+  @apply font-medium text-gray-900 dark:text-white/90;
+}
+
+.theme-item-description {
+  @apply text-sm text-gray-600 dark:text-gray-400;
+}
+
+.theme-item-meta {
+  @apply text-xs text-gray-500 dark:text-gray-500;
+}
+
+/* ===== 标签样式 ===== */
+.theme-tag {
+  @apply px-2 py-1 text-xs rounded-full;
+}
+
+.theme-tag-purple {
+  @apply bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300;
+}
+
+.theme-tag-teal {
+  @apply bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300;
+}
+
+.theme-tag-gray {
+  @apply bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-400;
+}
+
+/* ===== 对话框和抽屉样式 ===== */
+.theme-dialog {
+  @apply fixed inset-0 z-50 flex items-center justify-center overflow-y-auto;
+}
+
+.theme-dialog-overlay {
+  @apply fixed inset-0 z-40 bg-black/30 dark:bg-black/60 backdrop-blur-sm transition-opacity;
+}
+
+.theme-dialog-container {
+  @apply relative w-full rounded-lg shadow-xl 
+         bg-white dark:bg-gray-900 
+         border border-gray-200 dark:border-gray-700/50 
+         transition-colors duration-300 transform;
+         z-index: 50;
+}
+
+.theme-dialog-header {
+  @apply flex-none p-4 sm:p-6 border-b 
+         bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm 
+         border-gray-200 dark:border-purple-700/50 
+         flex items-center justify-between rounded-t-lg;
+}
+
+.theme-dialog-body {
+  @apply flex-1 overflow-y-auto p-4 sm:p-6;
+}
+
+.theme-dialog-footer {
+  @apply flex-none p-4 sm:p-6 border-t 
+         border-gray-200 dark:border-purple-700/50;
+}
+
+.theme-dialog-title {
+  @apply text-lg font-semibold text-gray-900 dark:text-white/90;
+}
+
+/* 对话框中的卡片 */
+.theme-dialog-card {
+  @apply bg-white/80 dark:bg-black/20 rounded-xl 
+         border border-gray-200 dark:border-purple-600/50 
+         overflow-hidden transition-colors;
+}
+
+.theme-dialog-card-header {
+  @apply p-4 border-b border-gray-200 dark:border-purple-600/30;
+}
+
+.theme-dialog-card-body {
+  @apply divide-y divide-gray-200 dark:divide-purple-600/20;
+}
+
+/* 对话框中的项目 */
+.theme-dialog-item {
+  @apply p-4 rounded-xl mb-3 border transition-colors;
+}
+
+.theme-dialog-item-active {
+  @apply bg-white/90 dark:bg-gray-800/80 
+         border-purple-300/50 dark:border-purple-700/50;
+}
+
+.theme-dialog-item-inactive {
+  @apply bg-gray-50/80 dark:bg-black/20 
+         border-gray-200/80 dark:border-purple-700/30 
+         hover:border-gray-300 dark:hover:border-purple-600/50;
+}
+
+/* 对话框文本和链接 */
+.theme-dialog-text {
+  @apply text-gray-700 dark:text-gray-300;
+}
+
+.theme-dialog-text-secondary {
+  @apply text-gray-500 dark:text-white/50;
+}
+
+.theme-dialog-text-muted {
+  @apply text-gray-400 dark:text-white/40;
+}
+
+.theme-dialog-link {
+  @apply text-purple-600 dark:text-purple-300 
+         hover:text-purple-700 dark:hover:text-purple-200 
+         transition-colors;
+}
+
+/* 对话框按钮 */
+.theme-dialog-btn {
+  @apply px-3 py-1.5 text-sm rounded-lg transition-colors;
+}
+
+.theme-dialog-btn-primary {
+  @apply bg-purple-100 dark:bg-purple-600/20 
+         text-purple-700 dark:text-purple-300 
+         hover:bg-purple-200 dark:hover:bg-purple-600/30;
+}
+
+.theme-dialog-btn-secondary {
+  @apply text-gray-700 dark:text-white/60 
+         border border-gray-300/50 dark:border-white/20 
+         hover:text-gray-900 dark:hover:text-white/90 
+         hover:border-gray-400 dark:hover:border-white/40;
+}
+
+.theme-dialog-btn-danger {
+  @apply bg-red-100 dark:bg-red-500/20 
+         text-red-700 dark:text-red-300 
+         hover:bg-red-200 dark:hover:bg-red-500/30;
+}
+
+.theme-dialog-btn-success {
+  @apply bg-green-100 dark:bg-green-600/20 
+         text-green-700 dark:text-green-300 
+         hover:bg-green-200 dark:hover:bg-green-600/30;
+}
+
+/* 对话框标签 */
+.theme-dialog-tag {
+  @apply px-2 py-0.5 text-xs rounded-full;
+}
+
+.theme-dialog-tag-purple {
+  @apply bg-purple-100 dark:bg-purple-400/10 
+         text-purple-700 dark:text-purple-400;
+}
+
+.theme-dialog-tag-green {
+  @apply bg-green-100 dark:bg-green-400/10 
+         text-green-700 dark:text-green-400;
+}
+
+.theme-dialog-tag-gray {
+  @apply bg-gray-100 dark:bg-gray-700/50 
+         text-gray-700 dark:text-gray-400;
+}
+
+/* ===== 历史抽屉特定样式 ===== */
+.theme-history-version-row {
+  @apply p-3 flex items-center justify-between cursor-pointer 
+         hover:bg-gray-100 dark:hover:bg-purple-600/10 
+         transition-colors;
+}
+
+.theme-history-version-detail {
+  @apply p-4 bg-gray-50 dark:bg-black/20 space-y-3;
+}
+
+/* ===== 模型管理器特定样式 ===== */
+.theme-model-btn-test {
+  @apply px-4 py-1.5 text-sm rounded-lg 
+         bg-blue-100 dark:bg-blue-500/20 
+         text-blue-700 dark:text-blue-300 
+         hover:bg-blue-200 dark:hover:bg-blue-500/30 
+         transition-colors;
+}
+
+.theme-model-btn-edit {
+  @apply px-4 py-1.5 text-sm rounded-lg 
+         bg-purple-100 dark:bg-purple-500/20 
+         text-purple-700 dark:text-purple-300 
+         hover:bg-purple-200 dark:hover:bg-purple-500/30 
+         transition-colors;
+}
+
+.theme-model-btn-delete {
+  @apply px-4 py-1.5 text-sm rounded-lg 
+         bg-red-100 dark:bg-red-500/20 
+         text-red-700 dark:text-red-300 
+         hover:bg-red-200 dark:hover:bg-red-500/30 
+         transition-colors;
+}
+
+.theme-model-btn-enable {
+  @apply px-4 py-1.5 text-sm rounded-lg 
+         bg-green-100 dark:bg-green-500/20 
+         text-green-700 dark:text-green-300 
+         hover:bg-green-200 dark:hover:bg-green-500/30 
+         transition-colors;
+}
+
+.theme-model-btn-disable {
+  @apply px-4 py-1.5 text-sm rounded-lg 
+         bg-red-100 dark:bg-red-500/20 
+         text-red-700 dark:text-red-300 
+         hover:bg-red-200 dark:hover:bg-red-500/30 
+         transition-colors;
 }

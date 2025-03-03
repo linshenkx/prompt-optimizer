@@ -1,23 +1,24 @@
 <template>
   <div
-    class="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center overflow-y-auto"
+    class="fixed inset-0 z-65 flex items-center justify-center"
     @click="$emit('close')"
   >
+    <div class="theme-dialog-overlay"></div>
     <div
-      class="relative bg-gray-900/90 backdrop-blur-sm rounded-xl shadow-xl border border-purple-700/50 w-full max-w-3xl m-4"
+      class="theme-dialog-container max-w-3xl m-4"
       @click.stop
     >
-      <div class="p-6 space-y-6">
+      <div class="theme-dialog-body">
         <!-- 标题和关闭按钮 -->
         <div class="flex items-center justify-between">
-          <h2 class="text-xl font-semibold text-white/90">功能提示词管理</h2>
+          <h2 class="theme-dialog-title">功能提示词管理</h2>
           <div class="flex items-center space-x-4">
-            <span v-if="selectedTemplate" class="text-sm text-purple-300">
+            <span v-if="selectedTemplate" class="text-sm theme-dialog-text">
               当前提示词: {{ selectedTemplate.name }}
             </span>
             <button
               @click="$emit('close')"
-              class="text-white/60 hover:text-white/90 transition-colors text-xl"
+              class="text-gray-500 dark:text-white/60 hover:text-gray-700 dark:hover:text-white/90 transition-colors text-xl"
             >
               ×
             </button>
@@ -25,7 +26,7 @@
         </div>
 
         <!-- 新增类型切换标签 -->
-        <div class="flex space-x-4 mb-6 p-1 bg-gray-800/30 rounded-lg">
+        <div class="flex space-x-4 mb-6 mt-6 p-1 bg-gray-100/50 dark:bg-gray-800/30 rounded-lg">
           <button 
             v-for="type in ['optimize', 'iterate']" 
             :key="type"
@@ -34,9 +35,9 @@
             :class="[
               currentType === type 
                 ? type === 'optimize'
-                  ? 'bg-purple-600/30 text-purple-300 shadow-lg shadow-purple-900/20' 
-                  : 'bg-teal-600/30 text-teal-300 shadow-lg shadow-teal-900/20'
-                : 'text-gray-400 hover:text-gray-300'
+                  ? 'bg-purple-100 dark:bg-purple-600/30 text-purple-700 dark:text-purple-300 shadow-lg shadow-purple-900/5 dark:shadow-purple-900/20' 
+                  : 'bg-teal-100 dark:bg-teal-600/30 text-teal-700 dark:text-teal-300 shadow-lg shadow-teal-900/5 dark:shadow-teal-900/20'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             ]"
           >
             <div class="flex items-center justify-center space-x-2">
@@ -49,22 +50,22 @@
         <!-- 提示词列表 -->
         <div class="space-y-3">
           <div class="flex justify-between items-center">
-            <h3 class="text-lg font-semibold flex items-center space-x-2">
-              <span class="text-white/90">
+            <h3 class="text-lg font-semibold theme-dialog-text flex items-center space-x-2">
+              <span>
                 {{ currentType === 'optimize' ? '优化提示词列表' : '迭代提示词列表' }}
               </span>
               <span 
-                class="px-2 py-1 text-xs rounded-full"
+                class="theme-dialog-tag"
                 :class="currentType === 'optimize' 
-                  ? 'bg-purple-600/20 text-purple-300'
-                  : 'bg-teal-600/20 text-teal-300'"
+                  ? 'theme-dialog-tag-purple'
+                  : 'theme-dialog-tag-green'"
               >
                 {{ filteredTemplates.length }}个提示词
               </span>
             </h3>
             <button
               @click="showAddForm = true"
-              class="px-4 py-1.5 text-sm rounded-lg bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 transition-colors"
+              class="theme-dialog-btn theme-dialog-btn-primary"
             >
               添加提示词
             </button>
@@ -79,42 +80,42 @@
               :class="[
                 (currentType === 'optimize' ? selectedOptimizeTemplate?.id : selectedIterateTemplate?.id) === template.id
                   ? template.metadata.templateType === 'optimize'
-                    ? 'border-purple-500/50 bg-purple-900/10 shadow-lg shadow-purple-900/10'
-                    : 'border-teal-500/50 bg-teal-900/10 shadow-lg shadow-teal-900/10'
-                  : 'border-gray-700/50 hover:border-gray-600/60 bg-gray-800/20 hover:bg-gray-800/30'
+                    ? 'border-purple-500/50 dark:border-purple-700/50 bg-purple-50/50 dark:bg-purple-900/10 shadow-lg shadow-purple-900/5 dark:shadow-purple-900/10'
+                    : 'border-teal-500/50 dark:border-teal-700/50 bg-teal-50/50 dark:bg-teal-900/10 shadow-lg shadow-teal-900/5 dark:shadow-teal-900/10'
+                  : 'border-gray-200 dark:border-gray-700/50 hover:border-gray-300 dark:hover:border-gray-600/60 bg-white/50 dark:bg-gray-800/20 hover:bg-gray-50/90 dark:hover:bg-gray-800/30'
               ]"
             >
               <div class="flex items-start justify-between">
                 <div>
-                  <h4 class="font-medium text-white/90 flex items-center gap-2">
+                  <h4 class="font-medium theme-dialog-text flex items-center gap-2">
                     {{ template.name }}
                     <span v-if="template.isBuiltin" 
-                          class="px-1.5 py-0.5 text-xs rounded bg-purple-600/20 text-purple-300">
+                          class="theme-dialog-tag theme-dialog-tag-purple">
                       内置
                     </span>
                   </h4>
-                  <p class="text-sm text-white/60 mt-1">
+                  <p class="text-sm theme-dialog-text-secondary mt-1">
                     {{ template.metadata.description || '暂无描述' }}
                   </p>
-                  <p class="text-xs text-white/40 mt-2">
+                  <p class="text-xs theme-dialog-text-muted mt-2">
                     最后修改: {{ formatDate(template.metadata.lastModified) }}
                   </p>
                 </div>
                 <div class="flex items-center space-x-2">
                   <button
                     @click="selectTemplate(template)"
-                    class="px-3 py-1.5 text-sm rounded-lg"
+                    class="theme-dialog-btn"
                     :class="[
                       (currentType === 'optimize' ? selectedOptimizeTemplate?.id : selectedIterateTemplate?.id) === template.id
-                        ? 'bg-purple-500/30 text-purple-200'
-                        : 'bg-purple-600/20 text-purple-300 hover:bg-purple-600/30'
+                        ? 'bg-purple-500/30 dark:bg-purple-500/30 text-purple-800 dark:text-purple-200'
+                        : 'theme-dialog-btn-primary'
                     ]"
                   >
                     {{ (currentType === 'optimize' ? selectedOptimizeTemplate?.id : selectedIterateTemplate?.id) === template.id ? '已选择' : '选择' }}
                   </button>
                   <button
                     @click="editTemplate(template)"
-                    class="px-3 py-1.5 text-sm rounded-lg bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 transition-colors"
+                    class="theme-dialog-btn theme-dialog-btn-primary"
                     :disabled="template.isBuiltin"
                     v-if="!template.isBuiltin"
                   >
@@ -151,13 +152,12 @@
               </div>
               <div 
                 class="absolute top-0 left-0 w-2 h-full rounded-l-xl"
-                :class="template.metadata.templateType === 'optimize' ? 'bg-purple-500/50' : 'bg-teal-500/50'"
+                :class="template.metadata.templateType === 'optimize' ? 'bg-purple-500/50 dark:bg-purple-700/50' : 'bg-teal-500/50 dark:bg-teal-700/50'"
               ></div>
               <span 
-                class="px-2 py-1 text-xs rounded-full capitalize"
-                :class="template.metadata.templateType === 'optimize' 
-                  ? 'bg-purple-600/20 text-purple-300'
-                  : 'bg-teal-600/20 text-teal-300'"
+                :class="['theme-tag', template.metadata.templateType === 'optimize' 
+                  ? 'theme-tag-purple'
+                  : 'theme-tag-teal']"
               >
                 {{ template.metadata.templateType === 'optimize' ? '优化' : '迭代' }}
               </span>

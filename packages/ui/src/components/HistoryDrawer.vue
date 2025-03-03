@@ -1,56 +1,56 @@
 <template>
   <div
     v-if="show"
-    class="fixed inset-0 bg-black bg-opacity-50 z-45 flex items-center justify-center"
+    class="fixed inset-0 z-[60] flex items-center justify-center"
     @click="emit('update:show', false)"
   >
+    <div class="theme-dialog-overlay"></div>
     <div
-      class="w-full max-w-4xl h-[90vh] bg-gray-900/90 backdrop-blur-sm border border-purple-700/50 shadow-xl rounded-lg transform transition-all duration-300 ease-in-out"
-      :class="show ? 'scale-100 opacity-100' : 'scale-95 opacity-0'"
+      class="theme-dialog-container w-full max-w-4xl h-[90vh] scale-100 opacity-100"
       @click.stop
     >
       <div class="h-full flex flex-col">
-        <div class="flex-none p-4 sm:p-6 border-b border-purple-700/50 flex items-center justify-between bg-gray-900/95 backdrop-blur-sm rounded-t-lg">
+        <div class="theme-dialog-header">
           <div class="flex items-center gap-4">
-            <h2 class="text-lg font-semibold text-white/90">历史记录</h2>
+            <h2 class="theme-dialog-title">历史记录</h2>
             <button
               v-if="sortedHistory && sortedHistory.length > 0"
               @click.stop="handleClear"
-              class="text-sm text-white/60 hover:text-white/90 transition-colors px-2 py-1 rounded border border-white/20 hover:border-white/40"
+              class="theme-dialog-btn theme-dialog-btn-secondary text-sm"
             >
               清空
             </button>
           </div>
           <button
             @click.stop="emit('update:show', false)"
-            class="text-white/60 hover:text-white/90 transition-colors text-xl"
+            class="text-gray-500 dark:text-white/60 hover:text-gray-700 dark:hover:text-white/90 transition-colors text-xl"
           >
             ×
           </button>
         </div>
         
-        <div class="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div class="theme-dialog-body">
           <template v-if="sortedHistory && sortedHistory.length > 0">
             <div class="space-y-4">
               <div
                 v-for="chain in sortedHistory"
                 :key="chain.chainId"
-                class="bg-black/20 rounded-xl border border-purple-600/50 overflow-hidden"
+                class="theme-dialog-card"
               >
                 <!-- 历史记录头部信息 -->
-                <div class="p-4 border-b border-purple-600/30">
+                <div class="theme-dialog-card-header">
                   <div class="flex items-center justify-between mb-2">
-                    <div class="text-sm text-white/50">
+                    <div class="text-sm theme-dialog-text-secondary">
                       创建于 {{ formatDate(chain.rootRecord.timestamp) }}
                     </div>
                   </div>
-                  <div class="text-sm text-white/90 break-all">
+                  <div class="text-sm theme-dialog-text break-all">
                     {{ chain.rootRecord.originalPrompt }}
                   </div>
                 </div>
 
                 <!-- 版本列表 -->
-                <div class="divide-y divide-purple-600/20">
+                <div class="theme-dialog-card-body">
                   <div
                     v-for="record in chain.versions.slice().reverse()"
                     :key="record.id"
@@ -58,25 +58,25 @@
                   >
                     <!-- 版本标题栏 -->
                     <div
-                      class="p-3 flex items-center justify-between cursor-pointer hover:bg-purple-600/10 transition-colors"
+                      class="theme-history-version-row"
                       @click="toggleVersion(record.id)"
                     >
                       <div class="flex items-center gap-3 overflow-hidden">
-                        <span class="text-sm font-medium text-purple-300 flex-none">V{{ record.version }}</span>
-                        <span class="text-xs text-white/50 flex-none">{{ formatDate(record.timestamp) }}</span>
-                        <span v-if="record.type === 'iterate' && record.iterationNote" class="text-xs text-white/60 truncate">
+                        <span class="text-sm font-medium text-purple-700 dark:text-purple-300 flex-none">V{{ record.version }}</span>
+                        <span class="text-xs theme-dialog-text-secondary flex-none">{{ formatDate(record.timestamp) }}</span>
+                        <span v-if="record.type === 'iterate' && record.iterationNote" class="text-xs theme-dialog-text-secondary truncate">
                           - {{ truncateText(record.iterationNote, 30) }}
                         </span>
                       </div>
                       <div class="flex items-center gap-2 flex-none">
-                        <span v-if="record.type === 'iterate'" class="text-xs text-purple-400 px-2 py-0.5 rounded-full bg-purple-400/10">迭代</span>
+                        <span v-if="record.type === 'iterate'" class="theme-dialog-tag theme-dialog-tag-purple">迭代</span>
                         <button
                           @click.stop="reuse(record, chain)"
-                          class="text-xs text-purple-300 hover:text-purple-100 transition-colors px-2 py-0.5 rounded border border-purple-300/20 hover:border-purple-300/40"
+                          class="theme-dialog-btn theme-dialog-btn-primary text-xs"
                         >
                           使用
                         </button>
-                        <button class="text-purple-300 hover:text-purple-100 transition-colors text-sm">
+                        <button class="theme-dialog-link text-sm">
                           {{ expandedVersions[record.id] ? '收起' : '展开' }}
                         </button>
                       </div>
@@ -85,22 +85,22 @@
                     <!-- 版本详细内容 -->
                     <div
                       v-show="expandedVersions[record.id]"
-                      class="p-4 bg-black/20 space-y-3"
+                      class="theme-history-version-detail"
                     >
                       <!-- 迭代说明 -->
-                      <div v-if="record.iterationNote" class="text-xs text-purple-300">
-                        迭代说明: <span class="text-white/60">{{ record.iterationNote }}</span>
+                      <div v-if="record.iterationNote" class="text-xs text-purple-700 dark:text-purple-300">
+                        迭代说明: <span class="theme-dialog-text">{{ record.iterationNote }}</span>
                       </div>
                       <!-- 优化后的提示词 -->
                       <div class="space-y-1">
-                        <div class="text-xs text-white/50">优化后:</div>
-                        <div class="text-sm text-white/70 whitespace-pre-wrap">{{ record.optimizedPrompt }}</div>
+                        <div class="text-xs theme-dialog-text-secondary">优化后:</div>
+                        <div class="text-sm theme-dialog-text whitespace-pre-wrap">{{ record.optimizedPrompt }}</div>
                       </div>
                       <!-- 使用按钮 -->
                       <div class="flex justify-end">
                         <button
                           @click="reuse(record, chain)"
-                          class="text-xs text-purple-300 hover:text-purple-100 transition-colors px-3 py-1 rounded border border-purple-300/20 hover:border-purple-300/40"
+                          class="theme-dialog-btn theme-dialog-btn-primary text-xs"
                         >
                           使用此版本
                         </button>
@@ -112,7 +112,7 @@
             </div>
           </template>
           <template v-else>
-            <div class="flex flex-col items-center justify-center h-full py-12 text-white/60">
+            <div class="flex flex-col items-center justify-center h-full py-12 theme-dialog-text-secondary">
               <div class="text-4xl mb-4">📜</div>
               <div class="text-sm">暂无历史记录</div>
             </div>
