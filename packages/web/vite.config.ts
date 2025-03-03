@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
+import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -29,15 +30,15 @@ export default defineConfig(({ mode }) => {
       preserveSymlinks: true,
       alias: {
         '@': resolve(__dirname, 'src'),
-        '@ui': resolve(__dirname, '../ui'),
-        '@prompt-optimizer/ui': resolve(__dirname, '../ui'),
-        // 简化样式导入
-        '@ui-styles': resolve(__dirname, '../ui/dist/style.css')
+        '@ui': path.resolve(__dirname, '../ui'),
+        '@ui/dist/style.css': path.resolve(__dirname, '../ui/dist/style.css'),
+        '@prompt-optimizer/ui/dist/style.css': path.resolve(__dirname, '../ui/dist/style.css')
       }
     },
     optimizeDeps: {
       // 包含工作区依赖
-      include: ['@prompt-optimizer/ui', 'element-plus']
+      include: ['element-plus'],
+      exclude: ['@prompt-optimizer/ui']
     },
     define: {
       'process.env': {

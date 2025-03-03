@@ -123,21 +123,21 @@
                   </button>
                   <button
                     @click="viewTemplate(template)"
-                    class="px-3 py-1.5 text-sm rounded-lg bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 transition-colors"
+                    class="theme-dialog-btn theme-dialog-btn-primary"
                     v-if="template.isBuiltin"
                   >
                     查看
                   </button>
                   <button
                     @click="copyTemplate(template)"
-                    class="px-3 py-1.5 text-sm rounded-lg bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 transition-colors"
+                    class="theme-dialog-btn theme-dialog-btn-primary"
                     v-if="template.isBuiltin"
                   >
                     复制提示词
                   </button>
                   <button
                     @click="exportTemplate(template.id)"
-                    class="px-3 py-1.5 text-sm rounded-lg bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 transition-colors"
+                    class="theme-dialog-btn theme-dialog-btn-primary"
                   >
                     导出
                   </button>
@@ -171,18 +171,18 @@
           <div v-if="showAddForm || editingTemplate || viewingTemplate" 
                class="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto"
                @click="cancelEdit">
-            <div class="fixed inset-0 bg-black/60 backdrop-blur-sm"></div>
+            <div class="theme-modal-bg"></div>
             
-            <div class="relative bg-gray-900/95 rounded-xl shadow-2xl border border-purple-700/50 w-full max-w-2xl m-4 z-10"
+            <div class="relative theme-modal-content w-full max-w-2xl m-4 z-10"
                  @click.stop>
               <div class="p-6 space-y-6">
                 <div class="flex items-center justify-between">
-                  <h3 class="text-xl font-semibold text-white/90">
+                  <h3 class="theme-modal-title">
                     {{ viewingTemplate ? '查看提示词' : (editingTemplate ? '编辑提示词' : '添加提示词') }}
                   </h3>
                   <button
                     @click="cancelEdit"
-                    class="text-white/60 hover:text-white/90 transition-colors text-xl"
+                    class="text-gray-500 dark:text-white/60 hover:text-gray-700 dark:hover:text-white/90 transition-colors text-xl"
                   >
                     ×
                   </button>
@@ -190,38 +190,38 @@
                 
                 <form @submit.prevent="handleSubmit" class="space-y-4">
                   <div>
-                    <label class="block text-sm font-medium text-white/90 mb-1.5">提示词名称</label>
+                    <label class="block text-sm font-medium theme-label mb-1.5">提示词名称</label>
                     <input
                       v-model="form.name"
                       type="text"
                       required
                       :readonly="viewingTemplate"
-                      class="w-full px-4 py-2 rounded-xl bg-black/20 border border-purple-600/50 text-white placeholder-white/30 focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all"
+                      class="theme-input"
                       :class="{ 'opacity-75 cursor-not-allowed': viewingTemplate }"
                       placeholder="输入提示词名称"
                     />
                   </div>
                   
                   <div>
-                    <label class="block text-sm font-medium text-white/90 mb-1.5">提示词内容</label>
+                    <label class="block text-sm font-medium theme-label mb-1.5">提示词内容</label>
                     <textarea
                       v-model="form.content"
                       required
                       :readonly="viewingTemplate"
                       rows="8"
-                      class="w-full px-4 py-2 rounded-xl bg-black/20 border border-purple-600/50 text-white placeholder-white/30 focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all resize-none"
+                      class="theme-textarea"
                       :class="{ 'opacity-75 cursor-not-allowed': viewingTemplate }"
                       placeholder="输入提示词内容"
                     ></textarea>
                   </div>
                   
                   <div>
-                    <label class="block text-sm font-medium text-white/90 mb-1.5">描述</label>
+                    <label class="block text-sm font-medium theme-label mb-1.5">描述</label>
                     <textarea
                       v-model="form.description"
                       :readonly="viewingTemplate"
                       rows="3"
-                      class="w-full px-4 py-2 rounded-xl bg-black/20 border border-purple-600/50 text-white placeholder-white/30 focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all resize-none"
+                      class="theme-textarea"
                       :class="{ 'opacity-75 cursor-not-allowed': viewingTemplate }"
                       placeholder="输入提示词描述（可选）"
                     ></textarea>
@@ -231,7 +231,7 @@
                     <button
                       type="button"
                       @click="cancelEdit"
-                      class="px-4 py-2 rounded-lg border border-gray-600/50 text-white/70 hover:text-white/90 hover:border-gray-500/60 transition-all"
+                      class="theme-modal-btn-secondary"
                     >
                       {{ viewingTemplate ? '关闭' : '取消' }}
                     </button>
@@ -252,7 +252,7 @@
         <!-- 导入提示词 -->
         <div class="border-t border-purple-700/50 pt-6">
           <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold text-white/90">导入提示词</h3>
+            <h3 class="text-lg font-semibold theme-dialog-title">导入提示词</h3>
           </div>
           <div class="flex items-center space-x-3">
             <input
@@ -264,11 +264,11 @@
             />
             <button
               @click="$refs.fileInput.click()"
-              class="px-4 py-2 rounded-lg bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 transition-colors"
+              class="theme-dialog-btn theme-dialog-btn-primary"
             >
               选择文件
             </button>
-            <span class="text-sm text-white/60">支持 .json 格式的提示词文件</span>
+            <span class="text-sm theme-dialog-text-secondary">支持 .json 格式的提示词文件</span>
           </div>
         </div>
       </div>
