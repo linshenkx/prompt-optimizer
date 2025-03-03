@@ -140,18 +140,18 @@ body {
   
   /* 加载指示器 */
   .theme-loading {
-    @apply bg-purple-500/90 dark:bg-purple-600/90 text-white 
+    @apply bg-purple-500/95 dark:bg-purple-600/95 text-white 
            transition-colors duration-300;
   }
   
   /* 错误指示器 */
   .theme-error {
-    @apply bg-red-500/90 text-white;
+    @apply bg-red-500/95 dark:bg-red-600/95 text-white;
   }
   
   /* 成功指示器 */
   .theme-success {
-    @apply bg-green-500/90 text-white;
+    @apply bg-green-500/95 dark:bg-green-600/95 text-white;
   }
 }
 

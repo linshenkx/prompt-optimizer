@@ -14,10 +14,10 @@
           :key="toast.id"
           class="flex items-center space-x-2 px-4 py-2 rounded-lg shadow-lg max-w-sm"
           :class="{
-            'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400': toast.type === 'success',
-            'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400': toast.type === 'error',
-            'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400': toast.type === 'info',
-            'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-600 dark:text-yellow-400': toast.type === 'warning'
+            'bg-green-50/95 dark:bg-green-900/95 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400': toast.type === 'success',
+            'bg-red-50/95 dark:bg-red-900/95 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400': toast.type === 'error',
+            'bg-blue-50/95 dark:bg-blue-900/95 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400': toast.type === 'info',
+            'bg-yellow-50/95 dark:bg-yellow-900/95 border border-yellow-200 dark:border-yellow-800 text-yellow-600 dark:text-yellow-400': toast.type === 'warning'
           }"
         >
           <span class="text-sm">{{ toast.message }}</span>

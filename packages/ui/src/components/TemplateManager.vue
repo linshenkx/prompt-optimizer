@@ -1,6 +1,6 @@
 <template>
   <div
-    class="fixed inset-0 z-[65] flex items-center justify-center"
+    class="fixed inset-0 z-[65] flex items-center justify-center overflow-y-auto"
     @click="$emit('close')"
   >
     <div class="theme-dialog-overlay"></div>
@@ -169,7 +169,7 @@
         <Teleport to="body">
           <!-- 查看/编辑模态框 -->
           <div v-if="showAddForm || editingTemplate || viewingTemplate" 
-               class="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto"
+               class="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto"
                @click="cancelEdit">
             <div class="fixed inset-0 bg-black/60 backdrop-blur-sm"></div>
             
