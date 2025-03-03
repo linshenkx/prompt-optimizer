@@ -1,6 +1,6 @@
 <template>
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center"
+    class="fixed inset-0 z-[50] flex items-center justify-center"
     @click="$emit('close')"
   >
     <div class="theme-dialog-overlay"></div>
@@ -163,10 +163,48 @@
                     ×
                   </button>
                 </div>
-                
                 <form @submit.prevent="addCustomModel" class="space-y-4 mt-6">
-                  <!-- 表单字段同上，使用相同的主题样式 -->
-                  <!-- ... -->
+                  <div>
+                    <label class="block text-sm font-medium theme-dialog-text mb-1.5">模型标识</label>
+                    <input v-model="newModel.key" type="text" required
+                           class="theme-input w-full px-4 py-2 rounded-xl"
+                           placeholder="例如: custom-model"/>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium theme-dialog-text mb-1.5">显示名称</label>
+                    <input v-model="newModel.name" type="text" required
+                           class="theme-input w-full px-4 py-2 rounded-xl"
+                           placeholder="例如: 自定义模型"/>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium theme-dialog-text mb-1.5">API 地址</label>
+                    <input v-model="newModel.baseURL" type="url" required
+                           class="theme-input w-full px-4 py-2 rounded-xl"
+                           placeholder="https://api.example.com/v1"/>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium theme-dialog-text mb-1.5">默认模型名称</label>
+                    <input v-model="newModel.defaultModel" type="text" required
+                           class="theme-input w-full px-4 py-2 rounded-xl"
+                           placeholder="例如: gpt-3.5-turbo"/>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium theme-dialog-text mb-1.5">API 密钥</label>
+                    <input v-model="newModel.apiKey" type="password" required
+                           class="theme-input w-full px-4 py-2 rounded-xl"
+                           placeholder="输入 API 密钥"/>
+                  </div>
+                  <div v-if="vercelProxyAvailable" class="flex items-center space-x-2">
+                    <input 
+                      id="new-model-vercel-proxy" 
+                      v-model="newModel.useVercelProxy" 
+                      type="checkbox"
+                      class="w-4 h-4 text-purple-600 bg-white/20 dark:bg-black/20 border-gray-300 dark:border-purple-600/50 rounded focus:ring-purple-500/50"
+                    />
+                    <label for="new-model-vercel-proxy" class="text-sm font-medium theme-dialog-text">
+                      使用Vercel代理 (解决跨域问题，有一定风险，请谨慎使用)
+                    </label>
+                  </div>
                   <div class="flex justify-end space-x-3 pt-4">
                     <button
                       type="button"

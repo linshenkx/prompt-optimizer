@@ -1,6 +1,6 @@
 <template>
   <div
-    class="fixed inset-0 z-65 flex items-center justify-center"
+    class="fixed inset-0 z-[65] flex items-center justify-center"
     @click="$emit('close')"
   >
     <div class="theme-dialog-overlay"></div>
