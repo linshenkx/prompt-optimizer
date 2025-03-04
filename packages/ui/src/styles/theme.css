@@ -2,13 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===== 全局样式 ===== */
+/* 定义主题变量 */
+:root {
+  /* 亮色主题变量 */
+  --bg-gradient: linear-gradient(to bottom right, #f9fafb, #f3f4f6);
+  --card-bg: rgba(255, 255, 255, 0.8);
+  --border-color: rgba(209, 213, 219, 0.5);
+  --transition-duration: 0.3s;
+}
+
+/* 暗色主题基础变量 */
+.dark {
+  --bg-gradient: linear-gradient(to bottom right, #111827, #1f2937);
+  --card-bg: rgba(31, 41, 55, 0.8);
+  --border-color: rgba(75, 85, 99, 0.5);
+}
+
+/* 紫色主题变量 (暗色主题的变体) */
+.theme-purple {
+  --bg-gradient: linear-gradient(to bottom right, #4c1d95, #7e22ce, #be185d);
+  --card-bg: rgba(91, 33, 182, 0.2);
+  --border-color: rgba(147, 51, 234, 0.3);
+}
+
+/* 重置紫色主题变量为亮色主题变量 */
+.theme-purple-reset {
+  --bg-gradient: linear-gradient(to bottom right, #f9fafb, #f3f4f6);
+  --card-bg: rgba(255, 255, 255, 0.8);
+  --border-color: rgba(209, 213, 219, 0.5);
+}
+
+/* 应用全局背景 */
 html {
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: background-color var(--transition-duration) ease, color var(--transition-duration) ease;
 }
 
 body {
-  @apply bg-white text-black min-h-screen;
+  @apply min-h-screen;
+  background: var(--bg-gradient);
+  transition: background var(--transition-duration) ease;
 }
 
 .dark body {

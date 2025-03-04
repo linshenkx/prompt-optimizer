@@ -7,7 +7,6 @@
 
     <!-- 操作按钮插槽 -->
     <template #actions>
-      <ThemeToggleUI />
       <ActionButtonUI
         icon="📝"
         text="功能提示词"
@@ -23,6 +22,7 @@
         text="模型管理"
         @click="showConfig = true"
       />
+      <ThemeMenuUI />
     </template>
 
     <!-- 主要内容插槽 -->
@@ -160,7 +160,7 @@ import {
   // UI组件
   ToastUI,
   ModelManagerUI,
-  ThemeToggleUI,
+  ThemeMenuUI,
   OutputPanelUI,
   PromptPanelUI,
   TemplateManagerUI,
