@@ -62,6 +62,39 @@ docker run -d -p 80:80 \
   linshen/prompt-optimizer
 ```
 
+### 4. Docker Compose Deployment
+```bash
+# 1. Clone the repository
+git clone https://github.com/linshenkx/prompt-optimizer.git
+cd prompt-optimizer
+
+# 2. Optional: Create .env file for API keys
+cat > .env << EOF
+VITE_OPENAI_API_KEY=your_openai_api_key
+VITE_GEMINI_API_KEY=your_gemini_api_key
+VITE_DEEPSEEK_API_KEY=your_deepseek_api_key
+EOF
+
+# 3. Start the service
+docker-compose up -d
+
+# 4. View logs
+docker-compose logs -f
+```
+
+You can also edit the docker-compose.yml file directly to customize your configuration:
+```yaml
+services:
+  prompt-optimizer:
+    image: linshen/prompt-optimizer:latest
+    container_name: prompt-optimizer
+    restart: unless-stopped
+    ports:
+      - "8080:80"  # Change port mapping
+    environment:
+      - VITE_OPENAI_API_KEY=your_key_here  # Set API key directly in config
+```
+
 ## ⚙️ API Key Configuration
 
 ### Method 1: Via Interface (Recommended)

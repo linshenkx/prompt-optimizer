@@ -62,6 +62,39 @@ docker run -d -p 80:80 \
   linshen/prompt-optimizer
 ```
 
+### 4. Docker Compose部署
+```bash
+# 1. 克隆仓库
+git clone https://github.com/linshenkx/prompt-optimizer.git
+cd prompt-optimizer
+
+# 2. 可选：创建.env文件配置API密钥
+cat > .env << EOF
+VITE_OPENAI_API_KEY=your_openai_api_key
+VITE_GEMINI_API_KEY=your_gemini_api_key
+VITE_DEEPSEEK_API_KEY=your_deepseek_api_key
+EOF
+
+# 3. 启动服务
+docker-compose up -d
+
+# 4. 查看日志
+docker-compose logs -f
+```
+
+你还可以直接编辑docker-compose.yml文件，自定义配置：
+```yaml
+services:
+  prompt-optimizer:
+    image: linshen/prompt-optimizer:latest
+    container_name: prompt-optimizer
+    restart: unless-stopped
+    ports:
+      - "8080:80"  # 修改端口映射
+    environment:
+      - VITE_OPENAI_API_KEY=your_key_here  # 直接在配置中设置密钥
+```
+
 ## ⚙️ API密钥配置
 
 ### 方式一：通过界面配置（推荐）

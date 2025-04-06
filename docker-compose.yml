@@ -1,0 +1,39 @@
+services:
+  prompt-optimizer:
+    image: linshen/prompt-optimizer:latest
+    # Alternatively, you can build from source:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    container_name: prompt-optimizer
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      # OpenAI API配置
+      - VITE_OPENAI_API_KEY=${VITE_OPENAI_API_KEY:-}
+      # Gemini API配置
+      - VITE_GEMINI_API_KEY=${VITE_GEMINI_API_KEY:-}
+      # DeepSeek API配置
+      - VITE_DEEPSEEK_API_KEY=${VITE_DEEPSEEK_API_KEY:-}
+      # SiliconFlow API配置
+      - VITE_SILICONFLOW_API_KEY=${VITE_SILICONFLOW_API_KEY:-}
+      # 自定义API配置
+      - VITE_CUSTOM_API_KEY=${VITE_CUSTOM_API_KEY:-}
+      - VITE_CUSTOM_API_BASE_URL=${VITE_CUSTOM_API_BASE_URL:-}
+      - VITE_CUSTOM_API_MODEL=${VITE_CUSTOM_API_MODEL:-}
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    # 可选：如果需要持久化数据
+    # volumes:
+    #   - ./data:/data
+
+# 可选：创建自定义网络
+# networks:
+#   prompt-network:
+#     driver: bridge 
