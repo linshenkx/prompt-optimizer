@@ -8,7 +8,7 @@ services:
     container_name: prompt-optimizer
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "8081:80"
     environment:
       # OpenAI API配置
       - VITE_OPENAI_API_KEY=${VITE_OPENAI_API_KEY:-}
@@ -29,11 +29,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
-    # 可选：如果需要持久化数据
-    # volumes:
-    #   - ./data:/data
-
-# 可选：创建自定义网络
-# networks:
-#   prompt-network:
-#     driver: bridge 

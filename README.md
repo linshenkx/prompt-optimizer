@@ -76,10 +76,10 @@ VITE_DEEPSEEK_API_KEY=your_deepseek_api_key
 EOF
 
 # 3. 启动服务
-docker-compose up -d
+docker compose up -d
 
 # 4. 查看日志
-docker-compose logs -f
+docker compose logs -f
 ```
 
 你还可以直接编辑docker-compose.yml文件，自定义配置：
@@ -90,7 +90,7 @@ services:
     container_name: prompt-optimizer
     restart: unless-stopped
     ports:
-      - "8080:80"  # 修改端口映射
+      - "8081:80"  # 修改端口映射
     environment:
       - VITE_OPENAI_API_KEY=your_key_here  # 直接在配置中设置密钥
 ```
