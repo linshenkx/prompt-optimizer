@@ -6,13 +6,24 @@
       <div v-else-if="!hideTitle" class="text-lg font-semibold theme-text">{{ t('output.title') }}</div>
       <div v-else></div>
       
-      <button
-        v-if="contentTokens.length > 0 && !isStreaming"
-        @click="copySelectedText"
-        class="px-3 py-1.5 theme-button-secondary flex items-center space-x-2"
-      >
-        <span>{{ t('prompt.copy') }}</span>
-      </button>
+      <div class="flex items-center space-x-2">
+        <button
+          v-if="contentTokens.length > 0 && !isStreaming"
+          @click="copySelectedText"
+          class="px-3 py-1.5 theme-button-secondary flex items-center space-x-2"
+        >
+          <span>{{ t('prompt.copy') }}</span>
+        </button>
+        <button
+          @click="isFullscreen = true"
+          class="px-3 py-1.5 theme-button-secondary flex items-center space-x-2"
+          :title="t('output.expand')"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+          </svg>
+        </button>
+      </div>
     </div>
 
     <div class="flex-1 min-h-0 relative">
@@ -44,6 +55,12 @@
       </div>
     </div>
   </div>
+  <FullscreenDialog v-model="isFullscreen" :title="resultTitle || t('output.title')">
+    <div class="h-full theme-input whitespace-pre-wrap">
+      <MarkdownRenderer v-if="props.enableMarkdown" :content="displayContent" />
+      <span v-else v-text="displayContent" class="theme-text"></span>
+    </div>
+  </FullscreenDialog>
 </template>
 
 <script setup lang="ts">
@@ -53,12 +70,14 @@ import { useToast } from '../composables/useToast'
 import { useAutoScroll } from '../composables/useAutoScroll'
 import { useClipboard } from '../composables/useClipboard'
 import MarkdownRenderer from './MarkdownRenderer.vue'
+import FullscreenDialog from './FullscreenDialog.vue'
 
 const { t } = useI18n()
 const toast = useToast()
 const { copyText } = useClipboard()
 const contentTokens = ref<string[]>([])
 const isStreaming = ref(false)
+const isFullscreen = ref(false)
 
 // 使用自动滚动组合式函数
 const { elementRef: resultContainer, onContentChange, forceScrollToBottom, shouldAutoScroll } = useAutoScroll<HTMLDivElement>({
