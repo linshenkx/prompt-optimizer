@@ -38,6 +38,7 @@ const OPENAI_API_KEY = getEnvVar('VITE_OPENAI_API_KEY').trim();
 const GEMINI_API_KEY = getEnvVar('VITE_GEMINI_API_KEY').trim();
 const DEEPSEEK_API_KEY = getEnvVar('VITE_DEEPSEEK_API_KEY').trim();
 const SILICONFLOW_API_KEY = getEnvVar('VITE_SILICONFLOW_API_KEY').trim();
+const ZHIPU_API_KEY = getEnvVar('VITE_ZHIPU_API_KEY').trim();
 const CUSTOM_API_KEY = getEnvVar('VITE_CUSTOM_API_KEY').trim();
 const CUSTOM_API_BASE_URL = getEnvVar('VITE_CUSTOM_API_BASE_URL');
 const CUSTOM_API_MODEL = getEnvVar('VITE_CUSTOM_API_MODEL');
@@ -78,6 +79,15 @@ export const defaultModels: Record<string, ModelConfig> = {
     apiKey: SILICONFLOW_API_KEY,
     enabled: !!SILICONFLOW_API_KEY,
     provider: 'siliconflow'
+  },
+  zhipu: {
+    name: 'Zhipu',
+    baseURL: 'https://open.bigmodel.cn/api/paas/v4',
+    models: ['glm-4-flash', 'glm-4', 'glm-3-turbo', 'glm-3'],
+    defaultModel: 'glm-4-flash',
+    apiKey: ZHIPU_API_KEY,
+    enabled: !!ZHIPU_API_KEY,
+    provider: 'zhipu'
   },
   custom: {
     name: 'Custom',

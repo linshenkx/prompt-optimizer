@@ -21,6 +21,7 @@ export class ModelManager implements IModelManager {
       // 1. 先从本地存储加载所有模型配置
       const storedData = localStorage.getItem('models');
       if (storedData) {
+        console.log('加载模型配置:', storedData);
         this.models = JSON.parse(storedData);
       }
 
