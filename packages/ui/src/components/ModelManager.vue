@@ -360,7 +360,7 @@ const loadModels = () => {
 
 // 判断是否为默认模型
 const isDefaultModel = (key) => {
-  return ['openai', 'gemini', 'deepseek'].includes(key);
+  return ['openai', 'gemini', 'deepseek', 'zhipu'].includes(key);
 };
 
 // =============== 模型管理函数 ===============
@@ -540,6 +540,13 @@ const addDefaultModelOptions = (providerKey) => {
     modelOptions.value = [
       { label: 'deepseek-chat', value: 'deepseek-chat' },
       { label: 'deepseek-coder', value: 'deepseek-coder' }
+    ];
+  } else if (providerKey === 'zhipu') {
+    modelOptions.value = [
+      { label: 'GLM-4-Flash', value: 'glm-4-flash' },
+      { label: 'GLM-4', value: 'glm-4' },
+      { label: 'GLM-3-Turbo', value: 'glm-3-turbo' },
+      { label: 'GLM-3', value: 'glm-3' }
     ];
   } else {
     // For custom models, provide empty list
