@@ -9,8 +9,8 @@ installI18n(app)
 app.mount('#app')
 
 // 只在Vercel环境中加载Analytics
-// 当环境变量VERCEL_DEPLOYMENT为true时才尝试加载
-if (import.meta.env.VERCEL_DEPLOYMENT === 'true') {
+// 当环境变量VITE_VERCEL_DEPLOYMENT为true时才尝试加载
+if (import.meta.env.VITE_VERCEL_DEPLOYMENT === 'true') {
   // 使用完全运行时方式加载Vercel Analytics
   const loadAnalytics = () => {
     const script = document.createElement('script')
