@@ -8,15 +8,21 @@ const app = createApp(App)
 installI18n(app)
 app.mount('#app')
 
-// 正确集成Vercel Analytics
-try {
-  import('@vercel/analytics').then(({ inject }) => {
-    // 导入成功后调用inject函数初始化Analytics
-    inject()
-    console.log('Vercel Analytics 已加载')
-  }).catch(error => {
-    console.log('Vercel Analytics 未安装或不可用')
-  })
-} catch (error) {
-  console.log('无法动态导入 Vercel Analytics')
-} 
+// 只在Vercel环境中加载Analytics
+// 当环境变量VERCEL_DEPLOYMENT为true时才尝试加载
+if (import.meta.env.VERCEL_DEPLOYMENT === 'true') {
+  // 使用完全运行时方式加载Vercel Analytics
+  const loadAnalytics = () => {
+    const script = document.createElement('script')
+    script.src = '/_vercel/insights/script.js'
+    script.defer = true
+    script.onload = () => console.log('Vercel Analytics 已加载')
+    script.onerror = () => console.log('Vercel Analytics 加载失败')
+    document.head.appendChild(script)
+  }
+  
+  // 延迟执行以确保DOM已完全加载
+  window.addEventListener('DOMContentLoaded', loadAnalytics)
+}else{
+    console.log('Vercel Analytics 未加载')
+}
