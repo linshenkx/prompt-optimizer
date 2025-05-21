@@ -54,28 +54,28 @@ export interface PromptRecordChain {
  */
 export interface IHistoryManager {
   /** 添加记录 */
-  addRecord(record: PromptRecord): void;
+  addRecord(record: PromptRecord): Promise<void>;
   /** 获取所有记录 */
-  getRecords(): PromptRecord[];
+  getRecords(): Promise<PromptRecord[]>;
   /** 获取指定记录 */
-  getRecord(id: string): PromptRecord;
+  getRecord(id: string): Promise<PromptRecord>;
   /** 删除记录 */
-  deleteRecord(id: string): void;
+  deleteRecord(id: string): Promise<void>;
   /** 获取迭代链 */
-  getIterationChain(recordId: string): PromptRecord[];
+  getIterationChain(recordId: string): Promise<PromptRecord[]>;
   /** 清除所有记录 */
-  clearHistory(): void;
+  clearHistory(): Promise<void>;
   /** 获取所有记录链 */
-  getAllChains(): PromptRecordChain[];
+  getAllChains(): Promise<PromptRecordChain[]>;
   /** 创建新的记录链 */
-  createNewChain(record: Omit<PromptRecord, 'chainId' | 'version' | 'previousId'>): PromptRecordChain;
+  createNewChain(record: Omit<PromptRecord, 'chainId' | 'version' | 'previousId'>): Promise<PromptRecordChain>;
   /** 添加迭代记录 */
   addIteration(params: {
     chainId: string;
     originalPrompt: string;
     optimizedPrompt: string;
-    iterationNote: string;
+    iterationNote?: string; // Made optional to match manager.ts implementation
     modelKey: string;
     templateId: string;
-  }): PromptRecordChain;
+  }): Promise<PromptRecordChain>;
 } 

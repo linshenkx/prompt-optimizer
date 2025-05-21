@@ -40,25 +40,25 @@ export interface TemplateManagerConfig {
  */
 export interface ITemplateManager {
   /** 获取指定ID的模板 */
-  getTemplate(templateId: string): Template;
-  
+  getTemplate(templateId: string): Template; // Stays synchronous
+
   /** 保存模板 */
-  saveTemplate(template: Template): void;
-  
+  saveTemplate(template: Template): Promise<void>; // Async
+
   /** 删除模板 */
-  deleteTemplate(templateId: string): void;
-  
+  deleteTemplate(templateId: string): Promise<void>; // Async
+
   /** 列出所有模板 */
-  listTemplates(): Template[];
-  
+  listTemplates(): Template[]; // Stays synchronous
+
   /** 导出模板 */
-  exportTemplate(templateId: string): string;
-  
+  exportTemplate(templateId: string): string; // Stays synchronous
+
   /** 导入模板 */
-  importTemplate(templateJson: string): void;
-  
+  importTemplate(templateJson: string): Promise<void>; // Async
+
   /** 清除缓存 */
-  clearCache(templateId?: string): void;
+  clearCache(templateId?: string): void; // Synchronous
   
   /** 按类型列出模板 */
   listTemplatesByType(type: 'optimize' | 'iterate'): Template[];

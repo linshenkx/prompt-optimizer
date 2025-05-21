@@ -1,4 +1,6 @@
 import { IHistoryManager, PromptRecord, PromptRecordChain } from './types';
+import { IStorageProvider } from '../storage/types';
+import { LocalStorageProvider } from '../storage/localStorageProvider';
 import { HistoryError, RecordNotFoundError, StorageError, RecordValidationError } from './errors';
 import { v4 as uuidv4 } from 'uuid';
 import { modelManager } from '../model/manager';
@@ -10,17 +12,7 @@ export class HistoryManager implements IHistoryManager {
   private readonly storageKey = 'prompt_history';
   private readonly maxRecords = 50; // 最多保存50条记录
 
-  constructor() {
-    try {
-      // 验证存储是否可用
-      const testKey = '_test_storage_';
-      localStorage.setItem(testKey, 'test');
-      localStorage.removeItem(testKey);
-    } catch (error) {
-      console.error('存储不可用:', error);
-      throw new StorageError('存储不可用', 'storage');
-    }
-  }
+  constructor(private storageProvider: IStorageProvider) {}
 
   /**
    * 获取模型名称的辅助函数
@@ -43,7 +35,7 @@ export class HistoryManager implements IHistoryManager {
   /**
    * 添加记录
    */
-  addRecord(record: PromptRecord): void {
+  async addRecord(record: PromptRecord): Promise<void> {
     try {
       this.validateRecord(record);
 
@@ -52,9 +44,9 @@ export class HistoryManager implements IHistoryManager {
         record.modelName = this.getModelNameByKey(record.modelKey);
       }
 
-      const history = this.getRecords();
+      const history = await this.getRecords();
       history.unshift(record);
-      this.saveToStorage(history.slice(0, this.maxRecords));
+      await this.saveToStorage(history.slice(0, this.maxRecords));
     } catch (error) {
       if (error instanceof HistoryError) {
         throw error;
@@ -66,9 +58,9 @@ export class HistoryManager implements IHistoryManager {
   /**
    * 获取所有记录
    */
-  getRecords(): PromptRecord[] {
+  async getRecords(): Promise<PromptRecord[]> {
     try {
-      const historyStr = localStorage.getItem(this.storageKey);
+      const historyStr = await this.storageProvider.getItem(this.storageKey);
       return historyStr ? JSON.parse(historyStr) : [];
     } catch (error) {
       console.error('获取历史记录失败:', error);
@@ -79,8 +71,8 @@ export class HistoryManager implements IHistoryManager {
   /**
    * 获取指定记录
    */
-  getRecord(id: string): PromptRecord {
-    const history = this.getRecords();
+  async getRecord(id: string): Promise<PromptRecord> {
+    const history = await this.getRecords();
     const record = history.find(r => r.id === id);
     if (!record) {
       throw new RecordNotFoundError('记录不存在', id);
@@ -91,15 +83,15 @@ export class HistoryManager implements IHistoryManager {
   /**
    * 删除记录
    */
-  deleteRecord(id: string): void {
-    const records = this.getRecords();
+  async deleteRecord(id: string): Promise<void> {
+    const records = await this.getRecords();
     const index = records.findIndex(record => record.id === id);
     if (index === -1) {
       throw new RecordNotFoundError('记录不存在', id);
     }
     records.splice(index, 1);
     try {
-      localStorage.setItem(this.storageKey, JSON.stringify(records));
+      await this.storageProvider.setItem(this.storageKey, JSON.stringify(records));
     } catch (error) {
       throw new StorageError('删除记录失败', 'delete');
     }
@@ -108,15 +100,15 @@ export class HistoryManager implements IHistoryManager {
   /**
    * 获取迭代链
    */
-  getIterationChain(recordId: string): PromptRecord[] {
-    const history = this.getRecords();
+  async getIterationChain(recordId: string): Promise<PromptRecord[]> {
+    const history = await this.getRecords();
     const chain: PromptRecord[] = [];
     let currentId = recordId;
 
     while (currentId) {
       const record = history.find(r => r.id === currentId);
       if (!record) break;
-      
+
       chain.unshift(record);
       currentId = record.previousId ?? '';
     }
@@ -127,9 +119,9 @@ export class HistoryManager implements IHistoryManager {
   /**
    * 清除所有记录
    */
-  clearHistory(): void {
+  async clearHistory(): Promise<void> {
     try {
-      localStorage.removeItem(this.storageKey);
+      await this.storageProvider.removeItem(this.storageKey);
     } catch (error) {
       console.error('清除历史记录失败:', error);
       throw new StorageError('清除历史记录失败', 'delete');
@@ -160,9 +152,9 @@ export class HistoryManager implements IHistoryManager {
   /**
    * 保存到存储
    */
-  private saveToStorage(records: PromptRecord[]): void {
+  private async saveToStorage(records: PromptRecord[]): Promise<void> {
     try {
-      localStorage.setItem(this.storageKey, JSON.stringify(records));
+      await this.storageProvider.setItem(this.storageKey, JSON.stringify(records));
     } catch (error) {
       throw new StorageError('保存历史记录失败', 'write');
     }
@@ -171,9 +163,9 @@ export class HistoryManager implements IHistoryManager {
   /**
    * 创建新的记录链（初始优化）
    */
-  createNewChain(record: Omit<PromptRecord, 'chainId' | 'version' | 'previousId'>): PromptRecordChain {
+  async createNewChain(record: Omit<PromptRecord, 'chainId' | 'version' | 'previousId'>): Promise<PromptRecordChain> {
     const chainId = uuidv4();
-    
+
     const newRecord: PromptRecord = {
       ...record,
       chainId,
@@ -182,23 +174,23 @@ export class HistoryManager implements IHistoryManager {
       // 复用 getModelNameByKey 获取模型名称
       modelName: record.modelKey ? this.getModelNameByKey(record.modelKey) : undefined
     };
-    
-    this.addRecord(newRecord);
+
+    await this.addRecord(newRecord);
     return this.getChain(chainId);
   }
 
   /**
    * 添加迭代记录
    */
-  addIteration(params: {
+  async addIteration(params: {
     chainId: string;
     originalPrompt: string;
     optimizedPrompt: string;
     iterationNote?: string;
     modelKey: string;
     templateId: string;
-  }): PromptRecordChain {
-    const chain = this.getChain(params.chainId);
+  }): Promise<PromptRecordChain> {
+    const chain = await this.getChain(params.chainId);
     const latest = chain.currentRecord;
 
     const newRecord: PromptRecord = {
@@ -213,23 +205,23 @@ export class HistoryManager implements IHistoryManager {
       modelName: this.getModelNameByKey(params.modelKey)
     };
 
-    this.addRecord(newRecord);
+    await this.addRecord(newRecord);
     return this.getChain(params.chainId);
   }
 
   /**
    * 获取完整记录链
    */
-  getChain(chainId: string): PromptRecordChain {
-    const allRecords = this.getRecords();
+  async getChain(chainId: string): Promise<PromptRecordChain> {
+    const allRecords = await this.getRecords();
     const chainRecords = allRecords.filter(r => r.chainId === chainId);
-    
+
     if (chainRecords.length === 0) {
       throw new RecordNotFoundError('记录链不存在', chainId);
     }
 
     const sorted = chainRecords.sort((a, b) => a.version - b.version);
-    
+
     return {
       chainId,
       rootRecord: sorted[0],
@@ -241,9 +233,9 @@ export class HistoryManager implements IHistoryManager {
   /**
    * 获取所有记录链
    */
-  getAllChains(): PromptRecordChain[] {
+  async getAllChains(): Promise<PromptRecordChain[]> {
     const chains = new Map<string, PromptRecord[]>();
-    const allRecords = this.getRecords();
+    const allRecords = await this.getRecords();
 
     // 按chainId分组
     for (const record of allRecords) {
@@ -268,4 +260,4 @@ export class HistoryManager implements IHistoryManager {
 }
 
 // 导出单例实例
-export const historyManager = new HistoryManager(); 
+export const historyManager = new HistoryManager(new LocalStorageProvider());

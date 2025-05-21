@@ -25,19 +25,19 @@ export interface ModelConfig {
  */
 export interface IModelManager {
   /** 获取所有模型配置 */
-  getAllModels(): ModelConfig[];
+  getAllModels(): Promise<Array<ModelConfig & { key: string }>>;
   /** 获取指定模型配置 */
-  getModel(key: string): ModelConfig | undefined;
+  getModel(key: string): Promise<ModelConfig | undefined>;
   /** 添加模型配置 */
-  addModel(key: string, config: ModelConfig): void;
+  addModel(key: string, config: ModelConfig): Promise<void>;
   /** 更新模型配置 */
-  updateModel(key: string, config: Partial<ModelConfig>): void;
+  updateModel(key: string, config: Partial<ModelConfig>): Promise<void>;
   /** 删除模型配置 */
-  deleteModel(key: string): void;
+  deleteModel(key: string): Promise<void>;
   /** 启用模型 */
-  enableModel(key: string): void;
+  enableModel(key: string): Promise<void>;
   /** 禁用模型 */
-  disableModel(key: string): void;
+  disableModel(key: string): Promise<void>;
   /** 获取启用的模型 */
-  getEnabledModels(): ModelConfig[];
+  getEnabledModels(): Promise<Array<ModelConfig & { key: string }>>;
 } 
