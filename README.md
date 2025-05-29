@@ -133,6 +133,10 @@ services:
 - DeepSeek (DeepSeek-V3)
 - 自定义API（OpenAI兼容接口）
 
+除了API密钥，您还可以在模型配置界面为每个模型单独设置高级LLM参数。这些参数通过一个名为 `llmParams` 的字段进行配置，它允许您以键值对的形式指定LLM SDK支持的任何参数，从而更精细地控制模型行为。
+例如，您可以这样配置：`"llmParams": { "temperature": 0.5, "max_tokens": 1024 }`。
+有关 `llmParams` 的更详细说明和特定提供商的示例（如OpenAI的 `timeout`，Gemini的 `maxOutputTokens` 等），请参阅 [技术开发指南](docs/technical-development-guide.md)。
+
 ### 方式二：通过环境变量配置
 Docker部署时通过 `-e` 参数配置环境变量：
 ```bash

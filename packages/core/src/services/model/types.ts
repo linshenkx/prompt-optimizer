@@ -18,6 +18,8 @@ export interface ModelConfig {
   provider: 'deepseek' | 'gemini' | 'custom' | 'zhipu' | string;
   /** 是否使用Vercel代理 */
   useVercelProxy?: boolean;
+  /** LLM特定参数 */
+  llmParams?: Record<string, any>;
 }
 
 /**

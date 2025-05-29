@@ -224,6 +224,11 @@
                       </p>
                     </div>
                     <!-- "Add Parameter" Button will be added in the next step -->
+                     <div class="mt-2">
+                        <button @click="showAddLLMParamModal = true" type="button" class="text-sm theme-manager-button-secondary">
+                        {{ t('modelManager.advancedParameters.add') }}
+                        </button>
+                    </div>
                   </div>
 
                   <div class="flex justify-end space-x-3 pt-4">
@@ -309,6 +314,68 @@
                       <span class="cursor-help ml-1" :title="t('modelManager.useVercelProxyHint')">?</span>
                     </label>
                   </div>
+                   <!-- Advanced Parameters Section FOR ADD MODEL -->
+                  <div class="pt-4 mt-4 border-t theme-manager-border">
+                    <h4 class="text-md font-semibold theme-manager-text mb-3">
+                      {{ t('modelManager.advancedParameters.title') }}
+                    </h4>
+                    
+                    <div v-if="Object.keys(currentLLMParams || {}).length === 0" class="text-sm theme-manager-text-secondary mb-3">
+                      {{ t('modelManager.advancedParameters.noParamsConfigured') }}
+                    </div>
+
+                    <div v-for="(value, key) in currentLLMParams" :key="key" class="mb-4 p-3 border theme-manager-border rounded-lg">
+                      <div class="flex items-center justify-between mb-1.5">
+                        <label class="block text-sm font-medium theme-manager-text leading-tight">
+                          {{ getParamMetadata(key)?.label || key }}
+                          <span v-if="!getParamMetadata(key)" class="text-xs theme-manager-text-accent"> ({{ t('modelManager.advancedParameters.customParam') }})</span>
+                        </label>
+                        <button @click="removeLLMParam(key)" type="button" 
+                                class="text-xs theme-manager-button-danger hover:theme-manager-button-danger-hover font-medium py-1 px-2 rounded transition-colors duration-150 ease-in-out">
+                          {{ t('common.remove') }}
+                        </button>
+                      </div>
+                      <p v-if="getParamMetadata(key)?.description" class="text-xs theme-manager-text-secondary mb-2">
+                        {{ getParamMetadata(key)?.description }}
+                      </p>
+                      
+                      <!-- Input field based on type -->
+                      <template v-if="getParamMetadata(key)?.type === 'boolean'">
+                        <input v-model="currentLLMParams[key]" 
+                               type="checkbox" 
+                               :id="`llmparam-${isEditing ? 'edit' : 'add'}-${key}`"
+                               class="theme-manager-checkbox focus:ring-purple-500/50 h-4 w-4" />
+                        <label :for="`llmparam-${isEditing ? 'edit' : 'add'}-${key}`" class="ml-2 text-sm theme-manager-text">
+                          {{ currentLLMParams[key] ? t('common.enabled') : t('common.disabled') }}
+                        </label>
+                      </template>
+                      <template v-else-if="getParamMetadata(key)?.type === 'number' || (getParamMetadata(key)?.type === 'integer' && getParamMetadata(key)?.name !== 'stopSequences')">
+                        <input v-model.number="currentLLMParams[key]" 
+                               type="number"
+                               :min="getParamMetadata(key)?.minValue" 
+                               :max="getParamMetadata(key)?.maxValue" 
+                               :step="getParamMetadata(key)?.step"
+                               class="theme-manager-input w-full text-sm py-1.5 px-2.5" 
+                               :placeholder="getParamMetadata(key)?.defaultValue !== undefined ? String(getParamMetadata(key)?.defaultValue) : 'Enter value'" />
+                      </template>
+                      <template v-else> <!-- Handles string, custom params, and stopSequences (as comma-separated string) -->
+                        <input v-model="currentLLMParams[key]" 
+                               type="text" 
+                               class="theme-manager-input w-full text-sm py-1.5 px-2.5" 
+                               :placeholder="getParamMetadata(key)?.name === 'stopSequences' ? t('modelManager.advancedParameters.stopSequencesPlaceholder') : (getParamMetadata(key)?.defaultValue !== undefined ? String(getParamMetadata(key)?.defaultValue) : 'Enter value')" />
+                      </template>
+                      
+                      <p v-if="getParamMetadata(key)?.unit" class="text-xs theme-manager-text-secondary mt-1">
+                        {{ t('modelManager.advancedParameters.unitLabel') }}: {{ getParamMetadata(key)?.unit }}
+                      </p>
+                    </div>
+                     <div class="mt-2">
+                        <button @click="showAddLLMParamModal = true" type="button" class="text-sm theme-manager-button-secondary">
+                        {{ t('modelManager.advancedParameters.add') }}
+                        </button>
+                    </div>
+                  </div>
+
                   <div class="flex justify-end space-x-3 pt-4">
                     <button type="button" @click="showAddForm = false" class="theme-manager-button-secondary">
                       {{ t('common.cancel') }}
@@ -321,6 +388,33 @@
               </div>
             </div>
           </div>
+
+          <!-- Modal for Adding Advanced Parameters (shared for edit and add forms) -->
+          <Teleport to="body">
+            <div v-if="showAddLLMParamModal" class="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto" @click="showAddLLMParamModal = false">
+               <div class="fixed inset-0 bg-black/60 backdrop-blur-sm"></div>
+              <div class="relative theme-manager-container w-full max-w-md m-4 p-6 space-y-4 z-10" @click.stop>
+                <h4 class="text-lg font-semibold theme-manager-text">{{ t('modelManager.advancedParameters.selectTitle') }}</h4>
+                <select v-model="selectedNewLLMParamId" class="theme-manager-input w-full mb-2 text-sm">
+                  <option disabled value="">{{ t('modelManager.advancedParameters.select') }}</option>
+                  <option v-for="paramDef in availableLLMParamDefinitions" :key="paramDef.id" :value="paramDef.id">
+                    {{ paramDef.labelKey ? t(paramDef.labelKey) : paramDef.name }}
+                  </option>
+                  <option value="custom">{{ t('modelManager.advancedParameters.custom') }}</option>
+                </select>
+                
+                <div v-if="selectedNewLLMParamId === 'custom'" class="space-y-2">
+                  <input v-model="customLLMParam.key" :placeholder="t('modelManager.advancedParameters.customKeyPlaceholder')" class="theme-manager-input w-full text-sm" />
+                  <input v-model="customLLMParam.value" :placeholder="t('modelManager.advancedParameters.customValuePlaceholder')" class="theme-manager-input w-full text-sm" />
+                </div>
+                
+                <div class="flex justify-end space-x-2 pt-2">
+                  <button @click="showAddLLMParamModal = false" type="button" class="theme-manager-button-secondary">{{ t('common.cancel') }}</button>
+                  <button @click="confirmAddLLMParam" type="button" class="theme-manager-button-primary">{{ t('common.add') }}</button>
+                </div>
+              </div>
+            </div>
+          </Teleport>
         </Teleport>
       </div>
     </div>
@@ -355,7 +449,7 @@ const testingConnections = ref({});
 const vercelProxyAvailable = ref(false);
 // For Advanced Parameters UI
 const showAddLLMParamModal = ref(false);
-const selectedNewLLMParamId = ref(''); // Stores ID of param selected from dropdown
+const selectedNewLLMParamId = ref(''); 
 const customLLMParam = ref({ key: '', value: '' });
 
 // 数据状态
@@ -371,9 +465,105 @@ const newModel = ref({
   defaultModel: '',
   apiKey: '',
   useVercelProxy: false,
-  provider: 'custom', // Default provider type for new models
-  llmParams: {}       // Initialize llmParams for new models
+  provider: 'custom', 
+  llmParams: {}
 });
+
+// Advanced Parameters Computed Properties
+const currentLLMParams = computed(() => {
+  if (isEditing.value && editingModel.value) { 
+    if (!editingModel.value.llmParams) editingModel.value.llmParams = {};
+    return editingModel.value.llmParams;
+  } else if (!isEditing.value && newModel.value) { 
+    if (!newModel.value.llmParams) newModel.value.llmParams = {};
+    return newModel.value.llmParams;
+  }
+  return {}; 
+});
+
+
+const currentProviderType = computed(() => {
+  if (isEditing.value && editingModel.value) {
+    return editingModel.value.provider || 'custom';
+  }
+  if (!isEditing.value && newModel.value) { 
+    if (['openai', 'gemini', 'deepseek', 'zhipu', 'siliconflow'].includes(newModel.value.key)) {
+      return newModel.value.key; 
+    }
+  }
+  return 'custom'; 
+});
+
+const availableLLMParamDefinitions = computed(() => {
+  if (!advancedParameterDefinitions) return [];
+  const currentParams = currentLLMParams.value || {}; 
+  return advancedParameterDefinitions.filter(def => 
+    def.appliesToProviders.includes(currentProviderType.value) &&
+    !currentParams.hasOwnProperty(def.name) 
+  );
+});
+
+// Advanced Parameters Methods
+const getParamMetadata = (paramName) => {
+  if (!advancedParameterDefinitions) return null;
+  const provider = currentProviderType.value || 'custom';
+  const definition = advancedParameterDefinitions.find(def => def.name === paramName && def.appliesToProviders.includes(provider));
+  if (definition) {
+    return {
+      ...definition,
+      label: definition.labelKey ? t(definition.labelKey) : definition.name,
+      description: definition.descriptionKey ? t(definition.descriptionKey) : `(${paramName})`, 
+      unit: definition.unitKey ? t(definition.unitKey) : (definition.unit || '')
+    };
+  }
+  return null; 
+};
+
+const removeLLMParam = (paramKey) => {
+  if (currentLLMParams.value) { 
+    delete currentLLMParams.value[paramKey];
+  }
+};
+
+const confirmAddLLMParam = () => {
+  const targetLLMParams = currentLLMParams.value; 
+  if (!targetLLMParams) return; 
+
+  if (selectedNewLLMParamId.value === 'custom') {
+    if (customLLMParam.value.key && !targetLLMParams.hasOwnProperty(customLLMParam.value.key)) {
+      targetLLMParams[customLLMParam.value.key] = customLLMParam.value.value; 
+    }
+    customLLMParam.value = { key: '', value: '' };
+  } else {
+    const definition = advancedParameterDefinitions.find(def => def.id === selectedNewLLMParamId.value);
+    if (definition && !targetLLMParams.hasOwnProperty(definition.name)) {
+      let val = definition.defaultValue;
+      if (definition.type === 'boolean' && val === undefined) val = false;
+      
+      if (definition.type === 'integer' && typeof val === 'string' && val.trim() !== '') {
+         const parsed = parseInt(val, 10);
+         if (!isNaN(parsed)) val = parsed;
+      } else if (definition.type === 'number' && typeof val === 'string' && val.trim() !== '') {
+         const parsed = parseFloat(val);
+         if (!isNaN(parsed)) val = parsed;
+      } else if ((definition.type === 'integer' || definition.type === 'number') && val === undefined) {
+         val = (definition.type === 'integer' ? 0 : 0.0); 
+      }
+      
+      if (definition.name === 'stopSequences') {
+        if (typeof val === 'string' && val.trim() !== '') {
+          val = val.split(',').map(s => s.trim()).filter(s => s);
+        } else if (val === undefined || val === null || (typeof val === 'string' && val.trim() === '')) {
+          val = []; 
+        }
+      }
+      targetLLMParams[definition.name] = val;
+    }
+  }
+  selectedNewLLMParamId.value = '';
+  showAddLLMParamModal.value = false;
+};
+
 
 // =============== 初始化和辅助函数 ===============
 // 检测Vercel代理是否可用
@@ -531,10 +721,10 @@ const editModel = async (key) => {
       apiKey: maskedApiKey,
       displayMaskedKey: true,
       originalApiKey: model.apiKey,
-      useVercelProxy: model.useVercelProxy === undefined ? false : model.useVercelProxy, // Ensure default
-      provider: model.provider || 'custom', // Ensure provider is set
+      useVercelProxy: model.useVercelProxy === undefined ? false : model.useVercelProxy, 
+      provider: model.provider || 'custom', 
       enabled: model.enabled,
-      llmParams: model.llmParams ? JSON.parse(JSON.stringify(model.llmParams)) : {} // Deep copy llmParams
+      llmParams: model.llmParams ? JSON.parse(JSON.stringify(model.llmParams)) : {}, 
     };
     
     // 初始化模型选项
@@ -776,7 +966,8 @@ const saveEdit = async () => {
       provider: editingModel.value.provider || 'custom',
       enabled: editingModel.value.enabled !== undefined 
         ? editingModel.value.enabled 
-        : true
+        : true,
+      llmParams: editingModel.value.llmParams || {} 
     };
     
     // 直接更新原始模型
@@ -810,11 +1001,15 @@ const addCustomModel = async () => {
       defaultModel: newModel.value.defaultModel,
       apiKey: newModel.value.apiKey,
       enabled: true,
-      provider: 'custom',
-      useVercelProxy: newModel.value.useVercelProxy
+      provider: currentProviderType.value, 
+      useVercelProxy: newModel.value.useVercelProxy,
+      llmParams: newModel.value.llmParams || {}
     }
 
-    await modelManager.addModel(newModel.value.key, config)
+    newModel.value.provider = currentProviderType.value;
+
+
+    await modelManager.addModel(newModel.value.key, config);
     await loadModels()
     showAddForm.value = false
     // 修改这里，传递新添加的模型的 key
@@ -825,9 +1020,11 @@ const addCustomModel = async () => {
       baseURL: '',
       defaultModel: '',
       apiKey: '',
-      useVercelProxy: false
+      useVercelProxy: false,
+      provider: 'custom',
+      llmParams: {}
     }
-    toast.success('模型添加成功')
+    toast.success(t('modelManager.addSuccess'))
   } catch (error) {
     console.error('添加模型失败:', error)
     toast.error(`添加模型失败: ${error.message}`)
@@ -835,127 +1032,21 @@ const addCustomModel = async () => {
 };
 
 // =============== 监听器 ===============
-// 当编辑或创建表单打开/关闭时，重置状态
 watch(() => editingModel.value?.apiKey, (newValue) => {
   if (editingModel.value && newValue) {
-    // 如果新输入的密钥不包含星号，标记为非掩码
     editingModel.value.displayMaskedKey = newValue.includes('*');
   }
 });
 
- // =============== Advanced Parameters Computed Properties ===============
- const currentLLMParams = computed(() => {
-   return isEditing.value ? (editingModel.value?.llmParams || {}) : newModel.value.llmParams;
- });
- 
- const currentProviderType = computed(() => {
-   if (isEditing.value) {
-     return editingModel.value?.provider || 'custom';
-   }
-   // For new models, derive from key if it matches a known provider, else default to 'custom'
-   // This helps in suggesting relevant advanced parameters early.
-   const knownProviders = ['openai', 'gemini', 'deepseek', 'zhipu', 'siliconflow'];
-   if (newModel.value.key && knownProviders.includes(newModel.value.key.toLowerCase())) {
-     // Update newModel.provider reactively if key suggests a known provider
-     // This is a bit of a side-effect in a computed prop, consider moving to a watcher or method if problematic
-     // newModel.value.provider = newModel.value.key.toLowerCase(); 
-     return newModel.value.key.toLowerCase();
-   }
-   return newModel.value.provider || 'custom';
- });
- 
-const getParamMetadata = (paramName) => {
-  if (!advancedParameterDefinitions) return null;
-  // Ensure currentProviderType.value is valid before using in .includes()
-  const provider = currentProviderType.value || 'custom';
-  const definition = advancedParameterDefinitions.find(def => def.name === paramName && def.appliesToProviders.includes(provider));
-  
-  if (definition) {
-    return {
-      ...definition,
-      label: definition.labelKey ? t(definition.labelKey) : definition.name,
-      description: definition.descriptionKey ? t(definition.descriptionKey) : `(${paramName})`, // Fallback description
-      unit: definition.unitKey ? t(definition.unitKey) : (definition.unit || '')
-    };
-  }
-  return null; // For custom params or if not found
-};
-
-const availableLLMParamDefinitions = computed(() => {
-  if (!advancedParameterDefinitions) return [];
-  const currentParams = currentLLMParams.value || {};
-  const provider = currentProviderType.value || 'custom';
-  return advancedParameterDefinitions.filter(def => 
-    def.appliesToProviders.includes(provider) &&
-    !Object.keys(currentParams).includes(def.name)
-  );
-});
-
-const removeLLMParam = (paramKey) => {
-  if (currentLLMParams.value) {
-    delete currentLLMParams.value[paramKey];
-    // Vue 3 might need a bit more help for reactivity on nested objects if not using Vue.set or Vue.delete
-    // However, direct deletion and assignment for the whole llmParams object during save should be fine.
-    // For local reactivity within the form, this should work.
-  }
-};
-
-const confirmAddLLMParam = () => {
-  const paramsObject = currentLLMParams.value;
-  if (!paramsObject) return; // Should not happen if initialized correctly
-
-  if (selectedNewLLMParamId.value === 'custom') {
-    if (customLLMParam.value.key && !paramsObject[customLLMParam.value.key]) {
-      // For custom params, initially store value as string.
-      // Type conversion can be attempted by user or upon processing if needed.
-      paramsObject[customLLMParam.value.key] = customLLMParam.value.value; 
-    }
-    customLLMParam.value = { key: '', value: '' }; // Reset custom input
-  } else {
-    const definition = advancedParameterDefinitions.find(def => def.id === selectedNewLLMParamId.value);
-    if (definition && !paramsObject[definition.name]) {
-      let val = definition.defaultValue;
-      // Basic type handling for default values
-      if (definition.type === 'boolean') {
-        val = (val === undefined) ? false : Boolean(val);
-      } else if (definition.type === 'integer' && val !== undefined) {
-        val = parseInt(String(val), 10);
-      } else if (definition.type === 'number' && val !== undefined) {
-        val = parseFloat(String(val));
-      } else if (definition.name === 'stopSequences') { // Special handling for stopSequences
-         val = Array.isArray(val) ? val : ( (typeof val === 'string' && val) ? val.split(',').map(s => s.trim()).filter(s => s) : [] );
-      }
-      // All other types, including string, or if val is undefined, will use val as is.
-      paramsObject[definition.name] = val;
-    }
-  }
-  selectedNewLLMParamId.value = ''; // Reset select
-  showAddLLMParamModal.value = false;
-};
-
 watch(() => newModel.value.key, (newKey) => {
-  // If the key changes and implies a different provider type for a new model, 
-  // it might be good to reset llmParams or re-evaluate defaults.
-  // For simplicity now, we can reset if the key change might imply a different context.
-  // This is a basic reset; more sophisticated logic could merge common params if desired.
-  const knownProviders = ['openai', 'gemini', 'deepseek', 'zhipu', 'siliconflow'];
-  let newProvider = 'custom';
-  if (newKey && knownProviders.includes(newKey.toLowerCase())) {
-    newProvider = newKey.toLowerCase();
-  }
-  
-  if (newModel.value.provider !== newProvider) {
-     // If provider type effectively changes, reset llmParams.
-     // This helps if user types "openai", then changes mind to "gemini".
-     // The UI will then show relevant default params for "gemini".
-    newModel.value.llmParams = {};
-    newModel.value.provider = newProvider; // Update the provider field too
-  } else if (newModel.value.provider === 'custom' && newProvider === 'custom' && newModel.value.key !== '') {
-    // If still custom but key has changed, it's a new custom model, reset llmParams
-    newModel.value.llmParams = {};
-  }
+  // When newModel.key changes, we might need to update the provider type
+  // and reset llmParams because the available/default params might differ.
+  // currentProviderType will react to newKey.
+  // We only need to reset llmParams for the newModel form.
+  newModel.value.llmParams = {}; 
 });
- 
+
+
 // =============== 生命周期钩子 ===============
 // 初始化
 onMounted(() => {

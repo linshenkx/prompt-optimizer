@@ -20,6 +20,7 @@ export * from './services/llm/errors'
 export { ModelManager, modelManager } from './services/model/manager'
 export * from './services/model/types'
 export * from './services/model/defaults'
+export * from './services/model/advancedParameterDefinitions'
 
 // 导出提示词服务相关
 export { PromptService, createPromptService } from './services/prompt/service'

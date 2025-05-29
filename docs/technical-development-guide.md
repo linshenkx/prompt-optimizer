@@ -340,10 +340,40 @@
 ### 4.4 模型管理流程
 
 1. **模型配置管理**
-   - 模型配置更新
-   - 连接测试
-   - 配置验证
-   - 错误处理
+   - 模型配置更新: 用户可以更新模型的名称、基础URL、API密钥、可用模型列表、默认模型以及是否启用。
+   - **高级LLM参数 (`llmParams`)**:
+     - `ModelConfig` 接口包含一个 `llmParams?: Record<string, any>;` 字段。
+     - 此字段允许用户为每个模型配置提供一个灵活的键值对映射，用于指定特定于该LLM提供商SDK的参数。
+     - 用户可以添加其LLM SDK支持的任何参数。
+     - **示例**:
+       - **OpenAI/OpenAI兼容API (如 DeepSeek, Zhipu):**
+         ```json
+         "llmParams": {
+           "temperature": 0.7,
+           "max_tokens": 4096,
+           "timeout": 60000, // 用于OpenAI客户端的请求超时 (毫秒)
+           "top_p": 0.9,
+           "frequency_penalty": 0.5
+           // ... 其他OpenAI支持的参数
+         }
+         ```
+       - **Gemini:**
+         ```json
+         "llmParams": {
+           "temperature": 0.8,
+           "maxOutputTokens": 2048, // 注意: Gemini使用maxOutputTokens
+           "topP": 0.95,
+           "topK": 40
+           // ... 其他Gemini支持的参数
+         }
+         ```
+     - **`LLMService` 如何处理 `llmParams`**:
+       - 对于OpenAI兼容的API, `timeout` 值（如果提供）用于配置OpenAI JavaScript SDK客户端实例的超时设置。其余参数（如 `temperature`, `max_tokens`, `top_p` 等）会直接传递给 `chat.completions.create()` 方法。
+       - 对于Gemini, `temperature`, `maxOutputTokens`, `topP`, `topK` 等参数会包含在传递给 `model.startChat()` 的 `generationConfig` 对象中。
+       - 未被服务明确处理的参数（即非 `timeout` for OpenAI, 或非已知Gemini参数）通常会被安全地传递给相应SDK的请求中，如果SDK支持它们。
+   - 连接测试: 验证API密钥和基础URL是否正确，以及模型是否可用。
+   - 配置验证: 确保所有必填字段都已填写，并且格式正确。`llmParams` 字段（如果提供）必须是一个对象。
+   - 错误处理: 在配置不正确或连接失败时提供明确的错误信息。
 
 2. **API密钥管理**
    - 密钥设置与加密

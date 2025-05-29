@@ -79,19 +79,17 @@ export class LLMService implements ILLMService {
     }
 
     // 创建OpenAI实例配置
+    const defaultTimeout = isStream ? 90000 : 60000;
+    const timeout = modelConfig.llmParams?.timeout !== undefined
+                    ? modelConfig.llmParams.timeout
+                    : defaultTimeout;
     const config: any = {
       apiKey: apiKey,
       baseURL: finalBaseURL,
       dangerouslyAllowBrowser: true,
-      timeout: 60000, // 设置60秒超时时间，文本生成可能需要较长时间
-      maxRetries: 3   // 设置重试次数
+      timeout: timeout, // Use the new timeout logic
+      maxRetries: isStream ? 2 : 3
     };
-
-    // 为流式请求添加额外配置
-    if (isStream) {
-      config.timeout = 90000; // 流式请求使用更长的超时时间
-      config.maxRetries = 2;  // 流式请求减少重试次数
-    }
 
     const instance = new OpenAI(config);
 
@@ -142,11 +140,23 @@ export class LLMService implements ILLMService {
       content: msg.content
     }));
 
-    const response = await openai.chat.completions.create({
+    const {
+      timeout, // Handled in getOpenAIInstance
+      model: llmParamsModel, // Avoid overriding main model
+      messages: llmParamsMessages, // Avoid overriding main messages
+      ...restLlmParams
+    } = modelConfig.llmParams || {};
+
+    const completionConfig: any = {
       model: modelConfig.defaultModel,
       messages: formattedMessages,
-      temperature: 0.7
-    });
+      ...restLlmParams // Spread other params from llmParams
+    };
+
+    if (completionConfig.temperature === undefined) {
+      completionConfig.temperature = 0.7; // Default if not in llmParams
+    }
+    const response = await openai.chat.completions.create(completionConfig);
 
     return response.choices[0].message.content || '';
   }
@@ -168,9 +178,45 @@ export class LLMService implements ILLMService {
     const conversationMessages = messages.filter(msg => msg.role !== 'system');
 
     // 创建聊天会话
-    const chat = model.startChat({
+    const {
+      // Destructure known Gemini params, collect others
+      temperature,
+      maxOutputTokens,
+      topP,
+      topK,
+      candidateCount, // Example of another Gemini param
+      stopSequences,  // Example of another Gemini param
+      ...otherSafeParams // Collect any other params that might be safe to pass
+    } = modelConfig.llmParams || {};
+
+    const generationConfig: any = { ...otherSafeParams }; // Spread other safe params first
+    if (temperature !== undefined) {
+      generationConfig.temperature = temperature;
+    }
+    if (maxOutputTokens !== undefined) {
+      generationConfig.maxOutputTokens = maxOutputTokens;
+    }
+    if (topP !== undefined) {
+      generationConfig.topP = topP;
+    }
+    if (topK !== undefined) {
+      generationConfig.topK = topK;
+    }
+    if (candidateCount !== undefined) {
+      generationConfig.candidateCount = candidateCount;
+    }
+    if (stopSequences !== undefined && Array.isArray(stopSequences)) {
+      generationConfig.stopSequences = stopSequences;
+    }
+
+
+    const chatOptions: any = {
       history: this.formatGeminiHistory(conversationMessages)
-    });
+    };
+    if (Object.keys(generationConfig).length > 0) {
+      chatOptions.generationConfig = generationConfig;
+    }
+    const chat = model.startChat(chatOptions);
 
     // 获取最后一条用户消息
     const lastUserMessage = conversationMessages.length > 0 &&
@@ -310,12 +356,25 @@ export class LLMService implements ILLMService {
 
     try {
       console.log('开始创建流式请求...');
-      const stream = await openai.chat.completions.create({
+      const {
+        timeout, // Handled in getOpenAIInstance
+        model: llmParamsModel, // Avoid overriding main model
+        messages: llmParamsMessages, // Avoid overriding main messages
+        stream: llmParamsStream, // Avoid overriding main stream flag
+        ...restLlmParams
+      } = modelConfig.llmParams || {};
+
+      const completionConfig: any = {
         model: modelConfig.defaultModel,
         messages: formattedMessages,
-        temperature: 0.7,
-        stream: true
-      });
+        stream: true, // Essential for streaming
+        ...restLlmParams
+      };
+
+      if (completionConfig.temperature === undefined) {
+        completionConfig.temperature = 0.7; // Default if not in llmParams
+      }
+      const stream = await openai.chat.completions.create(completionConfig);
 
       console.log('成功获取到流式响应');
 
@@ -363,9 +422,44 @@ export class LLMService implements ILLMService {
     const conversationMessages = messages.filter(msg => msg.role !== 'system');
 
     // 创建聊天会话
-    const chat = model.startChat({
+    const {
+      // Destructure known Gemini params, collect others
+      temperature,
+      maxOutputTokens,
+      topP,
+      topK,
+      candidateCount, // Example of another Gemini param
+      stopSequences,  // Example of another Gemini param
+      ...otherSafeParams // Collect any other params that might be safe to pass
+    } = modelConfig.llmParams || {};
+
+    const generationConfig: any = { ...otherSafeParams }; // Spread other safe params first
+    if (temperature !== undefined) {
+      generationConfig.temperature = temperature;
+    }
+    if (maxOutputTokens !== undefined) {
+      generationConfig.maxOutputTokens = maxOutputTokens;
+    }
+    if (topP !== undefined) {
+      generationConfig.topP = topP;
+    }
+    if (topK !== undefined) {
+      generationConfig.topK = topK;
+    }
+    if (candidateCount !== undefined) {
+      generationConfig.candidateCount = candidateCount;
+    }
+    if (stopSequences !== undefined && Array.isArray(stopSequences)) {
+      generationConfig.stopSequences = stopSequences;
+    }
+
+    const chatOptions: any = {
       history: this.formatGeminiHistory(conversationMessages)
-    });
+    };
+    if (Object.keys(generationConfig).length > 0) {
+      chatOptions.generationConfig = generationConfig;
+    }
+    const chat = model.startChat(chatOptions);
 
     // 获取最后一条用户消息
     const lastUserMessage = conversationMessages.length > 0 &&
