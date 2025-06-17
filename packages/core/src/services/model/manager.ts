@@ -13,12 +13,23 @@ export class ModelManager implements IModelManager {
   private models: Record<string, ModelConfig>;
   private readonly storageKey = 'models';
   private readonly storage: IStorageProvider;
+  private initPromise: Promise<void>;
 
   constructor(storageProvider: IStorageProvider) {
     this.models = { ...defaultModels };
     // 使用适配器确保所有存储提供者都支持高级方法
     this.storage = new StorageAdapter(storageProvider);
-    this.init().catch(err => console.error('Model manager initialization failed:', err));
+    this.initPromise = this.init().catch(err => {
+      console.error('Model manager initialization failed:', err);
+      throw err;
+    });
+  }
+
+  /**
+   * 确保初始化完成
+   */
+  private async ensureInitialized(): Promise<void> {
+    await this.initPromise;
   }
 
   /**
@@ -28,10 +39,14 @@ export class ModelManager implements IModelManager {
     try {
       // 1. 先从本地存储加载所有模型配置
       const storedData = await this.storage.getItem(this.storageKey);
-      if (storedData) {
-        console.log('加载模型配置:', storedData);
-        this.models = JSON.parse(storedData);
+
+      if (!storedData) {
+        // 首次运行，存储中没有数据，默认模型写入存储
+        await this.saveToStorage();
+        return;
       }
+
+      this.models = JSON.parse(storedData);
 
       // 2. 检查内置模型是否存在，不存在则添加到本地存储
       let hasChanges = false;
@@ -92,6 +107,7 @@ export class ModelManager implements IModelManager {
    * 获取所有模型配置
    */
   async getAllModels(): Promise<Array<ModelConfig & { key: string }>> {
+    await this.ensureInitialized();
     // 每次获取都从存储重新加载最新数据
     const storedData = await this.storage.getItem(this.storageKey);
     if (storedData) {
@@ -113,6 +129,7 @@ export class ModelManager implements IModelManager {
    * 获取指定模型配置
    */
   async getModel(key: string): Promise<ModelConfig | undefined> {
+    await this.ensureInitialized();
     const storedData = await this.storage.getItem(this.storageKey);
     if (storedData) {
       try {
@@ -129,6 +146,7 @@ export class ModelManager implements IModelManager {
    * 添加模型配置
    */
   async addModel(key: string, config: ModelConfig): Promise<void> {
+    await this.ensureInitialized();
     this.validateConfig(config);
     
     await this.storage.updateData<Record<string, ModelConfig>>(
@@ -161,6 +179,7 @@ export class ModelManager implements IModelManager {
    * 更新模型配置
    */
   async updateModel(key: string, config: Partial<ModelConfig>): Promise<void> {
+    await this.ensureInitialized();
     let updatedConfig: ModelConfig | undefined;
     
     await this.storage.updateData<Record<string, ModelConfig>>(
@@ -221,6 +240,7 @@ export class ModelManager implements IModelManager {
    * 删除模型配置
    */
   async deleteModel(key: string): Promise<void> {
+    await this.ensureInitialized();
     await this.storage.updateData<Record<string, ModelConfig>>(
       this.storageKey,
       (currentModels) => {
@@ -241,6 +261,7 @@ export class ModelManager implements IModelManager {
    * 启用模型
    */
   async enableModel(key: string): Promise<void> {
+    await this.ensureInitialized();
     await this.storage.updateData<Record<string, ModelConfig>>(
       this.storageKey,
       (currentModels) => {
@@ -272,6 +293,7 @@ export class ModelManager implements IModelManager {
    * 禁用模型
    */
   async disableModel(key: string): Promise<void> {
+    await this.ensureInitialized();
     await this.storage.updateData<Record<string, ModelConfig>>(
       this.storageKey,
       (currentModels) => {
@@ -365,6 +387,7 @@ export class ModelManager implements IModelManager {
    * 获取所有已启用的模型配置
    */
   async getEnabledModels(): Promise<Array<ModelConfig & { key: string }>> {
+    await this.ensureInitialized();
     const allModels = await this.getAllModels();
     return allModels.filter(model => model.enabled);
   }
