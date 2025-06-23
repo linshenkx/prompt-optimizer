@@ -1,4 +1,4 @@
-﻿// 导入样式
+﻿﻿// 导入样式
 import 'element-plus/dist/index.css'
 import './styles/index.css'
 import './styles/scrollbar.css'
@@ -33,6 +33,7 @@ export { default as BuiltinTemplateLanguageSwitchUi } from './components/Builtin
 export { default as DataManagerUI } from './components/DataManager.vue'
 export { default as OptimizationModeSelectorUI } from './components/OptimizationModeSelector.vue'
 export { default as OptimizePanelUI } from './components/OptimizePanel.vue'
+export { default as TextDiffUI } from './components/TextDiff.vue'
 
 // 导出指令
 export { clickOutside } from './directives/clickOutside'

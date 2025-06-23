@@ -39,6 +39,11 @@ export { PromptService, createPromptService } from './services/prompt/service'
 export * from './services/prompt/types'
 export * from './services/prompt/errors'
 
+// 导出对比服务相关
+export { CompareService, compareService } from './services/compare'
+export * from './services/compare/types'
+export * from './services/compare/errors'
+
 // 导出数据管理相关
 export { DataManager, dataManager } from './services/data/manager'
 

@@ -386,6 +386,12 @@ export default {
     confirmOptimize: 'Confirm Optimize',
     iterateTitle: 'Iteration Template',
     selectIterateTemplate: 'Please select iteration template:',
+    diff: {
+      compare: 'Compare with Previous',
+      exit: 'Exit Compare',
+      enable: 'Enable text comparison',
+      disable: 'Disable text comparison'
+    },
     error: {
       noTemplate: 'Please select an iteration template first'
     }
@@ -420,7 +426,10 @@ export default {
     error: {
       serviceInit: 'Service not initialized, please try again later',
       optimizeFailed: 'Optimization failed',
-      iterateFailed: 'Iteration optimization failed',
+      iterateFailed: 'Iteration failed',
+      compareFailed: 'Comparison analysis failed',
+      noVersionsToCompare: 'Not enough versions to compare',
+      noPreviousVersion: 'No previous version available for comparison',
       testFailed: 'Test failed',
       testError: 'Error occurred during test',
       loadTemplatesFailed: 'Failed to load templates',
@@ -443,12 +452,14 @@ export default {
     },
     success: {
       optimizeSuccess: 'Optimization successful',
-      iterateComplete: 'Iteration completed',
+      iterateComplete: 'Iteration optimization completed',
       iterateSuccess: 'Iteration optimization successful',
       modelSelected: 'Model selected: {name}',
       templateSelected: '{type} template selected: {name}',
       historyClear: 'History cleared',
-      historyChainDeleted: 'History record deleted'
+      historyChainDeleted: 'History record deleted',
+      exitCompare: 'Exited compare mode',
+      compareEnabled: 'Compare mode enabled'
     },
     warn: {
       loadOptimizeTemplateFailed: 'Failed to load saved optimization template',

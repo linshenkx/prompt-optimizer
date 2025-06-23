@@ -23,6 +23,16 @@
         </div>
       </div>
       <div class="flex items-center space-x-4 flex-shrink-0">
+        <!-- 对比模式切换按钮 -->
+        <button
+          v-if="optimizedPrompt && ((versions && versions.length >= 2) || originalPrompt)"
+          @click="toggleDiffMode"
+          class="px-3 py-1.5 flex items-center space-x-2"
+          :class="isDiffMode ? 'theme-button-primary' : 'theme-button-secondary'"
+          :title="isDiffMode ? t('prompt.diff.disable') : t('prompt.diff.enable')"
+        >
+          <span>{{ isDiffMode ? t('prompt.diff.exit') : t('prompt.diff.compare') }}</span>
+        </button>
         <button
           v-if="optimizedPrompt"
           @click="handleIterate"
@@ -54,7 +64,22 @@
     <!-- 内容区域 -->
     <div class="flex-1 min-h-0 p-[2px] overflow-hidden">
       <div class="h-full relative">
+        <!-- 对比模式：显示TextDiff组件 -->
+        <TextDiffUI
+          v-if="isDiffMode"
+          :originalText="previousVersionText"
+          :optimizedText="optimizedPrompt"
+          :compareResult="compareResult"
+          :isEnabled="true"
+          :showHeader="false"
+          displayMode="optimized"
+          class="h-full"
+          @toggleDiff="toggleDiffMode"
+        />
+        
+        <!-- 普通模式：显示textarea -->
         <textarea
+          v-else
           ref="promptTextarea"
           :value="optimizedPrompt"
           @input="handleInput"
@@ -135,15 +160,22 @@ import { useFullscreen } from '../composables/useFullscreen'
 import TemplateSelect from './TemplateSelect.vue'
 import Modal from './Modal.vue'
 import FullscreenDialog from './FullscreenDialog.vue'
+import TextDiffUI from './TextDiff.vue'
+import { compareService } from '@prompt-optimizer/core'
 import type {
   Template,
   PromptRecord,
-  PromptRecordChain
+  PromptRecordChain,
+  CompareResult
 } from '@prompt-optimizer/core'
 
 const { t } = useI18n()
 const toast = useToast()
 const { copyText } = useClipboard()
+
+// 对比模式相关状态
+const isDiffMode = ref(false)
+const compareResult = ref<CompareResult | undefined>()
 
 // 使用自动滚动组合式函数
 const { elementRef: promptTextarea, watchSource, forceScrollToBottom, shouldAutoScroll } = useAutoScroll<HTMLTextAreaElement>({
@@ -213,6 +245,26 @@ const templateSelectText = computed(() => {
   return t('prompt.selectIterateTemplate')
 })
 
+// 计算上一版本的文本用于显示
+const previousVersionText = computed(() => {
+  if (!props.versions || props.versions.length === 0) {
+    return props.originalPrompt || ''
+  }
+  
+  const currentIndex = props.versions.findIndex(v => v.id === props.currentVersionId)
+  
+  if (currentIndex > 0) {
+    // 当前版本有上一版本
+    return props.versions[currentIndex - 1].optimizedPrompt
+  } else if (currentIndex === 0) {
+    // 当前是V1，使用原始提示词
+    return props.originalPrompt || ''
+  } else {
+    // 找不到当前版本，使用原始提示词
+    return props.originalPrompt || ''
+  }
+})
+
 // 处理输入变化
 const handleInput = (event: Event) => {
   const target = event.target as HTMLTextAreaElement
@@ -268,8 +320,88 @@ const switchVersion = (version: PromptRecord) => {
   })
 }
 
+// 监听版本切换，在对比模式下自动更新对比结果
+watch(
+  () => props.currentVersionId,
+  async (newVersionId, oldVersionId) => {
+    if (isDiffMode.value && newVersionId !== oldVersionId) {
+      console.log('[VersionSwitch] 版本切换，更新对比结果')
+      await updateCompareResult()
+    }
+  }
+)
+
 // 监听optimizedPrompt变化，自动滚动到底部
 watchSource(() => props.optimizedPrompt, true)
+
+// 切换对比模式
+const toggleDiffMode = async () => {
+  isDiffMode.value = !isDiffMode.value
+  
+  if (isDiffMode.value) {
+    await updateCompareResult()
+  } else {
+    compareResult.value = undefined
+  }
+}
+
+// 更新对比结果
+const updateCompareResult = async () => {
+  if (isDiffMode.value && props.optimizedPrompt) {
+    try {
+      // 获取上一个版本的文本
+      let previousVersionText = ''
+      
+      if (props.versions && props.versions.length >= 2) {
+        // 找到当前版本在原始数组中的位置
+        const currentIndex = props.versions.findIndex(v => v.id === props.currentVersionId)
+        
+        console.log('[UpdateCompareResult] 版本信息:', {
+          currentVersionId: props.currentVersionId,
+          currentIndex,
+          versionsLength: props.versions.length,
+          versions: props.versions.map(v => ({ id: v.id, version: v.version }))
+        })
+        
+        if (currentIndex !== -1) {
+          // 获取上一个版本：如果是V2(index=1)，上一版本是V1(index=0)
+          if (currentIndex > 0) {
+            previousVersionText = props.versions[currentIndex - 1].optimizedPrompt
+            console.log('[UpdateCompareResult] 找到上一版本:', props.versions[currentIndex - 1].version)
+          } else if (currentIndex === 0 && props.originalPrompt) {
+            // 如果是V1(index=0)，使用originalPrompt
+            previousVersionText = props.originalPrompt
+            console.log('[UpdateCompareResult] 使用原始提示词作为上一版本')
+          }
+        }
+      }
+      
+      // 如果没有找到上一个版本，尝试使用originalPrompt
+      if (!previousVersionText && props.originalPrompt) {
+        previousVersionText = props.originalPrompt
+        console.log('[UpdateCompareResult] 回退使用原始提示词')
+      }
+      
+      if (previousVersionText) {
+        compareResult.value = await compareService.compareTexts(
+          previousVersionText,
+          props.optimizedPrompt
+        )
+        console.log('[UpdateCompareResult] 对比完成')
+      } else {
+        console.log('[UpdateCompareResult] 没有找到可对比的版本')
+        toast.error(t('toast.error.noPreviousVersion'))
+        isDiffMode.value = false
+      }
+    } catch (error) {
+      console.error('文本对比失败:', error)
+      toast.error(t('toast.error.compareFailed'))
+      isDiffMode.value = false
+    }
+  } else {
+    compareResult.value = undefined
+  }
+}
 </script>
 
 <style scoped>

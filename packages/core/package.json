@@ -33,6 +33,7 @@
     "@google/generative-ai": "^0.21.0",
     "@types/handlebars": "^4.1.0",
     "dexie": "^4.0.11",
+    "diff": "^8.0.2",
     "handlebars": "^4.7.8",
     "openai": "^4.83.0",
     "uuid": "^11.0.5",
