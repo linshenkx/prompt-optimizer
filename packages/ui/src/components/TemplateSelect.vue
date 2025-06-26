@@ -76,6 +76,7 @@ const { t } = useI18n()
 interface Template {
   id: string;
   name: string;
+  content: string | Array<{role: string; content: string}>;
   isBuiltin?: boolean;
   metadata: {
     description?: string;
@@ -189,7 +190,7 @@ watch(
 // 添加对模板列表变化的监听
 watch(
   templates,  // 监听模板列表
-  (newTemplates, oldTemplates) => {
+  (newTemplates) => {
     const currentTemplate = props.modelValue
     // 只有在模板列表真正发生变化，且当前模板不在新列表中时才自动切换
     if (currentTemplate && !newTemplates.find(t => t.id === currentTemplate.id)) {
@@ -207,18 +208,35 @@ watch(
 
 // 改进刷新方法
 const refreshTemplates = () => {
-  const oldTrigger = refreshTrigger.value
   refreshTrigger.value++
-  
+
   // 检查模板管理器是否已初始化
   if (!templateManager.isInitialized()) {
     return
   }
-  
-  // 只在初始化时检查和自动选择模板，避免重复触发
+
   const currentTemplates = templateManager.listTemplatesByType(props.type)
   const currentTemplate = props.modelValue
-  
+
+  // 如果当前有选中的模板，尝试获取其最新版本（处理语言切换的情况）
+  if (currentTemplate) {
+    try {
+      const updatedTemplate = templateManager.getTemplate(currentTemplate.id)
+      // 如果模板内容发生了变化（比如语言切换），更新选中的模板
+      if (updatedTemplate && (
+        updatedTemplate.name !== currentTemplate.name ||
+        updatedTemplate.content !== currentTemplate.content
+      )) {
+        emit('update:modelValue', updatedTemplate)
+        // 静默更新，不显示toast
+        emit('select', updatedTemplate, false)
+        return
+      }
+    } catch (error) {
+      console.warn('Failed to get updated template:', error)
+    }
+  }
+
   // 仅在当前没有选中模板或选中的模板不在列表中时才自动选择
   if (!currentTemplate || !currentTemplates.find(t => t.id === currentTemplate.id)) {
     const firstTemplate = currentTemplates[0] || null
