@@ -182,6 +182,39 @@ for (const [key, value] of Object.entries(importData)) {
 - **用户模板**：可修改，导入时生成新ID
 - **导入规则**：跳过与内置模板ID重复的模板
 
+### 4. 数组内容深度比较修复（2025-01-27）
+**问题**：BugBot 发现模板内容比较使用引用比较而非深度比较
+```typescript
+// ❌ 错误：数组引用比较
+if (updatedTemplate.content !== currentTemplate.content) {
+  // 数组内容相同但引用不同时会触发不必要更新
+}
+
+// ✅ 正确：深度比较函数
+const deepCompareTemplateContent = (content1, content2) => {
+  if (typeof content1 !== typeof content2) return false;
+  
+  if (typeof content1 === 'string') return content1 === content2;
+  
+  if (Array.isArray(content1) && Array.isArray(content2)) {
+    if (content1.length !== content2.length) return false;
+    return content1.every((item1, index) => {
+      const item2 = content2[index];
+      return item1.role === item2.role && item1.content === item2.content;
+    });
+  }
+  
+  return JSON.stringify(content1) === JSON.stringify(content2);
+};
+
+// 使用深度比较
+if (!deepCompareTemplateContent(updatedTemplate.content, currentTemplate.content)) {
+  // 只有内容真正改变时才更新
+}
+```
+
+**关键**：Template 接口的 content 可以是 `string | Array<{role: string; content: string}>`，必须支持两种类型的正确比较。
+
 ---
 
 ## 📝 文档更新规范

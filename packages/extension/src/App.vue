@@ -354,26 +354,9 @@ const handleTemplateManagerClose = () => {
   showTemplates.value = false
 
   // 刷新模板选择器以反映语言变更后的模板
+  // 子组件会通过 v-model 自动更新父组件的状态
   if (templateSelectRef.value?.refresh) {
     templateSelectRef.value.refresh()
-  }
-
-  // 确保当前选中的模板也得到更新（处理语言切换的情况）
-  const currentTemplate = currentSelectedTemplate.value
-  if (currentTemplate && currentTemplate.isBuiltin) {
-    try {
-      // 获取更新后的模板对象
-      const updatedTemplate = templateManager.getTemplate(currentTemplate.id)
-      if (updatedTemplate && (
-        updatedTemplate.name !== currentTemplate.name ||
-        updatedTemplate.content !== currentTemplate.content
-      )) {
-        // 更新当前选中的模板
-        currentSelectedTemplate.value = updatedTemplate
-      }
-    } catch (error) {
-      console.warn('Failed to update current selected template after language change:', error)
-    }
   }
 }
 
