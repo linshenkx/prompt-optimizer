@@ -215,6 +215,27 @@ if (!deepCompareTemplateContent(updatedTemplate.content, currentTemplate.content
 
 **关键**：Template 接口的 content 可以是 `string | Array<{role: string; content: string}>`，必须支持两种类型的正确比较。
 
+### 5. 模板类型过滤器验证修复（2025-01-27）
+**问题**：BugBot 发现 refreshTemplates 函数可能选择不匹配类型过滤器的模板
+```typescript
+// ❌ 问题：更新模板后直接返回，未验证类型匹配
+if (updatedTemplate && contentChanged) {
+  emit('update:modelValue', updatedTemplate)
+  return // 跳过了类型验证
+}
+
+// ✅ 修复：添加类型验证
+if (updatedTemplate && contentChanged) {
+  // 验证更新后的模板是否还匹配当前类型过滤器
+  if (updatedTemplate.metadata.templateType === props.type) {
+    emit('update:modelValue', updatedTemplate)
+    return
+  }
+  // 类型不匹配时继续执行后续逻辑
+}
+```
+**修复效果**：确保模板选择器只选择匹配当前类型的模板，避免类型不一致的问题。
+
 ---
 
 ## 📝 文档更新规范

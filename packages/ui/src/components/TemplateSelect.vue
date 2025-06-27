@@ -265,11 +265,15 @@ const refreshTemplates = () => {
         updatedTemplate.name !== currentTemplate.name ||
         !deepCompareTemplateContent(updatedTemplate.content, currentTemplate.content)
       )) {
-        // 通过 v-model 更新父组件状态
-        emit('update:modelValue', updatedTemplate)
-        // 静默更新，不显示用户提示
-        emit('select', updatedTemplate, false)
-        return
+        // 验证更新后的模板是否还匹配当前类型过滤器（修复类型过滤器忽略问题）
+        if (updatedTemplate.metadata.templateType === props.type) {
+          // 通过 v-model 更新父组件状态
+          emit('update:modelValue', updatedTemplate)
+          // 静默更新，不显示用户提示
+          emit('select', updatedTemplate, false)
+          return
+        }
+        // 如果类型不匹配，继续执行后续逻辑选择合适的模板
       }
     } catch (error) {
       console.warn('[TemplateSelect] Failed to get updated template:', error)
