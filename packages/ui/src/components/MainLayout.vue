@@ -2,7 +2,7 @@
   <div class="h-screen flex flex-col min-h-0 transition-colors duration-300">
     <!-- 顶部导航栏 -->
     <header class="theme-header flex-none">
-      <div class="container mx-auto px-2 sm:px-4 py-2 sm:py-3 flex justify-between items-center">
+      <div class="container min-w-full mx-4 sm:mx-auto px-2 sm:px-4 py-2 sm:py-3 flex justify-between items-center">
         <h1 class="text-lg sm:text-xl font-bold theme-title flex items-center gap-2">
           <img src="../assets/logo.jpg" alt="Logo" class="h-8 w-8 rounded-lg" />
           <slot name="title">{{ t('common.appName') }}</slot>
@@ -14,7 +14,7 @@
     </header>
 
     <!-- 主要内容区域 -->
-    <main class="flex-1 min-h-0 container mx-auto p-2 sm:p-4">
+    <main class="flex-1 min-h-0 min-w-full container mx-auto p-2 sm:p-4">
       <div class="flex flex-col lg:flex-row gap-2 sm:gap-4 h-full">
         <slot></slot>
       </div>
