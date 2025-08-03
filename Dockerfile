@@ -17,8 +17,8 @@ RUN apk add --no-cache apache2-utils dos2unix supervisor nodejs npm gettext curl
 # 安装pnpm
 RUN npm install -g pnpm
 
-# 复制Nginx配置
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+# 复制Nginx配置模板
+COPY docker/nginx.conf.template /etc/nginx/conf.d/nginx.conf.template
 
 # 复制Web应用
 COPY --from=build /app/packages/web/dist /usr/share/nginx/html
@@ -41,18 +41,15 @@ WORKDIR /app/mcp-server
 
 # 复制并设置启动脚本
 COPY docker/generate-config.sh /docker-entrypoint.d/40-generate-config.sh
-COPY docker/generate-auth.sh /docker-entrypoint.d/30-generate-auth.sh
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/start-services.sh /start-services.sh
 
 # 确保脚本有执行权限
 RUN chmod +x /docker-entrypoint.d/40-generate-config.sh
-RUN chmod +x /docker-entrypoint.d/30-generate-auth.sh
 RUN chmod +x /start-services.sh
 
 # 转换可能的Windows行尾符为Unix格式
 RUN dos2unix /docker-entrypoint.d/40-generate-config.sh
-RUN dos2unix /docker-entrypoint.d/30-generate-auth.sh
 RUN dos2unix /start-services.sh
 
 EXPOSE 80
