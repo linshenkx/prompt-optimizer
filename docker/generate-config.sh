@@ -1,7 +1,7 @@
 #!/bin/sh
 
-# 生成前端配置文件
-generate_config() {
+# 生成前端运行时配置文件
+generate_frontend_config() {
     CONFIG_FILE="/usr/share/nginx/html/config.js"
     
     cat > $CONFIG_FILE << EOF
@@ -74,8 +74,8 @@ generate_nginx_config() {
 }
 
 # 主执行流程
-echo "正在生成配置文件..."
-generate_config
+echo "正在生成前端配置文件..."
+generate_frontend_config
 
 echo "正在配置认证..."
 generate_auth
