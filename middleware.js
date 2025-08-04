@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+
 export const config = {
   matcher: [
     /*
@@ -9,6 +11,53 @@ export const config = {
     '/((?!api|_next/static|_next/image|favicon.ico|assets/|.*\\.).*)' 
   ],
 };
+
+// 验证访问令牌
+function verifyAccessToken(cookieHeader) {
+  const accessPassword = process.env.ACCESS_PASSWORD;
+  
+  // 如果没有设置密码，直接通过
+  if (!accessPassword) {
+    return true;
+  }
+  
+  if (!cookieHeader) {
+    return false;
+  }
+  
+  const cookies = cookieHeader.split(';');
+  const accessTokenCookie = cookies.find(cookie => 
+    cookie.trim().startsWith('vercel_access_token=')
+  );
+  
+  if (!accessTokenCookie) {
+    return false;
+  }
+  
+  const accessToken = accessTokenCookie.split('=')[1];
+  
+  // 验证令牌格式
+  if (!accessToken || accessToken.length !== 64) {
+    return false;
+  }
+  
+  // 验证令牌是否匹配密码的哈希
+  const expectedToken = crypto.createHash('sha256').update(accessPassword).digest('hex');
+  try {
+    return crypto.timingSafeEqual(Buffer.from(accessToken, 'hex'), Buffer.from(expectedToken, 'hex'));
+  } catch (error) {
+    return false;
+  }
+}
+
+// 添加安全头
+function addSecurityHeaders(headers) {
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('X-Frame-Options', 'DENY');
+  headers.set('X-XSS-Protection', '1; mode=block');
+  headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+}
 
 export default function middleware(request) {
   const url = new URL(request.url);
@@ -24,23 +73,16 @@ export default function middleware(request) {
 
   // 检查认证状态
   const cookieHeader = request.headers.get('cookie');
-  let authenticated = false;
+  const authenticated = verifyAccessToken(cookieHeader);
   
-  if (cookieHeader) {
-    const cookies = cookieHeader.split(';');
-    const accessTokenCookie = cookies.find(cookie => 
-      cookie.trim().startsWith('vercel_access_token=')
-    );
-    
-    if (accessTokenCookie) {
-      const accessToken = accessTokenCookie.split('=')[1];
-      authenticated = accessToken === accessPassword;
-    }
-  }
-  
-  // 如果已认证，允许访问
+  // 如果已认证，允许访问并添加安全头
   if (authenticated) {
-    return; // 什么都不返回，表示继续处理请求
+    const response = new Response(null, {
+      status: 200,
+      headers: new Headers(request.headers),
+    });
+    addSecurityHeaders(response.headers);
+    return response;
   }
 
   // 获取浏览器语言设置
@@ -48,13 +90,20 @@ export default function middleware(request) {
   const preferChinese = acceptLanguage.includes('zh');
 
   // 未认证，返回认证页面
-  return new Response(generateAuthPage(preferChinese), {
+  const response = new Response(generateAuthPage(preferChinese), {
     status: 200,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
     },
   });
+  
+  // 添加安全头
+  addSecurityHeaders(response.headers);
+  
+  return response;
 }
 
 function generateAuthPage(isChinese = true) {
@@ -248,8 +297,37 @@ function generateAuthPage(isChinese = true) {
         const isChinese = document.documentElement.lang === 'zh-CN';
         const errorMessages = {
             network: '${text.errorNetwork}',
-            invalidPassword: isChinese ? '密码错误，请重试' : 'Invalid password, please try again'
+            invalidPassword: isChinese ? '密码错误，请重试' : 'Invalid password, please try again',
+            tooManyAttempts: isChinese ? '尝试次数过多，请稍后再试' : 'Too many attempts, please try again later'
         };
+
+        // 获取CSRF token
+        async function getCSRFToken() {
+            try {
+                const response = await fetch('/api/auth?action=csrf', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                return data.csrfToken;
+            } catch (error) {
+                console.warn('Failed to get CSRF token:', error);
+                return null;
+            }
+        }
+
+        // 防抖函数
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -264,16 +342,20 @@ function generateAuthPage(isChinese = true) {
             errorMessage.style.display = 'none';
 
             try {
-                console.log('开始验证密码');
+                // 获取CSRF token
+                const csrfToken = await getCSRFToken();
+                
                 const response = await fetch('/api/auth', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken || ''
                     },
                     credentials: 'include',
                     body: JSON.stringify({
                         action: 'verify',
-                        password: password
+                        password: password,
+                        csrfToken: csrfToken
                     })
                 });
 
@@ -284,11 +366,15 @@ function generateAuthPage(isChinese = true) {
                     window.location.reload();
                 } else {
                     // 认证失败
-                    console.log('认证失败', { message: data.message });
                     errorMessage.textContent = data.message || errorMessages.invalidPassword;
                     errorMessage.style.display = 'block';
                     passwordInput.value = '';
                     passwordInput.focus();
+                    
+                    // 如果是429错误，显示重试时间
+                    if (response.status === 429) {
+                        errorMessage.textContent = errorMessages.tooManyAttempts;
+                    }
                 }
             } catch (error) {
                 console.error('认证请求失败:', error);
@@ -316,6 +402,11 @@ function generateAuthPage(isChinese = true) {
                 passwordInput.focus();
                 errorMessage.style.display = 'none';
             }
+        });
+
+        // 页面加载时获取CSRF token
+        window.addEventListener('load', () => {
+            getCSRFToken();
         });
     </script>
 </body>
