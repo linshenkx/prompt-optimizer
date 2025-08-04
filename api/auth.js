@@ -9,6 +9,35 @@ function generateSecureToken(length = 32) {
   return crypto.randomBytes(length).toString('hex');
 }
 
+// 生成带盐的安全访问令牌
+function generateAccessToken(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const timestamp = Date.now().toString();
+  const payload = `${password}:${salt}:${timestamp}`;
+  const hash = crypto.createHash('sha256').update(payload).digest('hex');
+  return `${salt}:${timestamp}:${hash}`;
+}
+
+// 验证访问令牌
+function verifyAccessToken(token, password) {
+  if (!token || !password) return false;
+  
+  const parts = token.split(':');
+  if (parts.length !== 3) return false;
+  
+  const [salt, timestamp, hash] = parts;
+  
+  // 检查令牌时效性（7天）
+  const tokenAge = Date.now() - parseInt(timestamp);
+  if (tokenAge > 7 * 24 * 60 * 60 * 1000) {
+    return false;
+  }
+  
+  // 验证哈希
+  const expectedHash = crypto.createHash('sha256').update(`${password}:${salt}:${timestamp}`).digest('hex');
+  return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(expectedHash, 'hex'));
+}
+
 // 检查速率限制
 function checkRateLimit(ip) {
   const now = Date.now();
@@ -107,33 +136,30 @@ export default function handler(req, res) {
         });
       }
       
-      // 验证CSRF token（如果存在）
-      if (csrfToken) {
-        const storedCSRFToken = req.cookies?.csrf_token;
-        if (storedCSRFToken && storedCSRFToken !== csrfToken) {
-          return res.status(403).json({ 
-            success: false, 
-            message: 'Invalid CSRF token' 
-          });
-        }
+      // 验证CSRF token（从Cookie或Header获取）
+      const storedCSRFToken = req.cookies?.csrf_token;
+      const requestCSRFToken = req.headers['x-csrf-token'] || req.body?.csrfToken;
+      
+      if (storedCSRFToken && storedCSRFToken !== requestCSRFToken) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'Invalid CSRF token' 
+        });
       }
       
       if (password === accessPassword) {
-        // 生成基于密码哈希的安全访问令牌
-        const accessToken = crypto.createHash('sha256').update(accessPassword).digest('hex');
-        const csrfToken = generateSecureToken(16);
+        // 生成带盐的安全访问令牌
+        const accessToken = generateAccessToken(accessPassword);
         const maxAge = 60 * 60 * 24 * 7; // 7天
         
-        // 设置访问令牌cookie
+        // 设置访问令牌cookie（HttpOnly）
         res.setHeader('Set-Cookie', [
-          setSecureCookie(req, 'vercel_access_token', accessToken, maxAge),
-          setSecureCookie(req, 'csrf_token', csrfToken, maxAge)
+          setSecureCookie(req, 'vercel_access_token', accessToken, maxAge)
         ]);
         
         return res.status(200).json({ 
           success: true, 
-          message: 'Authentication successful',
-          csrfToken: csrfToken
+          message: 'Authentication successful'
         });
       } else {
         return res.status(401).json({ 
@@ -161,11 +187,24 @@ export default function handler(req, res) {
     }
     
     if (action === 'csrf') {
-      // 生成新的CSRF token
+      // 生成新的CSRF token（非HttpOnly，前端可读取）
       const csrfToken = generateSecureToken(16);
-      res.setHeader('Set-Cookie', [
-        setSecureCookie(req, 'csrf_token', csrfToken, 60 * 60 * 24) // 24小时
-      ]);
+      const isSecure = process.env.NODE_ENV === 'production' || 
+                       process.env.VERCEL_ENV === 'production' ||
+                       req.headers['x-forwarded-proto'] === 'https';
+      
+      const cookieOptions = [
+        `csrf_token=${csrfToken}`,
+        'Path=/',
+        `Max-Age=${60 * 60 * 24}`, // 24小时
+        'SameSite=Lax'
+      ];
+      
+      if (isSecure) {
+        cookieOptions.push('Secure');
+      }
+      
+      res.setHeader('Set-Cookie', cookieOptions.join('; '));
       
       return res.status(200).json({ 
         success: true, 

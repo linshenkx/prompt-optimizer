@@ -36,15 +36,24 @@ function verifyAccessToken(cookieHeader) {
   
   const accessToken = accessTokenCookie.split('=')[1];
   
-  // 验证令牌格式
-  if (!accessToken || accessToken.length !== 64) {
+  // 验证带盐的访问令牌
+  if (!accessToken) return false;
+  
+  const parts = accessToken.split(':');
+  if (parts.length !== 3) return false;
+  
+  const [salt, timestamp, hash] = parts;
+  
+  // 检查令牌时效性（7天）
+  const tokenAge = Date.now() - parseInt(timestamp);
+  if (tokenAge > 7 * 24 * 60 * 60 * 1000) {
     return false;
   }
   
-  // 验证令牌是否匹配密码的哈希
-  const expectedToken = crypto.createHash('sha256').update(accessPassword).digest('hex');
+  // 验证哈希
+  const expectedHash = crypto.createHash('sha256').update(`${accessPassword}:${salt}:${timestamp}`).digest('hex');
   try {
-    return crypto.timingSafeEqual(Buffer.from(accessToken, 'hex'), Buffer.from(expectedToken, 'hex'));
+    return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(expectedHash, 'hex'));
   } catch (error) {
     return false;
   }
@@ -301,19 +310,13 @@ function generateAuthPage(isChinese = true) {
             tooManyAttempts: isChinese ? '尝试次数过多，请稍后再试' : 'Too many attempts, please try again later'
         };
 
-        // 获取CSRF token
-        async function getCSRFToken() {
-            try {
-                const response = await fetch('/api/auth?action=csrf', {
-                    method: 'GET',
-                    credentials: 'include'
-                });
-                const data = await response.json();
-                return data.csrfToken;
-            } catch (error) {
-                console.warn('Failed to get CSRF token:', error);
-                return null;
-            }
+        // 从Cookie中获取CSRF token
+        function getCSRFToken() {
+            const cookies = document.cookie.split(';');
+            const csrfCookie = cookies.find(cookie => 
+                cookie.trim().startsWith('csrf_token=')
+            );
+            return csrfCookie ? csrfCookie.split('=')[1].trim() : null;
         }
 
         // 防抖函数
@@ -343,7 +346,7 @@ function generateAuthPage(isChinese = true) {
 
             try {
                 // 获取CSRF token
-                const csrfToken = await getCSRFToken();
+                const csrfToken = getCSRFToken();
                 
                 const response = await fetch('/api/auth', {
                     method: 'POST',
@@ -354,8 +357,7 @@ function generateAuthPage(isChinese = true) {
                     credentials: 'include',
                     body: JSON.stringify({
                         action: 'verify',
-                        password: password,
-                        csrfToken: csrfToken
+                        password: password
                     })
                 });
 
@@ -404,9 +406,17 @@ function generateAuthPage(isChinese = true) {
             }
         });
 
-        // 页面加载时获取CSRF token
+        // 页面加载时确保CSRF token存在
         window.addEventListener('load', () => {
-            getCSRFToken();
+            if (!getCSRFToken()) {
+                // 如果没有CSRF token，获取一个
+                fetch('/api/auth?action=csrf', {
+                    method: 'GET',
+                    credentials: 'include'
+                }).catch(() => {
+                    // 忽略错误，首次访问是正常的
+                });
+            }
         });
     </script>
 </body>
