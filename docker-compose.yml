@@ -41,3 +41,5 @@ services:
       # Basic认证配置（可选）
       - ACCESS_USERNAME=${ACCESS_USERNAME:-admin}
       - ACCESS_PASSWORD=${ACCESS_PASSWORD:-}
+    security_opt:
+      - no-new-privileges:true
