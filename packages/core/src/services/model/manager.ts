@@ -81,6 +81,7 @@ export class ModelManager implements IModelManager {
                 ...defaultConfig,
                 // 保留用户配置的关键字段
                 name: existingModel.name !== undefined ? existingModel.name : defaultConfig.name,
+                baseURL: existingModel.baseURL || defaultConfig.baseURL,
                 defaultModel: existingModel.defaultModel !== undefined ? existingModel.defaultModel : defaultConfig.defaultModel,
                 apiKey: existingModel.apiKey || defaultConfig.apiKey,
                 enabled: existingModel.enabled !== undefined ? existingModel.enabled : defaultConfig.enabled,
