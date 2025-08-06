@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[English](README_EN.md) | [中文](README.md)
+[English](/README_EN.md) | [中文](/README.md) | [Русский](/README_RU.md)
 
 [![GitHub stars](https://img.shields.io/github/stars/linshenkx/prompt-optimizer)](https://github.com/linshenkx/prompt-optimizer/stargazers)
 ![Chrome Web Store Users](https://img.shields.io/chrome-web-store/users/cakkkhboolfnadechdlgdcnjammejlna?style=flat&label=Chrome%20Users&link=https%3A%2F%2Fchromewebstore.google.com%2Fdetail%2F%25E6%258F%2590%25E7%25A4%25BA%25E8%25AF%258D%25E4%25BC%2598%25E5%258C%2596%25E5%2599%25A8%2Fcakkkhboolfnadechdlgdcnjammejlna)
@@ -291,7 +291,7 @@ pnpm dev:fresh        # Complete reset and restart development environment
 
 - [x] Basic feature development
 - [x] Web application release
-- [x] Internationalization support
+- [x] Internationalization support (Chinese, English, Russian)
 - [x] Chrome extension release
 - [x] Support for system prompt optimization and user prompt optimization
 - [x] Desktop application release

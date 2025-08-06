@@ -10,7 +10,7 @@ import { ALL_TEMPLATES } from './default-templates';
 
 // 类型定义
 export type TemplateType = 'optimize' | 'iterate' | 'user-optimize';
-export type Language = 'zh' | 'en';
+export type Language = 'zh' | 'en' | 'ru';
 
 export interface StaticTemplateCollection {
   all: Record<string, Template>;
@@ -39,6 +39,9 @@ export class StaticLoader {
       case 'en-US':
       case 'en':
         return 'en';
+      case 'ru-RU':
+      case 'ru':
+        return 'ru';
       default:
         console.warn(`Unknown language: ${language}, defaulting to zh`);
         return 'zh';
@@ -57,11 +60,11 @@ export class StaticLoader {
       console.log(`🔄 静态导入开始加载模板...`);
       
       const all: Record<string, Template> = {};
-      const byLanguage: Record<Language, Record<string, Template>> = { zh: {}, en: {} };
+      const byLanguage: Record<Language, Record<string, Template>> = { zh: {}, en: {}, ru: {} };
       const byType: Record<TemplateType, Record<Language, Record<string, Template>>> = {
-        'optimize': { zh: {}, en: {} },
-        'iterate': { zh: {}, en: {} },
-        'user-optimize': { zh: {}, en: {} }
+        'optimize': { zh: {}, en: {}, ru: {} },
+        'iterate': { zh: {}, en: {}, ru: {} },
+        'user-optimize': { zh: {}, en: {}, ru: {} }
       };
 
       // 处理每个模板

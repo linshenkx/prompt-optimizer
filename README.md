@@ -3,7 +3,7 @@
 <div align="center">
 
 [English](README_EN.md) | [中文](README.md)
-
+[Русский](README_RU.md)
 [![GitHub stars](https://img.shields.io/github/stars/linshenkx/prompt-optimizer)](https://github.com/linshenkx/prompt-optimizer/stargazers)
 ![Chrome Web Store Users](https://img.shields.io/chrome-web-store/users/cakkkhboolfnadechdlgdcnjammejlna?style=flat&label=Chrome%20Users&link=https%3A%2F%2Fchromewebstore.google.com%2Fdetail%2F%25E6%258F%2590%25E7%25A4%25BA%25E8%25AF%258D%25E4%25BC%2598%25E5%258C%2596%25E5%2599%25A8%2Fcakkkhboolfnadechdlgdcnjammejlna)
 
@@ -287,7 +287,7 @@ pnpm dev:fresh        # 完整重置并重新启动开发环境
 ## 🗺️ 开发路线
 
 - [x] 基础功能开发
-- [x] Web应用发布
+- [x] Web应用发布 
 - [x] Chrome插件发布
 - [x] 国际化支持
 - [x] 支持系统提示词优化和用户提示词优化
