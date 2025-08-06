@@ -99,7 +99,7 @@ const supportedLanguages = ref<BuiltinTemplateLanguage[]>([])
 const isChanging = ref(false)
 
 // Computed properties
-const getCurrentLanguageShort = computed(() => {
+const getCurrentLanguageShort = computed<string>(() => {
   try {
     const service = getTemplateLanguageService.value
     if (!service) {
@@ -124,7 +124,7 @@ onMounted(async () => {
   try {
     const service = getTemplateLanguageService.value
     if (!service) {
-      throw new Error('Template language service not available')
+ throw new Error('Template language service not available');
     }
 
     // Ensure template language service is initialized
@@ -136,7 +136,7 @@ onMounted(async () => {
     currentLanguage.value = await service.getCurrentLanguage()
     supportedLanguages.value = await service.getSupportedLanguages()
   } catch (error) {
-    console.error('Failed to initialize builtin template language switch:', error)
+ console.error('Failed to initialize builtin template language switch:', error);
     // Set fallback values
     currentLanguage.value = 'zh-CN'
     supportedLanguages.value = ['zh-CN', 'en-US']
@@ -144,7 +144,7 @@ onMounted(async () => {
     // Only show toast error if toast is available
     try {
       toast.error(t('template.languageInitError'))
-    } catch (toastError) {
+    } catch (toastError) { // Corrected variable name
       console.error('Failed to show toast error:', toastError)
     }
   }
@@ -157,7 +157,13 @@ const handleLanguageToggle = async () => {
   if (isChanging.value) return
 
   const oldLanguage = currentLanguage.value
-  const newLanguage = oldLanguage === 'zh-CN' ? 'en-US' : 'zh-CN'
+  const currentIndex = supportedLanguages.value.indexOf(oldLanguage);
+  const nextIndex = (currentIndex + 1) % supportedLanguages.value.length;
+  const newLanguage = supportedLanguages.value[nextIndex];
+
+  if (!newLanguage) {
+    return; // Should not happen if supportedLanguages is not empty
+  }
 
   try {
     isChanging.value = true

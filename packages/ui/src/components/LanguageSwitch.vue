@@ -3,7 +3,7 @@
   <button
     @click="toggleLanguage"
     class="theme-icon-button ml-auto"
-    :aria-label="currentLocale === 'zh-CN' ? '切换到英文' : '切换到中文'"
+    :aria-label="currentLocale === 'zh-CN' ? 'Switch to English' : (currentLocale === 'en-US' ? 'Переключиться на русский' : '切换到中文')"
   >
     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="10"/>
@@ -30,7 +30,17 @@ const currentLocale = computed(() => i18n.global.locale.value)
  * 切换语言并保存用户偏好
  */
 const toggleLanguage = async () => {
-  const newLocale = i18n.global.locale.value === 'zh-CN' ? 'en-US' : 'zh-CN'
+  let newLocale;
+  switch (i18n.global.locale.value) {
+    case 'zh-CN':
+      newLocale = 'en-US';
+      break;
+    case 'en-US':
+      newLocale = 'ru-RU';
+      break;
+    default:
+      newLocale = 'zh-CN';
+  }
   i18n.global.locale.value = newLocale
   
   try {
