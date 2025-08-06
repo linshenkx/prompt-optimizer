@@ -94,7 +94,7 @@ const getTemplateLanguageService = computed(() => {
 })
 
 // Reactive state
-const currentLanguage = ref<BuiltinTemplateLanguage>('zh-CN')
+const currentLanguage = ref<BuiltinTemplateLanguage>('en-US') // Default to English
 const supportedLanguages = ref<BuiltinTemplateLanguage[]>([])
 const isChanging = ref(false)
 
@@ -108,7 +108,7 @@ const getCurrentLanguageShort = computed<string>(() => {
     return service.getLanguageDisplayName(currentLanguage.value)
   } catch (error) {
     console.error('Error getting current language short:', error)
-    return '中文' // fallback to Chinese
+    return 'EN' // fallback to English
   }
 })
 
@@ -139,8 +139,8 @@ onMounted(async () => {
  console.error('Failed to initialize builtin template language switch:', error);
     // Set fallback values
     currentLanguage.value = 'zh-CN'
-    supportedLanguages.value = ['zh-CN', 'en-US']
-
+    supportedLanguages.value = ['en-US', 'ru-RU'] // Set supported languages to EN and RU
+    currentLanguage.value = 'en-US' // Ensure current language is one of the supported ones
     // Only show toast error if toast is available
     try {
       toast.error(t('template.languageInitError'))
@@ -156,11 +156,12 @@ onMounted(async () => {
 const handleLanguageToggle = async () => {
   if (isChanging.value) return
 
+  // Ensure supported languages only contains en-US and ru-RU
+  const availableLanguages = ['en-US', 'ru-RU'] as BuiltinTemplateLanguage[];
   const oldLanguage = currentLanguage.value
-  const currentIndex = supportedLanguages.value.indexOf(oldLanguage);
-  const nextIndex = (currentIndex + 1) % supportedLanguages.value.length;
-  const newLanguage = supportedLanguages.value[nextIndex];
-
+  const currentIndex = availableLanguages.indexOf(oldLanguage);
+  const nextIndex = (currentIndex + 1) % availableLanguages.length;
+  const newLanguage = availableLanguages[nextIndex];
   if (!newLanguage) {
     return; // Should not happen if supportedLanguages is not empty
   }

@@ -1,16 +1,16 @@
-# Prompt Optimizer (提示词优化器) 🚀
+# Prompt Optimizer 🚀
 
 <div align="center">
 
 [English](README_EN.md) | [中文](README.md)
-[Русский](README_RU.md)
+[Русский](README_RU.md) 
 [![GitHub stars](https://img.shields.io/github/stars/linshenkx/prompt-optimizer)](https://github.com/linshenkx/prompt-optimizer/stargazers)
 ![Chrome Web Store Users](https://img.shields.io/chrome-web-store/users/cakkkhboolfnadechdlgdcnjammejlna?style=flat&label=Chrome%20Users&link=https%3A%2F%2Fchromewebstore.google.com%2Fdetail%2F%25E6%258F%2590%25E7%25A4%25BA%25E8%25AF%258D%25E4%25BC%2598%25E5%258C%2596%25E5%2599%25A8%2Fcakkkhboolfnadechdlgdcnjammejlna)
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Docker Pulls](https://img.shields.io/docker/pulls/linshen/prompt-optimizer)](https://hub.docker.com/r/linshen/prompt-optimizer)
 ![GitHub forks](https://img.shields.io/github/forks/linshenkx/prompt-optimizer?style=flat)
-[![Deploy with Vercel](https://img.shields.io/badge/Vercel-indigo?style=flat&logo=vercel)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Flinshenkx%2Fprompt-optimizer)
+[![Deploy with Vercel](https://img.shields.io/badge/Vercel-indigo?style=flat&logo=vercel)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Flinshenkx%2Fprompt-optimizer) 
 
 [在线体验](https://prompt.always200.com) | [快速开始](#快速开始) | [常见问题](#常见问题) | [Chrome插件](https://chromewebstore.google.com/detail/prompt-optimizer/cakkkhboolfnadechdlgdcnjammejlna)
 
@@ -18,23 +18,23 @@
 
 </div>
 
-## 📖 项目简介
+## 📖 Project Introduction
 
-Prompt Optimizer是一个强大的AI提示词优化工具，帮助你编写更好的AI提示词，提升AI输出质量。支持Web应用、桌面应用、Chrome插件和Docker部署四种使用方式。
+Prompt Optimizer is a powerful AI prompt optimization tool that helps you write better AI prompts and improve the quality of AI outputs. It supports four usage methods: web application, desktop application, Chrome extension, and Docker deployment.
 
-### 🎥 功能演示
+### 🎥 Feature Demonstration
 
 <div align="center">
-  <p><b>1. 角色扮演对话：激发小模型潜力</b></p>
-  <p>在追求成本效益的生产或注重隐私的本地化场景中，结构化的提示词能让小模型稳定地进入角色，提供沉浸式、高一致性的角色扮演体验，有效激发其潜力。</p>
+  <p><b>1. Role-playing Dialogue: Unleashing the Potential of Small Models</b></p>
+  <p>In cost-effective production scenarios or privacy-focused local deployments, structured prompts enable small models to consistently enter character roles, providing immersive and highly consistent role-playing experiences that effectively unleash their potential.</p>
   <img src="images/demo/cat-maid-roleplay.png" alt="猫女仆角色扮演演示" width="85%">
   <br>
-  <p><b>2. 知识图谱提取：保障生产环境的稳定性</b></p>
-  <p>在需要程序化处理的生产环境中，高质量的提示词能显著降低对模型智能程度的要求，使得更经济的小模型也能稳定输出可靠的指定格式。本工具旨在辅助开发者快速达到此目的，从而加速开发、保障稳定，实现降本增效。</p>
+  <p><b>2. Knowledge Graph Extraction: Ensuring Production Environment Stability</b></p>
+  <p>In production environments requiring programmatic processing, high-quality prompts can significantly reduce requirements for model intelligence, enabling more economical small models to stably output reliable specified formats. This tool aims to assist developers in quickly achieving this goal, thereby accelerating development, ensuring stability, and achieving cost reduction and efficiency improvement.</p>
   <img src="images/demo/knowledge-graph-extractor.png" alt="知识图谱提取演示" width="85%">
   <br>
-  <p><b>3. 诗歌写作：辅助创意探索与需求定制</b></p>
-  <p>当面对一个强大的AI，我们的目标不只是得到一个“好”答案，而是得到一个“我们想要的”独特答案。本工具能帮助用户将一个模糊的灵感（如“写首诗”）细化为具体的需求（关于什么主题、何种意象、何种情感），辅助您探索、发掘并精确表达自己的创意，与AI共创独一无二的作品。</p>
+  <p><b>3. Poetry Writing: Assisting Creative Exploration and Requirement Customization</b></p>
+  <p>When facing a powerful AI, our goal is not just to get a "good" answer, but to get a "desired" unique answer. This tool can help users refine vague inspiration (like "write a poem") into specific requirements (about what theme, what imagery, what emotions), assisting you in exploring, discovering, and precisely expressing your creativity to co-create unique works with AI.</p>
   <img src="images/demo/poetry-writing.png" alt="诗歌创作演示" width="85%">
 </div>
 
@@ -51,16 +51,16 @@ Prompt Optimizer是一个强大的AI提示词优化工具，帮助你编写更�
 
 ## 快速开始
 
-### 1. 使用在线版本（推荐）
+## Quick Start
+
+### 1. Use Online Version (Recommended)
 
 直接访问：[https://prompt.always200.com](https://prompt.always200.com)
 
-项目是纯前端项目，所有数据只存储在浏览器本地，不会上传至任何服务器，因此直接使用在线版本也是安全可靠的
+This is a pure frontend project with all data stored locally in your browser and never uploaded to any server, making the online version both safe and reliable to use.
 
-### 2. Vercel部署
-方式1：一键部署到自己的Vercel(方便，但后续无法自动更新)：
-   [![部署到 Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Flinshenkx%2Fprompt-optimizer)
-
+### 2. Vercel Deployment
+Method 1: One-click deployment to your own Vercel:
 方式2: Fork项目后在Vercel中导入（推荐，但需参考部署文档进行手动设置）：
    - 先Fork项目到自己的GitHub
    - 然后在Vercel中导入该项目
@@ -70,12 +70,11 @@ Prompt Optimizer是一个强大的AI提示词优化工具，帮助你编写更�
   - `VITE_OPENAI_API_KEY`等：配置各AI服务商的API密钥
 
 更多详细的部署步骤和注意事项，请查看：
-- [Vercel部署指南](docs/user/deployment/vercel.md)
+- [Vercel Deployment Guide](docs/user/deployment/vercel_en.md)
 
-### 3. 下载桌面应用
+### 3. Download Desktop Application
 从 [GitHub Releases](https://github.com/linshenkx/prompt-optimizer/releases) 下载最新版本。我们为各平台提供**安装程序**和**压缩包**两种格式。
-
-- **安装程序 (推荐)**: 如 `*.exe`, `*.dmg`, `*.AppImage` 等。**强烈推荐使用此方式，因为它支持自动更新**。
+- **Installer (Recommended)**: Such as `*.exe`, `*.dmg`, `*.AppImage`, etc. **Strongly recommended as it supports automatic updates**.\n
 - **压缩包**: 如 `*.zip`。解压即用，但无法自动更新。
 
 **桌面应用核心优势**:
@@ -85,9 +84,9 @@ Prompt Optimizer是一个强大的AI提示词优化工具，帮助你编写更�
 
 ### 4. 安装Chrome插件
 1. 从Chrome商店安装（由于审批较慢，可能不是最新的）：[Chrome商店地址](https://chromewebstore.google.com/detail/prompt-optimizer/cakkkhboolfnadechdlgdcnjammejlna)
-2. 点击图标即可打开提示词优化器
+2. Click the icon to open the Prompt Optimizer
 
-### 5. Docker部署
+### 5. Docker Deployment
 <details>
 <summary>点击查看 Docker 部署命令</summary>
 

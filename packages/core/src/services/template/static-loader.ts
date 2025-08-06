@@ -10,7 +10,7 @@ import { ALL_TEMPLATES } from './default-templates';
 
 // 类型定义
 export type TemplateType = 'optimize' | 'iterate' | 'user-optimize';
-export type Language = 'zh' | 'en' | 'ru';
+export type Language = 'en' | 'ru';
 
 export interface StaticTemplateCollection {
   all: Record<string, Template>;
@@ -33,16 +33,13 @@ export class StaticLoader {
    */
   private mapLanguage(language: string): Language {
     switch (language) {
-      case 'zh-CN':
-      case 'zh':
-        return 'zh';
       case 'en-US':
       case 'en':
         return 'en';
       case 'ru-RU':
       case 'ru':
         return 'ru';
-      default:
+      default: // Default to English if unknown language is encountered
         console.warn(`Unknown language: ${language}, defaulting to zh`);
         return 'zh';
     }
@@ -60,11 +57,11 @@ export class StaticLoader {
       console.log(`🔄 静态导入开始加载模板...`);
       
       const all: Record<string, Template> = {};
-      const byLanguage: Record<Language, Record<string, Template>> = { zh: {}, en: {}, ru: {} };
+      const byLanguage: Record<Language, Record<string, Template>> = { en: {}, ru: {} };
       const byType: Record<TemplateType, Record<Language, Record<string, Template>>> = {
-        'optimize': { zh: {}, en: {}, ru: {} },
-        'iterate': { zh: {}, en: {}, ru: {} },
-        'user-optimize': { zh: {}, en: {}, ru: {} }
+        'optimize': { en: {}, ru: {} },
+        'iterate': { en: {}, ru: {} },
+        'user-optimize': { en: {}, ru: {} }
       };
 
       // 处理每个模板
@@ -95,7 +92,7 @@ export class StaticLoader {
       
       console.log(`✅ 成功加载 ${Object.keys(all).length} 个模板`, {
         '总数': Object.keys(all).length,
-        '中文': Object.keys(byLanguage.zh).length,
+        'Русский': Object.keys(byLanguage.ru).length,
         '英文': Object.keys(byLanguage.en).length,
         optimize: Object.keys(byType.optimize.zh).length + Object.keys(byType.optimize.en).length,
         iterate: Object.keys(byType.iterate.zh).length + Object.keys(byType.iterate.en).length,
@@ -124,7 +121,7 @@ export class StaticLoader {
    * 根据类型和语言获取模板
    */
   public getTemplatesByType(type: TemplateType, language: string = 'zh'): Record<string, Template> {
-    const mappedLanguage = this.mapLanguage(language);
+    const mappedLanguage = this.mapLanguage(language); // Still map potentially old 'zh' calls, but they will default to 'en'
     const collection = this.loadTemplates();
     return collection.byType[type][mappedLanguage];
   }
@@ -141,7 +138,8 @@ export class StaticLoader {
    * 获取默认中文模板集合
    */
   public getDefaultTemplates(): Record<string, Template> {
-    return this.loadTemplatesByLanguage('zh');
+    // Since Chinese is removed, default to English or another language if needed
+    return this.loadTemplatesByLanguage('en'); 
   }
 
   /**
@@ -160,7 +158,7 @@ export class StaticLoader {
       isSupported: this.isSupported(),
       totalTemplates: Object.keys(collection.all).length,
       byLanguage: {
-        zh: Object.keys(collection.byLanguage.zh).length,
+        ru: Object.keys(collection.byLanguage.ru).length,
         en: Object.keys(collection.byLanguage.en).length
       }
     };
