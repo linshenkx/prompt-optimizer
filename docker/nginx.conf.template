@@ -60,7 +60,7 @@ server {
     # SPA应用路由支持
     location / {
         # 引入Basic认证配置
-        include /etc/nginx/conf.d/auth.conf;
+        ${AUTH_CONFIG}
         
         try_files $uri $uri/ /index.html;
         expires -1;
