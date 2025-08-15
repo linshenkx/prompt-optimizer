@@ -18,9 +18,9 @@
   },
   "git": {
     "deploymentEnabled": {
-      "main": true,
-      "master": true,
-      "develop": true
+      "main": false,
+      "master": false,
+      "develop": false
     }
   },
   "env": {
