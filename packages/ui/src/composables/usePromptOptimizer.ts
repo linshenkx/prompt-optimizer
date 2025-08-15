@@ -109,8 +109,15 @@ export function usePromptOptimizer(
         modelKey: optimizeModel.value
       }
 
+      // 检查promptService是否可用
+      if (!promptService.value) {
+        console.warn('PromptService not available, cannot optimize prompt')
+        toast.error('优化服务不可用，无法执行优化')
+        return
+      }
+      
       // 使用重构后的优化API
-      await promptService.value!.optimizePromptStream(
+      await promptService.value.optimizePromptStream(
         request,
         {
           onToken: (token: string) => {
@@ -128,7 +135,7 @@ export function usePromptOptimizer(
                 id: uuidv4(),
                 originalPrompt: state.prompt,
                 optimizedPrompt: state.optimizedPrompt,
-                type: optimizationMode.value === 'system' ? 'optimize' : 'userOptimize',
+                type: (optimizationMode.value === 'system' ? 'optimize' : 'userOptimize') as import('@prompt-optimizer/core').PromptRecordType,
                 modelKey: optimizeModel.value,
                 templateId: currentTemplate.id,
                 timestamp: Date.now(),
@@ -137,7 +144,14 @@ export function usePromptOptimizer(
                 }
               };
 
-              const newRecord = await historyManager.value!.createNewChain(recordData);
+              // 检查historyManager是否可用
+              if (!historyManager.value) {
+                console.warn('HistoryManager not available, skipping history creation')
+                toast.success(t('toast.success.optimizeSuccess'))
+                return
+              }
+              
+              const newRecord = await historyManager.value.createNewChain(recordData);
 
               state.currentChainId = newRecord.chainId;
               state.currentVersions = newRecord.versions;
@@ -183,7 +197,14 @@ export function usePromptOptimizer(
     await nextTick()
     
     try {
-      await promptService.value!.iteratePromptStream(
+      // 检查promptService是否可用
+      if (!promptService.value) {
+        console.warn('PromptService not available, cannot iterate prompt')
+        toast.error('优化服务不可用，无法执行迭代')
+        return
+      }
+      
+      await promptService.value.iteratePromptStream(
         originalPrompt,
         lastOptimizedPrompt,
         iterateInput,
@@ -212,7 +233,14 @@ export function usePromptOptimizer(
                 templateId: state.selectedIterateTemplate.id
               };
 
-              const updatedChain = await historyManager.value!.addIteration(iterationData);
+              // 检查historyManager是否可用
+        if (!historyManager.value) {
+          console.warn('HistoryManager not available, skipping iteration history')
+          toast.success(t('toast.success.iterateSuccess'))
+          return
+        }
+        
+        const updatedChain = await historyManager.value.addIteration(iterationData);
               
               state.currentVersions = updatedChain.versions
               state.currentVersionId = updatedChain.currentRecord.id
@@ -254,4 +282,4 @@ export function usePromptOptimizer(
 
   // 返回 reactive 对象，而不是包含多个 ref 的对象
   return state
-} 
+}

@@ -74,7 +74,12 @@ export default {
   },
   actions: {
     copy: 'Copy',
-    fullscreen: 'Fullscreen'
+    fullscreen: 'Fullscreen',
+    aiRedirect: 'Redirect to AI',
+    aiRedirectTooltip: 'Send current content to AI model for conversation',
+    aiRedirectLoading: 'Redirecting...',
+    aiRedirectSuccess: 'Redirect successful',
+    aiRedirectFailed: 'Redirect failed'
   },
   nav: {
     home: 'Home',

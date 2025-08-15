@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@10.6.1",
   "engines": {
-    "node": "^18.0.0 || ^20.0.0 || ^22.0.0",
+    "node": "^18.0.0 || ^20.0.0 || ^22.0.0 || ^24.0.0",
     "npm": "请使用pnpm代替npm",
     "yarn": "请使用pnpm代替yarn"
   },
@@ -17,6 +17,7 @@
     "build:ext": "pnpm -F @prompt-optimizer/extension build",
     "build:desktop-only": "pnpm -F @prompt-optimizer/desktop build",
     "build:desktop": "npm-run-all build:core build:ui build:web build:desktop-only",
+
     "dev": "npm-run-all clean:dist build:core build:ui dev:parallel",
     "dev:fresh": "npm-run-all clean pnpm-install dev",
     "dev:parallel": "concurrently -k -p \"[{name}]\" -n \"UI,WEB\" \"pnpm -F @prompt-optimizer/ui build --watch\" \"pnpm -F @prompt-optimizer/web dev\"",

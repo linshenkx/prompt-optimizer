@@ -20,8 +20,8 @@
       "@prompt-optimizer/ui/*": ["../ui/src/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue", "../ui/env.d.ts", "../ui/src/**/*.d.ts"],
   "references": [
     { "path": "./tsconfig.node.json" }
   ]
-} 
+}

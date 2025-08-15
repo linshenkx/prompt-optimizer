@@ -13,6 +13,8 @@
     :loading="loading"
     :streaming="streaming"
     :compareService="compareService"
+    :aiRedirectService="aiRedirectService"
+    :aiRedirectConfig="aiRedirectConfig"
     @update:content="emit('update:content', $event)"
     @update:reasoning="emit('update:reasoning', $event)"
     @copy="handleCopy"
@@ -22,6 +24,7 @@
     @reasoning-toggle="emit('reasoning-toggle', $event)"
     @view-change="emit('view-change', $event)"
     @reasoning-auto-hide="emit('reasoning-auto-hide')"
+    @ai-redirect="(config, options) => emit('ai-redirect', config, options)"
   />
   <OutputDisplayFullscreen
     v-model="isShowingFullscreen"
@@ -46,12 +49,13 @@ import OutputDisplayCore from './OutputDisplayCore.vue';
 import OutputDisplayFullscreen from './OutputDisplayFullscreen.vue';
 import type { AppServices } from '../types/services';
 import type { Ref } from 'vue';
+import type { AiRedirectService, AiRedirectConfig, RedirectOptions } from '@prompt-optimizer/core';
 
 defineOptions({
   inheritAttrs: false,
 });
 
-type ActionName = 'fullscreen' | 'diff' | 'copy' | 'edit' | 'reasoning'
+type ActionName = 'fullscreen' | 'diff' | 'copy' | 'edit' | 'reasoning' | 'aiRedirect'
 
 // Props
 interface Props {
@@ -65,6 +69,9 @@ interface Props {
   enableFullscreen?: boolean // Mapped to enabledActions
   enableEdit?: boolean // Mapped to enabledActions
   enableDiff?: boolean // Mapped to enabledActions
+  enableAiRedirect?: boolean // Mapped to enabledActions
+  aiRedirectService?: AiRedirectService
+  aiRedirectConfig?: AiRedirectConfig
   height?: string | number
   placeholder?: string
   loading?: boolean
@@ -76,6 +83,7 @@ const props = withDefaults(defineProps<Props>(), {
     enableFullscreen: true,
     enableEdit: true,
     enableDiff: true,
+    enableAiRedirect: true,
 });
 
 // Emits
@@ -89,6 +97,7 @@ const emit = defineEmits<{
   'reasoning-toggle': [expanded: boolean]
   'view-change': [mode: 'base' | 'diff']
   'reasoning-auto-hide': []
+  'ai-redirect': [config: AiRedirectConfig, options: RedirectOptions]
 }>()
 
 const isShowingFullscreen = ref(false);
@@ -119,6 +128,7 @@ const enabledActions = computed(() => {
     if (props.enableDiff) actions.push('diff');
     if (props.enableCopy) actions.push('copy');
     if (props.enableEdit) actions.push('edit');
+    if (props.enableAiRedirect) actions.push('aiRedirect');
     return actions;
 })
 

@@ -65,7 +65,14 @@ export function usePromptTester(
           userPrompt = state.testContent
         }
   
-        await promptService.value!.testPromptStream(
+        // 检查promptService是否可用
+        if (!promptService.value) {
+          console.warn('PromptService not available, cannot test prompt')
+          toast.error(t('toast.error.testFailed'))
+          return
+        }
+        
+        await promptService.value.testPromptStream(
           systemPrompt,
           userPrompt,
           selectedTestModel.value,
@@ -105,7 +112,14 @@ export function usePromptTester(
       state.testResult = ''
   
       try {
-        await promptService.value!.testPromptStream(
+        // 检查promptService是否可用
+        if (!promptService.value) {
+          console.warn('PromptService not available, cannot test prompt')
+          toast.error(t('toast.error.testFailed'))
+          return
+        }
+        
+        await promptService.value.testPromptStream(
           systemPrompt,
           userPrompt,
           selectedTestModel.value,
@@ -132,4 +146,4 @@ export function usePromptTester(
   })
 
   return state
-} 
+}

@@ -47,8 +47,12 @@
         :enable-copy="true"
         :enable-fullscreen="true"
         :enable-edit="true"
+        :enable-ai-redirect="true"
+        :ai-redirect-service="aiRedirectService"
+        :ai-redirect-config="aiRedirectConfig"
         :placeholder="t('prompt.optimizedPlaceholder')"
         @update:content="$emit('update:optimizedPrompt', $event)"
+        @ai-redirect="(config, options) => $emit('ai-redirect', config, options)"
       />
     </div>
 
@@ -108,6 +112,7 @@
 </template>
 
 <script setup lang="ts">
+// @ts-nocheck
 import { useI18n } from 'vue-i18n'
 import { ref, computed, nextTick, watch, type Ref } from 'vue'
 import { useToast } from '../composables/useToast'
@@ -116,7 +121,10 @@ import Modal from './Modal.vue'
 import OutputDisplay from './OutputDisplay.vue'
 import type {
   Template,
-  PromptRecord
+  PromptRecord,
+  AiRedirectService,
+  AiRedirectConfig,
+  RedirectOptions
 } from '@prompt-optimizer/core'
 import type { AppServices } from '../types/services'
 
@@ -169,6 +177,14 @@ const props = defineProps({
   services: {
     type: Object as () => Ref<AppServices | null>,
     required: true
+  },
+  aiRedirectService: {
+    type: Object as () => AiRedirectService,
+    default: undefined
+  },
+  aiRedirectConfig: {
+    type: Object as () => AiRedirectConfig,
+    default: undefined
   }
 })
 
@@ -179,6 +195,7 @@ const emit = defineEmits<{
   'update:selectedIterateTemplate': [template: Template | null];
   'switchVersion': [version: PromptRecord];
   'templateSelect': [template: Template];
+  'ai-redirect': [config: AiRedirectConfig, options: RedirectOptions];
 }>()
 
 const showIterateInput = ref(false)

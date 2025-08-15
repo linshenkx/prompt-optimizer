@@ -6,7 +6,8 @@ import type {
   ILLMService,
   IPromptService,
   ITemplateLanguageService,
-  ICompareService
+  ICompareService,
+  IStorageProvider
 } from '@prompt-optimizer/core'
 
 // FIXME: Temporary workaround for build issue. Should be imported from @prompt-optimizer/core
@@ -16,6 +17,11 @@ export interface IPreferenceService {
   delete(key: string): Promise<void>;
   keys(): Promise<string[]>;
   clear(): Promise<void>;
+  getAll(): Promise<Record<string, string>>;
+  exportData(): Promise<any>;
+  importData(data: any): Promise<any>;
+  getDataType(): Promise<string>;
+  validateData(data: any): Promise<boolean>;
 }
 
 /**
@@ -31,4 +37,5 @@ export interface AppServices {
   templateLanguageService: ITemplateLanguageService;
   preferenceService: IPreferenceService;
   compareService: ICompareService;
+  storageProvider: IStorageProvider;
 }

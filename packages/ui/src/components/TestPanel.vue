@@ -96,6 +96,9 @@
               :enableDiff="false"
               mode="readonly"
               class="flex-1 min-h-0"
+              :aiRedirectService="aiRedirectService"
+              :aiRedirectConfig="aiRedirectConfig"
+              @ai-redirect="handleAiRedirect"
             />
           </div>
 
@@ -120,6 +123,9 @@
               :enableDiff="false"
               mode="readonly"
               class="flex-1 min-h-0"
+              :aiRedirectService="aiRedirectService"
+              :aiRedirectConfig="aiRedirectConfig"
+              @ai-redirect="handleAiRedirect"
             />
           </div>
         </div>
@@ -136,6 +142,7 @@ import ContentCardUI from './ContentCard.vue'
 import InputPanelUI from './InputPanel.vue'
 import ModelSelectUI from './ModelSelect.vue'
 import OutputDisplay from './OutputDisplay.vue'
+import { AiRedirectService } from '@prompt-optimizer/core'
 
 const { t } = useI18n()
 const toast = useToast()
@@ -196,6 +203,27 @@ const optimizedTestReasoning = ref('')
 
 const isTesting = computed(() => isTestingOriginal.value || isTestingOptimized.value)
 const testContent = ref('')
+
+// AI跳转服务和配置
+const aiRedirectService = new AiRedirectService()
+const aiRedirectConfig = {
+  provider: 'openai' // 默认使用OpenAI，可以根据需要配置
+}
+
+// 处理AI跳转事件
+const handleAiRedirect = async (config, options) => {
+  try {
+    const result = await aiRedirectService.redirectToAi(config, options)
+    if (result.success) {
+      toast.success(t('actions.aiRedirectSuccess'))
+    } else {
+      toast.error(t('actions.aiRedirectFailed'))
+    }
+  } catch (error) {
+    console.error('AI跳转失败:', error)
+    toast.error(t('actions.aiRedirectFailed'))
+  }
+}
 
 const ensureString = (value) => {
   if (typeof value === 'string') return value

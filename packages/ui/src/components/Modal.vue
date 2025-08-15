@@ -69,21 +69,27 @@
   </Teleport>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import type { VNode } from 'vue'
 
 const { t } = useI18n()
 
-defineProps({
-  modelValue: {
-    type: Boolean,
-    required: true
-  }
-})
+interface Props {
+  modelValue: boolean
+}
 
-const emit = defineEmits(['update:modelValue', 'confirm'])
+const props = defineProps<Props>()
 
-const handleBackdropClick = (event) => {
+// 为了TypeScript兼容性，暂时不使用defineSlots
+// 这是Vue 3.3+的功能，在某些环境下可能不可用
+
+const emit = defineEmits<{
+  'update:modelValue': [value: boolean]
+  'confirm': []
+}>()
+
+const handleBackdropClick = (event: MouseEvent) => {
   if (event.target === event.currentTarget) {
     event.stopPropagation()
     event.preventDefault()

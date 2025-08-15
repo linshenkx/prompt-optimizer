@@ -73,7 +73,13 @@ export function useModelManager(
     },
     initModelSelection: async () => {
       try {
-        const allModels = await modelManager.value!.getAllModels()
+        // 检查modelManager是否可用
+        if (!modelManager.value) {
+          console.warn('ModelManager not available yet')
+          return
+        }
+        
+        const allModels = await modelManager.value.getAllModels()
         const enabledModels = allModels.filter(m => m.enabled)
         const defaultModel = enabledModels[0]?.key
   
@@ -98,8 +104,14 @@ export function useModelManager(
     },
     loadModels: async () => {
       try {
+        // 检查modelManager是否可用
+        if (!modelManager.value) {
+          console.warn('ModelManager not available yet')
+          return
+        }
+        
         // Get latest enabled models list
-        const allModels = await modelManager.value!.getAllModels()
+        const allModels = await modelManager.value.getAllModels()
         const enabledModels = allModels.filter((m: any) => m.enabled)
         const defaultModel = enabledModels[0]?.key
   
@@ -153,4 +165,4 @@ export function useModelManager(
   }, { immediate: true })
 
   return state
-} 
+}
