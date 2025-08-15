@@ -1,7 +1,7 @@
 {
-  "buildCommand": "if [[ $(pwd) == */packages/extension ]]; then cd ../.. && pnpm build && mkdir -p packages/extension/packages/web && cp -r packages/web/dist packages/extension/packages/web/dist; else pnpm build; fi",
+  "buildCommand": "npm run build:vercel",
   "outputDirectory": "packages/web/dist",
-  "installCommand": "pwd && if [[ $(pwd) == */packages/extension ]]; then cd ../.. && pnpm install && pnpm i @vercel/analytics -w; else pnpm install && pnpm i @vercel/analytics -w; fi",
+  "installCommand": "npm install",
   "rewrites": [
     {
       "source": "/api/:path*",
@@ -18,15 +18,11 @@
   "git": {
     "deploymentEnabled": {
       "main": true,
-      "master": true
+      "master": true,
+      "develop": true
     }
   },
   "env": {
     "VITE_VERCEL_DEPLOYMENT": "true"
-  },
-  "build": {
-    "env": {
-      "VITE_VERCEL_DEPLOYMENT": "true"
-    }
   }
 } 
