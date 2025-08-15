@@ -1,7 +1,8 @@
 {
-  "buildCommand": "npm run build:vercel",
+  "buildCommand": "npm install -g pnpm@latest && pnpm install && pnpm run build:core && pnpm run build:ui && pnpm run build:web",
   "outputDirectory": "packages/web/dist",
-  "installCommand": "npm install",
+  "installCommand": "npm install -g pnpm@latest",
+  "framework": null,
   "rewrites": [
     {
       "source": "/api/:path*",
@@ -24,5 +25,10 @@
   },
   "env": {
     "VITE_VERCEL_DEPLOYMENT": "true"
+  },
+  "functions": {
+    "packages/web/dist/**": {
+      "maxDuration": 30
+    }
   }
 } 
