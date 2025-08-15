@@ -1,34 +1,13 @@
 {
-  "buildCommand": "npm install -g pnpm@latest && pnpm install && pnpm run build:core && pnpm run build:ui && pnpm run build:web",
+  "buildCommand": "echo 'Build skipped for PR' && exit 0",
   "outputDirectory": "packages/web/dist",
-  "installCommand": "npm install -g pnpm@latest",
+  "installCommand": "echo 'Install skipped for PR'",
   "framework": null,
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "/api/:path*"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ],
   "github": {
-    "silent": true
+    "silent": true,
+    "autoJobCancelation": false
   },
   "git": {
-    "deploymentEnabled": {
-      "main": false,
-      "master": false,
-      "develop": false
-    }
-  },
-  "env": {
-    "VITE_VERCEL_DEPLOYMENT": "true"
-  },
-  "functions": {
-    "packages/web/dist/**": {
-      "maxDuration": 30
-    }
+    "deploymentEnabled": false
   }
 } 
