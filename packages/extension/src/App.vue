@@ -1,4 +1,4 @@
-<template>
+<template v-if="services && services.templateManager">
   <div v-if="isInitializing" class="loading-container">
     <div class="spinner"></div>
     <p>{{ t('log.info.initializing') }}</p>
@@ -52,6 +52,7 @@
       <ContentCardUI class="flex-1 min-w-0 flex flex-col">
         <div class="flex-none">
           <InputPanelUI
+            template
             v-model="optimizer.prompt"
             v-model:selectedModel="modelManager.selectedOptimizeModel"
             :label="promptInputLabel"
@@ -65,11 +66,14 @@
             @submit="handleOptimizePrompt"
             @configModel="modelManager.showConfig = true"
           >
-            <template #optimization-mode-selector>
-              <OptimizationModeSelectorUI
-                v-model="selectedOptimizationMode"
-                @change="handleOptimizationModeChange"
-              />
+</template>
+              <div class="flex items-center">
+                <span class="mr-2">{{ $t('promptOptimizer.optimizationMode') }}</span>
+                <OptimizationModeSelectorUI
+                  v-model="selectedOptimizationMode"
+                  @change="handleOptimizationModeChange"
+                />
+              </div>
             </template>
             <template #model-select>
               <ModelSelectUI
@@ -110,9 +114,12 @@
               :current-version-id="optimizer.currentVersionId"
               :optimization-mode="selectedOptimizationMode"
               :services="services"
+              :aiRedirectService="aiRedirectService"
+              :aiRedirectConfig="aiRedirectConfig"
               @iterate="handleIteratePrompt"
               @openTemplateManager="openTemplateManager"
               @switchVersion="handleSwitchVersion"
+              @ai-redirect="handleAiRedirect"
             />
           </template>
           <div v-else class="p-4 text-center theme-placeholder">
@@ -138,7 +145,7 @@
     <TemplateManagerUI
       v-if="isReady"
       v-model:show="templateManagerState.showTemplates"
-      :templateType="templateManagerState.currentType"
+      :template-type="templateManagerState.currentType as 'iterate' | 'optimize' | 'userOptimize'"
       @close="() => templateManagerState.handleTemplateManagerClose(() => templateSelectRef?.refresh?.())"
       @languageChanged="handleTemplateLanguageChanged"
     />
@@ -184,9 +191,20 @@ import {
   // 从UI包导入DataManager类型
   DataManager,
 } from '@prompt-optimizer/ui'
-import type { IPromptService } from '@prompt-optimizer/core'
+import type { IPromptService, AiRedirectService, AiRedirectConfig, PromptRecord, PromptRecordChain } from '@prompt-optimizer/core'
 // 导入AppServices类型
 import type { AppServices } from '../node_modules/@prompt-optimizer/ui/src/types/services'
+// 导入类型定义
+import type { 
+  ModelManagerHooks,
+  PromptOptimizerHooks,
+  PromptHistoryHooks,
+  HistoryManagerHooks,
+  TemplateManagerHooks,
+  ModelSelectorsHooks
+} from '@prompt-optimizer/ui'
+// 导入AI跳转服务
+import { AiRedirectService as AiRedirectServiceClass } from '@prompt-optimizer/core'
 
 // 1. 基础 composables
 const { t } = useI18n()
@@ -222,67 +240,82 @@ const testPanelRef = ref(null)
 const templateSelectRef = ref<{ refresh?: () => void } | null>(null)
 const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>(null)
 
+// 7. 创建AI跳转服务实例和配置
+const aiRedirectService = new AiRedirectServiceClass()
+const aiRedirectConfig: AiRedirectConfig = {
+  provider: 'openai' // 默认使用OpenAI，用户可以在设置中修改
+}
+
 const templateSelectType = computed<'optimize' | 'userOptimize' | 'iterate'>(() => {
   return selectedOptimizationMode.value === 'system' ? 'optimize' : 'userOptimize';
 });
 
 // 6. 在顶层调用所有 Composables
 // 测试面板的模型选择器引用
-const testModelSelect = computed(() => (testPanelRef.value as any)?.modelSelectRef || null)
+const testModelSelect = computed(() => testPanelRef.value?.modelSelectRef || null)
 
-// 使用类型断言解决类型不匹配问题
 // 模型选择器
-const modelSelectors = useModelSelectors(services as any)
+const modelSelectors = useModelSelectors(services)
 
 // 模型管理器
+// 函数级注释：初始化模型管理器，返回 reactive 对象管理模型配置
+// 中文解释：使用 useModelManager 创建模型管理状态，传入 services 和选项，确保类型安全
 const modelManager = useModelManager(
-  services as any,
+  services,
   {
     optimizeModelSelect: modelSelectors.optimizeModelSelect,
     testModelSelect
   }
-)
+) as ModelManagerHooks; // 添加类型注解以匹配返回类型
 
 // 提示词优化器
+// 函数级注释：初始化提示词优化器，返回 reactive 对象管理优化过程
+// 中文解释：使用 usePromptOptimizer 创建优化状态，传入 services、模式和模型引用，确保响应式更新
 const optimizer = usePromptOptimizer(
-  services as any,
+  services,
   selectedOptimizationMode,
   toRef(modelManager, 'selectedOptimizeModel'),
   toRef(modelManager, 'selectedTestModel')
-)
+) as PromptOptimizerHooks; // 添加类型注解
 
 // 提示词历史
+// 函数级注释：初始化提示词历史管理，返回 reactive 对象处理历史记录
+// 中文解释：使用 usePromptHistory 创建历史状态，传入 services 和优化器相关引用
 const promptHistory = usePromptHistory(
-  services as any,
-  toRef(optimizer, 'prompt') as any,
-  toRef(optimizer, 'optimizedPrompt') as any,
-  toRef(optimizer, 'currentChainId') as any,
-  toRef(optimizer, 'currentVersions') as any,
-  toRef(optimizer, 'currentVersionId') as any
-)
+  services,
+  toRef(optimizer, 'prompt'),
+  toRef(optimizer, 'optimizedPrompt'),
+  toRef(optimizer, 'currentChainId'),
+  toRef(optimizer, 'currentVersions'),
+  toRef(optimizer, 'currentVersionId')
+) as PromptHistoryHooks; // 添加类型注解
 
 // 历史管理器
+// 函数级注释：初始化历史管理器，返回 reactive 对象管理历史 UI 和操作
+// 中文解释：使用 useHistoryManager 创建历史管理状态，传入 services 和优化器引用及处理函数
 const historyManager = useHistoryManager(
-  services as any,
-  optimizer.prompt as any,
-  optimizer.optimizedPrompt as any,
-  optimizer.currentChainId as any,
-  optimizer.currentVersions as any,
-  optimizer.currentVersionId as any,
+  services,
+  optimizer.prompt,
+  optimizer.optimizedPrompt,
+  optimizer.currentChainId,
+  optimizer.currentVersions,
+  optimizer.currentVersionId,
   promptHistory.handleSelectHistory,
   promptHistory.handleClearHistory,
-  promptHistory.handleDeleteChain as any
-)
+  promptHistory.handleDeleteChain
+) as HistoryManagerHooks; // 添加类型注解
 
 // 模板管理器
+// 函数级注释：初始化模板管理器，返回 reactive 对象管理模板选择和 UI
+// 中文解释：使用 useTemplateManager 创建模板管理状态，传入 services 和选中模板引用
 const templateManagerState = useTemplateManager(
-  services as any,
+  services,
   {
     selectedOptimizeTemplate: toRef(optimizer, 'selectedOptimizeTemplate'),
     selectedUserOptimizeTemplate: toRef(optimizer, 'selectedUserOptimizeTemplate'),
     selectedIterateTemplate: toRef(optimizer, 'selectedIterateTemplate')
   }
-)
+) as TemplateManagerHooks; // 添加类型注解
 
 // 7. 监听服务初始化
 watch(services, (newServices) => {
@@ -339,6 +372,32 @@ const handleSwitchVersion = (versionId: any) => {
   optimizer.handleSwitchVersion(versionId)
 }
 
+// 处理AI跳转
+// 函数级注释：处理跳转到AI平台的逻辑，返回 Promise<void>
+// 中文解释：异步函数，调用 aiRedirectService 进行跳转，处理成功和错误情况
+// 调整为 async function 以匹配 Promise<void> 类型
+const handleAiRedirect = async (options: any): Promise<void> => {
+  try {
+    const result = await aiRedirectService.redirectToAi({
+      ...aiRedirectConfig,
+      ...options
+    }, {
+      prompt: options.prompt || optimizer.optimizedPrompt || optimizer.prompt,
+      isNewConversation: true,
+      openInNewTab: true
+    });
+    
+    if (result.success) {
+      toast.success('已成功跳转到AI平台');
+    } else {
+      toast.error(result.error || '跳转失败');
+    }
+  } catch (error) {
+    console.error('AI跳转失败:', error);
+    toast.error('跳转失败，请稍后重试');
+  }
+};
+
 // 打开GitHub仓库
 const openGithubRepo = () => {
   window.open('https://github.com/prompt-optimizer/prompt-optimizer', '_blank')
@@ -372,7 +431,7 @@ const handleTemplateLanguageChanged = (newLanguage: string) => {
 }
 
 // 处理历史记录使用 - 智能模式切换
-const handleHistoryReuse = async (context: { record: any, chainId: string, rootPrompt: string, chain: any }) => {
+const handleHistoryReuse = async (context: { record: PromptRecord, chainId: string, rootPrompt: string, chain: PromptRecordChain }) => {
   const { chain } = context
 
   // 根据链条的根记录类型确定应该切换到的优化模式

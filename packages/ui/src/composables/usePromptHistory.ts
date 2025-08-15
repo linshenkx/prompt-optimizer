@@ -37,7 +37,7 @@ export function usePromptHistory(
     history: [] as PromptChain[],
     showHistory: false,
     
-    handleSelectHistory: async (context: { record: any, chainId: string, rootPrompt: string }) => {
+    handleSelectHistory: async (context: { record: PromptRecord, chainId: string, rootPrompt: string }) => {
       try {
         const { record, chainId, rootPrompt } = context
 
@@ -45,8 +45,15 @@ export function usePromptHistory(
         prompt.value = rootPrompt
         optimizedPrompt.value = record.optimizedPrompt
 
+        // 检查historyManager是否可用
+        if (!historyManager.value) {
+          console.warn('HistoryManager not available, cannot load history')
+          toast.error(t('toast.error.loadHistoryFailed'))
+          return
+        }
+        
         // 加载现有链（而不是创建新链）- 这是修复迭代断层问题的关键
-        const existingChain = await historyManager.value!.getChain(chainId)
+        const existingChain = await historyManager.value.getChain(chainId)
 
         // 恢复完整的链状态，保持版本历史连贯性
         currentChainId.value = existingChain.chainId
@@ -65,7 +72,14 @@ export function usePromptHistory(
 
     handleClearHistory: async () => {
     try {
-      await historyManager.value!.clearHistory()
+      // 检查historyManager是否可用
+      if (!historyManager.value) {
+        console.warn('HistoryManager not available, cannot clear history')
+        toast.error(t('toast.error.clearHistoryFailed'))
+        return
+      }
+      
+      await historyManager.value.clearHistory()
       
       // 清空当前显示的内容
       prompt.value = '';
@@ -85,14 +99,21 @@ export function usePromptHistory(
 
     handleDeleteChain: async (chainId: string) => {
     try {
+      // 检查historyManager是否可用
+      if (!historyManager.value) {
+        console.warn('HistoryManager not available, cannot delete chain')
+        toast.error(t('toast.error.historyChainDeleteFailed'))
+        return
+      }
+      
       // 获取链中的所有记录
-      const allChains = await historyManager.value!.getAllChains()
+      const allChains = await historyManager.value.getAllChains()
       const chain = allChains.find((c: any) => c.chainId === chainId)
       
       if (chain) {
         // 删除链中的所有记录
         for (const record of chain.versions) {
-          await historyManager.value!.deleteRecord(record.id)
+          await historyManager.value.deleteRecord(record.id)
         }
         
         // 如果当前正在查看的是被删除的链，则清空当前显示
@@ -105,7 +126,13 @@ export function usePromptHistory(
         }
         
         // 立即更新历史记录，确保UI能够反映最新状态
-        const updatedChains = await historyManager.value!.getAllChains()
+        // 检查historyManager是否可用
+      if (!historyManager.value) {
+        console.warn('HistoryManager not available, cannot get updated chains')
+        return
+      }
+      
+      const updatedChains = await historyManager.value.getAllChains()
           state.history = [...updatedChains]
         toast.success(t('toast.success.historyChainDeleted'))
       }
@@ -127,7 +154,13 @@ export function usePromptHistory(
 
   // 添加一个刷新历史记录的函数
   const refreshHistory = async () => {
-    const chains = await historyManager.value!.getAllChains()
+    // 检查historyManager是否可用
+    if (!historyManager.value) {
+      console.warn('HistoryManager not available, cannot refresh history')
+      return
+    }
+    
+    const chains = await historyManager.value.getAllChains()
     state.history = [...chains]
   }
 
@@ -151,4 +184,4 @@ export function usePromptHistory(
   }, { immediate: true })
 
   return state
-} 
+}

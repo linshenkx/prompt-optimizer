@@ -139,20 +139,33 @@ export function useTemplateManager(
         
         if (typeof savedTemplateId === 'string' && savedTemplateId) {
           try {
-            const template = await templateManager.value!.getTemplate(savedTemplateId);
+            // 检查templateManager是否可用
+            if (!templateManager.value) {
+              console.warn('TemplateManager not available, cannot load saved template')
+              toast.warning(`模板管理器不可用，已重置为默认值。`)
+            } else {
+              const template = await templateManager.value.getTemplate(savedTemplateId);
             if (template && template.metadata.templateType === type) {
               targetRef.value = template;
               return; // 成功加载，直接返回
             }
-            // 如果模板不存在或类型不匹配，则会继续执行下面的回退逻辑
-            toast.warning(`模板 (ID: ${savedTemplateId}) 加载失败或类型不匹配，已重置为默认值。`);
+              // 如果模板不存在或类型不匹配，则会继续执行下面的回退逻辑
+              toast.warning(`模板 (ID: ${savedTemplateId}) 加载失败或类型不匹配，已重置为默认值。`);
+            }
           } catch (error) {
             toast.warning(`加载已保存的模板 (ID: ${savedTemplateId}) 失败，已重置为默认值。`);
           }
         }
         
+        // 检查templateManager是否可用
+        if (!templateManager.value) {
+          console.warn('TemplateManager not available, cannot load templates')
+          toast.error(`模板管理器不可用，无法加载模板。`)
+          return
+        }
+        
         // 回退逻辑：加载该类型的第一个模板
-        const templates = await templateManager.value!.listTemplatesByType(type)
+        const templates = await templateManager.value.listTemplatesByType(type)
         if (templates.length > 0) {
           targetRef.value = templates[0]
           await setPreference(storageKey, templates[0].id) // 保存新的默认值
@@ -228,4 +241,4 @@ export function useTemplateManager(
   })
 
   return state
-} 
+}

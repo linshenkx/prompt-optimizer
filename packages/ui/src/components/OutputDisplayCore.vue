@@ -37,6 +37,23 @@
       
       <!-- 右侧：操作按钮 -->
       <div class="flex items-center gap-2">
+        <!-- AI跳转按钮 -->
+        <button 
+          v-if="isActionEnabled('aiRedirect') && hasContent" 
+          @click="handleAiRedirect" 
+          class="theme-icon-button" 
+          :title="t('actions.aiRedirectTooltip')"
+          :disabled="aiRedirectLoading"
+        >
+          <svg v-if="!aiRedirectLoading" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <svg v-else class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </button>
+        
         <button v-if="isActionEnabled('copy')" @click="handleCopy('content')" class="theme-icon-button" :title="t('actions.copy')">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 7.5V6.108c0-1.135.845-2.098 1.976-2.192.373-.03.748-.03 1.125 0 1.13.094 1.976 1.057 1.976 2.192V7.5M8.25 7.5h7.5M8.25 7.5h-1.5a1.5 1.5 0 00-1.5 1.5v11.25c0 .828.672 1.5 1.5 1.5h10.5a1.5 1.5 0 001.5-1.5V9a1.5 1.5 0 00-1.5-1.5h-1.5" />
@@ -150,9 +167,9 @@ import { useI18n } from 'vue-i18n'
 import { useClipboard } from '../composables/useClipboard'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 import TextDiffUI from './TextDiff.vue'
-import type { CompareResult, ICompareService } from '@prompt-optimizer/core'
+import type { CompareResult, ICompareService, AiRedirectService, AiRedirectConfig, RedirectOptions } from '@prompt-optimizer/core'
 
-type ActionName = 'fullscreen' | 'diff' | 'copy' | 'edit' | 'reasoning'
+type ActionName = 'fullscreen' | 'diff' | 'copy' | 'edit' | 'reasoning' | 'aiRedirect'
 
 const { t } = useI18n()
 const { copyText } = useClipboard()
@@ -181,6 +198,10 @@ interface Props {
   
   // 服务
   compareService: ICompareService
+  aiRedirectService?: AiRedirectService
+  
+  // AI跳转配置
+  aiRedirectConfig?: AiRedirectConfig
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -189,7 +210,7 @@ const props = withDefaults(defineProps<Props>(), {
   reasoning: '',
   mode: 'readonly',
   reasoningMode: 'auto',
-  enabledActions: () => ['fullscreen', 'diff', 'copy', 'edit', 'reasoning'],
+  enabledActions: () => ['fullscreen', 'diff', 'copy', 'edit', 'reasoning', 'aiRedirect'],
   height: '100%',
   placeholder: ''
 })
@@ -204,6 +225,7 @@ const emit = defineEmits<{
   'edit-end': []
   'reasoning-toggle': [expanded: boolean]
   'view-change': [mode: 'base' | 'diff']
+  'ai-redirect': [config: AiRedirectConfig, options: RedirectOptions]
 }>()
 
 // 内部状态
@@ -214,6 +236,9 @@ const userHasManuallyToggledReasoning = ref(false)
 // 新的视图状态机
 const internalViewMode = ref<'render' | 'source' | 'diff'>('render')
 const compareResult = ref<CompareResult | undefined>()
+
+// AI跳转相关状态
+const aiRedirectLoading = ref(false)
 
 const isActionEnabled = (action: ActionName) => props.enabledActions.includes(action)
 
@@ -405,6 +430,62 @@ const forceRefreshContent = () => {
   // V2版本中这个方法不再需要，但保留以确保向后兼容
 }
 
+// AI跳转处理方法
+const handleAiRedirect = async () => {
+  if (!props.content || aiRedirectLoading.value) {
+    return
+  }
+  
+  try {
+    aiRedirectLoading.value = true
+    
+    if (props.aiRedirectService) {
+      // 使用默认配置或传入的配置
+      const config: AiRedirectConfig = props.aiRedirectConfig || {
+        provider: 'openai' // 默认使用OpenAI
+      }
+      
+      // 构建跳转选项
+      const options: RedirectOptions = {
+        prompt: props.content,
+        isNewConversation: true,
+        title: generateConversationTitle(props.content),
+        openInNewTab: true
+      }
+      
+      const result = await props.aiRedirectService.redirectToAi(config, options)
+      if (!result.success) {
+        console.error('AI跳转失败:', result.error)
+        // 这里可以添加用户提示
+      }
+    } else {
+      // 如果没有提供服务，发出事件让父组件处理
+      const config: AiRedirectConfig = props.aiRedirectConfig || {
+        provider: 'openai'
+      }
+      const options: RedirectOptions = {
+        prompt: props.content,
+        isNewConversation: true,
+        title: generateConversationTitle(props.content),
+        openInNewTab: true
+      }
+      emit('ai-redirect', config, options)
+    }
+  } catch (error) {
+    console.error('AI跳转处理失败:', error)
+    // 这里可以添加用户提示
+  } finally {
+    aiRedirectLoading.value = false
+  }
+}
+
+// 生成对话标题的辅助方法
+const generateConversationTitle = (content: string): string => {
+  // 取内容前50个字符作为标题
+  const title = content.substring(0, 50).trim()
+  return title.length < content.length ? title + '...' : title
+}
+
 const themeToolbarBg = 'theme-toolbar-bg'
 const themeToolbarBorder = 'theme-toolbar-border'
 const themeToolbarButton = 'theme-toolbar-button'
@@ -416,39 +497,65 @@ defineExpose({ resetReasoningState, forceRefreshContent, forceExitEditing })
 <style scoped>
 /* 顶层工具栏样式 */
 .output-display-toolbar {
-  @apply flex-none bg-gray-50 dark:bg-gray-800;
+  flex: none;
+  background: #f9fafb;
+}
+
+.dark .output-display-toolbar {
+  background: #1f2937;
 }
 
 /* 推理面板标题栏样式 */
 .reasoning-header {
-  @apply flex-none bg-gray-50 dark:bg-gray-800;
+  flex: none;
+  background: #f9fafb;
+}
+
+.dark .reasoning-header {
+  background: #1f2937;
 }
 
 .output-display__reasoning {
-  @apply flex-none mt-0;
+  flex: none;
+  margin-top: 0;
 }
 
 .reasoning-content {
-  @apply overflow-y-auto mt-0;
+  overflow-y: auto;
+  margin-top: 0;
   max-height: 30vh;
   padding: 0;
 }
 
 .streaming-indicator {
-  @apply inline-flex items-center gap-1 text-blue-500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #3b82f6;
 }
 
 .streaming-indicator::before {
   content: '';
-  @apply w-2 h-2 rounded-full bg-blue-500 animate-pulse;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #3b82f6;
+  animation: pulse 2s infinite;
 }
 
 .output-display__content {
-  @apply flex-1 min-h-0;
+  flex: 1;
+  min-height: 0;
 }
 
 .loading-placeholder,
 .empty-placeholder {
-  @apply flex items-center justify-center h-full text-gray-500 text-sm italic;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #6b7280;
+  font-size: 0.875rem;
+  font-style: italic;
 }
-</style> 
+</style>
