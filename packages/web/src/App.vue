@@ -112,9 +112,12 @@
               :current-version-id="optimizer.currentVersionId"
               :optimization-mode="selectedOptimizationMode"
               :services="services"
+              :aiRedirectService="aiRedirectService"
+              :aiRedirectConfig="aiRedirectConfig"
               @iterate="handleIteratePrompt"
               @openTemplateManager="openTemplateManager"
               @switchVersion="handleSwitchVersion"
+              @ai-redirect="handleAiRedirect"
             />
           </template>
           <div v-else class="p-4 text-center theme-placeholder">
@@ -140,7 +143,7 @@
     <TemplateManagerUI
       v-if="isReady"
       v-model:show="templateManagerState.showTemplates"
-      :templateType="templateManagerState.currentType"
+      :templateType="templateManagerState.currentType as 'optimize' | 'userOptimize' | 'iterate'"
       @close="() => templateManagerState.handleTemplateManagerClose(() => templateSelectRef?.refresh?.())"
       @languageChanged="handleTemplateLanguageChanged"
     />
@@ -165,7 +168,7 @@ import {
   // UI Components
   MainLayoutUI, ThemeToggleUI, ActionButtonUI, ModelManagerUI, TemplateManagerUI, HistoryDrawerUI,
   LanguageSwitchUI, DataManagerUI, InputPanelUI, PromptPanelUI, OptimizationModeSelectorUI,
-  ModelSelectUI, TemplateSelectUI, ContentCardUI, ToastUI, TestPanelUI, UpdaterIcon,
+  ModelSelectUI, TemplateSelectUI, ContentCardUI, TestPanelUI, UpdaterIcon,
 
   // Composables
   usePromptOptimizer,
@@ -183,19 +186,18 @@ import {
 
   // Types from UI package
   type OptimizationMode,
-  // 从UI包导入DataManager类型
-  DataManager,
 } from '@prompt-optimizer/ui'
-import type { IPromptService } from '@prompt-optimizer/core'
-// 导入AppServices类型
-import type { AppServices } from '../node_modules/@prompt-optimizer/ui/src/types/services'
+import type { PromptRecord, PromptRecordChain } from '@prompt-optimizer/core'
+import type { IPromptService, AiRedirectConfig } from '@prompt-optimizer/core'
+// 导入AI跳转服务
+import { AiRedirectService as AiRedirectServiceClass } from '@prompt-optimizer/core'
 
 // 1. 基础 composables
 const { t } = useI18n()
 const toast = useToast()
 
 // 2. 初始化应用服务
-const { services, isInitializing, error } = useAppInitializer()
+const { services, isInitializing } = useAppInitializer()
 
 // 3. Initialize i18n with storage when services are ready
 watch(services, async (newServices) => {
@@ -224,21 +226,26 @@ const testPanelRef = ref(null)
 const templateSelectRef = ref<{ refresh?: () => void } | null>(null)
 const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>(null)
 
+// 7. 创建AI跳转服务实例和配置
+const aiRedirectService = new AiRedirectServiceClass()
+const aiRedirectConfig: AiRedirectConfig = {
+  provider: 'openai' // 默认使用OpenAI，用户可以在设置中修改
+}
+
 const templateSelectType = computed<'optimize' | 'userOptimize' | 'iterate'>(() => {
   return selectedOptimizationMode.value === 'system' ? 'optimize' : 'userOptimize';
 });
 
 // 6. 在顶层调用所有 Composables
 // 测试面板的模型选择器引用
-const testModelSelect = computed(() => (testPanelRef.value as any)?.modelSelectRef || null)
+const testModelSelect = computed(() => null)
 
-// 使用类型断言解决类型不匹配问题
 // 模型选择器
-const modelSelectors = useModelSelectors(services as any)
+const modelSelectors = useModelSelectors(services)
 
 // 模型管理器
 const modelManager = useModelManager(
-  services as any,
+  services,
   {
     optimizeModelSelect: modelSelectors.optimizeModelSelect,
     testModelSelect
@@ -247,7 +254,7 @@ const modelManager = useModelManager(
 
 // 提示词优化器
 const optimizer = usePromptOptimizer(
-  services as any,
+  services,
   selectedOptimizationMode,
   toRef(modelManager, 'selectedOptimizeModel'),
   toRef(modelManager, 'selectedTestModel')
@@ -255,30 +262,30 @@ const optimizer = usePromptOptimizer(
 
 // 提示词历史
 const promptHistory = usePromptHistory(
-  services as any,
-  toRef(optimizer, 'prompt') as any,
-  toRef(optimizer, 'optimizedPrompt') as any,
-  toRef(optimizer, 'currentChainId') as any,
-  toRef(optimizer, 'currentVersions') as any,
-  toRef(optimizer, 'currentVersionId') as any
+  services,
+  toRef(optimizer, 'prompt'),
+  toRef(optimizer, 'optimizedPrompt'),
+  toRef(optimizer, 'currentChainId'),
+  toRef(optimizer, 'currentVersions'),
+  toRef(optimizer, 'currentVersionId')
 )
 
 // 历史管理器
 const historyManager = useHistoryManager(
-  services as any,
-  optimizer.prompt as any,
-  optimizer.optimizedPrompt as any,
-  optimizer.currentChainId as any,
-  optimizer.currentVersions as any,
-  optimizer.currentVersionId as any,
+  services,
+  toRef(optimizer, 'prompt'),
+  toRef(optimizer, 'optimizedPrompt'),
+  toRef(optimizer, 'currentChainId'),
+  toRef(optimizer, 'currentVersions'),
+  toRef(optimizer, 'currentVersionId'),
   promptHistory.handleSelectHistory,
   promptHistory.handleClearHistory,
-  promptHistory.handleDeleteChain as any
+  promptHistory.handleDeleteChain
 )
 
 // 模板管理器
 const templateManagerState = useTemplateManager(
-  services as any,
+  services,
   {
     selectedOptimizeTemplate: toRef(optimizer, 'selectedOptimizeTemplate'),
     selectedUserOptimizeTemplate: toRef(optimizer, 'selectedUserOptimizeTemplate'),
@@ -341,14 +348,38 @@ const handleSwitchVersion = (versionId: any) => {
   optimizer.handleSwitchVersion(versionId)
 }
 
+// 处理AI跳转
+const handleAiRedirect = async (config: AiRedirectConfig, options: any) => {
+  try {
+    const result = await aiRedirectService.redirectToAi({
+      ...aiRedirectConfig,
+      ...config
+    }, {
+      prompt: options.prompt || optimizer.optimizedPrompt.value || optimizer.prompt.value,
+      isNewConversation: true,
+      openInNewTab: true
+    })
+    if (result.success) {
+      toast.success(t('actions.aiRedirectSuccess') || 'AI跳转成功')
+    } else {
+      toast.error(result.error || t('actions.aiRedirectFailed') || 'AI跳转失败')
+    }
+  } catch (error) {
+    console.error('AI跳转处理失败:', error)
+    toast.error(t('actions.aiRedirectFailed') || 'AI跳转失败')
+  }
+}
+
+
+
 // 打开GitHub仓库
 const openGithubRepo = async () => {
   const url = 'https://github.com/linshenkx/prompt-optimizer'
 
   // 检查是否在Electron环境中
-  if (typeof window !== 'undefined' && (window as any).electronAPI) {
+  if (typeof window !== 'undefined' && (window as unknown as { electronAPI?: { shell: { openExternal: (url: string) => Promise<void> } } }).electronAPI) {
     try {
-      await (window as any).electronAPI.shell.openExternal(url)
+      await (window as unknown as { electronAPI: { shell: { openExternal: (url: string) => Promise<void> } } }).electronAPI.shell.openExternal(url)
     } catch (error) {
       console.error('Failed to open external URL in Electron:', error)
       // 如果Electron API失败，回退到window.open
@@ -388,18 +419,13 @@ const handleTemplateLanguageChanged = (newLanguage: string) => {
 }
 
 // 处理历史记录使用 - 智能模式切换
-const handleHistoryReuse = async (context: { record: any, chainId: string, rootPrompt: string, chain: any }) => {
-  const { chain } = context
-
-  // 根据链条的根记录类型确定应该切换到的优化模式
-  let targetMode: OptimizationMode
-  if (chain.rootRecord.type === 'optimize') {
-    targetMode = 'system'
-  } else if (chain.rootRecord.type === 'userOptimize') {
+const handleHistoryReuse = async (context: { record: PromptRecord, chainId: string, rootPrompt: string }) => {
+  // 根据记录类型确定优化模式
+  let targetMode: OptimizationMode = 'system'
+  if (context.record.type === 'userOptimize') {
     targetMode = 'user'
-  } else {
-    // 兜底：从根记录的 metadata 中获取优化模式
-    targetMode = chain.rootRecord.metadata?.optimizationMode || 'system'
+  } else if (context.record.metadata?.optimizationMode) {
+    targetMode = context.record.metadata.optimizationMode as OptimizationMode
   }
 
   // 如果目标模式与当前模式不同，自动切换
@@ -407,7 +433,7 @@ const handleHistoryReuse = async (context: { record: any, chainId: string, rootP
     selectedOptimizationMode.value = targetMode
     toast.info(t('toast.info.optimizationModeAutoSwitched', {
       mode: targetMode === 'system' ? t('common.system') : t('common.user')
-    }))
+    }) || '已自动切换优化模式')
   }
 
   // 调用原有的历史记录处理逻辑

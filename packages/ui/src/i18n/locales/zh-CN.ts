@@ -74,7 +74,15 @@ export default {
   },
   actions: {
     copy: '复制',
-    fullscreen: '全屏'
+    fullscreen: '全屏',
+    aiRedirect: '跳转到AI',
+    aiRedirectTooltip: '将当前内容发送到AI模型进行对话',
+    aiRedirectLoading: '正在跳转...',
+    aiRedirectSuccess: '跳转成功',
+    aiRedirectFailed: '跳转失败'
+  },
+  aiProvider: {
+    configure: '配置平台'
   },
   nav: {
     home: '首页',

@@ -52,6 +52,11 @@ export type { ICompareService } from './services/compare/types'
 export * from './services/compare/types'
 export * from './services/compare/errors'
 
+// 导出AI跳转服务相关
+export { AiRedirectService } from './services/ai-redirect'
+export * from './services/ai-redirect/types'
+export { DefaultUrlBuilder } from './services/ai-redirect/url-builder'
+
 // 导出数据管理相关
 export { DataManager, createDataManager } from './services/data/manager'
 export type { IDataManager } from './services/data/manager'

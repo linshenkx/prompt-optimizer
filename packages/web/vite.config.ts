@@ -5,8 +5,12 @@ import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // 加载环境变量（从项目根目录加载）
-  const env = loadEnv(mode, resolve(process.cwd(), '../../'))
+  // 检测是否在Vercel环境中
+  const isVercel = process.env.VERCEL === '1' || process.env.VITE_VERCEL_DEPLOYMENT === 'true'
+  
+  // 根据环境选择环境变量加载路径
+  const envDir = isVercel ? '.' : resolve(process.cwd(), '../../')
+  const env = loadEnv(mode, envDir)
   
   return {
     plugins: [vue()],

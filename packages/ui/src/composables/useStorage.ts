@@ -33,7 +33,13 @@ export function useStorage(services: Ref<AppServices | null>) {
    */
   const getItem = async (key: string): Promise<string | null> => {
     try {
-      return await storage!.getItem(key)
+      // 检查storage是否可用
+      if (!storage) {
+        console.warn('Storage not available, cannot get item')
+        return null
+      }
+      
+      return await storage.getItem(key)
     } catch (error) {
       console.error(`获取存储项失败 (${key}):`, error)
       return null
@@ -47,7 +53,13 @@ export function useStorage(services: Ref<AppServices | null>) {
    */
   const setItem = async (key: string, value: string): Promise<void> => {
     try {
-      await storage!.setItem(key, value)
+      // 检查storage是否可用
+      if (!storage) {
+        console.warn('Storage not available, cannot set item')
+        throw new Error('Storage not available')
+      }
+      
+      await storage.setItem(key, value)
     } catch (error) {
       console.error(`设置存储项失败 (${key}):`, error)
       throw error
@@ -60,7 +72,13 @@ export function useStorage(services: Ref<AppServices | null>) {
    */
   const removeItem = async (key: string): Promise<void> => {
     try {
-      await storage!.removeItem(key)
+      // 检查storage是否可用
+      if (!storage) {
+        console.warn('Storage not available, cannot remove item')
+        throw new Error('Storage not available')
+      }
+      
+      await storage.removeItem(key)
     } catch (error) {
       console.error(`删除存储项失败 (${key}):`, error)
       throw error
@@ -133,4 +151,4 @@ export function useStorage(services: Ref<AppServices | null>) {
     setItemJSON,
     batchUpdate
   }
-} 
+}

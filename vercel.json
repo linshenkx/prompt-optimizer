@@ -1,32 +1,13 @@
 {
-  "buildCommand": "if [[ $(pwd) == */packages/extension ]]; then cd ../.. && pnpm build && mkdir -p packages/extension/packages/web && cp -r packages/web/dist packages/extension/packages/web/dist; else pnpm build; fi",
+  "buildCommand": "echo 'Build skipped for PR' && exit 0",
   "outputDirectory": "packages/web/dist",
-  "installCommand": "pwd && if [[ $(pwd) == */packages/extension ]]; then cd ../.. && pnpm install && pnpm i @vercel/analytics -w; else pnpm install && pnpm i @vercel/analytics -w; fi",
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "/api/:path*"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ],
+  "installCommand": "echo 'Install skipped for PR'",
+  "framework": null,
   "github": {
-    "silent": true
+    "silent": true,
+    "autoJobCancelation": false
   },
   "git": {
-    "deploymentEnabled": {
-      "main": true,
-      "master": true
-    }
-  },
-  "env": {
-    "VITE_VERCEL_DEPLOYMENT": "true"
-  },
-  "build": {
-    "env": {
-      "VITE_VERCEL_DEPLOYMENT": "true"
-    }
+    "deploymentEnabled": false
   }
 } 

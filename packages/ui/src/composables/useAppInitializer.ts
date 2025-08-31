@@ -1,6 +1,7 @@
 import { ref, onMounted } from 'vue';
 import {
   StorageFactory,
+  MemoryStorageProvider,
   createModelManager,
   createTemplateManager,
   createHistoryManager,
@@ -21,7 +22,7 @@ import {
   DataManager,
   ElectronPreferenceServiceProxy,
   createPreferenceService,
-} from '../'; // 从UI包的index导入所有核心模块
+} from '@prompt-optimizer/core'; // 从core包导入所有核心模块
 import type { AppServices } from '../types/services';
 import type { IModelManager, ITemplateManager, IHistoryManager, ILLMService, IPromptService, IDataManager } from '@prompt-optimizer/core';
 import type { IPreferenceService } from '../types/services';
@@ -90,6 +91,7 @@ export function useAppInitializer() {
           templateLanguageService, // 使用代理而不是null
           preferenceService, // 使用从core包导入的ElectronPreferenceServiceProxy
           compareService, // 直接使用，无需代理
+          storageProvider: new MemoryStorageProvider(), // Electron环境下使用内存存储提供者作为占位符
         };
         console.log('[AppInitializer] Electron代理服务初始化完成');
 
@@ -138,6 +140,10 @@ export function useAppInitializer() {
           enableModel: (key) => modelManagerInstance.enableModel(key),
           disableModel: (key) => modelManagerInstance.disableModel(key),
           getEnabledModels: () => modelManagerInstance.getEnabledModels(),
+          exportData: () => modelManagerInstance.exportData(),
+          importData: (data) => modelManagerInstance.importData(data),
+          getDataType: () => modelManagerInstance.getDataType(),
+          validateData: (data) => modelManagerInstance.validateData(data),
         };
 
         const languageServiceAdapter = {
@@ -162,6 +168,10 @@ export function useAppInitializer() {
           changeBuiltinTemplateLanguage: (language) => templateManagerInstance.changeBuiltinTemplateLanguage(language),
           getCurrentBuiltinTemplateLanguage: async () => await templateManagerInstance.getCurrentBuiltinTemplateLanguage(),
           getSupportedBuiltinTemplateLanguages: async () => await templateManagerInstance.getSupportedBuiltinTemplateLanguages(),
+          exportData: () => templateManagerInstance.exportData(),
+          importData: (data) => templateManagerInstance.importData(data),
+          getDataType: () => templateManagerInstance.getDataType(),
+          validateData: (data) => templateManagerInstance.validateData(data),
         };
 
         const historyManagerAdapter: IHistoryManager = {
@@ -176,6 +186,10 @@ export function useAppInitializer() {
           createNewChain: (record) => historyManagerInstance.createNewChain(record),
           addIteration: (params) => historyManagerInstance.addIteration(params),
           deleteChain: (id) => historyManagerInstance.deleteChain(id),
+          exportData: () => historyManagerInstance.exportData(),
+          importData: (data) => historyManagerInstance.importData(data),
+          getDataType: () => historyManagerInstance.getDataType(),
+          validateData: (data) => historyManagerInstance.validateData(data),
         };
 
         // Services that depend on initialized managers
@@ -189,17 +203,18 @@ export function useAppInitializer() {
         const compareService = createCompareService();
 
         // 将所有服务实例赋值给 services.value
-      services.value = {
+        services.value = {
           modelManager: modelManagerAdapter, // 使用适配器
           templateManager: templateManagerAdapter, // 使用适配器
           historyManager: historyManagerAdapter, // 使用适配器
-        dataManager,
-        llmService,
-        promptService,
-        templateLanguageService: languageService,
-        preferenceService, // 使用从core包导入的PreferenceService
-        compareService, // 直接使用
-      };
+          dataManager,
+          llmService,
+          promptService,
+          templateLanguageService: languageService,
+          preferenceService, // 使用从core包导入的PreferenceService
+          compareService, // 直接使用
+          storageProvider, // 添加storageProvider到服务对象中
+        };
       }
 
       console.log('[AppInitializer] 所有服务初始化完成');
@@ -216,4 +231,4 @@ export function useAppInitializer() {
   });
 
   return { services, isInitializing, error };
-} 
+}

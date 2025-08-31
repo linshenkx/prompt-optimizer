@@ -7,6 +7,15 @@
 
 import type { TemplateContext } from './processor';
 
+// Chrome extension API type declaration
+declare global {
+  const chrome: {
+    runtime: {
+      getManifest: () => any;
+    };
+  };
+}
+
 /**
  * Simple variable substitution that's CSP-safe
  * Supports basic {{variable}} syntax without complex Handlebars features
@@ -22,7 +31,7 @@ export class CSPSafeTemplateProcessor {
     let result = content;
     
     // Replace all {{variable}} patterns with context values
-    result = result.replace(/\{\{([^}]+)\}\}/g, (match, variableName) => {
+    result = result.replace(/\{\{([^}]+)\}\}/g, (_, variableName) => {
       const trimmedName = variableName.trim();
       const value = context[trimmedName];
       

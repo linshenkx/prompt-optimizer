@@ -22,7 +22,7 @@
     <div class="relative">
       <textarea
         :value="modelValue"
-        @input="$emit('update:modelValue', $event.target.value)"
+        @input="$emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
         class="w-full theme-input resize-none"
         :placeholder="placeholder"
         rows="4"
@@ -72,7 +72,7 @@
   </FullscreenDialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useFullscreen } from '../composables/useFullscreen'
@@ -124,6 +124,14 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue', 'update:selectedModel', 'submit', 'configModel'])
+
+// 定义插槽类型 - 使用更兼容的方式
+defineSlots<{
+  'optimization-mode-selector': (props: Record<string, never>) => any
+  'model-select': (props: Record<string, never>) => any
+  'template-select': (props: Record<string, never>) => any
+  'control-buttons': (props: Record<string, never>) => any
+}>()
 
 // 使用全屏组合函数
 const { isFullscreen, fullscreenValue, openFullscreen } = useFullscreen(
