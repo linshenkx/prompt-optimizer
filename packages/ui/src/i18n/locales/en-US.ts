@@ -555,7 +555,7 @@ export default {
     importPlaceholder: 'Paste conversation data in JSON format',
     importError: 'Failed to import conversation',
     confirmClear: 'Are you sure you want to clear all messages?',
-    
+
     roles: {
       system: 'System',
       user: 'User',
@@ -591,7 +591,7 @@ export default {
       userComparison: 'Comparative Analysis',
       userDialogue: 'Interactive Dialogue'
     },
-    
+
     placeholders: {
       system: 'Enter system message (defines AI behavior and context)...',
       user: 'Enter user message (your input or question)...',
@@ -599,7 +599,7 @@ export default {
       tool: 'Enter tool result or function output...',
       default: 'Enter message content...'
     },
-    
+
     variableCount: '{count} variables',
     missingVariables: '{count} missing',
     detectedVariables: 'Variables found',
@@ -610,7 +610,7 @@ export default {
     totalVariables: 'Total Variables',
     allVariablesSet: 'All Variables Set',
     createVariable: 'Create',
-    
+
     showPreview: 'Show Preview',
     hidePreview: 'Hide Preview',
     previewNote: 'Preview shows how variables will be replaced',
@@ -662,6 +662,14 @@ export default {
     apiKey: 'API Key',
     addModel: 'Add',
     addImageModel: 'Add Image Model',
+    provider: {
+      section: 'Provider Configuration',
+      label: 'Provider',
+      placeholder: 'Select provider'
+    },
+    model: {
+      section: 'Model Configuration'
+    },
 
     // Advanced Parameters
     advancedParameters: {
@@ -1139,7 +1147,7 @@ export default {
       importClipboard: 'Import from Clipboard',
       importMode: 'Import Mode',
       replaceMode: 'Replace Mode',
-      appendMode: 'Append Mode',  
+      appendMode: 'Append Mode',
       mergeMode: 'Merge Mode',
       replaceModeDesc: 'Completely replace existing context collections',
       appendModeDesc: 'Append import content to existing collections (auto handle ID conflicts)',
@@ -1174,7 +1182,8 @@ export default {
     },
     "frequency_penalty": {
       "label": "Frequency Penalty",
-      "description": "Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim."
+      "description": "Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to
+ repeat the same line verbatim."
     },
     "timeout": {
       "label": "Timeout (ms)",
@@ -1306,13 +1315,13 @@ export default {
     variableNamePredefined: 'Cannot use predefined variable name',
     variableNameExists: 'Variable name already exists',
     variableValueRequired: 'Variable value is required',
-    
+
     // Import/Export context variables
     importContextVariables: 'Import Context Variables',
     exportContextVariables: 'Export Context Variables',
     contextVariableImported: 'Imported {count} context variables',
     contextVariableSkipped: 'Skipped {count} predefined variable conflicts',
-    
+
     title: 'Context Editor',
     systemTemplates: 'System Templates',
     userTemplates: 'User Templates',
@@ -1364,7 +1373,7 @@ export default {
     save: 'Save',
     toolsTooltip: 'Tools: {tools}',
     toolsCount: '{count} tools',
-    
+
     // Missing keys
     override: 'Context Variable',
     createOverride: 'Create Context Variable',
@@ -1382,13 +1391,13 @@ export default {
     variableDeleted: 'Context variable deleted: {name}',
     predefinedVariableError: 'Cannot modify predefined variables',
     variableSaved: '{action} context variable: {name}',
-    
+
     // Variable source labels
     variableSourceLabels: {
       global: 'Global',
       context: 'Context'
     },
-    
+
     // Variable status labels
     variableStatusLabels: {
       active: 'Active',
@@ -1525,7 +1534,7 @@ export default {
       optimizing: 'Optimizing...',
       optimizePrompt: 'Optimize Prompt'
     },
-    
+
     // Image generation area
     generation: {
       imageModel: 'Image Model',
@@ -1535,7 +1544,7 @@ export default {
       generateImage: 'Generate Image',
       processing: 'Processing'
     },
-    
+
     // Results display
     results: {
       originalPromptResult: 'Original Prompt',
@@ -1551,7 +1560,7 @@ export default {
       noOptimizedResult: 'No optimized result',
       noGenerationResult: 'No generation result'
     },
-    
+
     // Upload modal
     upload: {
       title: 'Upload Reference Image',

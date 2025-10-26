@@ -102,8 +102,8 @@
           <UpdaterIcon />
           </template>
         <template #main>
-  
-          
+
+
         <!-- 非图像模式：沿用现有布局 -->
         <template v-if="functionMode !== 'image'">
         <!-- Main Content - 使用 Naive UI NGrid 实现响应式水平左右布局 class="h-full min-h-0 overflow-hidden max-height=100%" -->
@@ -173,7 +173,7 @@
                 </template>
               </InputPanelUI>
             </NCard>
-            
+
             <!-- 组件 B: ConversationManager (使用v-show替代v-if避免组件频繁销毁重建) -->
             <NCard v-show="advancedModeEnabled" :style="{ flexShrink: 0, overflow: 'auto' }" content-style="padding: 0;">
               <ConversationManager
@@ -188,7 +188,7 @@
                 :max-height="300"
               />
             </NCard>
-            
+
             <!-- 组件 C: PromptPanelUI -->
             <NCard :style="{ flex: 1, minHeight: '200px', overflow: 'hidden' }"
             content-style="height: 100%; max-height: 100%; overflow: hidden;"
@@ -214,7 +214,7 @@
               />
             </NCard>
           </NFlex>
-  
+
           <!-- 右侧：测试区域 -->
           <NCard :style="{ flex: 1, overflow: 'auto', height: '100%' }"
             content-style="height: 100%; max-height: 100%; overflow: hidden;"
@@ -230,7 +230,7 @@
               :enable-compare-mode="true"
               :enable-fullscreen="true"
               :input-mode="responsiveLayout.recommendedInputMode.value"
-              :control-bar-layout="responsiveLayout.recommendedControlBarLayout.value" 
+              :control-bar-layout="responsiveLayout.recommendedControlBarLayout.value"
               :button-size="responsiveLayout.smartButtonSize.value"
               :conversation-max-height="responsiveLayout.responsiveHeights.value.conversationMax"
               :show-original-result="true"
@@ -255,7 +255,7 @@
                   @config="modelManager.showConfig = true"
                 />
               </template>
-    
+
               <!-- 原始结果插槽 -->
               <template #original-result>
                 <OutputDisplay
@@ -267,8 +267,8 @@
                   :style="{ height: '100%', minHeight: '0' }"
                 />
               </template>
-  
-              <!-- 优化结果插槽 -->  
+
+              <!-- 优化结果插槽 -->
               <template #optimized-result>
                 <OutputDisplay
                   :content="testResults.optimizedResult"
@@ -279,7 +279,7 @@
                   :style="{ height: '100%', minHeight: '0' }"
                 />
               </template>
-  
+
               <!-- 单一结果插槽 -->
               <template #single-result>
                 <OutputDisplay
@@ -301,7 +301,7 @@
         </template>
         </template>
       </MainLayoutUI>
-  
+
       <!-- Modals and Drawers that are conditionally rendered -->
       <ModelManagerUI
         v-if="isReady"
@@ -371,15 +371,15 @@
 
       <!-- 关键:使用NGlobalStyle同步全局样式到body,消除CSS依赖 -->
       <NGlobalStyle />
-  
+
       <!-- ToastUI已在MainLayoutUI中包含，无需重复渲染 -->
       </template>
     </NConfigProvider>
   </template>
-  
+
   <script setup lang="ts">
 import { ref, watch, provide, computed, shallowRef, toRef, nextTick, onMounted } from 'vue'
-  import { useI18n } from 'vue-i18n'
+import { useI18n } from 'vue-i18n'
   import { NConfigProvider, NGlobalStyle, NButton, NText, NGrid, NGridItem, NCard, NFlex, NModal, NScrollbar, useMessage } from 'naive-ui'
 import hljs from 'highlight.js/lib/core'
 import jsonLang from 'highlight.js/lib/languages/json'
@@ -424,16 +424,16 @@ hljs.registerLanguage('json', jsonLang)
   } from '@prompt-optimizer/ui'
 import type { IPromptService, Template, ModelConfig } from '@prompt-optimizer/core'
 import type { ModelSelectOption, TemplateSelectOption } from '@prompt-optimizer/ui'
-  
+
   // 1. 基础 composables
   // highlight.js for Naive NCode
   const hljsInstance = hljs
   const { t } = useI18n()
   // 移除全局toast实例，改为在需要时本地调用
-  
+
   // 2. 初始化应用服务
   const { services, isInitializing } = useAppInitializer()
-  
+
   // 3. Initialize i18n with storage when services are ready
   watch(services, async (newServices) => {
     if (newServices) {
@@ -442,28 +442,28 @@ import type { ModelSelectOption, TemplateSelectOption } from '@prompt-optimizer/
       // 然后初始化语言设置
       await initializeI18nWithStorage()
       console.log('[Web] i18n initialized')
-      
+
   // 移除：高级模式设置的独立加载（改为 useFunctionMode 管理）
     }
   }, { immediate: true })
-  
+
   // 4. 向子组件提供服务
   provide('services', services)
-  
+
   // 5. 控制主UI渲染的标志
   const isReady = computed(() => !!services.value && !isInitializing.value)
-  
+
   // 6. 创建所有必要的引用
   const promptService = shallowRef<IPromptService | null>(null)
   const selectedOptimizationMode = ref<OptimizationMode>('system')
   const showDataManager = ref(false)
-const showFavoriteManager = ref(false)
-const showSaveFavoriteDialog = ref(false)
-const saveFavoriteData = ref<{ content: string; originalContent?: string } | null>(null)
-const optimizeModelSelect = ref(null)
-const testPanelRef = ref(null)
-const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>(null)
-  
+  const showFavoriteManager = ref(false)
+  const showSaveFavoriteDialog = ref(false)
+  const saveFavoriteData = ref<{ content: string; originalContent?: string } | null>(null)
+  const optimizeModelSelect = ref(null)
+  const testPanelRef = ref(null)
+  const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>(null)
+
   // 高级模式状态
   const { functionMode, setFunctionMode } = useFunctionMode(services as any)
   const advancedModeEnabled = computed({
@@ -479,43 +479,43 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
   // 测试内容状态 - 新增
   const testContent = ref('')
   const isCompareMode = ref(true)
-  
+
   // 测试结果状态管理
   const testResults = ref({
     // 原始提示词结果
     originalResult: '',
     originalReasoning: '',
     isTestingOriginal: false,
-    
+
     // 优化提示词结果
     optimizedResult: '',
     optimizedReasoning: '',
     isTestingOptimized: false,
-    
+
     // 单一结果模式
     singleResult: '',
     singleReasoning: '',
     isTestingSingle: false
   })
-  
+
   // 响应式布局和模式配置 - 新增
   const responsiveLayout = useResponsiveTestLayout()
   const testModeConfig = useTestModeConfig(selectedOptimizationMode)
-  
+
   // Naive UI 主题配置 - 使用新的主题系统
   const { naiveTheme, themeOverrides, initTheme } = useNaiveTheme()
-  
+
   // 初始化主题系统
   if (typeof window !== 'undefined') {
     initTheme()
   }
-  
+
   // 取消独立的高级模式偏好读写，改由 useFunctionMode 统一管理（默认 basic）
-  
+
   // 变量管理状态
   const showVariableManager = ref(false)
   const focusVariableName = ref<string | undefined>(undefined)
-  
+
   // 上下文编辑器状态
   const showContextEditor = ref(false)
   const contextEditorState = ref({
@@ -526,35 +526,35 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
     showToolManager: false,
     mode: 'edit' as 'edit' | 'preview'
   })
-  
+
   // 优化阶段上下文状态
   const optimizationContext = ref<ConversationMessage[]>([])
   const optimizationContextTools = ref<any[]>([])  // 🆕 添加工具状态
   // 标记是否已从持久化仓库加载过上下文（用于区分 null vs [] 语义）
   const isContextLoaded = ref(false)
-  
+
   // 变量管理器实例
   const variableManager = useVariableManager(services as any)
-  
+
   // 上下文持久化状态
   const currentContextId = ref<string | null>(null)
   const contextRepo = computed(() => services.value?.contextRepo)
-  
+
   // 初始化上下文持久化
   const initializeContextPersistence = async () => {
     if (!contextRepo.value) return
-    
+
     try {
       // 获取当前上下文ID
       currentContextId.value = await contextRepo.value.getCurrentId()
-      
+
       if (currentContextId.value) {
         // 加载当前上下文
         const context = await contextRepo.value.get(currentContextId.value)
         if (context) {
           optimizationContext.value = [...context.messages]
           optimizationContextTools.value = [...(context.tools || [])]
-          
+
           // 🚫 移除全局变量同步 - 上下文变量不应污染全局变量库
           // 上下文变量应该只存在于上下文中，通过上下文编辑器进行管理
           // 这里只需要加载消息和工具，变量在上下文编辑器中自动获取
@@ -567,7 +567,7 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
       isContextLoaded.value = true
     }
   }
-  
+
   // 持久化上下文更新（轻度节流）
   let persistContextUpdateTimer: NodeJS.Timeout | null = null
   const persistContextUpdate = async (patch: {
@@ -576,12 +576,12 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
     tools?: any[]
   }) => {
     if (!contextRepo.value || !currentContextId.value) return
-    
+
     // 清除之前的定时器
     if (persistContextUpdateTimer) {
       clearTimeout(persistContextUpdateTimer)
     }
-    
+
     // 设置新的节流定时器（300ms延迟）
     persistContextUpdateTimer = setTimeout(async () => {
       try {
@@ -592,7 +592,7 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
       }
     }, 300)
   }
-  
+
   const templateSelectType = computed<'optimize' | 'userOptimize' | 'iterate' | 'contextSystemOptimize' | 'contextUserOptimize'>(() => {
     const isPro = advancedModeEnabled.value
     if (selectedOptimizationMode.value === 'system') {
@@ -600,7 +600,7 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
     }
     return isPro ? 'contextUserOptimize' : 'userOptimize'
   })
-  
+
   // 变量管理处理函数
   const handleCreateVariable = (name: string, defaultValue?: string) => {
     // 创建新变量并打开变量管理器
@@ -610,7 +610,7 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
     focusVariableName.value = name
     showVariableManager.value = true
   }
-  
+
   const handleOpenVariableManager = (variableName?: string) => {
     // 打开变量管理器并聚焦到指定变量
     if (variableName) {
@@ -618,7 +618,7 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
     }
     showVariableManager.value = true
   }
-  
+
   // 打开上下文编辑器
   const handleOpenContextEditor = async (messages?: ConversationMessage[], variables?: Record<string, string>) => {
     // 确保全局变量已加载并刷新（避免初次为空）
@@ -641,7 +641,7 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
     }
     // 🔧 修复：从 contextRepo 读取真正的上下文变量，避免全局变量污染
     let contextVariables: Record<string, string> = {}
-    
+
     if (contextRepo.value && currentContextId.value) {
       try {
         const context = await contextRepo.value.get(currentContextId.value)
@@ -651,7 +651,7 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
         console.warn('[App] Failed to load context variables:', error)
       }
     }
-    
+
     // 设置初始状态 - 只使用上下文本身的变量
     contextEditorState.value = {
       messages: messages || [...optimizationContext.value],
@@ -663,49 +663,49 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
     }
     showContextEditor.value = true
   }
-  
+
   // 处理上下文编辑器保存
   const handleContextEditorSave = async (context: { messages: ConversationMessage[], variables: Record<string, string>, tools: any[] }) => {
     // 更新优化上下文
     optimizationContext.value = [...context.messages]
     optimizationContextTools.value = [...context.tools]  // 🆕 保存工具状态
-    
+
     // 🚫 移除全局变量更新 - 上下文变量不应污染全局变量库
     // 上下文变量应该只存在于上下文中，通过 persistContextUpdate 持久化到 contextRepo
-    
+
     // 持久化到contextRepo
     await persistContextUpdate({
       messages: context.messages,
       variables: context.variables,
       tools: context.tools
     })
-    
+
     // 关闭编辑器
     showContextEditor.value = false
-    
+
     // 显示成功提示
     useToast().success('上下文已更新')
   }
-  
+
   // 处理上下文编辑器实时状态更新
   const handleContextEditorStateUpdate = async (state: { messages: ConversationMessage[], variables: Record<string, string>, tools: any[] }) => {
     // 实时同步状态到contextEditorState
     contextEditorState.value = { ...contextEditorState.value, ...state }
-    
+
     // 实时更新优化上下文（保持轻量级Manager的数据同步）
     optimizationContext.value = [...state.messages]
     optimizationContextTools.value = [...(state.tools || [])]  // 🆕 同步工具状态
-    
+
     // 🚫 移除全局变量更新 - 上下文变量不应污染全局变量库
     // 上下文变量应该只存在于上下文中，通过 persistContextUpdate 持久化到 contextRepo
-    
+
     // 实时持久化（节流处理在persistContextUpdate中处理）
     await persistContextUpdate({
       messages: state.messages,
       variables: state.variables,
       tools: state.tools
     })
-    
+
     console.log('[App] Context editor state synchronized and persisted in real-time')
   }
 
@@ -715,18 +715,18 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
     if (showContextEditor.value) return
     await persistContextUpdate({ messages: newMessages })
   }, { deep: true })
-  
+
   // 6. 在顶层调用所有 Composables
   // 模型选择器引用管理
   const modelSelectRefs = useModelSelectRefs()
-  
+
   // 使用类型断言解决类型不匹配问题
   // 模型管理器
   const modelManager = useModelManager(
     services as any,
     modelSelectRefs
   )
-  
+
   // 提示词优化器
   const optimizer = usePromptOptimizer(
     services as any,
@@ -734,7 +734,7 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
     toRef(modelManager, 'selectedOptimizeModel'),
     toRef(modelManager, 'selectedTestModel')
   )
-  
+
   // 提示词历史
   const promptHistory = usePromptHistory(
     services as any,
@@ -747,7 +747,7 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
 
   // 提供全局历史实例给子组件复用
   provide('promptHistory', promptHistory)
-  
+
   // 历史管理器
   const historyManager = useHistoryManager(
     services as any,
@@ -760,7 +760,7 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
     promptHistory.handleClearHistory,
     promptHistory.handleDeleteChain as any
   )
-  
+
   // 模板管理器
   const templateManagerState = useTemplateManager(
     services as any,
@@ -916,16 +916,16 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
   // 7. 监听服务初始化
   watch(services, async (newServices) => {
     if (!newServices) return
-  
+
     // 设置服务引用
     promptService.value = newServices.promptService
-    
+
     // 初始化上下文持久化
     await initializeContextPersistence()
 
     // 确保功能模式已初始化（默认 basic）
     // useFunctionMode 内部已处理默认值与持久化
-  
+
     console.log('All services and composables initialized.')
 
     // 监听全局历史刷新事件（来自图像模式）
@@ -934,20 +934,20 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
     }
     window.addEventListener('prompt-optimizer:history-refresh', handleGlobalHistoryRefresh)
   })
-  
+
   // 8. 处理数据导入成功后的刷新
   const handleDataImported = () => {
     console.log('[App] 数据导入成功，即将刷新页面以应用所有更改...')
-  
+
     // 显示成功提示，然后刷新页面
     useToast().success(t('dataManager.import.successWithRefresh'))
-  
+
     // 延迟一点时间让用户看到成功提示，然后刷新页面
     setTimeout(() => {
       window.location.reload()
     }, 1500)
   }
-  
+
   // 处理优化提示词
   const handleOptimizePrompt = () => {
     // 检查是否需要传递高级上下文
@@ -958,9 +958,9 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
         messages: optimizationContext.value.length > 0 ? optimizationContext.value : undefined,
         tools: optimizationContextTools.value.length > 0 ? optimizationContextTools.value : undefined  // 🆕 添加工具传递
       }
-      
+
       console.log('[App] Optimizing with advanced context:', advancedContext)
-      
+
       // 使用带上下文的优化
       optimizer.handleOptimizePromptWithContext(advancedContext)
     } else {
@@ -968,30 +968,30 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
       optimizer.handleOptimizePrompt()
     }
   }
-  
+
   // 处理迭代提示词
   const handleIteratePrompt = (payload: any) => {
     optimizer.handleIteratePrompt(payload)
   }
-  
+
   // 处理切换版本
   const handleSwitchVersion = (versionId: any) => {
     optimizer.handleSwitchVersion(versionId)
   }
-  
+
   // 处理高级模式变化
   const handleAdvancedModeChange = (enabled: boolean) => {
     advancedModeEnabled.value = enabled
     console.log(`[App] Advanced mode ${enabled ? 'enabled' : 'disabled'}`)
   }
-  
+
   // 切换高级模式（导航菜单使用）
   const toggleAdvancedMode = async () => {
     const next = !advancedModeEnabled.value
     advancedModeEnabled.value = next
     console.log(`[App] Advanced mode ${next ? 'enabled' : 'disabled'} (toggled from navigation)`)
   }
-  
+
   // 打开变量管理器
   const openVariableManager = (variableName?: string) => {
     // 强制刷新变量管理器数据
@@ -1002,14 +1002,14 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
     focusVariableName.value = variableName
     showVariableManager.value = true
   }
-  
+
   // 监听变量管理器关闭，清理聚焦变量
   watch(showVariableManager, (newValue) => {
     if (!newValue) {
       focusVariableName.value = undefined
     }
   })
-  
+
   // 监听高级模式和优化模式变化，自动加载默认快速模板
   watch(
     [advancedModeEnabled, selectedOptimizationMode],
@@ -1021,7 +1021,7 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
           try {
             // 根据优化模式获取默认模板
             const defaultTemplate = quickTemplateManager.getTemplate(newOptimizationMode, 'default')
-            
+
             if (defaultTemplate && defaultTemplate.messages) {
               optimizationContext.value = [...defaultTemplate.messages]
               console.log(`[App] Auto-loaded default ${newOptimizationMode} template: ${defaultTemplate.name}`)
@@ -1060,11 +1060,11 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
     },
     { immediate: false } // 不立即执行，只在变化时执行
   )
-  
+
   // 打开GitHub仓库
   const openGithubRepo = async () => {
     const url = 'https://github.com/linshenkx/prompt-optimizer'
-  
+
     // 检查是否在Electron环境中
     if (typeof window !== 'undefined' && (window as any).electronAPI) {
       try {
@@ -1079,19 +1079,19 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
       window.open(url, '_blank')
     }
   }
-  
+
   // 打开模板管理器
   const openTemplateManager = (templateType?: 'optimize' | 'userOptimize' | 'iterate' | 'text2imageOptimize' | 'image2imageOptimize' | 'imageIterate') => {
     // 如果传入了模板类型，直接使用；否则根据当前优化模式判断（向后兼容）
     templateManagerState.currentType = (templateType as any) || (selectedOptimizationMode.value === 'system' ? 'optimize' : 'userOptimize')
     templateManagerState.showTemplates = true
   }
-  
+
   // 处理优化模式变更
   const handleOptimizationModeChange = (mode: OptimizationMode) => {
     selectedOptimizationMode.value = mode
   }
-  
+
   // 处理模板语言变化
   const handleTemplateLanguageChanged = (newLanguage: string) => {
     console.log('[App] 模板语言已切换:', newLanguage)
@@ -1153,7 +1153,7 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
       window.dispatchEvent(new Event('image-workspace-refresh-image-models'))
     }
   }
-  
+
   // 处理历史记录使用 - 智能模式切换
   const handleHistoryReuse = async (context: { record: any, chainId: string, rootPrompt: string, chain: any }) => {
     const { record, chain } = context
@@ -1219,40 +1219,40 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
           mode: targetMode === 'system' ? t('common.system') : t('common.user')
         }))
       }
-      
+
       // 根据根记录类型自动切换功能模式
       const isContext = rt === 'contextSystemOptimize' || rt === 'contextUserOptimize' || rt === 'contextIterate'
       await setFunctionMode(isContext ? 'pro' : 'basic')
-      
+
       // 调用原有的历史记录处理逻辑
       await promptHistory.handleSelectHistory(context)
     }
   }
-  
+
   // 提示词输入标签
   const promptInputLabel = computed(() => {
     return selectedOptimizationMode.value === 'system' ? t('promptOptimizer.originalPrompt') : t('promptOptimizer.userPromptInput')
   })
-  
+
   // 提示词输入占位符
   const promptInputPlaceholder = computed(() => {
     return selectedOptimizationMode.value === 'system' ? t('promptOptimizer.originalPromptPlaceholder') : t('promptOptimizer.userPromptPlaceholder')
   })
-  
+
   // 真实测试处理函数
   const handleTestAreaTest = async () => {
     if (!services.value?.promptService) {
       useToast().error('服务未初始化，请稍后重试')
       return
     }
-  
+
     if (!modelManager.selectedTestModel) {
       useToast().error('请先选择测试模型')
       return
     }
-  
+
     console.log('[App] Starting real test with content:', testContent.value)
-    
+
     if (isCompareMode.value) {
       // 对比模式：测试原始和优化提示词
       await Promise.all([
@@ -1264,17 +1264,17 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
       await testPromptWithType('optimized')
     }
   }
-  
+
   // 测试特定类型的提示词（复用会话上下文 + 变量 + 工具）
   const testPromptWithType = async (type: 'original' | 'optimized') => {
     const isOriginal = type === 'original'
     const prompt = isOriginal ? optimizer.prompt : optimizer.optimizedPrompt
-    
+
     if (!prompt) {
       useToast().error(isOriginal ? '请先输入原始提示词' : '请先生成优化后的提示词')
       return
     }
-  
+
     // 设置测试状态
     if (isOriginal) {
       testResults.value.isTestingOriginal = true
@@ -1285,10 +1285,10 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
       testResults.value.optimizedResult = ''
       testResults.value.optimizedReasoning = ''
     }
-    
+
     // 清除对应类型的工具调用数据
     testPanelRef.value?.clearToolCalls?.(isOriginal ? 'original' : 'optimized')
-  
+
     try {
       const streamHandler = {
         onToken: (token: string) => {
@@ -1370,7 +1370,7 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
           },
         }
       )
-  
+
     } catch (error: any) {
       console.error(`[App] ${type} test error:`, error)
       const errorMessage = error.message || t('test.error.failed')
@@ -1384,7 +1384,7 @@ const promptPanelRef = ref<{ refreshIterateTemplateSelect?: () => void } | null>
       }
     }
   }
-  
+
   const handleTestAreaCompareToggle = () => {
     console.log('[App] Compare mode toggled:', isCompareMode.value)
   }
@@ -1480,7 +1480,7 @@ const handleFavoriteOptimizePrompt = () => {
     useToast().success('已将提示词加载到输入框')
   }
   </script>
-  
+
   <style scoped>
   /* 高级模式按钮激活状态 */
   .active-button {
@@ -1488,12 +1488,12 @@ const handleFavoriteOptimizePrompt = () => {
     color: white !important;
     border-color: var(--primary-color, #3b82f6) !important;
   }
-  
+
   .active-button:hover {
     background-color: var(--primary-hover-color, #2563eb) !important;
     border-color: var(--primary-hover-color, #2563eb) !important;
   }
-  
+
   .loading-container {
     display: flex;
     flex-direction: column;
@@ -1504,11 +1504,11 @@ const handleFavoriteOptimizePrompt = () => {
     color: var(--text-color);
     background-color: var(--background-color);
   }
-  
+
   .loading-container.error {
     color: #f56c6c;
   }
-  
+
   .spinner {
     border: 4px solid rgba(128, 128, 128, 0.2);
     width: 36px;
@@ -1518,10 +1518,9 @@ const handleFavoriteOptimizePrompt = () => {
     animation: spin 1s ease infinite;
     margin-bottom: 20px;
   }
-  
+
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
   }
   </style>
-

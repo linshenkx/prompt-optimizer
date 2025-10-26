@@ -591,7 +591,7 @@ export default {
       userComparison: '对比分析',
       userDialogue: '互动对话'
     },
-    
+
     placeholders: {
       system: '请输入系统消息（定义AI行为和上下文）...',
       user: '请输入用户消息（您的输入或问题）...',
@@ -599,7 +599,7 @@ export default {
       tool: '请输入工具调用结果或函数输出...',
       default: '请输入消息内容...'
     },
-    
+
     variableCount: '{count} 个变量',
     missingVariables: '缺失 {count} 个',
     detectedVariables: '检测到变量',
@@ -610,7 +610,7 @@ export default {
     totalVariables: '变量总数',
     allVariablesSet: '变量已全部配置',
     createVariable: '创建',
-    
+
     showPreview: '显示预览',
     hidePreview: '隐藏预览',
     previewNote: '预览显示变量替换后的效果',
@@ -663,6 +663,14 @@ export default {
     apiKey: 'API密钥',
     addModel: '添加',
     addImageModel: '添加图像模型',
+    provider: {
+      section: '提供商配置',
+      label: '提供商',
+      placeholder: '选择提供商'
+    },
+    model: {
+      section: '模型配置'
+    },
 
     // 高级参数
     advancedParameters: {
@@ -1140,7 +1148,7 @@ export default {
       importClipboard: '从剪贴板导入',
       importMode: '导入模式',
       replaceMode: '替换模式',
-      appendMode: '追加模式',  
+      appendMode: '追加模式',
       mergeMode: '合并模式',
       replaceModeDesc: '完全替换现有上下文集合',
       appendModeDesc: '将导入内容追加到现有集合（自动处理ID冲突）',
@@ -1307,13 +1315,13 @@ export default {
     variableNamePredefined: '不能使用预定义变量名',
     variableNameExists: '变量名已存在',
     variableValueRequired: '变量值是必需的',
-    
+
     // Import/Export context variables
     importContextVariables: '导入上下文变量',
     exportContextVariables: '导出上下文变量',
     contextVariableImported: '已导入 {count} 个上下文变量',
     contextVariableSkipped: '跳过 {count} 个预定义变量冲突',
-    
+
     // Tools editor（新增）
     editTool: '编辑工具',
     deleteToolConfirm: '确定要删除工具“{name}”吗？',
@@ -1364,7 +1372,7 @@ export default {
     exportPreview: '导出预览：',
     copyToClipboard: '复制到剪贴板',
     saveToFile: '保存到文件',
-    
+
     // Missing keys
     override: '上下文变量',
     createOverride: '创建上下文变量',
@@ -1382,13 +1390,13 @@ export default {
     variableDeleted: '已删除上下文变量：{name}',
     predefinedVariableError: '不能修改预定义变量',
     variableSaved: '已{action}上下文变量：{name}',
-    
+
     // Variable source labels
     variableSourceLabels: {
       global: '全局',
       context: '上下文'
     },
-    
+
     // Variable status labels
     variableStatusLabels: {
       active: '活跃',
@@ -1525,7 +1533,7 @@ export default {
       optimizing: '优化中...',
       optimizePrompt: '优化提示词'
     },
-    
+
     // 图像生成区域
     generation: {
       imageModel: '图像模型',
@@ -1535,7 +1543,7 @@ export default {
       generateImage: '生成图像',
       processing: '处理中'
     },
-    
+
     // 结果显示
     results: {
       originalPromptResult: '原始提示词',
@@ -1551,7 +1559,7 @@ export default {
       noOptimizedResult: '暂无优化结果',
       noGenerationResult: '暂无生成结果'
     },
-    
+
     // 上传弹窗
     upload: {
       title: '上传参考图片',

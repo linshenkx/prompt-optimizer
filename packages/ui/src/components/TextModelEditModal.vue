@@ -33,14 +33,14 @@
           </NFormItem>
 
           <NDivider style="margin: 12px 0 8px 0;" />
-          <NH4 style="margin: 0 0 12px 0; font-size: 14px;">提供商配置</NH4>
+          <NH4 style="margin: 0 0 12px 0; font-size: 14px;">{{ t('modelManager.provider.section') }}</NH4>
 
-          <NFormItem label="提供商">
+          <NFormItem :label="t('modelManager.provider.label')">
             <NSelect
               v-model:value="form.providerId"
               :options="providerOptions"
               :loading="isLoadingProviders"
-              placeholder="选择提供商"
+              :placeholder="t('modelManager.provider.placeholder')"
               @update:value="onProviderChange"
               required
             />
@@ -82,7 +82,7 @@
           </NFormItem>
 
           <NDivider style="margin: 12px 0 8px 0;" />
-          <NH4 style="margin: 0 0 12px 0; font-size: 14px;">模型配置</NH4>
+          <NH4 style="margin: 0 0 12px 0; font-size: 14px;">{{ t('modelManager.model.section') }}</NH4>
 
           <NFormItem :label="t('modelManager.selectModel')">
             <NSpace align="center" style="width: 100%;">
