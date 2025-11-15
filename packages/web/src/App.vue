@@ -1998,17 +1998,24 @@ const handleHistoryReuse = async (context: {
                 chain.rootRecord.metadata?.optimizationMode || "system";
         }
 
-        // 如果目标模式与当前模式不同，自动切换
-        if (targetMode !== selectedOptimizationMode.value) {
-            // 根据功能模式分别处理子模式的持久化
-            // selectedOptimizationMode 会自动从对应 subMode 同步
-            if (functionMode.value === "basic") {
-                // 基础模式：持久化子模式选择
+        // 根据根记录类型自动切换功能模式
+        const isContext =
+            rt === "contextSystemOptimize" ||
+            rt === "contextUserOptimize" ||
+            rt === "contextIterate";
+        const targetFunctionMode: "basic" | "pro" = isContext ? "pro" : "basic";
+        const currentSubMode = (
+            targetFunctionMode === "pro" ? proSubMode.value : basicSubMode.value
+        ) as OptimizationMode;
+
+        // 如果目标模式与目标功能模式的子模式不同，自动切换
+        if (targetMode !== currentSubMode) {
+            // 根据目标功能模式分别处理子模式的持久化
+            if (targetFunctionMode === "basic") {
                 await setBasicSubMode(
                     targetMode as import("@prompt-optimizer/core").BasicSubMode,
                 );
-            } else if (functionMode.value === "pro") {
-                // 上下文模式：持久化子模式并同步 contextMode
+            } else {
                 await setProSubMode(
                     targetMode as import("@prompt-optimizer/core").ProSubMode,
                 );
@@ -2027,12 +2034,7 @@ const handleHistoryReuse = async (context: {
             );
         }
 
-        // 根据根记录类型自动切换功能模式
-        const isContext =
-            rt === "contextSystemOptimize" ||
-            rt === "contextUserOptimize" ||
-            rt === "contextIterate";
-        await setFunctionMode(isContext ? "pro" : "basic");
+        await setFunctionMode(targetFunctionMode);
 
         // 调用原有的历史记录处理逻辑
         await promptHistory.handleSelectHistory(context);
@@ -2157,19 +2159,21 @@ const handleUseFavorite = async (favorite: any) => {
     } else {
         // 基础模式或上下文模式
 
-        // 2. 切换优化模式
-        if (
-            favOptimizationMode &&
-            favOptimizationMode !== selectedOptimizationMode.value
-        ) {
-            // 根据功能模式分别处理子模式的持久化
-            // selectedOptimizationMode 会自动从对应 subMode 同步
-            if (functionMode.value === "basic") {
+        // 2. 确定目标功能模式
+        const targetFunctionMode =
+            favFunctionMode === "context" ? "pro" : "basic";
+        const currentSubMode = (
+            targetFunctionMode === "pro" ? proSubMode.value : basicSubMode.value
+        ) as OptimizationMode;
+
+        // 3. 如果目标模式与目标功能模式的子模式不同，切换子模式
+        if (favOptimizationMode && favOptimizationMode !== currentSubMode) {
+            if (targetFunctionMode === "basic") {
                 // 基础模式：持久化子模式选择
                 await setBasicSubMode(
                     favOptimizationMode as import("@prompt-optimizer/core").BasicSubMode,
                 );
-            } else if (functionMode.value === "pro") {
+            } else {
                 // 上下文模式：持久化子模式并同步 contextMode
                 await setProSubMode(
                     favOptimizationMode as import("@prompt-optimizer/core").ProSubMode,
@@ -2189,35 +2193,15 @@ const handleUseFavorite = async (favorite: any) => {
             );
         }
 
-        // 3. 切换功能模式(basic vs context)
-        const targetFunctionMode =
-            favFunctionMode === "context" ? "pro" : "basic";
+        // 4. 切换功能模式
         if (targetFunctionMode !== functionMode.value) {
             await setFunctionMode(targetFunctionMode);
             useToast().info(
                 `已自动切换到${targetFunctionMode === "pro" ? "上下文" : "基础"}模式`,
             );
-
-            // 功能模式切换后，如果有优化模式信息，确保同步各自的子模式持久化
-            if (favOptimizationMode) {
-                if (targetFunctionMode === "basic") {
-                    // 基础模式：持久化子模式选择
-                    await setBasicSubMode(
-                        favOptimizationMode as import("@prompt-optimizer/core").BasicSubMode,
-                    );
-                } else if (targetFunctionMode === "pro") {
-                    // 上下文模式：持久化子模式并同步 contextMode
-                    await setProSubMode(
-                        favOptimizationMode as import("@prompt-optimizer/core").ProSubMode,
-                    );
-                    await handleContextModeChange(
-                        favOptimizationMode as import("@prompt-optimizer/core").ContextMode,
-                    );
-                }
-            }
         }
 
-        // 4. 将收藏的提示词内容设置到输入框
+        // 5. 将收藏的提示词内容设置到输入框
         optimizer.prompt = favorite.content;
     }
 
