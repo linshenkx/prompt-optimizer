@@ -1,4 +1,4 @@
-import { computed, readonly, type Ref } from 'vue'
+import { computed, readonly, type Ref, type ComputedRef } from 'vue'
 
 import type { OptimizationMode } from '@prompt-optimizer/core'
 
@@ -46,8 +46,10 @@ interface TestModeConfigMap {
   user: TestModeConfig
 }
 
+type OptimizationModeSource = Ref<OptimizationMode> | ComputedRef<OptimizationMode>
+
 export function useTestModeConfig(
-  optimizationMode: Ref<OptimizationMode>, 
+  optimizationMode: OptimizationModeSource, 
   options: TestModeConfigOptions = {}
 ) {
   const {

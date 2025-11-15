@@ -1,4 +1,4 @@
-import { ref, nextTick, computed, reactive, type Ref } from 'vue'
+import { ref, nextTick, computed, reactive, type Ref, type ComputedRef } from 'vue'
 
 import { useToast } from '../ui/useToast'
 import { useI18n } from 'vue-i18n'
@@ -33,24 +33,22 @@ interface AdvancedContextPayload {
 /**
  * 提示词优化器Hook
  * @param services 服务实例引用
- * @param selectedOptimizationMode 优化模式
+ * @param optimizationMode 当前优化模式（从 basicSubMode/proSubMode 计算得出的 computed）
  * @param selectedOptimizeModel 优化模型选择
  * @param selectedTestModel 测试模型选择
- * @param contextMode 上下文模式（用于变量替换策略）
+ * @param contextMode 上下文模式（用于变量替换策略，兼容性保留）
  * @returns 提示词优化器接口
+ * @deprecated optimizationMode 参数建议传入 computed 值（从 basicSubMode/proSubMode 动态计算）
  */
+type OptimizationModeSource = Ref<OptimizationMode> | ComputedRef<OptimizationMode>
+
 export function usePromptOptimizer(
   services: Ref<AppServices | null>,
-  selectedOptimizationMode?: Ref<OptimizationMode>,    // 优化模式
+  optimizationMode: OptimizationModeSource,    // 必需参数，接受 computed
   selectedOptimizeModel?: Ref<string>,                 // 优化模型选择
   selectedTestModel?: Ref<string>,                     // 测试模型选择
   contextMode?: Ref<import('@prompt-optimizer/core').ContextMode>  // 上下文模式
 ) {
-  // 如果没有传入参数，抛出错误而不是使用默认值
-  if (!selectedOptimizationMode) {
-    throw new Error('selectedOptimizationMode is required for usePromptOptimizer')
-  }
-  const optimizationMode = selectedOptimizationMode
   const optimizeModel = selectedOptimizeModel || ref('')
   const testModel = selectedTestModel || ref('')
   const toast = useToast()

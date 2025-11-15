@@ -3,7 +3,7 @@
  * 负责管理优化上下文、上下文变量、上下文编辑器等相关功能
  */
 
-import { ref, computed, watch, type Ref } from 'vue'
+import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 
 import { useToast } from "../ui/useToast";
 import { quickTemplateManager } from "../../data/quickTemplates";
@@ -18,7 +18,8 @@ import type { VariableManagerHooks } from "../prompt/useVariableManager";
 
 export interface ContextManagementOptions {
   services: Ref<AppServices | null>;
-  selectedOptimizationMode: Ref<OptimizationMode>;
+  /** @deprecated 建议传入 computed 值（从 basicSubMode/proSubMode 动态计算），不应直接管理此状态 */
+  selectedOptimizationMode: Ref<OptimizationMode> | ComputedRef<OptimizationMode>;
   advancedModeEnabled: Ref<boolean>;
   showContextEditor: Ref<boolean>;
   contextEditorDefaultTab: Ref<"messages" | "variables" | "tools">;

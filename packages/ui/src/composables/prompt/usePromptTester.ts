@@ -1,4 +1,4 @@
-import { reactive, type Ref } from 'vue'
+import { reactive, type Ref, type ComputedRef } from 'vue'
 
 import { useToast } from '../ui/useToast'
 import { useI18n } from 'vue-i18n'
@@ -15,17 +15,20 @@ import type { TestAreaPanelInstance } from '../components/types/test-area'
  *
  * @param services 服务实例引用
  * @param selectedTestModel 测试模型选择
- * @param selectedOptimizationMode 优化模式
+ * @param optimizationMode 当前优化模式（建议传入 computed 值，从 basicSubMode/proSubMode 动态计算）
  * @param advancedModeEnabled 是否启用高级模式
  * @param optimizationContext 优化上下文（会话消息）
  * @param optimizationContextTools 上下文工具列表
  * @param variableManager 变量管理器
  * @returns 提示词测试接口
+ * @deprecated optimizationMode 参数建议传入 computed 值（从 basicSubMode/proSubMode 动态计算）
  */
+type OptimizationModeSource = Ref<OptimizationMode> | ComputedRef<OptimizationMode>
+
 export function usePromptTester(
   services: Ref<AppServices | null>,
   selectedTestModel: Ref<string>,
-  selectedOptimizationMode: Ref<OptimizationMode>,
+  optimizationMode: OptimizationModeSource,
   advancedModeEnabled: Ref<boolean>,
   optimizationContext: Ref<ConversationMessage[]>,
   optimizationContextTools: Ref<ToolDefinition[]>,
@@ -174,7 +177,7 @@ export function usePromptTester(
         let systemPrompt = ''
         let userPrompt = ''
 
-        if (selectedOptimizationMode.value === 'user') {
+        if (optimizationMode.value === 'user') {
           // 用户提示词模式：提示词作为用户输入
           systemPrompt = ''
           userPrompt = selectedPrompt
@@ -185,7 +188,7 @@ export function usePromptTester(
         }
 
         const hasConversationContext =
-          selectedOptimizationMode.value === 'system' &&
+          optimizationMode.value === 'system' &&
           advancedModeEnabled.value &&
           (optimizationContext.value?.length || 0) > 0
         const hasTools =
@@ -210,7 +213,7 @@ export function usePromptTester(
         // - 用户模式：无论是否有会话上下文，都直接发送优化后的提示词作为用户消息
         //   （因为用户提示词优化的目标是生成可直接使用的单条用户消息）
         const messages: ConversationMessage[] =
-          selectedOptimizationMode.value === 'system' && hasConversationContext
+          optimizationMode.value === 'system' && hasConversationContext
             ? [
                 // 保留完整的上下文消息（包含 name, tool_calls, tool_call_id 等元数据）
                 ...optimizationContext.value,

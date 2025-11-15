@@ -1086,7 +1086,13 @@ const servicesForContextEditor = computed(() => services?.value || null);
 
 // 6. 创建所有必要的引用
 const promptService = shallowRef<IPromptService | null>(null);
-const selectedOptimizationMode = ref<OptimizationMode>("system");
+// selectedOptimizationMode 改为 computed，从对应的 subMode 动态计算
+// 根据当前 functionMode 返回对应的 subMode 值
+const selectedOptimizationMode = computed<OptimizationMode>(() => {
+  if (functionMode.value === 'basic') return basicSubMode.value as OptimizationMode;
+  if (functionMode.value === 'pro') return proSubMode.value as OptimizationMode;
+  return 'system'; // 默认值（图像模式不使用此值）
+});
 const showDataManager = ref(false);
 const showFavoriteManager = ref(false);
 const showSaveFavoriteDialog = ref(false);
@@ -1129,13 +1135,13 @@ const handleModeSelect = async (mode: "basic" | "pro" | "image") => {
     if (mode === "basic") {
         const { ensureInitialized } = useBasicSubMode(services as any);
         await ensureInitialized();
-        selectedOptimizationMode.value = basicSubMode.value as OptimizationMode;
+        // selectedOptimizationMode 现在是 computed，会自动从 basicSubMode 同步
         // 同步 contextMode，确保测试输入框正确显示
         contextMode.value = basicSubMode.value as import("@prompt-optimizer/core").ContextMode;
     } else if (mode === "pro") {
         const { ensureInitialized } = useProSubMode(services as any);
         await ensureInitialized();
-        selectedOptimizationMode.value = proSubMode.value as OptimizationMode;
+        // selectedOptimizationMode 现在是 computed，会自动从 proSubMode 同步
         // 同步到 contextMode（关键！否则界面不会切换）
         await handleContextModeChange(
             proSubMode.value as import("@prompt-optimizer/core").ContextMode,
@@ -1358,7 +1364,7 @@ watch(
             await setProSubMode(
                 newMode as import("@prompt-optimizer/core").ProSubMode,
             );
-            selectedOptimizationMode.value = newMode as OptimizationMode;
+            // selectedOptimizationMode 现在是 computed，会自动从 proSubMode 同步
         }
     },
     { immediate: true },
@@ -1580,13 +1586,11 @@ watch(services, async (newServices) => {
     if (functionMode.value === "basic") {
         const { ensureInitialized } = useBasicSubMode(services as any);
         await ensureInitialized();
-        // 同步到 selectedOptimizationMode 以保持兼容性
-        selectedOptimizationMode.value = basicSubMode.value as OptimizationMode;
+        // selectedOptimizationMode 现在是 computed，会自动从 basicSubMode 同步
     } else if (functionMode.value === "pro") {
         const { ensureInitialized } = useProSubMode(services as any);
         await ensureInitialized();
-        // 同步到 selectedOptimizationMode 以保持兼容性
-        selectedOptimizationMode.value = proSubMode.value as OptimizationMode;
+        // selectedOptimizationMode 现在是 computed，会自动从 proSubMode 同步
         // 同步到 contextMode（关键！否则界面不会切换）
         await handleContextModeChange(
             proSubMode.value as import("@prompt-optimizer/core").ContextMode,
@@ -1800,7 +1804,7 @@ const handleBasicSubModeChange = async (mode: OptimizationMode) => {
     await setBasicSubMode(
         mode as import("@prompt-optimizer/core").BasicSubMode,
     );
-    selectedOptimizationMode.value = mode; // 保持兼容性
+    // selectedOptimizationMode 现在是 computed，会自动从 basicSubMode 同步
     // 同步 contextMode，确保测试输入框正确显示
     contextMode.value = mode as import("@prompt-optimizer/core").ContextMode;
 };
@@ -1808,7 +1812,7 @@ const handleBasicSubModeChange = async (mode: OptimizationMode) => {
 // 上下文模式子模式变更处理器
 const handleProSubModeChange = async (mode: OptimizationMode) => {
     await setProSubMode(mode as import("@prompt-optimizer/core").ProSubMode);
-    selectedOptimizationMode.value = mode; // 保持兼容性
+    // selectedOptimizationMode 现在是 computed，会自动从 proSubMode 同步
 
     // 同步更新 contextMode，确保两者一致（避免重复调用）
     if (services.value?.contextMode.value !== mode) {
@@ -1992,9 +1996,8 @@ const handleHistoryReuse = async (context: {
 
         // 如果目标模式与当前模式不同，自动切换
         if (targetMode !== selectedOptimizationMode.value) {
-            selectedOptimizationMode.value = targetMode;
-
             // 根据功能模式分别处理子模式的持久化
+            // selectedOptimizationMode 会自动从对应 subMode 同步
             if (functionMode.value === "basic") {
                 // 基础模式：持久化子模式选择
                 await setBasicSubMode(
@@ -2155,9 +2158,8 @@ const handleUseFavorite = async (favorite: any) => {
             favOptimizationMode &&
             favOptimizationMode !== selectedOptimizationMode.value
         ) {
-            selectedOptimizationMode.value = favOptimizationMode;
-
             // 根据功能模式分别处理子模式的持久化
+            // selectedOptimizationMode 会自动从对应 subMode 同步
             if (functionMode.value === "basic") {
                 // 基础模式：持久化子模式选择
                 await setBasicSubMode(
