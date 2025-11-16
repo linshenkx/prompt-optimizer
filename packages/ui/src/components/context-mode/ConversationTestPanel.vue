@@ -1,21 +1,6 @@
 <template>
     <NFlex vertical :style="{ height: '100%' }">
-        <!-- 测试输入区域 (仅在系统提示词优化模式下显示) -->
-        <div v-if="showTestInput" :style="{ flexShrink: 0 }">
-            <TestInputSection
-                v-model="testContentProxy"
-                :label="t('test.content')"
-                :placeholder="t('test.placeholder')"
-                :help-text="t('test.simpleMode.help')"
-                :disabled="isTestRunning"
-                :mode="adaptiveInputMode"
-                :size="inputSize"
-                :enable-fullscreen="enableFullscreen"
-                :style="{ marginBottom: '16px' }"
-            />
-        </div>
-
-        <!-- 变量值输入表单 (完整实现) -->
+        <!-- 变量值输入表单 -->
         <div
             v-if="showVariableForm"
             :style="{ flexShrink: 0, marginBottom: '16px' }"
@@ -59,9 +44,7 @@
                                     ? 'success'
                                     : getVariableSource(varName) === 'test'
                                       ? 'warning'
-                                      : getVariableSource(varName) === 'global'
-                                        ? 'default'
-                                        : 'default'
+                                      : 'default'
                             "
                             :style="{ minWidth: '120px', flexShrink: 0 }"
                         >
@@ -76,7 +59,7 @@
                                 handleVariableValueChange(varName, $event)
                             "
                         />
-                        <!-- 🆕 删除按钮 (仅临时变量显示) -->
+                        <!-- 删除按钮 (仅临时变量显示) -->
                         <NButton
                             v-if="getVariableSource(varName) === 'test'"
                             size="small"
@@ -86,7 +69,7 @@
                         >
                             🗑️
                         </NButton>
-                        <!-- 🆕 保存到全局按钮 (仅测试变量显示) -->
+                        <!-- 保存到全局按钮 (仅测试变量显示) -->
                         <NButton
                             v-if="getVariableSource(varName) === 'test'"
                             size="small"
@@ -107,7 +90,7 @@
 
                     <!-- 操作按钮 -->
                     <NSpace :size="8" justify="end">
-                        <!-- 🆕 添加变量按钮 -->
+                        <!-- 添加变量按钮 -->
                         <NButton
                             size="small"
                             @click="showAddVariableDialog = true"
@@ -119,8 +102,7 @@
             </NCard>
         </div>
 
-
-        <!-- 🆕 添加变量对话框 -->
+        <!-- 添加变量对话框 -->
         <NModal
             v-model:show="showAddVariableDialog"
             preset="dialog"
@@ -163,13 +145,13 @@
             <TestControlBar
                 :model-label="t('test.model')"
                 :show-compare-toggle="enableCompareMode"
-                :is-compare-mode="props.isCompareMode"
+                :is-compare-mode="isCompareMode"
+                @update:is-compare-mode="handleCompareModeToggle"
                 :primary-action-text="primaryActionText"
                 :primary-action-disabled="primaryActionDisabled"
                 :primary-action-loading="isTestRunning"
                 :layout="adaptiveControlBarLayout"
                 :button-size="adaptiveButtonSize"
-                @compare-toggle="handleCompareToggle"
                 @primary-action="handleTest"
                 :style="{ marginBottom: '16px' }"
             >
@@ -185,23 +167,24 @@
             </TestControlBar>
         </div>
 
-        <!-- 测试结果区域 -->
+        <!-- 测试结果区域（支持对比模式）-->
         <TestResultSection
-            :is-compare-mode="props.isCompareMode && enableCompareMode"
+            :is-compare-mode="isCompareMode"
             :vertical-layout="adaptiveResultVerticalLayout"
-            :show-original="showOriginalResult"
-            :original-title="originalResultTitle"
-            :optimized-title="optimizedResultTitle"
+            :show-original="isCompareMode"
+            :original-result-title="t('test.originalResult')"
+            :optimized-result-title="t('test.optimizedResult')"
             :single-result-title="singleResultTitle"
-            :original-result="originalResult"
-            :optimized-result="optimizedResult"
-            :single-result="singleResult"
+            :original-result="originalTestResult"
+            :optimized-result="optimizedTestResult"
+            :single-result="testResult"
             :size="adaptiveButtonSize"
             :style="{ flex: 1, minHeight: 0 }"
         >
+            <!-- 🆕 对比模式：原始结果 -->
             <template #original-result>
                 <div class="result-container">
-                    <!-- 原始结果的工具调用显示 - 移到正文之前 -->
+                    <!-- 工具调用显示 -->
                     <ToolCallDisplay
                         v-if="originalToolCalls.length > 0"
                         :tool-calls="originalToolCalls"
@@ -216,9 +199,11 @@
                     </div>
                 </div>
             </template>
+
+            <!-- 🆕 对比模式：优化结果 -->
             <template #optimized-result>
                 <div class="result-container">
-                    <!-- 优化结果的工具调用显示 - 移到正文之前 -->
+                    <!-- 工具调用显示 -->
                     <ToolCallDisplay
                         v-if="optimizedToolCalls.length > 0"
                         :tool-calls="optimizedToolCalls"
@@ -233,12 +218,14 @@
                     </div>
                 </div>
             </template>
+
+            <!-- 单一结果模式 -->
             <template #single-result>
                 <div class="result-container">
-                    <!-- 单一结果的工具调用显示 - 移到正文之前（使用优化结果的数据） -->
+                    <!-- 工具调用显示 -->
                     <ToolCallDisplay
-                        v-if="optimizedToolCalls.length > 0"
-                        :tool-calls="optimizedToolCalls"
+                        v-if="toolCalls.length > 0"
+                        :tool-calls="toolCalls"
                         :size="
                             adaptiveButtonSize === 'large' ? 'medium' : 'small'
                         "
@@ -275,24 +262,18 @@ import type {
     AdvancedTestResult,
     ToolCallResult,
 } from "@prompt-optimizer/core";
-import { useResponsive } from '../composables/ui/useResponsive';
-import { usePerformanceMonitor } from "../composables/performance/usePerformanceMonitor";
-import { useDebounceThrottle } from "../composables/performance/useDebounceThrottle";
-import { useCurrentMode } from "../composables/mode";
-import TestInputSection from "./TestInputSection.vue";
-import TestControlBar from "./TestControlBar.vue";
-import TestResultSection from "./TestResultSection.vue";
-import ToolCallDisplay from "./ToolCallDisplay.vue";
+import { useResponsive } from '../../composables/ui/useResponsive';
+import { usePerformanceMonitor } from "../../composables/performance/usePerformanceMonitor";
+import { useDebounceThrottle } from "../../composables/performance/useDebounceThrottle";
+import TestControlBar from "../TestControlBar.vue";
+import TestResultSection from "../TestResultSection.vue";
+import ToolCallDisplay from "../ToolCallDisplay.vue";
 
 const { t } = useI18n();
 const message = useMessage();
 
 // 性能监控
-const {
-    recordUpdate,
-    getPerformanceReport,
-    // performanceGrade  // 保留用于性能监控
-} = usePerformanceMonitor("TestAreaPanel");
+const { recordUpdate, getPerformanceReport } = usePerformanceMonitor("ConversationTestPanel");
 
 // 防抖节流
 const { debounce, throttle } = useDebounceThrottle();
@@ -301,67 +282,46 @@ const { debounce, throttle } = useDebounceThrottle();
 const {
     shouldUseVerticalLayout,
     shouldUseCompactMode,
-    // spaceSize,  // 保留用于响应式布局
     buttonSize,
-    inputSize,
-    // gridConfig  // 保留用于网格布局
 } = useResponsive();
-
-// 🆕 模式检测（用于隐藏基础模式下的变量功能）
-const { isBasicMode } = useCurrentMode();
 
 interface Props {
     // 核心状态
     optimizationMode: OptimizationMode;
-    contextMode?: import("@prompt-optimizer/core").ContextMode;
     isTestRunning?: boolean;
 
-    // 测试内容
-    testContent?: string;
-    optimizedPrompt?: string; // 优化后的提示词（用于变量检测）
+    // 🆕 对比模式
     isCompareMode?: boolean;
-
-    // 🆕 两层变量体系 (简化)
-    globalVariables?: Record<string, string>; // 全局自定义变量
-    predefinedVariables?: Record<string, string>; // 内置预定义变量
-    temporaryVariables?: Record<string, string>; // 🆕 临时变量 (从InputPanel提取的变量)
-
-    // 功能开关
     enableCompareMode?: boolean;
-    enableFullscreen?: boolean;
+
+    // 变量管理
+    globalVariables?: Record<string, string>;
+    predefinedVariables?: Record<string, string>;
+    temporaryVariables?: Record<string, string>;
 
     // 布局配置
     inputMode?: "compact" | "normal";
     controlBarLayout?: "default" | "compact" | "minimal";
     buttonSize?: "small" | "medium" | "large";
+    resultVerticalLayout?: boolean;
 
     // 结果显示配置
-    showOriginalResult?: boolean;
-    resultVerticalLayout?: boolean;
-    originalResultTitle?: string;
-    optimizedResultTitle?: string;
     singleResultTitle?: string;
 
-    // 高级功能：测试结果数据（支持工具调用显示）
-    originalResult?: AdvancedTestResult;
-    optimizedResult?: AdvancedTestResult;
-    singleResult?: AdvancedTestResult;
+    // 🆕 测试结果数据（支持对比模式）
+    testResult?: AdvancedTestResult;
+    originalTestResult?: AdvancedTestResult;
+    optimizedTestResult?: AdvancedTestResult;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-    contextMode: "user",
     isTestRunning: false,
-    testContent: "",
-    isCompareMode: true,
+    isCompareMode: false,
     enableCompareMode: true,
-    enableFullscreen: true,
     inputMode: "normal",
     controlBarLayout: "default",
     buttonSize: "medium",
-    showOriginalResult: true,
     resultVerticalLayout: false,
-    originalResultTitle: "",
-    optimizedResultTitle: "",
     singleResultTitle: "",
     globalVariables: () => ({}),
     predefinedVariables: () => ({}),
@@ -369,99 +329,63 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-    "update:testContent": [value: string];
+    test: [testVariables: Record<string, string>];
     "update:isCompareMode": [value: boolean];
-    test: [testVariables: Record<string, string>]; // 🆕 传递测试变量
     "compare-toggle": [];
-    // 高级功能事件
     "open-variable-manager": [];
-    "open-context-editor": [];
     "variable-change": [name: string, value: string];
-    "save-to-global": [name: string, value: string]; // 🆕 保存测试变量到全局
-    "get-test-variables": []; // 🆕 请求获取测试变量（用于测试执行）
-    "context-change": [
-        messages: ConversationMessage[],
-        variables: Record<string, string>,
-    ];
-    // 工具调用事件
-    "tool-call": [toolCall: ToolCallResult, testType: "original" | "optimized"];
-    "tool-calls-updated": [
-        toolCalls: ToolCallResult[],
-        testType: "original" | "optimized",
-    ];
+    "save-to-global": [name: string, value: string];
+    "tool-call": [toolCall: ToolCallResult];
+    "tool-calls-updated": [toolCalls: ToolCallResult[]];
     "temporary-variable-remove": [name: string];
     "temporary-variables-clear": [];
 }>();
 
-// 内部状态管理 - 去除防抖，保证输入即时响应
-const testContentProxy = computed({
-    get: () => props.testContent,
-    set: (value: string) => {
-        emit("update:testContent", value);
-        recordUpdate();
-    },
-});
-
-// 工具调用状态管理
+// 🆕 工具调用状态管理（支持对比模式）
+const toolCalls = ref<ToolCallResult[]>([]);
 const originalToolCalls = ref<ToolCallResult[]>([]);
 const optimizedToolCalls = ref<ToolCallResult[]>([]);
 
-// 处理工具调用的方法
-const handleToolCall = (
-    toolCall: ToolCallResult,
-    testType: "original" | "optimized",
-) => {
-    if (testType === "original") {
-        originalToolCalls.value.push(toolCall);
-    } else {
-        optimizedToolCalls.value.push(toolCall);
-    }
-
-    emit("tool-call", toolCall, testType);
-    emit(
-        "tool-calls-updated",
-        testType === "original"
-            ? originalToolCalls.value
-            : optimizedToolCalls.value,
-        testType,
-    );
+// 🆕 处理对比模式切换
+const handleCompareModeToggle = (value: boolean) => {
+    emit("update:isCompareMode", value);
+    emit("compare-toggle");
     recordUpdate();
 };
 
-// 清除工具调用数据的方法
-const clearToolCalls = (
-    testType: "original" | "optimized" | "both" = "both",
-) => {
-    if (testType === "original" || testType === "both") {
-        originalToolCalls.value = [];
+// 🆕 处理工具调用的方法（支持对比模式）
+const handleToolCall = (toolCall: ToolCallResult, testType?: 'original' | 'optimized') => {
+    if (props.isCompareMode && testType) {
+        // 对比模式：根据 testType 添加到对应数组
+        if (testType === 'original') {
+            originalToolCalls.value.push(toolCall);
+        } else {
+            optimizedToolCalls.value.push(toolCall);
+        }
+    } else {
+        // 单一模式：添加到统一数组
+        toolCalls.value.push(toolCall);
     }
-    if (testType === "optimized" || testType === "both") {
+    emit("tool-call", toolCall);
+    emit("tool-calls-updated", toolCalls.value);
+    recordUpdate();
+};
+
+// 🆕 清除工具调用数据的方法（支持对比模式）
+const clearToolCalls = (testType?: 'original' | 'optimized' | 'both') => {
+    if (!testType || testType === 'both') {
+        // 清除所有
+        toolCalls.value = [];
+        originalToolCalls.value = [];
+        optimizedToolCalls.value = [];
+    } else if (testType === 'original') {
+        originalToolCalls.value = [];
+    } else if (testType === 'optimized') {
         optimizedToolCalls.value = [];
     }
 };
 
-// 移除结果缓存与相关节流逻辑，避免不必要的复杂度
-
-// 关键计算属性：showTestInput 取决于当前功能模式
-const showTestInput = computed(() => {
-    // 基础模式始终以系统提示词布尔值决定可见性
-    if (isBasicMode.value) {
-        return props.optimizationMode === "system";
-    }
-    // 上下文模式判断
-    // - 多轮对话模式（contextMode === "system"）：不显示测试内容输入框（测试内容就是会话消息）
-    // - 变量模式（contextMode === "user"）：显示测试内容输入框
-    return (
-        props.contextMode === "user" && props.optimizationMode === "system"
-    );
-});
-
 // 响应式布局配置
-const adaptiveInputMode = computed(() => {
-    if (shouldUseCompactMode.value) return "compact";
-    return props.inputMode || "normal";
-});
-
 const adaptiveControlBarLayout = computed(() => {
     if (shouldUseCompactMode.value) return "minimal";
     if (shouldUseVerticalLayout.value) return "compact";
@@ -481,35 +405,17 @@ const primaryActionText = computed(() => {
     if (props.isTestRunning) {
         return t("test.testing");
     }
-    return props.isCompareMode && props.enableCompareMode
-        ? t("test.startCompare")
-        : t("test.startTest");
+    return t("test.startTest");
 });
 
 // 主要操作按钮禁用状态
 const primaryActionDisabled = computed(() => {
-    if (props.isTestRunning) return true;
-
-    // 系统提示词模式需要测试内容
-    // 但多轮对话模式（contextMode === "system"）例外，因为测试内容就是会话消息
-    if (props.optimizationMode === "system" && props.contextMode !== "system" && !props.testContent.trim()) {
-        return true;
-    }
-
-    return false;
+    return props.isTestRunning;
 });
-
-// 事件处理 - 立即切换对比模式，避免点击延迟
-const handleCompareToggle = () => {
-    const newValue = !props.isCompareMode;
-    emit("update:isCompareMode", newValue);
-    emit("compare-toggle");
-    recordUpdate();
-};
 
 const handleTest = throttle(
     () => {
-        // 🆕 获取并传递测试变量
+        // 获取并传递测试变量
         const testVars = getVariableValues();
         emit("test", testVars);
         recordUpdate();
@@ -520,14 +426,13 @@ const handleTest = throttle(
 
 // ========== 变量管理 ==========
 
-// 🆕 添加变量对话框状态
+// 添加变量对话框状态
 const showAddVariableDialog = ref(false);
 const newVariableName = ref("");
 const newVariableValue = ref("");
 const newVariableNameError = ref("");
 
-// 🧪 测试区临时变量 (仅内存,刷新丢失) - 新增功能
-// 数据结构: { 变量名: { value: 值, timestamp: 时间戳 } }
+// 测试区临时变量
 interface TestVariable {
     value: string;
     timestamp: number;
@@ -535,11 +440,10 @@ interface TestVariable {
 
 const testVariables = ref<Record<string, TestVariable>>({});
 
-// 监听 props.temporaryVariables 变化,同步到内部状态
+// 监听 props.temporaryVariables 变化
 watch(
     () => props.temporaryVariables,
     (newVars) => {
-        // 🔧 第一步：删除不再存在于 newVars 中的过期变量（防止内存泄漏）
         const newVarNames = new Set(Object.keys(newVars));
         for (const name of Object.keys(testVariables.value)) {
             if (!newVarNames.has(name)) {
@@ -547,7 +451,6 @@ watch(
             }
         }
 
-        // 第二步：合并新的临时变量,为新变量添加时间戳
         for (const [name, value] of Object.entries(newVars)) {
             if (!testVariables.value[name]) {
                 testVariables.value[name] = {
@@ -555,7 +458,6 @@ watch(
                     timestamp: Date.now(),
                 };
             } else {
-                // 更新现有变量的值,保留时间戳
                 testVariables.value[name].value = value;
             }
         }
@@ -563,57 +465,45 @@ watch(
     { deep: true, immediate: true }
 );
 
-// 三层变量合并（按优先级：全局 < 测试 < 内置）
+// 三层变量合并
 const mergedVariables = computed(() => {
-    // 将 testVariables 转换为 { name: value } 格式
     const testVarsFlat: Record<string, string> = {};
     for (const [name, data] of Object.entries(testVariables.value)) {
         testVarsFlat[name] = data.value;
     }
 
     return {
-        ...props.globalVariables, // 优先级 1: 全局自定义变量
-        ...testVarsFlat, // 优先级 2: 测试区临时变量
-        ...props.predefinedVariables, // 优先级 3: 内置预定义变量
+        ...props.globalVariables,
+        ...testVarsFlat,
+        ...props.predefinedVariables,
     };
 });
 
-// 🆕 按时间排序的临时变量列表 (最新的在最前面)
+// 按时间排序的临时变量列表
 const sortedTestVariables = computed(() => {
     const entries = Object.entries(testVariables.value);
     return entries
-        .sort((a, b) => b[1].timestamp - a[1].timestamp) // 降序排列
+        .sort((a, b) => b[1].timestamp - a[1].timestamp)
         .map(([name]) => name);
 });
 
-// 🆕 实际显示的变量列表 = 临时变量 (不再依赖 detectedVariables)
+// 实际显示的变量列表
 const displayVariables = computed(() => {
     return sortedTestVariables.value;
 });
 
-// 是否显示变量表单：默认显示（除非在测试运行中或在基础模式下）
+// 是否显示变量表单
 const showVariableForm = computed(() => {
-    // 🆕 基础模式不显示变量功能（变量系统仅在上下文模式下可用）
-    if (isBasicMode.value) {
-        return false;
-    }
-
-    // 测试运行中不显示
-    if (props.isTestRunning) {
-        return false;
-    }
-
-    return true;
+    return !props.isTestRunning;
 });
 
-// 获取变量的显示值（从合并后的变量中获取）
+// 获取变量的显示值
 const getVariableDisplayValue = (varName: string): string => {
     return mergedVariables.value[varName] || "";
 };
 
-// 🆕 获取变量的占位符提示（显示变量来源）
+// 获取变量的占位符提示
 const getVariablePlaceholder = (varName: string): string => {
-    // 如果有来自全局/内置的值，提示来源
     if (props.predefinedVariables?.[varName]) {
         return (
             t("test.variables.inputPlaceholder") +
@@ -629,15 +519,11 @@ const getVariablePlaceholder = (varName: string): string => {
     return t("test.variables.inputPlaceholder");
 };
 
-// 变量列表变化时的清理逻辑已不再需要（不再使用 userInputValues）
-
 // 事件处理函数
 const handleVariableValueChange = (varName: string, value: string) => {
-    // 🧪 更新测试区临时变量
     if (testVariables.value[varName]) {
         testVariables.value[varName].value = value;
     } else {
-        // 如果变量不存在,创建新变量
         testVariables.value[varName] = {
             value,
             timestamp: Date.now(),
@@ -648,14 +534,13 @@ const handleVariableValueChange = (varName: string, value: string) => {
 };
 
 const handleClearAllVariables = () => {
-    // 清空测试区临时变量
     testVariables.value = {};
     emit("temporary-variables-clear");
     message.success(t("test.variables.clearSuccess"));
     recordUpdate();
 };
 
-// 🆕 保存测试变量到全局
+// 保存测试变量到全局
 const handleSaveToGlobal = (varName: string) => {
     const varData = testVariables.value[varName];
     if (!varData || !varData.value.trim()) {
@@ -668,7 +553,7 @@ const handleSaveToGlobal = (varName: string) => {
     recordUpdate();
 };
 
-// 🆕 验证新变量名
+// 验证新变量名
 const validateNewVariableName = () => {
     const name = newVariableName.value.trim();
 
@@ -677,7 +562,6 @@ const validateNewVariableName = () => {
         return false;
     }
 
-    // 验证规则1: 不能以数字开头
     if (/^\d/.test(name)) {
         newVariableNameError.value = t(
             "variableExtraction.validation.noNumberStart"
@@ -685,7 +569,6 @@ const validateNewVariableName = () => {
         return false;
     }
 
-    // 验证规则2: 只能包含中文、英文、数字、下划线
     if (!/^[\u4e00-\u9fa5a-zA-Z_][\u4e00-\u9fa5a-zA-Z0-9_]*$/.test(name)) {
         newVariableNameError.value = t(
             "variableExtraction.validation.invalidCharacters"
@@ -693,7 +576,6 @@ const validateNewVariableName = () => {
         return false;
     }
 
-    // 验证规则3: 不能与已有变量重名
     if (testVariables.value[name]) {
         newVariableNameError.value = t(
             "variableExtraction.validation.duplicateVariable"
@@ -705,7 +587,7 @@ const validateNewVariableName = () => {
     return true;
 };
 
-// 🆕 添加新变量
+// 添加新变量
 const handleAddVariable = () => {
     if (!validateNewVariableName()) {
         if (!newVariableName.value.trim()) {
@@ -721,7 +603,6 @@ const handleAddVariable = () => {
     }
     message.success(t("test.variables.addSuccess"));
 
-    // 重置对话框
     newVariableName.value = "";
     newVariableValue.value = "";
     newVariableNameError.value = "";
@@ -730,7 +611,7 @@ const handleAddVariable = () => {
     return true;
 };
 
-// 🆕 删除变量
+// 删除变量
 const handleDeleteVariable = (varName: string) => {
     delete testVariables.value[varName];
     emit("temporary-variable-remove", varName);
@@ -741,19 +622,19 @@ const handleDeleteVariable = (varName: string) => {
     recordUpdate();
 };
 
-// 暴露变量值供外部访问（返回合并后的最终值）
+// 暴露变量值供外部访问
 const getVariableValues = () => {
     return { ...mergedVariables.value };
 };
 
-// 设置变量值（外部调用）- 通过 emit 同步到会话变量
+// 设置变量值
 const setVariableValues = (values: Record<string, string>) => {
     for (const [name, value] of Object.entries(values)) {
         emit("variable-change", name, value);
     }
 };
 
-// 🧪 获取变量来源 (简化)
+// 获取变量来源
 const getVariableSource = (varName: string): "predefined" | "test" | "global" | "empty" => {
     if (props.predefinedVariables?.[varName]) return "predefined";
     if (testVariables.value[varName]) return "test";
@@ -761,15 +642,13 @@ const getVariableSource = (varName: string): "predefined" | "test" | "global" | 
     return "empty";
 };
 
-// 移除未使用的 props 变化防抖处理，避免多余复杂度
-
 // 开发环境下的性能调试
 if (import.meta.env.DEV) {
     const logPerformance = debounce(
         () => {
             const report = getPerformanceReport();
             if (report.grade.grade === "F") {
-                console.warn("TestAreaPanel 性能较差:", report);
+                console.warn("ConversationTestPanel 性能较差:", report);
             }
         },
         5000,
@@ -777,22 +656,27 @@ if (import.meta.env.DEV) {
         "performanceLog",
     );
 
-    // 定期检查性能
     setInterval(logPerformance, 10000);
 }
 
-// 暴露方法供父组件调用
+// 暴露方法供父组件调用（兼容 TestAreaPanelInstance 接口）
 defineExpose({
     handleToolCall,
     clearToolCalls,
-    // 获取当前工具调用状态
+    // 🆕 支持对比模式的工具调用数据
     getToolCalls: () => ({
-        original: originalToolCalls.value,
-        optimized: optimizedToolCalls.value,
+        original: props.isCompareMode ? originalToolCalls.value : [],
+        optimized: props.isCompareMode ? optimizedToolCalls.value : toolCalls.value
     }),
-    // 变量管理
     getVariableValues,
     setVariableValues,
+    // 预览功能占位符（兼容接口）
+    showPreview: () => {
+        console.warn('[ConversationTestPanel] showPreview not implemented');
+    },
+    hidePreview: () => {
+        console.warn('[ConversationTestPanel] hidePreview not implemented');
+    },
 });
 </script>
 
@@ -814,8 +698,6 @@ defineExpose({
     flex: 0 0 auto;
 }
 
-/* 当存在工具调用列表时，隐藏结果区中的空内容占位 */
-/* 依赖同级容器存在 .tool-call-display 时，隐藏 Naive UI 的 NEmpty */
 .result-container:has(.tool-call-display) :deep(.n-empty) {
     display: none;
 }

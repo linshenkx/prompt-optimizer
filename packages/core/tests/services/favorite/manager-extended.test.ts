@@ -481,7 +481,7 @@ describe('FavoriteManager - 扩展功能', () => {
       const testTypes = [
         'optimize',
         'userOptimize',
-        'contextSystemOptimize',
+        'conversationMessageOptimize',
         'contextUserOptimize',
         'imageOptimize',
         'text2imageOptimize',

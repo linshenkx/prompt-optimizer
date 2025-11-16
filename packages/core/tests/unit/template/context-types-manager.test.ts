@@ -36,12 +36,12 @@ class StubLang implements ITemplateLanguageService {
 }
 
 describe('TemplateManager list by context types', () => {
-  it('returns contextSystemOptimize templates', async () => {
+  it('returns conversationMessageOptimize templates', async () => {
     const tm = new TemplateManager(new MemoryStorage(), new StubLang())
-    const list = await tm.listTemplatesByType('contextSystemOptimize')
+    const list = await tm.listTemplatesByType('conversationMessageOptimize')
     expect(Array.isArray(list)).toBe(true)
     // 允许为空（取决于内置模板语言），但如存在则类型必须匹配
-    for (const t of list) expect(t.metadata.templateType).toBe('contextSystemOptimize')
+    for (const t of list) expect(t.metadata.templateType).toBe('conversationMessageOptimize')
   })
 
   it('returns contextUserOptimize templates', async () => {

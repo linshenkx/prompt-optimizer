@@ -114,6 +114,10 @@ vi.mock('vue-i18n', () => ({
         'conversation.addFirst': '添加第一条消息',
         'conversation.addMessage': '添加消息',
         'conversation.messageCount': '消息数: {count}',
+        'conversation.stats.messages': '消息',
+        'conversation.stats.variables': '变量',
+        'conversation.stats.missing': '缺失',
+        'conversation.stats.tools': '工具',
         'conversation.roles.system': '系统',
         'conversation.roles.user': '用户',
         'conversation.roles.assistant': '助手',
@@ -335,8 +339,8 @@ describe('完整用户流程E2E测试', () => {
       // 验证轻量管理界面
       expect(conversationWrapper.exists()).toBe(true)
       expect(conversationWrapper.text()).toContain('会话管理')
-      expect(conversationWrapper.text()).toContain('消息数: 2')
-      
+      expect(conversationWrapper.text()).toContain('消息: 2')
+
       // 步骤2：检测到缺失变量并显示统计
       expect(conversationWrapper.text()).toContain('变量: 3') // assistantType, userRequest, userPreference
       expect(conversationWrapper.text()).toContain('缺失: 1') // userPreference
@@ -812,7 +816,10 @@ describe('完整用户流程E2E测试', () => {
       expect(conversationWrapper.emitted('update:messages')).toBeTruthy()
       const addedMessages = conversationWrapper.emitted('update:messages')[0][0]
       expect(addedMessages.length).toBe(1)
-      expect(addedMessages[0]).toEqual({ role: 'user', content: '' })
+      expect(addedMessages[0]).toMatchObject({ role: 'user', content: '' })
+      // 验证自动添加的字段
+      expect(addedMessages[0].id).toBeDefined()
+      expect(addedMessages[0].originalContent).toBeDefined()
 
       // 步骤3：编辑消息内容
       const messageWithVariables = '用户请求 {{userInput}} 处理 {{actionType}}'

@@ -305,7 +305,7 @@ describe('FavoriteManager - 集成测试', () => {
         'userOptimize',
         'iterate',
         'test',
-        'contextSystemOptimize',
+        'conversationMessageOptimize',
         'contextUserOptimize',
         'contextIterate',
         'imageOptimize',

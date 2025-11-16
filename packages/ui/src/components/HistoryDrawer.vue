@@ -42,18 +42,33 @@
                 </NTag>
                 <!-- 优化模式标签 -->
                 <NTag
-                  v-if="chain.rootRecord.type === 'optimize' || chain.rootRecord.type === 'contextSystemOptimize'"
+                  v-if="chain.rootRecord.type === 'optimize'"
                   type="info"
                   size="small"
                 >
                   {{ t('common.system') }}
                 </NTag>
                 <NTag
-                  v-if="chain.rootRecord.type === 'userOptimize' || chain.rootRecord.type === 'contextUserOptimize'"
+                  v-if="chain.rootRecord.type === 'userOptimize'"
                   type="success"
                   size="small"
                 >
                   {{ t('common.user') }}
+                </NTag>
+                <!-- 上下文模式优化标签 -->
+                <NTag
+                  v-if="chain.rootRecord.type === 'conversationMessageOptimize' || chain.rootRecord.type === 'contextSystemOptimize'"
+                  type="warning"
+                  size="small"
+                >
+                  {{ t('contextMode.optimizationMode.message') }}
+                </NTag>
+                <NTag
+                  v-if="chain.rootRecord.type === 'contextUserOptimize'"
+                  type="success"
+                  size="small"
+                >
+                  {{ t('contextMode.optimizationMode.variable') }}
                 </NTag>
                 <!-- 图像模式优化类型标签 -->
                 <NTag
@@ -285,9 +300,14 @@ const getFunctionModeTagType = (recordType: string) => {
 
 // 获取功能模式标签文本
 const getFunctionModeLabel = (recordType: string) => {
-  if (recordType.includes('image')) {
+  // 图像模式类型
+  const imageTypes = ['imageOptimize', 'contextImageOptimize', 'imageIterate', 'text2imageOptimize', 'image2imageOptimize']
+  // 上下文模式类型（包含新旧类型名以支持向后兼容）
+  const contextTypes = ['conversationMessageOptimize', 'contextSystemOptimize', 'contextUserOptimize', 'contextIterate']
+
+  if (imageTypes.includes(recordType)) {
     return t('nav.imageMode')
-  } else if (recordType.includes('context')) {
+  } else if (contextTypes.includes(recordType)) {
     return t('nav.contextMode')
   } else {
     return t('nav.basicMode')

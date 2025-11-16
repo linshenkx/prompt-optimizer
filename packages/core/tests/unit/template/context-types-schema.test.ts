@@ -12,10 +12,10 @@ const base = {
 }
 
 describe('template schema - context types', () => {
-  it('accepts contextSystemOptimize', () => {
+  it('accepts conversationMessageOptimize', () => {
     const result = templateSchema.safeParse({
       ...base,
-      metadata: { ...base.metadata, templateType: 'contextSystemOptimize' }
+      metadata: { ...base.metadata, templateType: 'conversationMessageOptimize' }
     })
     expect(result.success).toBe(true)
   })

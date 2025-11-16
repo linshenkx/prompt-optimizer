@@ -50,7 +50,7 @@ const props = defineProps({
     type: String as () => TemplateType,
     required: true,
     validator: (value: string): boolean => (
-      ['optimize', 'userOptimize', 'text2imageOptimize', 'image2imageOptimize', 'imageIterate', 'iterate', 'contextSystemOptimize', 'contextUserOptimize', 'contextIterate'] as string[]
+      ['optimize', 'userOptimize', 'text2imageOptimize', 'image2imageOptimize', 'imageIterate', 'iterate', 'conversationMessageOptimize', 'contextUserOptimize', 'contextIterate'] as string[]
     ).includes(value)
   },
   optimizationMode: {

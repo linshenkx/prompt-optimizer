@@ -125,6 +125,6 @@ describe('ImageModelManager', () => {
     })
   }
 
-  describe('核心功能', () => {
-  })
+  // TODO: 添加测试用例
+  it.todo('应该正确初始化组件')
 })

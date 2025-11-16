@@ -47,7 +47,7 @@ export class TypeMapper {
     }
 
     // 上下文模式映射 (context)
-    if (recordType === 'contextSystemOptimize' || recordType === 'contextIterate') {
+    if (recordType === 'conversationMessageOptimize' || recordType === 'contextIterate') {
       return {
         functionMode: 'context',
         optimizationMode: 'system'
@@ -161,7 +161,7 @@ export class TypeMapper {
     // 上下文模式
     if (functionMode === 'context') {
       if (optimizationMode === 'system') {
-        return ['contextSystemOptimize', 'contextIterate'];
+        return ['conversationMessageOptimize', 'contextIterate'];
       }
       if (optimizationMode === 'user') {
         return ['contextUserOptimize'];

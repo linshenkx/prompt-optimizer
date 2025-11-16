@@ -19,19 +19,17 @@ export interface TemplateContext {
   contextMode?: import("../context/types").ContextMode; // 'system' | 'user'
   // 高级模式上下文（可选）
   customVariables?: Record<string, string>; // 自定义变量
-  conversationMessages?: ConversationMessage[]; // 会话消息
   tools?: ToolDefinition[]; // 工具定义信息
   // 格式化的上下文文本（用于模板注入）
   conversationContext?: string; // 格式化的会话上下文
   toolsContext?: string; // 格式化的工具上下文
-  // Allow additional string properties for template flexibility
-  // but with stricter typing than the previous implementation
-  [key: string]:
-    | string
-    | undefined
-    | Record<string, string>
-    | ConversationMessage[]
-    | ToolDefinition[];
+  // 消息优化专用字段
+  messageRole?: string; // 选中消息的角色（system/user）
+  conversationMessages?: any[]; // 带元数据的消息数组（用于模板循环）
+  selectedMessage?: any; // 选中消息的详细信息（用于模板显示）
+  // Allow additional properties for template flexibility
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any;
 }
 
 /**
@@ -121,6 +119,10 @@ export class TemplateProcessor {
         // 1. 替换模板中的内置变量（如 {{originalPrompt}}）
         // 2. 自动保留值中的占位符（如 originalPrompt = "写一首{{风格}}的歌"）
         // 3. 支持条件渲染（{{#var}}...{{/var}}）和循环
+        // 确保数组变量至少是空数组，避免 undefined 导致 {{#var}} 块不渲染（Mustache 行为：undefined/null/false 为 false）
+        // 但是我们需要区分“不存在”和“空数组”吗？对于 {{^var}} 来说，undefined/null/empty array 都是 true（取反）
+        // 只要保证 context 中传递了正确的 key 即可。
+
         const renderedContent = Mustache.render(msg.content, context);
 
         return {
@@ -184,6 +186,7 @@ export class TemplateProcessor {
       .map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
       .join("\n\n");
   }
+
 
   /**
    * 替换会话消息中的变量

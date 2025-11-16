@@ -27,6 +27,7 @@ export { StaticLoader } from './services/template/static-loader'
 export * from './services/template/errors'
 export { ElectronTemplateManagerProxy } from './services/template/electron-proxy'
 export { ElectronTemplateLanguageServiceProxy } from './services/template/electron-language-proxy'
+export { ALL_TEMPLATES } from './services/template/default-templates'
 
 // 导出历史记录相关
 export { HistoryManager, createHistoryManager } from './services/history/manager'

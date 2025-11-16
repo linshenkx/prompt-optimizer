@@ -5,6 +5,7 @@
             display: 'flex',
             flexDirection: 'row',
             width: '100%',
+            height: '100%',
             'max-height': '100%',
             gap: '16px',
         }"
@@ -18,41 +19,7 @@
                 height: '100%',
             }"
         >
-            <!-- 提示词输入面板 -->
-            <NCard
-                :style="{
-                    flexShrink: 0,
-                    minHeight: '200px',
-                }"
-            >
-                <InputPanelUI
-                    :modelValue="prompt"
-                    @update:modelValue="emit('update:prompt', $event)"
-                    :label="t('promptOptimizer.originalPrompt')"
-                    :placeholder="
-                        t('promptOptimizer.originalPromptPlaceholder')
-                    "
-                    :model-label="t('promptOptimizer.optimizeModel')"
-                    :template-label="t('promptOptimizer.templateLabel')"
-                    :button-text="t('promptOptimizer.optimize')"
-                    :loading-text="t('common.loading')"
-                    :loading="isOptimizing"
-                    :disabled="isOptimizing"
-                    :show-preview="true"
-                    @submit="emit('optimize')"
-                    @configModel="emit('config-model')"
-                    @open-preview="emit('open-input-preview')"
-                >
-                    <template #model-select>
-                        <slot name="optimize-model-select"></slot>
-                    </template>
-                    <template #template-select>
-                        <slot name="template-select"></slot>
-                    </template>
-                </InputPanelUI>
-            </NCard>
-
-            <!-- 会话管理器 (系统模式专属) -->
+            <!-- 会话管理器 (系统模式专属，也是消息输入界面) -->
             <NCard
                 :style="{ flexShrink: 0, overflow: 'auto' }"
                 content-style="padding: 0;"
@@ -71,7 +38,48 @@
                     @open-context-editor="emit('open-context-editor')"
                     :collapsible="true"
                     :max-height="300"
+                    :selected-message-id="selectedMessageId"
+                    :enable-message-optimization="enableMessageOptimization"
+                    :is-message-optimizing="isMessageOptimizing"
+                    @message-select="emit('message-select', $event)"
+                    @optimize-message="handleOptimizeClick"
+                    @message-change="(index, message, action) => emit('message-change', index, message, action)"
                 />
+            </NCard>
+
+            <!-- 优化控制区 -->
+            <NCard :style="{ flexShrink: 0 }" size="small">
+                <NFlex vertical :size="12">
+                    <!-- 模型和模板选择行 -->
+                    <NFlex :size="12" :wrap="false">
+                        <!-- 优化模型选择 -->
+                        <NFlex vertical :size="4" style="flex: 1">
+                            <NText :depth="3" style="font-size: 12px">
+                                {{ $t('promptOptimizer.optimizeModel') }}
+                            </NText>
+                            <slot name="optimize-model-select"></slot>
+                        </NFlex>
+
+                        <!-- 模板选择 -->
+                        <NFlex vertical :size="4" style="flex: 1">
+                            <NText :depth="3" style="font-size: 12px">
+                                {{ $t('promptOptimizer.templateLabel') }}
+                            </NText>
+                            <slot name="template-select"></slot>
+                        </NFlex>
+                    </NFlex>
+
+                    <!-- 优化按钮 -->
+                    <NButton
+                        type="primary"
+                        :loading="isOptimizing"
+                        :disabled="isOptimizing || !selectedMessageId"
+                        @click="handleOptimizeClick"
+                        block
+                    >
+                        {{ isOptimizing ? $t('common.loading') : $t('promptOptimizer.optimize') }}
+                    </NButton>
+                </NFlex>
             </NCard>
 
             <!-- 优化结果面板 -->
@@ -83,30 +91,38 @@
                 }"
                 content-style="height: 100%; max-height: 100%; overflow: hidden;"
             >
-                <PromptPanelUI
-                    :optimized-prompt="optimizedPrompt"
-                    @update:optimizedPrompt="
-                        emit('update:optimizedPrompt', $event)
-                    "
-                    :reasoning="optimizedReasoning"
-                    :original-prompt="prompt"
-                    :is-optimizing="isOptimizing"
-                    :is-iterating="isIterating"
-                    :selectedIterateTemplate="selectedIterateTemplate"
-                    @update:selectedIterateTemplate="
-                        emit('update:selectedIterateTemplate', $event)
-                    "
-                    :versions="versions"
-                    :current-version-id="currentVersionId"
-                    :optimization-mode="optimizationMode"
-                    :advanced-mode-enabled="true"
-                    :show-preview="true"
-                    @iterate="emit('iterate', $event)"
-                    @openTemplateManager="emit('open-template-manager', $event)"
-                    @switchVersion="emit('switch-version', $event)"
-                    @save-favorite="emit('save-favorite', $event)"
-                    @open-preview="emit('open-prompt-preview')"
-                />
+                <template v-if="isInMessageOptimizationMode">
+                    <PromptPanelUI
+                        :original-prompt="displayedOriginalPrompt"
+                        :optimized-prompt="displayedOptimizedPrompt"
+                        :reasoning="optimizedReasoning"
+                        :is-optimizing="displayedIsOptimizing"
+                        :is-iterating="isIterating"
+                        :selectedIterateTemplate="selectedIterateTemplate"
+                        @update:selectedIterateTemplate="
+                            emit('update:selectedIterateTemplate', $event)
+                        "
+                        :versions="displayedVersions"
+                        :current-version-id="displayedCurrentVersionId"
+                        :show-apply-button="isInMessageOptimizationMode"
+                        :optimization-mode="optimizationMode"
+                        :advanced-mode-enabled="true"
+                        :show-preview="true"
+                        @iterate="handleIterate"
+                        @openTemplateManager="emit('open-template-manager', $event)"
+                        @switchVersion="handleSwitchVersion"
+                        @switchToV0="handleSwitchToV0"
+                        @save-favorite="emit('save-favorite', $event)"
+                        @open-preview="emit('open-prompt-preview')"
+                        @apply-to-conversation="handleApplyToConversation"
+                    />
+                </template>
+                <template v-else>
+                    <NEmpty
+                        :description="t('contextMode.system.selectMessageHint')"
+                        size="large"
+                    />
+                </template>
             </NCard>
         </NFlex>
 
@@ -126,10 +142,6 @@
                     <!-- 左侧：区域标识 -->
                     <NFlex align="center" :size="8">
                         <NText strong>{{ $t("test.areaTitle") }}</NText>
-                        <NTag type="info" size="small">
-                            <template #icon><span>⚙️</span></template>
-                            {{ $t("contextMode.system.label") }}
-                        </NTag>
                     </NFlex>
 
                     <!-- 右侧：快捷操作按钮 -->
@@ -154,28 +166,21 @@
                 :style="{ flex: 1, overflow: 'auto' }"
                 content-style="height: 100%; max-height: 100%; overflow: hidden;"
             >
-                <TestAreaPanel
+                <ConversationTestPanel
                     ref="testAreaPanelRef"
                     :optimization-mode="optimizationMode"
-                    context-mode="system"
-                    :optimized-prompt="optimizedPrompt"
                     :is-test-running="isTestRunning"
+                    :is-compare-mode="isCompareMode"
+                    :enable-compare-mode="true"
+                    @update:isCompareMode="emit('update:isCompareMode', $event)"
+                    @compare-toggle="emit('compare-toggle')"
                     :global-variables="globalVariables"
                     :predefined-variables="predefinedVariables"
-                    :testContent="testContent"
-                    @update:testContent="emit('update:testContent', $event)"
-                    :isCompareMode="isCompareMode"
-                    @update:isCompareMode="emit('update:isCompareMode', $event)"
-                    :enable-compare-mode="true"
-                    :enable-fullscreen="true"
                     :input-mode="inputMode"
                     :control-bar-layout="controlBarLayout"
                     :button-size="buttonSize"
-                    :conversation-max-height="conversationMaxHeight"
-                    :show-original-result="true"
                     :result-vertical-layout="resultVerticalLayout"
                     @test="handleTestWithVariables"
-                    @compare-toggle="emit('compare-toggle')"
                     @open-variable-manager="emit('open-variable-manager')"
                     @variable-change="
                         (name: string, value: string) => emit('variable-change', name, value)
@@ -189,7 +194,7 @@
                         <slot name="test-model-select"></slot>
                     </template>
 
-                    <!-- 结果显示插槽 -->
+                    <!-- 🆕 对比模式结果插槽 -->
                     <template #original-result>
                         <slot name="original-result"></slot>
                     </template>
@@ -198,25 +203,26 @@
                         <slot name="optimized-result"></slot>
                     </template>
 
+                    <!-- 单一结果插槽 -->
                     <template #single-result>
                         <slot name="single-result"></slot>
                     </template>
-                </TestAreaPanel>
+                </ConversationTestPanel>
             </NCard>
         </NFlex>
     </NFlex>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, inject } from 'vue'
 
 import { useI18n } from "vue-i18n";
-import { NCard, NFlex, NButton, NText, NTag } from "naive-ui";
+import { NCard, NFlex, NButton, NText, NEmpty } from "naive-ui";
 import { useBreakpoints } from "@vueuse/core";
-import InputPanelUI from "../InputPanel.vue";
 import PromptPanelUI from "../PromptPanel.vue";
-import TestAreaPanel from "../TestAreaPanel.vue";
+import ConversationTestPanel from "./ConversationTestPanel.vue";
 import ConversationManager from "./ConversationManager.vue";
+import type { UseConversationOptimization } from '../../composables/prompt/useConversationOptimization'
 import type { OptimizationMode, ConversationMessage } from "../../types";
 import type {
     PromptRecord,
@@ -232,11 +238,10 @@ const breakpoints = useBreakpoints({
 });
 const isMobile = breakpoints.smaller("mobile");
 
-// Props 定义 (移除 contextMode，因为固定为 system)
+// Props 定义 (移除 contextMode，因为固定为 system；移除 prompt，因为消息输入在 ConversationManager 中)
+// 🔧 移除 optimizedPrompt/versions/currentVersionId，防止基础模式状态污染
 interface Props {
     // 核心状态
-    prompt: string;
-    optimizedPrompt: string;
     optimizedReasoning?: string;
     optimizationMode: OptimizationMode;
 
@@ -246,17 +251,11 @@ interface Props {
     isTestRunning?: boolean;
 
     // 版本管理
-    versions: PromptRecord[];
-    currentVersionId: string | null;
     selectedIterateTemplate: Template | null;
 
     // 上下文数据 (系统模式专属)
     optimizationContext: ConversationMessage[];
     toolCount: number;
-
-    // 测试数据
-    testContent: string;
-    isCompareMode: boolean;
 
     // 变量数据
     globalVariables: Record<string, string>;
@@ -264,12 +263,27 @@ interface Props {
     availableVariables: Record<string, string>;
     scanVariables: (content: string) => string[];
 
+    // 🆕 消息优化功能
+    selectedMessageId?: string;
+    enableMessageOptimization?: boolean;
+    messageOptimizedPrompt?: string;
+    messageVersions?: PromptRecord[];
+    messageCurrentVersionId?: string | null;
+    isMessageOptimizing?: boolean;
+
+    // 全局优化链（用于历史记录恢复）
+    versions?: PromptRecord[];
+    currentVersionId?: string;
+
     // 响应式布局配置
     inputMode?: "compact" | "normal";
     controlBarLayout?: "default" | "compact" | "minimal";
     buttonSize?: "small" | "medium" | "large";
     conversationMaxHeight?: number;
     resultVerticalLayout?: boolean;
+
+    // 🆕 对比模式
+    isCompareMode?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -280,24 +294,28 @@ const props = withDefaults(defineProps<Props>(), {
     buttonSize: "medium",
     conversationMaxHeight: 300,
     resultVerticalLayout: false,
+    selectedMessageId: undefined,
+    enableMessageOptimization: false,
+    messageOptimizedPrompt: "",
+    messageVersions: () => [],
+    messageCurrentVersionId: null,
+    isMessageOptimizing: false,
+    isCompareMode: false,
 });
 
 // Emits 定义
+// 🔧 移除 update:optimizedPrompt，防止基础模式状态污染
 const emit = defineEmits<{
     // 数据更新
-    "update:prompt": [value: string];
-    "update:optimizedPrompt": [value: string];
     "update:selectedIterateTemplate": [value: Template | null];
     "update:optimizationContext": [value: ConversationMessage[]];
-    "update:testContent": [value: string];
-    "update:isCompareMode": [value: boolean];
 
     // 操作事件
-    optimize: [];
+    optimize: []; // 执行优化
     iterate: [payload: IteratePayload];
     test: [testVariables: Record<string, string>]; // 🆕 传递测试变量
-    "compare-toggle": [];
     "switch-version": [version: PromptRecord];
+    "switch-to-v0": [version: PromptRecord];  // 🆕 V0 切换事件
     "save-favorite": [data: SaveFavoritePayload];
 
     // 打开面板/管理器
@@ -308,18 +326,120 @@ const emit = defineEmits<{
     "config-model": [];
 
     // 预览相关
-    "open-input-preview": [];
     "open-prompt-preview": [];
 
     // 变量管理
     "variable-change": [name: string, value: string];
     "save-to-global": [name: string, value: string];
+
+    // 🆕 消息优化相关
+    "message-select": [message: ConversationMessage];
+    "message-switch-version": [version: PromptRecord];
+    "message-switch-to-v0": [version: PromptRecord];  // 🆕 消息 V0 切换事件
+    "optimize-message": [];
+    "message-change": [index: number, message: ConversationMessage, action: 'add' | 'update' | 'delete'];
+    "message-apply-version": [];
+
+    // 🆕 对比模式
+    "update:isCompareMode": [value: boolean];
+    "compare-toggle": [];
 }>();
 
 const { t } = useI18n();
 
-// 🆕 TestAreaPanel 引用
+const conversationOptimization = inject<UseConversationOptimization>('conversationOptimization')
+
+const handleIterate = (payload: IteratePayload) => {
+    if (isInMessageOptimizationMode.value && conversationOptimization) {
+        conversationOptimization.iterateMessage(payload)
+    } else {
+        emit('iterate', payload)
+    }
+}
+
+const handleOptimizeClick = () => {
+    if (isInMessageOptimizationMode.value && conversationOptimization) {
+        conversationOptimization.optimizeMessage()
+    } else {
+        emit('optimize-message')
+    }
+}
+
+// 🆕 ConversationTestPanel 引用（兼容 TestAreaPanelInstance 接口）
 const testAreaPanelRef = ref<TestAreaPanelInstance | null>(null);
+
+// 🆕 消息优化模式：根据是否有选中消息来决定显示内容
+const isInMessageOptimizationMode = computed(() => {
+    return props.enableMessageOptimization && !!props.selectedMessageId;
+});
+
+// 🆕 PromptPanel 显示的原始提示词（当前选中消息的原始内容）
+const displayedOriginalPrompt = computed(() => {
+    if (!isInMessageOptimizationMode.value) return ''
+    const message = props.optimizationContext?.find(m => m.id === props.selectedMessageId)
+    return message?.originalContent || message?.content || ''
+});
+
+// 🆕 PromptPanel 显示的优化结果（消息优化 或 提示词优化）
+const displayedOptimizedPrompt = computed(() => {
+    return isInMessageOptimizationMode.value
+        ? props.messageOptimizedPrompt
+        : ''; // 没有选中消息时，不显示优化结果
+});
+
+// 🆕 PromptPanel 显示的版本列表
+const displayedVersions = computed(() => {
+    if (isInMessageOptimizationMode.value) {
+        // 消息优化模式：使用消息级优化版本
+        return props.messageVersions || [];
+    }
+    // 历史记录恢复时：使用全局优化链
+    return props.versions || [];
+});
+
+// 🆕 PromptPanel 显示的当前版本ID
+const displayedCurrentVersionId = computed(() => {
+    if (isInMessageOptimizationMode.value) {
+        // 消息优化模式：使用消息级版本ID
+        return props.messageCurrentVersionId || null;
+    }
+    // 历史记录恢复时：使用全局版本ID
+    return props.currentVersionId || null;
+});
+
+// 🆕 PromptPanel 显示的优化中状态
+const displayedIsOptimizing = computed(() => {
+    return isInMessageOptimizationMode.value
+        ? props.isMessageOptimizing
+        : props.isOptimizing;
+});
+
+// 🆕 处理版本切换：根据模式决定触发哪个事件
+const handleSwitchVersion = (version: PromptRecord) => {
+    if (isInMessageOptimizationMode.value) {
+        // 消息优化模式：触发消息版本切换事件
+        emit('message-switch-version', version);
+    } else {
+        // 提示词优化模式：触发普通版本切换事件
+        emit('switch-version', version);
+    }
+};
+
+// 🆕 处理 V0 切换：根据模式决定触发哪个事件
+const handleSwitchToV0 = (version: PromptRecord) => {
+    if (isInMessageOptimizationMode.value) {
+        // 消息优化模式：触发消息 V0 切换事件
+        emit('message-switch-to-v0', version);
+    } else {
+        // 提示词优化模式：触发普通 V0 切换事件
+        emit('switch-to-v0', version);
+    }
+};
+
+const handleApplyToConversation = () => {
+    if (!isInMessageOptimizationMode.value) return;
+    emit('message-apply-version');
+};
 
 // 🆕 处理测试事件并获取测试变量
 const handleTestWithVariables = async () => {

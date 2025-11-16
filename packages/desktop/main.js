@@ -812,10 +812,10 @@ function setupIPC() {
     }
   });
 
-  ipcMain.handle('prompt-iteratePromptStream', async (event, originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, streamId) => {
+  ipcMain.handle('prompt-iteratePromptStream', async (event, originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, streamId, contextData) => {
     const streamHandlers = createIpcStreamHandlers(mainWindow, streamId);
     try {
-      await promptService.iteratePromptStream(originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, streamHandlers, templateId);
+      await promptService.iteratePromptStream(originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, streamHandlers, templateId, contextData);
       return createSuccessResponse(null);
     } catch (error) {
       streamHandlers.onError(error);

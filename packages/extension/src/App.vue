@@ -31,6 +31,7 @@
                         <OptimizationModeSelectorUI
                             v-if="functionMode === 'basic'"
                             :modelValue="basicSubMode"
+                            functionMode="basic"
                             @change="handleBasicSubModeChange"
                         />
 
@@ -38,6 +39,7 @@
                         <OptimizationModeSelectorUI
                             v-if="functionMode === 'pro'"
                             :modelValue="proSubMode"
+                            functionMode="pro"
                             :hide-system-option="!isDev"
                             @change="handleProSubModeChange"
                         />
@@ -132,19 +134,11 @@
                         <ContextSystemWorkspace
                             ref="systemWorkspaceRef"
                             v-if="contextMode === 'system'"
-                            :prompt="optimizer.prompt"
-                            @update:prompt="optimizer.prompt = $event"
-                            :optimized-prompt="optimizer.optimizedPrompt"
-                            @update:optimizedPrompt="
-                                optimizer.optimizedPrompt = $event
-                            "
                             :optimized-reasoning="optimizer.optimizedReasoning"
                             :optimization-mode="selectedOptimizationMode"
                             :is-optimizing="optimizer.isOptimizing"
                             :is-iterating="optimizer.isIterating"
                             :is-test-running="false"
-                            :versions="optimizer.currentVersions"
-                            :current-version-id="optimizer.currentVersionId"
                             :selected-iterate-template="
                                 optimizer.selectedIterateTemplate
                             "
@@ -156,10 +150,6 @@
                                 optimizationContext = $event
                             "
                             :tool-count="optimizationContextTools.length"
-                            :test-content="testContent"
-                            @update:testContent="testContent = $event"
-                            :is-compare-mode="isCompareMode"
-                            @update:isCompareMode="isCompareMode = $event"
                             :global-variables="
                                 variableManager?.customVariables?.value || {}
                             "
@@ -191,19 +181,35 @@
                             :result-vertical-layout="
                                 responsiveLayout.isMobile.value
                             "
+                            :is-compare-mode="isCompareMode"
+                            @update:isCompareMode="isCompareMode = $event"
+                            @compare-toggle="handleTestAreaCompareToggle"
                             @optimize="handleOptimizePrompt"
                             @iterate="handleIteratePrompt"
                             @test="handleTestAreaTest"
-                            @compare-toggle="handleTestAreaCompareToggle"
                             @switch-version="handleSwitchVersion"
                             @save-favorite="handleSaveFavorite"
                             @open-global-variables="openVariableManager()"
                             @open-variable-manager="handleOpenVariableManager"
-                            @open-context-editor="handleOpenContextEditor"
+                            @open-context-editor="handleOpenContextEditor()"
                             @open-template-manager="openTemplateManager"
                             @config-model="modelManager.showConfig = true"
                             @open-input-preview="handleOpenInputPreview"
                             @open-prompt-preview="handleOpenPromptPreview"
+                            :selected-message-id="conversationOptimization.selectedMessageId.value"
+                            :enable-message-optimization="true"
+                            @message-select="handleMessageSelect"
+                            :message-optimized-prompt="conversationOptimization.optimizedPrompt.value"
+                            :message-versions="conversationOptimization.currentVersions.value"
+                            :message-current-version-id="conversationOptimization.currentRecordId.value"
+                            :is-message-optimizing="conversationOptimization.isOptimizing.value"
+                            :versions="optimizer.currentVersions"
+                            :current-version-id="optimizer.currentVersionId"
+                            @message-switch-version="handleMessageSwitchVersion"
+                            @message-switch-to-v0="handleMessageSwitchToV0"
+                            @optimize-message="handleOptimizeMessage"
+                            @message-change="handleMessageChange"
+                            @message-apply-version="handleApplyMessageVersion"
                         >
                             <!-- 优化模型选择插槽 -->
                             <template #optimize-model-select>
@@ -335,7 +341,7 @@
                             :is-compare-mode="isCompareMode"
                             @update:isCompareMode="isCompareMode = $event"
                             :global-variables="
-                                variableManager?.allVariables?.value || {}
+                                variableManager?.customVariables?.value || {}
                             "
                             :predefined-variables="predefinedVariables"
                             @variable-change="handleTestPanelVariableChange"
@@ -689,7 +695,7 @@
                                     "
                                     :is-test-running="false"
                                     :global-variables="
-                                        variableManager?.allVariables?.value ||
+                                        variableManager?.customVariables?.value ||
                                         {}
                                     "
                                     :predefined-variables="predefinedVariables"
@@ -1022,6 +1028,7 @@ import {
     useContextManagement,
     useAggregatedVariables,
     useContextEditorUIState,
+    useConversationOptimization,
 
     // i18n functions
     initializeI18nWithStorage,
@@ -1042,6 +1049,7 @@ import type {
     IPromptService,
     Template,
     ModelConfig,
+    PromptRecordChain,
 } from "@prompt-optimizer/core";
 import { isDevelopment } from "@prompt-optimizer/core";
 import type {
@@ -1194,6 +1202,7 @@ const {
     handleCancel: handleContextEditorCancel,
     openWithTab: openContextEditorWithTab,
 } = useContextEditorUIState(showContextEditor, t);
+
 const contextEditorState = ref({
     messages: [] as ConversationMessage[],
     // variables 已移除 - 临时变量由 useTemporaryVariables() 全局管理
@@ -1248,12 +1257,12 @@ const templateSelectType = computed<
     | "optimize"
     | "userOptimize"
     | "iterate"
-    | "contextSystemOptimize"
+    | "conversationMessageOptimize"
     | "contextUserOptimize"
 >(() => {
     const isPro = advancedModeEnabled.value;
     if (selectedOptimizationMode.value === "system") {
-        return isPro ? "contextSystemOptimize" : "optimize";
+        return isPro ? "conversationMessageOptimize" : "optimize";
     }
     return isPro ? "contextUserOptimize" : "userOptimize";
 });
@@ -1292,7 +1301,7 @@ const modelManager = useModelManager(services as any, modelSelectRefs);
 // 提示词优化器
 const optimizer = usePromptOptimizer(
     services as any,
-    selectedOptimizationMode,
+    selectedOptimizationMode, // 保持兼容性，后续应改为使用 basicSubMode/proSubMode
     toRef(modelManager, "selectedOptimizeModel"),
     toRef(modelManager, "selectedTestModel"),
     contextMode, // 使用提前声明的 contextMode
@@ -1301,7 +1310,7 @@ const optimizer = usePromptOptimizer(
 // 上下文管理
 const contextManagement = useContextManagement({
     services,
-    selectedOptimizationMode,
+    selectedOptimizationMode, // 保持兼容性，后续应改为使用 basicSubMode/proSubMode
     advancedModeEnabled,
     showContextEditor,
     contextEditorDefaultTab,
@@ -1322,15 +1331,69 @@ const handleContextEditorStateUpdate =
     contextManagement.handleContextEditorStateUpdate;
 const handleContextModeChange = contextManagement.handleContextModeChange;
 
+// 🆕 多轮对话消息优化管理
+const selectedOptimizationTemplate = computed<Template | null>(() => {
+    return selectedOptimizationMode.value === "system"
+        ? optimizer.selectedOptimizeTemplate
+        : optimizer.selectedUserOptimizeTemplate;
+});
+
+const conversationOptimization = useConversationOptimization(
+    services,
+    optimizationContext,
+    selectedOptimizationMode,
+    toRef(modelManager, "selectedOptimizeModel"),
+    selectedOptimizationTemplate,
+    toRef(optimizer, "selectedIterateTemplate")  // 🔧 添加迭代模板
+);
+
+provide('conversationOptimization', conversationOptimization);
+
+// 处理消息选择事件
+const handleMessageSelect = async (message: ConversationMessage) => {
+    await conversationOptimization.selectMessage(message);
+};
+
+// 处理消息版本切换
+const handleMessageSwitchVersion = async (version: PromptRecordChain['versions'][number]) => {
+    await conversationOptimization.switchVersion(version);
+};
+
+// 🆕 处理消息 V0 切换
+const handleMessageSwitchToV0 = async (version: PromptRecordChain['versions'][number]) => {
+    await conversationOptimization.switchToV0(version);
+};
+
+// 处理消息优化
+const handleOptimizeMessage = async () => {
+    await conversationOptimization.optimizeMessage();
+};
+
+// 处理消息变更（用于清理删除消息的映射）
+const handleMessageChange = (index: number, message: ConversationMessage, action: 'add' | 'update' | 'delete') => {
+    if (!message?.id) return;
+    if (action === 'delete') {
+        conversationOptimization.cleanupDeletedMessageMapping(message.id);
+    } else if (action === 'update') {
+        conversationOptimization.cleanupDeletedMessageMapping(message.id, { keepSelection: true });
+    }
+};
+
+// 手动应用所选版本
+const handleApplyMessageVersion = async () => {
+    await conversationOptimization.applyCurrentVersion();
+};
+
 // 🆕 提示词测试管理（支持变量注入、上下文、工具调用）
 const promptTester = usePromptTester(
     services as any,
     toRef(modelManager, 'selectedTestModel'),
-    selectedOptimizationMode,
+    selectedOptimizationMode, // 保持兼容性，后续应改为使用 basicSubMode/proSubMode
     advancedModeEnabled,
     optimizationContext,
     optimizationContextTools,
-    variableManager
+    variableManager,
+    conversationOptimization.selectedMessageId  // 🆕 传递选中的消息ID用于对比
 );
 
 // 测试结果引用（从 promptTester 获取）
@@ -1641,7 +1704,7 @@ const handleOptimizePrompt = () => {
             tools:
                 optimizationContextTools.value.length > 0
                     ? optimizationContextTools.value
-                    : undefined, // 🆕 添加工具传递
+                    : undefined,
         };
 
         // 使用带上下文的优化
@@ -1671,6 +1734,9 @@ const handleAdvancedModeChange = (enabled: boolean) => {
 const toggleAdvancedMode = async () => {
     const next = !advancedModeEnabled.value;
     advancedModeEnabled.value = next;
+    console.log(
+        `[App] Advanced mode ${next ? "enabled" : "disabled"} (toggled from navigation)`,
+    );
 };
 
 // 打开变量管理器
@@ -1945,7 +2011,7 @@ const handleHistoryReuse = async (context: {
         const needsSwitch = functionMode.value !== "image";
         if (needsSwitch) {
             await setFunctionMode("image");
-            useToast().info("已自动切换到图像模式");
+            useToast().info(t("toast.info.switchedToImageMode"));
         }
 
         // 🆕 图像模式专用数据回填逻辑
@@ -1983,12 +2049,12 @@ const handleHistoryReuse = async (context: {
             );
         }
 
-        useToast().success("图像历史记录已恢复");
+        useToast().success(t("toast.success.imageHistoryRestored"));
         return; // 图像模式不需要调用原有的历史记录处理逻辑
     } else {
         // 根据链条的根记录类型确定应该切换到的优化模式
         let targetMode: OptimizationMode;
-        if (rt === "optimize" || rt === "contextSystemOptimize") {
+        if (rt === "optimize" || rt === "conversationMessageOptimize") {
             targetMode = "system";
         } else if (rt === "userOptimize" || rt === "contextUserOptimize") {
             targetMode = "user";
@@ -1998,17 +2064,27 @@ const handleHistoryReuse = async (context: {
                 chain.rootRecord.metadata?.optimizationMode || "system";
         }
 
-        // 根据根记录类型自动切换功能模式
+        // 根据根记录类型自动切换功能模式（支持新旧类型名）
         const isContext =
-            rt === "contextSystemOptimize" ||
+            rt === "conversationMessageOptimize" ||
+            rt === "contextSystemOptimize" ||  // 旧类型名（向后兼容）
             rt === "contextUserOptimize" ||
             rt === "contextIterate";
         const targetFunctionMode: "basic" | "pro" = isContext ? "pro" : "basic";
+
+        // 先切换功能模式,再设置子模式
+        const needsFunctionModeSwitch = functionMode.value !== targetFunctionMode;
+        if (needsFunctionModeSwitch) {
+            await setFunctionMode(targetFunctionMode);
+            await nextTick(); // 等待功能模式切换完成
+        }
+
+        // 获取目标功能模式的当前子模式
         const currentSubMode = (
             targetFunctionMode === "pro" ? proSubMode.value : basicSubMode.value
         ) as OptimizationMode;
 
-        // 如果目标模式与目标功能模式的子模式不同，自动切换
+        // 如果目标子模式与当前子模式不同,自动切换
         if (targetMode !== currentSubMode) {
             // 根据目标功能模式分别处理子模式的持久化
             if (targetFunctionMode === "basic") {
@@ -2034,10 +2110,138 @@ const handleHistoryReuse = async (context: {
             );
         }
 
-        await setFunctionMode(targetFunctionMode);
-
         // 调用原有的历史记录处理逻辑
         await promptHistory.handleSelectHistory(context);
+
+        // 🆕 上下文-多消息模式专属：恢复消息级优化状态
+        if (rt === "conversationMessageOptimize" || rt === "contextSystemOptimize") {
+            await nextTick(); // 等待基础状态恢复完成
+
+            // 🆕 优先使用会话快照恢复完整会话（支持精确版本恢复）
+            const conversationSnapshot = record.metadata?.conversationSnapshot;
+            if (conversationSnapshot && Array.isArray(conversationSnapshot)) {
+                console.log('[App] 从历史记录恢复会话快照，消息数:', conversationSnapshot.length);
+
+                // 🆕 精确版本恢复：为每条消息加载其指定的版本
+                const restoredMessages = await Promise.all(
+                    conversationSnapshot.map(async (snapshotMsg) => {
+                        // 如果快照包含 chainId 和 appliedVersion，尝试精确恢复
+                        if (snapshotMsg.chainId && snapshotMsg.appliedVersion !== undefined && services.value?.historyManager) {
+                            try {
+                                const msgChain = await services.value.historyManager.getChain(snapshotMsg.chainId);
+
+                                // 1. V0 (Original) handling
+                                if (snapshotMsg.appliedVersion === 0) {
+                                    const original = msgChain.versions[0]?.originalPrompt || snapshotMsg.originalContent;
+                                    return {
+                                        id: snapshotMsg.id,
+                                        role: snapshotMsg.role,
+                                        content: original,
+                                        originalContent: original
+                                    };
+                                }
+
+                                // 2. V1+ (Optimized) handling
+                                // appliedVersion is persistent version number
+                                const targetVersion = msgChain.versions.find(v => v.version === snapshotMsg.appliedVersion);
+
+                                if (targetVersion) {
+                                    return {
+                                        id: snapshotMsg.id,
+                                        role: snapshotMsg.role,
+                                        content: targetVersion.optimizedPrompt,
+                                        originalContent: snapshotMsg.originalContent || targetVersion.originalPrompt
+                                    };
+                                } else {
+                                    console.warn(`[App] 消息 ${snapshotMsg.id} 版本 v${snapshotMsg.appliedVersion} 不存在，使用快照内容`);
+                                    console.warn(`[App] 可用版本:`, msgChain.versions.map(v => v.version));
+                                }
+                            } catch (error) {
+                                console.warn(`[App] 消息 ${snapshotMsg.id} 版本加载失败，使用快照内容:`, error);
+                            }
+                        }
+
+                        // 回退策略：使用快照中保存的文本内容
+                        return {
+                            id: snapshotMsg.id,
+                            role: snapshotMsg.role,
+                            content: snapshotMsg.content,
+                            originalContent: snapshotMsg.originalContent
+                        };
+                    })
+                );
+
+                optimizationContext.value = restoredMessages;
+                await nextTick(); // 等待会话更新
+
+                // 🆕 重建所有消息的 messageChainMap 映射关系
+                if (conversationSnapshot) {
+                    let mappingCount = 0;
+                    conversationSnapshot.forEach((snapshotMsg) => {
+                        if (snapshotMsg.id && snapshotMsg.chainId) {
+                            const mapKey = `${selectedOptimizationMode.value}:${snapshotMsg.id}`;
+                            conversationOptimization.messageChainMap.value.set(mapKey, snapshotMsg.chainId);
+                            mappingCount++;
+                        }
+                    });
+                    console.log(`[App] 已重建 ${mappingCount} 个消息的优化链映射关系`);
+                }
+            }
+
+            // 从 metadata 中获取被优化的消息 ID
+            const messageId = record.metadata?.messageId;
+            if (messageId && optimizationContext.value.length > 0) {
+                // 在会话中查找该消息
+                const message = optimizationContext.value.find(msg => msg.id === messageId);
+                if (message) {
+                    // 注意：映射关系已在上面统一重建，这里不再单独设置
+
+                    // 自动选择该消息
+                    await handleMessageSelect(message);
+
+                    // 恢复消息级优化链
+                    conversationOptimization.currentChainId.value = chain.chainId;
+                    conversationOptimization.currentVersions.value = chain.versions;
+                    conversationOptimization.currentRecordId.value = record.id;
+                    conversationOptimization.optimizedPrompt.value = record.optimizedPrompt;
+
+                    useToast().success(t('toast.success.conversationRestored'));
+                } else {
+                    // 如果快照中也找不到消息（理论上不应该发生）
+                    console.warn('[App] 会话快照中未找到被优化的消息 ID:', messageId);
+                    useToast().warning(t('toast.warning.messageNotFoundInSnapshot'));
+                }
+            } else if (!conversationSnapshot) {
+                // 兼容旧数据：如果没有快照，尝试在当前会话中查找（向后兼容）
+                console.log('[App] 历史记录无会话快照，尝试在当前会话中查找消息（旧版本数据）');
+                if (messageId && optimizationContext.value.length > 0) {
+                    const message = optimizationContext.value.find(msg => msg.id === messageId);
+                    if (message) {
+                        // 建立映射（旧版本数据只能建立被优化消息的映射）
+                        if (message.id) {
+                            conversationOptimization.messageChainMap.value.set(
+                                `${selectedOptimizationMode.value}:${message.id}`,
+                                chain.chainId
+                            );
+                            console.log(`[App] 为旧版本历史记录建立单个消息映射`);
+                        }
+
+                        // 选择消息
+                        await handleMessageSelect(message);
+
+                        // 恢复优化链
+                        conversationOptimization.currentChainId.value = chain.chainId;
+                        conversationOptimization.currentVersions.value = chain.versions;
+                        conversationOptimization.currentRecordId.value = record.id;
+                        conversationOptimization.optimizedPrompt.value = record.optimizedPrompt;
+
+                        useToast().warning(t('toast.warning.restoredFromLegacyHistory'));
+                    } else {
+                        useToast().warning(t('toast.warning.messageNotFoundInCurrentConversation'));
+                    }
+                }
+            }
+        }
     }
 };
 
@@ -2074,12 +2278,16 @@ const getActiveTestPanelInstance = (): TestAreaPanelInstance | null => {
 
 // 真实测试处理函数
 const handleTestAreaTest = async (testVariables?: Record<string, string>) => {
+    // 🔧 多轮对话模式（context-system）下，不使用 testContent（测试内容来自会话消息）
+    // 但现在支持对比模式了，可以对比选中消息的 V0 和当前版本
+    const actualTestContent = contextMode.value === 'system' ? '' : testContent.value;
+
     // 调用 promptTester 的 executeTest 方法
     await promptTester.executeTest(
         optimizer.prompt,
         optimizer.optimizedPrompt,
-        testContent.value,
-        isCompareMode.value,
+        actualTestContent,
+        isCompareMode.value,  // 🔧 直接使用 isCompareMode，不再强制为 false
         testVariables,
         getActiveTestPanelInstance()
     );
@@ -2136,7 +2344,7 @@ const handleUseFavorite = async (favorite: any) => {
         const needsSwitch = functionMode.value !== "image";
         if (needsSwitch) {
             await setFunctionMode("image");
-            useToast().info("已自动切换到图像模式");
+            useToast().info(t("toast.info.switchedToImageMode"));
         }
 
         // 图像模式的数据回填逻辑
@@ -2159,14 +2367,25 @@ const handleUseFavorite = async (favorite: any) => {
     } else {
         // 基础模式或上下文模式
 
-        // 2. 确定目标功能模式
+        // 2. 确定目标功能模式并先切换
         const targetFunctionMode =
             favFunctionMode === "context" ? "pro" : "basic";
+
+        // 3. 先切换功能模式
+        if (targetFunctionMode !== functionMode.value) {
+            await setFunctionMode(targetFunctionMode);
+            await nextTick(); // 等待功能模式切换完成
+            useToast().info(
+                `已自动切换到${targetFunctionMode === "pro" ? "上下文" : "基础"}模式`,
+            );
+        }
+
+        // 4. 获取目标功能模式的当前子模式
         const currentSubMode = (
             targetFunctionMode === "pro" ? proSubMode.value : basicSubMode.value
         ) as OptimizationMode;
 
-        // 3. 如果目标模式与目标功能模式的子模式不同，切换子模式
+        // 5. 如果目标模式与目标功能模式的子模式不同，切换子模式
         if (favOptimizationMode && favOptimizationMode !== currentSubMode) {
             if (targetFunctionMode === "basic") {
                 // 基础模式：持久化子模式选择
@@ -2190,14 +2409,6 @@ const handleUseFavorite = async (favorite: any) => {
                             ? t("common.system")
                             : t("common.user"),
                 }),
-            );
-        }
-
-        // 4. 切换功能模式
-        if (targetFunctionMode !== functionMode.value) {
-            await setFunctionMode(targetFunctionMode);
-            useToast().info(
-                `已自动切换到${targetFunctionMode === "pro" ? "上下文" : "基础"}模式`,
             );
         }
 

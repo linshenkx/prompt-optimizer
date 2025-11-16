@@ -200,6 +200,7 @@ export interface TestAreaToolCallState {
 }
 
 // 组件实例类型
+// TestAreaPanelInstance 同时兼容 TestAreaPanel 和 ConversationTestPanel
 export interface TestAreaPanelInstance {
   clearToolCalls: (testType?: 'original' | 'optimized' | 'both') => void
   handleToolCall: (toolCall: ToolCallResult, testType: 'original' | 'optimized') => void

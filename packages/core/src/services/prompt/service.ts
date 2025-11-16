@@ -1,7 +1,10 @@
 import {
   IPromptService,
   OptimizationRequest,
+  MessageOptimizationRequest,
   CustomConversationRequest,
+  ConversationMessage,
+  ToolDefinition,
 } from "./types";
 import { Message, StreamHandlers, ILLMService } from "../llm/types";
 import { PromptRecord } from "../history/types";
@@ -95,6 +98,43 @@ export class PromptService implements IPromptService {
   }
 
   /**
+   * 验证消息优化请求参数
+   */
+  private validateMessageOptimizationRequest(request: MessageOptimizationRequest) {
+    if (!request.selectedMessageId?.trim()) {
+      throw new OptimizationError("Selected message ID is required", "");
+    }
+
+    if (!request.messages || request.messages.length === 0) {
+      throw new OptimizationError("Messages array is required and cannot be empty", "");
+    }
+
+    if (!request.modelKey?.trim()) {
+      throw new OptimizationError("Model key is required", "");
+    }
+
+    // 验证选中的消息是否存在
+    const selectedMessage = request.messages.find(
+      msg => msg.id === request.selectedMessageId
+    );
+
+    if (!selectedMessage) {
+      throw new OptimizationError(
+        `Message with ID ${request.selectedMessageId} not found in messages array`,
+        ""
+      );
+    }
+
+    // 验证消息内容不为空
+    if (!selectedMessage.content?.trim()) {
+      throw new OptimizationError(
+        "Selected message content cannot be empty",
+        ""
+      );
+    }
+  }
+
+  /**
    * 优化提示词 - 支持提示词类型和增强功能
    */
   async optimizePrompt(request: OptimizationRequest): Promise<string> {
@@ -174,6 +214,102 @@ export class PromptService implements IPromptService {
   }
 
   /**
+   * 优化单条消息 - 多轮对话模式专用
+   */
+  async optimizeMessage(request: MessageOptimizationRequest): Promise<string> {
+    try {
+      // 验证请求参数
+      this.validateMessageOptimizationRequest(request);
+
+      // 获取模型配置
+      const modelConfig = await this.modelManager.getModel(request.modelKey);
+      if (!modelConfig) {
+        throw new OptimizationError("Model not found", "");
+      }
+
+      // 从消息数组中找到选中的消息
+      const selectedMessage = request.messages.find(
+        msg => msg.id === request.selectedMessageId
+      )!;
+
+      // 获取选中消息的索引（从0开始）
+      const selectedIndex = request.messages.findIndex(
+        msg => msg.id === request.selectedMessageId
+      );
+
+      // 获取模板（默认使用 context-message-optimize）
+      const template = await this.templateManager.getTemplate(
+        request.templateId || "context-message-optimize"
+      );
+
+      if (!template?.content) {
+        throw new OptimizationError(
+          "Template not found or invalid",
+          selectedMessage.content,
+        );
+      }
+
+      // 为消息数组添加元数据（用于模板循环）
+      const messagesWithMeta = request.messages.map((msg, idx) => ({
+        index: idx + 1,  // 序号从1开始
+        roleLabel: msg.role.toUpperCase(),
+        content: msg.content,
+        isSelected: msg.id === request.selectedMessageId,
+      }));
+
+      // 准备选中消息的数据（包含长度判断）
+      const maxLength = 200;
+      const selectedMessageData = {
+        index: selectedIndex + 1,
+        roleLabel: selectedMessage.role.toUpperCase(),
+        content: selectedMessage.content,
+        contentTooLong: selectedMessage.content.length > maxLength,
+        contentPreview: selectedMessage.content.length > maxLength
+          ? selectedMessage.content.substring(0, 150)
+          : undefined,
+      };
+
+      // 构建模板上下文
+      const context: TemplateContext = {
+        originalPrompt: selectedMessage.content,
+        messageRole: selectedMessage.role,
+        contextMode: request.contextMode,
+        customVariables: request.variables,
+        tools: request.tools,
+        // 🆕 模板驱动的数据
+        conversationMessages: messagesWithMeta,
+        selectedMessage: selectedMessageData,
+      };
+
+      // 如果有工具定义，格式化为工具文本
+      if (request.tools && request.tools.length > 0) {
+        context.toolsContext = TemplateProcessor.formatToolsAsText(
+          request.tools
+        );
+      }
+
+      // 处理模板并调用 LLM
+      const messages = TemplateProcessor.processTemplate(template, context);
+      const result = await this.llmService.sendMessage(
+        messages,
+        request.modelKey,
+      );
+
+      // 验证响应
+      this.validateResponse(result, selectedMessage.content);
+
+      return result;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      throw new OptimizationError(
+        `Message optimization failed: ${errorMessage}`,
+        "",
+      );
+    }
+  }
+
+  /**
    * 迭代优化提示词
    */
   async iteratePrompt(
@@ -182,6 +318,12 @@ export class PromptService implements IPromptService {
     iterateInput: string,
     modelKey: string,
     templateId?: string,
+    contextData?: {
+      messages?: ConversationMessage[];
+      selectedMessageId?: string;
+      variables?: Record<string, string>;
+      tools?: ToolDefinition[];
+    },
   ): Promise<string> {
     try {
       this.validateInput(originalPrompt, modelKey);
@@ -223,7 +365,26 @@ export class PromptService implements IPromptService {
         originalPrompt,
         lastOptimizedPrompt,
         iterateInput,
+        customVariables: contextData?.variables,
+        tools: contextData?.tools,
       };
+
+      // 如果有会话消息，将其格式化为文本并添加到上下文
+      if (contextData?.messages && contextData.messages.length > 0) {
+        const conversationText = TemplateProcessor.formatConversationAsText(
+          contextData.messages,
+        );
+        context.conversationContext = conversationText;
+      }
+
+      // 如果有工具信息，将其格式化为文本并添加到上下文
+      if (contextData?.tools && contextData.tools.length > 0) {
+        const toolsText = TemplateProcessor.formatToolsAsText(
+          contextData.tools,
+        );
+        context.toolsContext = toolsText;
+      }
+
       const messages = TemplateProcessor.processTemplate(template, context);
 
       // 发送请求
@@ -469,6 +630,119 @@ export class PromptService implements IPromptService {
   }
 
   /**
+   * 优化单条消息（流式）- 多轮对话模式专用
+   */
+  async optimizeMessageStream(
+    request: MessageOptimizationRequest,
+    callbacks: StreamHandlers,
+  ): Promise<void> {
+    try {
+      // 验证请求参数
+      this.validateMessageOptimizationRequest(request);
+
+      // 获取模型配置
+      const modelConfig = await this.modelManager.getModel(request.modelKey);
+      if (!modelConfig) {
+        throw new OptimizationError("Model not found", "");
+      }
+
+      // 从消息数组中找到选中的消息
+      const selectedMessage = request.messages.find(
+        msg => msg.id === request.selectedMessageId
+      )!;
+
+      // 获取选中消息的索引（从0开始）
+      const selectedIndex = request.messages.findIndex(
+        msg => msg.id === request.selectedMessageId
+      );
+
+      // 获取模板（默认使用 context-message-optimize）
+      const template = await this.templateManager.getTemplate(
+        request.templateId || "context-message-optimize"
+      );
+
+      if (!template?.content) {
+        throw new OptimizationError(
+          "Template not found or invalid",
+          selectedMessage.content,
+        );
+      }
+
+      // 为消息数组添加元数据（用于模板循环）
+      const messagesWithMeta = request.messages.map((msg, idx) => ({
+        index: idx + 1,  // 序号从1开始
+        roleLabel: msg.role.toUpperCase(),
+        content: msg.content,
+        isSelected: msg.id === request.selectedMessageId,
+      }));
+
+      // 准备选中消息的数据（包含长度判断）
+      const maxLength = 200;
+      const selectedMessageData = {
+        index: selectedIndex + 1,
+        roleLabel: selectedMessage.role.toUpperCase(),
+        content: selectedMessage.content,
+        contentTooLong: selectedMessage.content.length > maxLength,
+        contentPreview: selectedMessage.content.length > maxLength
+          ? selectedMessage.content.substring(0, 150)
+          : undefined,
+      };
+
+      // 构建模板上下文
+      const context: TemplateContext = {
+        originalPrompt: selectedMessage.content,
+        messageRole: selectedMessage.role,
+        contextMode: request.contextMode,
+        customVariables: request.variables,
+        tools: request.tools,
+        // 🆕 模板驱动的数据
+        conversationMessages: messagesWithMeta,
+        selectedMessage: selectedMessageData,
+      };
+
+      // 如果有工具定义，格式化为工具文本
+      if (request.tools && request.tools.length > 0) {
+        context.toolsContext = TemplateProcessor.formatToolsAsText(
+          request.tools
+        );
+      }
+
+      // 处理模板
+      const messages = TemplateProcessor.processTemplate(template, context);
+
+      // 使用流式发送
+      await this.llmService.sendMessageStream(messages, request.modelKey, {
+        onToken: callbacks.onToken,
+        onReasoningToken: callbacks.onReasoningToken,
+        onComplete: async (response) => {
+          try {
+            if (response) {
+              // 验证主要内容
+              this.validateResponse(response.content, selectedMessage.content);
+            }
+
+            // 调用原始完成回调
+            callbacks.onComplete(response);
+          } catch (error) {
+            // 如果验证失败，调用错误回调
+            callbacks.onError(
+              error instanceof Error ? error : new Error(String(error)),
+            );
+          }
+        },
+        onError: callbacks.onError,
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      throw new OptimizationError(
+        `Message optimization failed: ${errorMessage}`,
+        "",
+      );
+    }
+  }
+
+  /**
    * 迭代优化提示词（流式）
    */
   async iteratePromptStream(
@@ -478,6 +752,12 @@ export class PromptService implements IPromptService {
     modelKey: string,
     handlers: StreamHandlers,
     templateId: string,
+    contextData?: {
+      messages?: ConversationMessage[];
+      selectedMessageId?: string;
+      variables?: Record<string, string>;
+      tools?: ToolDefinition[];
+    },
   ): Promise<void> {
     try {
       this.validateInput(originalPrompt, modelKey);
@@ -517,7 +797,26 @@ export class PromptService implements IPromptService {
         originalPrompt,
         lastOptimizedPrompt,
         iterateInput,
+        customVariables: contextData?.variables,
+        tools: contextData?.tools,
       };
+
+      // 如果有会话消息，将其格式化为文本并添加到上下文
+      if (contextData?.messages && contextData.messages.length > 0) {
+        const conversationText = TemplateProcessor.formatConversationAsText(
+          contextData.messages,
+        );
+        context.conversationContext = conversationText;
+      }
+
+      // 如果有工具信息，将其格式化为文本并添加到上下文
+      if (contextData?.tools && contextData.tools.length > 0) {
+        const toolsText = TemplateProcessor.formatToolsAsText(
+          contextData.tools,
+        );
+        context.toolsContext = toolsText;
+      }
+
       const messages = TemplateProcessor.processTemplate(template, context);
 
       // 使用新的结构化流式响应
@@ -582,7 +881,7 @@ export class PromptService implements IPromptService {
       | "image2imageOptimize"
       | "imageIterate"
       | "iterate"
-      | "contextSystemOptimize"
+      | "conversationMessageOptimize"
       | "contextUserOptimize"
       | "contextIterate",
   ): Promise<string> {
@@ -611,7 +910,7 @@ export class PromptService implements IPromptService {
 
       if (
         templateType === "optimize" ||
-        templateType === "contextSystemOptimize"
+        templateType === "conversationMessageOptimize"
       ) {
         fallbackTypes = ["userOptimize"]; // optimize类型回退到userOptimize
       } else if (

@@ -1,6 +1,7 @@
 import {
   IPromptService,
   OptimizationRequest,
+  MessageOptimizationRequest,
   StreamHandlers,
   CustomConversationRequest,
 } from './types';
@@ -32,14 +33,27 @@ export class ElectronPromptServiceProxy implements IPromptService {
     return this.api.optimizePrompt(safeRequest);
   }
 
+  async optimizeMessage(request: MessageOptimizationRequest): Promise<string> {
+    // 自动序列化，防止Vue响应式对象IPC传递错误
+    const safeRequest = safeSerializeForIPC(request);
+    return this.api.optimizeMessage(safeRequest);
+  }
+
   async iteratePrompt(
     originalPrompt: string,
     lastOptimizedPrompt: string,
     iterateInput: string,
     modelKey: string,
-    templateId?: string
+    templateId?: string,
+    contextData?: {
+      messages?: any[];
+      selectedMessageId?: string;
+      variables?: Record<string, string>;
+      tools?: any[];
+    }
   ): Promise<string> {
-    return this.api.iteratePrompt(originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId);
+    const safeContextData = contextData ? safeSerializeForIPC(contextData) : undefined;
+    return this.api.iteratePrompt(originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, safeContextData);
   }
 
   async testPrompt(
@@ -66,15 +80,28 @@ export class ElectronPromptServiceProxy implements IPromptService {
     await this.api.optimizePromptStream(safeRequest, callbacks);
   }
 
+  async optimizeMessageStream(request: MessageOptimizationRequest, callbacks: StreamHandlers): Promise<void> {
+    // 自动序列化，防止Vue响应式对象IPC传递错误
+    const safeRequest = safeSerializeForIPC(request);
+    await this.api.optimizeMessageStream(safeRequest, callbacks);
+  }
+
   async iteratePromptStream(
     originalPrompt: string,
     lastOptimizedPrompt: string,
     iterateInput: string,
     modelKey: string,
     callbacks: StreamHandlers,
-    templateId?: string
+    templateId?: string,
+    contextData?: {
+      messages?: any[];
+      selectedMessageId?: string;
+      variables?: Record<string, string>;
+      tools?: any[];
+    }
   ): Promise<void> {
-    await this.api.iteratePromptStream(originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, callbacks);
+    const safeContextData = contextData ? safeSerializeForIPC(contextData) : undefined;
+    await this.api.iteratePromptStream(originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, callbacks, safeContextData);
   }
 
   async testPromptStream(

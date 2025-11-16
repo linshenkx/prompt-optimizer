@@ -672,7 +672,7 @@ const props = defineProps<{
     | 'text2imageOptimize'
     | 'image2imageOptimize'
     | 'imageIterate'
-    | 'contextSystemOptimize'
+    | 'conversationMessageOptimize'
     | 'contextUserOptimize'
     | 'contextIterate',
   show: boolean
@@ -731,7 +731,7 @@ const fullscreenEditor = ref<{
 const selectedTemplate = computed(() => {
   switch (props.templateType) {
     case 'optimize':
-    case 'contextSystemOptimize':
+    case 'conversationMessageOptimize':
       return props.selectedSystemOptimizeTemplate
     case 'userOptimize':
     case 'contextUserOptimize':
@@ -759,7 +759,7 @@ function getCategoryFromProps() {
       return 'image-image2image-optimize'
     case 'imageIterate':
       return 'image-iterate'
-    case 'contextSystemOptimize':
+    case 'conversationMessageOptimize':
       return 'context-system-optimize'
     case 'contextUserOptimize':
       return 'context-user-optimize'
@@ -771,7 +771,7 @@ function getCategoryFromProps() {
 }
 
 // 获取当前模板类型 - 根据当前分类而不是props
-function getCurrentTemplateType(): 'optimize' | 'userOptimize' | 'iterate' | 'text2imageOptimize' | 'image2imageOptimize' | 'imageIterate' | 'contextSystemOptimize' | 'contextUserOptimize' | 'contextIterate' {
+function getCurrentTemplateType(): 'optimize' | 'userOptimize' | 'iterate' | 'text2imageOptimize' | 'image2imageOptimize' | 'imageIterate' | 'conversationMessageOptimize' | 'contextUserOptimize' | 'contextIterate' {
   switch (currentCategory.value) {
     case 'system-optimize':
       return 'optimize'
@@ -786,7 +786,7 @@ function getCurrentTemplateType(): 'optimize' | 'userOptimize' | 'iterate' | 'te
     case 'image-iterate':
       return 'imageIterate'
     case 'context-system-optimize':
-      return 'contextSystemOptimize'
+      return 'conversationMessageOptimize'
     case 'context-user-optimize':
       return 'contextUserOptimize'
     case 'context-iterate':
@@ -1262,7 +1262,7 @@ const filteredTemplates = computed(() => {
 
       case 'context-system-optimize':
         // 上下文-系统优化模板
-        return templateType === 'contextSystemOptimize'
+        return templateType === 'conversationMessageOptimize'
 
       case 'context-user-optimize':
         // 上下文-用户优化模板

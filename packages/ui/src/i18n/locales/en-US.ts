@@ -120,14 +120,19 @@ export default {
     imageMode: "Image",
   },
   contextMode: {
+    optimizationMode: {
+      message: "Multi-Message",
+      variable: "Variable",
+    },
     user: {
-      label: "User Mode",
+      label: "Variable Mode",
       tooltip: "Optimize single user prompt, focus on variables and tools",
     },
     system: {
-      label: "System Mode",
+      label: "Multi-Message Mode",
       tooltip:
         "Optimize multiple system messages with full conversation management",
+      selectMessageHint: "Select a system/user message to view its V0/V1 results",
     },
     actions: {
       globalVariables: "Global Variables",
@@ -605,7 +610,16 @@ export default {
       openEditor: "Open Editor",
     },
     title: "Conversation Manager",
+    optimizeMessage: "Optimize Selected Message",
+    selectForOptimization: "Select this message for optimization",
+    selected: "Selected",
     messageCount: "{count} messages",
+    stats: {
+      messages: "Messages",
+      variables: "Variables",
+      missing: "Missing",
+      tools: "Tools",
+    },
     quickTemplates: "Quick Templates",
     clearAll: "Clear All",
     noMessages: "No conversation messages yet",
@@ -1139,6 +1153,7 @@ export default {
     optimized: "Optimized Prompt",
     optimizing: "Optimizing...",
     continueOptimize: "Continue Optimize",
+    applyToConversation: "Apply to Conversation",
     copy: "Copy",
     applyToTest: "Apply to Test",
     appliedToTest:
@@ -1199,6 +1214,9 @@ export default {
       compareFailed: "Comparison analysis failed",
       noVersionsToCompare: "Not enough versions to compare",
       noPreviousVersion: "No previous version available for comparison",
+      loadChainFailed: "Failed to load optimization history",
+      historyUnavailable: "History service is currently unavailable",
+      invalidVersion: "Invalid version",
       testFailed: "Test failed",
       testError: "Error occurred during test",
       loadTemplatesFailed: "Failed to load templates",
@@ -1216,10 +1234,12 @@ export default {
       incompleteTestInfo: "Please fill in complete test information",
       noDefaultTemplate: "Failed to load default template",
       optimizeProcessFailed: "Error in optimization process",
+      promptServiceUnavailable: "Optimization service is currently unavailable",
       testProcessError: "Error occurred during test process",
       initTemplateFailed: "Failed to initialize template selection",
       appInitFailed:
         "Application initialization failed, please refresh or contact support",
+      loadRecordFailed: "Failed to load version content",
     },
     success: {
       optimizeSuccess: "Optimization successful",
@@ -1232,16 +1252,33 @@ export default {
       historyLoaded: "History loaded successfully",
       exitCompare: "Exited compare mode",
       compareEnabled: "Compare mode enabled",
+      optimizeAndApply: "Optimized and applied ({version})",
+      versionApplied: "Applied to conversation",
+      chainAutoRestored: "Optimization chain automatically restored from history",
+      imageHistoryRestored: "Image history restored",
+      conversationRestored: "Complete conversation restored from history",
     },
     warn: {
       loadOptimizeTemplateFailed: "Failed to load saved optimization template",
       loadIterateTemplateFailed: "Failed to load saved iteration template",
+    },
+    warning: {
+      cannotOptimizeRole: "Cannot optimize {role} role messages",
+      saveHistoryFailed: "Failed to save history",
+      messageNotFound: "Message not found",
+      noVersionSelected: "Please select a version to apply",
+      noContentToApply: "No content to apply",
+      messageNotFoundInSnapshot: "History restored successfully, but optimized message not found",
+      restoredFromLegacyHistory: "Restored from legacy history (only optimized message restored)",
+      messageNotFoundInCurrentConversation: "Optimized message not found in current conversation, cannot restore",
     },
     info: {
       modelUpdated: "Model updated",
       templateSelected: "Template selected",
       optimizationModeAutoSwitched:
         "Automatically switched to {mode} prompt optimization mode",
+      switchedToImageMode: "Automatically switched to image mode",
+      multiTurnOptimizationPrompt: "Multi-turn conversation optimization ({count} messages)",
     },
   },
   log: {

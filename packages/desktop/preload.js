@@ -704,7 +704,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         throw new Error(result.error);
       }
     },
-    iteratePromptStream: async (originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, callbacks) => {
+    iteratePromptStream: async (originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, callbacks, contextData) => {
       const streamId = generateStreamId();
 
       const tokenListener = (event, token) => {
@@ -734,7 +734,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on(`stream-finish-${streamId}`, finishListener);
       ipcRenderer.on(`stream-error-${streamId}`, errorListener);
 
-      const result = await ipcRenderer.invoke('prompt-iteratePromptStream', originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, streamId);
+      const result = await ipcRenderer.invoke('prompt-iteratePromptStream', originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, streamId, contextData);
       if (!result.success) {
         cleanup();
         throw new Error(result.error);

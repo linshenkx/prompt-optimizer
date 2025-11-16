@@ -42,8 +42,8 @@ describe('TypeMapper', () => {
   });
 
   describe('mapFromRecordType - 上下文模式映射', () => {
-    it('应该将 contextSystemOptimize 映射为 context/system', () => {
-      const result = TypeMapper.mapFromRecordType('contextSystemOptimize');
+    it('应该将 conversationMessageOptimize 映射为 context/system', () => {
+      const result = TypeMapper.mapFromRecordType('conversationMessageOptimize');
       expect(result).toEqual({
         functionMode: 'context',
         optimizationMode: 'system'
@@ -278,13 +278,13 @@ describe('TypeMapper', () => {
       expect(result).toEqual(['userOptimize']);
     });
 
-    it('应该从 context/system 推断出 contextSystemOptimize 和 contextIterate', () => {
+    it('应该从 context/system 推断出 conversationMessageOptimize 和 contextIterate', () => {
       const mapping: FunctionModeMapping = {
         functionMode: 'context',
         optimizationMode: 'system'
       };
       const result = TypeMapper.inferRecordTypes(mapping);
-      expect(result).toEqual(['contextSystemOptimize', 'contextIterate']);
+      expect(result).toEqual(['conversationMessageOptimize', 'contextIterate']);
     });
 
     it('应该从 context/user 推断出 contextUserOptimize', () => {
@@ -336,7 +336,7 @@ describe('TypeMapper', () => {
         'userOptimize',
         'iterate',
         'test',
-        'contextSystemOptimize',
+        'conversationMessageOptimize',
         'contextUserOptimize',
         'contextIterate',
         'imageOptimize',
@@ -366,7 +366,7 @@ describe('TypeMapper', () => {
           mapping: { functionMode: 'basic', optimizationMode: 'user' }
         },
         {
-          recordType: 'contextSystemOptimize',
+          recordType: 'conversationMessageOptimize',
           mapping: { functionMode: 'context', optimizationMode: 'system' }
         },
         {

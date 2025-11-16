@@ -26,7 +26,7 @@ type StoredTemplateType =
   | 'optimize'
   | 'userOptimize'
   | 'iterate'
-  | 'contextSystemOptimize'
+  | 'conversationMessageOptimize'
   | 'contextUserOptimize'
   | 'contextIterate'
   | 'text2imageOptimize'
@@ -147,7 +147,7 @@ export function useTemplateManager(
       };
       
       // 依据当前功能模式确定三类类型与存储键
-      const sysType: StoredTemplateType = (mode === 'pro') ? 'contextSystemOptimize' : 'optimize'
+      const sysType: StoredTemplateType = (mode === 'pro') ? 'conversationMessageOptimize' : 'optimize'
       const userType: StoredTemplateType = (mode === 'pro') ? 'contextUserOptimize' : 'userOptimize'
       const itType: StoredTemplateType = (mode === 'pro') ? 'contextIterate' : 'iterate'
 
@@ -175,7 +175,7 @@ export function useTemplateManager(
     if (newTemplate && oldTemplate && newTemplate.id !== oldTemplate.id) {
       try {
         const mode = functionMode.value as FunctionMode
-        const type: StoredTemplateType = (mode === 'pro') ? 'contextSystemOptimize' : 'optimize'
+        const type: StoredTemplateType = (mode === 'pro') ? 'conversationMessageOptimize' : 'optimize'
         await saveTemplateSelection(newTemplate, type)
         // 不再显示toast提示，移除选择成功的冒泡提示
       } catch (error) {
@@ -216,7 +216,7 @@ export function useTemplateManager(
   // 当功能模式发生变化时，重新从对应键加载选择
   watch(functionMode, async (mode) => {
     try {
-      const sysType: StoredTemplateType = (mode === 'pro') ? 'contextSystemOptimize' : 'optimize'
+      const sysType: StoredTemplateType = (mode === 'pro') ? 'conversationMessageOptimize' : 'optimize'
       const userType: StoredTemplateType = (mode === 'pro') ? 'contextUserOptimize' : 'userOptimize'
       const itType: StoredTemplateType = (mode === 'pro') ? 'contextIterate' : 'iterate'
 
@@ -288,7 +288,7 @@ export function useTemplateManager(
         return TEMPLATE_SELECTION_KEYS.USER_OPTIMIZE_TEMPLATE
       case 'iterate':
         return TEMPLATE_SELECTION_KEYS.ITERATE_TEMPLATE
-      case 'contextSystemOptimize':
+      case 'conversationMessageOptimize':
         return TEMPLATE_SELECTION_KEYS.CONTEXT_SYSTEM_OPTIMIZE_TEMPLATE
       case 'contextUserOptimize':
         return TEMPLATE_SELECTION_KEYS.CONTEXT_USER_OPTIMIZE_TEMPLATE
@@ -309,10 +309,10 @@ export function useTemplateManager(
   function normalizeTypeToFamily(
     type: string
   ): 'system' | 'user' | 'iterate' {
-    if (type === 'optimize' || type === 'contextSystemOptimize' || type === 'text2imageOptimize' || type === 'image2imageOptimize') {
+    if (type === 'optimize' || type === 'conversationMessageOptimize' || type === 'text2imageOptimize' || type === 'image2imageOptimize') {
       return 'system'
     }
-    if (type === 'userOptimize' || type === 'contextUserOptimize') {
+    if (type === 'userOptimize') {
       return 'user'
     }
     return 'iterate'

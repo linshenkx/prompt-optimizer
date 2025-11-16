@@ -548,7 +548,17 @@ const getSubModeTagType = (favorite: FavoritePrompt): 'warning' | 'error' | 'suc
 // 获取子模式标签文本
 const getSubModeLabel = (favorite: FavoritePrompt): string => {
   if (favorite.optimizationMode) {
-    return t(`favorites.manager.card.optimizationMode.${favorite.optimizationMode}`);
+    // 根据功能模式动态返回标签文本
+    const isContextMode = favorite.functionMode === 'context';
+    if (isContextMode) {
+      // 上下文模式：使用新的翻译键
+      return favorite.optimizationMode === 'system'
+        ? t('contextMode.optimizationMode.message')
+        : t('contextMode.optimizationMode.variable');
+    } else {
+      // 基础模式：使用原有的翻译键
+      return t(`favorites.manager.card.optimizationMode.${favorite.optimizationMode}`);
+    }
   }
   if (favorite.imageSubMode) {
     return t(`favorites.manager.card.imageSubMode.${favorite.imageSubMode}`);

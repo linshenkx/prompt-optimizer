@@ -28,8 +28,18 @@ export interface ToolDefinition {
  * 统一的消息结构
  */
 export interface ConversationMessage {
+  /**
+   * 消息唯一标识符（使用 uuidv4 生成）
+   * 用于建立稳定的消息-优化历史映射关系，不受数组操作影响
+   */
+  id?: string;
   role: "system" | "user" | "assistant" | "tool";
   content: string; // 可包含变量语法 {{variableName}}
+  /**
+   * 原始内容（首次创建时保存，用于 v0 版本恢复）
+   * 该字段创建后永不改变，即使消息被多次优化修改
+   */
+  originalContent?: string;
   /**
    * 函数调用名称（assistant消息）
    */
@@ -77,6 +87,27 @@ export interface OptimizationRequest {
 }
 
 /**
+ * 消息优化请求接口（多轮对话模式专用）
+ * 用于优化会话中的单条消息内容
+ */
+export interface MessageOptimizationRequest {
+  /** 选中的消息ID（必选） */
+  selectedMessageId: string;
+  /** 完整的会话消息列表（必选，包含选中的消息） */
+  messages: ConversationMessage[];
+  /** 模型Key */
+  modelKey: string;
+  /** 优化模板ID（可选，默认使用 context-message-optimize） */
+  templateId?: string;
+  /** 上下文模式（用于变量替换策略） */
+  contextMode?: import("../context/types").ContextMode;
+  /** 自定义变量 */
+  variables?: Record<string, string>;
+  /** 工具定义 */
+  tools?: ToolDefinition[];
+}
+
+/**
  * 自定义会话测试请求（与OptimizationRequest保持一致）
  */
 export interface CustomConversationRequest {
@@ -95,6 +126,9 @@ export interface IPromptService {
   /** 优化提示词 - 支持提示词类型和增强功能 */
   optimizePrompt(request: OptimizationRequest): Promise<string>;
 
+  /** 优化单条消息 - 多轮对话模式专用 */
+  optimizeMessage(request: MessageOptimizationRequest): Promise<string>;
+
   /** 迭代优化提示词 */
   iteratePrompt(
     originalPrompt: string,
@@ -102,6 +136,12 @@ export interface IPromptService {
     iterateInput: string,
     modelKey: string,
     templateId?: string,
+    contextData?: {
+      messages?: ConversationMessage[];
+      selectedMessageId?: string;
+      variables?: Record<string, string>;
+      tools?: ToolDefinition[];
+    },
   ): Promise<string>;
 
   /** 测试提示词 - 支持可选系统提示词 */
@@ -123,6 +163,12 @@ export interface IPromptService {
     callbacks: StreamHandlers,
   ): Promise<void>;
 
+  /** 优化单条消息（流式）- 多轮对话模式专用 */
+  optimizeMessageStream(
+    request: MessageOptimizationRequest,
+    callbacks: StreamHandlers,
+  ): Promise<void>;
+
   /** 迭代优化提示词（流式） */
   iteratePromptStream(
     originalPrompt: string,
@@ -131,6 +177,12 @@ export interface IPromptService {
     modelKey: string,
     handlers: StreamHandlers,
     templateId: string,
+    contextData?: {
+      messages?: ConversationMessage[];
+      selectedMessageId?: string;
+      variables?: Record<string, string>;
+      tools?: ToolDefinition[];
+    },
   ): Promise<void>;
 
   /** 测试提示词（流式）- 支持可选系统提示词 */

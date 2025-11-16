@@ -246,10 +246,25 @@ const functionModeOptions = computed(() => [
   { label: t('favorites.dialog.functionModes.image'), value: 'image' }
 ]);
 
-const optimizationModeOptions = computed(() => [
-  { label: t('favorites.dialog.optimizationModes.system'), value: 'system' },
-  { label: t('favorites.dialog.optimizationModes.user'), value: 'user' }
-]);
+const optimizationModeOptions = computed(() => {
+  // 根据功能模式动态生成选项
+  const isContextMode = formData.functionMode === 'context';
+
+  return [
+    {
+      label: isContextMode
+        ? t('contextMode.optimizationMode.message')
+        : t('favorites.dialog.optimizationModes.system'),
+      value: 'system'
+    },
+    {
+      label: isContextMode
+        ? t('contextMode.optimizationMode.variable')
+        : t('favorites.dialog.optimizationModes.user'),
+      value: 'user'
+    }
+  ];
+});
 
 const imageSubModeOptions = computed(() => [
   { label: t('favorites.dialog.imageModes.text2image'), value: 'text2image' },

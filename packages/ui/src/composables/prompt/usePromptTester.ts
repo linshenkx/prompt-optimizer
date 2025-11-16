@@ -20,6 +20,7 @@ import type { TestAreaPanelInstance } from '../components/types/test-area'
  * @param optimizationContext 优化上下文（会话消息）
  * @param optimizationContextTools 上下文工具列表
  * @param variableManager 变量管理器
+ * @param selectedMessageId 当前选中的消息ID（用于对比模式）
  * @returns 提示词测试接口
  * @deprecated optimizationMode 参数建议传入 computed 值（从 basicSubMode/proSubMode 动态计算）
  */
@@ -32,7 +33,8 @@ export function usePromptTester(
   advancedModeEnabled: Ref<boolean>,
   optimizationContext: Ref<ConversationMessage[]>,
   optimizationContextTools: Ref<ToolDefinition[]>,
-  variableManager: VariableManagerHooks | null
+  variableManager: VariableManagerHooks | null,
+  selectedMessageId?: Ref<string>
 ) {
   const toast = useToast()
   const { t } = useI18n()
@@ -125,7 +127,14 @@ export function usePromptTester(
       const isOriginal = type === 'original'
       const selectedPrompt = isOriginal ? prompt : optimizedPrompt
 
-      if (!selectedPrompt) {
+      // 🔧 检查会话上下文
+      const hasConversationContext =
+        optimizationMode.value === 'system' &&
+        advancedModeEnabled.value &&
+        (optimizationContext.value?.length || 0) > 0
+
+      // 🔧 在上下文-多消息模式下，会话内容来自 optimizationContext，不需要检查 selectedPrompt
+      if (!hasConversationContext && !selectedPrompt) {
         toast.error(
           isOriginal ? t('test.error.noOriginalPrompt') : t('test.error.noOptimizedPrompt')
         )
@@ -209,17 +218,23 @@ export function usePromptTester(
         }
 
         // 对话构造逻辑：
-        // - 系统模式 + 有会话上下文：使用会话上下文，并追加当前测试输入
+        // - 系统模式 + 有会话上下文：
+        //   - 原始会话（original）：只有选中的消息使用 originalContent（V0），其他消息使用当前版本
+        //   - 优化会话（optimized）：所有消息都使用当前版本
         // - 用户模式：无论是否有会话上下文，都直接发送优化后的提示词作为用户消息
         //   （因为用户提示词优化的目标是生成可直接使用的单条用户消息）
         const messages: ConversationMessage[] =
           optimizationMode.value === 'system' && hasConversationContext
-            ? [
-                // 保留完整的上下文消息（包含 name, tool_calls, tool_call_id 等元数据）
-                ...optimizationContext.value,
-                // 追加当前的测试输入（如果用户输入了新问题）
-                ...(userPrompt ? [{ role: 'user' as const, content: userPrompt }] : [])
-              ]
+            ? isOriginal
+                // 🆕 原始会话：只有选中的消息使用 V0，其他消息保持当前版本
+                ? optimizationContext.value.map(msg => ({
+                    ...msg,
+                    content: (selectedMessageId?.value && msg.id === selectedMessageId.value)
+                      ? (msg.originalContent || msg.content)
+                      : msg.content
+                  }))
+                // 优化会话：所有消息都使用当前版本
+                : optimizationContext.value
             : [
                 ...(systemPrompt
                   ? [{ role: 'system' as const, content: systemPrompt }]

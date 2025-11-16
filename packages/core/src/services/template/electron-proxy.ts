@@ -11,7 +11,7 @@ interface ElectronAPI {
     getTemplates: () => Promise<Template[]>;
     exportTemplate: (id: string) => Promise<string>;
     importTemplate: (jsonString: string) => Promise<void>;
-    listTemplatesByType: (type: 'optimize' | 'userOptimize' | 'text2imageOptimize' | 'image2imageOptimize' | 'imageIterate' | 'iterate' | 'contextSystemOptimize' | 'contextUserOptimize' | 'contextIterate') => Promise<Template[]>;
+    listTemplatesByType: (type: 'optimize' | 'userOptimize' | 'text2imageOptimize' | 'image2imageOptimize' | 'imageIterate' | 'iterate' | 'contextUserOptimize' | 'contextIterate' | 'conversationMessageOptimize') => Promise<Template[]>;
     changeBuiltinTemplateLanguage: (language: BuiltinTemplateLanguage) => Promise<void>;
     getCurrentBuiltinTemplateLanguage: () => Promise<BuiltinTemplateLanguage>;
     getSupportedBuiltinTemplateLanguages: () => Promise<BuiltinTemplateLanguage[]>;
@@ -71,7 +71,7 @@ export class ElectronTemplateManagerProxy implements ITemplateManager {
     return this.electronAPI.importTemplate(jsonString);
   }
 
-  async listTemplatesByType(type: 'optimize' | 'userOptimize' | 'text2imageOptimize' | 'image2imageOptimize' | 'imageIterate' | 'iterate' | 'contextSystemOptimize' | 'contextUserOptimize' | 'contextIterate'): Promise<Template[]> {
+  async listTemplatesByType(type: 'optimize' | 'userOptimize' | 'text2imageOptimize' | 'image2imageOptimize' | 'imageIterate' | 'iterate' | 'contextUserOptimize' | 'contextIterate' | 'conversationMessageOptimize'): Promise<Template[]> {
     return this.electronAPI.listTemplatesByType(type);
   }
 

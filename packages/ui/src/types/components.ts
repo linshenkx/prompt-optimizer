@@ -105,6 +105,12 @@ export interface ConversationManagerProps extends BaseComponentProps {
   collapsible?: boolean
   /** 标题 */
   title?: string
+  /** 🆕 当前选中的消息 ID（用于高亮显示） */
+  selectedMessageId?: string
+  /** 🆕 是否启用消息优化功能 */
+  enableMessageOptimization?: boolean
+  /** 🆕 消息优化中状态 */
+  isMessageOptimizing?: boolean
 }
 
 export interface ConversationManagerEvents extends BaseComponentEvents {
@@ -118,6 +124,10 @@ export interface ConversationManagerEvents extends BaseComponentEvents {
   openVariableManager: (variableName?: string) => void
   /** 消息拖拽排序 */
   messageReorder: (fromIndex: number, toIndex: number) => void
+  /** 🆕 消息被选中用于优化 */
+  messageSelect: (message: ConversationMessage) => void
+  /** 🆕 触发消息优化 */
+  optimizeMessage: () => void
 }
 
 /**

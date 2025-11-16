@@ -11,7 +11,7 @@ export interface TemplateMetadata {
   lastModified: number;     // 最后修改时间
   author?: string;          // 作者（可选）
   description?: string;     // 描述（可选）
-  templateType: 'optimize' | 'userOptimize' | 'text2imageOptimize' | 'image2imageOptimize' | 'imageIterate' | 'iterate' | 'contextSystemOptimize' | 'contextUserOptimize' | 'contextIterate'; // 模板类型标识
+  templateType: 'optimize' | 'userOptimize' | 'text2imageOptimize' | 'image2imageOptimize' | 'imageIterate' | 'iterate' | 'conversationMessageOptimize' | 'contextUserOptimize' | 'contextIterate'; // 模板类型标识
   language?: 'zh' | 'en';   // 模板语言（可选，主要用于内置模板语言切换）
   [key: string]: any;       // 允许任意额外字段
 }
@@ -82,7 +82,7 @@ export interface ITemplateManager extends IImportExportable {
   /**
    * List templates by type
    */
-  listTemplatesByType(type: 'optimize' | 'userOptimize' | 'text2imageOptimize' | 'image2imageOptimize' | 'imageIterate' | 'iterate' | 'contextSystemOptimize' | 'contextUserOptimize' | 'contextIterate'): Promise<Template[]>;
+  listTemplatesByType(type: 'optimize' | 'userOptimize' | 'text2imageOptimize' | 'image2imageOptimize' | 'imageIterate' | 'iterate' | 'contextUserOptimize' | 'contextIterate' | 'conversationMessageOptimize'): Promise<Template[]>;
 
   /**
    * Change built-in template language
@@ -123,7 +123,7 @@ export const templateSchema = z.object({
     lastModified: z.number(),
     author: z.string().optional(),
     description: z.string().optional(),
-    templateType: z.enum(['optimize', 'userOptimize', 'text2imageOptimize', 'image2imageOptimize', 'imageIterate', 'iterate', 'contextSystemOptimize', 'contextUserOptimize', 'contextIterate']),
+    templateType: z.enum(['optimize', 'userOptimize', 'text2imageOptimize', 'image2imageOptimize', 'imageIterate', 'iterate', 'conversationMessageOptimize', 'contextUserOptimize', 'contextIterate']),
     language: z.enum(['zh', 'en']).optional()
   }).passthrough(), // 允许额外字段通过验证
   isBuiltin: z.boolean().optional()

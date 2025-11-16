@@ -274,7 +274,7 @@ export class TemplateManager implements ITemplateManager {
   /**
    * List templates by type
    */
-  async listTemplatesByType(type: 'optimize' | 'userOptimize' | 'text2imageOptimize' | 'image2imageOptimize' | 'imageIterate' | 'iterate' | 'contextSystemOptimize' | 'contextUserOptimize' | 'contextIterate'): Promise<Template[]> {
+  async listTemplatesByType(type: 'optimize' | 'userOptimize' | 'text2imageOptimize' | 'image2imageOptimize' | 'imageIterate' | 'iterate' | 'contextUserOptimize' | 'contextIterate' | 'conversationMessageOptimize'): Promise<Template[]> {
     try {
       const templates = await this.listTemplates();
       return templates.filter(

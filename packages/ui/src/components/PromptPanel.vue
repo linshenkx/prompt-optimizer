@@ -28,20 +28,30 @@
                             :size="4"
                             class="version-tags"
                         >
+                            <!-- V3, V2, V1... 按降序显示（最新版本在前） -->
                             <NTag
                                 v-for="version in versions.slice().reverse()"
                                 :key="version.id"
                                 :type="
-                                    currentVersionId === version.id
+                                    currentVersionId === version.id && !isV0Selected
                                         ? 'success'
                                         : 'default'
                                 "
                                 size="small"
                                 @click="switchVersion(version)"
-                                :cursor="'pointer'"
-                                :bordered="currentVersionId !== version.id"
+                                :bordered="currentVersionId !== version.id || isV0Selected"
                             >
                                 V{{ version.version }}
+                            </NTag>
+                            <!-- 🆕 V0 固定放在最后 -->
+                            <NTag
+                                v-if="showV0Tag"
+                                :type="isV0Selected ? 'success' : 'default'"
+                                size="small"
+                                @click="switchToV0"
+                                :bordered="!isV0Selected"
+                            >
+                                V0
                             </NTag>
                         </NSpace>
                     </NSpace>
@@ -81,6 +91,33 @@
                             </svg>
                             </NIcon>
                         </template>
+                    </NButton>
+                    <!-- 应用到会话 -->
+                    <NButton
+                        v-if="showApplyButton && versions && versions.length > 0"
+                        @click="$emit('apply-to-conversation')"
+                        type="success"
+                        size="small"
+                        ghost
+                        :disabled="isOptimizing || !currentVersionId"
+                    >
+                        <template #icon>
+                            <NIcon>
+                                <svg
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M5 13l4 4L19 7"
+                                    />
+                                </svg>
+                            </NIcon>
+                        </template>
+                        {{ t("prompt.applyToConversation") }}
                     </NButton>
                     <!-- 继续优化按钮 -->
                     <NButton
@@ -270,6 +307,10 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    showApplyButton: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 const emit = defineEmits<{
@@ -285,9 +326,11 @@ const emit = defineEmits<{
     ];
     "update:selectedIterateTemplate": [template: Template | null];
     switchVersion: [version: PromptRecord];
+    switchToV0: [version: PromptRecord];  // 🆕 V0 切换专用事件
     templateSelect: [template: Template];
     "save-favorite": [data: { content: string; originalContent?: string }];
     "open-preview": [];
+    "apply-to-conversation": [];
 }>();
 
 const showIterateInput = ref(false);
@@ -306,6 +349,42 @@ const templateType = computed<"iterate" | "contextIterate" | "imageIterate">(
 
 const outputDisplayRef = ref<InstanceType<typeof OutputDisplay> | null>(null);
 const iterateTemplateSelectRef = ref<{ refresh?: () => void } | null>(null);
+
+// 🆕 V0 特殊处理：跟踪是否选中 V0
+const isV0Selected = ref(false);
+
+// 🆕 是否显示 V0 标签（只有当 versions 存在且有原始内容时才显示）
+const showV0Tag = computed(() => {
+    return props.versions && props.versions.length > 0 && props.versions[0]?.originalPrompt;
+});
+
+// 🆕 切换到 V0（原始内容）
+const switchToV0 = async () => {
+    if (!props.versions || props.versions.length === 0) return;
+
+    const v0Content = props.versions[0].originalPrompt;
+    if (!v0Content) return;
+
+    // 标记为 V0 已选中
+    isV0Selected.value = true;
+
+    // 🔧 触发专用的 switchToV0 事件，让父组件知道这是 V0 切换
+    // 传递第一个版本对象，父组件应该使用 originalPrompt 而不是 optimizedPrompt
+    emit("switchToV0", props.versions[0]);
+
+    // 更新显示内容为原始内容
+    emit("update:optimizedPrompt", v0Content);
+
+    // 等待父组件更新内容
+    await nextTick();
+
+    // 强制刷新 OutputDisplay 的内容
+    if (outputDisplayRef.value) {
+        outputDisplayRef.value.forceRefreshContent();
+    }
+
+    console.log("[PromptPanel] 已切换到 V0（原始内容）");
+};
 
 // 计算标题文本
 const templateTitleText = computed(() => {
@@ -368,7 +447,7 @@ const submitIterate = () => {
 
     emit("iterate", {
         originalPrompt: props.originalPrompt,
-        optimizedPrompt: props.optimizedPrompt,
+        optimizedPrompt: outputDisplayRef.value?.content || props.optimizedPrompt,
         iterateInput: iterateInput.value.trim(),
     });
 
@@ -379,7 +458,10 @@ const submitIterate = () => {
 
 // 添加版本切换函数
 const switchVersion = async (version: PromptRecord) => {
-    if (version.id === props.currentVersionId) return;
+    if (version.id === props.currentVersionId && !isV0Selected.value) return;
+
+    // 🆕 清除 V0 选中状态
+    isV0Selected.value = false;
 
     // 发出版本切换事件
     emit("switchVersion", version);
@@ -436,6 +518,21 @@ defineExpose({
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
+}
+
+/* 版本标签可点击样式 */
+.version-tag-clickable {
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.15s ease;
+}
+
+.version-tag-clickable:hover {
+    transform: translateY(-1px);
+}
+
+.version-tag-clickable:active {
+    transform: translateY(0);
 }
 
 @media (max-width: 640px) {

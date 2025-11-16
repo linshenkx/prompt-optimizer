@@ -421,11 +421,12 @@ describe('ConversationManager 和 ContextEditor 数据同步集成测试', () =>
       
       // 验证 ConversationManager 接收到正确数据
       const manager = wrapper.findComponent({ name: 'ConversationManager' })
-      expect(manager.props('messages')).toEqual(initialMessages)
+      // 使用 toMatchObject 而不是 toEqual，因为 ConversationManager 会自动添加 id 和 originalContent
+      expect(manager.props('messages')).toMatchObject(initialMessages)
       expect(manager.props('availableVariables')).toEqual(initialVariables)
-      
+
       // 验证父组件状态正确初始化
-      expect(wrapper.vm.messages).toEqual(initialMessages)
+      expect(wrapper.vm.messages).toMatchObject(initialMessages)
       expect(wrapper.vm.variables).toEqual(initialVariables)
     })
     
@@ -445,7 +446,8 @@ describe('ConversationManager 和 ContextEditor 数据同步集成测试', () =>
       
       // 验证 ContextEditor 接收到相同的数据
       const editor = wrapper.findComponent({ name: 'ContextEditor' })
-      expect(editor.props('state').messages).toEqual(initialMessages)
+      // 使用 toMatchObject 而不是 toEqual，因为消息会自动添加 id 和 originalContent
+      expect(editor.props('state').messages).toMatchObject(initialMessages)
       
       // 验证两个组件引用同一数据源
       expect(wrapper.vm.messages).toBe(wrapper.vm.messages) // 引用相等
