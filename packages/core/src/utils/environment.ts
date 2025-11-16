@@ -114,6 +114,20 @@ export const isBrowser = (): boolean => {
   return typeof window !== 'undefined';
 };
 
+/**
+ * 检查是否在开发模式
+ * 使用统一的 VITE_LOCAL_DEV 环境变量判断，避免依赖 NODE_ENV、MODE 等内置环境变量
+ * 通过 getEnvVar 动态访问，避免 Vite 编译时内联替换（类似 VITE_APP_PLATFORM 的设计）
+ *
+ * 只有当 VITE_LOCAL_DEV 环境变量显式设置为 'true' 时才认为是开发环境
+ * 支持多种环境：Vite、Node.js、Docker、Electron等
+ */
+export function isDevelopment(): boolean {
+  // 只检查 VITE_LOCAL_DEV 环境变量
+  const localDev = getEnvVar('VITE_LOCAL_DEV');
+  return localDev === 'true';
+}
+
 
 /**
  * 检测是否在Electron环境中运行

@@ -38,7 +38,7 @@
                         <OptimizationModeSelectorUI
                             v-if="functionMode === 'pro'"
                             :modelValue="proSubMode"
-                            :hide-system-option="true"
+                            :hide-system-option="!isDev"
                             @change="handleProSubModeChange"
                         />
 
@@ -1043,6 +1043,7 @@ import type {
     Template,
     ModelConfig,
 } from "@prompt-optimizer/core";
+import { isDevelopment } from "@prompt-optimizer/core";
 import type {
     ModelSelectOption,
     TemplateSelectOption,
@@ -1054,6 +1055,9 @@ import type {
 const hljsInstance = hljs;
 const { t } = useI18n();
 const toast = useToast();
+
+// 环境变量：是否为开发模式（使用统一的 isDevelopment() 函数）
+const isDev = isDevelopment();
 
 // 2. 初始化应用服务
 const { services, isInitializing } = useAppInitializer();

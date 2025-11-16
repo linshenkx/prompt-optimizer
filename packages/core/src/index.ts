@@ -122,6 +122,7 @@ export {
   isElectronApiReady,
   waitForElectronApi,
   isBrowser,
+  isDevelopment,
   getEnvVar,
   scanCustomModelEnvVars,
   clearCustomModelEnvCache,
