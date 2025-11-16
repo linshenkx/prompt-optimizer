@@ -26,8 +26,7 @@
             <!-- 提示词输入面板 -->
             <NCard style="flex-shrink: 0; min-height: 200px">
                 <InputPanelUI
-                    :modelValue="prompt"
-                    @update:modelValue="emit('update:prompt', $event)"
+                    v-model="contextUserOptimization.prompt"
                     :label="t('promptOptimizer.userPromptInput')"
                     :placeholder="t('promptOptimizer.userPromptPlaceholder')"
                     :help-text="variableGuideInlineHint"
@@ -35,10 +34,10 @@
                     :template-label="t('promptOptimizer.templateLabel')"
                     :button-text="t('promptOptimizer.optimize')"
                     :loading-text="t('common.loading')"
-                    :loading="isOptimizing"
-                    :disabled="isOptimizing"
+                    :loading="contextUserOptimization.isOptimizing"
+                    :disabled="contextUserOptimization.isOptimizing"
                     :show-preview="true"
-                    @submit="emit('optimize')"
+                    @submit="handleOptimize"
                     @configModel="emit('config-model')"
                     @open-preview="emit('open-input-preview')"
                     :enable-variable-extraction="true"
@@ -81,26 +80,24 @@
                 content-style="height: 100%; max-height: 100%; overflow: hidden;"
             >
                 <PromptPanelUI
-                    :optimized-prompt="optimizedPrompt"
-                    @update:optimizedPrompt="
-                        emit('update:optimizedPrompt', $event)
-                    "
-                    :reasoning="optimizedReasoning"
-                    :original-prompt="prompt"
-                    :is-optimizing="isOptimizing"
-                    :is-iterating="isIterating"
+                    :optimized-prompt="contextUserOptimization.optimizedPrompt"
+                    @update:optimizedPrompt="contextUserOptimization.optimizedPrompt = $event"
+                    :reasoning="contextUserOptimization.optimizedReasoning"
+                    :original-prompt="contextUserOptimization.prompt"
+                    :is-optimizing="contextUserOptimization.isOptimizing"
+                    :is-iterating="contextUserOptimization.isIterating"
                     :selectedIterateTemplate="selectedIterateTemplate"
                     @update:selectedIterateTemplate="
                         emit('update:selectedIterateTemplate', $event)
                     "
-                    :versions="versions"
-                    :current-version-id="currentVersionId"
+                    :versions="contextUserOptimization.currentVersions"
+                    :current-version-id="contextUserOptimization.currentVersionId"
                     :optimization-mode="optimizationMode"
                     :advanced-mode-enabled="true"
                     :show-preview="true"
-                    @iterate="emit('iterate', $event)"
+                    @iterate="handleIterate"
                     @openTemplateManager="emit('open-template-manager', $event)"
-                    @switchVersion="emit('switch-version', $event)"
+                    @switchVersion="handleSwitchVersion"
                     @save-favorite="emit('save-favorite', $event)"
                     @open-preview="emit('open-prompt-preview')"
                 />
@@ -159,8 +156,8 @@
                     ref="testAreaPanelRef"
                     :optimization-mode="optimizationMode"
                     context-mode="user"
-                    :optimized-prompt="optimizedPrompt"
-                    :is-test-running="isTestRunning"
+                    :optimized-prompt="contextUserOptimization.optimizedPrompt"
+                    :is-test-running="contextUserTester.testResults.isTestingOriginal || contextUserTester.testResults.isTestingOptimized"
                     :global-variables="globalVariables"
                     :predefined-variables="predefinedVariables"
                     :temporary-variables="temporaryVariables"
@@ -192,17 +189,39 @@
                         <slot name="test-model-select"></slot>
                     </template>
 
-                    <!-- 结果显示插槽 -->
+                    <!-- 🆕 对比模式结果插槽：直接绑定测试结果 -->
                     <template #original-result>
-                        <slot name="original-result"></slot>
+                        <OutputDisplay
+                            :content="contextUserTester.testResults.originalResult"
+                            :reasoning="contextUserTester.testResults.originalReasoning"
+                            :streaming="contextUserTester.testResults.isTestingOriginal"
+                            :enableDiff="false"
+                            mode="readonly"
+                            :style="{ height: '100%', minHeight: '0' }"
+                        />
                     </template>
 
                     <template #optimized-result>
-                        <slot name="optimized-result"></slot>
+                        <OutputDisplay
+                            :content="contextUserTester.testResults.optimizedResult"
+                            :reasoning="contextUserTester.testResults.optimizedReasoning"
+                            :streaming="contextUserTester.testResults.isTestingOptimized"
+                            :enableDiff="false"
+                            mode="readonly"
+                            :style="{ height: '100%', minHeight: '0' }"
+                        />
                     </template>
 
+                    <!-- 单一结果插槽 -->
                     <template #single-result>
-                        <slot name="single-result"></slot>
+                        <OutputDisplay
+                            :content="contextUserTester.testResults.optimizedResult"
+                            :reasoning="contextUserTester.testResults.optimizedReasoning"
+                            :streaming="contextUserTester.testResults.isTestingOptimized"
+                            :enableDiff="false"
+                            mode="readonly"
+                            :style="{ height: '100%', minHeight: '0' }"
+                        />
                     </template>
                 </TestAreaPanel>
             </NCard>
@@ -220,6 +239,7 @@
  * - 右侧: 测试区域 (变量输入 + 测试执行)
  *
  * @features
+ * - 🆕 完全独立的优化和测试逻辑（使用专属 composables）
  * - 支持提示词优化和迭代
  * - 支持版本管理和历史记录
  * - 支持变量系统 (全局变量 + 测试临时变量)
@@ -231,16 +251,14 @@
  * @example
  * ```vue
  * <ContextUserWorkspace
- *   v-model:prompt="userPrompt"
- *   v-model:optimizedPrompt="optimizedResult"
- *   :is-optimizing="loading"
+ *   :optimization-mode="optimizationMode"
+ *   :selected-optimize-model="modelKey"
+ *   :selected-template="template"
  *   :global-variables="globalVars"
- *   @optimize="handleOptimize"
- *   @test="handleTest"
  * />
  * ```
  */
-import { ref, computed } from 'vue'
+import { ref, computed, inject, type Ref } from 'vue'
 
 import { useI18n } from "vue-i18n";
 import { NCard, NFlex, NButton, NText } from "naive-ui";
@@ -248,6 +266,7 @@ import { useBreakpoints } from "@vueuse/core";
 import InputPanelUI from "../InputPanel.vue";
 import PromptPanelUI from "../PromptPanel.vue";
 import TestAreaPanel from "../TestAreaPanel.vue";
+import OutputDisplay from "../OutputDisplay.vue";
 import type { OptimizationMode } from "../../types";
 import type {
     PromptRecord,
@@ -255,7 +274,11 @@ import type {
 } from "@prompt-optimizer/core";
 import type { TestAreaPanelInstance } from "../types/test-area";
 import type { IteratePayload, SaveFavoritePayload } from "../../types/workspace";
+import type { AppServices } from '../../types/services';
+import type { VariableManagerHooks } from '../../composables/prompt/useVariableManager';
 import { useTemporaryVariables } from "../../composables/variable/useTemporaryVariables";
+import { useContextUserOptimization } from '../../composables/prompt/useContextUserOptimization';
+import { useContextUserTester } from '../../composables/prompt/useContextUserTester';
 
 // ========================
 // 响应式断点配置
@@ -271,28 +294,16 @@ const isMobile = breakpoints.smaller("mobile");
 // ========================
 interface Props {
     // --- 核心状态 ---
-    /** 用户输入的原始提示词 */
-    prompt: string;
-    /** AI 优化后的提示词 */
-    optimizedPrompt: string;
-    /** 优化推理过程说明 (可选) */
-    optimizedReasoning?: string;
     /** 优化模式 */
     optimizationMode: OptimizationMode;
 
-    // --- 优化状态 ---
-    /** 是否正在优化 */
-    isOptimizing: boolean;
-    /** 是否正在迭代优化 */
-    isIterating: boolean;
-    /** 是否正在执行测试 */
-    isTestRunning?: boolean;
-
-    // --- 版本管理 ---
-    /** 历史版本列表 */
-    versions: PromptRecord[];
-    /** 当前版本 ID */
-    currentVersionId: string | null;
+    // --- 🆕 模型和模板配置（用于初始化 composables）---
+    /** 优化模型 */
+    selectedOptimizeModel: string;
+    /** 测试模型 */
+    selectedTestModel: string;
+    /** 优化模板 */
+    selectedTemplate: Template | null;
     /** 选中的迭代模板 */
     selectedIterateTemplate: Template | null;
 
@@ -301,6 +312,8 @@ interface Props {
     testContent: string;
     /** 是否启用对比模式 */
     isCompareMode: boolean;
+    /** 是否正在执行测试（兼容性保留，实际由内部管理）*/
+    isTestRunning?: boolean;
 
     // --- 变量数据 ---
     /** 全局变量 (持久化存储) */
@@ -322,7 +335,6 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-    optimizedReasoning: "",
     isTestRunning: false,
     inputMode: "normal",
     controlBarLayout: "default",
@@ -336,23 +348,13 @@ const props = withDefaults(defineProps<Props>(), {
 // ========================
 const emit = defineEmits<{
     // --- 数据更新事件 ---
-    "update:prompt": [value: string];
-    "update:optimizedPrompt": [value: string];
     "update:selectedIterateTemplate": [value: Template | null];
     "update:testContent": [value: string];
     "update:isCompareMode": [value: boolean];
 
     // --- 操作事件 ---
-    /** 执行优化 */
-    optimize: [];
-    /** 执行迭代优化 */
-    iterate: [payload: IteratePayload];
-    /** 执行测试 (传递测试变量) */
-    test: [testVariables: Record<string, string>];
     /** 切换对比模式 */
     "compare-toggle": [];
-    /** 切换历史版本 */
-    "switch-version": [version: PromptRecord];
     /** 保存到收藏 */
     "save-favorite": [data: SaveFavoritePayload];
 
@@ -373,7 +375,6 @@ const emit = defineEmits<{
     "open-input-preview": [];
     /** 打开提示词预览 */
     "open-prompt-preview": [];
-    /** 打开测试预览 */
 
     // --- 变量管理 ---
     /** 变量值变化 */
@@ -393,11 +394,32 @@ const emit = defineEmits<{
 const { t } = useI18n();
 
 // ========================
+// 注入服务和变量管理器
+// ========================
+const services = inject<Ref<AppServices | null>>('services');
+const variableManager = inject<VariableManagerHooks | null>('variableManager');
+
+// ========================
 // 内部状态管理
 // ========================
 /** 🆕 使用全局临时变量管理器 (从文本提取的变量,仅当前会话有效) */
 const tempVarsManager = useTemporaryVariables();
 const temporaryVariables = tempVarsManager.temporaryVariables;
+
+// 🆕 初始化 ContextUser 专属优化器
+const contextUserOptimization = useContextUserOptimization(
+    services || ref(null),
+    computed(() => props.selectedOptimizeModel),
+    computed(() => props.selectedTemplate),
+    computed(() => props.selectedIterateTemplate)
+);
+
+// 🆕 初始化 ContextUser 专属测试器
+const contextUserTester = useContextUserTester(
+    services || ref(null),
+    computed(() => props.selectedTestModel),
+    variableManager
+);
 
 // ========================
 // 计算属性
@@ -530,14 +552,37 @@ const handleClearTemporaryVariables = () => {
 };
 
 /**
- * 处理测试事件并获取测试变量
+ * 🆕 处理优化事件
+ */
+const handleOptimize = () => {
+    contextUserOptimization.optimize();
+};
+
+/**
+ * 🆕 处理迭代优化事件
+ */
+const handleIterate = (payload: IteratePayload) => {
+    contextUserOptimization.iterate({
+        originalPrompt: contextUserOptimization.prompt,
+        optimizedPrompt: contextUserOptimization.optimizedPrompt,
+        iterateInput: payload.iterationNote
+    });
+};
+
+/**
+ * 🆕 处理版本切换事件
+ */
+const handleSwitchVersion = (version: PromptRecord) => {
+    contextUserOptimization.switchVersion(version);
+};
+
+/**
+ * 🆕 处理测试事件（使用内部测试器）
  *
  * 工作流程:
  * 1. 从 TestAreaPanel 获取用户输入的测试变量
  * 2. 验证数据有效性
- * 3. 触发 test 事件,传递变量给父组件
- *
- * @emits test 传递测试变量给父组件执行测试
+ * 3. 调用内部测试器执行测试
  */
 const handleTestWithVariables = async () => {
     try {
@@ -546,7 +591,6 @@ const handleTestWithVariables = async () => {
             console.warn(
                 "[ContextUserWorkspace] testAreaPanelRef not available, using empty variables",
             );
-            emit("test", {});
             return;
         }
 
@@ -556,7 +600,6 @@ const handleTestWithVariables = async () => {
             console.warn(
                 "[ContextUserWorkspace] getVariableValues method not found, using empty variables",
             );
-            emit("test", {});
             return;
         }
 
@@ -569,20 +612,23 @@ const handleTestWithVariables = async () => {
                 typeof testVariables,
             );
             window.$message?.error(t("test.invalidVariables"));
-            emit("test", {});
             return;
         }
 
-        // 触发测试事件,传递变量
-        emit("test", testVariables);
+        // 🆕 调用内部测试器执行测试
+        await contextUserTester.executeTest(
+            contextUserOptimization.prompt,
+            contextUserOptimization.optimizedPrompt,
+            props.testContent,
+            props.isCompareMode,
+            testVariables
+        );
     } catch (error) {
         console.error(
-            "[ContextUserWorkspace] Failed to get test variables:",
+            "[ContextUserWorkspace] Failed to execute test:",
             error,
         );
         window.$message?.error(t("test.getVariablesFailed"));
-        // 即使出错也触发测试,使用空变量
-        emit("test", {});
     }
 };
 

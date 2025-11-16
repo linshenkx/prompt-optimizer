@@ -1,42 +1,86 @@
-import { reactive, type Ref, type ComputedRef } from 'vue'
-
+import { reactive, type Ref } from 'vue'
 import { useToast } from '../ui/useToast'
 import { useI18n } from 'vue-i18n'
 import { getErrorMessage } from '../../utils/error'
-import type { OptimizationMode } from '@prompt-optimizer/core'
 import type { AppServices } from '../../types/services'
 import type { ConversationMessage } from '../../types/variable'
 import type { VariableManagerHooks } from './useVariableManager'
 
 /**
- * 基础模式提示词测试 Composable
+ * ContextUser 模式测试结果接口
+ */
+export interface ContextUserTestResults {
+  // 原始提示词结果
+  originalResult: string
+  originalReasoning: string
+  isTestingOriginal: boolean
+
+  // 优化提示词结果
+  optimizedResult: string
+  optimizedReasoning: string
+  isTestingOptimized: boolean
+}
+
+/**
+ * ContextUser 模式测试器接口
+ */
+export interface UseContextUserTester {
+  // 测试结果状态
+  testResults: ContextUserTestResults
+
+  // 方法
+  executeTest: (
+    prompt: string,
+    optimizedPrompt: string,
+    testContent: string,
+    isCompareMode: boolean,
+    testVariables?: Record<string, string>
+  ) => Promise<void>
+}
+
+/**
+ * ContextUser 模式提示词测试器 Composable
  *
- * 专门处理基础模式的提示词测试，支持：
- * - System prompt 测试
- * - User prompt 测试
- * - 变量注入
- * - 对比模式（原始 vs 优化）
+ * 专门用于 ContextUserWorkspace 的测试逻辑，特点：
+ * - 只处理用户模式测试（user mode）
+ * - 独立的测试结果状态管理
+ * - 支持对比模式（原始 vs 优化）
+ * - 与 ContextSystem 的 useConversationTester 对称
  *
  * @param services 服务实例引用
  * @param selectedTestModel 测试模型选择
- * @param optimizationMode 当前优化模式
  * @param variableManager 变量管理器
- * @returns 基础测试接口
+ * @returns ContextUser 测试器接口
+ *
+ * @example
+ * ```ts
+ * const contextUserTester = useContextUserTester(
+ *   services,
+ *   computed(() => props.selectedTestModel),
+ *   variableManager
+ * )
+ *
+ * // 执行测试
+ * await contextUserTester.executeTest(
+ *   prompt,
+ *   optimizedPrompt,
+ *   testContent,
+ *   isCompareMode,
+ *   testVariables
+ * )
+ * ```
  */
-type OptimizationModeSource = Ref<OptimizationMode> | ComputedRef<OptimizationMode>
-
-export function usePromptTester(
+export function useContextUserTester(
   services: Ref<AppServices | null>,
   selectedTestModel: Ref<string>,
-  optimizationMode: OptimizationModeSource,
   variableManager: VariableManagerHooks | null
-) {
+): UseContextUserTester {
   const toast = useToast()
   const { t } = useI18n()
 
-  // 创建一个 reactive 状态对象
-  const state = reactive({
-    // States - 测试结果状态
+  // 创建响应式状态对象
+  const state = reactive<UseContextUserTester>({
+    // 测试结果状态
     testResults: {
       // 原始提示词结果
       originalResult: '',
@@ -49,15 +93,7 @@ export function usePromptTester(
       isTestingOptimized: false,
     },
 
-    // Methods
-    /**
-     * 执行基础模式测试（支持对比模式）
-     * @param prompt 原始提示词
-     * @param optimizedPrompt 优化后的提示词
-     * @param testContent 测试内容
-     * @param isCompareMode 是否对比模式
-     * @param testVariables 测试变量
-     */
+    // 执行测试（支持对比模式）
     executeTest: async (
       prompt: string,
       optimizedPrompt: string,
@@ -104,7 +140,7 @@ export function usePromptTester(
     },
 
     /**
-     * 测试特定类型的提示词（基础模式）
+     * 测试特定类型的提示词（内部方法）
      */
     testPromptWithType: async (
       type: 'original' | 'optimized',
@@ -156,25 +192,16 @@ export function usePromptTester(
           },
           onError: (err: Error) => {
             const errorMessage = err.message || t('test.error.failed')
-            console.error(`[usePromptTester] ${type} test failed:`, errorMessage)
+            console.error(`[useContextUserTester] ${type} test failed:`, errorMessage)
             const testTypeKey = type === 'original' ? 'originalTestFailed' : 'optimizedTestFailed'
             toast.error(`${t(`test.error.${testTypeKey}`)}: ${errorMessage}`)
           },
         }
 
-        // 构造系统消息和用户消息
-        let systemPrompt = ''
-        let userPrompt = ''
-
-        if (optimizationMode.value === 'user') {
-          // 用户提示词模式：提示词作为用户输入
-          systemPrompt = ''
-          userPrompt = selectedPrompt
-        } else {
-          // 系统提示词模式：提示词作为系统消息
-          systemPrompt = selectedPrompt
-          userPrompt = testContent || '请按照你的角色设定，展示你的能力并与我互动。'
-        }
+        // ContextUser 模式：提示词作为用户输入
+        // 固定 optimizationMode 为 'user'
+        const systemPrompt = ''
+        const userPrompt = selectedPrompt
 
         // 变量：合并全局变量 + 测试变量
         const baseVars = variableManager?.variableManager.value?.resolveAllVariables() || {}
@@ -185,9 +212,8 @@ export function usePromptTester(
           userQuestion: userPrompt,
         }
 
-        // 构造简单的消息列表
+        // 构造简单的消息列表（ContextUser 模式只有用户消息）
         const messages: ConversationMessage[] = [
-          ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
           { role: 'user' as const, content: userPrompt },
         ]
 
@@ -197,12 +223,12 @@ export function usePromptTester(
             modelKey: selectedTestModel.value,
             messages,
             variables,
-            tools: [], // 基础模式不支持工具调用
+            tools: [], // ContextUser 模式基础不支持工具调用（如需支持可扩展）
           },
           streamHandler
         )
       } catch (error: unknown) {
-        console.error(`[usePromptTester] ${type} test error:`, error)
+        console.error(`[useContextUserTester] ${type} test error:`, error)
         const errorMessage = getErrorMessage(error) || t('test.error.failed')
         const testTypeKey = type === 'original' ? 'originalTestFailed' : 'optimizedTestFailed'
         toast.error(`${t(`test.error.${testTypeKey}`)}: ${errorMessage}`)
@@ -215,7 +241,7 @@ export function usePromptTester(
         }
       }
     },
-  })
+  } as UseContextUserTester)
 
   return state
-} 
+}

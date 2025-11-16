@@ -1,69 +1,60 @@
 import { reactive, type Ref, type ComputedRef } from 'vue'
-
 import { useToast } from '../ui/useToast'
 import { useI18n } from 'vue-i18n'
 import { getErrorMessage } from '../../utils/error'
-import type { OptimizationMode } from '@prompt-optimizer/core'
+import type { OptimizationMode, ToolDefinition, ToolCall, ToolCallResult, ConversationMessage } from '@prompt-optimizer/core'
 import type { AppServices } from '../../types/services'
-import type { ConversationMessage } from '../../types/variable'
 import type { VariableManagerHooks } from './useVariableManager'
+import type { TestAreaPanelInstance } from '../../components/types/test-area'
 
 /**
- * 基础模式提示词测试 Composable
+ * 多对话模式专用测试 Composable
  *
- * 专门处理基础模式的提示词测试，支持：
- * - System prompt 测试
- * - User prompt 测试
- * - 变量注入
- * - 对比模式（原始 vs 优化）
+ * 专门处理上下文-多消息模式的测试逻辑，包括：
+ * - 选中消息的 V0 对比
+ * - 会话上下文处理
+ * - 工具调用支持
  *
  * @param services 服务实例引用
  * @param selectedTestModel 测试模型选择
- * @param optimizationMode 当前优化模式
+ * @param optimizationContext 优化上下文（会话消息）
+ * @param optimizationContextTools 上下文工具列表
  * @param variableManager 变量管理器
- * @returns 基础测试接口
+ * @param selectedMessageId 当前选中的消息ID（用于对比模式）
+ * @returns 多对话测试接口
  */
-type OptimizationModeSource = Ref<OptimizationMode> | ComputedRef<OptimizationMode>
-
-export function usePromptTester(
+export function useConversationTester(
   services: Ref<AppServices | null>,
   selectedTestModel: Ref<string>,
-  optimizationMode: OptimizationModeSource,
-  variableManager: VariableManagerHooks | null
+  optimizationContext: Ref<ConversationMessage[]>,
+  optimizationContextTools: Ref<ToolDefinition[]>,
+  variableManager: VariableManagerHooks | null,
+  selectedMessageId?: Ref<string>
 ) {
   const toast = useToast()
   const { t } = useI18n()
 
-  // 创建一个 reactive 状态对象
   const state = reactive({
-    // States - 测试结果状态
     testResults: {
-      // 原始提示词结果
       originalResult: '',
       originalReasoning: '',
       isTestingOriginal: false,
 
-      // 优化提示词结果
       optimizedResult: '',
       optimizedReasoning: '',
       isTestingOptimized: false,
     },
 
-    // Methods
     /**
-     * 执行基础模式测试（支持对比模式）
-     * @param prompt 原始提示词
-     * @param optimizedPrompt 优化后的提示词
-     * @param testContent 测试内容
+     * 执行多对话测试（支持对比模式）
      * @param isCompareMode 是否对比模式
      * @param testVariables 测试变量
+     * @param testPanelRef 测试面板引用（用于工具调用回调）
      */
     executeTest: async (
-      prompt: string,
-      optimizedPrompt: string,
-      testContent: string,
       isCompareMode: boolean,
-      testVariables?: Record<string, string>
+      testVariables?: Record<string, string>,
+      testPanelRef?: TestAreaPanelInstance | null
     ) => {
       if (!services.value?.promptService) {
         toast.error(t('toast.error.serviceInit'))
@@ -75,54 +66,32 @@ export function usePromptTester(
         return
       }
 
+      // 检查会话上下文
+      if (!optimizationContext.value || optimizationContext.value.length === 0) {
+        toast.error(t('test.error.noConversation'))
+        return
+      }
+
       if (isCompareMode) {
-        // 对比模式：测试原始和优化提示词
-        await state.testPromptWithType(
-          'original',
-          prompt,
-          optimizedPrompt,
-          testContent,
-          testVariables
-        )
-        await state.testPromptWithType(
-          'optimized',
-          prompt,
-          optimizedPrompt,
-          testContent,
-          testVariables
-        )
+        // 对比模式：并发测试原始和优化会话
+        const originalTestPromise = state.testConversation('original', testVariables, testPanelRef)
+        const optimizedTestPromise = state.testConversation('optimized', testVariables, testPanelRef)
+        await Promise.all([originalTestPromise, optimizedTestPromise])
       } else {
-        // 单一模式：只测试优化后的提示词
-        await state.testPromptWithType(
-          'optimized',
-          prompt,
-          optimizedPrompt,
-          testContent,
-          testVariables
-        )
+        // 单一模式：只测试优化后的会话
+        await state.testConversation('optimized', testVariables, testPanelRef)
       }
     },
 
     /**
-     * 测试特定类型的提示词（基础模式）
+     * 测试特定类型的会话（原始 vs 优化）
      */
-    testPromptWithType: async (
+    testConversation: async (
       type: 'original' | 'optimized',
-      prompt: string,
-      optimizedPrompt: string,
-      testContent: string,
-      testVars?: Record<string, string>
+      testVars?: Record<string, string>,
+      testPanelRef?: TestAreaPanelInstance | null
     ) => {
       const isOriginal = type === 'original'
-      const selectedPrompt = isOriginal ? prompt : optimizedPrompt
-
-      // 检查提示词
-      if (!selectedPrompt) {
-        toast.error(
-          isOriginal ? t('test.error.noOriginalPrompt') : t('test.error.noOptimizedPrompt')
-        )
-        return
-      }
 
       // 设置测试状态
       if (isOriginal) {
@@ -134,6 +103,9 @@ export function usePromptTester(
         state.testResults.optimizedResult = ''
         state.testResults.optimizedReasoning = ''
       }
+
+      // 清除对应类型的工具调用数据
+      testPanelRef?.clearToolCalls(isOriginal ? 'original' : 'optimized')
 
       try {
         const streamHandler = {
@@ -156,24 +128,10 @@ export function usePromptTester(
           },
           onError: (err: Error) => {
             const errorMessage = err.message || t('test.error.failed')
-            console.error(`[usePromptTester] ${type} test failed:`, errorMessage)
+            console.error(`[useConversationTester] ${type} test failed:`, errorMessage)
             const testTypeKey = type === 'original' ? 'originalTestFailed' : 'optimizedTestFailed'
             toast.error(`${t(`test.error.${testTypeKey}`)}: ${errorMessage}`)
           },
-        }
-
-        // 构造系统消息和用户消息
-        let systemPrompt = ''
-        let userPrompt = ''
-
-        if (optimizationMode.value === 'user') {
-          // 用户提示词模式：提示词作为用户输入
-          systemPrompt = ''
-          userPrompt = selectedPrompt
-        } else {
-          // 系统提示词模式：提示词作为系统消息
-          systemPrompt = selectedPrompt
-          userPrompt = testContent || '请按照你的角色设定，展示你的能力并与我互动。'
         }
 
         // 变量：合并全局变量 + 测试变量
@@ -181,15 +139,22 @@ export function usePromptTester(
         const variables = {
           ...baseVars,
           ...(testVars || {}),
-          currentPrompt: selectedPrompt,
-          userQuestion: userPrompt,
         }
 
-        // 构造简单的消息列表
-        const messages: ConversationMessage[] = [
-          ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
-          { role: 'user' as const, content: userPrompt },
-        ]
+        // 构造会话消息：
+        // - 原始会话（original）：只有选中的消息使用 originalContent（V0），其他消息使用当前版本
+        // - 优化会话（optimized）：所有消息都使用当前版本
+        const messages: ConversationMessage[] = isOriginal
+          ? optimizationContext.value.map(msg => ({
+              ...msg,
+              content: (selectedMessageId?.value && msg.id === selectedMessageId.value)
+                ? (msg.originalContent || msg.content)
+                : msg.content
+            }))
+          : optimizationContext.value
+
+        // 检查是否有工具
+        const hasTools = optimizationContextTools.value?.length > 0
 
         // 使用自定义会话测试
         await services.value!.promptService.testCustomConversationStream(
@@ -197,12 +162,27 @@ export function usePromptTester(
             modelKey: selectedTestModel.value,
             messages,
             variables,
-            tools: [], // 基础模式不支持工具调用
+            tools: hasTools ? optimizationContextTools.value : [],
           },
-          streamHandler
+          {
+            ...streamHandler,
+            onToolCall: (toolCall: ToolCall) => {
+              if (!hasTools) return
+              console.log(
+                `[useConversationTester] ${type} test tool call received:`,
+                toolCall
+              )
+              const toolCallResult: ToolCallResult = {
+                toolCall,
+                status: 'success',
+                timestamp: new Date(),
+              }
+              testPanelRef?.handleToolCall(toolCallResult, type)
+            },
+          }
         )
       } catch (error: unknown) {
-        console.error(`[usePromptTester] ${type} test error:`, error)
+        console.error(`[useConversationTester] ${type} test error:`, error)
         const errorMessage = getErrorMessage(error) || t('test.error.failed')
         const testTypeKey = type === 'original' ? 'originalTestFailed' : 'optimizedTestFailed'
         toast.error(`${t(`test.error.${testTypeKey}`)}: ${errorMessage}`)
@@ -218,4 +198,4 @@ export function usePromptTester(
   })
 
   return state
-} 
+}

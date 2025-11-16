@@ -186,7 +186,6 @@
                             @compare-toggle="handleTestAreaCompareToggle"
                             @optimize="handleOptimizePrompt"
                             @iterate="handleIteratePrompt"
-                            @test="handleTestAreaTest"
                             @switch-version="handleSwitchVersion"
                             @save-favorite="handleSaveFavorite"
                             @open-global-variables="openVariableManager()"
@@ -196,20 +195,10 @@
                             @config-model="modelManager.showConfig = true"
                             @open-input-preview="handleOpenInputPreview"
                             @open-prompt-preview="handleOpenPromptPreview"
-                            :selected-message-id="conversationOptimization.selectedMessageId.value"
                             :enable-message-optimization="true"
-                            @message-select="handleMessageSelect"
-                            :message-optimized-prompt="conversationOptimization.optimizedPrompt.value"
-                            :message-versions="conversationOptimization.currentVersions.value"
-                            :message-current-version-id="conversationOptimization.currentRecordId.value"
-                            :is-message-optimizing="conversationOptimization.isOptimizing.value"
-                            :versions="optimizer.currentVersions"
-                            :current-version-id="optimizer.currentVersionId"
-                            @message-switch-version="handleMessageSwitchVersion"
-                            @message-switch-to-v0="handleMessageSwitchToV0"
-                            @optimize-message="handleOptimizeMessage"
-                            @message-change="handleMessageChange"
-                            @message-apply-version="handleApplyMessageVersion"
+                            :selected-optimize-model="modelManager.selectedOptimizeModel"
+                            :selected-template="currentSelectedTemplate"
+                            :selected-test-model="modelManager.selectedTestModel"
                         >
                             <!-- 优化模型选择插槽 -->
                             <template #optimize-model-select>
@@ -278,58 +267,17 @@
                                 />
                             </template>
 
-                            <!-- 测试结果插槽 -->
-                            <template #original-result>
-                                <OutputDisplay
-                                    :content="testResults.originalResult"
-                                    :reasoning="testResults.originalReasoning"
-                                    :streaming="testResults.isTestingOriginal"
-                                    :enableDiff="false"
-                                    mode="readonly"
-                                    :style="{ height: '100%', minHeight: '0' }"
-                                />
-                            </template>
-
-                            <template #optimized-result>
-                                <OutputDisplay
-                                    :content="testResults.optimizedResult"
-                                    :reasoning="testResults.optimizedReasoning"
-                                    :streaming="testResults.isTestingOptimized"
-                                    :enableDiff="false"
-                                    mode="readonly"
-                                    :style="{ height: '100%', minHeight: '0' }"
-                                />
-                            </template>
-
-                            <template #single-result>
-                                <OutputDisplay
-                                    :content="testResults.optimizedResult"
-                                    :reasoning="testResults.optimizedReasoning"
-                                    :streaming="testResults.isTestingOptimized"
-                                    :enableDiff="false"
-                                    mode="readonly"
-                                    :style="{ height: '100%', minHeight: '0' }"
-                                />
-                            </template>
+                            <!-- 🔧 测试结果插槽已移除：ContextSystemWorkspace 内部直接使用 useConversationTester 渲染 -->
                         </ContextSystemWorkspace>
 
-                        <!-- 上下文-用户模式 -->
+                        <!-- 上下文-用户模式（🆕 已独立，内部管理优化和测试逻辑） -->
                         <ContextUserWorkspace
                             ref="userWorkspaceRef"
                             v-else-if="contextMode === 'user'"
-                            :prompt="optimizer.prompt"
-                            @update:prompt="optimizer.prompt = $event"
-                            :optimized-prompt="optimizer.optimizedPrompt"
-                            @update:optimizedPrompt="
-                                optimizer.optimizedPrompt = $event
-                            "
-                            :optimized-reasoning="optimizer.optimizedReasoning"
                             :optimization-mode="selectedOptimizationMode"
-                            :is-optimizing="optimizer.isOptimizing"
-                            :is-iterating="optimizer.isIterating"
-                            :is-test-running="false"
-                            :versions="optimizer.currentVersions"
-                            :current-version-id="optimizer.currentVersionId"
+                            :selected-optimize-model="modelManager.selectedOptimizeModel"
+                            :selected-test-model="modelManager.selectedTestModel"
+                            :selected-template="selectedTemplate"
                             :selected-iterate-template="
                                 optimizer.selectedIterateTemplate
                             "
@@ -363,11 +311,7 @@
                             :result-vertical-layout="
                                 responsiveLayout.isMobile.value
                             "
-                            @optimize="handleOptimizePrompt"
-                            @iterate="handleIteratePrompt"
-                            @test="handleTestAreaTest"
                             @compare-toggle="handleTestAreaCompareToggle"
-                            @switch-version="handleSwitchVersion"
                             @save-favorite="handleSaveFavorite"
                             @open-global-variables="openVariableManager()"
                             @open-tool-manager="
@@ -447,39 +391,7 @@
                                 />
                             </template>
 
-                            <!-- 测试结果插槽 -->
-                            <template #original-result>
-                                <OutputDisplay
-                                    :content="testResults.originalResult"
-                                    :reasoning="testResults.originalReasoning"
-                                    :streaming="testResults.isTestingOriginal"
-                                    :enableDiff="false"
-                                    mode="readonly"
-                                    :style="{ height: '100%', minHeight: '0' }"
-                                />
-                            </template>
-
-                            <template #optimized-result>
-                                <OutputDisplay
-                                    :content="testResults.optimizedResult"
-                                    :reasoning="testResults.optimizedReasoning"
-                                    :streaming="testResults.isTestingOptimized"
-                                    :enableDiff="false"
-                                    mode="readonly"
-                                    :style="{ height: '100%', minHeight: '0' }"
-                                />
-                            </template>
-
-                            <template #single-result>
-                                <OutputDisplay
-                                    :content="testResults.optimizedResult"
-                                    :reasoning="testResults.optimizedReasoning"
-                                    :streaming="testResults.isTestingOptimized"
-                                    :enableDiff="false"
-                                    mode="readonly"
-                                    :style="{ height: '100%', minHeight: '0' }"
-                                />
-                            </template>
+                            <!-- 🔧 测试结果插槽已移除：ContextUserWorkspace 内部直接使用 useContextUserTester 渲染 -->
                         </ContextUserWorkspace>
                     </template>
 
@@ -1028,7 +940,6 @@ import {
     useContextManagement,
     useAggregatedVariables,
     useContextEditorUIState,
-    useConversationOptimization,
 
     // i18n functions
     initializeI18nWithStorage,
@@ -1087,7 +998,7 @@ watch(
     { immediate: true },
 );
 
-// 4. 向子组件提供服务
+// 4. 向子组件提供服务（部分 provide 移至声明后）
 provide("services", services);
 
 // 5. 控制主UI渲染的标志
@@ -1331,72 +1242,19 @@ const handleContextEditorStateUpdate =
     contextManagement.handleContextEditorStateUpdate;
 const handleContextModeChange = contextManagement.handleContextModeChange;
 
-// 🆕 多轮对话消息优化管理
-const selectedOptimizationTemplate = computed<Template | null>(() => {
-    return selectedOptimizationMode.value === "system"
-        ? optimizer.selectedOptimizeTemplate
-        : optimizer.selectedUserOptimizeTemplate;
-});
+// 🔧 提供依赖给子组件（必须在所有依赖项声明之后）
+provide("variableManager", variableManager);
+provide("optimizationContextTools", optimizationContextTools);
 
-const conversationOptimization = useConversationOptimization(
-    services,
-    optimizationContext,
-    selectedOptimizationMode,
-    toRef(modelManager, "selectedOptimizeModel"),
-    selectedOptimizationTemplate,
-    toRef(optimizer, "selectedIterateTemplate")  // 🔧 添加迭代模板
-);
-
-provide('conversationOptimization', conversationOptimization);
-
-// 处理消息选择事件
-const handleMessageSelect = async (message: ConversationMessage) => {
-    await conversationOptimization.selectMessage(message);
-};
-
-// 处理消息版本切换
-const handleMessageSwitchVersion = async (version: PromptRecordChain['versions'][number]) => {
-    await conversationOptimization.switchVersion(version);
-};
-
-// 🆕 处理消息 V0 切换
-const handleMessageSwitchToV0 = async (version: PromptRecordChain['versions'][number]) => {
-    await conversationOptimization.switchToV0(version);
-};
-
-// 处理消息优化
-const handleOptimizeMessage = async () => {
-    await conversationOptimization.optimizeMessage();
-};
-
-// 处理消息变更（用于清理删除消息的映射）
-const handleMessageChange = (index: number, message: ConversationMessage, action: 'add' | 'update' | 'delete') => {
-    if (!message?.id) return;
-    if (action === 'delete') {
-        conversationOptimization.cleanupDeletedMessageMapping(message.id);
-    } else if (action === 'update') {
-        conversationOptimization.cleanupDeletedMessageMapping(message.id, { keepSelection: true });
-    }
-};
-
-// 手动应用所选版本
-const handleApplyMessageVersion = async () => {
-    await conversationOptimization.applyCurrentVersion();
-};
-
-// 🆕 提示词测试管理（支持变量注入、上下文、工具调用）
+// 🆕 基础模式提示词测试（简化后只用于基础模式和 context-user）
 const promptTester = usePromptTester(
     services as any,
     toRef(modelManager, 'selectedTestModel'),
-    selectedOptimizationMode, // 保持兼容性，后续应改为使用 basicSubMode/proSubMode
-    advancedModeEnabled,
-    optimizationContext,
-    optimizationContextTools,
-    variableManager,
-    conversationOptimization.selectedMessageId  // 🆕 传递选中的消息ID用于对比
+    selectedOptimizationMode,
+    variableManager
 );
 
-// 测试结果引用（从 promptTester 获取）
+// 测试结果引用（从 promptTester 获取，用于基础模式和 context-user）
 const testResults = computed(() => promptTester.testResults);
 
 // 处理测试面板的变量变化（现在测试变量由TestAreaPanel自己管理，不需要同步到会话）
@@ -2276,20 +2134,16 @@ const getActiveTestPanelInstance = (): TestAreaPanelInstance | null => {
     return null;
 };
 
-// 真实测试处理函数
+// 基础模式和 context-user 模式的测试处理函数
+// 注意：context-system 模式已在 ContextSystemWorkspace 内部使用 useConversationTester 处理，不会调用此函数
 const handleTestAreaTest = async (testVariables?: Record<string, string>) => {
-    // 🔧 多轮对话模式（context-system）下，不使用 testContent（测试内容来自会话消息）
-    // 但现在支持对比模式了，可以对比选中消息的 V0 和当前版本
-    const actualTestContent = contextMode.value === 'system' ? '' : testContent.value;
-
-    // 调用 promptTester 的 executeTest 方法
+    // 调用基础测试器（只用于基础模式和 context-user）
     await promptTester.executeTest(
         optimizer.prompt,
         optimizer.optimizedPrompt,
-        actualTestContent,
-        isCompareMode.value,  // 🔧 直接使用 isCompareMode，不再强制为 false
-        testVariables,
-        getActiveTestPanelInstance()
+        testContent.value,
+        isCompareMode.value,
+        testVariables
     );
 };
 

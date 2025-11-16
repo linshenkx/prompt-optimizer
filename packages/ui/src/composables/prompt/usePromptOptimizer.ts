@@ -296,8 +296,9 @@ export function usePromptOptimizer(
                     role: msg.role,
                     content: msg.content,
                     originalContent: msg.originalContent,
-                    chainId: (msg as any).chainId,
-                    appliedVersion: (msg as any).appliedVersion
+                    // 运行时属性：消息被优化后动态添加的元数据
+                    chainId: (msg as Record<string, unknown>).chainId as string | undefined,
+                    appliedVersion: (msg as Record<string, unknown>).appliedVersion as number | undefined
                   }))
                 }
               };

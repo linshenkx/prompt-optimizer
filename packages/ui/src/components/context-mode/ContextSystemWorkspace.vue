@@ -40,8 +40,8 @@
                     :max-height="300"
                     :selected-message-id="selectedMessageId"
                     :enable-message-optimization="enableMessageOptimization"
-                    :is-message-optimizing="isMessageOptimizing"
-                    @message-select="emit('message-select', $event)"
+                    :is-message-optimizing="conversationOptimization.isOptimizing.value"
+                    @message-select="conversationOptimization.selectMessage"
                     @optimize-message="handleOptimizeClick"
                     @message-change="(index, message, action) => emit('message-change', index, message, action)"
                 />
@@ -72,12 +72,12 @@
                     <!-- 优化按钮 -->
                     <NButton
                         type="primary"
-                        :loading="isOptimizing"
-                        :disabled="isOptimizing || !selectedMessageId"
+                        :loading="displayAdapter.displayedIsOptimizing.value"
+                        :disabled="displayAdapter.displayedIsOptimizing.value || !selectedMessageId"
                         @click="handleOptimizeClick"
                         block
                     >
-                        {{ isOptimizing ? $t('common.loading') : $t('promptOptimizer.optimize') }}
+                        {{ displayAdapter.displayedIsOptimizing.value ? $t('common.loading') : $t('promptOptimizer.optimize') }}
                     </NButton>
                 </NFlex>
             </NCard>
@@ -91,20 +91,20 @@
                 }"
                 content-style="height: 100%; max-height: 100%; overflow: hidden;"
             >
-                <template v-if="isInMessageOptimizationMode">
+                <template v-if="displayAdapter.isInMessageOptimizationMode.value">
                     <PromptPanelUI
-                        :original-prompt="displayedOriginalPrompt"
-                        :optimized-prompt="displayedOptimizedPrompt"
+                        :original-prompt="displayAdapter.displayedOriginalPrompt.value"
+                        :optimized-prompt="displayAdapter.displayedOptimizedPrompt.value"
                         :reasoning="optimizedReasoning"
-                        :is-optimizing="displayedIsOptimizing"
+                        :is-optimizing="displayAdapter.displayedIsOptimizing.value"
                         :is-iterating="isIterating"
                         :selectedIterateTemplate="selectedIterateTemplate"
                         @update:selectedIterateTemplate="
                             emit('update:selectedIterateTemplate', $event)
                         "
-                        :versions="displayedVersions"
-                        :current-version-id="displayedCurrentVersionId"
-                        :show-apply-button="isInMessageOptimizationMode"
+                        :versions="displayAdapter.displayedVersions.value"
+                        :current-version-id="displayAdapter.displayedCurrentVersionId.value"
+                        :show-apply-button="displayAdapter.isInMessageOptimizationMode.value"
                         :optimization-mode="optimizationMode"
                         :advanced-mode-enabled="true"
                         :show-preview="true"
@@ -194,18 +194,39 @@
                         <slot name="test-model-select"></slot>
                     </template>
 
-                    <!-- 🆕 对比模式结果插槽 -->
+                    <!-- 🆕 对比模式结果插槽：直接绑定测试结果 -->
                     <template #original-result>
-                        <slot name="original-result"></slot>
+                        <OutputDisplay
+                            :content="conversationTester.testResults.originalResult"
+                            :reasoning="conversationTester.testResults.originalReasoning"
+                            :streaming="conversationTester.testResults.isTestingOriginal"
+                            :enableDiff="false"
+                            mode="readonly"
+                            :style="{ height: '100%', minHeight: '0' }"
+                        />
                     </template>
 
                     <template #optimized-result>
-                        <slot name="optimized-result"></slot>
+                        <OutputDisplay
+                            :content="conversationTester.testResults.optimizedResult"
+                            :reasoning="conversationTester.testResults.optimizedReasoning"
+                            :streaming="conversationTester.testResults.isTestingOptimized"
+                            :enableDiff="false"
+                            mode="readonly"
+                            :style="{ height: '100%', minHeight: '0' }"
+                        />
                     </template>
 
                     <!-- 单一结果插槽 -->
                     <template #single-result>
-                        <slot name="single-result"></slot>
+                        <OutputDisplay
+                            :content="conversationTester.testResults.optimizedResult"
+                            :reasoning="conversationTester.testResults.optimizedReasoning"
+                            :streaming="conversationTester.testResults.isTestingOptimized"
+                            :enableDiff="false"
+                            mode="readonly"
+                            :style="{ height: '100%', minHeight: '0' }"
+                        />
                     </template>
                 </ConversationTestPanel>
             </NCard>
@@ -214,7 +235,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject } from 'vue'
+import { ref, computed, inject, provide } from 'vue'
 
 import { useI18n } from "vue-i18n";
 import { NCard, NFlex, NButton, NText, NEmpty } from "naive-ui";
@@ -222,14 +243,20 @@ import { useBreakpoints } from "@vueuse/core";
 import PromptPanelUI from "../PromptPanel.vue";
 import ConversationTestPanel from "./ConversationTestPanel.vue";
 import ConversationManager from "./ConversationManager.vue";
-import type { UseConversationOptimization } from '../../composables/prompt/useConversationOptimization'
+import OutputDisplay from "../OutputDisplay.vue";
+import { useConversationTester } from '../../composables/prompt/useConversationTester'
+import { useConversationOptimization } from '../../composables/prompt/useConversationOptimization'
+import { usePromptDisplayAdapter } from '../../composables/prompt/usePromptDisplayAdapter'
 import type { OptimizationMode, ConversationMessage } from "../../types";
 import type {
     PromptRecord,
     Template,
+    ToolDefinition,
 } from "@prompt-optimizer/core";
 import type { TestAreaPanelInstance } from "../types/test-area";
 import type { IteratePayload, SaveFavoritePayload } from "../../types/workspace";
+import type { VariableManagerHooks } from '../../composables/prompt/useVariableManager'
+import type { AppServices } from '../../types/services'
 
 // 响应式断点
 const breakpoints = useBreakpoints({
@@ -238,8 +265,7 @@ const breakpoints = useBreakpoints({
 });
 const isMobile = breakpoints.smaller("mobile");
 
-// Props 定义 (移除 contextMode，因为固定为 system；移除 prompt，因为消息输入在 ConversationManager 中)
-// 🔧 移除 optimizedPrompt/versions/currentVersionId，防止基础模式状态污染
+// Props 定义
 interface Props {
     // 核心状态
     optimizedReasoning?: string;
@@ -250,7 +276,9 @@ interface Props {
     isIterating: boolean;
     isTestRunning?: boolean;
 
-    // 版本管理
+    // 外部状态注入（用于初始化本地 hook）
+    selectedOptimizeModel: string;
+    selectedTemplate: Template | null;
     selectedIterateTemplate: Template | null;
 
     // 上下文数据 (系统模式专属)
@@ -263,14 +291,9 @@ interface Props {
     availableVariables: Record<string, string>;
     scanVariables: (content: string) => string[];
 
-    // 🆕 消息优化功能
-    selectedMessageId?: string;
+    // 🆕 消息优化功能（本地管理，移除部分外部 props）
     enableMessageOptimization?: boolean;
-    messageOptimizedPrompt?: string;
-    messageVersions?: PromptRecord[];
-    messageCurrentVersionId?: string | null;
-    isMessageOptimizing?: boolean;
-
+    
     // 全局优化链（用于历史记录恢复）
     versions?: PromptRecord[];
     currentVersionId?: string;
@@ -284,6 +307,9 @@ interface Props {
 
     // 🆕 对比模式
     isCompareMode?: boolean;
+
+    // 🆕 测试相关（避免通过 App.vue 中转）
+    selectedTestModel?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -294,28 +320,20 @@ const props = withDefaults(defineProps<Props>(), {
     buttonSize: "medium",
     conversationMaxHeight: 300,
     resultVerticalLayout: false,
-    selectedMessageId: undefined,
     enableMessageOptimization: false,
-    messageOptimizedPrompt: "",
-    messageVersions: () => [],
-    messageCurrentVersionId: null,
-    isMessageOptimizing: false,
     isCompareMode: false,
 });
 
 // Emits 定义
-// 🔧 移除 update:optimizedPrompt，防止基础模式状态污染
 const emit = defineEmits<{
     // 数据更新
     "update:selectedIterateTemplate": [value: Template | null];
     "update:optimizationContext": [value: ConversationMessage[]];
 
-    // 操作事件
-    optimize: []; // 执行优化
-    iterate: [payload: IteratePayload];
-    test: [testVariables: Record<string, string>]; // 🆕 传递测试变量
+    // 操作事件（用于历史记录查看场景）
+    test: [testVariables: Record<string, string>];
     "switch-version": [version: PromptRecord];
-    "switch-to-v0": [version: PromptRecord];  // 🆕 V0 切换事件
+    "switch-to-v0": [version: PromptRecord];
     "save-favorite": [data: SaveFavoritePayload];
 
     // 打开面板/管理器
@@ -332,14 +350,6 @@ const emit = defineEmits<{
     "variable-change": [name: string, value: string];
     "save-to-global": [name: string, value: string];
 
-    // 🆕 消息优化相关
-    "message-select": [message: ConversationMessage];
-    "message-switch-version": [version: PromptRecord];
-    "message-switch-to-v0": [version: PromptRecord];  // 🆕 消息 V0 切换事件
-    "optimize-message": [];
-    "message-change": [index: number, message: ConversationMessage, action: 'add' | 'update' | 'delete'];
-    "message-apply-version": [];
-
     // 🆕 对比模式
     "update:isCompareMode": [value: boolean];
     "compare-toggle": [];
@@ -347,110 +357,100 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 
-const conversationOptimization = inject<UseConversationOptimization>('conversationOptimization')
+// 注入服务和变量管理器
+const services = inject<Ref<AppServices | null>>('services')
+const variableManager = inject<VariableManagerHooks | null>('variableManager')
 
+// 🆕 初始化本地会话优化逻辑
+const conversationOptimization = useConversationOptimization(
+    services || ref(null),
+    computed(() => props.optimizationContext),
+    computed(() => props.optimizationMode),
+    computed(() => props.selectedOptimizeModel),
+    computed(() => props.selectedTemplate),
+    computed(() => props.selectedIterateTemplate)
+)
+
+// 暴露给子组件（虽然目前主要通过 Props 传递给 ConversationManager，但保持 Provide 以防万一）
+provide('conversationOptimization', conversationOptimization);
+
+// 🆕 初始化显示适配器（根据模式自动切换数据源）
+const displayAdapter = usePromptDisplayAdapter(
+    conversationOptimization,
+    {
+        enableMessageOptimization: computed(() => props.enableMessageOptimization || false),
+        optimizationContext: computed(() => props.optimizationContext),
+        globalVersions: computed(() => props.versions || []),
+        globalCurrentVersionId: computed(() => props.currentVersionId),
+        globalIsOptimizing: computed(() => props.isOptimizing),
+    }
+)
+
+// 🆕 初始化多对话测试器
+const selectedTestModel = computed(() => props.selectedTestModel || '')
+// 从 inject 获取 optimizationContextTools（由 App.vue 提供）
+const optimizationContextToolsRef = inject<Ref<ToolDefinition[]>>('optimizationContextTools', ref([]))
+// 使用本地 managed 的 selectedMessageId
+const selectedMessageId = conversationOptimization.selectedMessageId
+
+const conversationTester = useConversationTester(
+    services || ref(null),
+    selectedTestModel,
+    computed(() => props.optimizationContext),
+    optimizationContextToolsRef,
+    variableManager,
+    selectedMessageId
+)
+
+// 处理迭代优化事件
+// 注意：由于 displayedOptimizedPrompt 在未选中消息时为空，迭代按钮不会显示，所以此函数调用时必定处于消息优化模式
 const handleIterate = (payload: IteratePayload) => {
-    if (isInMessageOptimizationMode.value && conversationOptimization) {
-        conversationOptimization.iterateMessage(payload)
-    } else {
-        emit('iterate', payload)
-    }
+    conversationOptimization.iterateMessage(payload)
 }
 
+// 处理优化点击事件
+// 注意：优化按钮在没有选中消息时会被禁用，所以此函数调用时必定处于消息优化模式
 const handleOptimizeClick = () => {
-    if (isInMessageOptimizationMode.value && conversationOptimization) {
-        conversationOptimization.optimizeMessage()
-    } else {
-        emit('optimize-message')
-    }
+    conversationOptimization.optimizeMessage()
 }
 
-// 🆕 ConversationTestPanel 引用（兼容 TestAreaPanelInstance 接口）
+// 🆕 ConversationTestPanel 引用
 const testAreaPanelRef = ref<TestAreaPanelInstance | null>(null);
 
-// 🆕 消息优化模式：根据是否有选中消息来决定显示内容
-const isInMessageOptimizationMode = computed(() => {
-    return props.enableMessageOptimization && !!props.selectedMessageId;
-});
-
-// 🆕 PromptPanel 显示的原始提示词（当前选中消息的原始内容）
-const displayedOriginalPrompt = computed(() => {
-    if (!isInMessageOptimizationMode.value) return ''
-    const message = props.optimizationContext?.find(m => m.id === props.selectedMessageId)
-    return message?.originalContent || message?.content || ''
-});
-
-// 🆕 PromptPanel 显示的优化结果（消息优化 或 提示词优化）
-const displayedOptimizedPrompt = computed(() => {
-    return isInMessageOptimizationMode.value
-        ? props.messageOptimizedPrompt
-        : ''; // 没有选中消息时，不显示优化结果
-});
-
-// 🆕 PromptPanel 显示的版本列表
-const displayedVersions = computed(() => {
-    if (isInMessageOptimizationMode.value) {
-        // 消息优化模式：使用消息级优化版本
-        return props.messageVersions || [];
-    }
-    // 历史记录恢复时：使用全局优化链
-    return props.versions || [];
-});
-
-// 🆕 PromptPanel 显示的当前版本ID
-const displayedCurrentVersionId = computed(() => {
-    if (isInMessageOptimizationMode.value) {
-        // 消息优化模式：使用消息级版本ID
-        return props.messageCurrentVersionId || null;
-    }
-    // 历史记录恢复时：使用全局版本ID
-    return props.currentVersionId || null;
-});
-
-// 🆕 PromptPanel 显示的优化中状态
-const displayedIsOptimizing = computed(() => {
-    return isInMessageOptimizationMode.value
-        ? props.isMessageOptimizing
-        : props.isOptimizing;
-});
-
-// 🆕 处理版本切换：根据模式决定触发哪个事件
+// 🆕 处理版本切换
 const handleSwitchVersion = (version: PromptRecord) => {
-    if (isInMessageOptimizationMode.value) {
-        // 消息优化模式：触发消息版本切换事件
-        emit('message-switch-version', version);
+    if (displayAdapter.isInMessageOptimizationMode.value) {
+        conversationOptimization.switchVersion(version);
     } else {
-        // 提示词优化模式：触发普通版本切换事件
         emit('switch-version', version);
     }
 };
 
-// 🆕 处理 V0 切换：根据模式决定触发哪个事件
+// 🆕 处理 V0 切换
 const handleSwitchToV0 = (version: PromptRecord) => {
-    if (isInMessageOptimizationMode.value) {
-        // 消息优化模式：触发消息 V0 切换事件
-        emit('message-switch-to-v0', version);
+    if (displayAdapter.isInMessageOptimizationMode.value) {
+        conversationOptimization.switchToV0(version);
     } else {
-        // 提示词优化模式：触发普通 V0 切换事件
         emit('switch-to-v0', version);
     }
 };
 
 const handleApplyToConversation = () => {
-    if (!isInMessageOptimizationMode.value) return;
-    emit('message-apply-version');
+    if (!displayAdapter.isInMessageOptimizationMode.value) return;
+    conversationOptimization.applyCurrentVersion();
 };
 
-// 🆕 处理测试事件并获取测试变量
+// 🆕 处理测试事件
 const handleTestWithVariables = async () => {
-    // 从 ref 获取测试变量
     const testVariables = testAreaPanelRef.value?.getVariableValues?.() || {};
-
-    // 触发测试事件，传递测试变量给 App.vue
-    emit('test', testVariables);
+    await conversationTester.executeTest(
+        props.isCompareMode || false,
+        testVariables,
+        testAreaPanelRef.value
+    );
 };
 
-// 暴露 TestAreaPanel 引用给父组件（用于工具调用等高级功能）
+// 暴露引用
 defineExpose({
     testAreaPanelRef
 });
