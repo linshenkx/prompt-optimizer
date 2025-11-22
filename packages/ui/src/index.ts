@@ -99,6 +99,8 @@ export { default as ContextModeActions } from "./components/context-mode/Context
 export { default as PromptPreviewPanel } from "./components/PromptPreviewPanel.vue";
 export { default as ContextSystemWorkspace } from "./components/context-mode/ContextSystemWorkspace.vue";
 export { default as ContextUserWorkspace } from "./components/context-mode/ContextUserWorkspace.vue";
+export { default as ContextUserTestPanel } from "./components/context-mode/ContextUserTestPanel.vue";
+export { default as ConversationTestPanel } from "./components/context-mode/ConversationTestPanel.vue";
 
 // 导出 Naive UI 组件 (解决组件解析问题)
 export {

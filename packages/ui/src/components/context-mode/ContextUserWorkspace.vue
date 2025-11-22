@@ -141,27 +141,23 @@
                 style="flex: 1; overflow: auto"
                 content-style="height: 100%; max-height: 100%; overflow: hidden;"
             >
-                <TestAreaPanel
+                <ContextUserTestPanel
                     ref="testAreaPanelRef"
-                    :optimization-mode="optimizationMode"
-                    context-mode="user"
+                    :test-content="testContent"
+                    @update:testContent="emit('update:testContent', $event)"
                     :optimized-prompt="contextUserOptimization.optimizedPrompt"
                     :is-test-running="contextUserTester.testResults.isTestingOriginal || contextUserTester.testResults.isTestingOptimized"
+                    :is-compare-mode="isCompareMode"
+                    @update:isCompareMode="emit('update:isCompareMode', $event)"
                     :global-variables="globalVariables"
                     :predefined-variables="predefinedVariables"
                     :temporary-variables="temporaryVariables"
-                    :testContent="testContent"
-                    @update:testContent="emit('update:testContent', $event)"
-                    :isCompareMode="isCompareMode"
-                    @update:isCompareMode="emit('update:isCompareMode', $event)"
-                    :enable-compare-mode="true"
                     :enable-fullscreen="true"
                     :input-mode="inputMode"
                     :control-bar-layout="controlBarLayout"
                     :button-size="buttonSize"
-                    :conversation-max-height="conversationMaxHeight"
-                    :show-original-result="true"
                     :result-vertical-layout="resultVerticalLayout"
+                    :single-result-title="t('test.testResult')"
                     @test="handleTestWithVariables"
                     @compare-toggle="emit('compare-toggle')"
                     @open-variable-manager="emit('open-variable-manager')"
@@ -212,7 +208,7 @@
                             :style="{ height: '100%', minHeight: '0' }"
                         />
                     </template>
-                </TestAreaPanel>
+                </ContextUserTestPanel>
             </NCard>
         </NFlex>
     </NFlex>
@@ -254,7 +250,7 @@ import { NCard, NFlex, NButton, NText } from "naive-ui";
 import { useBreakpoints } from "@vueuse/core";
 import InputPanelUI from "../InputPanel.vue";
 import PromptPanelUI from "../PromptPanel.vue";
-import TestAreaPanel from "../TestAreaPanel.vue";
+import ContextUserTestPanel from "./ContextUserTestPanel.vue";
 import OutputDisplay from "../OutputDisplay.vue";
 import type { OptimizationMode } from "../../types";
 import type {

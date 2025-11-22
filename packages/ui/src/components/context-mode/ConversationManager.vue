@@ -394,7 +394,6 @@ const props = withDefaults(defineProps<ConversationManagerProps>(), {
     title: undefined,
     toolCount: 0,
     optimizationMode: "system",
-    contextMode: "system",
     scanVariables: () => [],
     replaceVariables: (content: string) => content,
     isPredefinedVariable: () => false,
@@ -468,13 +467,11 @@ const scrollbarStyle = computed(() => {
     return {};
 });
 
-// 模式化行为：用户模式隐藏消息增删改按钮，系统模式保留完整能力
+// 消息编辑权限控制
 const canEditMessages = computed(() => {
     // readonly优先级最高
     if (props.readonly) return false;
-    // 用户模式不允许编辑消息
-    if (props.contextMode === "user") return false;
-    // 系统模式允许编辑
+    // 允许编辑
     return true;
 });
 

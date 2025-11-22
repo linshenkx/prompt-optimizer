@@ -1,5 +1,18 @@
 <template>
     <NFlex vertical :style="{ height: '100%' }">
+        <!-- 测试内容输入区 (ContextUser专属，ConversationTestPanel没有这个) -->
+        <div :style="{ flexShrink: 0, marginBottom: '16px' }">
+            <TestInputSection
+                v-model="testContentProxy"
+                :label="t('test.content')"
+                :placeholder="t('test.simpleMode.placeholder')"
+                :disabled="isTestRunning"
+                :mode="inputMode"
+                :size="inputSize"
+                :enable-fullscreen="enableFullscreen"
+            />
+        </div>
+
         <!-- 变量值输入表单 -->
         <div
             v-if="showVariableForm"
@@ -167,7 +180,7 @@
             </TestControlBar>
         </div>
 
-        <!-- 测试结果区域（支持对比模式）-->
+        <!-- 测试结果区域（不支持工具调用，仅显示文本结果）-->
         <TestResultSection
             :is-compare-mode="isCompareMode"
             :vertical-layout="adaptiveResultVerticalLayout"
@@ -175,67 +188,22 @@
             :original-result-title="t('test.originalResult')"
             :optimized-result-title="t('test.optimizedResult')"
             :single-result-title="singleResultTitle"
-            :original-result="originalTestResult"
-            :optimized-result="optimizedTestResult"
-            :single-result="testResult"
             :size="adaptiveButtonSize"
             :style="{ flex: 1, minHeight: 0 }"
         >
-            <!-- 🆕 对比模式：原始结果 -->
+            <!-- 对比模式：原始结果 -->
             <template #original-result>
-                <div class="result-container">
-                    <!-- 工具调用显示 -->
-                    <ToolCallDisplay
-                        v-if="originalToolCalls.length > 0"
-                        :tool-calls="originalToolCalls"
-                        :size="
-                            adaptiveButtonSize === 'large' ? 'medium' : 'small'
-                        "
-                        class="tool-calls-section"
-                    />
-
-                    <div class="result-body">
-                        <slot name="original-result"></slot>
-                    </div>
-                </div>
+                <slot name="original-result"></slot>
             </template>
 
-            <!-- 🆕 对比模式：优化结果 -->
+            <!-- 对比模式：优化结果 -->
             <template #optimized-result>
-                <div class="result-container">
-                    <!-- 工具调用显示 -->
-                    <ToolCallDisplay
-                        v-if="optimizedToolCalls.length > 0"
-                        :tool-calls="optimizedToolCalls"
-                        :size="
-                            adaptiveButtonSize === 'large' ? 'medium' : 'small'
-                        "
-                        class="tool-calls-section"
-                    />
-
-                    <div class="result-body">
-                        <slot name="optimized-result"></slot>
-                    </div>
-                </div>
+                <slot name="optimized-result"></slot>
             </template>
 
             <!-- 单一结果模式 -->
             <template #single-result>
-                <div class="result-container">
-                    <!-- 工具调用显示 -->
-                    <ToolCallDisplay
-                        v-if="toolCalls.length > 0"
-                        :tool-calls="toolCalls"
-                        :size="
-                            adaptiveButtonSize === 'large' ? 'medium' : 'small'
-                        "
-                        class="tool-calls-section"
-                    />
-
-                    <div class="result-body">
-                        <slot name="single-result"></slot>
-                    </div>
-                </div>
+                <slot name="single-result"></slot>
             </template>
         </TestResultSection>
     </NFlex>
@@ -257,23 +225,18 @@ import {
     NModal,
     NFormItem,
 } from "naive-ui";
-import type {
-    OptimizationMode,
-    AdvancedTestResult,
-    ToolCallResult,
-} from "@prompt-optimizer/core";
 import { useResponsive } from '../../composables/ui/useResponsive';
 import { usePerformanceMonitor } from "../../composables/performance/usePerformanceMonitor";
 import { useDebounceThrottle } from "../../composables/performance/useDebounceThrottle";
+import TestInputSection from "../TestInputSection.vue";
 import TestControlBar from "../TestControlBar.vue";
 import TestResultSection from "../TestResultSection.vue";
-import ToolCallDisplay from "../ToolCallDisplay.vue";
 
 const { t } = useI18n();
 const message = useMessage();
 
 // 性能监控
-const { recordUpdate, getPerformanceReport } = usePerformanceMonitor("ConversationTestPanel");
+const { recordUpdate, getPerformanceReport } = usePerformanceMonitor("ContextUserTestPanel");
 
 // 防抖节流
 const { debounce, throttle } = useDebounceThrottle();
@@ -283,21 +246,28 @@ const {
     shouldUseVerticalLayout,
     shouldUseCompactMode,
     buttonSize,
+    inputSize,
 } = useResponsive();
 
 interface Props {
-    // 核心状态
-    optimizationMode: OptimizationMode;
-    isTestRunning?: boolean;
+    // 测试内容（ContextUser专属）
+    testContent: string;
 
-    // 🆕 对比模式
+    // 优化后的提示词（用于检测变量）
+    optimizedPrompt?: string;
+
+    // 测试状态
+    isTestRunning?: boolean;
     isCompareMode?: boolean;
     enableCompareMode?: boolean;
 
-    // 变量管理
+    // 变量管理（三层）
     globalVariables?: Record<string, string>;
     predefinedVariables?: Record<string, string>;
     temporaryVariables?: Record<string, string>;
+
+    // 功能开关
+    enableFullscreen?: boolean;
 
     // 布局配置
     inputMode?: "compact" | "normal";
@@ -307,17 +277,14 @@ interface Props {
 
     // 结果显示配置
     singleResultTitle?: string;
-
-    // 🆕 测试结果数据（支持对比模式）
-    testResult?: AdvancedTestResult;
-    originalTestResult?: AdvancedTestResult;
-    optimizedTestResult?: AdvancedTestResult;
 }
 
 const props = withDefaults(defineProps<Props>(), {
+    optimizedPrompt: "",
     isTestRunning: false,
     isCompareMode: false,
     enableCompareMode: true,
+    enableFullscreen: true,
     inputMode: "normal",
     controlBarLayout: "default",
     buttonSize: "medium",
@@ -329,60 +296,31 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-    test: [testVariables: Record<string, string>];
+    "update:testContent": [value: string];
     "update:isCompareMode": [value: boolean];
+    test: [testVariables: Record<string, string>];
     "compare-toggle": [];
     "open-variable-manager": [];
     "variable-change": [name: string, value: string];
     "save-to-global": [name: string, value: string];
-    "tool-call": [toolCall: ToolCallResult];
-    "tool-calls-updated": [toolCalls: ToolCallResult[]];
     "temporary-variable-remove": [name: string];
     "temporary-variables-clear": [];
 }>();
 
-// 🆕 工具调用状态管理（支持对比模式）
-const toolCalls = ref<ToolCallResult[]>([]);
-const originalToolCalls = ref<ToolCallResult[]>([]);
-const optimizedToolCalls = ref<ToolCallResult[]>([]);
+// 测试内容双向绑定
+const testContentProxy = computed({
+    get: () => props.testContent,
+    set: (value: string) => {
+        emit("update:testContent", value);
+        recordUpdate();
+    },
+});
 
-// 🆕 处理对比模式切换
+// 处理对比模式切换
 const handleCompareModeToggle = (value: boolean) => {
     emit("update:isCompareMode", value);
     emit("compare-toggle");
     recordUpdate();
-};
-
-// 🆕 处理工具调用的方法（支持对比模式）
-const handleToolCall = (toolCall: ToolCallResult, testType?: 'original' | 'optimized') => {
-    if (props.isCompareMode && testType) {
-        // 对比模式：根据 testType 添加到对应数组
-        if (testType === 'original') {
-            originalToolCalls.value.push(toolCall);
-        } else {
-            optimizedToolCalls.value.push(toolCall);
-        }
-    } else {
-        // 单一模式：添加到统一数组
-        toolCalls.value.push(toolCall);
-    }
-    emit("tool-call", toolCall);
-    emit("tool-calls-updated", toolCalls.value);
-    recordUpdate();
-};
-
-// 🆕 清除工具调用数据的方法（支持对比模式）
-const clearToolCalls = (testType?: 'original' | 'optimized' | 'both') => {
-    if (!testType || testType === 'both') {
-        // 清除所有
-        toolCalls.value = [];
-        originalToolCalls.value = [];
-        optimizedToolCalls.value = [];
-    } else if (testType === 'original') {
-        originalToolCalls.value = [];
-    } else if (testType === 'optimized') {
-        optimizedToolCalls.value = [];
-    }
 };
 
 // 响应式布局配置
@@ -405,12 +343,16 @@ const primaryActionText = computed(() => {
     if (props.isTestRunning) {
         return t("test.testing");
     }
-    return t("test.startTest");
+    return props.isCompareMode
+        ? t("test.startCompare")
+        : t("test.startTest");
 });
 
-// 主要操作按钮禁用状态
+// 主要操作按钮禁用状态（纯业务逻辑，无模式判断）
 const primaryActionDisabled = computed(() => {
-    return props.isTestRunning;
+    if (props.isTestRunning) return true;
+    if (!props.testContent.trim()) return true;  // 测试内容不能为空
+    return false;
 });
 
 const handleTest = throttle(
@@ -465,7 +407,7 @@ watch(
     { deep: true, immediate: true }
 );
 
-// 三层变量合并
+// 三层变量合并（优先级：全局 < 临时 < 预定义）
 const mergedVariables = computed(() => {
     const testVarsFlat: Record<string, string> = {};
     for (const [name, data] of Object.entries(testVariables.value)) {
@@ -492,9 +434,10 @@ const displayVariables = computed(() => {
     return sortedTestVariables.value;
 });
 
-// 是否显示变量表单
+// 是否显示变量表单（固定行为，无模式判断）
 const showVariableForm = computed(() => {
-    return !props.isTestRunning;
+    // ✅ 始终显示，避免测试期间闪烁（已修复的bug）
+    return true;
 });
 
 // 获取变量的显示值
@@ -648,7 +591,7 @@ if (import.meta.env.DEV) {
         () => {
             const report = getPerformanceReport();
             if (report.grade.grade === "F") {
-                console.warn("ConversationTestPanel 性能较差:", report);
+                console.warn("ContextUserTestPanel 性能较差:", report);
             }
         },
         5000,
@@ -662,44 +605,25 @@ if (import.meta.env.DEV) {
 
 // 暴露方法供父组件调用（兼容 TestAreaPanelInstance 接口）
 defineExpose({
-    handleToolCall,
-    clearToolCalls,
-    // 🆕 支持对比模式的工具调用数据
-    getToolCalls: () => ({
-        original: props.isCompareMode ? originalToolCalls.value : [],
-        optimized: props.isCompareMode ? optimizedToolCalls.value : toolCalls.value
-    }),
+    // ContextUser 不支持工具调用，提供空实现
+    clearToolCalls: () => {},
+    handleToolCall: () => {},
+    getToolCalls: () => ({ original: [], optimized: [] }),
+
+    // 变量管理
     getVariableValues,
     setVariableValues,
+
     // 预览功能占位符（兼容接口）
     showPreview: () => {
-        console.warn('[ConversationTestPanel] showPreview not implemented');
+        console.warn('[ContextUserTestPanel] showPreview not implemented');
     },
     hidePreview: () => {
-        console.warn('[ConversationTestPanel] hidePreview not implemented');
+        console.warn('[ContextUserTestPanel] hidePreview not implemented');
     },
 });
 </script>
 
 <style scoped>
-.result-container {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-}
-
-.result-body {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-}
-
-.tool-calls-section {
-    flex: 0 0 auto;
-}
-
-.result-container:has(.tool-call-display) :deep(.n-empty) {
-    display: none;
-}
+/* ContextUser 不需要工具调用相关样式 */
 </style>

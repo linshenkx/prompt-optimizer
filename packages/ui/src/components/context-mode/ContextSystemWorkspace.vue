@@ -32,7 +32,6 @@
                     :available-variables="availableVariables"
                     :scan-variables="scanVariables"
                     :optimization-mode="optimizationMode"
-                    context-mode="system"
                     :tool-count="toolCount"
                     @open-variable-manager="emit('open-variable-manager')"
                     @open-context-editor="emit('open-context-editor')"

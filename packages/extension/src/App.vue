@@ -2146,16 +2146,18 @@ const getActiveTestPanelInstance = (): TestAreaPanelInstance | null => {
     return null;
 };
 
-// 基础模式和 context-user 模式的测试处理函数
-// 注意：context-system 模式已在 ContextSystemWorkspace 内部使用 useConversationTester 处理，不会调用此函数
+// 基础模式的测试处理函数
+// 注意：
+// 1. Context System 模式在 ContextSystemWorkspace 内部使用 useConversationTester 处理
+// 2. Context User 模式在 ContextUserWorkspace 内部使用 useContextUserTester 处理
+// 3. 此函数仅被 Basic Mode 的 TestAreaPanel 调用
 const handleTestAreaTest = async (testVariables?: Record<string, string>) => {
-    // 调用基础测试器（只用于基础模式和 context-user）
     await promptTester.executeTest(
         optimizer.prompt,
         optimizer.optimizedPrompt,
         testContent.value,
         isCompareMode.value,
-        testVariables
+        testVariables || {}
     );
 };
 
