@@ -112,21 +112,23 @@ export function useContextUserTester(
       }
 
       if (isCompareMode) {
-        // 对比模式：测试原始和优化提示词
-        await state.testPromptWithType(
-          'original',
-          prompt,
-          optimizedPrompt,
-          testContent,
-          testVariables
-        )
-        await state.testPromptWithType(
-          'optimized',
-          prompt,
-          optimizedPrompt,
-          testContent,
-          testVariables
-        )
+        // 对比模式：并发测试原始和优化提示词
+        await Promise.all([
+          state.testPromptWithType(
+            'original',
+            prompt,
+            optimizedPrompt,
+            testContent,
+            testVariables
+          ),
+          state.testPromptWithType(
+            'optimized',
+            prompt,
+            optimizedPrompt,
+            testContent,
+            testVariables
+          )
+        ])
       } else {
         // 单一模式：只测试优化后的提示词
         await state.testPromptWithType(

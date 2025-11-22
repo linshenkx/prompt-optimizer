@@ -824,132 +824,7 @@
                     </div>
                 </NTabPane>
 
-                <!-- 变量管理标签页 -->
-                <NTabPane name="variables" v-if="showVariablesTab" :tab="t('contextEditor.variablesTab')">
-                    <div
-                        class="variables-panel"
-                        role="region"
-                        :aria-label="aria.getLabel('variablesPanel')"
-                    >
-                        <!-- 变量状态信息 -->
-                        <NCard size="small" embedded class="mb-4">
-                            <NSpace align="center" justify="space-between" wrap>
-                                <NSpace align="center" :size="8">
-                                    <NText strong>{{
-                                        t("contextEditor.variableManagement")
-                                    }}</NText>
-                                    <NTag :size="tagSize" type="warning">
-                                        {{
-                                            t("contextEditor.temporaryVariableCount", {
-                                                count: Object.keys(
-                                                    tempVars.listVariables(),
-                                                ).length,
-                                            })
-                                        }}
-                                    </NTag>
-                                    <NTag
-                                        :size="tagSize"
-                                        type="info"
-                                        v-if="globalCustomVariableCount > 0"
-                                    >
-                                        {{
-                                            t("contextEditor.globalVariables", {
-                                                count: globalCustomVariableCount,
-                                            })
-                                        }}
-                                    </NTag>
-                                </NSpace>
-                            </NSpace>
-                            <!-- 添加说明文案 -->
-                            <NText depth="3" class="text-xs mt-2 block">
-                                {{
-                                    t("contextEditor.variableManagementHint")
-                                }}
-                            </NText>
-                        </NCard>
-
-                        <!-- 变量列表 -->
-                        <NEmpty
-                            v-if="
-                                Object.keys(tempVars.listVariables()).length === 0 &&
-                                globalCustomVariableCount === 0
-                            "
-                            :description="t('contextEditor.noVariables')"
-                            role="status"
-                            :aria-label="aria.getLabel('emptyVariables')"
-                        >
-                            <template #icon>
-                                <svg
-                                    width="48"
-                                    height="48"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="1"
-                                >
-                                    <path
-                                        d="M4 7v10c0 2.21 1.79 4 4 4h8c2.21 0 4-1.79 4-4V7M4 7c0-2.21 1.79-4 4-4h8c2.21 0 4-1.79 4-4M4 7h16M8 11h8M8 15h6"
-                                    />
-                                </svg>
-                            </template>
-                            <template #extra>
-                                <NButton
-                                    @click="addVariable"
-                                    :size="buttonSize"
-                                    type="primary"
-                                    :disabled="disabled"
-                                >
-                                    {{ t("contextEditor.addFirstVariable") }}
-                                </NButton>
-                            </template>
-                        </NEmpty>
-
-                        <div v-else>
-                            <!-- 变量表格 -->
-                            <NDataTable
-                                :columns="variableColumns"
-                                :data="variableTableData"
-                                :pagination="false"
-                                :bordered="false"
-                                size="small"
-                                striped
-                                class="mb-4"
-                            />
-
-                            <!-- 添加变量按钮 -->
-                            <NCard :size="cardSize" embedded dashed>
-                                <NSpace justify="center">
-                                    <NButton
-                                        @click="addVariable"
-                                        :size="buttonSize"
-                                        dashed
-                                        type="primary"
-                                        block
-                                        :disabled="disabled"
-                                    >
-                                        <template #icon>
-                                            <svg
-                                                width="16"
-                                                height="16"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                            >
-                                                <path
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    stroke-width="2"
-                                                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                                                />
-                                            </svg>
-                                        </template>
-                                        {{ t("contextEditor.addVariable") }}
-                                    </NButton>
-                                </NSpace>
-                            </NCard>
-                        </div>
-                    </div>
-                </NTabPane>
+                <!-- 变量管理标签页已移除，使用独立的 VariableManagerModal -->
 
                 <!-- 工具管理标签页 -->
                 <NTabPane v-if="showToolsTab" name="tools" :tab="t('contextEditor.toolsTab')">
@@ -1833,7 +1708,6 @@ const props = withDefaults(
         visible: false,
         showToolManager: true,
         optimizationMode: "system",
-        contextMode: "system",
         title: "",
         width: "90vw",
         height: "85vh",
@@ -1925,11 +1799,12 @@ const tagSize = computed(() => {
 // 标签页显示控制逻辑 - 配置驱动
 type TabName = 'messages' | 'templates' | 'variables' | 'tools';
 
-// 标签页默认可见性配置
+// 标签页默认可见性配置（ContextEditor 仅用于 Context System 模式）
+// 变量管理已移除，使用独立的 VariableManagerModal
 const TAB_VISIBILITY_CONFIG: Record<TabName, () => boolean> = {
-    messages: () => props.contextMode !== "user",
-    templates: () => props.contextMode !== "user",
-    variables: () => true, // 变量标签页默认总是显示
+    messages: () => true,
+    templates: () => true,
+    variables: () => false, // 已移除变量标签页
     tools: () => props.showToolManager,
 };
 
