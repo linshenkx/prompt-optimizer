@@ -33,13 +33,15 @@
                         ⚠️ {{ t("conversation.stats.missing") }}: {{ allMissingVariables.length }}
                     </NText>
 
-                    <!-- 工具数量 -->
+                    <!-- 工具数量标签（可点击） -->
                     <NText
-                        v-if="toolCount && toolCount > 0"
+                        v-if="enableToolManagement"
                         :depth="3"
-                        style="font-size: 13px"
+                        style="font-size: 13px; cursor: pointer"
+                        @click="emit('open-tool-manager')"
+                        :title="t('contextEditor.toolsTab')"
                     >
-                        🔧 {{ t("conversation.stats.tools") }}: {{ toolCount }}
+                        🔧 {{ t("conversation.stats.tools") }}: {{ toolCount || 0 }}
                     </NText>
 
                     <!-- 打开上下文编辑器按钮 -->
@@ -401,6 +403,8 @@ const props = withDefaults(defineProps<ConversationManagerProps>(), {
     selectedMessageId: undefined,
     enableMessageOptimization: false,
     isMessageOptimizing: false,
+    // 🆕 工具管理相关
+    enableToolManagement: true,
 });
 
 const emit = defineEmits<ConversationManagerEvents>();

@@ -72,6 +72,7 @@ export { default as BasicTestMode } from "./components/BasicTestMode.vue";
 export { default as VariableManagerModal } from "./components/variable/VariableManagerModal.vue";
 export { default as VariableEditor } from "./components/variable/VariableEditor.vue";
 export { default as VariableImporter } from "./components/variable/VariableImporter.vue";
+export { default as ToolManagerModal } from "./components/tool/ToolManagerModal.vue";
 export { default as ConversationManager } from "./components/context-mode/ConversationManager.vue";
 export { default as ContextEditor } from "./components/context-mode/ContextEditor.vue";
 export { default as TestAreaPanel } from "./components/TestAreaPanel.vue";

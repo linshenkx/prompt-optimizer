@@ -35,6 +35,8 @@
                     :tool-count="toolCount"
                     @open-variable-manager="emit('open-variable-manager')"
                     @open-context-editor="emit('open-context-editor')"
+                    @open-tool-manager="emit('open-tool-manager')"
+                    :enable-tool-management="true"
                     :collapsible="true"
                     :max-height="300"
                     :selected-message-id="selectedMessageId"
@@ -352,6 +354,7 @@ const emit = defineEmits<{
     "open-variable-manager": [];
     "open-context-editor": [tab?: string];
     "open-template-manager": [type?: string];
+    "open-tool-manager": [];
     "config-model": [];
 
     // 预览相关

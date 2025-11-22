@@ -1628,7 +1628,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, shallowRef, nextTick, h } from 'vue'
+import { ref, computed, watch, shallowRef, nextTick } from 'vue'
 
 import { useI18n } from "vue-i18n";
 import {
@@ -1649,10 +1649,8 @@ import {
     NGrid,
     NGridItem,
     NAlert,
-    NDataTable,
     NRadioGroup,
     NRadio,
-    type DataTableColumns,
 } from "naive-ui";
 import { useResponsive } from "../../composables/ui/useResponsive";
 import { usePerformanceMonitor } from "../../composables/performance/usePerformanceMonitor";
@@ -1801,11 +1799,12 @@ type TabName = 'messages' | 'templates' | 'variables' | 'tools';
 
 // 标签页默认可见性配置（ContextEditor 仅用于 Context System 模式）
 // 变量管理已移除，使用独立的 VariableManagerModal
+// 工具管理已移除，使用独立的 ToolManagerModal
 const TAB_VISIBILITY_CONFIG: Record<TabName, () => boolean> = {
     messages: () => true,
     templates: () => true,
     variables: () => false, // 已移除变量标签页
-    tools: () => props.showToolManager,
+    tools: () => false, // 已移除工具标签页，使用独立的 ToolManagerModal
 };
 
 // 通用标签页可见性计算函数
@@ -1890,10 +1889,6 @@ const variableCount = computed(() => {
     return variables.size;
 });
 
-// 仅统计"全局自定义变量"（排除预定义变量），用于避免"全局7"的误导
-const globalCustomVariableCount = computed(() => {
-    return variableManager.statistics.value.customVariableCount;
-});
 
 const roleOptions = computed(() => [
     { label: t("conversation.roles.system"), value: "system" },
@@ -1910,17 +1905,6 @@ const quickTemplates = computed(() => {
         currentLanguage,
     );
 });
-
-// 变量表格数据类型定义
-interface VariableTableRow {
-    key: string;
-    name: string;
-    value: string;
-    fullValue: string;
-    source: "temporary" | "global" | "predefined";
-    status: "active" | "overridden" | "missing";
-    readonly: boolean;
-}
 
 const normalizeMessage = (
     msg: Partial<ConversationMessage>,
@@ -1956,241 +1940,6 @@ const normalizeMessage = (
 
     return normalized;
 };
-
-const variableTableData = computed(() => {
-    const data: VariableTableRow[] = [];
-    const temporaryVars = tempVars.listVariables();
-
-    // 添加全局变量（可编辑，但预定义变量只读）
-    const globalVars = variableManager.customVariables.value;
-    Object.entries(globalVars).forEach(([name, value]) => {
-        const isPredefined = PREDEFINED_VARIABLES.includes(name as PredefinedVariable);
-        if (!isPredefined) {
-            const isOverridden = name in temporaryVars;
-            data.push({
-                key: `global-${name}`,
-                name,
-                value:
-                    value.length > 50
-                        ? value.substring(0, 50) + "..."
-                        : value,
-                fullValue: value,
-                source: "global",
-                status: isOverridden ? "overridden" : "active",
-                readonly: false, // 全局自定义变量现在可编辑
-            });
-        }
-    });
-
-    // 添加临时变量（可编辑）
-    Object.entries(temporaryVars).forEach(([name, value]) => {
-        if (!PREDEFINED_VARIABLES.includes(name as PredefinedVariable)) {
-            data.push({
-                key: `temporary-${name}`,
-                name,
-                value:
-                    value.length > 50 ? value.substring(0, 50) + "..." : value,
-                fullValue: value,
-                source: "temporary",
-                status: "active",
-                readonly: false,
-            });
-        }
-    });
-
-    return data;
-});
-
-// 变量表格列定义
-const variableColumns = computed(
-    (): DataTableColumns => [
-        {
-            title: t("contextEditor.variableName"),
-            key: "name",
-            width: 140,
-            render: (row: VariableTableRow) => {
-                return h(
-                    NTag,
-                    {
-                        size: "small",
-                        type: row.source === "temporary" ? "primary" : "default",
-                        round: true,
-                    },
-                    () => `{{${row.name}}}`,
-                );
-            },
-        },
-        {
-            title: t("contextEditor.variableValue"),
-            key: "value",
-            ellipsis: {
-                tooltip: true,
-            },
-            render: (row: VariableTableRow) => {
-                return h(
-                    NText,
-                    {
-                        depth: row.readonly ? 3 : 1,
-                        style: {
-                            fontFamily: "ui-monospace, monospace",
-                            fontSize: "12px",
-                            textDecoration:
-                                row.status === "overridden"
-                                    ? "line-through"
-                                    : "none",
-                        },
-                    },
-                    () => row.value,
-                );
-            },
-        },
-        {
-            title: t("contextEditor.variableSource"),
-            key: "source",
-            width: 80,
-            render: (row: VariableTableRow) => {
-                const typeMap = {
-                    global: {
-                        type: "info",
-                        text: t("contextEditor.variableSourceLabels.global"),
-                    },
-                    temporary: {
-                        type: "warning",
-                        text: t("contextEditor.variableSourceLabels.temporary"),
-                    },
-                    predefined: {
-                        type: "default",
-                        text: t("contextEditor.variableSourceLabels.predefined"),
-                    },
-                };
-                const config = typeMap[row.source] || {
-                    type: "default",
-                    text: row.source,
-                };
-                return h(
-                    NTag,
-                    {
-                        size: "small",
-                        type: config.type,
-                    },
-                    () => config.text,
-                );
-            },
-        },
-        {
-            title: t("contextEditor.variableStatus"),
-            key: "status",
-            width: 80,
-            render: (row: VariableTableRow) => {
-                const statusMap = {
-                    active: {
-                        type: "success",
-                        text: t("contextEditor.variableStatusLabels.active"),
-                    },
-                    overridden: {
-                        type: "default",
-                        text: t(
-                            "contextEditor.variableStatusLabels.overridden",
-                        ),
-                    },
-                };
-                const config = statusMap[row.status] || {
-                    type: "default",
-                    text: row.status,
-                };
-                return h(
-                    NTag,
-                    {
-                        size: "small",
-                        type: config.type,
-                    },
-                    () => config.text,
-                );
-            },
-        },
-        {
-            title: t("common.actions"),
-            key: "actions",
-            width: 120,
-            render: (row: VariableTableRow) => {
-                const actions = [];
-
-                if (!row.readonly) {
-                    // 编辑按钮
-                    actions.push(
-                        h(
-                            NButton,
-                            {
-                                size: "small",
-                                quaternary: true,
-                                title: t("common.edit"),
-                                onClick: () => editVariable(row.name),
-                            },
-                            {
-                                icon: () =>
-                                    h(
-                                        "svg",
-                                        {
-                                            width: "14",
-                                            height: "14",
-                                            viewBox: "0 0 24 24",
-                                            fill: "none",
-                                            stroke: "currentColor",
-                                        },
-                                        [
-                                            h("path", {
-                                                "stroke-linecap": "round",
-                                                "stroke-linejoin": "round",
-                                                "stroke-width": "2",
-                                                d: "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z",
-                                            }),
-                                        ],
-                                    ),
-                            },
-                        ),
-                    );
-
-                    // 删除按钮
-                    actions.push(
-                        h(
-                            NButton,
-                            {
-                                size: "small",
-                                quaternary: true,
-                                type: "error",
-                                title: t("common.delete"),
-                                onClick: () => deleteVariable(row.name),
-                            },
-                            {
-                                icon: () =>
-                                    h(
-                                        "svg",
-                                        {
-                                            width: "14",
-                                            height: "14",
-                                            viewBox: "0 0 24 24",
-                                            fill: "none",
-                                            stroke: "currentColor",
-                                        },
-                                        [
-                                            h("path", {
-                                                "stroke-linecap": "round",
-                                                "stroke-linejoin": "round",
-                                                "stroke-width": "2",
-                                                d: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
-                                            }),
-                                        ],
-                                    ),
-                            },
-                        ),
-                    );
-                }
-
-                return h(NSpace, { size: 4 }, () => actions);
-            },
-        },
-    ],
-);
 
 // 工具函数（统一使用注入函数）
 const getMessageVariables = (content: string) => {
@@ -2614,87 +2363,6 @@ const variableEditState = ref<{
     value: "",
     type: "temporary",
 });
-
-// 变量管理方法
-const addVariable = () => {
-    // 打开编辑对话框，默认创建临时变量
-    variableEditState.value = {
-        show: true,
-        isEditing: false,
-        isFromMissing: false,
-        editingName: "",
-        name: "",
-        value: "",
-        type: "temporary",
-    };
-};
-
-/**
- * 获取变量来源和值
- * @param name 变量名
- * @returns 变量类型和值，如果不存在则返回 null
- */
-const getVariableSource = (name: string): {
-    type: "temporary" | "global";
-    value: string;
-} | null => {
-    const temporaryVars = tempVars.listVariables();
-
-    if (name in temporaryVars) {
-        return { type: "temporary", value: temporaryVars[name] || "" };
-    }
-
-    const globalVars = variableManager.customVariables.value;
-    if (name in globalVars) {
-        return { type: "global", value: globalVars[name] || "" };
-    }
-
-    return null;
-};
-
-const editVariable = (name: string) => {
-    const source = getVariableSource(name);
-
-    if (!source) {
-        announce(t("contextEditor.variableNotFound"), "assertive");
-        return;
-    }
-
-    variableEditState.value = {
-        show: true,
-        isEditing: true,
-        isFromMissing: false,
-        editingName: name,
-        name,
-        value: source.value,
-        type: source.type,
-        originalType: source.type,
-    };
-};
-
-const deleteVariable = (name: string) => {
-    const source = getVariableSource(name);
-
-    if (!source) {
-        announce(t("contextEditor.variableNotFound"), "assertive");
-        return;
-    }
-
-    const confirmed = confirm(
-        t("contextEditor.deleteVariableConfirm", { name }),
-    );
-    if (!confirmed) return;
-
-    // 根据类型删除变量
-    if (source.type === "temporary") {
-        tempVars.deleteVariable(name);
-    } else if (source.type === "global") {
-        variableManager.deleteVariable(name);
-    }
-
-    handleStateChange();
-    announce(t("contextEditor.variableDeleted", { name }), "polite");
-};
 
 const saveVariable = () => {
     const { isEditing, editingName, name, value, type, originalType } = variableEditState.value;

@@ -109,6 +109,8 @@ export interface ConversationManagerProps extends BaseComponentProps {
   enableMessageOptimization?: boolean
   /** 🆕 消息优化中状态 */
   isMessageOptimizing?: boolean
+  /** 🆕 是否启用工具管理功能 */
+  enableToolManagement?: boolean
 }
 
 export interface ConversationManagerEvents extends BaseComponentEvents {
@@ -126,6 +128,8 @@ export interface ConversationManagerEvents extends BaseComponentEvents {
   messageSelect: (message: ConversationMessage) => void
   /** 🆕 触发消息优化 */
   optimizeMessage: () => void
+  /** 🆕 打开工具管理器 */
+  'open-tool-manager': () => void
 }
 
 /**
@@ -375,4 +379,33 @@ export interface PerformanceMetrics {
   updateCount: number
   /** 最后更新时间 */
   lastUpdate: Date
+}
+
+/**
+ * ToolManagerModal 组件类型
+ */
+export interface ToolManagerModalProps extends BaseComponentProps {
+  /** 弹窗是否可见 */
+  visible: boolean
+  /** 工具列表 */
+  tools: ToolDefinition[]
+  /** 是否只读模式 */
+  readonly?: boolean
+  /** 弹窗标题 */
+  title?: string
+  /** 弹窗宽度 */
+  width?: string
+}
+
+export interface ToolManagerModalEvents extends BaseComponentEvents {
+  /** 弹窗可见性变更 */
+  'update:visible': (visible: boolean) => void
+  /** 工具列表变更 */
+  'update:tools': (tools: ToolDefinition[]) => void
+  /** 工具变更事件 */
+  toolChange: (tools: ToolDefinition[], action: 'add' | 'update' | 'delete', index: number) => void
+  /** 确认事件 */
+  confirm: (tools: ToolDefinition[]) => void
+  /** 取消事件 */
+  cancel: () => void
 }

@@ -210,7 +210,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onUnmounted, toRef } from 'vue'
+import { computed, onUnmounted, toRef } from 'vue'
 
 import { useI18n } from "vue-i18n";
 import {

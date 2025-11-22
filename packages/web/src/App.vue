@@ -190,6 +190,7 @@
                             @open-global-variables="openVariableManager()"
                             @open-variable-manager="handleOpenVariableManager"
                             @open-context-editor="handleOpenContextEditor()"
+                            @open-tool-manager="handleOpenToolManager"
                             @open-template-manager="openTemplateManager"
                             @config-model="modelManager.showConfig = true"
                             @open-input-preview="handleOpenInputPreview"
@@ -801,6 +802,15 @@
                 :focus-variable="focusVariableName"
             />
 
+            <!-- 工具管理弹窗 -->
+            <ToolManagerModal
+                v-if="isReady"
+                v-model:visible="showToolManager"
+                :tools="optimizationContextTools"
+                @confirm="handleToolManagerConfirm"
+                @cancel="showToolManager = false"
+            />
+
             <!-- 上下文编辑器弹窗 -->
             <ContextEditor
                 v-if="isReady"
@@ -809,7 +819,6 @@
                 :services="servicesForContextEditor"
                 :variable-manager="variableManager"
                 :optimization-mode="selectedOptimizationMode"
-                :context-mode="contextMode"
                 :scan-variables="
                     (content) =>
                         variableManager?.variableManager.value?.scanVariablesInContent(
@@ -900,6 +909,7 @@ import {
     TestAreaPanel,
     UpdaterIcon,
     VariableManagerModal,
+    ToolManagerModal,
     ImageWorkspace,
     ImageModeSelector,
     FunctionModeSelector,
@@ -1100,6 +1110,9 @@ if (typeof window !== "undefined") {
 const showVariableManager = ref(false);
 const focusVariableName = ref<string | undefined>(undefined);
 
+// 工具管理状态
+const showToolManager = ref(false);
+
 // 上下文模式 - 需要在模板中使用,所以提前声明
 const contextMode = ref<import("@prompt-optimizer/core").ContextMode>("system");
 
@@ -1200,6 +1213,16 @@ const handleOpenVariableManager = (variableName?: string) => {
         focusVariableName.value = variableName;
     }
     showVariableManager.value = true;
+};
+
+// 工具管理器处理函数
+const handleOpenToolManager = () => {
+    showToolManager.value = true;
+};
+
+const handleToolManagerConfirm = (tools: any[]) => {
+    optimizationContextTools.value = tools;
+    showToolManager.value = false;
 };
 
 // 上下文管理将在初始化 optimizer 后通过 useContextManagement 提供
