@@ -1227,6 +1227,7 @@ export default {
       loadHistoryFailed: "Failed to load history",
       clearHistoryFailed: "Failed to clear history",
       historyChainDeleteFailed: "Failed to delete history record",
+      historyRestoreFailed: "History restore failed: {error}",
       selectTemplateFailed: "Failed to select template: {error}",
       noOptimizeTemplate: "Please select an optimization template first",
       noOptimizeModel: "Please select an optimization model first",

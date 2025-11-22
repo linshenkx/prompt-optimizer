@@ -1185,6 +1185,7 @@ export default {
       loadHistoryFailed: "載入歷史紀錄失敗",
       clearHistoryFailed: "清空歷史紀錄失敗",
       historyChainDeleteFailed: "刪除歷史紀錄失敗",
+      historyRestoreFailed: "歷史紀錄恢復失敗：{error}",
       selectTemplateFailed: "選擇提示詞失敗：{error}",
       noOptimizeTemplate: "請先選擇優化提示詞",
       noOptimizeModel: "請先選擇優化模型",

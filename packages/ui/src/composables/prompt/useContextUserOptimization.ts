@@ -5,9 +5,9 @@ import { getErrorMessage } from '../../utils/error'
 import { v4 as uuidv4 } from 'uuid'
 import type {
   Template,
+  PromptRecord,
   PromptRecordChain,
-  OptimizationRequest,
-  ToolDefinition
+  OptimizationRequest
 } from '@prompt-optimizer/core'
 import type { AppServices } from '../../types/services'
 
@@ -33,6 +33,8 @@ export interface UseContextUserOptimization {
   optimize: () => Promise<void>
   iterate: (payload: { originalPrompt: string, optimizedPrompt: string, iterateInput: string }) => Promise<void>
   switchVersion: (version: PromptChain['versions'][number]) => Promise<void>
+  switchToV0: (version: PromptChain['versions'][number]) => Promise<void>  // 🆕 V0 切换
+  loadFromHistory: (payload: { rootPrompt: string, chain: PromptChain, record: PromptRecord }) => void
 }
 
 /**
@@ -254,14 +256,72 @@ export function useContextUserOptimization(
       }
     },
 
-    // 切换版本
+    /**
+     * 切换到指定优化版本
+     *
+     * 📌 设计说明：
+     * - state.prompt 使用 fallback (version.originalPrompt || state.prompt)
+     * - 目的：兼容早期版本的历史记录，这些记录可能只保存了优化结果而缺失 originalPrompt
+     * - 效果：切换时保持当前输入不变，避免意外清空用户内容
+     */
     switchVersion: async (version: PromptChain['versions'][number]) => {
       // 强制更新内容，确保UI同步
       state.optimizedPrompt = version.optimizedPrompt
+      // 🔧 兼容旧版本链：早期记录可能缺失 originalPrompt，使用 fallback 避免清空当前输入
+      state.prompt = version.originalPrompt || state.prompt
       state.currentVersionId = version.id
 
       // 等待一个微任务确保状态更新完成
       await nextTick()
+    },
+
+    /**
+     * 切换到 V0 版本（未优化的原始提示词）
+     *
+     * 📌 设计说明：
+     * - 与 switchVersion 不同，此方法要求 originalPrompt 必填（前置检查）
+     * - 语义：V0 表示"查看未优化的原始版本"，必须有原始输入才能回退
+     * - 因此可以安全地直接赋值，无需 fallback 保护
+     */
+    switchToV0: async (version: PromptChain['versions'][number]) => {
+      // ✅ V0 切换要求必须有原始输入，否则无法回退到"未优化"状态
+      if (!version || !version.originalPrompt) {
+        toast.error(t('toast.error.invalidVersion'))
+        return
+      }
+      // V0 状态：优化结果显示原始输入（表示"未优化"）
+      state.optimizedPrompt = version.originalPrompt
+      state.prompt = version.originalPrompt
+      state.currentVersionId = version.id
+
+      // 等待一个微任务确保状态更新完成
+      await nextTick()
+    },
+
+    /**
+     * 从历史记录恢复完整状态
+     *
+     * 📌 调用时机：
+     * - 用户在历史面板点击 Context User 模式的历史记录时触发
+     * - 由父组件 (App.vue) 调用，在 handleSelectHistory 更新全局状态后执行
+     *
+     * 📌 状态分离设计：
+     * - handleSelectHistory 更新的是全局 optimizer 状态（App.vue 级别）
+     * - loadFromHistory 更新的是 ContextUserWorkspace 内部的独立状态
+     * - 两者操作不同的状态树，无竞态风险
+     *
+     * @param payload - 包含历史记录数据的负载对象
+     * @param payload.rootPrompt - 根提示词（优先使用）
+     * @param payload.chain - 提示链数据（包含所有版本）
+     * @param payload.record - 当前选中的提示记录
+     */
+    loadFromHistory: ({ rootPrompt, chain, record }) => {
+      state.prompt = rootPrompt || record.originalPrompt || ''
+      state.optimizedPrompt = record.optimizedPrompt || ''
+      state.optimizedReasoning = ''
+      state.currentChainId = chain.chainId
+      state.currentVersions = chain.versions
+      state.currentVersionId = record.id
     }
   })
 

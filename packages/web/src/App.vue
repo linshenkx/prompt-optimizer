@@ -138,7 +138,6 @@
                             :optimization-mode="selectedOptimizationMode"
                             :is-optimizing="optimizer.isOptimizing"
                             :is-iterating="optimizer.isIterating"
-                            :is-test-running="false"
                             :selected-iterate-template="
                                 optimizer.selectedIterateTemplate
                             "
@@ -277,7 +276,7 @@
                             :optimization-mode="selectedOptimizationMode"
                             :selected-optimize-model="modelManager.selectedOptimizeModel"
                             :selected-test-model="modelManager.selectedTestModel"
-                            :selected-template="selectedTemplate"
+                            :selected-template="currentSelectedTemplate"
                             :selected-iterate-template="
                                 optimizer.selectedIterateTemplate
                             "
@@ -314,10 +313,6 @@
                             @compare-toggle="handleTestAreaCompareToggle"
                             @save-favorite="handleSaveFavorite"
                             @open-global-variables="openVariableManager()"
-                            @open-tool-manager="
-                                openContextEditorWithTab('tools');
-                                handleOpenContextEditor('tools')
-                            "
                             @open-variable-manager="handleOpenVariableManager"
                             @open-template-manager="openTemplateManager"
                             @config-model="modelManager.showConfig = true"
@@ -961,6 +956,7 @@ import type {
     Template,
     ModelConfig,
     PromptRecordChain,
+    PromptRecord,
 } from "@prompt-optimizer/core";
 import { isDevelopment } from "@prompt-optimizer/core";
 import type {
@@ -1024,8 +1020,15 @@ const saveFavoriteData = ref<{
     originalContent?: string;
 } | null>(null);
 const optimizeModelSelect = ref(null);
+type ContextUserHistoryPayload = {
+    record: PromptRecord;
+    chain: PromptRecordChain;
+    rootPrompt: string;
+};
+
 type ContextWorkspaceExpose = {
     testAreaPanelRef?: Ref<TestAreaPanelInstance | null>;
+    restoreFromHistory?: (payload: ContextUserHistoryPayload) => void;
 };
 
 const testPanelRef = ref<TestAreaPanelInstance | null>(null);
@@ -1847,8 +1850,8 @@ const handleModelManagerClosed = async () => {
     }
 };
 
-// 处理历史记录使用 - 智能模式切换
-const handleHistoryReuse = async (context: {
+// 处理历史记录使用 - 智能模式切换（内部实现）
+const handleHistoryReuseImpl = async (context: {
     record: any;
     chainId: string;
     rootPrompt: string;
@@ -1968,8 +1971,38 @@ const handleHistoryReuse = async (context: {
             );
         }
 
-        // 调用原有的历史记录处理逻辑
+        // ❶ 调用原有的历史记录处理逻辑（更新全局 optimizer 状态）
         await promptHistory.handleSelectHistory(context);
+
+        /**
+         * ❷ Context User 专属：恢复组件内部状态
+         *
+         * 📌 状态分离设计：
+         * - ❶ handleSelectHistory 更新全局状态（App.vue 级别的 optimizer）
+         * - ❷ restoreFromHistory 更新组件内部状态（ContextUserWorkspace 的 contextUserOptimization）
+         * - 两者操作不同的状态树，不存在写冲突或竞态问题
+         *
+         * 📌 nextTick 作用：
+         * - 确保 v-if/v-show 条件渲染完成，userWorkspaceRef 已绑定到组件实例
+         * - 确保 defineExpose 暴露的方法已可用
+         * - ❌ 不是为了等待状态同步（两个状态树完全独立）
+         *
+         * 📌 可选链说明：
+         * - userWorkspaceRef.value?.restoreFromHistory?.(...) 防御极端边缘时序问题
+         * - 若组件未渲染，逻辑上不会进入此分支（rt 条件已互斥），因此无需额外告警
+         * - TypeScript 类型系统已确保方法存在性，静默失败不会影响用户体验
+         */
+        if (
+            rt === "contextUserOptimize" ||
+            (targetFunctionMode === "pro" && targetMode === "user")
+        ) {
+            await nextTick();
+            userWorkspaceRef.value?.restoreFromHistory?.({
+                record,
+                chain,
+                rootPrompt: context.rootPrompt,
+            });
+        }
 
         // 🆕 上下文-多消息模式专属：恢复消息级优化状态
         if (rt === "conversationMessageOptimize" || rt === "contextSystemOptimize") {
@@ -2030,76 +2063,55 @@ const handleHistoryReuse = async (context: {
                 );
 
                 optimizationContext.value = restoredMessages;
-                await nextTick(); // 等待会话更新
-
-                // 🆕 重建所有消息的 messageChainMap 映射关系
-                if (conversationSnapshot) {
-                    let mappingCount = 0;
-                    conversationSnapshot.forEach((snapshotMsg) => {
-                        if (snapshotMsg.id && snapshotMsg.chainId) {
-                            const mapKey = `${selectedOptimizationMode.value}:${snapshotMsg.id}`;
-                            conversationOptimization.messageChainMap.value.set(mapKey, snapshotMsg.chainId);
-                            mappingCount++;
-                        }
-                    });
-                    console.log(`[App] 已重建 ${mappingCount} 个消息的优化链映射关系`);
-                }
+                await nextTick();
             }
 
-            // 从 metadata 中获取被优化的消息 ID
             const messageId = record.metadata?.messageId;
-            if (messageId && optimizationContext.value.length > 0) {
-                // 在会话中查找该消息
-                const message = optimizationContext.value.find(msg => msg.id === messageId);
-                if (message) {
-                    // 注意：映射关系已在上面统一重建，这里不再单独设置
+            const targetMessage = messageId
+                ? optimizationContext.value.find(msg => msg.id === messageId)
+                : undefined;
 
-                    // 自动选择该消息
-                    await handleMessageSelect(message);
+            await systemWorkspaceRef.value?.restoreFromHistory?.({
+                chain,
+                record,
+                conversationSnapshot,
+                message: targetMessage,
+            });
 
-                    // 恢复消息级优化链
-                    conversationOptimization.currentChainId.value = chain.chainId;
-                    conversationOptimization.currentVersions.value = chain.versions;
-                    conversationOptimization.currentRecordId.value = record.id;
-                    conversationOptimization.optimizedPrompt.value = record.optimizedPrompt;
-
+            if (conversationSnapshot) {
+                if (targetMessage) {
                     useToast().success(t('toast.success.conversationRestored'));
-                } else {
-                    // 如果快照中也找不到消息（理论上不应该发生）
+                } else if (messageId) {
                     console.warn('[App] 会话快照中未找到被优化的消息 ID:', messageId);
                     useToast().warning(t('toast.warning.messageNotFoundInSnapshot'));
                 }
-            } else if (!conversationSnapshot) {
-                // 兼容旧数据：如果没有快照，尝试在当前会话中查找（向后兼容）
-                console.log('[App] 历史记录无会话快照，尝试在当前会话中查找消息（旧版本数据）');
-                if (messageId && optimizationContext.value.length > 0) {
-                    const message = optimizationContext.value.find(msg => msg.id === messageId);
-                    if (message) {
-                        // 建立映射（旧版本数据只能建立被优化消息的映射）
-                        if (message.id) {
-                            conversationOptimization.messageChainMap.value.set(
-                                `${selectedOptimizationMode.value}:${message.id}`,
-                                chain.chainId
-                            );
-                            console.log(`[App] 为旧版本历史记录建立单个消息映射`);
-                        }
-
-                        // 选择消息
-                        await handleMessageSelect(message);
-
-                        // 恢复优化链
-                        conversationOptimization.currentChainId.value = chain.chainId;
-                        conversationOptimization.currentVersions.value = chain.versions;
-                        conversationOptimization.currentRecordId.value = record.id;
-                        conversationOptimization.optimizedPrompt.value = record.optimizedPrompt;
-
-                        useToast().warning(t('toast.warning.restoredFromLegacyHistory'));
-                    } else {
-                        useToast().warning(t('toast.warning.messageNotFoundInCurrentConversation'));
-                    }
+            } else if (messageId) {
+                if (targetMessage) {
+                    console.log('[App] 历史记录无会话快照，尝试在当前会话中查找消息（旧版本数据）');
+                    useToast().warning(t('toast.warning.restoredFromLegacyHistory'));
+                } else {
+                    console.warn('[App] 旧版本历史记录中未找到消息 ID:', messageId);
+                    useToast().warning(t('toast.warning.messageNotFoundInSnapshot'));
                 }
             }
         }
+    }
+};
+
+// 历史记录恢复的错误处理包装器
+const handleHistoryReuse = async (context: {
+    record: any;
+    chainId: string;
+    rootPrompt: string;
+    chain: any;
+}) => {
+    try {
+        await handleHistoryReuseImpl(context);
+    } catch (error) {
+        // 捕获历史记录恢复过程中的所有错误
+        console.error('[App] 历史记录恢复失败:', error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        useToast().error(t('toast.error.historyRestoreFailed', { error: errorMessage }));
     }
 };
 

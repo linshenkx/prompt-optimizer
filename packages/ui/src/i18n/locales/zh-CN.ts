@@ -1192,6 +1192,7 @@ export default {
       loadHistoryFailed: "加载历史记录失败",
       clearHistoryFailed: "清空历史记录失败",
       historyChainDeleteFailed: "删除历史记录失败",
+      historyRestoreFailed: "历史记录恢复失败：{error}",
       selectTemplateFailed: "选择提示词失败：{error}",
       noOptimizeTemplate: "请先选择优化提示词",
       noOptimizeModel: "请先选择优化模型",

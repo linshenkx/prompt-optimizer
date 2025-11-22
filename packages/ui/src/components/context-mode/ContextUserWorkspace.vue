@@ -98,6 +98,7 @@
                     @iterate="handleIterate"
                     @openTemplateManager="emit('open-template-manager', $event)"
                     @switchVersion="handleSwitchVersion"
+                    @switchToV0="handleSwitchToV0"
                     @save-favorite="emit('save-favorite', $event)"
                     @open-preview="emit('open-prompt-preview')"
                 />
@@ -131,18 +132,6 @@
                             }}</span>
                         </NButton>
 
-                        <!-- 工具管理 (仅用户模式显示) -->
-                        <NButton
-                            size="small"
-                            quaternary
-                            @click="emit('open-tool-manager')"
-                            :title="$t('contextMode.actions.toolManager')"
-                        >
-                            <template #icon><span>🔧</span></template>
-                            <span v-if="!isMobile">{{
-                                $t("contextMode.actions.toolManager")
-                            }}</span>
-                        </NButton>
                     </NFlex>
                 </NFlex>
             </NCard>
@@ -270,6 +259,7 @@ import OutputDisplay from "../OutputDisplay.vue";
 import type { OptimizationMode } from "../../types";
 import type {
     PromptRecord,
+    PromptRecordChain,
     Template,
 } from "@prompt-optimizer/core";
 import type { TestAreaPanelInstance } from "../types/test-area";
@@ -334,6 +324,12 @@ interface Props {
     resultVerticalLayout?: boolean;
 }
 
+interface ContextUserHistoryPayload {
+    record: PromptRecord;
+    chain: PromptRecordChain;
+    rootPrompt: string;
+}
+
 const props = withDefaults(defineProps<Props>(), {
     isTestRunning: false,
     inputMode: "normal",
@@ -361,8 +357,6 @@ const emit = defineEmits<{
     // --- 打开面板/管理器 ---
     /** 打开全局变量管理器 */
     "open-global-variables": [];
-    /** 打开工具管理器 */
-    "open-tool-manager": [];
     /** 打开变量管理器 */
     "open-variable-manager": [];
     /** 打开模板管理器 */
@@ -577,6 +571,17 @@ const handleSwitchVersion = (version: PromptRecord) => {
 };
 
 /**
+ * 🆕 处理 V0 切换事件
+ */
+const handleSwitchToV0 = (version: PromptRecord) => {
+    contextUserOptimization.switchToV0(version);
+};
+
+const restoreFromHistory = (payload: ContextUserHistoryPayload) => {
+    contextUserOptimization.loadFromHistory(payload);
+};
+
+/**
  * 🆕 处理测试事件（使用内部测试器）
  *
  * 工作流程:
@@ -634,6 +639,7 @@ const handleTestWithVariables = async () => {
 
 // 暴露 TestAreaPanel 引用给父组件（用于工具调用等高级功能）
 defineExpose({
-    testAreaPanelRef
+    testAreaPanelRef,
+    restoreFromHistory
 });
 </script>

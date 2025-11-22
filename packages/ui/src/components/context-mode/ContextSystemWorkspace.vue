@@ -169,7 +169,7 @@
                 <ConversationTestPanel
                     ref="testAreaPanelRef"
                     :optimization-mode="optimizationMode"
-                    :is-test-running="isTestRunning"
+                    :is-test-running="conversationTester.testResults.isTestingOriginal || conversationTester.testResults.isTestingOptimized"
                     :is-compare-mode="isCompareMode"
                     :enable-compare-mode="true"
                     @update:isCompareMode="emit('update:isCompareMode', $event)"
@@ -250,6 +250,7 @@ import { usePromptDisplayAdapter } from '../../composables/prompt/usePromptDispl
 import type { OptimizationMode, ConversationMessage } from "../../types";
 import type {
     PromptRecord,
+    PromptRecordChain,
     Template,
     ToolDefinition,
 } from "@prompt-optimizer/core";
@@ -274,7 +275,6 @@ interface Props {
     // 优化状态
     isOptimizing: boolean;
     isIterating: boolean;
-    isTestRunning?: boolean;
 
     // 外部状态注入（用于初始化本地 hook）
     selectedOptimizeModel: string;
@@ -312,9 +312,20 @@ interface Props {
     selectedTestModel?: string;
 }
 
+interface ConversationSnapshotEntry extends ConversationMessage {
+    chainId?: string;
+    appliedVersion?: number;
+}
+
+interface ContextSystemHistoryPayload {
+    chain: PromptRecordChain;
+    record: PromptRecord;
+    conversationSnapshot?: ConversationSnapshotEntry[];
+    message?: ConversationMessage;
+}
+
 const props = withDefaults(defineProps<Props>(), {
     optimizedReasoning: "",
-    isTestRunning: false,
     inputMode: "normal",
     controlBarLayout: "default",
     buttonSize: "medium",
@@ -335,6 +346,7 @@ const emit = defineEmits<{
     "switch-version": [version: PromptRecord];
     "switch-to-v0": [version: PromptRecord];
     "save-favorite": [data: SaveFavoritePayload];
+    "message-change": [index: number, message: ConversationMessage, action: "add" | "update" | "delete"];
 
     // 打开面板/管理器
     "open-global-variables": [];
@@ -417,6 +429,48 @@ const handleOptimizeClick = () => {
 // 🆕 ConversationTestPanel 引用
 const testAreaPanelRef = ref<TestAreaPanelInstance | null>(null);
 
+const restoreFromHistory = async ({
+    chain,
+    record,
+    conversationSnapshot,
+    message,
+}: ContextSystemHistoryPayload) => {
+    try {
+        if (conversationSnapshot?.length) {
+            let mappingCount = 0;
+            conversationSnapshot.forEach((snapshotMsg) => {
+                if (snapshotMsg.id && snapshotMsg.chainId) {
+                    const mapKey = `${props.optimizationMode}:${snapshotMsg.id}`;
+                    conversationOptimization.messageChainMap.value.set(
+                        mapKey,
+                        snapshotMsg.chainId,
+                    );
+                    mappingCount += 1;
+                }
+            });
+            if (mappingCount > 0) {
+                console.log(
+                    `[ContextSystemWorkspace] 已重建 ${mappingCount} 个消息的优化链映射关系`,
+                );
+            }
+        }
+
+        if (!message) {
+            return;
+        }
+
+        await conversationOptimization.selectMessage(message);
+        conversationOptimization.currentChainId.value = chain.chainId;
+        conversationOptimization.currentVersions.value = chain.versions;
+        conversationOptimization.currentRecordId.value = record.id;
+        conversationOptimization.optimizedPrompt.value = record.optimizedPrompt;
+    } catch (error) {
+        console.error('[ContextSystemWorkspace] 历史记录恢复失败:', error);
+        // 错误会向上传播到 App.vue 的 handleHistoryReuse 中统一处理
+        throw error;
+    }
+};
+
 // 🆕 处理版本切换
 const handleSwitchVersion = (version: PromptRecord) => {
     if (displayAdapter.isInMessageOptimizationMode.value) {
@@ -452,6 +506,7 @@ const handleTestWithVariables = async () => {
 
 // 暴露引用
 defineExpose({
-    testAreaPanelRef
+    testAreaPanelRef,
+    restoreFromHistory
 });
 </script>
