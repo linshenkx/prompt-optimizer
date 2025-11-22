@@ -210,11 +210,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onUnmounted } from 'vue'
+import { computed, ref, onUnmounted, toRef } from 'vue'
 
 import { useI18n } from "vue-i18n";
 import {
-    useMessage,
     NFlex,
     NCard,
     NButton,
@@ -228,12 +227,12 @@ import {
 import { useResponsive } from '../../composables/ui/useResponsive';
 import { usePerformanceMonitor } from "../../composables/performance/usePerformanceMonitor";
 import { useDebounceThrottle } from "../../composables/performance/useDebounceThrottle";
+import { useTestVariableManager } from "../../composables/variable/useTestVariableManager";
 import TestInputSection from "../TestInputSection.vue";
 import TestControlBar from "../TestControlBar.vue";
 import TestResultSection from "../TestResultSection.vue";
 
 const { t } = useI18n();
-const message = useMessage();
 
 // 性能监控
 const { recordUpdate, getPerformanceReport } = usePerformanceMonitor("ContextUserTestPanel");
@@ -368,222 +367,49 @@ const handleTest = throttle(
 
 // ========== 变量管理 ==========
 
-// 添加变量对话框状态
-const showAddVariableDialog = ref(false);
-const newVariableName = ref("");
-const newVariableValue = ref("");
-const newVariableNameError = ref("");
-
-// 测试区临时变量
-interface TestVariable {
-    value: string;
-    timestamp: number;
-}
-
-const testVariables = ref<Record<string, TestVariable>>({});
-
-// 监听 props.temporaryVariables 变化
-watch(
-    () => props.temporaryVariables,
-    (newVars) => {
-        const newVarNames = new Set(Object.keys(newVars));
-        for (const name of Object.keys(testVariables.value)) {
-            if (!newVarNames.has(name)) {
-                delete testVariables.value[name];
-            }
-        }
-
-        for (const [name, value] of Object.entries(newVars)) {
-            if (!testVariables.value[name]) {
-                testVariables.value[name] = {
-                    value,
-                    timestamp: Date.now(),
-                };
-            } else {
-                testVariables.value[name].value = value;
-            }
-        }
+const variableManager = useTestVariableManager({
+    globalVariables: toRef(props, 'globalVariables'),
+    predefinedVariables: toRef(props, 'predefinedVariables'),
+    temporaryVariables: toRef(props, 'temporaryVariables'),
+    onVariableChange: (name, value) => {
+        emit('variable-change', name, value);
+        recordUpdate();
     },
-    { deep: true, immediate: true }
-);
-
-// 三层变量合并（优先级：全局 < 临时 < 预定义）
-const mergedVariables = computed(() => {
-    const testVarsFlat: Record<string, string> = {};
-    for (const [name, data] of Object.entries(testVariables.value)) {
-        testVarsFlat[name] = data.value;
-    }
-
-    return {
-        ...props.globalVariables,
-        ...testVarsFlat,
-        ...props.predefinedVariables,
-    };
+    onSaveToGlobal: (name, value) => {
+        emit('save-to-global', name, value);
+        recordUpdate();
+    },
+    onVariableRemove: (name) => {
+        emit('temporary-variable-remove', name);
+        recordUpdate();
+    },
+    onVariablesClear: () => {
+        emit('temporary-variables-clear');
+        recordUpdate();
+    },
 });
 
-// 按时间排序的临时变量列表
-const sortedTestVariables = computed(() => {
-    const entries = Object.entries(testVariables.value);
-    return entries
-        .sort((a, b) => b[1].timestamp - a[1].timestamp)
-        .map(([name]) => name);
-});
+const {
+    showAddVariableDialog,
+    newVariableName,
+    newVariableValue,
+    newVariableNameError,
+    sortedVariables: displayVariables,
+    getVariableSource,
+    getVariableDisplayValue,
+    getVariablePlaceholder,
+    validateNewVariableName,
+    handleVariableValueChange,
+    handleAddVariable,
+    handleDeleteVariable,
+    handleClearAllVariables,
+    handleSaveToGlobal,
+    getVariableValues,
+    setVariableValues,
+} = variableManager;
 
-// 实际显示的变量列表
-const displayVariables = computed(() => {
-    return sortedTestVariables.value;
-});
-
-// 是否显示变量表单（固定行为，无模式判断）
-const showVariableForm = computed(() => {
-    // ✅ 始终显示，避免测试期间闪烁（已修复的bug）
-    return true;
-});
-
-// 获取变量的显示值
-const getVariableDisplayValue = (varName: string): string => {
-    return mergedVariables.value[varName] || "";
-};
-
-// 获取变量的占位符提示
-const getVariablePlaceholder = (varName: string): string => {
-    if (props.predefinedVariables?.[varName]) {
-        return (
-            t("test.variables.inputPlaceholder") +
-            ` (${t("variables.source.predefined")})`
-        );
-    }
-    if (props.globalVariables?.[varName]) {
-        return (
-            t("test.variables.inputPlaceholder") +
-            ` (${t("variables.source.global")})`
-        );
-    }
-    return t("test.variables.inputPlaceholder");
-};
-
-// 事件处理函数
-const handleVariableValueChange = (varName: string, value: string) => {
-    if (testVariables.value[varName]) {
-        testVariables.value[varName].value = value;
-    } else {
-        testVariables.value[varName] = {
-            value,
-            timestamp: Date.now(),
-        };
-    }
-    emit("variable-change", varName, value);
-    recordUpdate();
-};
-
-const handleClearAllVariables = () => {
-    testVariables.value = {};
-    emit("temporary-variables-clear");
-    message.success(t("test.variables.clearSuccess"));
-    recordUpdate();
-};
-
-// 保存测试变量到全局
-const handleSaveToGlobal = (varName: string) => {
-    const varData = testVariables.value[varName];
-    if (!varData || !varData.value.trim()) {
-        message.warning(t("test.variables.emptyValueWarning"));
-        return;
-    }
-
-    emit("save-to-global", varName, varData.value);
-    message.success(t("test.variables.savedToGlobal"));
-    recordUpdate();
-};
-
-// 验证新变量名
-const validateNewVariableName = () => {
-    const name = newVariableName.value.trim();
-
-    if (!name) {
-        newVariableNameError.value = "";
-        return false;
-    }
-
-    if (/^\d/.test(name)) {
-        newVariableNameError.value = t(
-            "variableExtraction.validation.noNumberStart"
-        );
-        return false;
-    }
-
-    if (!/^[\u4e00-\u9fa5a-zA-Z_][\u4e00-\u9fa5a-zA-Z0-9_]*$/.test(name)) {
-        newVariableNameError.value = t(
-            "variableExtraction.validation.invalidCharacters"
-        );
-        return false;
-    }
-
-    if (testVariables.value[name]) {
-        newVariableNameError.value = t(
-            "variableExtraction.validation.duplicateVariable"
-        );
-        return false;
-    }
-
-    newVariableNameError.value = "";
-    return true;
-};
-
-// 添加新变量
-const handleAddVariable = () => {
-    if (!validateNewVariableName()) {
-        if (!newVariableName.value.trim()) {
-            message.warning(t("test.variables.nameRequired"));
-        }
-        return false;
-    }
-
-    const name = newVariableName.value.trim();
-    handleVariableValueChange(name, newVariableValue.value);
-    if (testVariables.value[name]) {
-        testVariables.value[name].timestamp = Date.now();
-    }
-    message.success(t("test.variables.addSuccess"));
-
-    newVariableName.value = "";
-    newVariableValue.value = "";
-    newVariableNameError.value = "";
-    showAddVariableDialog.value = false;
-
-    return true;
-};
-
-// 删除变量
-const handleDeleteVariable = (varName: string) => {
-    delete testVariables.value[varName];
-    emit("temporary-variable-remove", varName);
-    emit("variable-change", varName, "");
-    message.success(
-        t("test.variables.deleteSuccess", { name: varName })
-    );
-    recordUpdate();
-};
-
-// 暴露变量值供外部访问
-const getVariableValues = () => {
-    return { ...mergedVariables.value };
-};
-
-// 设置变量值
-const setVariableValues = (values: Record<string, string>) => {
-    for (const [name, value] of Object.entries(values)) {
-        emit("variable-change", name, value);
-    }
-};
-
-// 获取变量来源
-const getVariableSource = (varName: string): "predefined" | "test" | "global" | "empty" => {
-    if (props.predefinedVariables?.[varName]) return "predefined";
-    if (testVariables.value[varName]) return "test";
-    if (props.globalVariables?.[varName]) return "global";
-    return "empty";
-};
+// 是否显示变量表单
+const showVariableForm = computed(() => true);
 
 // 开发环境下的性能调试
 if (import.meta.env.DEV) {
