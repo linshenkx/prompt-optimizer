@@ -584,6 +584,14 @@ jobs:
             - **Intel 芯片**: 下载 \`darwin-x64\` 版本
             - **安装程序**: 下载 \`.dmg\` 文件，双击挂载后拖拽到应用程序文件夹
             - **便携版**: 下载 \`.zip\` 文件，解压后运行 \`PromptOptimizer.app\`
+            - ⚠️ **安全提示**: 如果打开应用时提示「已损坏」或「无法验证开发者」，请在终端执行以下命令后重试：
+              \`\`\`bash
+              xattr -rd com.apple.quarantine /Applications/PromptOptimizer.app
+              \`\`\`
+              或者对于 .dmg 文件：
+              \`\`\`bash
+              xattr -rd com.apple.quarantine ~/Downloads/PromptOptimizer-*.dmg
+              \`\`\`
           - **Linux**:
             - **AppImage**: 下载 \`.AppImage\` 文件，添加执行权限后直接运行
             - **便携版**: 下载 \`.zip\` 文件，解压后运行 \`PromptOptimizer\`
