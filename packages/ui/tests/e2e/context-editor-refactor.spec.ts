@@ -5,6 +5,7 @@ import { nextTick } from 'vue'
 // 组件导入
 import ConversationManager from '../../src/components/context-mode/ConversationManager.vue'
 import ContextEditor from '../../src/components/context-mode/ContextEditor.vue'
+import ImportExportDialog from '../../src/components/context-mode/ImportExportDialog.vue'
 import VariableManagerModal from '../../src/components/variable/VariableManagerModal.vue'
 
 // Mock Naive UI 组件 - 简化版本用于E2E测试
@@ -214,7 +215,18 @@ vi.mock('../../src/composables/useAccessibility', () => ({
   })
 }))
 
-vi.mock('../../src/composables/useContextEditor', () => ({
+const mockConverter = {
+  toOpenAI: vi.fn().mockImplementation((data) => ({
+    success: true,
+    data: {
+      model: data.model || 'gpt-test',
+      messages: data.messages,
+      tools: data.tools
+    }
+  }))
+}
+
+vi.mock('../../src/composables/context/useContextEditor', () => ({
   useContextEditor: () => ({
     currentData: { value: null },
     isLoading: { value: false },
@@ -222,9 +234,12 @@ vi.mock('../../src/composables/useContextEditor', () => ({
     convertFromOpenAI: vi.fn(),
     convertFromLangFuse: vi.fn(),
     importFromFile: vi.fn(),
-    exportToFile: vi.fn().mockResolvedValue(true),
+    exportToFile: vi.fn().mockReturnValue(true),
     exportToClipboard: vi.fn().mockResolvedValue(true),
-    setData: vi.fn()
+    setData: vi.fn(),
+    services: {
+      converter: mockConverter
+    }
   })
 }))
 
@@ -509,21 +524,12 @@ describe('完整用户流程E2E测试', () => {
 
   describe('3. 导入导出和格式转换功能', () => {
     it('应该支持多种格式的导入功能', async () => {
-      contextEditorWrapper = mount(ContextEditor, {
+      const dialogWrapper = mount(ImportExportDialog, {
         props: {
           visible: true,
-          state: {
-            messages: [],
-            variables: {},
-            tools: [],
-            showVariablePreview: true,
-            showToolManager: false,
-            mode: 'edit'
-          },
-          scanVariables,
-          replaceVariables,
-          isPredefinedVariable: () => false,
-          variableManager: createMockVariableManager()
+          mode: 'import',
+          messages: [],
+          tools: []
         },
         global: {
           stubs: {},
@@ -535,40 +541,48 @@ describe('完整用户流程E2E测试', () => {
 
       await nextTick()
 
-      // 验证导入功能存在
-      expect(contextEditorWrapper.vm.handleImport).toBeDefined()
-      expect(contextEditorWrapper.vm.handleImportSubmit).toBeDefined()
-      
-      // 验证支持的导入格式
-      const importFormats = contextEditorWrapper.vm.importFormats
-      expect(importFormats).toEqual([
-        { id: 'smart', name: '智能识别', description: '自动检测格式并转换' },
-        { id: 'conversation', name: '会话格式', description: '标准的会话消息格式' },
-        { id: 'openai', name: 'OpenAI', description: 'OpenAI API 请求格式' },
-        { id: 'langfuse', name: 'LangFuse', description: 'LangFuse 追踪数据格式' }
-      ])
+      const formats = dialogWrapper.vm.importFormats
+      expect(formats.map(f => f.id)).toEqual(['smart', 'openai', 'langfuse', 'conversation'])
 
-      // 测试对话格式导入
-      const conversationData = {
+      dialogWrapper.vm.importData = JSON.stringify({
         messages: [
-          { role: 'system', content: '测试系统消息' },
-          { role: 'user', content: '测试用户消息' }
+          { role: 'system', content: '系统消息' },
+          { role: 'user', content: '用户消息' }
         ],
-        variables: { testVar: 'testValue' }
-      }
+        tools: []
+      })
+      dialogWrapper.vm.selectedImportFormat = 'conversation'
 
-      // 设置导入数据
-      contextEditorWrapper.vm.importData = JSON.stringify(conversationData)
-      contextEditorWrapper.vm.selectedImportFormat = 'conversation'
-      
-      // 执行导入
-      await contextEditorWrapper.vm.handleImportSubmit()
-      await nextTick()
+      await dialogWrapper.vm.handleImportSubmit()
 
-      // 验证导入结果
-      expect(contextEditorWrapper.emitted('update:state')).toBeTruthy()
+      expect(dialogWrapper.emitted('import-success')).toBeTruthy()
     })
 
+    it('应该支持多种格式的导出功能', async () => {
+      const dialogWrapper = mount(ImportExportDialog, {
+        props: {
+          visible: true,
+          mode: 'export',
+          messages: [{ role: 'user', content: '测试消息' }],
+          tools: []
+        },
+        global: {
+          stubs: {},
+          mocks: {
+            announcements: []
+          }
+        }
+      })
+
+      await nextTick()
+
+      const formats = dialogWrapper.vm.exportFormats
+      expect(formats.map(f => f.id)).toEqual(['standard', 'openai'])
+
+      await dialogWrapper.vm.handleExportToFile()
+
+      expect(dialogWrapper.emitted('export-success')).toBeTruthy()
+    })
   })
 
   describe('4. 变量管理的跨组件协作', () => {
@@ -887,10 +901,11 @@ describe('完整用户流程E2E测试', () => {
       // 验证最终状态（简化验证）
       expect(contextEditorWrapper.exists()).toBe(true)
       expect(contextEditorWrapper.vm).toBeTruthy()
-      
-      // 验证导出功能可用
-      expect(contextEditorWrapper.vm.handleExportToClipboard).toBeDefined()
-      expect(contextEditorWrapper.vm.handleExportToFile).toBeDefined()
+
+      // 注意：导出功能已移至 ImportExportDialog 组件
+      // 验证导入导出对话框可以打开
+      expect(contextEditorWrapper.vm.handleImport).toBeDefined()
+      expect(contextEditorWrapper.vm.handleExport).toBeDefined()
     })
 
     it('应该正确处理错误和边界情况', async () => {

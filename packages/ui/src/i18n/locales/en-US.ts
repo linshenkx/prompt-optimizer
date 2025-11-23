@@ -1654,22 +1654,21 @@ export default {
     // Import/Export formats
     importFormats: {
       smart: { name: "Smart Detection", description: "Auto-detect format and convert" },
-      conversation: { name: "Conversation", description: "Standard conversation message format" },
       openai: { name: "OpenAI", description: "OpenAI API request format" },
       langfuse: { name: "LangFuse", description: "LangFuse tracking data format" },
+      conversation: { name: "Internal Format", description: "Prompt Optimizer internal JSON structure" },
     },
     exportFormats: {
-      standard: { name: "Standard", description: "Internal standard data format" },
+      standard: { name: "Internal Format", description: "Prompt Optimizer internal standard format" },
       openai: { name: "OpenAI", description: "OpenAI API compatible format" },
-      template: { name: "Template", description: "Reusable template format" },
     },
 
-    // Import placeholders
+    // Import placeholders (localized text, JSON snippet fixed in component)
     importPlaceholders: {
-      openai: 'OpenAI API request format, e.g.:\n{\n  "messages": [...],\n  "model": "gpt-4"\n}',
-      langfuse: 'LangFuse tracking data, e.g.:\n{\n  "input": {\n    "messages": [...]\n  }\n}',
-      conversation: 'Standard conversation format, e.g.:\n{\n  "messages": [\n    {"role": "system", "content": "..."},\n    {"role": "user", "content": "..."}\n  ]\n}',
-      smart: "Paste any supported JSON format, system will auto-detect",
+      openai: "OpenAI API request format (example below):",
+      langfuse: "LangFuse trace payload (example below):",
+      conversation: "Standard conversation JSON (example below):",
+      smart: "Paste any supported JSON format (OpenAI, LangFuse, or conversation array). The editor will auto-detect the format.",
     },
 
     // Console errors (developer logs)

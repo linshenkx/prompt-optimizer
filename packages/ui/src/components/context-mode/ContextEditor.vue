@@ -1265,239 +1265,23 @@
     </NModal>
 
     <!-- 导入对话框 -->
-    <NModal
-        v-model:show="showImportDialog"
-        preset="dialog"
-        :title="t('contextEditor.importTitle')"
-        :show-icon="false"
-        style="width: 600px"
-        :mask-closable="false"
-    >
-        <template #default>
-            <!-- 格式选择 -->
-            <div class="mb-4">
-                <label class="block text-sm font-medium mb-2">{{
-                    t("contextEditor.importFormat")
-                }}</label>
-                <NSpace size="small" wrap>
-                    <NButton
-                        v-for="format in importFormats"
-                        :key="format.id"
-                        @click="selectedImportFormat = format.id"
-                        :type="
-                            selectedImportFormat === format.id
-                                ? 'primary'
-                                : 'default'
-                        "
-                        :size="buttonSize"
-                    >
-                        {{ format.name }}
-                    </NButton>
-                </NSpace>
-                <p class="text-xs text-gray-500 mt-2">
-                    {{
-                        importFormats.find((f) => f.id === selectedImportFormat)
-                            ?.description
-                    }}
-                </p>
-            </div>
-
-            <!-- 文件上传 -->
-            <div class="mb-4">
-                <NSpace align="center" :size="8" class="mb-2">
-                    <input
-                        type="file"
-                        ref="fileInputRef"
-                        accept=".json,.txt"
-                        @change="handleFileUpload"
-                        class="hidden"
-                    />
-                    <NButton
-                        @click="fileInputRef?.click()"
-                        secondary
-                        :size="buttonSize"
-                    >
-                        <template #icon>
-                            <svg
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                                />
-                            </svg>
-                        </template>
-                        {{ t("contextEditor.selectFile") }}
-                    </NButton>
-                    <NText depth="3" class="text-sm">
-                        {{ t("contextEditor.orPasteText") }}
-                    </NText>
-                </NSpace>
-            </div>
-
-            <!-- 文本输入区域 -->
-            <NInput
-                v-model:value="importData"
-                type="textarea"
-                :placeholder="getImportPlaceholder()"
-                :autosize="{ minRows: 12, maxRows: 16 }"
-                class="font-mono text-sm"
-            />
-
-            <div v-if="importError" class="text-sm text-red-500 mt-2">
-                {{ importError }}
-            </div>
-        </template>
-
-        <template #action>
-            <NSpace justify="end">
-                <NButton @click="showImportDialog = false" :size="buttonSize">
-                    {{ t("common.cancel") }}
-                </NButton>
-                <NButton
-                    @click="handleImportSubmit"
-                    :disabled="!importData.trim()"
-                    type="primary"
-                    :size="buttonSize"
-                    :loading="contextEditor.isLoading.value"
-                >
-                    {{ t("contextEditor.import") }}
-                </NButton>
-            </NSpace>
-        </template>
-    </NModal>
+    <ImportExportDialog
+        v-model:visible="showImportDialog"
+        mode="import"
+        :messages="[]"
+        @import-success="handleImportSuccess"
+        @export-error="handleExportError"
+    />
 
     <!-- 导出对话框 -->
-    <NModal
-        v-model:show="showExportDialog"
-        preset="dialog"
-        :title="t('contextEditor.exportTitle')"
-        :show-icon="false"
-        style="width: 600px"
-        :mask-closable="false"
-    >
-        <template #default>
-            <!-- 格式选择 -->
-            <div class="mb-4">
-                <label class="block text-sm font-medium mb-2">{{
-                    t("contextEditor.exportFormat")
-                }}</label>
-                <NSpace size="small" wrap>
-                    <NButton
-                        v-for="format in exportFormats"
-                        :key="format.id"
-                        @click="selectedExportFormat = format.id"
-                        :type="
-                            selectedExportFormat === format.id
-                                ? 'primary'
-                                : 'default'
-                        "
-                        :size="buttonSize"
-                    >
-                        {{ format.name }}
-                    </NButton>
-                </NSpace>
-                <p class="text-xs text-gray-500 mt-2">
-                    {{
-                        exportFormats.find((f) => f.id === selectedExportFormat)
-                            ?.description
-                    }}
-                </p>
-            </div>
-
-            <!-- 导出预览 -->
-            <div class="mb-4">
-                <label class="block text-sm font-medium mb-2">{{
-                    t("contextEditor.exportPreview")
-                }}</label>
-                <NInput
-                    :value="
-                        JSON.stringify(
-                            {
-                                messages: localState.messages,
-                                metadata: {
-                                    variables: localState.variables,
-                                    tools: localState.tools,
-                                    exportTime: new Date().toISOString(),
-                                },
-                            },
-                            null,
-                            2,
-                        )
-                    "
-                    readonly
-                    type="textarea"
-                    :autosize="{ minRows: 8, maxRows: 12 }"
-                    class="font-mono text-sm"
-                />
-            </div>
-        </template>
-
-        <template #action>
-            <NSpace justify="space-between">
-                <NButton @click="showExportDialog = false" :size="buttonSize">
-                    {{ t("common.cancel") }}
-                </NButton>
-
-                <NSpace>
-                    <NButton
-                        @click="handleExportToClipboard"
-                        secondary
-                        :size="buttonSize"
-                        :loading="contextEditor.isLoading.value"
-                    >
-                        <template #icon>
-                            <svg
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                />
-                            </svg>
-                        </template>
-                        {{ t("contextEditor.copyToClipboard") }}
-                    </NButton>
-                    <NButton
-                        @click="handleExportToFile"
-                        type="primary"
-                        :size="buttonSize"
-                        :loading="contextEditor.isLoading.value"
-                    >
-                        <template #icon>
-                            <svg
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
-                                />
-                            </svg>
-                        </template>
-                        {{ t("contextEditor.saveToFile") }}
-                    </NButton>
-                </NSpace>
-            </NSpace>
-        </template>
-    </NModal>
+    <ImportExportDialog
+        v-model:visible="showExportDialog"
+        mode="export"
+        :messages="localState.messages"
+        :tools="localState.tools"
+        @export-success="handleExportSuccess"
+        @export-error="handleExportError"
+    />
 
     <!-- 变量编辑对话框 -->
     <NModal
@@ -1656,8 +1440,8 @@ import { useResponsive } from "../../composables/ui/useResponsive";
 import { usePerformanceMonitor } from "../../composables/performance/usePerformanceMonitor";
 import { useDebounceThrottle } from '../../composables/performance/useDebounceThrottle';
 import { useAccessibility } from "../../composables/accessibility/useAccessibility";
-import { useContextEditor } from '../../composables/context/useContextEditor';
 import { useTemporaryVariables } from '../../composables/variable/useTemporaryVariables';
+import ImportExportDialog from './ImportExportDialog.vue';
 import { useAggregatedVariables } from '../../composables/variable/useAggregatedVariables';
 import {
     quickTemplateManager,
@@ -1672,7 +1456,6 @@ import type {
     ConversationMessage,
     ToolDefinition,
 } from "@prompt-optimizer/core";
-import type { StandardPromptData } from "../../types";
 import {
     PREDEFINED_VARIABLES,
     type PredefinedVariable,
@@ -1716,9 +1499,6 @@ const props = withDefaults(
 
 const emit = defineEmits<ContextEditorEvents>();
 
-// 导入导出功能
-const contextEditor = useContextEditor();
-
 // 临时变量管理
 const tempVars = useTemporaryVariables();
 
@@ -1746,14 +1526,10 @@ const loading = ref(false);
 const activeTab = ref("messages");
 const localVisible = ref(props.visible);
 
-// 导入导出状态
+// 导入导出对话框状态
 const showImportDialog = ref(false);
 const showExportDialog = ref(false);
-const importData = ref("");
-const importError = ref("");
-const selectedImportFormat = ref("smart");
-const selectedExportFormat = ref("standard");
-const fileInputRef = ref<HTMLInputElement | null>(null);
+
 // 变量值输入框引用（用于自动聚焦）
 const variableValueInputRef = ref(null);
 
@@ -1905,41 +1681,6 @@ const quickTemplates = computed(() => {
         currentLanguage,
     );
 });
-
-const normalizeMessage = (
-    msg: Partial<ConversationMessage>,
-): ConversationMessage => {
-    const normalizedRole = (msg.role ?? "user") as ConversationMessage["role"];
-
-    let content = "";
-    if (typeof msg.content === "string") {
-        content = msg.content;
-    } else if (msg.content != null) {
-        try {
-            content =
-                typeof msg.content === "object"
-                    ? JSON.stringify(msg.content)
-                    : String(msg.content);
-        } catch {
-            content = String(msg.content);
-        }
-    }
-
-    const normalized: ConversationMessage = {
-        role: normalizedRole,
-        content,
-    };
-
-    if (typeof msg.name === "string") normalized.name = msg.name;
-    if (Array.isArray(msg.tool_calls)) {
-        normalized.tool_calls =
-            msg.tool_calls as ConversationMessage["tool_calls"];
-    }
-    if (typeof msg.tool_call_id === "string")
-        normalized.tool_call_id = msg.tool_call_id;
-
-    return normalized;
-};
 
 // 工具函数（统一使用注入函数）
 const getMessageVariables = (content: string) => {
@@ -2527,266 +2268,32 @@ watch(
     },
 );
 
-// 导入导出方法
-const importFormats = computed(() => [
-    { id: "smart", name: t("contextEditor.importFormats.smart.name"), description: t("contextEditor.importFormats.smart.description") },
-    { id: "conversation", name: t("contextEditor.importFormats.conversation.name"), description: t("contextEditor.importFormats.conversation.description") },
-    { id: "openai", name: t("contextEditor.importFormats.openai.name"), description: t("contextEditor.importFormats.openai.description") },
-    { id: "langfuse", name: t("contextEditor.importFormats.langfuse.name"), description: t("contextEditor.importFormats.langfuse.description") },
-]);
+// 导入导出事件处理
+interface ImportSuccessData {
+    messages: ConversationMessage[];
+    tools?: ToolDefinition[];
+}
 
-type ExportFormat = "standard" | "openai" | "template";
+const handleImportSuccess = (data: ImportSuccessData) => {
+    // 将导入的数据同步到本地状态
+    localState.value.messages = data.messages;
+    localState.value.tools = data.tools || [];
 
-const exportFormats = computed(() => [
-    {
-        id: "standard" as ExportFormat,
-        name: t("contextEditor.exportFormats.standard.name"),
-        description: t("contextEditor.exportFormats.standard.description"),
-    },
-    {
-        id: "openai" as ExportFormat,
-        name: t("contextEditor.exportFormats.openai.name"),
-        description: t("contextEditor.exportFormats.openai.description"),
-    },
-    {
-        id: "template" as ExportFormat,
-        name: t("contextEditor.exportFormats.template.name"),
-        description: t("contextEditor.exportFormats.template.description"),
-    },
-]);
+    handleStateChange();
 
-const handleFileUpload = async (event: Event) => {
-    const file = (event.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-
-    try {
-        loading.value = true;
-        importError.value = "";
-
-        const success = await contextEditor.importFromFile(file);
-
-        if (success && contextEditor.currentData.value) {
-            // 将导入的数据同步到本地状态
-            const data = contextEditor.currentData.value;
-            localState.value.messages = (data.messages || []).map((msg) =>
-                normalizeMessage(msg),
-            );
-            // 不导入 variables，临时变量不持久化
-            localState.value.tools = data.tools || [];
-
-            handleStateChange();
-            showImportDialog.value = false;
-            importData.value = "";
-            importError.value = "";
-
-            // 切换到消息编辑标签页
-            activeTab.value = "messages";
-            announce(t("contextEditor.importSuccess"), "polite");
-        } else {
-            importError.value = t("contextEditor.importFailed");
-        }
-    } catch (err) {
-        console.error("File upload error:", err);
-        const errorMsg = err instanceof Error ? err.message : t("contextEditor.importFailed");
-        importError.value = errorMsg;
-    } finally {
-        loading.value = false;
-    }
+    // 切换到消息编辑标签页
+    activeTab.value = "messages";
+    announce(t("contextEditor.importSuccess"), "polite");
 };
 
-const handleImportSubmit = async () => {
-    if (!importData.value.trim()) {
-        importError.value = t("contextEditor.importDataRequired");
-        return;
-    }
-
-    try {
-        loading.value = true;
-        importError.value = "";
-        const jsonData = JSON.parse(importData.value);
-        let result;
-
-        switch (selectedImportFormat.value) {
-            case "smart":
-                result = contextEditor.smartImport(jsonData);
-                break;
-            case "openai":
-                result = contextEditor.convertFromOpenAI(jsonData);
-                break;
-            case "langfuse":
-                result = contextEditor.convertFromLangFuse(jsonData);
-                break;
-            case "conversation":
-                // 直接设置为对话格式
-                if (Array.isArray(jsonData)) {
-                    localState.value.messages = jsonData.map(
-                        (msg: Partial<ConversationMessage>) =>
-                            normalizeMessage(msg),
-                    );
-                } else if (
-                    jsonData.messages &&
-                    Array.isArray(jsonData.messages)
-                ) {
-                    localState.value.messages = jsonData.messages.map(
-                        (msg: Partial<ConversationMessage>) =>
-                            normalizeMessage(msg),
-                    );
-                    // 不导入 variables，临时变量不持久化
-                    localState.value.tools = jsonData.tools || [];
-                } else {
-                    importError.value = t("contextEditor.invalidConversationFormat");
-                    return;
-                }
-                handleStateChange();
-                showImportDialog.value = false;
-                importData.value = "";
-                importError.value = "";
-                activeTab.value = "messages";
-                announce(t("contextEditor.importSuccess"), "polite");
-                return;
-            default:
-                importError.value = t("contextEditor.unsupportedImportFormat");
-                return;
-        }
-
-        // 处理转换结果
-        if (result && result.success && contextEditor.currentData.value) {
-            // 将导入的数据同步到本地状态
-            const data = contextEditor.currentData.value;
-            localState.value.messages = (data.messages || []).map((msg) =>
-                normalizeMessage(msg),
-            );
-            // 不导入 variables，临时变量不持久化
-            localState.value.tools = data.tools || [];
-
-            handleStateChange();
-            showImportDialog.value = false;
-            importData.value = "";
-            importError.value = "";
-            activeTab.value = "messages";
-            announce(t("contextEditor.importSuccess"), "polite");
-        } else {
-            importError.value = result?.error || t("contextEditor.importFailed");
-        }
-    } catch (err) {
-        console.error("Import error:", err);
-        const errorMsg =
-            err instanceof Error ? err.message : t("contextEditor.invalidJsonFormat");
-        importError.value = errorMsg;
-    } finally {
-        loading.value = false;
-    }
+const handleExportSuccess = () => {
+    announce(t("contextEditor.exportSuccess"), "polite");
 };
 
-const handleExportToFile = () => {
-    try {
-        loading.value = true;
-
-        // 准备导出数据 - 转换为 StandardPromptData 格式
-        const exportData: StandardPromptData = {
-            messages: localState.value.messages.map((msg) => ({
-                role: msg.role,
-                content: msg.content,
-                // 保留其他可能的属性
-                ...(msg.name && { name: msg.name }),
-                ...(msg.tool_calls && { tool_calls: msg.tool_calls }),
-                ...(msg.tool_call_id && { tool_call_id: msg.tool_call_id }),
-            })),
-            tools: localState.value.tools,
-            metadata: {
-                // 不导出临时变量（会话级别，不持久化）
-                exportTime: new Date().toISOString(),
-                version: "1.0",
-                source: "manual",
-                origin: "context_editor",
-            },
-        };
-
-        // 设置导出数据到contextEditor
-        contextEditor.setData(exportData);
-
-        // 执行导出
-        const success = contextEditor.exportToFile(
-            selectedExportFormat.value as ExportFormat,
-            `context-export-${Date.now()}`,
-        );
-
-        if (success) {
-            showExportDialog.value = false;
-            announce(t("contextEditor.exportSuccess"), "polite");
-        } else {
-            throw new Error(t("contextEditor.exportFailed"));
-        }
-    } catch (err) {
-        console.error("Export to file error:", err);
-        const errorMsg = err instanceof Error ? err.message : t("contextEditor.exportFailed");
-        // TODO: 显示错误提示给用户
-        announce(`${t("contextEditor.exportFailed")}: ${errorMsg}`, "assertive");
-    } finally {
-        loading.value = false;
-    }
-};
-
-const handleExportToClipboard = async () => {
-    try {
-        loading.value = true;
-
-        // 准备导出数据 - 转换为 StandardPromptData 格式
-        const exportData: StandardPromptData = {
-            messages: localState.value.messages.map((msg) => ({
-                role: msg.role,
-                content: msg.content,
-                // 保留其他可能的属性
-                ...(msg.name && { name: msg.name }),
-                ...(msg.tool_calls && { tool_calls: msg.tool_calls }),
-                ...(msg.tool_call_id && { tool_call_id: msg.tool_call_id }),
-            })),
-            tools: localState.value.tools,
-            metadata: {
-                // 不导出临时变量（会话级别，不持久化）
-                exportTime: new Date().toISOString(),
-                version: "1.0",
-                source: "manual",
-                origin: "context_editor",
-            },
-        };
-
-        // 设置导出数据到contextEditor
-        contextEditor.setData(exportData);
-
-        // 执行导出到剪贴板
-        const success = await contextEditor.exportToClipboard(
-            selectedExportFormat.value as ExportFormat,
-        );
-
-        if (success) {
-            showExportDialog.value = false;
-            announce(t("contextEditor.copySuccess"), "polite");
-        } else {
-            throw new Error(t("contextEditor.copyFailed"));
-        }
-    } catch (err) {
-        console.error("Export to clipboard error:", err);
-        const errorMsg = err instanceof Error ? err.message : t("contextEditor.exportFailed");
-        // TODO: 显示错误提示给用户
-        announce(`${t("contextEditor.copyFailed")}: ${errorMsg}`, "assertive");
-    } finally {
-        loading.value = false;
-    }
-};
-
-const getImportPlaceholder = () => {
-    switch (selectedImportFormat.value) {
-        case "openai":
-            return t("contextEditor.importPlaceholders.openai");
-        case "langfuse":
-            return t("contextEditor.importPlaceholders.langfuse");
-        case "conversation":
-            return t("contextEditor.importPlaceholders.conversation");
-        case "smart":
-        default:
-            return t("contextEditor.importPlaceholders.smart");
-    }
+const handleExportError = (message?: string) => {
+    const fallbackMessage = message || t("contextEditor.exportFailed");
+    console.error(fallbackMessage);
+    announce(fallbackMessage, "assertive");
 };
 </script>
 

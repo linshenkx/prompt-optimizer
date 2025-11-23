@@ -1559,22 +1559,21 @@ export default {
     // Import/Export formats
     importFormats: {
       smart: { name: "智慧識別", description: "自動偵測格式並轉換" },
-      conversation: { name: "會話格式", description: "標準的會話訊息格式" },
       openai: { name: "OpenAI", description: "OpenAI API 請求格式" },
       langfuse: { name: "LangFuse", description: "LangFuse 追蹤資料格式" },
+      conversation: { name: "內部格式", description: "Prompt Optimizer 內部標準 JSON 結構" },
     },
     exportFormats: {
-      standard: { name: "標準格式", description: "內部標準資料格式" },
+      standard: { name: "內部格式", description: "Prompt Optimizer 內部標準資料格式" },
       openai: { name: "OpenAI", description: "OpenAI API 相容格式" },
-      template: { name: "範本格式", description: "可複用的範本格式" },
     },
 
-    // Import placeholders
+    // Import placeholders (文字本地化，JSON 範例固定英文)
     importPlaceholders: {
-      openai: 'OpenAI API 請求格式，例如：\n{\n  "messages": [...],\n  "model": "gpt-4"\n}',
-      langfuse: 'LangFuse 追蹤資料，例如：\n{\n  "input": {\n    "messages": [...]\n  }\n}',
-      conversation: '標準會話格式，例如：\n{\n  "messages": [\n    {"role": "system", "content": "..."},\n    {"role": "user", "content": "..."}\n  ]\n}',
-      smart: "貼上任意支援格式的 JSON 資料，系統將自動識別",
+      openai: "OpenAI API 請求格式（下方示例）：",
+      langfuse: "LangFuse 追蹤資料格式（下方示例）：",
+      conversation: "標準會話 JSON 格式（下方示例）：",
+      smart: "貼上任意支援的 JSON（OpenAI、LangFuse 或會話陣列），系統會自動辨識格式。",
     },
 
     // Console errors (開發者日誌)

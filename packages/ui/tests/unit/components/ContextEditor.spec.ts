@@ -145,9 +145,9 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     t: (key: string, params?: any) => {
       const translations = {
-        'contextEditor.importPlaceholders.openai': 'OpenAI API 请求格式，例如：\n{\n  "messages": [...],\n  "model": "gpt-4"\n}',
-        'contextEditor.importPlaceholders.langfuse': 'LangFuse 追踪数据，例如：\n{\n  "input": {\n    "messages": [...]\n  }\n}',
-        'contextEditor.importPlaceholders.conversation': '标准会话格式，例如：\n{\n  "messages": [\n    {"role": "system", "content": "..."},\n    {"role": "user", "content": "..."}\n  ]\n}',
+        'contextEditor.importPlaceholders.openai': 'OpenAI API 请求格式（示例如下）：',
+        'contextEditor.importPlaceholders.langfuse': 'LangFuse 追踪数据格式（示例如下）：',
+        'contextEditor.importPlaceholders.conversation': '标准会话 JSON 格式（示例如下）：',
         'contextEditor.importPlaceholders.smart': "粘贴任意支持格式的 JSON 数据，系统将自动识别"
       }
 
@@ -455,7 +455,7 @@ describe('ContextEditor 综合测试', () => {
 
     it('点击导入按钮应该打开导入对话框', async () => {
       wrapper = await createWrapper()
-      
+
       await wrapper.vm.handleImport()
       expect(wrapper.vm.showImportDialog).toBe(true)
     })
@@ -467,89 +467,12 @@ describe('ContextEditor 综合测试', () => {
           messages: [{ role: 'user', content: 'test' }]
         }
       })
-      
+
       await wrapper.vm.handleExport()
       expect(wrapper.vm.showExportDialog).toBe(true)
     })
 
-
-    it('导入对话框应该显示正确的格式选项', async () => {
-      wrapper = await createWrapper()
-      wrapper.vm.showImportDialog = true
-      await nextTick()
-      
-      expect(wrapper.vm.importFormats).toHaveLength(4)
-      expect(wrapper.vm.importFormats.map(f => f.id)).toEqual(['smart', 'conversation', 'openai', 'langfuse'])
-    })
-
-    it('导出对话框应该显示正确的格式选项', async () => {
-      wrapper = await createWrapper()
-      wrapper.vm.showExportDialog = true
-      await nextTick()
-      
-      expect(wrapper.vm.exportFormats).toHaveLength(3)
-      expect(wrapper.vm.exportFormats.map(f => f.id)).toEqual(['standard', 'openai', 'template'])
-    })
-
-    it('应该正确处理不同导入格式的占位符', async () => {
-      wrapper = await createWrapper()
-      
-      wrapper.vm.selectedImportFormat = 'openai'
-      expect(wrapper.vm.getImportPlaceholder()).toContain('OpenAI API')
-      
-      wrapper.vm.selectedImportFormat = 'langfuse'
-      expect(wrapper.vm.getImportPlaceholder()).toContain('LangFuse')
-      
-      wrapper.vm.selectedImportFormat = 'conversation'
-      expect(wrapper.vm.getImportPlaceholder()).toContain('会话格式')
-      
-      wrapper.vm.selectedImportFormat = 'smart'
-      expect(wrapper.vm.getImportPlaceholder()).toContain('自动识别')
-    })
-
-    it('导入失败时应该显示错误信息', async () => {
-      mockContextEditor.smartImport.mockReturnValueOnce({ 
-        success: false, 
-        error: '导入数据格式错误' 
-      })
-      
-      wrapper = await createWrapper()
-      wrapper.vm.selectedImportFormat = 'smart'
-      wrapper.vm.importData = 'invalid json'
-      
-      await wrapper.vm.handleImportSubmit()
-      
-      expect(wrapper.vm.importError).toBeTruthy()
-    })
-
-    it('导出失败时应该处理错误', async () => {
-      mockContextEditor.exportToFile.mockReturnValueOnce(false)
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      
-      wrapper = await createWrapper({
-        state: {
-          ...defaultProps.state,
-          messages: [{ role: 'user', content: 'test' }]
-        }
-      })
-      
-      await wrapper.vm.handleExportToFile()
-      
-      expect(consoleSpy).toHaveBeenCalled()
-      consoleSpy.mockRestore()
-    })
-
-    it('导入成功后应该清空导入状态', async () => {
-      wrapper = await createWrapper()
-      wrapper.vm.selectedImportFormat = 'conversation'
-      wrapper.vm.importData = '{"messages":[{"role":"user","content":"test"}]}'
-      
-      await wrapper.vm.handleImportSubmit()
-      
-      expect(wrapper.vm.showImportDialog).toBe(false)
-      expect(wrapper.vm.importData).toBe('')
-      expect(wrapper.vm.importError).toBe('')
-    })
+    // 注意：导入导出的详细功能测试已移至 ImportExportDialog.spec.ts
   })
 
   describe('optimizationMode 参数传递', () => {
@@ -696,34 +619,6 @@ describe('ContextEditor 综合测试', () => {
       expect(wrapper.emitted('cancel')).toBeTruthy()
       expect(wrapper.emitted('update:visible')).toBeTruthy()
       expect(wrapper.emitted('update:visible')[0]).toEqual([false])
-    })
-  })
-
-  describe('错误处理', () => {
-    it('导入失败时应该显示错误信息', async () => {
-      // 这个测试实际走的是JSON.parse失败的分支，测试输入无效JSON的错误处理
-      wrapper = await createWrapper()
-      wrapper.vm.selectedImportFormat = 'smart'
-      wrapper.vm.importData = 'invalid json'  // 无效JSON，触发JSON.parse失败
-      
-      await wrapper.vm.handleImportSubmit()
-      
-      // 根据组件代码第1262行：'数据格式错误，请检查JSON格式'
-      // 但实际错误信息来自JSON.parse的SyntaxError message
-      expect(wrapper.vm.importError).toContain('Unexpected token')
-    })
-
-    it('文件上传失败时应该设置错误状态', async () => {
-      mockContextEditor.importFromFile.mockResolvedValueOnce(false)
-      
-      wrapper = await createWrapper()
-      
-      const file = new File(['invalid content'], 'test.json', { type: 'application/json' })
-      const event = { target: { files: [file] } }
-      
-      await wrapper.vm.handleFileUpload(event)
-      
-      expect(wrapper.vm.importError).toBeTruthy()
     })
   })
 })

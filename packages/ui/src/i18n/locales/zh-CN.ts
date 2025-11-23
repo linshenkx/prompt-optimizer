@@ -1595,22 +1595,21 @@ export default {
     // Import/Export formats
     importFormats: {
       smart: { name: "智能识别", description: "自动检测格式并转换" },
-      conversation: { name: "会话格式", description: "标准的会话消息格式" },
       openai: { name: "OpenAI", description: "OpenAI API 请求格式" },
       langfuse: { name: "LangFuse", description: "LangFuse 追踪数据格式" },
+      conversation: { name: "内部格式", description: "Prompt Optimizer 内部标准 JSON 结构" },
     },
     exportFormats: {
-      standard: { name: "标准格式", description: "内部标准数据格式" },
+      standard: { name: "内部格式", description: "Prompt Optimizer 内部标准数据格式" },
       openai: { name: "OpenAI", description: "OpenAI API 兼容格式" },
-      template: { name: "模板格式", description: "可复用的模板格式" },
     },
 
-    // Import placeholders
+    // Import placeholders (文本可本地化，JSON 示例固定为英文)
     importPlaceholders: {
-      openai: 'OpenAI API 请求格式，例如：\n{\n  "messages": [...],\n  "model": "gpt-4"\n}',
-      langfuse: 'LangFuse 追踪数据，例如：\n{\n  "input": {\n    "messages": [...]\n  }\n}',
-      conversation: '标准会话格式，例如：\n{\n  "messages": [\n    {"role": "system", "content": "..."},\n    {"role": "user", "content": "..."}\n  ]\n}',
-      smart: "粘贴任意支持格式的 JSON 数据，系统将自动识别",
+      openai: "OpenAI API 请求格式（示例见下方）：",
+      langfuse: "LangFuse 追踪数据格式（示例见下方）：",
+      conversation: "标准会话 JSON 格式（示例见下方）：",
+      smart: "粘贴任意受支持的 JSON（OpenAI、LangFuse 或会话数组），系统会自动识别格式。",
     },
 
     // Console errors (开发者日志)
