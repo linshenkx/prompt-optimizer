@@ -67,675 +67,180 @@
             </NSpace>
         </template>
 
-        <!-- 主编辑区域 -->
-        <div
-            class="context-editor-content"
-            role="main"
-            :aria-label="aria.getLabel('editorMain')"
+        <!-- 空状态 -->
+        <NEmpty
+            v-if="localState.messages.length === 0"
+            :description="t('contextEditor.noMessages')"
+            role="status"
+            :aria-label="aria.getLabel('emptyMessages')"
         >
-            <NTabs
-                v-model:value="activeTab"
-                type="line"
-                :size="size"
-                :class="{ 'context-editor-tabs--single': !!onlyShowTab }"
-                role="tablist"
-                :aria-label="aria.getLabel('editorTabs')"
-                @update:value="handleTabChange"
-            >
-                <!-- 消息编辑标签页 (系统模式下显示) -->
-                <NTabPane
-                    v-if="showMessagesTab"
-                    name="messages"
-                    :tab="t('contextEditor.messagesTab')"
-                    role="tabpanel"
-                    :aria-label="aria.getLabel('messagesTab')"
-                    :aria-describedby="aria.getDescription('messagesTab')"
+            <template #icon>
+                <svg
+                    width="48"
+                    height="48"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1"
+                    role="img"
+                    :aria-label="aria.getLabel('messageIcon')"
                 >
-                    <div
-                        class="messages-panel"
-                        role="region"
-                        :aria-label="aria.getLabel('messagesPanel')"
-                    >
-                        <!-- 空状态 -->
-                        <NEmpty
-                            v-if="localState.messages.length === 0"
-                            :description="t('contextEditor.noMessages')"
-                            role="status"
-                            :aria-label="aria.getLabel('emptyMessages')"
-                        >
-                            <template #icon>
-                                <svg
-                                    width="48"
-                                    height="48"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="1"
-                                    role="img"
-                                    :aria-label="aria.getLabel('messageIcon')"
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                </svg>
+            </template>
+            <template #extra>
+                <NButton
+                    @click="addMessage"
+                    :size="buttonSize"
+                    type="primary"
+                    :aria-label="aria.getLabel('addFirstMessage')"
+                    :aria-describedby="aria.getDescription('addFirstMessage')"
+                >
+                    {{ t("contextEditor.addFirstMessage") }}
+                </NButton>
+            </template>
+        </NEmpty>
+
+        <!-- 消息列表 -->
+        <NScrollbar v-else :style="scrollbarStyle">
+            <NSpace vertical :size="12" style="padding-right: 12px;">
+                <NCard
+                    v-for="(message, index) in localState.messages"
+                    :key="`message-${index}`"
+                    :size="cardSize"
+                    embedded
+                    :class="{ 'focused-card': focusedIndex === index }"
+                    :ref="(el: HTMLElement | null) => setMessageRef(index, el)"
+                >
+                    <template #header>
+                        <NSpace justify="space-between" align="center">
+                            <NSpace align="center" :size="4">
+                                <NTag :size="tagSize" round>{{ index + 1 }}</NTag>
+                                <NSelect
+                                    v-model:value="message.role"
+                                    :size="size"
+                                    style="width: 100px"
+                                    :options="roleOptions"
+                                    :disabled="disabled"
+                                    @update:value="handleMessageUpdate(index, message)"
+                                />
+                                <NTag
+                                    v-if="getMessageVariables(message.content).detected.length > 0"
+                                    :size="tagSize"
+                                    type="info"
                                 >
-                                    <path
-                                        d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
-                                    />
-                                </svg>
-                            </template>
-                            <template #extra>
+                                    {{ t('contextEditor.variableDetected', { count: getMessageVariables(message.content).detected.length }) }}
+                                </NTag>
+                                <NTag
+                                    v-if="getMessageVariables(message.content).missing.length > 0"
+                                    :size="tagSize"
+                                    type="warning"
+                                >
+                                    {{ t('contextEditor.missingVariableLabel', { count: getMessageVariables(message.content).missing.length }) }}
+                                </NTag>
+                            </NSpace>
+                            <NSpace :size="4">
                                 <NButton
-                                    @click="addMessage"
+                                    @click="togglePreview(index)"
                                     :size="buttonSize"
-                                    type="primary"
-                                    :aria-label="
-                                        aria.getLabel('addFirstMessage')
-                                    "
-                                    :aria-describedby="
-                                        aria.getDescription('addFirstMessage')
-                                    "
+                                    :type="previewMode.get(index) ? 'primary' : 'default'"
+                                    quaternary
+                                    circle
+                                    :title="previewMode.get(index) ? t('common.edit') : t('common.preview')"
                                 >
-                                    {{ t("contextEditor.addFirstMessage") }}
+                                    <template #icon>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    </template>
                                 </NButton>
-                            </template>
-                        </NEmpty>
-
-                        <!-- 消息列表 -->
-                        <NScrollbar
-                            v-else
-                            :style="scrollbarStyle"
-                            :aria-label="aria.getLabel('messagesList')"
-                        >
-                            <NList
-                                role="list"
-                                :aria-label="
-                                    aria.getLabel('conversationMessages')
-                                "
-                            >
-                                <NListItem
-                                    v-for="(
-                                        message, index
-                                    ) in localState.messages"
-                                    :key="`message-${index}`"
-                                    role="listitem"
-                                    :aria-label="
-                                        aria.getLabel(
-                                            'messageItem',
-                                            t('contextEditor.messageItemLabel', { index: index + 1, role: message.role }),
-                                        )
-                                    "
-                                >
-                                    <NCard
-                                        :size="cardSize"
-                                        embedded
-                                        :class="{
-                                            'focused-card':
-                                                focusedIndex === index,
-                                        }"
-                                        :ref="
-                                            (el: HTMLElement | null) =>
-                                                setMessageRef(index, el)
-                                        "
-                                    >
-                                        <template #header>
-                                            <NSpace
-                                                justify="space-between"
-                                                align="center"
-                                            >
-                                                <NSpace
-                                                    align="center"
-                                                    :size="4"
-                                                >
-                                                    <!-- 消息序号 -->
-                                                    <NTag :size="tagSize" round>
-                                                        {{ index + 1 }}
-                                                    </NTag>
-
-                                                    <!-- 角色选择 -->
-                                                    <NSelect
-                                                        v-model:value="
-                                                            message.role
-                                                        "
-                                                        :size="size"
-                                                        style="width: 100px"
-                                                        :options="roleOptions"
-                                                        :disabled="disabled"
-                                                        @update:value="
-                                                            handleMessageUpdate(
-                                                                index,
-                                                                message,
-                                                            )
-                                                        "
-                                                    />
-
-                                                    <!-- 变量统计 -->
-                                                    <NTag
-                                                        v-if="
-                                                            getMessageVariables(
-                                                                message.content,
-                                                            ).detected.length >
-                                                            0
-                                                        "
-                                                        :size="tagSize"
-                                                        type="info"
-                                                    >
-                                                        {{ t('contextEditor.variableDetected', { count: getMessageVariables(message.content).detected.length }) }}
-                                                    </NTag>
-                                                    <NTag
-                                                        v-if="
-                                                            getMessageVariables(
-                                                                message.content,
-                                                            ).missing.length > 0
-                                                        "
-                                                        :size="tagSize"
-                                                        type="warning"
-                                                    >
-                                                        {{ t('contextEditor.missingVariableLabel', { count: getMessageVariables(message.content).missing.length }) }}
-                                                    </NTag>
-                                                </NSpace>
-
-                                                <!-- 消息操作按钮 -->
-                                                <NSpace :size="4">
-                                                    <NButton
-                                                        @click="
-                                                            togglePreview(index)
-                                                        "
-                                                        :size="buttonSize"
-                                                        :type="
-                                                            previewMode.get(
-                                                                index,
-                                                            )
-                                                                ? 'primary'
-                                                                : 'default'
-                                                        "
-                                                        quaternary
-                                                        circle
-                                                        :title="
-                                                            previewMode.get(
-                                                                index,
-                                                            )
-                                                                ? t(
-                                                                      'common.edit',
-                                                                  )
-                                                                : t(
-                                                                      'common.preview',
-                                                                  )
-                                                        "
-                                                    >
-                                                        <template #icon>
-                                                            <svg
-                                                                width="14"
-                                                                height="14"
-                                                                viewBox="0 0 24 24"
-                                                                fill="none"
-                                                                stroke="currentColor"
-                                                            >
-                                                                <path
-                                                                    stroke-linecap="round"
-                                                                    stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                                                />
-                                                                <path
-                                                                    stroke-linecap="round"
-                                                                    stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                                                />
-                                                            </svg>
-                                                        </template>
-                                                    </NButton>
-                                                    <NButton
-                                                        v-if="index > 0"
-                                                        @click="
-                                                            moveMessage(
-                                                                index,
-                                                                -1,
-                                                            )
-                                                        "
-                                                        :size="buttonSize"
-                                                        quaternary
-                                                        circle
-                                                        :title="
-                                                            t('common.moveUp')
-                                                        "
-                                                        :disabled="disabled"
-                                                    >
-                                                        <template #icon>
-                                                            <svg
-                                                                width="14"
-                                                                height="14"
-                                                                viewBox="0 0 24 24"
-                                                                fill="none"
-                                                                stroke="currentColor"
-                                                            >
-                                                                <path
-                                                                    stroke-linecap="round"
-                                                                    stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M5 15l7-7 7 7"
-                                                                />
-                                                            </svg>
-                                                        </template>
-                                                    </NButton>
-                                                    <NButton
-                                                        v-if="
-                                                            index <
-                                                            localState.messages
-                                                                .length -
-                                                                1
-                                                        "
-                                                        @click="
-                                                            moveMessage(
-                                                                index,
-                                                                1,
-                                                            )
-                                                        "
-                                                        :size="buttonSize"
-                                                        quaternary
-                                                        circle
-                                                        :title="
-                                                            t('common.moveDown')
-                                                        "
-                                                        :disabled="disabled"
-                                                    >
-                                                        <template #icon>
-                                                            <svg
-                                                                width="14"
-                                                                height="14"
-                                                                viewBox="0 0 24 24"
-                                                                fill="none"
-                                                                stroke="currentColor"
-                                                            >
-                                                                <path
-                                                                    stroke-linecap="round"
-                                                                    stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M19 9l-7 7-7-7"
-                                                                />
-                                                            </svg>
-                                                        </template>
-                                                    </NButton>
-                                                    <NButton
-                                                        @click="
-                                                            deleteMessage(index)
-                                                        "
-                                                        :size="buttonSize"
-                                                        quaternary
-                                                        circle
-                                                        type="error"
-                                                        :title="
-                                                            t('common.delete')
-                                                        "
-                                                        :disabled="
-                                                            disabled ||
-                                                            localState.messages
-                                                                .length <= 1
-                                                        "
-                                                    >
-                                                        <template #icon>
-                                                            <svg
-                                                                width="14"
-                                                                height="14"
-                                                                viewBox="0 0 24 24"
-                                                                fill="none"
-                                                                stroke="currentColor"
-                                                            >
-                                                                <path
-                                                                    stroke-linecap="round"
-                                                                    stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                                                />
-                                                            </svg>
-                                                        </template>
-                                                    </NButton>
-                                                </NSpace>
-                                            </NSpace>
-                                        </template>
-
-                                        <!-- 消息内容 -->
-                                        <div v-if="!previewMode.get(index)">
-                                            <VariableAwareInput
-                                                :model-value="message.content"
-                                                @update:model-value="
-                                                    handleMessageUpdate(index, {
-                                                        ...message,
-                                                        content: $event,
-                                                    })
-                                                "
-                                                :placeholder="getPlaceholderText(message.role)"
-                                                :autosize="{ minRows: 1, maxRows: 20 }"
-                                                :disabled="disabled"
-                                                :existing-global-variables="Object.keys(aggregatedVars.variablesBySource.value.global)"
-                                                :existing-temporary-variables="Object.keys(aggregatedVars.variablesBySource.value.temporary)"
-                                                :predefined-variables="Object.keys(aggregatedVars.variablesBySource.value.predefined)"
-                                                :global-variable-values="aggregatedVars.variablesBySource.value.global"
-                                                :temporary-variable-values="aggregatedVars.variablesBySource.value.temporary"
-                                                :predefined-variable-values="aggregatedVars.variablesBySource.value.predefined"
-                                                @variable-extracted="handleVariableExtracted"
-                                                @add-missing-variable="handleCreateVariableAndOpenManager"
-                                            />                                            <!-- 缺失变量提示与快捷操作 -->
-                                            <NCard
-                                                v-if="
-                                                    getMessageVariables(
-                                                        message.content,
-                                                    ).missing.length > 0
-                                                "
-                                                size="small"
-                                                class="mt-2"
-                                                embedded
-                                            >
-                                                <NSpace
-                                                    size="small"
-                                                    align="center"
-                                                    wrap
-                                                >
-                                                    <NTag
-                                                        :size="tagSize"
-                                                        type="warning"
-                                                        >{{
-                                                            t(
-                                                                "conversation.missingVars",
-                                                            )
-                                                        }}</NTag
-                                                    >
-                                                    <NButton
-                                                        v-for="varName in getMessageVariables(
-                                                            message.content,
-                                                        ).missing.slice(0, 3)"
-                                                        :key="`miss-${index}-${varName}`"
-                                                        size="tiny"
-                                                        text
-                                                        type="warning"
-                                                        :title="
-                                                            t(
-                                                                'conversation.clickToCreateVariable',
-                                                            )
-                                                        "
-                                                        @click="
-                                                            handleCreateVariableAndOpenManager(
-                                                                varName,
-                                                            )
-                                                        "
-                                                    >
-                                                        {{ varName }}
-                                                    </NButton>
-                                                    <NTag
-                                                        v-if="
-                                                            getMessageVariables(
-                                                                message.content,
-                                                            ).missing.length > 3
-                                                        "
-                                                        :size="tagSize"
-                                                        type="warning"
-                                                    >
-                                                        +{{
-                                                            getMessageVariables(
-                                                                message.content,
-                                                            ).missing.length - 3
-                                                        }}
-                                                    </NTag>
-                                                    <NButton
-                                                        size="tiny"
-                                                        quaternary
-                                                        @click="
-                                                            emit(
-                                                                'openVariableManager',
-                                                            )
-                                                        "
-                                                    >
-                                                        {{
-                                                            t(
-                                                                "variables.management.title",
-                                                            )
-                                                        }}
-                                                    </NButton>
-                                                </NSpace>
-                                            </NCard>
-                                        </div>
-                                        <div v-else class="preview-content">
-                                            <NText>{{
-                                                replaceVariables(
-                                                    message.content,
-                                                )
-                                            }}</NText>
-                                        </div>
-                                    </NCard>
-                                </NListItem>
-                            </NList>
-
-                            <!-- 添加消息按钮 -->
-                            <div class="mt-4">
-                                <NCard :size="cardSize" embedded dashed>
-                                    <NSpace justify="center">
-                                        <NButton
-                                            @click="addMessage"
-                                            :size="buttonSize"
-                                            dashed
-                                            type="primary"
-                                            block
-                                            :disabled="disabled"
-                                        >
-                                            <template #icon>
-                                                <svg
-                                                    width="16"
-                                                    height="16"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                >
-                                                    <path
-                                                        stroke-linecap="round"
-                                                        stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                                                    />
-                                                </svg>
-                                            </template>
-                                            {{ t("contextEditor.addMessage") }}
-                                        </NButton>
-                                    </NSpace>
-                                </NCard>
-                            </div>
-                        </NScrollbar>
-                    </div>
-                </NTabPane>
-
-                <!-- 变量管理标签页已移除，使用独立的 VariableManagerModal -->
-
-                <!-- 工具管理标签页 -->
-                <NTabPane v-if="showToolsTab" name="tools" :tab="t('contextEditor.toolsTab')">
-                    <div class="tools-panel">
-                        <!-- 工具列表内容 -->
-                        <NEmpty
-                            v-if="localState.tools.length === 0"
-                            :description="t('contextEditor.noTools')"
-                        >
-                            <template #icon>
-                                <svg
-                                    width="48"
-                                    height="48"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="1"
-                                >
-                                    <path
-                                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                                    />
-                                    <path
-                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                    />
-                                </svg>
-                            </template>
-                            <template #extra>
                                 <NButton
-                                    @click="addTool"
+                                    v-if="index > 0"
+                                    @click="moveMessage(index, -1)"
                                     :size="buttonSize"
-                                    type="primary"
+                                    quaternary
+                                    circle
+                                    :title="t('common.moveUp')"
                                     :disabled="disabled"
                                 >
-                                    {{ t("contextEditor.addFirstTool") }}
-                                </NButton>
-                            </template>
-                        </NEmpty>
-
-                        <NList v-else>
-                            <NListItem
-                                v-for="(tool, index) in localState.tools"
-                                :key="`tool-${index}`"
-                            >
-                                <NCard :size="cardSize" embedded>
-                                    <template #header>
-                                        <NSpace
-                                            justify="space-between"
-                                            align="center"
-                                        >
-                                            <NTag
-                                                type="primary"
-                                                :size="tagSize"
-                                                >{{ tool.function.name }}</NTag
-                                            >
-                                            <NSpace :size="4">
-                                                <NButton
-                                                    @click="editTool(index)"
-                                                    :size="buttonSize"
-                                                    quaternary
-                                                    circle
-                                                    :title="t('common.edit')"
-                                                    :disabled="disabled"
-                                                >
-                                                    <template #icon>
-                                                        <svg
-                                                            width="14"
-                                                            height="14"
-                                                            viewBox="0 0 24 24"
-                                                            fill="none"
-                                                            stroke="currentColor"
-                                                        >
-                                                            <path
-                                                                stroke-linecap="round"
-                                                                stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                                            />
-                                                        </svg>
-                                                    </template>
-                                                </NButton>
-                                                <NButton
-                                                    @click="focusMessage(index)"
-                                                    :size="buttonSize"
-                                                    quaternary
-                                                    circle
-                                                    :title="
-                                                        t('common.focus')
-                                                    "
-                                                >
-                                                    <template #icon>
-                                                        <svg
-                                                            width="14"
-                                                            height="14"
-                                                            viewBox="0 0 24 24"
-                                                            fill="none"
-                                                            stroke="currentColor"
-                                                        >
-                                                            <circle
-                                                                cx="12"
-                                                                cy="12"
-                                                                r="3"
-                                                                stroke-width="2"
-                                                            />
-                                                            <path
-                                                                stroke-linecap="round"
-                                                                stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M12 5v2m0 10v2m7-7h-2M7 12H5m11.657 4.657l-1.414-1.414M8.757 9.343 7.343 7.929m8.314 0-1.414 1.414M8.757 14.657l-1.414 1.414"
-                                                            />
-                                                        </svg>
-                                                    </template>
-                                                </NButton>
-                                                <NButton
-                                                    @click="deleteTool(index)"
-                                                    :size="buttonSize"
-                                                    quaternary
-                                                    circle
-                                                    type="error"
-                                                    :title="t('common.delete')"
-                                                    :disabled="disabled"
-                                                >
-                                                    <template #icon>
-                                                        <svg
-                                                            width="14"
-                                                            height="14"
-                                                            viewBox="0 0 24 24"
-                                                            fill="none"
-                                                            stroke="currentColor"
-                                                        >
-                                                            <path
-                                                                stroke-linecap="round"
-                                                                stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                                            />
-                                                        </svg>
-                                                    </template>
-                                                </NButton>
-                                            </NSpace>
-                                        </NSpace>
+                                    <template #icon>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+                                        </svg>
                                     </template>
+                                </NButton>
+                                <NButton
+                                    v-if="index < localState.messages.length - 1"
+                                    @click="moveMessage(index, 1)"
+                                    :size="buttonSize"
+                                    quaternary
+                                    circle
+                                    :title="t('common.moveDown')"
+                                    :disabled="disabled"
+                                >
+                                    <template #icon>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </template>
+                                </NButton>
+                                <NButton
+                                    @click="deleteMessage(index)"
+                                    :size="buttonSize"
+                                    quaternary
+                                    circle
+                                    type="error"
+                                    :title="t('common.delete')"
+                                    :disabled="disabled || localState.messages.length <= 1"
+                                >
+                                    <template #icon>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </template>
+                                </NButton>
+                            </NSpace>
+                        </NSpace>
+                    </template>
+                    <VariableAwareInput
+                        v-if="!previewMode.get(index)"
+                        :model-value="message.content"
+                        @update:model-value="handleMessageUpdate(index, { ...message, content: $event })"
+                        :placeholder="getPlaceholderText(message.role)"
+                        :autosize="{ minRows: 1, maxRows: 20 }"
+                        :disabled="disabled"
+                        :existing-global-variables="Object.keys(aggregatedVars.variablesBySource.value.global)"
+                        :existing-temporary-variables="Object.keys(aggregatedVars.variablesBySource.value.temporary)"
+                        :predefined-variables="Object.keys(aggregatedVars.variablesBySource.value.predefined)"
+                        :global-variable-values="aggregatedVars.variablesBySource.value.global"
+                        :temporary-variable-values="aggregatedVars.variablesBySource.value.temporary"
+                        :predefined-variable-values="aggregatedVars.variablesBySource.value.predefined"
+                        @variable-extracted="handleVariableExtracted"
+                        @add-missing-variable="handleCreateVariableAndOpenManager"
+                    />
+                    <NText v-else style="white-space: pre-wrap; word-break: break-word;">
+                        {{ replaceVariables(message.content) }}
+                    </NText>
+                </NCard>
 
-                                    <NText depth="3" :size="size">{{
-                                        tool.function.description ||
-                                        t("contextEditor.noDescription")
-                                    }}</NText>
-                                    <div class="mt-2">
-                                        <NTag :size="tagSize">{{
-                                            t("contextEditor.parametersCount", {
-                                                count: Object.keys(
-                                                    tool.function.parameters
-                                                        ?.properties || {},
-                                                ).length,
-                                            })
-                                        }}</NTag>
-                                    </div>
-                                </NCard>
-                            </NListItem>
-                        </NList>
-
-                        <!-- 添加工具按钮 -->
-                        <div v-if="localState.tools.length > 0" class="mt-4">
-                            <NCard :size="cardSize" embedded dashed>
-                                <NSpace justify="center">
-                                    <NButton
-                                        @click="addTool"
-                                        :size="buttonSize"
-                                        dashed
-                                        type="primary"
-                                        block
-                                        :disabled="disabled"
-                                    >
-                                        <template #icon>
-                                            <svg
-                                                width="16"
-                                                height="16"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                            >
-                                                <path
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    stroke-width="2"
-                                                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                                                />
-                                            </svg>
-                                        </template>
-                                        {{ t("contextEditor.addTool") }}
-                                    </NButton>
-                                </NSpace>
-                            </NCard>
-                        </div>
-                    </div>
-                </NTabPane>
-            </NTabs>
-        </div>
+                <!-- 添加消息按钮 -->
+                <NButton
+                    @click="addMessage"
+                    :size="buttonSize"
+                    dashed
+                    type="primary"
+                    :disabled="disabled"
+                >
+                    <template #icon>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                    </template>
+                    {{ t("contextEditor.addMessage") }}
+                </NButton>
+            </NSpace>
+        </NScrollbar>
 
         <!-- 底部操作栏 -->
         <template #action>
@@ -815,94 +320,6 @@
                         {{ t("common.save") }}
                     </NButton>
                 </NSpace>
-            </NSpace>
-        </template>
-    </NModal>
-
-    <!-- 工具编辑器（简化版） -->
-    <NModal
-        v-model:show="toolEditState.showEditor"
-        preset="card"
-        :title="
-            toolEditState.editingIndex !== null
-                ? t('contextEditor.editTool')
-                : t('contextEditor.addTool')
-        "
-        style="width: 600px"
-    >
-        <NSpace vertical>
-            <!-- 示例提示（仅新建时显示） -->
-            <NAlert
-                v-if="toolEditState.editingIndex === null"
-                type="info"
-                :title="t('contextEditor.exampleTemplate')"
-            >
-                {{ t("contextEditor.exampleTemplateDesc") }}
-            </NAlert>
-
-            <!-- 基本信息 -->
-            <NCard size="small" :title="t('contextEditor.basicInfo')">
-                <NSpace vertical v-if="toolEditState.editingTool">
-                    <NInput
-                        v-model:value="toolEditState.editingTool.function.name"
-                        :placeholder="t('contextEditor.toolNamePlaceholder')"
-                    />
-                    <NInput
-                        v-model:value="
-                            toolEditState.editingTool.function.description
-                        "
-                        type="textarea"
-                        :placeholder="t('contextEditor.toolDescPlaceholder')"
-                    />
-                </NSpace>
-            </NCard>
-
-            <!-- 参数配置 -->
-            <NCard size="small" :title="t('contextEditor.parameters')">
-                <NInput
-                    v-model:value="parametersJson"
-                    type="textarea"
-                    :autosize="{ minRows: 8, maxRows: 12 }"
-                    :placeholder="defaultParametersJson"
-                    style="
-                        font-family:
-                            ui-monospace, SFMono-Regular, Menlo, Monaco,
-                            Consolas, &quot;Liberation Mono&quot;,
-                            &quot;Courier New&quot;, monospace;
-                    "
-                />
-                <NText v-if="jsonError" type="error" class="mt-2">
-                    {{ t("contextEditor.invalidJson") }}: {{ jsonError }}
-                </NText>
-            </NCard>
-        </NSpace>
-
-        <template #action>
-            <NSpace>
-                <NButton @click="closeToolEditor">{{
-                    t("common.cancel")
-                }}</NButton>
-                <NButton
-                    @click="useWeatherExample"
-                    secondary
-                    v-if="toolEditState.editingIndex === null"
-                >
-                    {{ t("contextEditor.useExample") }}
-                </NButton>
-                <NButton
-                    @click="useEmptyTemplate"
-                    secondary
-                    v-if="toolEditState.editingIndex === null"
-                >
-                    {{ t("contextEditor.startEmpty") }}
-                </NButton>
-                <NButton
-                    @click="saveTool"
-                    type="primary"
-                    :disabled="!isValidTool"
-                >
-                    {{ t("common.save") }}
-                </NButton>
             </NSpace>
         </template>
     </NModal>
@@ -1060,22 +477,15 @@ import { ref, computed, watch, shallowRef, nextTick } from 'vue'
 import { useI18n } from "vue-i18n";
 import {
     NModal,
-    NTabs,
-    NTabPane,
     NCard,
     NButton,
     NSpace,
     NTag,
-    NList,
-    NListItem,
     NEmpty,
     NScrollbar,
     NInput,
     NSelect,
     NText,
-    NGrid,
-    NGridItem,
-    NAlert,
     NRadioGroup,
     NRadio,
 } from "naive-ui";
@@ -1101,7 +511,7 @@ import {
     type PredefinedVariable,
 } from "../../types/variable";
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
 
 // 性能监控
 const { recordUpdate } = usePerformanceMonitor("ContextEditor");
@@ -1269,12 +679,6 @@ const modalStyle = computed(() => ({
     height: isMobile.value ? "95vh" : props.height || "85vh",
 }));
 
-// 模板预览弹窗尺寸（限制宽度，移动端占满宽度）
-const previewModalStyle = computed(() => ({
-    width: isMobile.value ? "95vw" : "840px",
-    maxWidth: "95vw",
-}));
-
 const scrollbarStyle = computed(() => ({
     maxHeight: isMobile.value ? "40vh" : "60vh",
 }));
@@ -1328,21 +732,6 @@ const getPlaceholderText = (role: string) => {
     }
 };
 
-const getRoleLabel = (role: string) => {
-    switch (role) {
-        case "system":
-            return t("conversation.roles.system");
-        case "user":
-            return t("conversation.roles.user");
-        case "assistant":
-            return t("conversation.roles.assistant");
-        case "tool":
-            return t("conversation.roles.tool");
-        default:
-            return role;
-    }
-};
-
 // 可访问性事件处理（不启用键盘焦点陷阱，避免拦截箭头键）
 const handleModalOpen = () => {
     nextTick(() => {
@@ -1352,15 +741,6 @@ const handleModalOpen = () => {
 
 const handleModalClose = () => {
     announce(aria.getLiveRegionText("modalClosed"), "polite");
-};
-
-const handleTabChange = (activeKey: string) => {
-    recordUpdate();
-    const tabName = activeKey === "messages" ? t("contextEditor.messagesTab") : t("contextEditor.toolsTab");
-    announce(
-        aria.getLiveRegionText("tabChanged").replace("{tab}", tabName),
-        "polite",
-    );
 };
 
 // 消息处理方法
@@ -1445,234 +825,6 @@ const handleStateChange = () => {
     // 注意：全局变量由 useVariableManager 管理，不包含在此事件中
     emit("contextChange", [...localState.value.messages], tempVars.listVariables());
 };
-
-// ============ 工具管理：状态、校验与事件 ============
-interface ToolEditState {
-    editingIndex: number | null;
-    editingTool: ToolDefinition | null;
-    showEditor: boolean;
-}
-
-const toolEditState = ref<ToolEditState>({
-    editingIndex: null,
-    editingTool: null,
-    showEditor: false,
-});
-
-const parametersJson = ref("");
-const jsonError = ref("");
-
-const createWeatherToolTemplate = (): ToolDefinition => ({
-    type: "function",
-    function: {
-        name: "get_weather",
-        description: "Get current weather information for a specific location",
-        parameters: {
-            type: "object",
-            properties: {
-                location: {
-                    type: "string",
-                    description: "The location to get weather for",
-                },
-                unit: {
-                    type: "string",
-                    enum: ["celsius", "fahrenheit"],
-                    default: "celsius",
-                },
-            },
-            required: ["location"],
-        },
-    },
-});
-
-const createEmptyToolTemplate = (): ToolDefinition => ({
-    type: "function",
-    function: {
-        name: "",
-        description: "",
-        parameters: {
-            type: "object",
-            properties: {},
-            required: [],
-        },
-    },
-});
-
-// 独立定义字符串变量，避免内联复杂字符串
-const defaultParametersJson = `{
-  "type": "object",
-  "properties": {},
-  "required": []
-}`;
-
-// 默认参数对象
-const defaultParametersObject = {
-    type: "object",
-    properties: {},
-    required: [],
-};
-
-const syncParametersJsonFromTool = (tool: ToolDefinition | null) => {
-    if (!tool) {
-        parametersJson.value = "";
-        jsonError.value = "";
-        return;
-    }
-    try {
-        parametersJson.value = JSON.stringify(
-            tool.function?.parameters ?? defaultParametersObject,
-            null,
-            2,
-        );
-        jsonError.value = "";
-    } catch (e) {
-        jsonError.value =
-            e instanceof Error ? e.message : "JSON stringify error";
-    }
-};
-
-const isValidTool = computed(() => {
-    const tool = toolEditState.value.editingTool;
-    if (!tool) return false;
-    const name = tool.function?.name?.trim();
-    if (!name) return false;
-    // 参数必须为可解析的对象
-    try {
-        const parsed = parametersJson.value
-            ? JSON.parse(parametersJson.value)
-            : defaultParametersObject;
-        return parsed && typeof parsed === "object";
-    } catch {
-        return false;
-    }
-});
-
-// 固定占位符：不通过 i18n，避免大括号与 i18n 插值冲突
-
-const useWeatherExample = () => {
-    toolEditState.value.editingTool = createWeatherToolTemplate();
-    syncParametersJsonFromTool(toolEditState.value.editingTool);
-};
-
-const useEmptyTemplate = () => {
-    toolEditState.value.editingTool = createEmptyToolTemplate();
-    syncParametersJsonFromTool(toolEditState.value.editingTool);
-};
-
-const addTool = () => {
-    toolEditState.value = {
-        editingIndex: null,
-        editingTool: createWeatherToolTemplate(),
-        showEditor: true,
-    };
-    syncParametersJsonFromTool(toolEditState.value.editingTool);
-};
-
-const editTool = (index: number) => {
-    if (index < 0 || index >= localState.value.tools.length) {
-        console.error(t("contextEditor.consoleErrors.toolEditIndexOutOfRange", { index }));
-        return;
-    }
-
-    const tool = localState.value.tools[index];
-    if (!tool) {
-        console.error(t("contextEditor.consoleErrors.toolEditToolNotFound", { index }));
-        return;
-    }
-
-    toolEditState.value = {
-        editingIndex: index,
-        editingTool: JSON.parse(JSON.stringify(tool)),
-        showEditor: true,
-    };
-    syncParametersJsonFromTool(toolEditState.value.editingTool);
-};
-
-const closeToolEditor = () => {
-    toolEditState.value = {
-        editingIndex: null,
-        editingTool: null,
-        showEditor: false,
-    };
-    parametersJson.value = "";
-    jsonError.value = "";
-};
-
-const saveTool = () => {
-    const state = toolEditState.value;
-    const current = state.editingTool
-        ? (JSON.parse(JSON.stringify(state.editingTool)) as ToolDefinition)
-        : null;
-    if (!current) return;
-
-    // 更严格的防护性检查
-    if (!current.function) {
-        console.error(t("contextEditor.consoleErrors.toolSaveMissingFunction"));
-        jsonError.value = t("contextEditor.consoleErrors.toolDataStructureError");
-        return;
-    }
-
-    try {
-        const parsed = parametersJson.value
-            ? JSON.parse(parametersJson.value)
-            : defaultParametersObject;
-        current.function.parameters = parsed;
-        const editingIndex = state.editingIndex;
-        if (editingIndex !== null) {
-            // update
-            localState.value.tools[editingIndex] = current;
-            emit(
-                "toolChange",
-                [...localState.value.tools],
-                "update",
-                editingIndex,
-            );
-        } else {
-            // add
-            localState.value.tools.push(current);
-            emit(
-                "toolChange",
-                [...localState.value.tools],
-                "add",
-                localState.value.tools.length - 1,
-            );
-        }
-        emit("update:tools", [...localState.value.tools]);
-        handleStateChange();
-        announce(t("common.save"), "polite");
-        closeToolEditor();
-    } catch (e) {
-        jsonError.value =
-            e instanceof Error ? e.message : t("contextEditor.invalidJson");
-    }
-};
-
-const deleteTool = (index: number) => {
-    const tool = localState.value.tools[index];
-    const confirmed = confirm(
-        t("contextEditor.deleteToolConfirm", {
-            name: tool?.function?.name || "",
-        }),
-    );
-    if (!confirmed) return;
-    localState.value.tools.splice(index, 1);
-    emit("toolChange", [...localState.value.tools], "delete", index);
-    emit("update:tools", [...localState.value.tools]);
-    handleStateChange();
-    announce(
-        t("contextEditor.toolDeleted", { name: tool?.function?.name || "" }),
-        "polite",
-    );
-};
-
-// 工具变更自动同步给父级（保持向后兼容）
-watch(
-    () => localState.value.tools,
-    (newTools) => {
-        emit("update:tools", [...newTools]);
-    },
-    { deep: true },
-);
 
 const handleImport = () => {
     showImportDialog.value = true;
@@ -1808,20 +960,6 @@ const setMessageRef = (
     const element = el && "$el" in el ? el.$el : el;
     if (element) messageRefs.set(index, element);
 };
-const focusMessage = (index: number) => {
-    focusedIndex.value = index;
-    nextTick(() => {
-        const el = messageRefs.get(index);
-        if (el) {
-            el.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-        // 1.5s 后移除高亮
-        setTimeout(() => {
-            if (focusedIndex.value === index) focusedIndex.value = null;
-        }, 1500);
-    });
-};
-
 // 生命周期
 watch(
     () => props.visible,
@@ -1908,66 +1046,7 @@ const handleExportError = (message?: string) => {
 </script>
 
 <style scoped>
-/* Pure Naive UI implementation - no custom theme CSS needed */
-.context-editor-content {
-    /* All styling handled by Naive UI components */
-}
-
-.messages-panel {
-    /* Naive UI layout */
-}
-
-.templates-panel {
-    /* Template management styling */
-}
-
-.template-card {
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.template-card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.template-content {
-    /* Template content styling */
-}
-
-.template-description {
-    line-height: 1.4;
-    margin-bottom: 8px;
-}
-
-.template-preview {
-    /* Template preview styling */
-}
-
-.preview-message {
-    padding: 2px 0;
-    border-left: 2px solid var(--n-color-border, #e0e0e6);
-    padding-left: 8px;
-    margin-bottom: 4px;
-}
-
-.preview-content {
-    /* Preview styling */
-    white-space: pre-wrap;
-    word-break: break-word;
-}
-
-.focused-card {
-    box-shadow: 0 0 0 2px var(--n-color-target, #18a058) inset;
-    transition: box-shadow 0.2s ease;
-}
-
-.context-editor-tabs--single :deep(.n-tabs-tab-wrapper),
-.context-editor-tabs--single :deep(.n-tabs-nav) {
-    display: none;
-}
-
-/* 可访问性支持样式 */
+/* 可访问性：屏幕阅读器专用 */
 .sr-only {
     position: absolute;
     width: 1px;
@@ -1980,27 +1059,9 @@ const handleExportError = (message?: string) => {
     border: 0;
 }
 
-/* 减少动画偏好支持 */
-.reduce-motion * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-}
-
-/* 高对比度模式支持 */
-.high-contrast {
-    /* 增强对比度的样式将由Naive UI主题系统处理 */
-}
-
-/* 键盘导航模式高亮 */
-.keyboard-only *:focus-visible {
-    outline: 2px solid var(--n-color-target);
-    outline-offset: 2px;
-}
-
-/* 屏幕阅读器模式优化 */
-.screen-reader {
-    /* 为屏幕阅读器优化的样式 */
+/* 聚焦卡片高亮 */
+.focused-card {
+    box-shadow: 0 0 0 2px var(--n-color-target, #18a058) inset;
+    transition: box-shadow 0.2s ease;
 }
 </style>
