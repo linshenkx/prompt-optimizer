@@ -6,7 +6,6 @@
 import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 
 import { useToast } from "../ui/useToast";
-import { quickTemplateManager } from "../../data/quickTemplates";
 import type {
   ConversationMessage,
   OptimizationMode,
@@ -194,31 +193,6 @@ export function useContextManagement(options: ContextManagementOptions) {
         "[useContextManagement] Variable manager refresh failed:",
         e,
       );
-    }
-
-    // 若首次加载且高级模式开启且当前无会话消息，灌入默认模板
-    if (
-      advancedModeEnabled.value &&
-      !isContextLoaded.value &&
-      (!optimizationContext.value || optimizationContext.value.length === 0)
-    ) {
-      try {
-        const defaultTemplate = quickTemplateManager.getTemplate(
-          selectedOptimizationMode.value,
-          "default",
-        );
-        if (defaultTemplate?.messages?.length) {
-          optimizationContext.value = [...defaultTemplate.messages];
-          console.log(
-            `[useContextManagement] Auto-filled default template for ${selectedOptimizationMode.value}`,
-          );
-        }
-      } catch (e) {
-        console.warn(
-          "[useContextManagement] Failed to auto-fill default template:",
-          e,
-        );
-      }
     }
 
     // 设置初始状态

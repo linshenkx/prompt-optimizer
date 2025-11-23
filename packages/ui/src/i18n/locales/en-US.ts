@@ -1542,15 +1542,6 @@ export default {
     noDescription: "No description",
     parametersCount: "{count} parameters",
 
-    // Templates
-    templateCategory: "Template Category",
-    templateCount: "{count} templates",
-    noTemplates: "No templates",
-    noTemplatesHint: "Add templates in Template Manager",
-    applyTemplate: "Apply Template",
-    moreMessages: "{count} more messages...",
-    templateApplied: "Template applied: {name}",
-
     // Import/Export
     importTitle: "Import Context Data",
     importFormat: "Import Format:",
@@ -1594,7 +1585,6 @@ export default {
 
     // Tab labels
     messagesTab: "Messages",
-    templatesTab: "Templates",
     variablesTab: "Variables",
     toolsTab: "Tools",
 

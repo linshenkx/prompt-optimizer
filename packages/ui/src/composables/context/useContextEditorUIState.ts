@@ -10,7 +10,7 @@ export function useContextEditorUIState(
   t: ComposerTranslation
 ) {
   // 仅显示指定标签页模式（隐藏其他标签页和标签栏）
-  const onlyShowTab = ref<'messages' | 'variables' | 'tools' | 'templates' | undefined>(undefined)
+  const onlyShowTab = ref<'messages' | 'variables' | 'tools' | undefined>(undefined)
 
   // 根据 onlyShowTab 动态计算编辑器标题
   const title = computed(() => {
@@ -23,7 +23,6 @@ export function useContextEditorUIState(
       messages: t('contextEditor.messagesTab'),
       variables: t('contextEditor.variablesTab'),
       tools: t('contextEditor.toolsTab'),
-      templates: t('contextEditor.templatesTab'),
     }
 
     return titleMap[tab] || t('contextEditor.title')
@@ -43,7 +42,7 @@ export function useContextEditorUIState(
   }
 
   // 打开指定标签页模式
-  const openWithTab = (tab: 'messages' | 'variables' | 'tools' | 'templates') => {
+  const openWithTab = (tab: 'messages' | 'variables' | 'tools') => {
     onlyShowTab.value = tab
   }
 

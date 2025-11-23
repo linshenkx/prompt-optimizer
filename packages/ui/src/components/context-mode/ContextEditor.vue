@@ -538,290 +538,6 @@
                     </div>
                 </NTabPane>
 
-                <!-- 模板管理标签页 (系统模式下显示) -->
-                <NTabPane
-                    v-if="showTemplatesTab"
-                    name="templates"
-                    :tab="t('contextEditor.templatesTab')"
-                >
-                    <div
-                        class="templates-panel"
-                        role="region"
-                        :aria-label="aria.getLabel('templatesPanel')"
-                    >
-                        <!-- 模板分类和筛选 -->
-                        <NCard size="small" embedded class="mb-4">
-                            <NSpace align="center" justify="space-between">
-                                <NSpace align="center" :size="8">
-                                    <NText strong>{{
-                                        t("contextEditor.templateCategory")
-                                    }}</NText>
-                                    <NTag :size="tagSize" type="info">
-                                        {{
-                                            t(
-                                                `contextEditor.${optimizationMode}Templates`,
-                                            )
-                                        }}
-                                    </NTag>
-                                </NSpace>
-                                <NTag :size="tagSize" type="success">
-                                    {{
-                                        t("contextEditor.templateCount", {
-                                            count: quickTemplates.length,
-                                        })
-                                    }}
-                                </NTag>
-                            </NSpace>
-                        </NCard>
-
-                        <!-- 模板列表 -->
-                        <NEmpty
-                            v-if="quickTemplates.length === 0"
-                            :description="t('contextEditor.noTemplates')"
-                            role="status"
-                            :aria-label="aria.getLabel('emptyTemplates')"
-                        >
-                            <template #icon>
-                                <svg
-                                    width="48"
-                                    height="48"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="1"
-                                >
-                                    <path d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                                </svg>
-                            </template>
-                            <template #extra>
-                                <NText depth="3">{{
-                                    t("contextEditor.noTemplatesHint")
-                                }}</NText>
-                            </template>
-                        </NEmpty>
-
-                        <NScrollbar v-else :style="scrollbarStyle">
-                            <NGrid
-                                :cols="isMobile ? 1 : 2"
-                                :x-gap="12"
-                                :y-gap="12"
-                            >
-                                <NGridItem
-                                    v-for="template in quickTemplates"
-                                    :key="template.id"
-                                >
-                                    <NCard
-                                        :size="cardSize"
-                                        embedded
-                                        hoverable
-                                        class="template-card"
-                                        role="button"
-                                        :aria-label="
-                                            aria.getLabel(
-                                                'templateCard',
-                                                template.name,
-                                            )
-                                        "
-                                        tabindex="0"
-                                        @click="handleTemplatePreview(template)"
-                                        @keydown.enter="
-                                            handleTemplatePreview(template)
-                                        "
-                                        @keydown.space.prevent="
-                                            handleTemplatePreview(template)
-                                        "
-                                    >
-                                        <template #header>
-                                            <NSpace
-                                                justify="space-between"
-                                                align="center"
-                                            >
-                                                <NSpace
-                                                    align="center"
-                                                    :size="4"
-                                                >
-                                                    <NTag
-                                                        :size="tagSize"
-                                                        round
-                                                        type="primary"
-                                                    >
-                                                        {{ template.name }}
-                                                    </NTag>
-                                                    <NTag
-                                                        v-if="template.messages"
-                                                        :size="tagSize"
-                                                        type="info"
-                                                    >
-                                                        {{ t('contextEditor.messageCount', { count: template.messages.length }) }}
-                                                    </NTag>
-                                                </NSpace>
-                                                <NSpace :size="4">
-                                                    <NButton
-                                                        @click.stop="
-                                                            handleTemplatePreview(
-                                                                template,
-                                                            )
-                                                        "
-                                                        :size="buttonSize"
-                                                        quaternary
-                                                        circle
-                                                        :title="
-                                                            t(
-                                                                'common.preview',
-                                                            )
-                                                        "
-                                                    >
-                                                        <template #icon>
-                                                            <svg
-                                                                width="14"
-                                                                height="14"
-                                                                viewBox="0 0 24 24"
-                                                                fill="none"
-                                                                stroke="currentColor"
-                                                            >
-                                                                <path
-                                                                    stroke-linecap="round"
-                                                                    stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                                                />
-                                                                <path
-                                                                    stroke-linecap="round"
-                                                                    stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                                                />
-                                                            </svg>
-                                                        </template>
-                                                    </NButton>
-                                                    <NButton
-                                                        @click.stop="
-                                                            handleTemplateApply(
-                                                                template,
-                                                            )
-                                                        "
-                                                        :size="buttonSize"
-                                                        type="primary"
-                                                        circle
-                                                        :title="
-                                                            t(
-                                                                'contextEditor.applyTemplate',
-                                                            )
-                                                        "
-                                                        :disabled="disabled"
-                                                    >
-                                                        <template #icon>
-                                                            <svg
-                                                                width="14"
-                                                                height="14"
-                                                                viewBox="0 0 24 24"
-                                                                fill="none"
-                                                                stroke="currentColor"
-                                                            >
-                                                                <path
-                                                                    stroke-linecap="round"
-                                                                    stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M5 13l4 4L19 7"
-                                                                />
-                                                            </svg>
-                                                        </template>
-                                                    </NButton>
-                                                </NSpace>
-                                            </NSpace>
-                                        </template>
-
-                                        <div class="template-content">
-                                            <NText
-                                                depth="3"
-                                                class="template-description"
-                                            >
-                                                {{
-                                                    template.description ||
-                                                    t(
-                                                        "contextEditor.noDescription",
-                                                    )
-                                                }}
-                                            </NText>
-
-                                            <!-- 模板消息预览 -->
-                                            <div
-                                                v-if="
-                                                    template.messages &&
-                                                    template.messages.length > 0
-                                                "
-                                                class="template-preview mt-3"
-                                            >
-                                                <div
-                                                    v-for="(
-                                                        message, index
-                                                    ) in template.messages.slice(
-                                                        0,
-                                                        2,
-                                                    )"
-                                                    :key="`preview-${index}`"
-                                                    class="preview-message"
-                                                >
-                                                    <NSpace
-                                                        align="center"
-                                                        :size="4"
-                                                        class="mb-1"
-                                                    >
-                                                        <NTag
-                                                            :size="tagSize"
-                                                            round
-                                                            >{{
-                                                                getRoleLabel(
-                                                                    message.role,
-                                                                )
-                                                            }}</NTag
-                                                        >
-                                                        <NText
-                                                            depth="3"
-                                                            class="text-xs"
-                                                        >
-                                                            {{
-                                                                message.content
-                                                                    .length > 40
-                                                                    ? message.content.substring(
-                                                                          0,
-                                                                          40,
-                                                                      ) + "..."
-                                                                    : message.content
-                                                            }}
-                                                        </NText>
-                                                    </NSpace>
-                                                </div>
-                                                <NText
-                                                    v-if="
-                                                        template.messages
-                                                            .length > 2
-                                                    "
-                                                    depth="3"
-                                                    class="text-xs mt-1"
-                                                >
-                                                    {{
-                                                        t(
-                                                            "contextEditor.moreMessages",
-                                                            {
-                                                                count:
-                                                                    template
-                                                                        .messages
-                                                                        .length -
-                                                                    2,
-                                                            },
-                                                        )
-                                                    }}
-                                                </NText>
-                                            </div>
-                                        </div>
-                                    </NCard>
-                                </NGridItem>
-                            </NGrid>
-                        </NScrollbar>
-                    </div>
-                </NTabPane>
-
                 <!-- 变量管理标签页已移除，使用独立的 VariableManagerModal -->
 
                 <!-- 工具管理标签页 -->
@@ -1103,77 +819,6 @@
         </template>
     </NModal>
 
-    <!-- 模板预览弹窗 -->
-    <NModal
-        v-model:show="showTemplatePreview"
-        preset="card"
-        :title="previewTemplate?.name || t('common.preview')"
-        :mask-closable="true"
-        :style="previewModalStyle"
-    >
-        <div>
-            <NText depth="3" class="mb-2 block">
-                {{
-                    previewTemplate?.description ||
-                    t("contextEditor.noDescription")
-                }}
-            </NText>
-
-            <NAlert
-                v-if="!previewTemplate"
-                type="warning"
-                :show-icon="false"
-                class="mb-2"
-            >
-                {{ t("contextEditor.noTemplates") }}
-            </NAlert>
-
-            <NScrollbar v-else :style="scrollbarStyle">
-                <NList hoverable clickable>
-                    <NListItem
-                        v-for="(msg, idx) in previewTemplate.messages"
-                        :key="`msg-${idx}`"
-                    >
-                        <NCard :size="cardSize" embedded>
-                            <NSpace align="center" :size="8" class="mb-2">
-                                <NTag :size="tagSize" round type="info">{{
-                                    getRoleLabel(msg.role)
-                                }}</NTag>
-                                <NText depth="3">#{{ idx + 1 }}</NText>
-                            </NSpace>
-                            <div class="preview-content">
-                                <NText>{{ msg.content }}</NText>
-                            </div>
-                        </NCard>
-                    </NListItem>
-                </NList>
-            </NScrollbar>
-        </div>
-
-        <template #action>
-            <NSpace justify="end">
-                <NButton
-                    @click="showTemplatePreview = false"
-                    :size="buttonSize"
-                >
-                    {{ t("common.close") }}
-                </NButton>
-                <NButton
-                    type="primary"
-                    :size="buttonSize"
-                    :disabled="!previewTemplate || disabled"
-                    @click="
-                        previewTemplate &&
-                        (handleTemplateApply(previewTemplate),
-                        (showTemplatePreview = false))
-                    "
-                >
-                    {{ t("contextEditor.applyTemplate") }}
-                </NButton>
-            </NSpace>
-        </template>
-    </NModal>
-
     <!-- 工具编辑器（简化版） -->
     <NModal
         v-model:show="toolEditState.showEditor"
@@ -1442,10 +1087,6 @@ import { useTemporaryVariables } from '../../composables/variable/useTemporaryVa
 import { VariableAwareInput } from "../variable-extraction";
 import ImportExportDialog from './ImportExportDialog.vue';
 import { useAggregatedVariables } from '../../composables/variable/useAggregatedVariables';
-import {
-    quickTemplateManager,
-    type QuickTemplateDefinition,
-} from "../../data/quickTemplates";
 import type {
     ContextEditorProps,
     ContextEditorEvents,
@@ -1531,10 +1172,6 @@ const showExportDialog = ref(false);
 // 变量值输入框引用（用于自动聚焦）
 const variableValueInputRef = ref(null);
 
-// 模板预览状态
-const showTemplatePreview = ref(false);
-const previewTemplate = ref<QuickTemplateDefinition | null>(null);
-
 // 使用shallowRef优化深度对象
 // 注意：variables 已迁移到 useTemporaryVariables() 和 useVariableManager() 管理
 const localState = shallowRef<ContextEditorState>({
@@ -1569,14 +1206,13 @@ const tagSize = computed(() => {
 });
 
 // 标签页显示控制逻辑 - 配置驱动
-type TabName = 'messages' | 'templates' | 'variables' | 'tools';
+type TabName = 'messages' | 'variables' | 'tools';
 
 // 标签页默认可见性配置（ContextEditor 仅用于 Context System 模式）
 // 变量管理已移除，使用独立的 VariableManagerModal
 // 工具管理已移除，使用独立的 ToolManagerModal
 const TAB_VISIBILITY_CONFIG: Record<TabName, () => boolean> = {
     messages: () => true,
-    templates: () => true,
     variables: () => false, // 已移除变量标签页
     tools: () => false, // 已移除工具标签页，使用独立的 ToolManagerModal
 };
@@ -1593,7 +1229,6 @@ const createTabVisibility = (tabName: TabName) => computed(() => {
 
 // 各标签页可见性
 const showMessagesTab = createTabVisibility('messages');
-const showTemplatesTab = createTabVisibility('templates');
 const showVariablesTab = createTabVisibility('variables');
 const showToolsTab = createTabVisibility('tools');
 
@@ -1601,7 +1236,6 @@ const resolveDefaultTab = (): string => {
     const candidate = props.onlyShowTab || props.defaultTab;
     const visibilityMap: Record<string, boolean> = {
         messages: showMessagesTab.value,
-        templates: showTemplatesTab.value,
         variables: showVariablesTab.value,
         tools: showToolsTab.value,
     };
@@ -1610,7 +1244,6 @@ const resolveDefaultTab = (): string => {
     }
     const preferenceOrder: Array<keyof typeof visibilityMap> = [
         "messages",
-        "templates",
         "variables",
         "tools",
     ];
@@ -1666,15 +1299,6 @@ const roleOptions = computed(() => [
     { label: t("conversation.roles.assistant"), value: "assistant" },
     { label: t("conversation.roles.tool"), value: "tool" },
 ]);
-
-// 快速模板管理 - 根据优化模式和语言获取
-const quickTemplates = computed(() => {
-    const currentLanguage = locale?.value || "zh-CN";
-    return quickTemplateManager.getTemplates(
-        props.optimizationMode,
-        currentLanguage,
-    );
-});
 
 // 工具函数（统一使用注入函数）
 const getMessageVariables = (content: string) => {
@@ -1808,32 +1432,6 @@ const togglePreview = throttle(
 );
 
 // 工具管理方法 - 实际实现在后面
-
-// 模板管理方法
-const handleTemplatePreview = (template: QuickTemplateDefinition) => {
-    previewTemplate.value = template;
-    showTemplatePreview.value = true;
-};
-
-const handleTemplateApply = (template: QuickTemplateDefinition) => {
-    if (!template.messages || template.messages.length === 0) {
-        console.warn("Template has no messages to apply");
-        return;
-    }
-
-    // 应用模板到本地状态
-    localState.value.messages = [...template.messages];
-    handleStateChange();
-
-    // 切换到消息编辑标签页
-    activeTab.value = "messages";
-
-    // 通知用户模板已应用
-    announce(
-        t("contextEditor.templateApplied", { name: template.name }),
-        "polite",
-    );
-};
 
 // 事件处理方法
 const handleVisibilityChange = (visible: boolean) => {
@@ -2250,11 +1848,10 @@ watch(
 );
 
 watch(
-    [showMessagesTab, showTemplatesTab, showVariablesTab, showToolsTab],
+    [showMessagesTab, showVariablesTab, showToolsTab],
     () => {
         const visibilityMap: Record<string, boolean> = {
             messages: showMessagesTab.value,
-            templates: showTemplatesTab.value,
             variables: showVariablesTab.value,
             tools: showToolsTab.value,
         };

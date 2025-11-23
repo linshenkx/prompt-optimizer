@@ -201,9 +201,6 @@ export type {
 export * from "./types";
 export * from "./services";
 
-// 导出快速模板管理器
-export { quickTemplateManager } from "./data/quickTemplates";
-
 // 导出图像模式组件与核心图像服务（转发 core 能力）
 export { default as ImageWorkspace } from "./components/image-mode/ImageWorkspace.vue";
 export { default as ImageModeSelector } from "./components/image-mode/ImageModeSelector.vue";

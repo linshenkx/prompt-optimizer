@@ -243,21 +243,6 @@ vi.mock('../../src/composables/context/useContextEditor', () => ({
   })
 }))
 
-vi.mock('../../src/data/quickTemplates', () => ({
-  quickTemplateManager: {
-    getTemplates: vi.fn(() => [
-      {
-        id: 'test-template',
-        name: '测试模板',
-        description: '用于测试的模板',
-        messages: [
-          { role: 'system', content: '你是一个有用的助手，包含变量 {{assistantType}}' },
-          { role: 'user', content: '请帮我 {{userRequest}}' }
-        ]
-      }
-    ])
-  }
-}))
 // 创建 variableManager mock
 const createMockVariableManager = () => ({
   variableManager: { value: null },

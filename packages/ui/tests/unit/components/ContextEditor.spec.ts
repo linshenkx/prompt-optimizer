@@ -3,36 +3,6 @@ import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import ContextEditor from '../../../src/components/context-mode/ContextEditor.vue'
 
-// Mock quickTemplateManager using factory function 
-vi.mock('../../../src/data/quickTemplates', () => {
-  const mockQuickTemplates = [
-    {
-      id: 'template1',
-      name: 'System Chat Template',
-      description: 'Basic system chat template',
-      messages: [
-        { role: 'system', content: '{{currentPrompt}}' },
-        { role: 'user', content: '{{userQuestion}}' }
-      ]
-    },
-    {
-      id: 'template2', 
-      name: 'User Prompt Template',
-      description: 'Basic user prompt template',
-      messages: [
-        { role: 'user', content: '{{currentPrompt}}' }
-      ]
-    }
-  ]
-
-  return {
-    quickTemplateManager: {
-      getTemplates: vi.fn(() => mockQuickTemplates)
-    },
-    mockQuickTemplates
-  }
-})
-
 // Mock Naive UI 组件
 vi.mock('naive-ui', () => ({
   NModal: {
@@ -218,27 +188,6 @@ vi.mock('../../../src/composables/useContextEditor', () => ({
 }))
 
 describe('ContextEditor 综合测试', () => {
-  // Get the mocked templates for testing
-  const mockQuickTemplates = [
-    {
-      id: 'template1',
-      name: 'System Chat Template',
-      description: 'Basic system chat template',
-      messages: [
-        { role: 'system', content: '{{currentPrompt}}' },
-        { role: 'user', content: '{{userQuestion}}' }
-      ]
-    },
-    {
-      id: 'template2', 
-      name: 'User Prompt Template',
-      description: 'Basic user prompt template',
-      messages: [
-        { role: 'user', content: '{{currentPrompt}}' }
-      ]
-    }
-  ]
-
   // Mock variableManager
   const createMockVariableManager = () => ({
     variableManager: { value: null },
@@ -371,76 +320,6 @@ describe('ContextEditor 综合测试', () => {
     })
   })
 
-  describe('模板管理功能', () => {
-    it('应该根据optimizationMode获取正确的模板', async () => {
-      // 测试系统模式
-      wrapper = await createWrapper({ optimizationMode: 'system' })
-      expect(wrapper.vm.quickTemplates).toHaveLength(2)
-      
-      // 测试用户模式
-      wrapper = await createWrapper({ optimizationMode: 'user' })
-      expect(wrapper.vm.quickTemplates).toHaveLength(2)
-    })
-
-    it('应用模板应该更新localState并发射事件', async () => {
-      wrapper = await createWrapper()
-      
-      const template = mockQuickTemplates[0]
-      await wrapper.vm.handleTemplateApply(template)
-      
-      expect(wrapper.vm.localState.messages).toEqual(template.messages)
-      expect(wrapper.emitted('update:state')).toBeTruthy()
-      expect(wrapper.emitted('contextChange')).toBeTruthy()
-    })
-
-    it('应用空模板应该不执行任何操作', async () => {
-      wrapper = await createWrapper()
-      
-      const emptyTemplate = { id: 'empty', name: 'Empty', messages: [] }
-      await wrapper.vm.handleTemplateApply(emptyTemplate)
-      
-      expect(wrapper.vm.localState.messages).toEqual([])
-      expect(wrapper.emitted('update:state')).toBeFalsy()
-    })
-
-    it('应该显示模板预览内容', async () => {
-      wrapper = await createWrapper()
-      
-      const template = mockQuickTemplates[0]
-      expect(template.messages.length).toBeGreaterThan(0)
-      expect(template.description).toBeDefined()
-    })
-
-    it('应该正确渲染模板标签页', async () => {
-      wrapper = await createWrapper()
-      wrapper.vm.activeTab = 'templates'
-      await nextTick()
-      
-      // 验证模板标签页存在
-      const tabPanes = wrapper.findAll('.n-tab-pane')
-      expect(tabPanes.length).toBeGreaterThanOrEqual(1)
-    })
-
-    it('应该显示模板统计信息', async () => {
-      wrapper = await createWrapper()
-      wrapper.vm.activeTab = 'templates'
-      await nextTick()
-      
-      const vm = wrapper.vm
-      expect(vm.quickTemplates.length).toBe(2)
-    })
-
-    it('应用模板后应该切换到消息编辑标签页', async () => {
-      wrapper = await createWrapper()
-      wrapper.vm.activeTab = 'templates'
-      
-      const template = mockQuickTemplates[0]
-      await wrapper.vm.handleTemplateApply(template)
-      
-      expect(wrapper.vm.activeTab).toBe('messages')
-    })
-  })
-
   describe('导入导出功能', () => {
     beforeEach(() => {
       // 重置 mock
@@ -473,73 +352,6 @@ describe('ContextEditor 综合测试', () => {
     })
 
     // 注意：导入导出的详细功能测试已移至 ImportExportDialog.spec.ts
-  })
-
-  describe('optimizationMode 参数传递', () => {
-    it('应该正确传递 system 模式到模板管理器', async () => {
-      wrapper = await createWrapper({ optimizationMode: 'system' })
-      
-      // 直接检查组件的 quickTemplates 计算属性
-      expect(wrapper.vm.quickTemplates).toHaveLength(2)
-    })
-
-    it('应该正确传递 user 模式到模板管理器', async () => {
-      wrapper = await createWrapper({ optimizationMode: 'user' })
-      
-      // 直接检查组件的 quickTemplates 计算属性
-      expect(wrapper.vm.quickTemplates).toHaveLength(2)
-    })
-
-    it('optimizationMode 改变时应该重新获取模板', async () => {
-      wrapper = await createWrapper({ optimizationMode: 'system' })
-      
-      await wrapper.setProps({ optimizationMode: 'user' })
-      await nextTick()
-      
-      // 检查模板仍然可用
-      expect(wrapper.vm.quickTemplates).toHaveLength(2)
-    })
-
-    it('应该根据 optimizationMode 显示正确的模板分类标签', async () => {
-      wrapper = await createWrapper({ optimizationMode: 'system' })
-      wrapper.vm.activeTab = 'templates'
-      await nextTick()
-      
-      const vm = wrapper.vm
-      expect(vm.optimizationMode).toBe('system')
-      
-      // 测试切换到用户模式
-      await wrapper.setProps({ optimizationMode: 'user' })
-      await nextTick()
-      
-      expect(vm.optimizationMode).toBe('user')
-    })
-
-    it('应该根据语言环境获取模板', async () => {
-      // Mock i18n locale
-      const mockLocale = { value: 'en-US' }
-      wrapper = await createWrapper({ optimizationMode: 'system' }, {
-        global: {
-          mocks: {
-            announcements: [],
-            $i18n: {
-              locale: mockLocale
-            }
-          }
-        }
-      })
-      
-      // 模板应该仍然可用
-      expect(wrapper.vm.quickTemplates).toHaveLength(2)
-    })
-
-    it('应该处理无效的 optimizationMode 值', async () => {
-      // 传递无效值，应该仍然能正常工作
-      wrapper = await createWrapper({ optimizationMode: 'invalid' as any })
-      
-      // 模板仍然应该可用
-      expect(wrapper.vm.quickTemplates).toHaveLength(2)
-    })
   })
 
   describe('消息编辑功能', () => {

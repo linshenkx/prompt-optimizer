@@ -176,22 +176,6 @@ vi.mock('../../src/composables/useContextEditor', () => ({
   useContextEditor: () => mockContextEditor
 }))
 
-// Mock quickTemplateManager
-vi.mock('../../src/data/quickTemplates', () => ({
-  quickTemplateManager: {
-    getTemplates: vi.fn(() => [
-      {
-        id: 'template1',
-        name: 'Test Template',
-        description: 'Test template for integration testing',
-        messages: [
-          { role: 'system', content: 'You are a helpful assistant working on {{taskType}}.' }
-        ]
-      }
-    ])
-  }
-}))
-
 /**
  * 测试组件包装器，集成ContextRepo进行持久化测试
  */

@@ -1462,7 +1462,6 @@ export default {
 
     // Tab labels
     messagesTab: "訊息編輯",
-    templatesTab: "快速範本",
     variablesTab: "變數管理",
     toolsTab: "工具管理",
 
@@ -1482,15 +1481,6 @@ export default {
     addTool: "新增工具",
     noDescription: "暫無描述",
     parametersCount: "{count} 個參數",
-
-    // Templates
-    templateCategory: "範本分類",
-    templateCount: "{count} 個範本",
-    noTemplates: "暫無範本",
-    noTemplatesHint: "在範本管理器中新增範本",
-    applyTemplate: "套用範本",
-    moreMessages: "還有 {count} 則訊息...",
-    templateApplied: "已套用範本：{name}",
 
     // Import/Export
     importTitle: "匯入情境資料",

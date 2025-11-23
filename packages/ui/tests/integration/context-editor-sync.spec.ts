@@ -213,22 +213,6 @@ vi.mock('../../src/composables/useContextEditor', () => ({
   useContextEditor: () => mockContextEditor
 }))
 
-// Mock quickTemplateManager
-vi.mock('../../src/data/quickTemplates', () => ({
-  quickTemplateManager: {
-    getTemplates: vi.fn(() => [
-      {
-        id: 'template1',
-        name: 'System Template',
-        description: 'System chat template',
-        messages: [
-          { role: 'system', content: 'You are a helpful assistant.' }
-        ]
-      }
-    ])
-  }
-}))
-
 /**
  * 测试父组件，用于模拟真实的数据同步场景
  */

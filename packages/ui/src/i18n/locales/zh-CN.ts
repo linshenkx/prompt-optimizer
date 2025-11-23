@@ -1498,7 +1498,6 @@ export default {
 
     // Tab labels
     messagesTab: "消息编辑",
-    templatesTab: "快速模板",
     variablesTab: "变量管理",
     toolsTab: "工具管理",
 
@@ -1518,15 +1517,6 @@ export default {
     addTool: "添加工具",
     noDescription: "暂无描述",
     parametersCount: "{count} 个参数",
-
-    // Templates
-    templateCategory: "模板分类",
-    templateCount: "{count} 个模板",
-    noTemplates: "暂无模板",
-    noTemplatesHint: "在模板管理器中添加模板",
-    applyTemplate: "应用模板",
-    moreMessages: "还有 {count} 条消息...",
-    templateApplied: "已应用模板：{name}",
 
     // Import/Export
     importTitle: "导入上下文数据",
