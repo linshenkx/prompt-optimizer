@@ -30,6 +30,7 @@
                         emit('update:optimizationContext', $event)
                     "
                     :available-variables="availableVariables"
+                    :temporary-variables="tempVars.temporaryVariables.value"
                     :scan-variables="scanVariables"
                     :optimization-mode="optimizationMode"
                     :tool-count="toolCount"
@@ -45,6 +46,8 @@
                     @message-select="conversationOptimization.selectMessage"
                     @optimize-message="handleOptimizeClick"
                     @message-change="(index, message, action) => emit('message-change', index, message, action)"
+                    @variable-extracted="handleVariableExtracted"
+                    @add-missing-variable="handleAddMissingVariable"
                 />
             </NCard>
 
@@ -177,18 +180,19 @@
                     @compare-toggle="emit('compare-toggle')"
                     :global-variables="globalVariables"
                     :predefined-variables="predefinedVariables"
+                    :temporary-variables="tempVars.temporaryVariables.value"
                     :input-mode="inputMode"
                     :control-bar-layout="controlBarLayout"
                     :button-size="buttonSize"
                     :result-vertical-layout="resultVerticalLayout"
                     @test="handleTestWithVariables"
                     @open-variable-manager="emit('open-variable-manager')"
-                    @variable-change="
-                        (name: string, value: string) => emit('variable-change', name, value)
-                    "
+                    @variable-change="handleVariableChange"
                     @save-to-global="
                         (name: string, value: string) => emit('save-to-global', name, value)
                     "
+                    @temporary-variable-remove="handleVariableRemove"
+                    @temporary-variables-clear="handleVariablesClear"
                 >
                     <!-- 模型选择插槽 -->
                     <template #model-select>
@@ -248,6 +252,7 @@ import OutputDisplay from "../OutputDisplay.vue";
 import { useConversationTester } from '../../composables/prompt/useConversationTester'
 import { useConversationOptimization } from '../../composables/prompt/useConversationOptimization'
 import { usePromptDisplayAdapter } from '../../composables/prompt/usePromptDisplayAdapter'
+import { useTemporaryVariables } from '../../composables/variable/useTemporaryVariables'
 import type { OptimizationMode, ConversationMessage } from "../../types";
 import type {
     PromptRecord,
@@ -375,6 +380,9 @@ const { t } = useI18n();
 const services = inject<Ref<AppServices | null>>('services')
 const variableManager = inject<VariableManagerHooks | null>('variableManager')
 
+// 🆕 初始化临时变量管理器（与 ContextEditor 共享）
+const tempVars = useTemporaryVariables()
+
 // 🆕 初始化本地会话优化逻辑
 const conversationOptimization = useConversationOptimization(
     services || ref(null),
@@ -494,6 +502,45 @@ const handleSwitchToV0 = (version: PromptRecord) => {
 const handleApplyToConversation = () => {
     if (!displayAdapter.isInMessageOptimizationMode.value) return;
     conversationOptimization.applyCurrentVersion();
+};
+
+// 🆕 处理变量提取
+// 注意：toast 已在 VariableAwareInput 中显示，这里不重复（参考 ContextUserWorkspace 的实现）
+const handleVariableExtracted = (data: {
+    variableName: string;
+    variableValue: string;
+    variableType: "global" | "temporary";
+}) => {
+    if (data.variableType === "global") {
+        variableManager?.addVariable(data.variableName, data.variableValue);
+    } else {
+        tempVars.setVariable(data.variableName, data.variableValue);
+    }
+};
+
+// 🆕 处理添加缺失变量
+// 注意：toast 已在 VariableAwareInput 中显示，这里不重复（参考 ContextUserWorkspace 的实现）
+const handleAddMissingVariable = (varName: string) => {
+    tempVars.setVariable(varName, "");
+};
+
+// 🆕 处理临时变量变更
+const handleVariableChange = (name: string, value: string) => {
+    tempVars.setVariable(name, value);
+    emit('variable-change', name, value);
+};
+
+// 🆕 处理临时变量移除
+const handleVariableRemove = (name: string) => {
+    tempVars.deleteVariable(name);
+    emit('variable-change', name, '');
+};
+
+// 🆕 处理清空所有临时变量
+const handleVariablesClear = () => {
+    const removedNames = Object.keys(tempVars.temporaryVariables.value);
+    tempVars.clearAll();
+    removedNames.forEach(name => emit('variable-change', name, ''));
 };
 
 // 🆕 处理测试事件

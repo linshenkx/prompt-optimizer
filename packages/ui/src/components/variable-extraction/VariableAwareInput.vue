@@ -50,8 +50,14 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue'
 
-import { EditorView, basicSetup } from "codemirror";
+import { EditorView, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, keymap } from "@codemirror/view";
 import { EditorState, Compartment } from "@codemirror/state";
+import { history, historyKeymap, defaultKeymap, indentWithTab } from "@codemirror/commands";
+import { foldGutter, foldKeymap, indentOnInput, bracketMatching, defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { closeBrackets, completionKeymap } from "@codemirror/autocomplete";
+import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
+import { lintKeymap } from "@codemirror/lint";
+
 import { NPopover, NButton, useThemeVars } from "naive-ui";
 import { useI18n } from "vue-i18n";
 import { useToast } from "../../composables/ui/useToast";
@@ -513,18 +519,38 @@ onMounted(() => {
     const startState = EditorState.create({
         doc: props.modelValue,
         extensions: [
-            basicSetup,
-            // 变量高亮 (使用 Compartment)
-            highlighterCompartment.of(variableHighlighter(extractVariables)),
-            // 变量自动完成 (使用 Compartment)
+            highlightSpecialChars(),
+            history(),
+            foldGutter(),
+            drawSelection(),
+            dropCursor(),
+            EditorState.allowMultipleSelections.of(true),
+            indentOnInput(),
+            syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+            bracketMatching(),
+            closeBrackets(),
             autocompletionCompartment.of(
                 variableAutocompletion(
                     globalVariablesMap.value,
                     temporaryVariablesMap.value,
                     predefinedVariablesMap.value,
                     variableDetectionLabels.value,
-                ),
+                )
             ),
+            rectangularSelection(),
+            crosshairCursor(),
+            highlightSelectionMatches(),
+            keymap.of([
+                ...defaultKeymap,
+                ...searchKeymap,
+                ...historyKeymap,
+                ...foldKeymap,
+                ...completionKeymap,
+                ...lintKeymap,
+                indentWithTab
+            ]),
+            // 变量高亮 (使用 Compartment)
+            highlighterCompartment.of(variableHighlighter(extractVariables)),
             // 缺失变量提示
             missingVariableTooltipCompartment.of(
                 missingVariableTooltip(

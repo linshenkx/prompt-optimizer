@@ -599,7 +599,7 @@ export default {
     stats: {
       messages: "訊息",
       variables: "變數",
-      missing: "缺失",
+      missing: "變數缺失",
       tools: "工具",
     },
     quickTemplates: "快速範本",

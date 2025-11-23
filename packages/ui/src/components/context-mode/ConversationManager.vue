@@ -159,30 +159,25 @@
                                     </NDropdown>
                                 </NSpace>
 
-                                <!-- 内容输入，单行自增高 -->
+                                <!-- 内容输入 -->
                                 <div class="content">
-                                    <NInput
+                                    <VariableAwareInput
                                         v-if="canEditMessages"
-                                        :value="message.content"
-                                        @update:value="
-                                            (value) =>
-                                                handleMessageUpdate(index, {
-                                                    ...message,
-                                                    content: value,
-                                                })
-                                        "
-                                        type="textarea"
-                                        :placeholder="
-                                            t(
-                                                `conversation.placeholders.${message.role}`,
-                                            )
-                                        "
-                                        :autosize="{ minRows: 1, maxRows: 1 }"
-                                        :resizable="false"
-                                        :size="inputSize"
-                                        :style="{ width: '100%' }"
+                                        :model-value="message.content"
+                                        @update:model-value="(value) => handleMessageUpdate(index, { ...message, content: value })"
+                                        :placeholder="t(`conversation.placeholders.${message.role}`)"
+                                        :autosize="{ minRows: 1, maxRows: 10 }"
+                                        :existing-global-variables="Object.keys(props.availableVariables || {})"
+                                        :existing-temporary-variables="Object.keys(props.temporaryVariables || {})"
+                                        :predefined-variables="PREDEFINED_VARIABLES"
+                                        :global-variable-values="props.availableVariables || {}"
+                                        :temporary-variable-values="props.temporaryVariables || {}"
+                                        :predefined-variable-values="{}"
+                                        @variable-extracted="handleVariableExtracted"
+                                        @add-missing-variable="handleAddMissingVariable"
                                     />
-                                    <NText v-else>{{ message.content }}</NText>
+                                    <!-- 只读模式下显示纯文本 -->
+                                    <NText v-if="!canEditMessages">{{ message.content }}</NText>
                                 </div>
 
                                 <!-- 操作按钮（选择/上/下/删） -->
@@ -364,12 +359,13 @@ import {
     NScrollbar,
     NList,
     NListItem,
-    NInput,
     NDropdown,
 } from "naive-ui";
 import { usePerformanceMonitor } from "../../composables/performance/usePerformanceMonitor";
 import { useDebounceThrottle } from '../../composables/performance/useDebounceThrottle';
 import { useToast } from "../../composables/ui/useToast";
+import { VariableAwareInput } from "../variable-extraction";
+import { PREDEFINED_VARIABLES } from "../../types/variable";
 import type {
     ConversationManagerProps,
     ConversationManagerEvents,
@@ -399,6 +395,8 @@ const props = withDefaults(defineProps<ConversationManagerProps>(), {
     scanVariables: () => [],
     replaceVariables: (content: string) => content,
     isPredefinedVariable: () => false,
+    // 🆕 临时变量
+    temporaryVariables: () => ({}),
     // 🆕 消息优化相关
     selectedMessageId: undefined,
     enableMessageOptimization: false,
@@ -447,15 +445,6 @@ const cardSize = computed(() => {
     return sizeMap[props.size] || "small";
 });
 
-const inputSize = computed(() => {
-    const sizeMap = {
-        small: "small",
-        medium: "medium",
-        large: "large",
-    } as const;
-    return sizeMap[props.size] || "medium";
-});
-
 const contentStyle = computed(() => {
     const style: Record<string, string | number> = {};
     if (props.maxHeight && !isCollapsed.value) {
@@ -492,9 +481,10 @@ const allUsedVariables = computed(() => {
 });
 
 const allMissingVariables = computed(() => {
-    const available = props.availableVariables || {};
+    const globalVars = props.availableVariables || {};
+    const tempVars = props.temporaryVariables || {};
     return allUsedVariables.value.filter(
-        (name) => available[name] === undefined,
+        (name) => globalVars[name] === undefined && tempVars[name] === undefined,
     );
 });
 
@@ -681,6 +671,21 @@ const handleRoleSelect = (index: number, role: ConversationMessage["role"]) => {
     emit("messageChange", index, updated, "update");
 };
 
+// 处理变量提取
+// 注意：只 emit 事件，由父组件处理保存和显示 toast（参考 ContextEditor 的实现）
+const handleVariableExtracted = (data: {
+  variableName: string;
+  variableValue: string;
+  variableType: "global" | "temporary";
+}) => {
+  emit('variable-extracted', data);
+};
+
+// 处理添加缺失变量
+const handleAddMissingVariable = (varName: string) => {
+  emit('add-missing-variable', varName);
+};
+
 // 🆕 消息优化功能
 // 判断消息是否可以被优化（只有 user 和 system 角色可优化）
 const canOptimizeMessage = (message: ConversationMessage): boolean => {
@@ -754,10 +759,9 @@ watch(
 
 .cm-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;  /* 改为顶部对齐 */
     gap: 8px;
     flex-wrap: nowrap;
-    white-space: nowrap;
 }
 
 .cm-row .actions {
@@ -781,6 +785,43 @@ watch(
 .cm-row .content {
     flex: 1 1 auto;
     min-width: 0;
+}
+
+/* VariableAwareInput 样式适配 */
+.cm-row .content :deep(.variable-aware-input-wrapper) {
+    width: 100%;
+}
+
+.cm-row .content :deep(.codemirror-container) {
+    border: 1px solid var(--n-border-color);
+    border-radius: var(--n-border-radius);
+    transition: border-color 0.3s;
+}
+
+.cm-row .content :deep(.codemirror-container:hover) {
+    border-color: var(--n-border-color-hover);
+}
+
+.cm-row .content :deep(.codemirror-container:focus-within) {
+    border-color: var(--n-primary-color);
+    box-shadow: 0 0 0 2px var(--n-primary-color-suppl);
+}
+
+/* CodeMirror 高度控制 */
+.cm-row .content :deep(.cm-scroller) {
+    min-height: 1.5em;
+    max-height: 15em;  /* 约 10 行 */
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .cm-row {
+        gap: 4px;
+    }
+
+    .cm-row .content :deep(.cm-scroller) {
+        max-height: 12em;
+    }
 }
 
 /* 🆕 消息优化功能样式 */

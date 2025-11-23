@@ -83,6 +83,8 @@ export interface ConversationManagerProps extends BaseComponentProps {
   messages: ConversationMessage[]
   /** 可用变量集合（用于统计/高亮） */
   availableVariables: Record<string, string>
+  /** 🆕 临时变量值集合（用于 VariableAwareInput） */
+  temporaryVariables?: Record<string, string>
   /** 优化模式（用于模板分类） */
   optimizationMode?: 'system' | 'user'
   /** 变量扫描函数（标准化注入） */
@@ -130,6 +132,14 @@ export interface ConversationManagerEvents extends BaseComponentEvents {
   optimizeMessage: () => void
   /** 🆕 打开工具管理器 */
   'open-tool-manager': () => void
+  /** 🆕 变量提取事件 */
+  'variable-extracted': (data: {
+    variableName: string
+    variableValue: string
+    variableType: 'global' | 'temporary'
+  }) => void
+  /** 🆕 添加缺失变量事件 */
+  'add-missing-variable': (varName: string) => void
 }
 
 /**

@@ -392,28 +392,26 @@
 
                                         <!-- 消息内容 -->
                                         <div v-if="!previewMode.get(index)">
-                                            <NInput
-                                                v-model:value="message.content"
-                                                type="textarea"
-                                                :placeholder="
-                                                    getPlaceholderText(
-                                                        message.role,
-                                                    )
+                                            <VariableAwareInput
+                                                :model-value="message.content"
+                                                @update:model-value="
+                                                    handleMessageUpdate(index, {
+                                                        ...message,
+                                                        content: $event,
+                                                    })
                                                 "
-                                                :autosize="{
-                                                    minRows: 1,
-                                                    maxRows: 20,
-                                                }"
-                                                :size="inputSize"
+                                                :placeholder="getPlaceholderText(message.role)"
+                                                :autosize="{ minRows: 1, maxRows: 20 }"
                                                 :disabled="disabled"
-                                                @update:value="
-                                                    handleMessageUpdate(
-                                                        index,
-                                                        message,
-                                                    )
-                                                "
-                                            />
-                                            <!-- 缺失变量提示与快捷操作 -->
+                                                :existing-global-variables="Object.keys(aggregatedVars.variablesBySource.value.global)"
+                                                :existing-temporary-variables="Object.keys(aggregatedVars.variablesBySource.value.temporary)"
+                                                :predefined-variables="Object.keys(aggregatedVars.variablesBySource.value.predefined)"
+                                                :global-variable-values="aggregatedVars.variablesBySource.value.global"
+                                                :temporary-variable-values="aggregatedVars.variablesBySource.value.temporary"
+                                                :predefined-variable-values="aggregatedVars.variablesBySource.value.predefined"
+                                                @variable-extracted="handleVariableExtracted"
+                                                @add-missing-variable="handleCreateVariableAndOpenManager"
+                                            />                                            <!-- 缺失变量提示与快捷操作 -->
                                             <NCard
                                                 v-if="
                                                     getMessageVariables(
@@ -1441,6 +1439,7 @@ import { usePerformanceMonitor } from "../../composables/performance/usePerforma
 import { useDebounceThrottle } from '../../composables/performance/useDebounceThrottle';
 import { useAccessibility } from "../../composables/accessibility/useAccessibility";
 import { useTemporaryVariables } from '../../composables/variable/useTemporaryVariables';
+import { VariableAwareInput } from "../variable-extraction";
 import ImportExportDialog from './ImportExportDialog.vue';
 import { useAggregatedVariables } from '../../composables/variable/useAggregatedVariables';
 import {
@@ -1517,7 +1516,6 @@ const aggregatedVars = useAggregatedVariables(variableManager);
 const {
     modalWidth,
     buttonSize: responsiveButtonSize,
-    inputSize: responsiveInputSize,
     isMobile,
 } = useResponsive();
 
@@ -1631,10 +1629,6 @@ const cardSize = computed(() => {
         large: "medium",
     } as const;
     return sizeMap[responsiveButtonSize.value] || "small";
-});
-
-const inputSize = computed(() => {
-    return responsiveInputSize.value;
 });
 
 const modalStyle = computed(() => ({
@@ -1783,6 +1777,25 @@ const handleMessageUpdate = debounce(
     false,
     "messageUpdate",
 );
+
+// 变量提取处理
+const handleVariableExtracted = (data: {
+    variableName: string;
+    variableValue: string;
+    variableType: "global" | "temporary";
+}) => {
+    if (data.variableType === "global") {
+        props.variableManager.addVariable(data.variableName, data.variableValue);
+        window.$message?.success(
+            t("variableExtraction.savedToGlobal", { name: data.variableName })
+        );
+    } else {
+        tempVars.setVariable(data.variableName, data.variableValue);
+        window.$message?.success(
+            t("variableExtraction.savedToTemporary", { name: data.variableName })
+        );
+    }
+};
 
 const togglePreview = throttle(
     (index: number) => {

@@ -617,7 +617,7 @@ export default {
     stats: {
       messages: "Messages",
       variables: "Variables",
-      missing: "Missing",
+      missing: "Vars Missing",
       tools: "Tools",
     },
     quickTemplates: "Quick Templates",

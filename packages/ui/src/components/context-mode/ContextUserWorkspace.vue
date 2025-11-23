@@ -524,10 +524,7 @@ const handleTestVariableChange = (name: string, value: string) => {
  * 🆕 测试区域移除临时变量时的处理
  */
 const handleTestVariableRemove = (name: string) => {
-    // 🆕 使用 composable 方法删除变量
-    if (tempVarsManager.hasVariable(name)) {
-        tempVarsManager.deleteVariable(name);
-    }
+    tempVarsManager.deleteVariable(name);
     emit("variable-change", name, "");
 };
 

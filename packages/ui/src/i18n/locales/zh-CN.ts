@@ -599,7 +599,7 @@ export default {
     stats: {
       messages: "消息",
       variables: "变量",
-      missing: "缺失",
+      missing: "变量缺失",
       tools: "工具",
     },
     quickTemplates: "快速模板",
