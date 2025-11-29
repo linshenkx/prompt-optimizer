@@ -149,7 +149,7 @@
     <template #action>
       <NSpace justify="space-between" align="center" style="width: 100%;">
         <!-- 左侧：连接测试 -->
-        <NSpace align="center" v-if="selectedProvider">
+        <NSpace align="center">
           <NButton
             @click="handleTestConnection"
             :loading="isTestingConnection"
@@ -262,7 +262,9 @@ const {
   selectedProvider,
   selectedModel,
   currentParameterDefinitions,
-  // (use local computed for UI gates)
+  isConnectionConfigured,
+  canTestConnection,
+  canRefreshModels,
 
   // methods
   onProviderChange: handleProviderChange,
@@ -338,23 +340,6 @@ const connectionFields = computed(() => {
   }
 
   return fields
-})
-
-const isConnectionConfigured = computed(() => {
-  if (!selectedProvider.value?.connectionSchema) return true
-
-  const schema = selectedProvider.value.connectionSchema
-  const config = configForm.value.connectionConfig || {}
-
-  return schema.required.every(field => config[field])
-})
-
-const canTestConnection = computed(() => {
-  return selectedProvider.value && isConnectionConfigured.value
-})
-
-const canRefreshModels = computed(() => {
-  return selectedProvider.value?.supportsDynamicModels && isConnectionConfigured.value
 })
 
 const refreshButtonTooltip = computed(() => {

@@ -152,6 +152,19 @@ export function useImageModelManager() {
     supportsDynamicModels.value && isConnectionConfigured.value && !isLoadingDynamicModels.value
   )
 
+  const canTestConnection = computed(() => {
+    // 测试期间禁用
+    if (isTestingConnection.value) return false
+    // 必须有必需的连接配置
+    if (!isConnectionConfigured.value) return false
+    // 必须有模型 ID（发送请求所需）
+    if (!configForm.value.modelId?.trim()) return false
+    // 必须有 provider
+    if (!configForm.value.providerId) return false
+
+    return true
+  })
+
   // 初始化数据加载
   const loadProviders = async () => {
     isLoadingProviders.value = true
@@ -696,6 +709,7 @@ export function useImageModelManager() {
     supportsDynamicModels,
     isConnectionConfigured,
     canRefreshModels,
+    canTestConnection,
     currentParameterDefinitions,
     currentParamOverrides,
     availableParameterCount,

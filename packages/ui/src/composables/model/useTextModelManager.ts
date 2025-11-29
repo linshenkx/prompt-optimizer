@@ -153,14 +153,14 @@ export function useTextModelManager() {
   })
 
   const canTestFormConnection = computed(() => {
-    // 必须在编辑模式下
-    if (!editingModelId.value) return false
     // 测试期间禁用
     if (isTestingFormConnection.value) return false
     // 必须有必需的连接配置
     if (!isConnectionConfigured.value) return false
-    // 必须有模型名称
-    if (!form.value.name?.trim()) return false
+    // 必须有模型 ID（发送请求所需）
+    if (!form.value.modelId?.trim()) return false
+    // 必须有 provider
+    if (!form.value.providerId) return false
 
     return true
   })
@@ -614,34 +614,32 @@ export function useTextModelManager() {
     formConnectionStatus.value = { type: 'info', message: t('modelManager.testing') }
 
     try {
-      const existingConfig = editingModelId.value ? await modelManager.getModel(editingModelId.value) : undefined
-      if (!existingConfig) {
-        throw new Error('模型配置不存在')
-      }
-
       if (!form.value.providerId || !form.value.modelId) {
         throw new Error('模型未选择')
       }
 
-      const providerMeta = ensureProviderMeta(form.value.providerId, existingConfig.providerMeta)
-      const modelMeta = ensureModelMeta(form.value.providerId, form.value.modelId, existingConfig.modelMeta)
+      // 编辑模式下获取现有配置，新增模式下为 undefined
+      const existingConfig = editingModelId.value ? await modelManager.getModel(editingModelId.value) : undefined
+
+      const providerMeta = ensureProviderMeta(form.value.providerId, existingConfig?.providerMeta)
+      const modelMeta = ensureModelMeta(form.value.providerId, form.value.modelId, existingConfig?.modelMeta)
 
       const baseURL = typeof form.value.connectionConfig?.baseURL === 'string'
         ? form.value.connectionConfig.baseURL.trim()
         : undefined
 
       const connectionConfig: TextConnectionConfig = {
-        baseURL: baseURL || existingConfig.connectionConfig?.baseURL,
-        ...existingConfig.connectionConfig,
+        baseURL: baseURL || existingConfig?.connectionConfig?.baseURL,
+        ...existingConfig?.connectionConfig,
         ...form.value.connectionConfig,
         apiKey: form.value.displayMaskedKey && form.value.originalApiKey
           ? form.value.originalApiKey
-          : (form.value.connectionConfig.apiKey || existingConfig.connectionConfig?.apiKey)
+          : (form.value.connectionConfig.apiKey || existingConfig?.connectionConfig?.apiKey)
       }
 
       const tempConfig = {
-        id: `temp-test-${editingModelId.value}-${Date.now()}`,
-        name: form.value.name,
+        id: `temp-test-${editingModelId.value || 'new'}-${Date.now()}`,
+        name: form.value.name || form.value.modelId,
         enabled: form.value.enabled,
         providerMeta,
         modelMeta,
@@ -654,8 +652,9 @@ export function useTextModelManager() {
       try {
         // 测试临时模型
         await llmService.testConnection(tempConfig.id)
-        formConnectionStatus.value = { type: 'success', message: t('modelManager.testSuccess', { provider: form.value.name }) }
-        toast.success(t('modelManager.testSuccess', { provider: form.value.name }))
+        const displayName = form.value.name || form.value.modelId
+        formConnectionStatus.value = { type: 'success', message: t('modelManager.testSuccess', { provider: displayName }) }
+        toast.success(t('modelManager.testSuccess', { provider: displayName }))
       } finally {
         // 清理临时模型
         try {
@@ -667,11 +666,12 @@ export function useTextModelManager() {
 
     } catch (error) {
       console.error('连接测试失败:', error)
+      const displayName = form.value.name || form.value.modelId
       formConnectionStatus.value = {
         type: 'error',
-        message: t('modelManager.testFailed', { provider: form.value.name, error: error instanceof Error ? error.message : 'Unknown error' || 'Unknown error' })
+        message: t('modelManager.testFailed', { provider: displayName, error: error instanceof Error ? error.message : 'Unknown error' })
       }
-      toast.error(t('modelManager.testFailed', { provider: form.value.name, error: error instanceof Error ? error.message : 'Unknown error' || 'Unknown error' }))
+      toast.error(t('modelManager.testFailed', { provider: displayName, error: error instanceof Error ? error.message : 'Unknown error' }))
     } finally {
       isTestingFormConnection.value = false
     }
