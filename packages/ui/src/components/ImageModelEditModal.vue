@@ -9,8 +9,7 @@
     :segmented="true"
     @update:show="(value) => !value && close()"
   >
-    <NScrollbar style="max-height: 68vh;">
-      <form @submit.prevent="save">
+    <form @submit.prevent="save">
         <NForm label-placement="left" label-width="auto" size="small">
           <!-- 基本信息区域 -->
           <NFormItem :label="t('image.config.displayName.label')">
@@ -145,9 +144,8 @@
             @update:paramOverrides="updateParamOverrides"
           />
         </NForm>
-      </form>
-    </NScrollbar>
-    
+    </form>
+
     <template #action>
       <NSpace justify="space-between" align="center" style="width: 100%;">
         <!-- 左侧：连接测试 -->
@@ -216,7 +214,7 @@ import { computed, watch, nextTick } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import {
-  NModal, NScrollbar, NSpace, NInput, NInputNumber,
+  NModal, NSpace, NInput, NInputNumber,
   NCheckbox, NSelect, NButton, NTag, NTooltip, NText,
   NDivider, NH4, NForm, NFormItem, NImage
 } from 'naive-ui'

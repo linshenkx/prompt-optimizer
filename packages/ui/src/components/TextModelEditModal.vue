@@ -2,15 +2,14 @@
   <NModal
     :show="show"
     preset="card"
-    :style="{ width: '90vw', maxWidth: '1000px', maxHeight: '90vh' }"
+    :style="{ width: '90vw', maxWidth: '1000px' }"
     :title="modalTitle.value"
     size="large"
     :bordered="false"
     :segmented="true"
     @update:show="handleUpdateShow"
   >
-    <NScrollbar v-if="formReady" style="max-height: 75vh;">
-      <form @submit.prevent="handleSubmit">
+    <form v-if="formReady" @submit.prevent="handleSubmit">
         <NForm label-placement="left" label-width="auto" size="small">
           <NFormItem v-if="!isEditing" :label="t('modelManager.modelKey')">
             <NInput
@@ -139,12 +138,11 @@
           :param-overrides="form.paramOverrides"
           @update:paramOverrides="updateParamOverrides"
         />
-      </form>
-    </NScrollbar>
+    </form>
 
-    <div v-else style="height: 200px; display: flex; align-items: center; justify-content: center;">
+    <NFlex v-else justify="center" align="center" style="height: 200px;">
       <NSpin />
-    </div>
+    </NFlex>
 
     <template #action>
       <NSpace justify="space-between" align="center" style="width: 100%;">
@@ -187,7 +185,6 @@ import { computed, inject, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   NModal,
-  NScrollbar,
   NForm,
   NFormItem,
   NH4,
@@ -196,6 +193,7 @@ import {
   NCheckbox,
   NSelect,
   NSpace,
+  NFlex,
   NButton,
   NDivider,
   NText,
