@@ -93,9 +93,9 @@ const internalVisible = computed({
 })
 
 const coreEnabledActions = computed(() => {
-  // 全屏界面不需要对比功能（用于新增/编辑/预览场景）
-  // 只保留 Markdown 渲染和原文显示
-  return props.enabledActions?.filter(action => action !== 'fullscreen' && action !== 'diff')
+  // 全屏界面只需移除 fullscreen（避免递归全屏）
+  // diff 功能保留：当有 originalContent 时，OutputDisplayCore 会显示对比按钮
+  return props.enabledActions?.filter(action => action !== 'fullscreen')
 })
 
 const internalContent = ref(props.content)
