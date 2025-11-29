@@ -113,7 +113,7 @@ import {
   useMessage,
   createDiscreteApi
 } from 'naive-ui'
-import { isSafeCustomKey, type MessageApiInjection, type UnifiedParameterDefinition } from '@prompt-optimizer/core'
+import { isSafeCustomKey, parseCustomValue, type MessageApiInjection, type UnifiedParameterDefinition } from '@prompt-optimizer/core'
 import ModelParameterEditor from './ModelParameterEditor.vue'
 
 const props = defineProps({
@@ -235,7 +235,7 @@ const handleConfirmCustom = () => {
 
   const next = {
     ...props.paramOverrides,
-    [trimmedKey]: trimmedValue
+    [trimmedKey]: parseCustomValue(trimmedValue)
   }
   emitParamOverrides(next)
 

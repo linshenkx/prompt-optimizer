@@ -259,7 +259,7 @@ import { computed, type PropType } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import { useMessage, createDiscreteApi, NAlert, NButton, NCheckbox, NForm, NFormItem, NInput, NInputNumber, NSelect, NSpace, NTag, NText, type MessageApiInjection } from 'naive-ui'
-import type { UnifiedParameterDefinition } from '@prompt-optimizer/core'
+import { parseCustomValue, type UnifiedParameterDefinition } from '@prompt-optimizer/core'
 
 const props = defineProps({
   schema: {
@@ -382,7 +382,7 @@ const handleCustomValueChange = (key: string, value: string) => {
   if (trimmed === '') {
     delete next[key]
   } else {
-    next[key] = trimmed
+    next[key] = parseCustomValue(trimmed)
   }
   emit('update:paramOverrides', next)
 }
