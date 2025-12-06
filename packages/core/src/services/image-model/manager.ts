@@ -7,7 +7,7 @@ import { IStorageProvider } from '../storage/types'
 import { StorageAdapter } from '../storage/adapter'
 import { CORE_SERVICE_KEYS } from '../../constants/storage-keys'
 import { ImportExportError } from '../../interfaces/import-export'
-import { getDefaultImageModels } from './defaults'
+import { getDefaultImageModels, getBuiltinImageConfigIds } from './defaults'
 
 /**
  * 图像模型管理器：专注于配置管理，遵循新的三层架构
@@ -65,11 +65,27 @@ export class ImageModelManager implements IImageModelManager {
         }
       }
       const defaults = getDefaultImageModels(this.registry)
-      // 合并默认项
+      // 合并默认项，并检查是否需要自动启用内置模型
       for (const [key, cfg] of Object.entries(defaults)) {
         if (!data[key]) {
+          // 添加缺失的默认模型
           data[key] = cfg
           changed = true
+        } else {
+          // 检查是否需要自动注入 apiKey 并启用内置模型
+          const existingConfig = data[key]
+          if (this.shouldAutoEnableBuiltinModel(key, existingConfig, cfg)) {
+            data[key] = {
+              ...existingConfig,
+              connectionConfig: {
+                ...(existingConfig.connectionConfig || {}),
+                apiKey: cfg.connectionConfig?.apiKey
+              },
+              enabled: true
+            }
+            changed = true
+            console.log(`[ImageModelManager] Auto-enabled builtin model with new API key: ${key}`)
+          }
         }
       }
 
@@ -371,6 +387,41 @@ export class ImageModelManager implements IImageModelManager {
         paramOverrides: config.paramOverrides ?? {}
       } as ImageModelConfig
     }
+  }
+
+  /**
+   * 判断是否应该自动启用内置模型
+   * 条件：内置模型 + 存储的 apiKey 为空 + enabled 为 false + 新配置有 apiKey
+   */
+  private shouldAutoEnableBuiltinModel(
+    configId: string,
+    storedConfig: ImageModelConfig,
+    defaultConfig: ImageModelConfig
+  ): boolean {
+    // 1. 必须是内置模型
+    const builtinIds = getBuiltinImageConfigIds()
+    if (!builtinIds.includes(configId)) {
+      return false
+    }
+
+    // 2. 存储的配置必须是禁用状态
+    if (storedConfig.enabled !== false) {
+      return false
+    }
+
+    // 3. 存储的 apiKey 必须为空
+    const storedApiKey = storedConfig.connectionConfig?.apiKey?.trim() || ''
+    if (storedApiKey !== '') {
+      return false
+    }
+
+    // 4. 新的默认配置必须有 apiKey
+    const newApiKey = defaultConfig.connectionConfig?.apiKey?.trim() || ''
+    if (newApiKey === '') {
+      return false
+    }
+
+    return true
   }
 
   private validateConfig(config: ImageModelConfig): void {

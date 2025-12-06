@@ -3,166 +3,106 @@ import { ImageAdapterRegistry } from '../image/adapters/registry'
 import { getEnvVar } from '../../utils/environment'
 
 /**
+ * Provider ID -> 环境变量 key 映射（与文本模型风格一致）
+ * 新增 Provider 只需在此添加一行
+ */
+const IMAGE_PROVIDER_ENV_KEYS = {
+  openrouter: 'VITE_OPENROUTER_API_KEY',
+  gemini: 'VITE_GEMINI_API_KEY',
+  openai: 'VITE_OPENAI_API_KEY',
+  siliconflow: 'VITE_SILICONFLOW_API_KEY',
+  seedream: 'VITE_SEEDREAM_API_KEY',
+  dashscope: 'VITE_DASHSCOPE_API_KEY'
+} as const
+
+/**
+ * 配置 ID 映射（保持现有 ID 不变以兼容用户数据）
+ * name 将从 provider.name 获取，无需硬编码
+ */
+const IMAGE_CONFIG_IDS: Record<string, string> = {
+  openrouter: 'image-openrouter-nanobanana',
+  gemini: 'image-gemini-nanobanana',
+  openai: 'image-openai-gpt',
+  siliconflow: 'image-siliconflow-kolors',
+  seedream: 'image-seedream',
+  dashscope: 'image-dashscope'
+}
+
+/**
+ * 特殊 baseURL 环境变量（仅需要覆盖的 Provider）
+ */
+const IMAGE_BASE_URL_ENV_KEYS: Record<string, string> = {
+  openai: 'VITE_OPENAI_BASE_URL',
+  seedream: 'VITE_SEEDREAM_BASE_URL'
+}
+
+/**
  * 图像模型默认配置生成器
- * 返回完整的自包含配置对象，包含provider和model完整信息
+ * 返回完整的自包含配置对象，包含 provider 和 model 完整信息
  *
- * baseURL 和默认 modelId 从 Adapter 获取，避免硬编码
+ * 使用 Provider-Adapter 架构生成完整的元数据，
+ * 所有配置信息（Provider ID、名称、BaseURL、默认模型、参数）均从 Adapter 获取。
  *
  * @param registry 可选，图像适配器注册表（用于依赖注入和测试）
  */
 export function getDefaultImageModels(registry?: IImageAdapterRegistry): Record<string, ImageModelConfig> {
   const adapterRegistry = registry || new ImageAdapterRegistry()
+  const result: Record<string, ImageModelConfig> = {}
 
-  // 环境变量
-  const GEMINI_API_KEY = getEnvVar('VITE_GEMINI_API_KEY').trim()
-  const SEEDREAM_API_KEY = (
-    getEnvVar('VITE_SEEDREAM_API_KEY') ||
-    getEnvVar('VITE_ARK_API_KEY')).trim()
-  const SEEDREAM_BASE_URL = (
-    getEnvVar('VITE_SEEDREAM_BASE_URL') ||
-    getEnvVar('VITE_ARK_BASE_URL')).trim()
-  const OPENROUTER_API_KEY = getEnvVar('VITE_OPENROUTER_API_KEY').trim()
-  const SILICONFLOW_API_KEY = getEnvVar('VITE_SILICONFLOW_API_KEY').trim()
-  const OPENAI_API_KEY = getEnvVar('VITE_OPENAI_API_KEY').trim()
-  const OPENAI_BASE_URL = getEnvVar('VITE_OPENAI_BASE_URL').trim()
-  const DASHSCOPE_API_KEY = getEnvVar('VITE_DASHSCOPE_API_KEY').trim()
+  // 批量生成配置（与文本模型风格一致）
+  for (const [providerId, envKey] of Object.entries(IMAGE_PROVIDER_ENV_KEYS)) {
+    const configId = IMAGE_CONFIG_IDS[providerId]
+    if (!configId) continue
 
-  // 辅助函数：获取 Provider 的默认 baseURL
-  const getDefaultBaseURL = (providerId: string): string => {
-    const adapter = adapterRegistry.getAdapter(providerId)
-    return adapter.getProvider().defaultBaseURL || ''
-  }
-
-  // 辅助函数：获取 Provider 的第一个模型 ID 作为默认
-  const getDefaultModelId = (providerId: string): string => {
-    const models = adapterRegistry.getStaticModels(providerId)
-    return models[0]?.id || providerId
-  }
-
-  // 辅助函数：构建完整配置
-  const buildConfig = (
-    configId: string,
-    name: string,
-    providerId: string,
-    modelId: string,
-    enabled: boolean,
-    connectionConfig?: any,
-    paramOverrides?: any
-  ): ImageModelConfig => {
     const adapter = adapterRegistry.getAdapter(providerId)
     const provider = adapter.getProvider()
+    const models = adapterRegistry.getStaticModels(providerId)
+    const defaultModel = models[0] || adapter.buildDefaultModel(providerId)
 
-    // 尝试从静态模型列表获取模型信息
-    let model = adapterRegistry.getStaticModels(providerId).find(m => m.id === modelId)
-
-    // 如果静态模型不存在，使用buildDefaultModel构建
-    if (!model) {
-      model = adapter.buildDefaultModel(modelId)
+    // 获取 API Key（Seedream 支持备选环境变量）
+    let apiKey = getEnvVar(envKey).trim()
+    if (!apiKey && providerId === 'seedream') {
+      apiKey = getEnvVar('VITE_ARK_API_KEY').trim()
     }
 
-    // 合并模型默认参数和用户指定的参数覆盖
-    // 用户指定的参数优先级更高
-    const modelDefaults = model.defaultParameterValues || {}
-    const mergedParamOverrides = { ...modelDefaults, ...(paramOverrides ?? {}) }
+    // 获取 baseURL（支持环境变量覆盖）
+    let baseURL = provider.defaultBaseURL || ''
+    const baseURLEnvKey = IMAGE_BASE_URL_ENV_KEYS[providerId]
+    if (baseURLEnvKey) {
+      let envBaseURL = getEnvVar(baseURLEnvKey).trim()
+      // Seedream 备选
+      if (!envBaseURL && providerId === 'seedream') {
+        envBaseURL = getEnvVar('VITE_ARK_BASE_URL').trim()
+      }
+      if (envBaseURL) baseURL = envBaseURL
+    }
 
-    return {
+    // 直接从模型获取默认参数值（与文本模型一致）
+    const defaultParamValues = defaultModel.defaultParameterValues || {}
+
+    result[configId] = {
       id: configId,
-      name,
+      name: provider.name,  // 从 provider 获取名称，不再硬编码
       providerId,
-      modelId,
-      enabled,
-      connectionConfig,
-      paramOverrides: mergedParamOverrides,
+      modelId: defaultModel.id,
+      enabled: !!apiKey,
+      connectionConfig: { apiKey, baseURL },
+      paramOverrides: { ...defaultParamValues },
       customParamOverrides: {},
       provider,
-      model
+      model: defaultModel
     }
   }
 
-  // 预设配置列表
-  // baseURL 优先使用环境变量，否则从 Provider 获取默认值
-  // modelId 使用 Provider 的第一个模型作为默认
-  const entries = [
-    {
-      id: 'image-openrouter-nanobanana',
-      name: 'OpenRouter Nano Banana',
-      providerId: 'openrouter',
-      modelId: getDefaultModelId('openrouter'),
-      enabled: !!OPENROUTER_API_KEY,
-      connectionConfig: {
-        apiKey: OPENROUTER_API_KEY,
-        baseURL: getDefaultBaseURL('openrouter')
-      },
-      paramOverrides: {}
-    },
-    {
-      id: 'image-gemini-nanobanana',
-      name: 'Gemini Nano Banana',
-      providerId: 'gemini',
-      modelId: getDefaultModelId('gemini'),
-      enabled: !!GEMINI_API_KEY,
-      connectionConfig: {
-        apiKey: GEMINI_API_KEY,
-        baseURL: getDefaultBaseURL('gemini')
-      },
-      paramOverrides: { outputMimeType: 'image/png' }
-    },
-    {
-      id: 'image-openai-gpt',
-      name: 'OpenAI GPT Image 1',
-      providerId: 'openai',
-      modelId: getDefaultModelId('openai'),
-      enabled: !!OPENAI_API_KEY,
-      connectionConfig: {
-        apiKey: OPENAI_API_KEY,
-        baseURL: OPENAI_BASE_URL || getDefaultBaseURL('openai')
-      },
-      paramOverrides: { size: '1024x1024', quality: 'auto', background: 'auto' }
-    },
-    {
-      id: 'image-siliconflow-kolors',
-      name: 'SiliconFlow Kolors',
-      providerId: 'siliconflow',
-      modelId: getDefaultModelId('siliconflow'),
-      enabled: !!SILICONFLOW_API_KEY,
-      connectionConfig: {
-        apiKey: SILICONFLOW_API_KEY,
-        baseURL: getDefaultBaseURL('siliconflow')
-      },
-      paramOverrides: { image_size: '1024x1024', num_inference_steps: 20, guidance_scale: 7.5, outputMimeType: 'image/png' }
-    },
-    {
-      id: 'image-seedream',
-      name: 'Doubao Seedream 4.0',
-      providerId: 'seedream',
-      modelId: getDefaultModelId('seedream'),
-      enabled: !!SEEDREAM_API_KEY,
-      connectionConfig: {
-        apiKey: SEEDREAM_API_KEY,
-        baseURL: SEEDREAM_BASE_URL || getDefaultBaseURL('seedream')
-      },
-      paramOverrides: { size: '1024x1024', watermark: false, outputMimeType: 'image/png' }
-    },
-    {
-      id: 'image-dashscope',
-      name: 'DashScope Qwen',
-      providerId: 'dashscope',
-      modelId: getDefaultModelId('dashscope'),
-      enabled: !!DASHSCOPE_API_KEY,
-      connectionConfig: {
-        apiKey: DASHSCOPE_API_KEY,
-        baseURL: getDefaultBaseURL('dashscope')
-      },
-      paramOverrides: {}
-    }
-  ]
+  return result
+}
 
-  const models: Record<string, ImageModelConfig> = {}
-  for (const e of entries) {
-    models[e.id] = buildConfig(e.id, e.name, e.providerId, e.modelId, e.enabled, e.connectionConfig, e.paramOverrides)
-  }
-
-  return models
+/**
+ * 获取所有内置图像模型配置的 ID 列表
+ * 用于判断某个配置是否为内置模型（而非用户自定义）
+ */
+export function getBuiltinImageConfigIds(): string[] {
+  return Object.values(IMAGE_CONFIG_IDS)
 }
 
 // 直接导出所有图像模型配置（保持向后兼容，与文本模型风格一致）
