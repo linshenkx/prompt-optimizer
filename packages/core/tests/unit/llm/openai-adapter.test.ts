@@ -31,14 +31,14 @@ describe('OpenAIAdapter', () => {
       }
     },
     modelMeta: {
-      id: 'gpt-5-2025-08-07',
-      name: 'GPT-5',
-      description: 'Latest GPT-5 model',
+      id: 'gpt-5-mini',
+      name: 'GPT-5 Mini',
+      description: 'Fast, capable, and efficient small model',
       providerId: 'openai',
       capabilities: {
         supportsTools: true,
         supportsReasoning: false,
-        maxContextLength: 128000
+        maxContextLength: 1047576
       },
       parameterDefinitions: [
         {
@@ -109,12 +109,12 @@ describe('OpenAIAdapter', () => {
       expect(Array.isArray(models)).toBe(true);
       expect(models.length).toBeGreaterThan(0);
 
-      // 验证至少包含 GPT-5
-      const gpt5 = models.find(m => m.id === 'gpt-5-2025-08-07');
-      expect(gpt5).toBeDefined();
-      expect(gpt5?.name).toBe('GPT-5');
-      expect(gpt5?.providerId).toBe('openai');
-      expect(gpt5?.capabilities.supportsTools).toBe(true);
+      // 验证至少包含 GPT-5 Mini
+      const gpt5Mini = models.find(m => m.id === 'gpt-5-mini');
+      expect(gpt5Mini).toBeDefined();
+      expect(gpt5Mini?.name).toBe('GPT-5 Mini');
+      expect(gpt5Mini?.providerId).toBe('openai');
+      expect(gpt5Mini?.capabilities.supportsTools).toBe(true);
     });
 
     it('should have capabilities for each model', () => {
@@ -184,7 +184,7 @@ describe('OpenAIAdapter', () => {
       expect(response.content).toBe('Hello! How can I help you?');
       expect(response.reasoning).toBeUndefined();
       expect(response.metadata).toEqual({
-        model: 'gpt-5-2025-08-07',
+        model: 'gpt-5-mini',
         finishReason: 'stop'
       });
     });

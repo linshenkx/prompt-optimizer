@@ -11,7 +11,7 @@ describe('OpenRouter Integration Test', () => {
     expect(openrouterProvider).toBeDefined()
     expect(openrouterProvider?.name).toBe('OpenRouter')
     expect(openrouterProvider?.requiresApiKey).toBe(true)
-    expect(openrouterProvider?.supportsDynamicModels).toBe(false)
+    expect(openrouterProvider?.supportsDynamicModels).toBe(true)
   })
 
   it('should get OpenRouter adapter successfully', () => {
@@ -45,9 +45,9 @@ describe('OpenRouter Integration Test', () => {
     expect(openrouterModels[0].model.id).toBe('google/gemini-2.5-flash-image-preview')
   })
 
-  it('should not support dynamic models for OpenRouter', () => {
+  it('should support dynamic models for OpenRouter', () => {
     const registry = new ImageAdapterRegistry()
 
-    expect(registry.supportsDynamicModels('openrouter')).toBe(false)
+    expect(registry.supportsDynamicModels('openrouter')).toBe(true)
   })
 })

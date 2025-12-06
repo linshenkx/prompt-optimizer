@@ -56,11 +56,20 @@ Object.assign(document, {
   execCommand: vi.fn().mockReturnValue(true)
 })
 
-// Mock window.getComputedStyle (sometimes needed for DOM tests)
+// Mock window.getComputedStyle (needed for Vue Transition and DOM tests)
+// Vue's Transition component needs transitionDelay, transitionDuration, etc.
+const mockComputedStyle = {
+  transitionDelay: '',
+  transitionDuration: '',
+  transitionProperty: '',
+  animationDelay: '',
+  animationDuration: '',
+  animationName: '',
+  display: 'block',
+  getPropertyValue: vi.fn().mockReturnValue('')
+}
 Object.assign(window, {
-  getComputedStyle: vi.fn().mockReturnValue({
-    getPropertyValue: vi.fn().mockReturnValue('')
-  })
+  getComputedStyle: vi.fn().mockReturnValue(mockComputedStyle)
 })
 
 // Mock ResizeObserver (commonly used in modern components)

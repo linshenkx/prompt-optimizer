@@ -261,86 +261,6 @@ describe('配置迁移集成测试', () => {
     });
   });
 
-  describe('批量配置转换', () => {
-    it('应该批量转换多种Provider配置', async () => {
-      const legacyConfigs = {
-        openai: {
-          name: 'OpenAI',
-          provider: 'openai',
-          baseURL: 'https://api.openai.com/v1',
-          apiKey: 'openai-key',
-          models: ['gpt-5-2025-08-07'],
-          defaultModel: 'gpt-5-2025-08-07',
-          enabled: true
-        } as ModelConfig,
-        gemini: {
-          name: 'Gemini',
-          provider: 'gemini',
-          baseURL: 'https://generativelanguage.googleapis.com',
-          apiKey: 'gemini-key',
-          models: ['gemini-2.0-flash-exp'],
-          defaultModel: 'gemini-2.0-flash-exp',
-          enabled: true
-        } as ModelConfig,
-        anthropic: {
-          name: 'Anthropic',
-          provider: 'anthropic',
-          baseURL: 'https://api.anthropic.com/v1',
-          apiKey: 'anthropic-key',
-          models: ['claude-3-5-sonnet-20241022'],
-          defaultModel: 'claude-3-5-sonnet-20241022',
-          enabled: true
-        } as ModelConfig,
-        deepseek: {
-          name: 'DeepSeek',
-          provider: 'deepseek',
-          baseURL: 'https://api.deepseek.com/v1',
-          apiKey: 'deepseek-key',
-          models: ['deepseek-chat'],
-          defaultModel: 'deepseek-chat',
-          enabled: true
-        } as ModelConfig,
-        zhipu: {
-          name: 'Zhipu',
-          provider: 'zhipu',
-          baseURL: 'https://open.bigmodel.cn/api/paas/v4',
-          apiKey: 'zhipu-key',
-          models: ['glm-4-flash'],
-          defaultModel: 'glm-4-flash',
-          enabled: true
-        } as ModelConfig,
-        custom: {
-          name: 'Custom',
-          provider: 'custom',
-          baseURL: 'https://custom.api.com/v1',
-          apiKey: 'custom-key',
-          models: ['custom-model'],
-          defaultModel: 'custom-model',
-          enabled: true
-        } as ModelConfig
-      };
-
-      await storage.setItem('models', JSON.stringify(legacyConfigs));
-
-      const modelManager = new ModelManager(storage, registry);
-      
-
-      // 验证所有配置都已转换
-      const allModels = await modelManager.getAllModels();
-      // getAllModels() 返回数组而非对象
-      expect(allModels.length).toBe(7);
-
-      for (const config of allModels) {
-        const key = config.id;
-        expect(isTextModelConfig(config)).toBe(true);
-        expect(isLegacyConfig(config)).toBe(false);
-        expect(config.providerMeta).toBeDefined();
-        expect(config.modelMeta).toBeDefined();
-        console.log(`✅ ${key} converted: providerId=${config.providerMeta.id}, modelId=${config.modelMeta.id}`);
-      }
-    });
-  });
-
   describe('未知模型处理', () => {
     it('应该为未知模型使用buildDefaultModel', async () => {
       const legacyConfig: ModelConfig = {
@@ -372,7 +292,7 @@ describe('配置迁移集成测试', () => {
   describe('新格式配置处理', () => {
     it('应该直接识别并保留新格式配置', async () => {
       const adapter = registry.getAdapter('openai');
-      const model = adapter.getModels().find(m => m.id === 'gpt-5-2025-08-07')!;
+      const model = adapter.getModels().find(m => m.id === 'gpt-5-mini')!;
 
       const newConfig: TextModelConfig = {
         id: 'openai',

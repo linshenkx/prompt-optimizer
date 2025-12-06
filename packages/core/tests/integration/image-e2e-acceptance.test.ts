@@ -71,11 +71,86 @@ const stubRegistry: IImageAdapterRegistry = {
   }
 }
 
-// Mock the registry factory used by ImageService so it uses our stub registry
-vi.mock('../../src/services/image/adapters/registry', () => {
+// Mock defaults.ts 以避免在模块加载时执行 getDefaultImageModels()
+vi.mock('../../src/services/image-model/defaults', () => {
   return {
-    createImageAdapterRegistry: () => stubRegistry,
-    ImageAdapterRegistry: class { }
+    getDefaultImageModels: () => ({}),
+    defaultImageModels: {}
+  }
+})
+
+// Mock the registry factory used by ImageService so it uses our stub registry
+// 注意：vi.mock 会被提升到文件顶部，所以需要在 mock 内部定义所有依赖
+vi.mock('../../src/services/image/adapters/registry', () => {
+  // 在 mock 内部定义 stub 数据
+  const mockStubProvider = {
+    id: 'test',
+    name: 'Test Provider',
+    description: 'Stub provider for acceptance tests',
+    requiresApiKey: false,
+    defaultBaseURL: 'https://example.invalid',
+    supportsDynamicModels: false
+  }
+
+  const mockStubModel = {
+    id: 'test-model',
+    name: 'Test Model',
+    description: 'Stub model for acceptance tests',
+    providerId: 'test',
+    capabilities: { text2image: true, image2image: false },
+    parameterDefinitions: [],
+    defaultParameterValues: { outputMimeType: 'image/png' }
+  }
+
+  const mockFakeAdapter = {
+    getProvider: () => mockStubProvider,
+    getModels: () => [mockStubModel],
+    async getModelsAsync() { return [mockStubModel] },
+    async validateConnection() { return true },
+    async generate(request: any, config: any) {
+      return {
+        images: [{ b64: 'ZHVtbXk=', mimeType: 'image/png' }],
+        metadata: {
+          providerId: config.providerId,
+          modelId: config.modelId,
+          configId: config.id,
+          finishReason: 'done'
+        }
+      }
+    },
+    buildDefaultModel(modelId: string) {
+      return { ...mockStubModel, id: modelId, name: modelId }
+    }
+  }
+
+  const mockStubRegistry = {
+    getAdapter(providerId: string) {
+      if (providerId.toLowerCase() !== 'test') throw new Error(`未知提供商: ${providerId}`)
+      return mockFakeAdapter
+    },
+    getAllProviders() { return [mockStubProvider] },
+    getStaticModels(providerId: string) {
+      if (providerId.toLowerCase() !== 'test') return []
+      return [mockStubModel]
+    },
+    async getDynamicModels(providerId: string) { return this.getStaticModels(providerId) },
+    async getModels(providerId: string) { return this.getStaticModels(providerId) },
+    getAllStaticModels() { return [{ provider: mockStubProvider, model: mockStubModel }] },
+    supportsDynamicModels() { return false },
+    async validateProviderConnection() { return true },
+    validateProviderModel(providerId: string, modelId: string) {
+      return providerId.toLowerCase() === 'test' && modelId === 'test-model'
+    }
+  }
+
+  // 创建一个构造函数形式的 mock 类
+  const MockImageAdapterRegistry = function() {
+    return mockStubRegistry
+  }
+
+  return {
+    createImageAdapterRegistry: () => mockStubRegistry,
+    ImageAdapterRegistry: MockImageAdapterRegistry
   }
 })
 

@@ -16,7 +16,7 @@ describe('OpenRouterImageAdapter', () => {
       expect(provider.id).toBe('openrouter')
       expect(provider.name).toBe('OpenRouter')
       expect(provider.requiresApiKey).toBe(true)
-      expect(provider.supportsDynamicModels).toBe(false)
+      expect(provider.supportsDynamicModels).toBe(true)
       expect(provider.defaultBaseURL).toBe('https://openrouter.ai/api/v1')
     })
 
@@ -35,7 +35,7 @@ describe('OpenRouterImageAdapter', () => {
 
       expect(models).toHaveLength(1)
       expect(models[0].id).toBe('google/gemini-2.5-flash-image-preview')
-      expect(models[0].name).toBe('Gemini 2.5 Flash Image Preview')
+      expect(models[0].name).toBe('Gemini 2.5 Flash Image (Nano Banana)')
       expect(models[0].providerId).toBe('openrouter')
     })
 
