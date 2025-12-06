@@ -6,7 +6,8 @@ import {
   type ModelOption,
   type TextModel,
   type TextModelConfig,
-  type TextProvider
+  type TextProvider,
+  getBuiltinModelIds
 } from '@prompt-optimizer/core'
 import { useModelAdvancedParameters } from './useModelAdvancedParameters'
 import { computeConnectionConfig } from './useConnectionConfig'
@@ -36,8 +37,6 @@ interface SetProviderOptions {
   resetOverrides?: boolean
   resetConnectionConfig?: boolean
 }
-
-const DEFAULT_TEXT_MODEL_IDS = ['openai', 'gemini', 'deepseek', 'zhipu', 'siliconflow', 'custom'] as const
 
 export function useTextModelManager() {
   const { t } = useI18n()
@@ -172,7 +171,7 @@ export function useTextModelManager() {
   const modalTitle = computed(() => (editingModelId.value ? t('modelManager.editModel') : t('modelManager.addModel')))
 
   const isDefaultModel = (id: string) => {
-    return DEFAULT_TEXT_MODEL_IDS.includes(id as typeof DEFAULT_TEXT_MODEL_IDS[number])
+    return getBuiltinModelIds().includes(id)
   }
 
   const resetFormState = () => {
@@ -351,8 +350,13 @@ export function useTextModelManager() {
     ) as TextConnectionConfig
 
     if (autoSelectFirstModel && modelOptions.value.length > 0) {
-      form.value.modelId = modelOptions.value[0].value
-      form.value.defaultModel = modelOptions.value[0].value
+      const firstModelId = modelOptions.value[0].value
+      form.value.modelId = firstModelId
+      form.value.defaultModel = firstModelId
+      // 切换提供商后自动应用第一个模型的默认参数
+      if (firstModelId && providerId) {
+        advancedParameters.applyDefaultsFromModel(false)
+      }
     }
   }
 
@@ -366,6 +370,10 @@ export function useTextModelManager() {
         autoSelectFirstModel: true,
         resetOverrides: true
       })
+      // 创建模式：自动应用第一个模型的默认参数
+      if (form.value.modelId && form.value.providerId) {
+        advancedParameters.applyDefaultsFromModel(false)
+      }
     }
 
     formReady.value = true
@@ -679,7 +687,10 @@ export function useTextModelManager() {
     form.value.defaultModel = modelId || ''
 
     if (modelId && form.value.providerId) {
-      advancedParameters.applyDefaultsFromModel()
+      // 编辑模式：合并参数（保留用户已有配置）
+      // 创建模式：替换参数（使用新模型的默认值）
+      const isEditing = !!editingModelId.value
+      advancedParameters.applyDefaultsFromModel(isEditing)
     }
   }
 

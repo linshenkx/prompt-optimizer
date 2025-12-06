@@ -1,7 +1,7 @@
 import { IModelManager, ModelConfig, TextModelConfig } from './types';
 import { IStorageProvider } from '../storage/types';
 import { StorageAdapter } from '../storage/adapter';
-import { defaultModels } from './defaults';
+import { getAllModels } from './defaults';
 import { ModelConfigError } from '../llm/errors';
 import { validateOverrides } from './parameter-utils';
 import { ElectronConfigManager, isElectronRenderer } from './electron-config';
@@ -179,20 +179,20 @@ export class ModelManager implements IModelManager {
 
   /**
    * 获取默认模型配置（返回TextModelConfig格式）
+   * 注意：每次调用都会重新计算，确保环境变量变化能被感知
    */
   private getDefaultModels(): Record<string, TextModelConfig> {
     // 在Electron环境下使用配置管理器生成配置
     if (isElectronRenderer()) {
       const configManager = ElectronConfigManager.getInstance();
       if (configManager.isInitialized()) {
-        // ElectronConfigManager需要更新以返回TextModelConfig
-        // 目前先使用fallback
-        console.warn('[ModelManager] ElectronConfigManager返回旧格式，使用fallback defaults');
+        // ElectronConfigManager 已支持 getAllModels()
+        return configManager.generateDefaultModels();
       }
     }
 
-    // 使用新的TextModelConfig格式默认配置
-    return defaultModels;
+    // 调用函数重新计算（而非使用静态常量），确保环境变量变化能被感知
+    return getAllModels();
   }
 
   /**

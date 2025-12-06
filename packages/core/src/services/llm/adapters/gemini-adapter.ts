@@ -19,6 +19,50 @@ type FunctionDeclaration = any
 type Tool = any
 type FunctionCall = any
 
+interface ModelOverride {
+  id: string
+  name: string
+  description: string
+  capabilities?: Partial<TextModel['capabilities']>
+  defaultParameterValues?: Record<string, unknown>
+}
+
+/**
+ * Gemini 静态模型定义
+ */
+const GEMINI_STATIC_MODELS: ModelOverride[] = [
+  {
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash',
+    description: 'Latest Gemini 2.5 Flash model, fast and efficient',
+    capabilities: {
+      supportsTools: true,
+      supportsReasoning: false,
+      maxContextLength: 1000000
+    }
+  },
+  {
+    id: 'gemini-2.5-pro',
+    name: 'Gemini 2.5 Pro',
+    description: 'Gemini 2.5 Pro model with enhanced reasoning capabilities',
+    capabilities: {
+      supportsTools: true,
+      supportsReasoning: true,
+      maxContextLength: 1000000
+    }
+  },
+  {
+    id: 'gemini-3-pro-preview',
+    name: 'Gemini 3 Pro Preview',
+    description: 'Preview version of Gemini 3 Pro with cutting-edge capabilities',
+    capabilities: {
+      supportsTools: true,
+      supportsReasoning: true,
+      maxContextLength: 1000000
+    }
+  }
+]
+
 /**
  * Google Gemini适配器实现
  * 使用新版 @google/genai SDK (统一的 Google Gen AI SDK)
@@ -59,27 +103,28 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
   }
 
   /**
-   * 获取静态模型列表（Gemini 2.5系列）
-   * 从service.ts的fetchGeminiModelsInfo参考 (L1099-1106)
+   * 获取静态模型列表（Gemini 系列）
    */
   public getModels(): TextModel[] {
-    const providerId = 'gemini'
+    return GEMINI_STATIC_MODELS.map((definition) => {
+      const baseModel = this.buildDefaultModel(definition.id)
 
-    return [
-      {
-        id: 'gemini-2.5-flash',
-        name: 'Gemini 2.5 Flash',
-        description: 'Latest experimental Gemini 2.5 Flash model',
-        providerId,
+      return {
+        ...baseModel,
+        name: definition.name,
+        description: definition.description,
         capabilities: {
-          supportsTools: true,
-          supportsReasoning: false,
-          maxContextLength: 1000000
+          ...baseModel.capabilities,
+          ...(definition.capabilities ?? {})
         },
-        parameterDefinitions: this.getParameterDefinitions('gemini-2.5-flash'),
-        defaultParameterValues: this.getDefaultParameterValues('gemini-2.5-flash')
+        defaultParameterValues: definition.defaultParameterValues
+          ? {
+              ...(baseModel.defaultParameterValues ?? {}),
+              ...definition.defaultParameterValues
+            }
+          : baseModel.defaultParameterValues
       }
-    ]
+    })
   }
 
   /**

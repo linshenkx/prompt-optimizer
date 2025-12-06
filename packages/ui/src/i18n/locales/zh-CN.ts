@@ -1414,6 +1414,18 @@ export default {
       label: "随机种子",
       description: "用于控制生成结果的随机数种子，相同种子产生相同结果",
     },
+    enable_thinking: {
+      label: "启用思考",
+      description: "启用思考模式，让模型进行推理（仅支持部分模型）",
+    },
+    thinking_budget: {
+      label: "思考Token预算",
+      description: "分配给思考过程的最大Token数，用于限制推理长度",
+    },
+    enable_search: {
+      label: "启用联网搜索",
+      description: "启用联网搜索功能，让模型获取实时信息（仅支持部分模型）",
+    },
     max_completion_tokens: {
       label: "最大补全Token数",
       description:
@@ -1898,6 +1910,30 @@ export default {
         label: "背景透明度",
         description:
           "设置图像背景：auto（自动）、transparent（透明）、opaque（不透明）",
+      },
+      negativePrompt: {
+        label: "负向提示词",
+        description: "指定不希望在生成图像中出现的内容",
+      },
+      promptExtend: {
+        label: "提示词扩展",
+        description: "启用后模型会自动扩展和优化提示词以获得更好的效果",
+      },
+      watermark: {
+        label: "水印",
+        description: "是否在生成的图像上添加水印",
+      },
+      seed: {
+        label: "随机种子",
+        description: "用于生成可复现结果的随机种子，相同种子会生成相似图像",
+      },
+      count: {
+        label: "生成数量",
+        description: "一次生成的图像数量",
+      },
+      style: {
+        label: "图像风格",
+        description: "生成图像的艺术风格",
       },
     },
   },

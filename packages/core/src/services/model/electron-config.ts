@@ -1,6 +1,5 @@
 import { TextModelConfig } from './types';
-import { createDefaultTextModels } from './text-model-defaults';
-import { generateDynamicModels } from './model-utils';
+import { getAllModels } from './defaults';
 
 /**
  * Electron环境下的配置管理器
@@ -33,7 +32,7 @@ export class ElectronConfigManager {
       this.envVars = await window.electronAPI.config.getEnvironmentVariables();
       this.initialized = true;
       console.log('[ElectronConfigManager] Environment variables synced successfully');
-      
+
       // 调试输出
       Object.keys(this.envVars).forEach(key => {
         const value = this.envVars[key];
@@ -65,37 +64,16 @@ export class ElectronConfigManager {
     return this.initialized;
   }
 
-
-
   /**
    * 生成默认模型配置（基于同步的环境变量）
+   *
+   * 注意：此方法现在直接调用 getAllModels()，因为 getEnvVar 已经支持多环境
+   * （包括 process.env、import.meta.env、window.runtime_config）
+   *
    * @returns TextModelConfig 格式的模型配置
    */
   generateDefaultModels(): Record<string, TextModelConfig> {
-    const getEnv = (key: string) => this.getEnvVar(key);
-
-    // 使用共享的静态模型配置（TextModelConfig格式）
-    const staticModels = createDefaultTextModels({
-      OPENAI_API_KEY: getEnv('VITE_OPENAI_API_KEY').trim(),
-      GEMINI_API_KEY: getEnv('VITE_GEMINI_API_KEY').trim(),
-      DEEPSEEK_API_KEY: getEnv('VITE_DEEPSEEK_API_KEY').trim(),
-      SILICONFLOW_API_KEY: getEnv('VITE_SILICONFLOW_API_KEY').trim(),
-      ZHIPU_API_KEY: getEnv('VITE_ZHIPU_API_KEY').trim(),
-      CUSTOM_API_KEY: getEnv('VITE_CUSTOM_API_KEY').trim(),
-      CUSTOM_API_BASE_URL: getEnv('VITE_CUSTOM_API_BASE_URL'),
-      CUSTOM_API_MODEL: getEnv('VITE_CUSTOM_API_MODEL')
-    });
-
-
-
-    // 生成动态自定义模型（TextModelConfig格式）
-    const dynamicModels = generateDynamicModels();
-
-    // 合并静态模型和动态模型
-    return {
-      ...staticModels,
-      ...dynamicModels
-    };
+    return getAllModels();
   }
 }
 
@@ -104,4 +82,4 @@ export class ElectronConfigManager {
  */
 export function isElectronRenderer(): boolean {
   return typeof window !== 'undefined' && !!window.electronAPI;
-} 
+}

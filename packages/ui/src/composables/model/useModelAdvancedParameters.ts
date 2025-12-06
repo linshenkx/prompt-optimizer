@@ -117,11 +117,29 @@ export function useModelAdvancedParameters(
     options.setParamOverrides({ ...overrides })
   }
 
-  const applyDefaultsFromModel = () => {
+  /**
+   * 应用模型默认参数
+   * @param mergeWithExisting 是否与现有参数合并（true: 保留用户配置，补充缺失默认值；false: 完全替换）
+   */
+  const applyDefaultsFromModel = (mergeWithExisting = false) => {
     const defaults = currentModelMeta.value?.defaultParameterValues
     if (!defaults) return
 
-    options.setParamOverrides({ ...defaults })
+    if (mergeWithExisting) {
+      // 合并模式：保留用户已有配置，只补充缺失的默认值
+      const currentOverrides = options.getParamOverrides()
+      const merged = { ...defaults }
+      // 用户已配置的参数优先
+      for (const key of Object.keys(currentOverrides)) {
+        if (currentOverrides[key] !== undefined) {
+          merged[key] = currentOverrides[key]
+        }
+      }
+      options.setParamOverrides(merged)
+    } else {
+      // 替换模式：直接使用默认值
+      options.setParamOverrides({ ...defaults })
+    }
   }
 
   return {

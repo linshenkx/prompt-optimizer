@@ -11,6 +11,40 @@ import type {
   ParameterDefinition
 } from '../types'
 
+interface ModelOverride {
+  id: string
+  name: string
+  description: string
+  capabilities?: Partial<TextModel['capabilities']>
+  defaultParameterValues?: Record<string, unknown>
+}
+
+/**
+ * OpenAI 静态模型定义
+ */
+const OPENAI_STATIC_MODELS: ModelOverride[] = [
+  {
+    id: 'gpt-5-mini',
+    name: 'GPT-5 Mini',
+    description: 'Fast, capable, and efficient small model with significant improvements in instruction-following and coding',
+    capabilities: {
+      supportsTools: true,
+      supportsReasoning: false,
+      maxContextLength: 1047576
+    }
+  },
+  {
+    id: 'gpt-5.1',
+    name: 'GPT-5.1',
+    description: 'Latest GPT-5.1 flagship model with enhanced capabilities',
+    capabilities: {
+      supportsTools: true,
+      supportsReasoning: false,
+      maxContextLength: 1047576
+    }
+  }
+]
+
 /**
  * OpenAI SDK适配器实现
  * 同时支持OpenAI官方API和OpenAI兼容API（DeepSeek, Zhipu等）
@@ -51,24 +85,25 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
    * 获取静态模型列表（OpenAI官方模型）
    */
   public getModels(): TextModel[] {
-    const providerId = 'openai'
+    return OPENAI_STATIC_MODELS.map((definition) => {
+      const baseModel = this.buildDefaultModel(definition.id)
 
-    return [
-      // GPT-5 系列
-      {
-        id: 'gpt-5-2025-08-07',
-        name: 'GPT-5',
-        description: 'Latest GPT-5 model',
-        providerId,
+      return {
+        ...baseModel,
+        name: definition.name,
+        description: definition.description,
         capabilities: {
-          supportsTools: true,
-          supportsReasoning: false,
-          maxContextLength: 128000
+          ...baseModel.capabilities,
+          ...(definition.capabilities ?? {})
         },
-        parameterDefinitions: this.getParameterDefinitions('gpt-5-2025-08-07'),
-        defaultParameterValues: this.getDefaultParameterValues('gpt-5-2025-08-07')
+        defaultParameterValues: definition.defaultParameterValues
+          ? {
+              ...(baseModel.defaultParameterValues ?? {}),
+              ...definition.defaultParameterValues
+            }
+          : baseModel.defaultParameterValues
       }
-    ]
+    })
   }
 
   /**

@@ -1465,6 +1465,18 @@ export default {
       description:
         "Random seed for controlling generation results, same seed produces same output",
     },
+    enable_thinking: {
+      label: "Enable Thinking",
+      description: "Enable thinking mode for complex reasoning tasks (supported models only)",
+    },
+    thinking_budget: {
+      label: "Thinking Budget",
+      description: "Maximum tokens for thinking process, limits reasoning length",
+    },
+    enable_search: {
+      label: "Enable Search",
+      description: "Enable internet search for real-time information (supported models only)",
+    },
     max_completion_tokens: {
       label: "Max Completion Tokens",
       description:
@@ -1966,6 +1978,30 @@ export default {
         label: "Background Transparency",
         description:
           "Set image background: auto (automatic), transparent (transparent), opaque (opaque)",
+      },
+      negativePrompt: {
+        label: "Negative Prompt",
+        description: "Specify content you don't want to appear in the generated image",
+      },
+      promptExtend: {
+        label: "Prompt Extension",
+        description: "When enabled, the model will automatically expand and optimize the prompt for better results",
+      },
+      watermark: {
+        label: "Watermark",
+        description: "Whether to add a watermark on the generated image",
+      },
+      seed: {
+        label: "Random Seed",
+        description: "Random seed for reproducible results, same seed generates similar images",
+      },
+      count: {
+        label: "Generation Count",
+        description: "Number of images to generate at once",
+      },
+      style: {
+        label: "Image Style",
+        description: "Artistic style for the generated image",
       },
     },
   },

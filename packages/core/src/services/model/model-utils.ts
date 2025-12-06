@@ -1,23 +1,13 @@
 import { TextModelConfig, TextProvider, TextModel } from './types';
 import { ValidatedCustomModelEnvConfig, scanCustomModelEnvVars } from '../../utils/environment';
-import { createDefaultTextModels } from './text-model-defaults';
+import { getDefaultTextModels } from './defaults';
 
 /**
  * 获取静态模型键列表
  * 通过创建临时静态模型配置来动态获取键列表，避免硬编码
  */
 function getStaticModelKeys(): string[] {
-  const tempStaticModels = createDefaultTextModels({
-    OPENAI_API_KEY: '',
-    GEMINI_API_KEY: '',
-    DEEPSEEK_API_KEY: '',
-    SILICONFLOW_API_KEY: '',
-    ZHIPU_API_KEY: '',
-    CUSTOM_API_KEY: '',
-    CUSTOM_API_BASE_URL: '',
-    CUSTOM_API_MODEL: ''
-  });
-
+  const tempStaticModels = getDefaultTextModels();
   return Object.keys(tempStaticModels);
 }
 
@@ -72,7 +62,7 @@ export function generateTextModelConfig(envConfig: ValidatedCustomModelEnvConfig
     description: `Custom model: ${envConfig.model}`,
     providerId: 'openai',
     capabilities: {
-            supportsTools: false,
+      supportsTools: false,
       supportsReasoning: false,
       maxContextLength: 4096
     },

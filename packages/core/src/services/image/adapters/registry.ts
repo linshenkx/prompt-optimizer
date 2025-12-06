@@ -9,6 +9,7 @@ import { SeedreamImageAdapter } from './seedream'
 import { OpenAIImageAdapter } from './openai'
 import { SiliconFlowImageAdapter } from './siliconflow'
 import { OpenRouterImageAdapter } from './openrouter'
+import { DashScopeImageAdapter } from './dashscope'
 
 /**
  * 图像适配器注册表实现
@@ -29,12 +30,14 @@ export class ImageAdapterRegistry implements IImageAdapterRegistry {
     const siliconflowAdapter = new SiliconFlowImageAdapter()
     const openaiAdapter = new OpenAIImageAdapter()
     const openrouterAdapter = new OpenRouterImageAdapter()
+    const dashscopeAdapter = new DashScopeImageAdapter()
 
     this.adapters.set('gemini', geminiAdapter)
     this.adapters.set('seedream', seedreamAdapter)
     this.adapters.set('siliconflow', siliconflowAdapter)
     this.adapters.set('openai', openaiAdapter)
     this.adapters.set('openrouter', openrouterAdapter)
+    this.adapters.set('dashscope', dashscopeAdapter)
 
     // 预加载静态模型缓存
     this.preloadStaticModels()

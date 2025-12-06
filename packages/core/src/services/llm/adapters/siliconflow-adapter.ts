@@ -15,7 +15,8 @@ const SILICONFLOW_STATIC_MODELS: ModelOverride[] = [
     name: 'Qwen3-8B',
     description: 'Qwen3-8B model via SiliconFlow',
     capabilities: {
-      supportsTools: false,
+      supportsTools: true,
+      supportsReasoning: true,
       maxContextLength: 128000
     }
   }

@@ -31,9 +31,9 @@ export class GeminiImageAdapter extends AbstractImageProviderAdapter {
   getModels(): ImageModel[] {
     return [
       {
-        id: 'gemini-2.5-flash-image-preview',
+        id: 'gemini-2.5-flash-image',
         name: 'Gemini 2.5 Flash Image',
-        description: 'Google Gemini 2.5 Flash 图像生成模型，支持文生图、图生图和多图输入',
+        description: 'Google Gemini 2.5 Flash 图像生成模型（Nano Banana），支持文生图、图生图和多图输入',
         providerId: 'gemini',
         capabilities: {
           text2image: true,
@@ -41,6 +41,21 @@ export class GeminiImageAdapter extends AbstractImageProviderAdapter {
           multiImage: true
         },
         parameterDefinitions: [],  // Gemini 不需要用户配置参数
+        defaultParameterValues: {
+          outputMimeType: 'image/png'
+        }
+      },
+      {
+        id: 'gemini-3-pro-image-preview',
+        name: 'Gemini 3 Pro Image',
+        description: 'Google Gemini 3 Pro 高级图像生成模型（Nano Banana Pro），支持高分辨率输出和高级文本渲染',
+        providerId: 'gemini',
+        capabilities: {
+          text2image: true,
+          image2image: true,
+          multiImage: true
+        },
+        parameterDefinitions: [],
         defaultParameterValues: {
           outputMimeType: 'image/png'
         }

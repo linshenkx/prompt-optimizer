@@ -1398,6 +1398,38 @@ export default {
       label: "隨機種子",
       description: "用於控制生成結果的隨機數種子，相同種子產生相同結果",
     },
+    enable_thinking: {
+      label: "啟用思考",
+      description: "啟用思考模式，讓模型進行推理（僅支援部分模型）",
+    },
+    thinking_budget: {
+      label: "思考Token預算",
+      description: "分配給思考過程的最大Token數，用於限制推理長度",
+    },
+    enable_search: {
+      label: "啟用聯網搜尋",
+      description: "啟用聯網搜尋功能，讓模型獲取即時資訊（僅支援部分模型）",
+    },
+    max_completion_tokens: {
+      label: "最大補全Token數",
+      description:
+        "在補全中生成的最大Token數量（推薦使用，替代 max_tokens）。範圍：1-1,000,000。",
+    },
+    logprobs: {
+      label: "返回對數概率",
+      description:
+        "是否在回應中返回輸出Token的對數概率資訊。啟用後可以看到模型對每個Token的置信度。",
+    },
+    top_logprobs: {
+      label: "Top對數概率數量",
+      description:
+        "返回每個Token位置上概率最高的N個備選Token及其對數概率。範圍：0-20。需要先啟用 logprobs。",
+    },
+    n: {
+      label: "生成數量",
+      description:
+        "為每個輸入生成多少個補全結果。範圍：1-128。注意：生成多個結果會消耗更多Token配額。",
+    },
   },
   contextEditor: {
     // Variables tab (新增)
@@ -1862,6 +1894,30 @@ export default {
         label: "背景透明度",
         description:
           "設定圖像背景：auto（自動）、transparent（透明）、opaque（不透明）",
+      },
+      negativePrompt: {
+        label: "負向提示詞",
+        description: "指定不希望在生成圖像中出現的內容",
+      },
+      promptExtend: {
+        label: "提示詞擴展",
+        description: "啟用後模型會自動擴展和最佳化提示詞以獲得更好的效果",
+      },
+      watermark: {
+        label: "浮水印",
+        description: "是否在生成的圖像上新增浮水印",
+      },
+      seed: {
+        label: "隨機種子",
+        description: "用於生成可複現結果的隨機種子，相同種子會生成相似圖像",
+      },
+      count: {
+        label: "生成數量",
+        description: "一次生成的圖像數量",
+      },
+      style: {
+        label: "圖像風格",
+        description: "生成圖像的藝術風格",
       },
     },
   },

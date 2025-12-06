@@ -19,10 +19,10 @@ export class OpenRouterImageAdapter extends AbstractImageProviderAdapter {
     return {
       id: 'openrouter',
       name: 'OpenRouter',
-      description: 'OpenRouter 图像生成服务',
+      description: 'OpenRouter 图像生成服务，动态获取支持图像输出的模型',
       requiresApiKey: true,
       defaultBaseURL: 'https://openrouter.ai/api/v1',
-      supportsDynamicModels: false,
+      supportsDynamicModels: true,
       connectionSchema: {
         required: ['apiKey'],
         optional: ['baseURL'],
@@ -34,22 +34,79 @@ export class OpenRouterImageAdapter extends AbstractImageProviderAdapter {
     }
   }
 
+  // 静态预设模型（作为后备）
   getModels(): ImageModel[] {
     return [
       {
         id: 'google/gemini-2.5-flash-image-preview',
-        name: 'Gemini 2.5 Flash Image Preview',
-        description: 'Google Gemini 2.5 Flash 图像预览版，支持文生图、图生图和多图输入',
+        name: 'Gemini 2.5 Flash Image (Nano Banana)',
+        description: 'Google Gemini 2.5 Flash 图像模型，支持文生图、图生图和多轮对话编辑',
         providerId: 'openrouter',
         capabilities: {
           text2image: true,
           image2image: true,
           multiImage: true
         },
-        parameterDefinitions: [],  // OpenRouter 不需要用户配置参数
-        defaultParameterValues: {}  // 无需用户参数
+        parameterDefinitions: [],
+        defaultParameterValues: {}
       }
     ]
+  }
+
+  /**
+   * 动态获取支持图像输出的模型列表
+   * 通过 OpenRouter /models API 获取所有模型，过滤 output_modalities 包含 "image" 的模型
+   */
+  public async getModelsAsync(connectionConfig: Record<string, any>): Promise<ImageModel[]> {
+    const apiKey = connectionConfig?.apiKey
+
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/models', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {})
+        }
+      })
+
+      if (!response.ok) {
+        console.warn(`OpenRouter models API error: ${response.status}`)
+        return this.getModels()
+      }
+
+      const data = await response.json()
+      const models = data.data || []
+
+      // 过滤支持图像输出的模型
+      const imageModels: ImageModel[] = models
+        .filter((model: any) => {
+          const outputModalities = model.architecture?.output_modalities || []
+          return outputModalities.includes('image')
+        })
+        .map((model: any) => {
+          const inputModalities = model.architecture?.input_modalities || []
+          const supportsImageInput = inputModalities.includes('image')
+
+          return {
+            id: model.id,
+            name: model.name || model.id,
+            description: model.description || `${model.name} 图像生成模型`,
+            providerId: 'openrouter',
+            capabilities: {
+              text2image: true,
+              image2image: supportsImageInput,
+              multiImage: supportsImageInput
+            },
+            parameterDefinitions: [],
+            defaultParameterValues: {}
+          }
+        })
+
+      return imageModels.length > 0 ? imageModels : this.getModels()
+    } catch (error) {
+      console.warn('Failed to fetch OpenRouter models:', error)
+      return this.getModels()
+    }
   }
 
   protected getTestImageRequest(testType: 'text2image' | 'image2image'): Omit<ImageRequest, 'configId'> {

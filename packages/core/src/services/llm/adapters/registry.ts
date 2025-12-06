@@ -11,6 +11,7 @@ import { GeminiAdapter } from './gemini-adapter'
 import { DeepseekAdapter } from './deepseek-adapter'
 import { SiliconflowAdapter } from './siliconflow-adapter'
 import { ZhipuAdapter } from './zhipu-adapter'
+import { DashScopeAdapter } from './dashscope-adapter'
 
 /**
  * 文本模型适配器注册表实现
@@ -42,6 +43,7 @@ export class TextAdapterRegistry implements ITextAdapterRegistry {
     const zhipuAdapter = new ZhipuAdapter()
     const anthropicAdapter = new AnthropicAdapter()
     const geminiAdapter = new GeminiAdapter()
+    const dashscopeAdapter = new DashScopeAdapter()
 
     this.adapters.set('openai', openaiAdapter)
     this.adapters.set('deepseek', deepseekAdapter)
@@ -49,6 +51,7 @@ export class TextAdapterRegistry implements ITextAdapterRegistry {
     this.adapters.set('zhipu', zhipuAdapter)
     this.adapters.set('anthropic', anthropicAdapter)
     this.adapters.set('gemini', geminiAdapter)
+    this.adapters.set('dashscope', dashscopeAdapter)
 
     // 预加载静态模型缓存
     this.preloadStaticModels()

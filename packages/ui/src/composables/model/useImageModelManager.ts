@@ -250,6 +250,10 @@ export function useImageModelManager() {
         const firstModel = staticModels[0]
         selectedModelId.value = firstModel.id
         configForm.value.modelId = firstModel.id
+        // 切换提供商后自动应用第一个模型的默认参数
+        if (firstModel.id && providerId) {
+          applyDefaultsFromModel(false)
+        }
 
         modelLoadingStatus.value = {
           type: 'success',
@@ -578,7 +582,10 @@ export function useImageModelManager() {
     configForm.value.modelId = modelId
 
     if (modelId && selectedProviderId.value) {
-      applyDefaultsFromModel()
+      // 编辑模式（configForm.id 存在）：合并参数（保留用户已有配置）
+      // 创建模式：替换参数（使用新模型的默认值）
+      const isEditing = !!configForm.value.id
+      applyDefaultsFromModel(isEditing)
     }
   }
 
