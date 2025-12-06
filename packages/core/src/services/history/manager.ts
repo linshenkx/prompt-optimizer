@@ -1,7 +1,7 @@
 import { IHistoryManager, PromptRecord, PromptRecordChain } from './types';
 import { IStorageProvider } from '../storage/types';
 import { StorageAdapter } from '../storage/adapter';
-import { RecordNotFoundError, RecordValidationError, StorageError, HistoryError } from './errors';
+import { RecordNotFoundError, RecordValidationError, HistoryStorageError, HistoryError } from './errors';
 import { v4 as uuidv4 } from 'uuid';
 import { IModelManager } from '../model/types';
 import { CORE_SERVICE_KEYS } from '../../constants/storage-keys';
@@ -74,9 +74,9 @@ export class HistoryManager implements IHistoryManager {
         throw err;
       }
       if (err.message?.includes('Get')) {
-        throw new StorageError('Failed to get history records', 'read');
+        throw new HistoryStorageError('Failed to get history records', 'read');
       } else {
-        throw new StorageError('Failed to save history records', 'write');
+        throw new HistoryStorageError('Failed to save history records', 'write');
       }
     }
   }
@@ -95,7 +95,7 @@ export class HistoryManager implements IHistoryManager {
       // 直接返回记录，排序逻辑由调用者根据需求处理
       return records;
     } catch (err) {
-      throw new StorageError('Failed to get history records', 'read');
+      throw new HistoryStorageError('Failed to get history records', 'read');
     }
   }
 
@@ -134,7 +134,7 @@ export class HistoryManager implements IHistoryManager {
       if (err instanceof RecordNotFoundError) {
         throw err;
       }
-      throw new StorageError('Failed to delete record', 'delete');
+      throw new HistoryStorageError('Failed to delete record', 'delete');
     }
   }
 
@@ -166,7 +166,7 @@ export class HistoryManager implements IHistoryManager {
     try {
       await this.storage.removeItem(this.storageKey);
     } catch (err) {
-      throw new StorageError('Failed to clear history', 'delete');
+      throw new HistoryStorageError('Failed to clear history', 'delete');
     }
   }
 
@@ -303,7 +303,7 @@ export class HistoryManager implements IHistoryManager {
       if (err instanceof RecordNotFoundError || err instanceof HistoryError) {
         throw err;
       }
-      throw new StorageError('Failed to get chain', 'read');
+      throw new HistoryStorageError('Failed to get chain', 'read');
     }
   }
 

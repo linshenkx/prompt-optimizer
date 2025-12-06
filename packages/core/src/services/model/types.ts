@@ -1,28 +1,18 @@
 import { IImportExportable } from '../../interfaces/import-export';
 import type { UnifiedParameterDefinition } from './parameter-schema';
+import type { BaseProvider } from '../shared/types';
+
+// 重新导出共享类型，保持向后兼容
+export type { ConnectionSchema } from '../shared/types';
 
 // === 新架构核心类型 ===
 
 /**
- * 连接参数的类型安全定义
- */
-export interface ConnectionSchema {
-  required: string[];
-  optional: string[];
-  fieldTypes: Record<string, 'string' | 'number' | 'boolean'>;
-}
-
-/**
  * 文本模型服务提供商元数据
+ * 扩展 BaseProvider，添加文本模型特有的属性（目前无额外属性）
  */
-export interface TextProvider {
-  readonly id: string;
-  readonly name: string;
-  readonly description?: string;
-  readonly requiresApiKey: boolean;
-  readonly defaultBaseURL: string;
-  readonly supportsDynamicModels: boolean;
-  readonly connectionSchema?: ConnectionSchema;
+export interface TextProvider extends BaseProvider {
+  // 目前与 BaseProvider 完全一致，未来可扩展文本模型特有属性
 }
 
 /**

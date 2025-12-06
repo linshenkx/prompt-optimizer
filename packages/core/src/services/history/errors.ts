@@ -42,15 +42,17 @@ export class RecordNotFoundError extends HistoryError {
 }
 
 /**
- * 存储错误
+ * 历史记录存储错误
+ * 注意：此类与 storage/errors.ts 中的 StorageError 不同，
+ * 专用于历史记录模块的存储操作错误
  */
-export class StorageError extends HistoryError {
+export class HistoryStorageError extends HistoryError {
   constructor(
     message: string,
     public operation: 'read' | 'write' | 'delete' | 'init' | 'storage'
   ) {
     super(message);
-    this.name = 'StorageError';
+    this.name = 'HistoryStorageError';
   }
 }
 

@@ -1,5 +1,9 @@
 import { IImportExportable } from '../../interfaces/import-export'
 import type { UnifiedParameterDefinition } from '../model/parameter-schema'
+import type { BaseProvider } from '../shared/types'
+
+// 重新导出共享类型，保持向后兼容
+export type { ConnectionSchema } from '../shared/types'
 
 // === 图像参数定义 ===
 
@@ -11,28 +15,12 @@ export interface ImageParameterDefinition extends UnifiedParameterDefinition {
 
 // === 核心架构类型（三层分离：Provider → Model → Configuration） ===
 
-// 连接参数的类型安全定义
-export interface ConnectionSchema {
-  required: string[]                     // 必需字段，如 ['apiKey']
-  optional: string[]                     // 可选字段，如 ['baseURL', 'timeout', 'region']
-  fieldTypes: Record<string, 'string' | 'number' | 'boolean'>  // 字段类型约束
-
-  // 示例：
-  // OpenAI: { required: ['apiKey'], optional: ['organization'], fieldTypes: { apiKey: 'string', organization: 'string' } }
-  // SiliconFlow: { required: ['apiKey'], optional: ['baseURL'], fieldTypes: { apiKey: 'string', baseURL: 'string' } }
-}
-
-// 服务提供商静态定义（由适配器提供）
-export interface ImageProvider {
-  readonly id: string                    // provider 唯一标识，如 'openai', 'gemini'
-  readonly name: string                  // 显示名称，如 'OpenAI', 'Google Gemini'
-  readonly description?: string          // 描述信息
-  readonly requiresApiKey: boolean       // 是否必须提供 API Key
-  readonly defaultBaseURL: string        // 默认 API 地址
-
-  // 动态模型支持能力
-  readonly supportsDynamicModels: boolean       // 是否支持动态获取模型列表
-  readonly connectionSchema?: ConnectionSchema  // 连接参数结构定义（如果支持动态获取）
+/**
+ * 图像服务提供商静态定义
+ * 扩展 BaseProvider，添加图像模型特有的属性（目前无额外属性）
+ */
+export interface ImageProvider extends BaseProvider {
+  // 目前与 BaseProvider 完全一致，未来可扩展图像模型特有属性
 }
 
 // 模型静态定义（由适配器提供）

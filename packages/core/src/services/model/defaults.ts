@@ -1,7 +1,7 @@
 import type { TextModelConfig } from './types';
 import type { ITextAdapterRegistry } from '../llm/types';
 import { TextAdapterRegistry } from '../llm/adapters/registry';
-import { getEnvVar, clearCustomModelEnvCache } from '../../utils/environment';
+import { getEnvVar } from '../../utils/environment';
 import { generateDynamicModels } from './model-utils';
 
 /**
@@ -113,10 +113,3 @@ export function getAllModels(registry?: ITextAdapterRegistry): Record<string, Te
 
 // 直接导出所有模型配置（保持向后兼容）
 export const defaultModels = getAllModels();
-
-/**
- * 清除模型缓存，强制重新扫描
- */
-export function clearModelsCache(): void {
-  clearCustomModelEnvCache();
-}
