@@ -458,8 +458,12 @@ watch(() => props.show, async (newShow) => {
           selectedProviderId.value = existing.providerId
           selectedModelId.value = existing.modelId
           // 然后再调用 handleProviderChange，此时 connectionConfig 已经可用
-          // 编辑模式：不自动选择第一个模型，保持已保存的自定义模型ID
-          await handleProviderChange(existing.providerId, false)
+          // 编辑模式：不自动选择第一个模型，不重置连接配置，保持已保存的数据
+          await handleProviderChange(existing.providerId, {
+            autoSelectFirstModel: false,
+            resetOverrides: false,
+            resetConnectionConfig: false
+          })
           // 等待一帧以确保下拉可见
           await nextTick()
         }
@@ -502,8 +506,12 @@ watch(() => props.configId, async (newConfigId) => {
         selectedProviderId.value = existing.providerId
         selectedModelId.value = existing.modelId
         // 然后再调用 handleProviderChange，此时 connectionConfig 已经可用
-        // 编辑模式：不自动选择第一个模型，保持已保存的自定义模型ID
-        await handleProviderChange(existing.providerId, false)
+        // 编辑模式：不自动选择第一个模型，不重置连接配置，保持已保存的数据
+        await handleProviderChange(existing.providerId, {
+          autoSelectFirstModel: false,
+          resetOverrides: false,
+          resetConnectionConfig: false
+        })
         await nextTick()
       }
     } catch (e) {

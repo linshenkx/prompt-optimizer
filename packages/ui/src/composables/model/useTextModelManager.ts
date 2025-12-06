@@ -9,6 +9,7 @@ import {
   type TextProvider
 } from '@prompt-optimizer/core'
 import { useModelAdvancedParameters } from './useModelAdvancedParameters'
+import { computeConnectionConfig } from './useConnectionConfig'
 import type { AppServices } from '../../types/services'
 
 type TextConnectionValue = string | number | boolean | undefined
@@ -341,27 +342,13 @@ export function useTextModelManager() {
 
     loadStaticModelsForProvider(providerId)
 
+    // 使用共享函数处理连接配置
     const providerMeta = providers.value.find(p => p.id === providerId)
-
-    // 根据 resetConnectionConfig 参数决定是否重置连接配置
-    if (resetConnectionConfig) {
-      // 切换提供商时：完全重置为新提供商的默认配置
-      if (providerMeta?.defaultBaseURL) {
-        form.value.connectionConfig = {
-          baseURL: providerMeta.defaultBaseURL
-        }
-      } else {
-        form.value.connectionConfig = {}
-      }
-    } else {
-      // 编辑模式时：只在 baseURL 为空时才填充默认值
-      if (providerMeta?.defaultBaseURL && !form.value.connectionConfig.baseURL) {
-        form.value.connectionConfig = {
-          ...form.value.connectionConfig,
-          baseURL: providerMeta.defaultBaseURL
-        }
-      }
-    }
+    form.value.connectionConfig = computeConnectionConfig(
+      form.value.connectionConfig,
+      providerMeta,
+      resetConnectionConfig
+    ) as TextConnectionConfig
 
     if (autoSelectFirstModel && modelOptions.value.length > 0) {
       form.value.modelId = modelOptions.value[0].value
