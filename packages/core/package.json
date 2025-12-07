@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
-    "@google/genai": "^1.0.0",
+    "@google/genai": "^1.32.0",
     "@types/mustache": "^4.2.5",
     "dexie": "^4.0.11",
     "diff": "^8.0.2",

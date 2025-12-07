@@ -403,7 +403,7 @@ const refreshModels = async () => {
       count: models.value.length
     }
     toast.success(t('image.model.refreshSuccess'))
-  } catch (error) {
+  } catch (_error) {
     modelLoadingStatus.value = { type: 'error', messageKey: 'image.model.refreshError' }
     toast.error(t('image.model.refreshError'))
   } finally {
@@ -425,7 +425,7 @@ const save = async () => {
     toast.success(isEditing.value ? t('image.config.updateSuccess') : t('image.config.createSuccess'))
     emit('saved')
     close()
-  } catch (error) {
+  } catch (_error) {
     console.error('保存配置失败:', error)
     toast.error(t('image.config.saveFailed'))
   }

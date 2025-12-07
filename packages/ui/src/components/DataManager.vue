@@ -458,7 +458,7 @@ const handleContextImportFromFile = async (file: File) => {
     let importData: unknown
     try {
       importData = JSON.parse(content)
-    } catch (parseError) {
+    } catch (_parseError) {
       toast.error('无效的JSON格式，请检查文件内容')
       return
     }
@@ -520,7 +520,7 @@ const handleContextImportFromClipboard = async () => {
     let importData: unknown
     try {
       importData = JSON.parse(clipboardContent)
-    } catch (parseError) {
+    } catch (_parseError) {
       toast.error('无效的JSON格式，请检查数据格式')
       return
     }

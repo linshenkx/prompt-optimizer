@@ -21,16 +21,16 @@
     "@pinia/testing": "^0.1.7",
     "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/typography": "^0.5.16",
-    "@vitejs/plugin-basic-ssl": "^1.2.0",
-    "@vitejs/plugin-vue": "^5.2.1",
+    "@vitejs/plugin-basic-ssl": "^2.1.0",
+    "@vitejs/plugin-vue": "^6.0.2",
     "@vue/test-utils": "^2.4.6",
     "autoprefixer": "^10.4.20",
+    "dotenv": "^16.4.7",
+    "js-yaml": "^4.1.0",
     "jsdom": "^26.0.0",
     "postcss": "^8.5.1",
     "tailwindcss": "^3.4.17",
-    "vite": "^6.0.7",
-    "vitest": "^3.0.2",
-    "dotenv": "^16.4.7",
-    "js-yaml": "^4.1.0"
+    "vite": "^7.2.7",
+    "vitest": "^3.0.2"
   }
-} 
+}

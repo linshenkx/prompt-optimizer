@@ -49,11 +49,11 @@
     "kill:dev": "node scripts/kill-dev.js"
   },
   "devDependencies": {
-    "@intlify/unplugin-vue-i18n": "^6.0.3",
+    "@intlify/unplugin-vue-i18n": "^11.0.1",
     "@playwright/test": "^1.56.1",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
-    "electron": "^37.1.0",
+    "electron": "^39.2.6",
     "i18next": "^24.2.2",
     "i18next-browser-languagedetector": "^8.0.4",
     "lodash-unified": "^1.0.3",
@@ -81,7 +81,7 @@
     "lodash-es": "^4.17.21",
     "memoize-one": "^6.0.0",
     "normalize-wheel-es": "^1.2.0",
-    "vue-i18n": "^10.0.6"
+    "vue-i18n": "^11.2.2"
   },
   "keywords": [],
   "author": "",

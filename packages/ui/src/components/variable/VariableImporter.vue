@@ -352,7 +352,7 @@ const handleFile = (file: File) => {
     try {
       const variables = parseVariables(content, textFormat.value)
       previewVariables.value = variables
-    } catch (err) {
+    } catch (_err) {
       error.value = err instanceof Error ? err.message : t('variables.importer.errors.parseError')
       previewVariables.value = {}
     }
@@ -427,7 +427,7 @@ watch([importText, textFormat], () => {
       const variables = parseVariables(importText.value, textFormat.value)
       previewVariables.value = variables
       error.value = ''
-    } catch (err) {
+    } catch (_err) {
       previewVariables.value = {}
       // 不立即显示错误，等用户完成输入
     }
