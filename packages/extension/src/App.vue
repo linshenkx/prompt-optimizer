@@ -1068,8 +1068,7 @@ const handleModeSelect = async (mode: "basic" | "pro" | "image") => {
         const { ensureInitialized } = useBasicSubMode(services as any);
         await ensureInitialized();
         // selectedOptimizationMode 现在是 computed，会自动从 basicSubMode 同步
-        // 同步 contextMode，确保测试输入框正确显示
-        contextMode.value = basicSubMode.value as import("@prompt-optimizer/core").ContextMode;
+        // 注意：不修改 contextMode，contextMode 仅用于上下文模式的界面渲染
     } else if (mode === "pro") {
         const { ensureInitialized } = useProSubMode(services as any);
         await ensureInitialized();
@@ -1715,8 +1714,7 @@ const handleBasicSubModeChange = async (mode: OptimizationMode) => {
         mode as import("@prompt-optimizer/core").BasicSubMode,
     );
     // selectedOptimizationMode 现在是 computed，会自动从 basicSubMode 同步
-    // 同步 contextMode，确保测试输入框正确显示
-    contextMode.value = mode as import("@prompt-optimizer/core").ContextMode;
+    // 注意：不修改 contextMode，contextMode 仅用于上下文模式的界面渲染
 };
 
 // 上下文模式子模式变更处理器
