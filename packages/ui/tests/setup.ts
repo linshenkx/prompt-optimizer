@@ -73,18 +73,45 @@ Object.assign(window, {
 })
 
 // Mock ResizeObserver (commonly used in modern components)
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}))
+// 使用真正的类而不是 vi.fn().mockImplementation()，因为某些库在模块顶层实例化
+class MockResizeObserver {
+  callback: ResizeObserverCallback | null = null
+  observe = vi.fn()
+  unobserve = vi.fn()
+  disconnect = vi.fn()
+  constructor(callback?: ResizeObserverCallback) {
+    this.callback = callback || null
+  }
+}
+global.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver
 
 // Mock IntersectionObserver (used for lazy loading and scroll detection)
-global.IntersectionObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}))
+class MockIntersectionObserver {
+  callback: IntersectionObserverCallback | null = null
+  observe = vi.fn()
+  unobserve = vi.fn()
+  disconnect = vi.fn()
+  takeRecords = vi.fn().mockReturnValue([])
+  root = null
+  rootMargin = ''
+  thresholds: number[] = []
+  constructor(callback?: IntersectionObserverCallback) {
+    this.callback = callback || null
+  }
+}
+global.IntersectionObserver = MockIntersectionObserver as unknown as typeof IntersectionObserver
+
+// Mock MutationObserver (used by CodeMirror and other DOM manipulation libraries)
+class MockMutationObserver {
+  callback: MutationCallback | null = null
+  observe = vi.fn()
+  disconnect = vi.fn()
+  takeRecords = vi.fn().mockReturnValue([])
+  constructor(callback?: MutationCallback) {
+    this.callback = callback || null
+  }
+}
+global.MutationObserver = MockMutationObserver as unknown as typeof MutationObserver
 
 // Mock window.matchMedia (used for responsive design)
 Object.defineProperty(window, 'matchMedia', {

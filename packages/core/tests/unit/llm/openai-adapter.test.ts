@@ -1,14 +1,23 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { OpenAIAdapter } from '../../../src/services/llm/adapters/openai-adapter';
 import type { TextModelConfig, Message } from '../../../src/services/llm/types';
-import OpenAI from 'openai';
 
-// Mock OpenAI SDK
-vi.mock('openai');
+// 创建 mock OpenAI 实例
+let mockOpenAIInstance: any;
+
+// Mock OpenAI SDK - 使用工厂函数返回一个类
+vi.mock('openai', () => {
+  return {
+    default: class MockOpenAI {
+      constructor() {
+        return mockOpenAIInstance;
+      }
+    }
+  };
+});
 
 describe('OpenAIAdapter', () => {
   let adapter: OpenAIAdapter;
-  let mockOpenAIInstance: any;
 
   const mockConfig: TextModelConfig = {
     id: 'openai',
@@ -69,7 +78,7 @@ describe('OpenAIAdapter', () => {
     adapter = new OpenAIAdapter();
     vi.clearAllMocks();
 
-    // 创建 mock OpenAI 实例
+    // 在每个测试前重新创建 mock OpenAI 实例
     mockOpenAIInstance = {
       chat: {
         completions: {
@@ -175,8 +184,6 @@ describe('OpenAIAdapter', () => {
         }
       };
 
-      // Mock OpenAI constructor to return our mock instance
-      vi.mocked(OpenAI).mockImplementation(() => mockOpenAIInstance as any);
       mockOpenAIInstance.chat.completions.create.mockResolvedValue(mockResponse);
 
       const response = await adapter.sendMessage(mockMessages, mockConfig);
@@ -193,7 +200,6 @@ describe('OpenAIAdapter', () => {
       const originalError = new Error('OpenAI API Error');
       originalError.stack = 'Original Stack Trace';
 
-      vi.mocked(OpenAI).mockImplementation(() => mockOpenAIInstance as any);
       mockOpenAIInstance.chat.completions.create.mockRejectedValue(originalError);
 
       try {
@@ -237,7 +243,6 @@ describe('OpenAIAdapter', () => {
         }
       };
 
-      vi.mocked(OpenAI).mockImplementation(() => mockOpenAIInstance as any);
       mockOpenAIInstance.chat.completions.create.mockResolvedValue(mockStream);
 
       const callbacks = {
@@ -282,9 +287,8 @@ describe('OpenAIAdapter', () => {
         }
       };
 
-      vi.mocked(OpenAI).mockImplementation(() => {
-        throw new Error('Invalid URL');
-      });
+      // 模拟 API 调用失败
+      mockOpenAIInstance.chat.completions.create.mockRejectedValue(new Error('Invalid URL'));
 
       await expect(
         adapter.sendMessage(mockMessages, configWithInvalidURL)
