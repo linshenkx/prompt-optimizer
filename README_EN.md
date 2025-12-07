@@ -389,6 +389,24 @@ To bypass this limitation, you need to have the application and API under the sa
 2. **Use Docker deployment (HTTP)**: Access via `http://localhost:8081`, both the app and local Ollama use HTTP
 3. **Use Chrome extension**: Extensions can bypass some security restrictions in certain situations
 
+### macOS Desktop Application Issues
+
+#### Q5: macOS shows "damaged" or "unverified developer" when opening the app?
+**A**: This is because the application has not been signed with an Apple Developer certificate. Due to the high cost of Apple Developer accounts, the desktop application is currently unsigned.
+
+**Solution**:
+Run the following command in Terminal to remove the quarantine attribute:
+
+```bash
+# For installed applications
+xattr -rd com.apple.quarantine /Applications/PromptOptimizer.app
+
+# For downloaded .dmg files (run before installation)
+xattr -rd com.apple.quarantine ~/Downloads/PromptOptimizer-*.dmg
+```
+
+After running the command, you can open the application normally.
+
 </details>
 
 

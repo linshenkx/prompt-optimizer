@@ -544,6 +544,46 @@ jobs:
           ... 以及其他 $((COMMITS_COUNT - 20)) 个提交"
           fi
 
+          # 获取本次发布的贡献者（排除主要作者）
+          CONTRIBUTORS=""
+          if [ -n "$PREVIOUS_TAG" ] && git rev-parse "$PREVIOUS_TAG" >/dev/null 2>&1; then
+            # 获取贡献者列表，排除主要作者和机器人
+            CONTRIBUTORS=$(git log --pretty=format:"%an|%ae" $PREVIOUS_TAG..$CURRENT_TAG 2>/dev/null | \
+              sort -u | \
+              grep -v -E "^(linshen|linshenkx|且炼时光)\|" | \
+              grep -v -E "\[bot\]@" | \
+              grep -v -E "^GitButler\|" | \
+              cut -d'|' -f1 | \
+              sort -u || true)
+          else
+            CONTRIBUTORS=$(git log --pretty=format:"%an|%ae" --max-count=50 2>/dev/null | \
+              sort -u | \
+              grep -v -E "^(linshen|linshenkx|且炼时光)\|" | \
+              grep -v -E "\[bot\]@" | \
+              grep -v -E "^GitButler\|" | \
+              cut -d'|' -f1 | \
+              sort -u || true)
+          fi
+
+          # 格式化贡献者列表
+          CONTRIBUTORS_SECTION=""
+          if [ -n "$CONTRIBUTORS" ]; then
+            CONTRIBUTORS_LIST=$(echo "$CONTRIBUTORS" | while read -r name; do
+              [ -n "$name" ] && echo "- @$name"
+            done | grep -v "^$" || true)
+
+            if [ -n "$CONTRIBUTORS_LIST" ]; then
+              CONTRIBUTORS_SECTION="
+          ### 🙏 致谢
+
+          感谢以下贡献者对本次发布的贡献：
+
+          $CONTRIBUTORS_LIST
+          "
+              echo "Found contributors: $CONTRIBUTORS"
+            fi
+          fi
+
           # 根据版本类型设置不同的图标和描述
           VERSION_ICON="🚀"
           VERSION_DESC="稳定版本"
@@ -598,7 +638,7 @@ jobs:
 
           ### 📝 更新内容
           $COMMITS_LIMITED
-
+          $CONTRIBUTORS_SECTION
           ### 🔗 更多信息
           - **项目主页**: [GitHub Repository](https://github.com/${{ github.repository }})
           - **问题反馈**: [Issues](https://github.com/${{ github.repository }}/issues)

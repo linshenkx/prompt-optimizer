@@ -387,6 +387,24 @@ pnpm dev:fresh        # 完整重置并重新启动开发环境
 2. **使用Docker部署（HTTP）**：通过 `http://localhost:8081` 访问，与本地Ollama都是HTTP
 3. **使用Chrome插件**：插件在某些情况下也可以绕过部分安全限制
 
+### macOS 桌面应用问题
+
+#### Q5: macOS 打开应用时提示「已损坏」或「无法验证开发者」怎么办？
+**A**: 这是因为应用未经过 Apple 签名认证。由于 Apple 开发者账号费用较高，目前桌面应用暂未进行签名。
+
+**解决方案**：
+在终端中执行以下命令移除安全隔离属性：
+
+```bash
+# 对于已安装的应用
+xattr -rd com.apple.quarantine /Applications/PromptOptimizer.app
+
+# 对于下载的 .dmg 文件（安装前执行）
+xattr -rd com.apple.quarantine ~/Downloads/PromptOptimizer-*.dmg
+```
+
+执行后重新打开应用即可正常使用。
+
 </details>
 
 
