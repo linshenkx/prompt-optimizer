@@ -40,7 +40,6 @@
                             v-if="functionMode === 'pro'"
                             :modelValue="proSubMode"
                             functionMode="pro"
-                            :hide-system-option="!isDev"
                             @change="handleProSubModeChange"
                         />
 

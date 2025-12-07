@@ -6,19 +6,38 @@
     size="small"
     class="optimization-mode-selector"
   >
-    <NRadioButton
-      v-if="!hideSystemOption"
-      value="system"
-      :title="systemHelp"
-    >
-      {{ systemLabel }}
-    </NRadioButton>
-    <NRadioButton
-      value="user"
-      :title="userHelp"
-    >
-      {{ userLabel }}
-    </NRadioButton>
+    <!-- 基础模式：系统 | 用户 -->
+    <template v-if="functionMode !== 'pro'">
+      <NRadioButton
+        v-if="!hideSystemOption"
+        value="system"
+        :title="systemHelp"
+      >
+        {{ systemLabel }}
+      </NRadioButton>
+      <NRadioButton
+        value="user"
+        :title="userHelp"
+      >
+        {{ userLabel }}
+      </NRadioButton>
+    </template>
+    <!-- 上下文模式：变量 | 多对话 -->
+    <template v-else>
+      <NRadioButton
+        value="user"
+        :title="userHelp"
+      >
+        {{ userLabel }}
+      </NRadioButton>
+      <NRadioButton
+        v-if="!hideSystemOption"
+        value="system"
+        :title="systemHelp"
+      >
+        {{ systemLabel }}
+      </NRadioButton>
+    </template>
   </NRadioGroup>
 </template>
 

@@ -2,7 +2,7 @@ import { ref, readonly, type Ref } from 'vue'
 
 import type { AppServices } from '../../types/services'
 import { usePreferences } from '../storage/usePreferenceManager'
-import { UI_SETTINGS_KEYS, type ProSubMode, isDevelopment } from '@prompt-optimizer/core'
+import { UI_SETTINGS_KEYS, type ProSubMode } from '@prompt-optimizer/core'
 
 interface UseProSubModeApi {
   proSubMode: Ref<ProSubMode>
@@ -12,9 +12,8 @@ interface UseProSubModeApi {
   ensureInitialized: () => Promise<void>
 }
 
-// 根据 VITE_LOCAL_DEV 环境变量确定默认模式：开发模式启用 system，生产模式使用 user
-// 使用 Core 层的 isDevelopment() 统一判断
-const DEFAULT_PRO_SUB_MODE: ProSubMode = isDevelopment() ? 'system' : 'user'
+// 默认模式为 user，系统模式（多对话）在任何环境下都可用
+const DEFAULT_PRO_SUB_MODE: ProSubMode = 'user'
 
 let singleton: {
   mode: Ref<ProSubMode>
@@ -24,8 +23,8 @@ let singleton: {
 
 /**
  * 上下文模式（Pro模式）的子模式单例。读取/写入 PreferenceService。
- * - 默认值根据 VITE_LOCAL_DEV 环境变量判断：开发模式为 'system'，生产模式为 'user'
- * - 系统提示词优化仅在开发模式（VITE_LOCAL_DEV=true）下可用
+ * - 默认值为 'user'
+ * - 系统模式（多对话优化）在任何环境下都可用
  * - 第一次调用时异步初始化
  * - 状态独立于基础模式，实现不同功能模式下的子模式状态隔离
  */
@@ -48,18 +47,11 @@ export function useProSubMode(services: Ref<AppServices | null>): UseProSubModeA
     }
     singleton!.initializing = (async () => {
       try {
-        // 读取 pro-sub-mode；若不存在，返回默认值（VITE_LOCAL_DEV=true：system，其他：user）
+        // 读取 pro-sub-mode；若不存在，返回默认值 'user'
         const saved = await getPreference<ProSubMode>(UI_SETTINGS_KEYS.PRO_SUB_MODE, DEFAULT_PRO_SUB_MODE)
 
-        // 非开发模式（VITE_LOCAL_DEV≠true）下强制使用 'user' 模式（禁用 'system' 模式）
-        // 开发模式（VITE_LOCAL_DEV=true）下允许使用 'system' 模式
-        if (!isDevelopment() && saved === 'system') {
-          singleton!.mode.value = 'user'
-          await setPreference(UI_SETTINGS_KEYS.PRO_SUB_MODE, 'user')
-          console.log('[useProSubMode] 生产模式检测到 system 模式，已强制切换为 user')
-        } else {
-          singleton!.mode.value = (saved === 'system' || saved === 'user') ? saved : DEFAULT_PRO_SUB_MODE
-        }
+        // 系统模式（多对话）在任何环境下都可用
+        singleton!.mode.value = (saved === 'system' || saved === 'user') ? saved : DEFAULT_PRO_SUB_MODE
 
         console.log(`[useProSubMode] 初始化完成，当前值: ${singleton!.mode.value}`)
 

@@ -40,7 +40,6 @@
                             v-if="functionMode === 'pro'"
                             :modelValue="proSubMode"
                             functionMode="pro"
-                            :hide-system-option="!isDev"
                             @change="handleProSubModeChange"
                         />
 
@@ -819,7 +818,6 @@
                 :services="servicesForContextEditor"
                 :variable-manager="variableManager"
                 :optimization-mode="selectedOptimizationMode"
-                :context-mode="contextMode"
                 :scan-variables="
                     (content) =>
                         variableManager?.variableManager.value?.scanVariablesInContent(
