@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "default_locale": "zh_CN",
   "name": "__MSG_extName__",
-  "version": "2.2.2",
+  "version": "2.3.0",
   "description": "__MSG_extDesc__",
   "icons": {
     "16": "icons/icon16.png",
