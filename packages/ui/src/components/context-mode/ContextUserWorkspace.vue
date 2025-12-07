@@ -164,6 +164,12 @@
                     "
                     @temporary-variable-remove="handleTestVariableRemove"
                     @temporary-variables-clear="handleClearTemporaryVariables"
+                    v-bind="evaluationHandler.testAreaEvaluationProps.value"
+                    @evaluate-original="evaluationHandler.handlers.onEvaluateOriginal"
+                    @evaluate-optimized="evaluationHandler.handlers.onEvaluateOptimized"
+                    @show-original-detail="evaluationHandler.handlers.onShowOriginalDetail"
+                    @show-optimized-detail="evaluationHandler.handlers.onShowOptimizedDetail"
+                    @apply-improvement="handleApplyImprovement"
                 >
                     <!-- 模型选择插槽 -->
                     <template #model-select>
@@ -207,6 +213,14 @@
                 </ContextUserTestPanel>
             </NCard>
         </NFlex>
+
+        <!-- 🆕 评估详情面板 -->
+        <EvaluationPanel
+            v-bind="evaluationHandler.panelProps.value"
+            @close="evaluationHandler.evaluation.closePanel"
+            @re-evaluate="evaluationHandler.handleReEvaluate"
+            @apply-improvement="handleApplyImprovement"
+        />
     </NFlex>
 </template>
 
@@ -248,11 +262,14 @@ import InputPanelUI from "../InputPanel.vue";
 import PromptPanelUI from "../PromptPanel.vue";
 import ContextUserTestPanel from "./ContextUserTestPanel.vue";
 import OutputDisplay from "../OutputDisplay.vue";
+import { EvaluationPanel } from "../evaluation";
 import type { OptimizationMode } from "../../types";
 import type {
     PromptRecord,
     PromptRecordChain,
     Template,
+    ProUserEvaluationContext,
+    EvaluationType,
 } from "@prompt-optimizer/core";
 import type { TestAreaPanelInstance } from "../types/test-area";
 import type { IteratePayload, SaveFavoritePayload } from "../../types/workspace";
@@ -261,6 +278,7 @@ import type { VariableManagerHooks } from '../../composables/prompt/useVariableM
 import { useTemporaryVariables } from "../../composables/variable/useTemporaryVariables";
 import { useContextUserOptimization } from '../../composables/prompt/useContextUserOptimization';
 import { useContextUserTester } from '../../composables/prompt/useContextUserTester';
+import { useEvaluationHandler } from '../../composables/prompt/useEvaluationHandler';
 
 // ========================
 // 响应式断点配置
@@ -400,6 +418,60 @@ const contextUserTester = useContextUserTester(
     computed(() => props.selectedTestModel),
     variableManager
 );
+
+// 🆕 构建 Pro-User 评估上下文
+const proContext = computed<ProUserEvaluationContext | undefined>(() => {
+    const tempVars = temporaryVariables.value;
+    const globalVars = props.globalVariables;
+    const predefinedVars = props.predefinedVariables;
+
+    // 合并所有变量
+    const allVariables: ProUserEvaluationContext['variables'] = [];
+
+    // 添加预定义变量
+    Object.entries(predefinedVars).forEach(([name, value]) => {
+        allVariables.push({ name, value, source: 'predefined' });
+    });
+
+    // 添加全局变量
+    Object.entries(globalVars).forEach(([name, value]) => {
+        if (!predefinedVars[name]) {
+            allVariables.push({ name, value, source: 'global' });
+        }
+    });
+
+    // 添加临时变量
+    Object.entries(tempVars).forEach(([name, value]) => {
+        if (!predefinedVars[name] && !globalVars[name]) {
+            allVariables.push({ name, value, source: 'temporary' });
+        }
+    });
+
+    return {
+        variables: allVariables,
+        rawPrompt: contextUserOptimization.prompt,
+        resolvedPrompt: contextUserOptimization.optimizedPrompt,
+    };
+});
+
+// 🆕 测试结果数据
+const testResultsData = computed(() => ({
+    originalResult: contextUserTester.testResults.originalResult || undefined,
+    optimizedResult: contextUserTester.testResults.optimizedResult || undefined,
+}));
+
+// 🆕 初始化评估处理器
+const evaluationHandler = useEvaluationHandler({
+    services: services || ref(null),
+    originalPrompt: computed(() => contextUserOptimization.prompt),
+    optimizedPrompt: computed(() => contextUserOptimization.optimizedPrompt),
+    testContent: computed(() => ''), // 变量模式不需要单独的测试内容，通过变量系统管理
+    testResults: testResultsData,
+    evaluationModelKey: computed(() => props.selectedOptimizeModel),
+    functionMode: computed(() => 'pro'),
+    subMode: computed(() => 'user'),
+    proContext,
+});
 
 // ========================
 // 计算属性
@@ -616,6 +688,17 @@ const handleTestWithVariables = async () => {
             error,
         );
         window.$message?.error(t("test.getVariablesFailed"));
+    }
+};
+
+// 🆕 处理应用改进建议事件
+const handleApplyImprovement = (payload: { improvement: string; type: EvaluationType }) => {
+    // 将改进建议应用到优化后的提示词
+    if (contextUserOptimization.optimizedPrompt) {
+        const currentPrompt = contextUserOptimization.optimizedPrompt;
+        // 在当前优化结果末尾添加改进建议作为参考
+        contextUserOptimization.optimizedPrompt = `${currentPrompt}\n\n<!-- 改进建议: ${payload.improvement} -->`;
+        window.$message?.success(t('evaluation.applyImprovement.success'));
     }
 };
 

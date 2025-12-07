@@ -103,6 +103,9 @@ export { default as ContextUserWorkspace } from "./components/context-mode/Conte
 export { default as ContextUserTestPanel } from "./components/context-mode/ContextUserTestPanel.vue";
 export { default as ConversationTestPanel } from "./components/context-mode/ConversationTestPanel.vue";
 
+// 评估组件
+export { EvaluationPanel, EvaluateButton, EvaluationScoreBadge } from "./components/evaluation";
+
 // 导出 Naive UI 组件 (解决组件解析问题)
 export {
   NFlex,
@@ -173,6 +176,9 @@ export {
   FavoriteManagerElectronProxy,
   isRunningInElectron,
   waitForElectronApi,
+  // 评估服务
+  EvaluationService,
+  createEvaluationService,
 } from "@prompt-optimizer/core";
 
 // 导出类型
@@ -195,6 +201,13 @@ export type {
   IFavoriteManager,
   FavoritePrompt,
   FavoriteCategory,
+  // 评估服务类型
+  IEvaluationService,
+  EvaluationType,
+  EvaluationRequest,
+  EvaluationResponse,
+  EvaluationScore,
+  EvaluationStreamHandlers,
 } from "@prompt-optimizer/core";
 
 // 导出新增的类型和服务

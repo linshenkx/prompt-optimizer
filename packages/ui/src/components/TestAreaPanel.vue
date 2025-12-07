@@ -57,6 +57,24 @@
             :single-result="singleResult"
             :size="adaptiveButtonSize"
             :style="{ flex: 1, minHeight: 0 }"
+            :show-evaluation="showEvaluation"
+            :has-original-result="hasOriginalResult"
+            :has-optimized-result="hasOptimizedResult"
+            :is-evaluating-original="isEvaluatingOriginal"
+            :is-evaluating-optimized="isEvaluatingOptimized"
+            :original-score="originalScore"
+            :optimized-score="optimizedScore"
+            :has-original-evaluation="hasOriginalEvaluation"
+            :has-optimized-evaluation="hasOptimizedEvaluation"
+            :original-evaluation-result="originalEvaluationResult"
+            :optimized-evaluation-result="optimizedEvaluationResult"
+            :original-score-level="originalScoreLevel"
+            :optimized-score-level="optimizedScoreLevel"
+            @evaluate-original="handleEvaluateOriginal"
+            @evaluate-optimized="handleEvaluateOptimized"
+            @show-original-detail="handleShowOriginalDetail"
+            @show-optimized-detail="handleShowOptimizedDetail"
+            @apply-improvement="handleApplyImprovement"
         >
             <template #original-result>
                 <div class="result-container">
@@ -124,7 +142,10 @@ import type {
     OptimizationMode,
     AdvancedTestResult,
     ToolCallResult,
+    EvaluationResponse,
+    EvaluationType,
 } from "@prompt-optimizer/core";
+import type { ScoreLevel } from './evaluation/EvaluationScoreBadge.vue';
 import { useResponsive } from '../composables/ui/useResponsive';
 import { usePerformanceMonitor } from "../composables/performance/usePerformanceMonitor";
 import { useDebounceThrottle } from "../composables/performance/useDebounceThrottle";
@@ -187,6 +208,22 @@ interface Props {
     originalResult?: AdvancedTestResult;
     optimizedResult?: AdvancedTestResult;
     singleResult?: AdvancedTestResult;
+
+    // 评估功能配置
+    showEvaluation?: boolean;
+    hasOriginalResult?: boolean;
+    hasOptimizedResult?: boolean;
+    isEvaluatingOriginal?: boolean;
+    isEvaluatingOptimized?: boolean;
+    originalScore?: number | null;
+    optimizedScore?: number | null;
+    hasOriginalEvaluation?: boolean;
+    hasOptimizedEvaluation?: boolean;
+    // 新增：评估结果和等级，用于悬浮预览
+    originalEvaluationResult?: EvaluationResponse | null;
+    optimizedEvaluationResult?: EvaluationResponse | null;
+    originalScoreLevel?: ScoreLevel | null;
+    optimizedScoreLevel?: ScoreLevel | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -203,7 +240,20 @@ const props = withDefaults(defineProps<Props>(), {
     originalResultTitle: "",
     optimizedResultTitle: "",
     singleResultTitle: "",
-
+    // 评估默认值
+    showEvaluation: false,
+    hasOriginalResult: false,
+    hasOptimizedResult: false,
+    isEvaluatingOriginal: false,
+    isEvaluatingOptimized: false,
+    originalScore: null,
+    optimizedScore: null,
+    hasOriginalEvaluation: false,
+    hasOptimizedEvaluation: false,
+    originalEvaluationResult: null,
+    optimizedEvaluationResult: null,
+    originalScoreLevel: null,
+    optimizedScoreLevel: null,
 });
 
 const emit = defineEmits<{
@@ -224,7 +274,12 @@ const emit = defineEmits<{
         toolCalls: ToolCallResult[],
         testType: "original" | "optimized",
     ];
-
+    // 评估事件
+    "evaluate-original": [];
+    "evaluate-optimized": [];
+    "show-original-detail": [];
+    "show-optimized-detail": [];
+    "apply-improvement": [payload: { improvement: string; type: EvaluationType }];
 }>();
 
 // 内部状态管理 - 去除防抖，保证输入即时响应
@@ -340,6 +395,28 @@ const handleTest = throttle(
     200,
     "handleTest",
 );
+
+// ========== 评估事件处理 ==========
+const handleEvaluateOriginal = () => {
+    emit("evaluate-original");
+};
+
+const handleEvaluateOptimized = () => {
+    emit("evaluate-optimized");
+};
+
+const handleShowOriginalDetail = () => {
+    emit("show-original-detail");
+};
+
+const handleShowOptimizedDetail = () => {
+    emit("show-optimized-detail");
+};
+
+// 应用改进建议处理
+const handleApplyImprovement = (payload: { improvement: string; type: EvaluationType }) => {
+    emit("apply-improvement", payload);
+};
 
 // ========== 变量管理 ==========
 

@@ -624,6 +624,19 @@
                                     :result-vertical-layout="
                                         responsiveLayout.isMobile.value
                                     "
+                                    :show-evaluation="true"
+                                    :has-original-result="!!testResults.originalResult"
+                                    :has-optimized-result="!!testResults.optimizedResult"
+                                    :is-evaluating-original="evaluation.isEvaluatingOriginal.value"
+                                    :is-evaluating-optimized="evaluation.isEvaluatingOptimized.value"
+                                    :original-score="evaluation.originalScore.value"
+                                    :optimized-score="evaluation.optimizedScore.value"
+                                    :has-original-evaluation="evaluation.hasOriginalResult.value"
+                                    :has-optimized-evaluation="evaluation.hasOptimizedResult.value"
+                                    :original-evaluation-result="evaluation.state.original.result"
+                                    :optimized-evaluation-result="evaluation.state.optimized.result"
+                                    :original-score-level="evaluation.originalLevel.value"
+                                    :optimized-score-level="evaluation.optimizedLevel.value"
                                     @test="handleTestAreaTest"
                                     @compare-toggle="
                                         handleTestAreaCompareToggle
@@ -631,6 +644,11 @@
                                     @open-variable-manager="
                                         handleOpenVariableManager
                                     "
+                                    @evaluate-original="() => handleEvaluate('original')"
+                                    @evaluate-optimized="() => handleEvaluate('optimized')"
+                                    @show-original-detail="() => evaluation.showDetail('original')"
+                                    @show-optimized-detail="() => evaluation.showDetail('optimized')"
+                                    @apply-improvement="handleApplyImprovement"
                                 >
                                     <!-- 模型选择插槽 -->
                                     <template #model-select>
@@ -721,6 +739,33 @@
                                                 minHeight: '0',
                                             }"
                                         />
+                                    </template>
+
+                                    <!-- 对比评估按钮（仅在对比模式且有两个结果时显示） -->
+                                    <template #custom-actions>
+                                        <template v-if="isCompareMode && testResults.originalResult && testResults.optimizedResult">
+                                            <!-- 已评估或评估中：显示分数徽章 -->
+                                            <EvaluationScoreBadge
+                                                v-if="evaluation.hasCompareResult.value || evaluation.isEvaluatingCompare.value"
+                                                :score="evaluation.compareScore.value"
+                                                :level="evaluation.compareLevel.value"
+                                                :loading="evaluation.isEvaluatingCompare.value"
+                                                :result="evaluation.state.compare.result"
+                                                type="compare"
+                                                size="small"
+                                                @show-detail="() => evaluation.showDetail('compare')"
+                                                @apply-improvement="handleApplyImprovement"
+                                            />
+                                            <!-- 未评估：显示评估按钮 -->
+                                            <NButton
+                                                v-else
+                                                quaternary
+                                                size="small"
+                                                @click="() => handleEvaluate('compare')"
+                                            >
+                                                {{ t('evaluation.compareEvaluate') }}
+                                            </NButton>
+                                        </template>
                                     </template>
                                 </TestAreaPanel>
                             </NCard>
@@ -848,6 +893,20 @@
                 :renderPhase="renderPhase"
             />
 
+            <!-- 🆕 评估结果面板 -->
+            <EvaluationPanel
+                v-if="isReady"
+                v-model:show="evaluation.isPanelVisible.value"
+                :is-evaluating="evaluation.state.activeDetailType ? evaluation.state[evaluation.state.activeDetailType].isEvaluating : false"
+                :result="evaluation.activeResult.value"
+                :stream-content="evaluation.activeStreamContent.value"
+                :error="evaluation.activeError.value"
+                :current-type="evaluation.state.activeDetailType"
+                :score-level="evaluation.activeScoreLevel.value"
+                @re-evaluate="handleReEvaluate"
+                @apply-improvement="handleApplyImprovement"
+            />
+
             <!-- 关键:使用NGlobalStyle同步全局样式到body,消除CSS依赖 -->
             <NGlobalStyle />
 
@@ -916,6 +975,8 @@ import {
     PromptPreviewPanel,
     ContextSystemWorkspace,
     ContextUserWorkspace,
+    EvaluationPanel,
+    EvaluationScoreBadge,
 
     // Composables
     usePromptOptimizer,
@@ -939,6 +1000,7 @@ import {
     useContextManagement,
     useAggregatedVariables,
     useContextEditorUIState,
+    useEvaluationHandler,
 
     // i18n functions
     initializeI18nWithStorage,
@@ -958,6 +1020,7 @@ import type {
     ModelConfig,
     PromptRecordChain,
     PromptRecord,
+    EvaluationType,
 } from "@prompt-optimizer/core";
 import { isDevelopment } from "@prompt-optimizer/core";
 import type {
@@ -1037,6 +1100,7 @@ const systemWorkspaceRef = ref<ContextWorkspaceExpose | null>(null);
 const userWorkspaceRef = ref<ContextWorkspaceExpose | null>(null);
 const promptPanelRef = ref<{
     refreshIterateTemplateSelect?: () => void;
+    openIterateDialog?: (input?: string) => void;
 } | null>(null);
 
 // 高级模式状态
@@ -1293,6 +1357,29 @@ const handleSaveToGlobal = async (name: string, value: string) => {
         toast.error(t('test.error.saveToGlobalFailed', { name }));
     }
 };
+
+// 🆕 评估功能（使用 useEvaluationHandler 封装业务逻辑）
+// 根据当前功能模式动态获取子模式
+const currentSubMode = computed(() => {
+    if (functionMode.value === 'basic') return basicSubMode.value;
+    if (functionMode.value === 'pro') return proSubMode.value;
+    if (functionMode.value === 'image') return imageSubMode.value;
+    return 'system'; // 默认值
+});
+
+const evaluationHandler = useEvaluationHandler({
+    services: services as any,
+    originalPrompt: toRef(optimizer, "prompt") as any,
+    optimizedPrompt: toRef(optimizer, "optimizedPrompt") as any,
+    testContent,
+    testResults: testResults as any,
+    evaluationModelKey: computed(() => modelManager.selectedOptimizeModel),
+    functionMode: functionMode as any,
+    subMode: currentSubMode as any,
+});
+
+// 导出评估相关（供模板使用）
+const { evaluation, handleEvaluate, handleReEvaluate } = evaluationHandler;
 
 // 同步 contextManagement 中的 contextMode 到我们的 contextMode ref
 watch(
@@ -1592,6 +1679,19 @@ const handleOptimizePrompt = () => {
 // 处理迭代提示词
 const handleIteratePrompt = (payload: any) => {
     optimizer.handleIteratePrompt(payload);
+};
+
+// 处理应用评估改进建议到迭代优化
+const handleApplyImprovement = (payload: { improvement: string; type: EvaluationType }) => {
+    const { improvement } = payload;
+
+    // 关闭评估面板
+    evaluation.closePanel();
+
+    // 打开迭代弹窗并预填充改进建议
+    if (promptPanelRef.value?.openIterateDialog) {
+        promptPanelRef.value.openIterateDialog(improvement);
+    }
 };
 
 // 处理切换版本
@@ -2124,6 +2224,9 @@ const getActiveTestPanelInstance = (): TestAreaPanelInstance | null => {
 // 2. Context User 模式在 ContextUserWorkspace 内部使用 useContextUserTester 处理
 // 3. 此函数仅被 Basic Mode 的 TestAreaPanel 调用
 const handleTestAreaTest = async (testVariables?: Record<string, string>) => {
+    // 重新测试时清理之前的评估结果
+    evaluation.clearAllResults();
+
     await promptTester.executeTest(
         optimizer.prompt,
         optimizer.optimizedPrompt,

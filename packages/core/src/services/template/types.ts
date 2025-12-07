@@ -11,7 +11,7 @@ export interface TemplateMetadata {
   lastModified: number;     // 最后修改时间
   author?: string;          // 作者（可选）
   description?: string;     // 描述（可选）
-  templateType: 'optimize' | 'userOptimize' | 'text2imageOptimize' | 'image2imageOptimize' | 'imageIterate' | 'iterate' | 'conversationMessageOptimize' | 'contextUserOptimize' | 'contextIterate' | 'contextSystemOptimize'; // 模板类型标识（包含向后兼容的旧值）
+  templateType: 'optimize' | 'userOptimize' | 'text2imageOptimize' | 'image2imageOptimize' | 'imageIterate' | 'iterate' | 'conversationMessageOptimize' | 'contextUserOptimize' | 'contextIterate' | 'contextSystemOptimize' | 'evaluation'; // 模板类型标识（包含向后兼容的旧值）
   language?: 'zh' | 'en';   // 模板语言（可选，主要用于内置模板语言切换）
   [key: string]: any;       // 允许任意额外字段
 }
@@ -82,7 +82,7 @@ export interface ITemplateManager extends IImportExportable {
   /**
    * List templates by type
    */
-  listTemplatesByType(type: 'optimize' | 'userOptimize' | 'text2imageOptimize' | 'image2imageOptimize' | 'imageIterate' | 'iterate' | 'contextUserOptimize' | 'contextIterate' | 'conversationMessageOptimize' | 'contextSystemOptimize'): Promise<Template[]>;
+  listTemplatesByType(type: 'optimize' | 'userOptimize' | 'text2imageOptimize' | 'image2imageOptimize' | 'imageIterate' | 'iterate' | 'contextUserOptimize' | 'contextIterate' | 'conversationMessageOptimize' | 'contextSystemOptimize' | 'evaluation'): Promise<Template[]>;
 
   /**
    * Change built-in template language
@@ -123,7 +123,7 @@ export const templateSchema = z.object({
     lastModified: z.number(),
     author: z.string().optional(),
     description: z.string().optional(),
-    templateType: z.enum(['optimize', 'userOptimize', 'text2imageOptimize', 'image2imageOptimize', 'imageIterate', 'iterate', 'conversationMessageOptimize', 'contextUserOptimize', 'contextIterate', 'contextSystemOptimize']),  // 🔧 向后兼容：保留旧枚举值
+    templateType: z.enum(['optimize', 'userOptimize', 'text2imageOptimize', 'image2imageOptimize', 'imageIterate', 'iterate', 'conversationMessageOptimize', 'contextUserOptimize', 'contextIterate', 'contextSystemOptimize', 'evaluation']),  // 🔧 向后兼容：保留旧枚举值
     language: z.enum(['zh', 'en']).optional()
   }).passthrough(), // 允许额外字段通过验证
   isBuiltin: z.boolean().optional()

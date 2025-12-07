@@ -172,3 +172,8 @@ export * from './services/favorite/errors'
 
 // 导出高级模块相关类型
 export * from './types/advanced'
+
+// 导出评估服务相关
+export * from './services/evaluation/types'
+export * from './services/evaluation/errors'
+export { EvaluationService, createEvaluationService } from './services/evaluation/service'

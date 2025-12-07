@@ -2045,4 +2045,53 @@ export default {
     inlineHint:
       "Variable support: Type {doubleBraces} for auto-completion · Select text to extract · Hover to view values",
   },
+  // LLM Intelligent Evaluation
+  evaluation: {
+    button: "Evaluate",
+    evaluate: "Evaluate",
+    reEvaluate: "Re-evaluate",
+    compareEvaluate: "Compare",
+    loading: "Evaluating...",
+    analyzing: "Analyzing...",
+    overallScore: "Overall",
+    dimensions: "Dimension Scores",
+    issues: "Issues",
+    improvements: "Improvements",
+    applyToIterate: "Apply",
+    applySuccess: "Applying improvement...",
+    noResult: "No evaluation result yet. Click the evaluate button to start.",
+    viewDetails: "View Details",
+    title: {
+      default: "Evaluation Result",
+      original: "Original Prompt Evaluation",
+      optimized: "Optimized Prompt Evaluation",
+      compare: "Comparison Evaluation",
+    },
+    type: {
+      original: "Evaluate Original Prompt",
+      optimized: "Evaluate Optimization",
+      compare: "Compare Evaluation",
+    },
+    level: {
+      excellent: "Excellent",
+      good: "Good",
+      acceptable: "Acceptable",
+      poor: "Poor",
+      veryPoor: "Very Poor",
+    },
+    dimension: {
+      goalAchievement: "Goal Achievement",
+      outputQuality: "Output Quality",
+      formatCompliance: "Format Compliance",
+      relevance: "Relevance",
+    },
+    optimizedBetter: "Optimized version is better",
+    originalBetter: "Original version is better",
+    error: {
+      title: "Evaluation Failed",
+      serviceNotReady: "Evaluation service not ready, please try again later",
+      failed: "Evaluation failed: {error}",
+      noOptimizedPrompt: "No prompt to optimize",
+    },
+  },
 };

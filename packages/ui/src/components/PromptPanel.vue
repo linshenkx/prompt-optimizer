@@ -507,8 +507,21 @@ const refreshIterateTemplateSelect = () => {
     }
 };
 
+// 打开迭代弹窗并可选预填充文本
+const openIterateDialog = (input?: string) => {
+    if (!props.selectedIterateTemplate) {
+        toast.error(t("prompt.error.noTemplate"));
+        return;
+    }
+    if (input) {
+        iterateInput.value = input;
+    }
+    showIterateInput.value = true;
+};
+
 defineExpose({
     refreshIterateTemplateSelect,
+    openIterateDialog,
 });
 </script>
 

@@ -1957,4 +1957,53 @@ export default {
     inlineHint:
       "支援變數功能：輸入 {doubleBraces} 觸發自動補全 · 選中文字可提取為變數 · 懸停查看變數值",
   },
+  // LLM 智慧評估
+  evaluation: {
+    button: "評估",
+    evaluate: "評估",
+    reEvaluate: "重新評估",
+    compareEvaluate: "對比評估",
+    loading: "正在評估中...",
+    analyzing: "正在分析...",
+    overallScore: "總分",
+    dimensions: "維度評分",
+    issues: "問題",
+    improvements: "改進建議",
+    applyToIterate: "應用",
+    applySuccess: "正在應用改進建議...",
+    noResult: "暫無評估結果，點擊評估按鈕開始評估",
+    viewDetails: "檢視詳情",
+    title: {
+      default: "評估結果",
+      original: "原始提示詞評估",
+      optimized: "優化後評估",
+      compare: "對比評估",
+    },
+    type: {
+      original: "評估原始提示詞",
+      optimized: "評估優化效果",
+      compare: "對比評估",
+    },
+    level: {
+      excellent: "優秀",
+      good: "良好",
+      acceptable: "合格",
+      poor: "較差",
+      veryPoor: "很差",
+    },
+    dimension: {
+      goalAchievement: "目標達成度",
+      outputQuality: "輸出品質",
+      formatCompliance: "格式規範性",
+      relevance: "相關性",
+    },
+    optimizedBetter: "優化後效果更好",
+    originalBetter: "原始效果更好",
+    error: {
+      title: "評估失敗",
+      serviceNotReady: "評估服務未就緒，請稍後再試",
+      failed: "評估失敗：{error}",
+      noOptimizedPrompt: "沒有可優化的提示詞",
+    },
+  },
 };

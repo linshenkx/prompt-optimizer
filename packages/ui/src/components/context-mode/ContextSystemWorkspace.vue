@@ -193,6 +193,12 @@
                     "
                     @temporary-variable-remove="handleVariableRemove"
                     @temporary-variables-clear="handleVariablesClear"
+                    v-bind="evaluationHandler.testAreaEvaluationProps.value"
+                    @evaluate-original="evaluationHandler.handlers.onEvaluateOriginal"
+                    @evaluate-optimized="evaluationHandler.handlers.onEvaluateOptimized"
+                    @show-original-detail="evaluationHandler.handlers.onShowOriginalDetail"
+                    @show-optimized-detail="evaluationHandler.handlers.onShowOptimizedDetail"
+                    @apply-improvement="handleApplyImprovement"
                 >
                     <!-- 模型选择插槽 -->
                     <template #model-select>
@@ -236,11 +242,19 @@
                 </ConversationTestPanel>
             </NCard>
         </NFlex>
+
+        <!-- 🆕 评估详情面板 -->
+        <EvaluationPanel
+            v-bind="evaluationHandler.panelProps.value"
+            @close="evaluationHandler.evaluation.closePanel"
+            @re-evaluate="evaluationHandler.handleReEvaluate"
+            @apply-improvement="handleApplyImprovement"
+        />
     </NFlex>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject, provide } from 'vue'
+import { ref, computed, inject, provide, type Ref } from 'vue'
 
 import { useI18n } from "vue-i18n";
 import { NCard, NFlex, NButton, NText, NEmpty } from "naive-ui";
@@ -249,16 +263,20 @@ import PromptPanelUI from "../PromptPanel.vue";
 import ConversationTestPanel from "./ConversationTestPanel.vue";
 import ConversationManager from "./ConversationManager.vue";
 import OutputDisplay from "../OutputDisplay.vue";
+import { EvaluationPanel } from "../evaluation";
 import { useConversationTester } from '../../composables/prompt/useConversationTester'
 import { useConversationOptimization } from '../../composables/prompt/useConversationOptimization'
 import { usePromptDisplayAdapter } from '../../composables/prompt/usePromptDisplayAdapter'
 import { useTemporaryVariables } from '../../composables/variable/useTemporaryVariables'
+import { useEvaluationHandler } from '../../composables/prompt/useEvaluationHandler'
 import type { OptimizationMode, ConversationMessage } from "../../types";
 import type {
     PromptRecord,
     PromptRecordChain,
     Template,
     ToolDefinition,
+    ProSystemEvaluationContext,
+    EvaluationType,
 } from "@prompt-optimizer/core";
 import type { TestAreaPanelInstance } from "../types/test-area";
 import type { IteratePayload, SaveFavoritePayload } from "../../types/workspace";
@@ -424,6 +442,44 @@ const conversationTester = useConversationTester(
     selectedMessageId
 )
 
+// 🆕 构建 Pro-System 评估上下文
+const proContext = computed<ProSystemEvaluationContext | undefined>(() => {
+    const selectedMsg = conversationOptimization.selectedMessage.value
+    if (!selectedMsg) return undefined
+
+    return {
+        targetMessage: {
+            role: selectedMsg.role as 'system' | 'user' | 'assistant' | 'tool',
+            content: conversationOptimization.optimizedPrompt.value || selectedMsg.content,
+            originalContent: selectedMsg.content,
+        },
+        conversationMessages: props.optimizationContext.map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+            isTarget: msg.id === selectedMsg.id,
+        })),
+    }
+})
+
+// 🆕 测试结果数据
+const testResultsData = computed(() => ({
+    originalResult: conversationTester.testResults.originalResult || undefined,
+    optimizedResult: conversationTester.testResults.optimizedResult || undefined,
+}))
+
+// 🆕 初始化评估处理器
+const evaluationHandler = useEvaluationHandler({
+    services: services || ref(null),
+    originalPrompt: computed(() => conversationOptimization.selectedMessage.value?.content || ''),
+    optimizedPrompt: computed(() => conversationOptimization.optimizedPrompt.value),
+    testContent: computed(() => ''), // Pro-System 模式无测试内容输入
+    testResults: testResultsData,
+    evaluationModelKey: computed(() => props.selectedOptimizeModel),
+    functionMode: computed(() => 'pro'),
+    subMode: computed(() => 'system'),
+    proContext,
+})
+
 // 处理迭代优化事件
 // 注意：由于 displayedOptimizedPrompt 在未选中消息时为空，迭代按钮不会显示，所以此函数调用时必定处于消息优化模式
 const handleIterate = (payload: IteratePayload) => {
@@ -551,6 +607,17 @@ const handleTestWithVariables = async () => {
         testVariables,
         testAreaPanelRef.value
     );
+};
+
+// 🆕 处理应用改进建议事件
+const handleApplyImprovement = (payload: { improvement: string; type: EvaluationType }) => {
+    // 将改进建议应用到优化后的提示词
+    if (conversationOptimization.optimizedPrompt.value) {
+        const currentPrompt = conversationOptimization.optimizedPrompt.value;
+        // 在当前优化结果末尾添加改进建议作为参考
+        conversationOptimization.optimizedPrompt.value = `${currentPrompt}\n\n<!-- 改进建议: ${payload.improvement} -->`;
+        window.$message?.success(t('evaluation.applyImprovement.success'));
+    }
 };
 
 // 暴露引用

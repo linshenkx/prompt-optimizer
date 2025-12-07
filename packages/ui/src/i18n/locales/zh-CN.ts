@@ -1973,4 +1973,53 @@ export default {
     inlineHint:
       "支持变量功能：输入 {doubleBraces} 触发自动补全 · 选中文本可提取为变量 · 悬停查看变量值",
   },
+  // LLM 智能评估
+  evaluation: {
+    button: "评估",
+    evaluate: "评估",
+    reEvaluate: "重新评估",
+    compareEvaluate: "对比评估",
+    loading: "正在评估中...",
+    analyzing: "正在分析...",
+    overallScore: "总分",
+    dimensions: "维度评分",
+    issues: "问题",
+    improvements: "改进建议",
+    applyToIterate: "应用",
+    applySuccess: "正在应用改进建议...",
+    noResult: "暂无评估结果，点击评估按钮开始评估",
+    viewDetails: "查看详情",
+    title: {
+      default: "评估结果",
+      original: "原始提示词评估",
+      optimized: "优化后评估",
+      compare: "对比评估",
+    },
+    type: {
+      original: "评估原始提示词",
+      optimized: "评估优化效果",
+      compare: "对比评估",
+    },
+    level: {
+      excellent: "优秀",
+      good: "良好",
+      acceptable: "合格",
+      poor: "较差",
+      veryPoor: "很差",
+    },
+    dimension: {
+      goalAchievement: "目标达成度",
+      outputQuality: "输出质量",
+      formatCompliance: "格式规范性",
+      relevance: "相关性",
+    },
+    optimizedBetter: "优化后效果更好",
+    originalBetter: "原始效果更好",
+    error: {
+      title: "评估失败",
+      serviceNotReady: "评估服务未就绪，请稍后再试",
+      failed: "评估失败：{error}",
+      noOptimizedPrompt: "没有可优化的提示词",
+    },
+  },
 };

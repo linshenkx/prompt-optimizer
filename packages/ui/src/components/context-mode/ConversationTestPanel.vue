@@ -180,6 +180,24 @@
             :single-result="testResult"
             :size="adaptiveButtonSize"
             :style="{ flex: 1, minHeight: 0 }"
+            :show-evaluation="showEvaluation"
+            :has-original-result="hasOriginalResult"
+            :has-optimized-result="hasOptimizedResult"
+            :is-evaluating-original="isEvaluatingOriginal"
+            :is-evaluating-optimized="isEvaluatingOptimized"
+            :original-score="originalScore"
+            :optimized-score="optimizedScore"
+            :has-original-evaluation="hasOriginalEvaluation"
+            :has-optimized-evaluation="hasOptimizedEvaluation"
+            :original-evaluation-result="originalEvaluationResult"
+            :optimized-evaluation-result="optimizedEvaluationResult"
+            :original-score-level="originalScoreLevel"
+            :optimized-score-level="optimizedScoreLevel"
+            @evaluate-original="emit('evaluate-original')"
+            @evaluate-optimized="emit('evaluate-optimized')"
+            @show-original-detail="emit('show-original-detail')"
+            @show-optimized-detail="emit('show-optimized-detail')"
+            @apply-improvement="emit('apply-improvement', $event)"
         >
             <!-- 🆕 对比模式：原始结果 -->
             <template #original-result>
@@ -261,7 +279,10 @@ import type {
     OptimizationMode,
     AdvancedTestResult,
     ToolCallResult,
+    EvaluationResponse,
+    EvaluationType,
 } from "@prompt-optimizer/core";
+import type { ScoreLevel } from '../../composables/prompt/useEvaluation';
 import { useResponsive } from '../../composables/ui/useResponsive';
 import { usePerformanceMonitor } from "../../composables/performance/usePerformanceMonitor";
 import { useDebounceThrottle } from "../../composables/performance/useDebounceThrottle";
@@ -312,6 +333,26 @@ interface Props {
     testResult?: AdvancedTestResult;
     originalTestResult?: AdvancedTestResult;
     optimizedTestResult?: AdvancedTestResult;
+
+    // 🆕 评估功能配置
+    showEvaluation?: boolean;
+    // 是否有测试结果（用于显示评估按钮）
+    hasOriginalResult?: boolean;
+    hasOptimizedResult?: boolean;
+    // 评估状态
+    isEvaluatingOriginal?: boolean;
+    isEvaluatingOptimized?: boolean;
+    // 评估分数
+    originalScore?: number | null;
+    optimizedScore?: number | null;
+    // 是否有评估结果
+    hasOriginalEvaluation?: boolean;
+    hasOptimizedEvaluation?: boolean;
+    // 评估结果和等级（用于悬浮预览）
+    originalEvaluationResult?: EvaluationResponse | null;
+    optimizedEvaluationResult?: EvaluationResponse | null;
+    originalScoreLevel?: ScoreLevel | null;
+    optimizedScoreLevel?: ScoreLevel | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -326,6 +367,20 @@ const props = withDefaults(defineProps<Props>(), {
     globalVariables: () => ({}),
     predefinedVariables: () => ({}),
     temporaryVariables: () => ({}),
+    // 评估默认值
+    showEvaluation: false,
+    hasOriginalResult: false,
+    hasOptimizedResult: false,
+    isEvaluatingOriginal: false,
+    isEvaluatingOptimized: false,
+    originalScore: null,
+    optimizedScore: null,
+    hasOriginalEvaluation: false,
+    hasOptimizedEvaluation: false,
+    originalEvaluationResult: null,
+    optimizedEvaluationResult: null,
+    originalScoreLevel: null,
+    optimizedScoreLevel: null,
 });
 
 const emit = defineEmits<{
@@ -339,6 +394,12 @@ const emit = defineEmits<{
     "tool-calls-updated": [toolCalls: ToolCallResult[]];
     "temporary-variable-remove": [name: string];
     "temporary-variables-clear": [];
+    // 🆕 评估相关事件
+    "evaluate-original": [];
+    "evaluate-optimized": [];
+    "show-original-detail": [];
+    "show-optimized-detail": [];
+    "apply-improvement": [payload: { improvement: string; type: EvaluationType }];
 }>();
 
 // 🆕 工具调用状态管理（支持对比模式）

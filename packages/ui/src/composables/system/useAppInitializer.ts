@@ -11,6 +11,7 @@ import {
   createTemplateLanguageService,
   createCompareService,
   createContextRepo,
+  createEvaluationService,
   ElectronContextRepoProxy,
   ElectronModelManagerProxy,
   ElectronTemplateManagerProxy,
@@ -42,6 +43,7 @@ import {
   type IDataManager,
   type IPreferenceService,
   type IFavoriteManager,
+  type IEvaluationService,
   type ContextMode,
   DEFAULT_CONTEXT_MODE
 } from '@prompt-optimizer/core';
@@ -73,6 +75,7 @@ export function useAppInitializer(): {
       let promptService: IPromptService;
       let preferenceService: IPreferenceService;
       let favoriteManager: IFavoriteManager;
+      let evaluationService: IEvaluationService | undefined;
       let imageModelManager: IImageModelManager | undefined;
       let imageService: IImageService | undefined;
       let imageAdapterRegistryInstance: ReturnType<typeof createImageAdapterRegistry> | undefined;
@@ -125,6 +128,9 @@ export function useAppInitializer(): {
         const { FavoriteManagerElectronProxy } = await import('@prompt-optimizer/core')
         favoriteManager = new FavoriteManagerElectronProxy();
 
+        // 🆕 创建评估服务（使用代理的 llmService, modelManager, templateManager）
+        evaluationService = createEvaluationService(llmService, modelManager, templateManager);
+
         // 🆕 读取当前上下文的模式
         console.log('[AppInitializer] 读取当前上下文模式...');
         const contextMode = ref<ContextMode>(DEFAULT_CONTEXT_MODE);
@@ -154,6 +160,7 @@ export function useAppInitializer(): {
           imageModelManager,
           imageService,
           imageAdapterRegistry: imageAdapterRegistryInstance,
+          evaluationService, // 🆕 评估服务
         };
         console.log('[AppInitializer] Electron代理服务初始化完成');
 
@@ -281,6 +288,9 @@ export function useAppInitializer(): {
         // 创建收藏管理器
         favoriteManager = new FavoriteManager(storageProvider);
 
+        // 🆕 创建评估服务
+        evaluationService = createEvaluationService(llmService, modelManagerAdapter, templateManagerAdapter);
+
         // 🆕 读取当前上下文的模式
         console.log('[AppInitializer] 读取当前上下文模式...');
         const contextMode = ref<ContextMode>(DEFAULT_CONTEXT_MODE);
@@ -311,6 +321,7 @@ export function useAppInitializer(): {
           imageModelManager: imageModelManagerInstance,
           imageService,
           imageAdapterRegistry: imageAdapterRegistryInstance,
+          evaluationService, // 🆕 评估服务
         };
 
         console.log('[AppInitializer] 所有服务初始化完成');
