@@ -135,10 +135,11 @@
             @update:model-value="handleSourceInput"
             :readonly="mode !== 'editable' || streaming"
             :placeholder="placeholder"
-            :autosize="{ minRows: 10, maxRows: 20 }"
+            :autosize="true"
             v-bind="variableData"
             @variable-extracted="handleVariableExtracted"
             @add-missing-variable="handleAddMissingVariable"
+            style="height: 100%; min-height: 0;"
           />
 
           <!-- Basic/Image 模式：使用普通输入框 -->
