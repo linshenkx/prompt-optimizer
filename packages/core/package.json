@@ -25,9 +25,9 @@
   "devDependencies": {
     "@types/node": "^20.11.0",
     "dotenv": "^16.4.7",
-    "tsup": "^8.0.2",
+    "tsup": "^8.5.1",
     "typescript": "^5.3.3",
-    "vitest": "^3.0.2"
+    "vitest": "^4.0.15"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
