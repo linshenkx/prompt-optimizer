@@ -100,7 +100,8 @@ export type PredefinedVariable = typeof PREDEFINED_VARIABLES[number];
 
 // 变量验证规则
 export const VARIABLE_VALIDATION = {
-  NAME_PATTERN: /^[a-zA-Z][a-zA-Z0-9_]*$/,
+  // 变量名规则：不能为空，不能包含空白字符和花括号
+  NAME_PATTERN: /^[^\s{}]+$/,
   MAX_NAME_LENGTH: 50,
   MAX_VALUE_LENGTH: 10000,
   VARIABLE_SCAN_PATTERN: /\{\{([^}]+)\}\}/g

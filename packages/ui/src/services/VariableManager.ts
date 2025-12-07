@@ -89,7 +89,7 @@ export class VariableManager implements IVariableManager {
   setVariable(name: string, value: string): void {
     if (!this.validateVariableName(name)) {
       throw new VariableError(
-        `Invalid variable name: ${name}. Must start with letter and contain only letters, numbers, and underscores.`,
+        `Invalid variable name: ${name}. Cannot be empty or contain spaces or braces ({}).`,
         name,
         undefined,
         'INVALID_VARIABLE_NAME'
