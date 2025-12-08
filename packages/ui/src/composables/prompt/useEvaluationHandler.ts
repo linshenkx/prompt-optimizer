@@ -47,6 +47,13 @@ export interface UseEvaluationHandlerOptions {
 }
 
 /**
+ * PromptPanel 组件引用类型（用于打开迭代弹窗）
+ */
+export interface PromptPanelRef {
+  openIterateDialog?: (input?: string) => void
+}
+
+/**
  * 评估处理器返回类型
  */
 export interface UseEvaluationHandlerReturn {
@@ -58,6 +65,21 @@ export interface UseEvaluationHandlerReturn {
 
   /** 重新评估（从详情面板触发） */
   handleReEvaluate: () => void
+
+  /**
+   * 测试前清空评估结果
+   * 应在执行测试前调用，确保旧的评估结果不会残留
+   */
+  clearBeforeTest: () => void
+
+  /**
+   * 创建应用改进建议的处理器
+   * @param promptPanelRef PromptPanel 组件引用
+   * @returns 处理函数，可直接绑定到 @apply-improvement 事件
+   */
+  createApplyImprovementHandler: (
+    promptPanelRef: Ref<PromptPanelRef | null>
+  ) => (payload: { improvement: string; type: EvaluationType }) => void
 
   /** TestAreaPanel 评估事件处理器 */
   handlers: {
@@ -261,10 +283,43 @@ export function useEvaluationHandler(
     }
   })
 
+  /**
+   * 测试前清空评估结果
+   * 应在执行测试前调用，确保旧的评估结果不会残留
+   */
+  const clearBeforeTest = (): void => {
+    evaluation.clearAllResults()
+  }
+
+  /**
+   * 创建应用改进建议的处理器
+   * 关闭评估面板并打开迭代弹窗，将改进建议预填充
+   *
+   * @param promptPanelRef PromptPanel 组件引用
+   * @returns 处理函数，可直接绑定到 @apply-improvement 事件
+   */
+  const createApplyImprovementHandler = (
+    promptPanelRef: Ref<PromptPanelRef | null>
+  ) => {
+    return (payload: { improvement: string; type: EvaluationType }): void => {
+      const { improvement } = payload
+
+      // 关闭评估面板
+      evaluation.closePanel()
+
+      // 打开迭代弹窗并预填充改进建议
+      if (promptPanelRef.value?.openIterateDialog) {
+        promptPanelRef.value.openIterateDialog(improvement)
+      }
+    }
+  }
+
   return {
     evaluation,
     handleEvaluate,
     handleReEvaluate,
+    clearBeforeTest,
+    createApplyImprovementHandler,
     handlers,
     testAreaEvaluationProps,
     compareEvaluation,

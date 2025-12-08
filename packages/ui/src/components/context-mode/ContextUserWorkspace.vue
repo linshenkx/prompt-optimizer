@@ -80,6 +80,7 @@
                 content-style="height: 100%; max-height: 100%; overflow: hidden;"
             >
                 <PromptPanelUI
+                    ref="promptPanelRef"
                     :optimized-prompt="contextUserOptimization.optimizedPrompt"
                     @update:optimizedPrompt="contextUserOptimization.optimizedPrompt = $event"
                     :reasoning="contextUserOptimization.optimizedReasoning"
@@ -269,7 +270,6 @@ import type {
     PromptRecordChain,
     Template,
     ProUserEvaluationContext,
-    EvaluationType,
 } from "@prompt-optimizer/core";
 import type { TestAreaPanelInstance } from "../types/test-area";
 import type { IteratePayload, SaveFavoritePayload } from "../../types/workspace";
@@ -424,33 +424,68 @@ const proContext = computed<ProUserEvaluationContext | undefined>(() => {
     const tempVars = temporaryVariables.value;
     const globalVars = props.globalVariables;
     const predefinedVars = props.predefinedVariables;
+    const rawPrompt = contextUserOptimization.prompt;
+    const resolvedPrompt = contextUserOptimization.optimizedPrompt;
 
-    // 合并所有变量
-    const allVariables: ProUserEvaluationContext['variables'] = [];
+    // 扫描提示词中实际使用的变量名
+    // 同时扫描原始提示词和优化后的提示词，确保覆盖所有使用的变量
+    const usedVarNames = new Set<string>();
 
-    // 添加预定义变量
-    Object.entries(predefinedVars).forEach(([name, value]) => {
-        allVariables.push({ name, value, source: 'predefined' });
-    });
-
-    // 添加全局变量
-    Object.entries(globalVars).forEach(([name, value]) => {
-        if (!predefinedVars[name]) {
-            allVariables.push({ name, value, source: 'global' });
+    // 使用 variableManager 扫描变量
+    if (variableManager?.variableManager.value) {
+        const vm = variableManager.variableManager.value;
+        // 扫描原始提示词中的变量
+        if (rawPrompt) {
+            vm.scanVariablesInContent(rawPrompt).forEach(name => usedVarNames.add(name));
         }
-    });
+        // 扫描优化后提示词中的变量
+        if (resolvedPrompt) {
+            vm.scanVariablesInContent(resolvedPrompt).forEach(name => usedVarNames.add(name));
+        }
+    } else {
+        // 回退方案：使用正则表达式扫描 {{varName}} 格式的变量
+        const varPattern = /\{\{(\w+)\}\}/g;
+        let match;
+        if (rawPrompt) {
+            while ((match = varPattern.exec(rawPrompt)) !== null) {
+                usedVarNames.add(match[1]);
+            }
+        }
+        if (resolvedPrompt) {
+            varPattern.lastIndex = 0; // 重置正则表达式
+            while ((match = varPattern.exec(resolvedPrompt)) !== null) {
+                usedVarNames.add(match[1]);
+            }
+        }
+    }
 
-    // 添加临时变量
-    Object.entries(tempVars).forEach(([name, value]) => {
-        if (!predefinedVars[name] && !globalVars[name]) {
-            allVariables.push({ name, value, source: 'temporary' });
+    // 只收集实际使用的变量
+    const usedVariables: ProUserEvaluationContext['variables'] = [];
+
+    // 按优先级顺序添加变量（临时 > 全局 > 预定义）
+    usedVarNames.forEach(name => {
+        // 临时变量优先级最高
+        if (tempVars[name] !== undefined) {
+            usedVariables.push({ name, value: tempVars[name], source: 'temporary' });
+        }
+        // 其次是全局变量
+        else if (globalVars[name] !== undefined) {
+            usedVariables.push({ name, value: globalVars[name], source: 'global' });
+        }
+        // 最后是预定义变量
+        else if (predefinedVars[name] !== undefined) {
+            usedVariables.push({ name, value: predefinedVars[name], source: 'predefined' });
+        }
+        // 变量未定义时仍然记录，标记为临时变量但值为空
+        else {
+            usedVariables.push({ name, value: '', source: 'temporary' });
         }
     });
 
     return {
-        variables: allVariables,
-        rawPrompt: contextUserOptimization.prompt,
-        resolvedPrompt: contextUserOptimization.optimizedPrompt,
+        variables: usedVariables,
+        rawPrompt: rawPrompt,
+        resolvedPrompt: resolvedPrompt,
     };
 });
 
@@ -505,6 +540,9 @@ const variableGuideInlineHint = computed(() =>
 // ========================
 /** TestAreaPanel 组件引用,用于获取测试变量 */
 const testAreaPanelRef = ref<TestAreaPanelInstance | null>(null);
+
+/** PromptPanel 组件引用,用于打开迭代弹窗 */
+const promptPanelRef = ref<InstanceType<typeof PromptPanelUI> | null>(null);
 
 // ========================
 // 事件处理
@@ -614,7 +652,7 @@ const handleIterate = (payload: IteratePayload) => {
     contextUserOptimization.iterate({
         originalPrompt: contextUserOptimization.prompt,
         optimizedPrompt: contextUserOptimization.optimizedPrompt,
-        iterateInput: payload.iterationNote
+        iterateInput: payload.iterateInput
     });
 };
 
@@ -675,6 +713,9 @@ const handleTestWithVariables = async () => {
             return;
         }
 
+        // 🆕 重新测试时清理之前的评估结果
+        evaluationHandler.clearBeforeTest();
+
         // 🆕 调用内部测试器执行测试
         await contextUserTester.executeTest(
             contextUserOptimization.prompt,
@@ -691,16 +732,8 @@ const handleTestWithVariables = async () => {
     }
 };
 
-// 🆕 处理应用改进建议事件
-const handleApplyImprovement = (payload: { improvement: string; type: EvaluationType }) => {
-    // 将改进建议应用到优化后的提示词
-    if (contextUserOptimization.optimizedPrompt) {
-        const currentPrompt = contextUserOptimization.optimizedPrompt;
-        // 在当前优化结果末尾添加改进建议作为参考
-        contextUserOptimization.optimizedPrompt = `${currentPrompt}\n\n<!-- 改进建议: ${payload.improvement} -->`;
-        window.$message?.success(t('evaluation.applyImprovement.success'));
-    }
-};
+// 🆕 处理应用改进建议事件（使用 evaluationHandler 提供的工厂方法）
+const handleApplyImprovement = evaluationHandler.createApplyImprovementHandler(promptPanelRef);
 
 // 暴露 TestAreaPanel 引用给父组件（用于工具调用等高级功能）
 defineExpose({

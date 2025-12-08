@@ -97,6 +97,7 @@
             >
                 <template v-if="displayAdapter.isInMessageOptimizationMode.value">
                     <PromptPanelUI
+                        ref="promptPanelRef"
                         :original-prompt="displayAdapter.displayedOriginalPrompt.value"
                         :optimized-prompt="displayAdapter.displayedOptimizedPrompt.value"
                         :reasoning="optimizedReasoning"
@@ -276,7 +277,6 @@ import type {
     Template,
     ToolDefinition,
     ProSystemEvaluationContext,
-    EvaluationType,
 } from "@prompt-optimizer/core";
 import type { TestAreaPanelInstance } from "../types/test-area";
 import type { IteratePayload, SaveFavoritePayload } from "../../types/workspace";
@@ -495,6 +495,9 @@ const handleOptimizeClick = () => {
 // 🆕 ConversationTestPanel 引用
 const testAreaPanelRef = ref<TestAreaPanelInstance | null>(null);
 
+/** PromptPanel 组件引用,用于打开迭代弹窗 */
+const promptPanelRef = ref<InstanceType<typeof PromptPanelUI> | null>(null);
+
 const restoreFromHistory = async ({
     chain,
     record,
@@ -601,6 +604,9 @@ const handleVariablesClear = () => {
 
 // 🆕 处理测试事件
 const handleTestWithVariables = async () => {
+    // 重新测试时清理之前的评估结果
+    evaluationHandler.clearBeforeTest();
+
     const testVariables = testAreaPanelRef.value?.getVariableValues?.() || {};
     await conversationTester.executeTest(
         props.isCompareMode || false,
@@ -609,16 +615,8 @@ const handleTestWithVariables = async () => {
     );
 };
 
-// 🆕 处理应用改进建议事件
-const handleApplyImprovement = (payload: { improvement: string; type: EvaluationType }) => {
-    // 将改进建议应用到优化后的提示词
-    if (conversationOptimization.optimizedPrompt.value) {
-        const currentPrompt = conversationOptimization.optimizedPrompt.value;
-        // 在当前优化结果末尾添加改进建议作为参考
-        conversationOptimization.optimizedPrompt.value = `${currentPrompt}\n\n<!-- 改进建议: ${payload.improvement} -->`;
-        window.$message?.success(t('evaluation.applyImprovement.success'));
-    }
-};
+// 🆕 处理应用改进建议事件（使用 evaluationHandler 提供的工厂方法）
+const handleApplyImprovement = evaluationHandler.createApplyImprovementHandler(promptPanelRef);
 
 // 暴露引用
 defineExpose({
