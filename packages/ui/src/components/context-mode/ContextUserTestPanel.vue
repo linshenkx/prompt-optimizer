@@ -146,7 +146,7 @@
                 :model-label="t('test.model')"
                 :show-compare-toggle="enableCompareMode"
                 :is-compare-mode="isCompareMode"
-                @update:is-compare-mode="handleCompareModeToggle"
+                @compare-toggle="handleCompareToggle"
                 :primary-action-text="primaryActionText"
                 :primary-action-disabled="primaryActionDisabled"
                 :primary-action-loading="isTestRunning"
@@ -342,8 +342,8 @@ const emit = defineEmits<{
 }>();
 
 // 处理对比模式切换
-const handleCompareModeToggle = (value: boolean) => {
-    emit("update:isCompareMode", value);
+const handleCompareToggle = () => {
+    emit("update:isCompareMode", !props.isCompareMode);
     emit("compare-toggle");
     recordUpdate();
 };
