@@ -308,17 +308,17 @@
         </NFlex>
 
         <!-- 右侧：图像生成测试区域（图像模型） -->
-        <NCard
+        <NFlex
+            vertical
             :style="{
                 flex: 1,
                 overflow: 'auto',
                 height: '100%',
+                gap: '12px',
             }"
-            content-style="height: 100%; max-height: 100%; overflow: hidden;"
         >
-            <NFlex vertical :style="{ height: '100%' }">
-                <!-- 测试控制栏 -->
-                <div :style="{ flexShrink: 0 }">
+            <!-- 测试控制栏 -->
+            <NCard :style="{ flexShrink: 0 }" size="small">
                     <n-form label-placement="left" size="medium">
                         <n-form-item
                             :label="t('imageWorkspace.generation.imageModel')"
@@ -485,9 +485,9 @@
                             </n-space>
                         </n-form-item>
                     </n-form>
-                </div>
+            </NCard>
 
-                <!-- 图像结果展示区域（使用统一的 TestResultSection 布局） -->
+            <!-- 图像结果展示区域（使用统一的 TestResultSection 布局） -->
                 <TestResultSection
                     :is-compare-mode="isCompareMode"
                     :style="{ flex: 1, minHeight: 0 }"
@@ -1015,8 +1015,7 @@
                         </template>
                     </template>
                 </TestResultSection>
-            </NFlex>
-        </NCard>
+        </NFlex>
     </NFlex>
 
     <!-- 原始提示词 - 全屏编辑器 -->

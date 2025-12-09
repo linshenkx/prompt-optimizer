@@ -107,113 +107,83 @@
         </NFlex>
 
         <!-- 右侧：测试区域 -->
-        <NFlex
-            vertical
-            :size="12"
-            style="flex: 1; height: 100%; overflow: auto"
+        <ContextUserTestPanel
+            ref="testAreaPanelRef"
+            :style="{
+                flex: 1,
+                overflow: 'auto',
+                height: '100%',
+                minHeight: 0,
+            }"
+            :optimized-prompt="contextUserOptimization.optimizedPrompt"
+            :is-test-running="contextUserTester.testResults.isTestingOriginal || contextUserTester.testResults.isTestingOptimized"
+            :is-compare-mode="isCompareMode"
+            @update:isCompareMode="emit('update:isCompareMode', $event)"
+            :global-variables="globalVariables"
+            :predefined-variables="predefinedVariables"
+            :temporary-variables="temporaryVariables"
+            :control-bar-layout="controlBarLayout"
+            :button-size="buttonSize"
+            :result-vertical-layout="resultVerticalLayout"
+            :single-result-title="t('test.testResult')"
+            @test="handleTestWithVariables"
+            @compare-toggle="emit('compare-toggle')"
+            @open-variable-manager="emit('open-variable-manager')"
+            @open-global-variables="emit('open-global-variables')"
+            @variable-change="handleTestVariableChange"
+            @save-to-global="
+                (name: string, value: string) =>
+                    emit('save-to-global', name, value)
+            "
+            @temporary-variable-remove="handleTestVariableRemove"
+            @temporary-variables-clear="handleClearTemporaryVariables"
+            v-bind="evaluationHandler.testAreaEvaluationProps.value"
+            @evaluate-original="evaluationHandler.handlers.onEvaluateOriginal"
+            @evaluate-optimized="evaluationHandler.handlers.onEvaluateOptimized"
+            @show-original-detail="evaluationHandler.handlers.onShowOriginalDetail"
+            @show-optimized-detail="evaluationHandler.handlers.onShowOptimizedDetail"
+            @apply-improvement="handleApplyImprovement"
         >
-            <!-- 测试区域操作栏 -->
-            <NCard size="small" style="flex-shrink: 0">
-                <NFlex justify="space-between" align="center">
-                    <!-- 左侧：区域标识 -->
-                        <NText strong>{{ $t("test.areaTitle") }}</NText>
+            <!-- 模型选择插槽 -->
+            <template #model-select>
+                <slot name="test-model-select"></slot>
+            </template>
 
-                    <!-- 右侧：快捷操作按钮 -->
-                    <NFlex :size="8">
-                        <!-- 全局变量管理 -->
-                        <NButton
-                            size="small"
-                            quaternary
-                            @click="emit('open-global-variables')"
-                            :title="$t('contextMode.actions.globalVariables')"
-                        >
-                            <template #icon><span>📊</span></template>
-                            <span v-if="!isMobile">{{
-                                $t("contextMode.actions.globalVariables")
-                            }}</span>
-                        </NButton>
+            <!-- 🆕 对比模式结果插槽：直接绑定测试结果 -->
+            <template #original-result>
+                <OutputDisplay
+                    :content="contextUserTester.testResults.originalResult"
+                    :reasoning="contextUserTester.testResults.originalReasoning"
+                    :streaming="contextUserTester.testResults.isTestingOriginal"
+                    :enableDiff="false"
+                    mode="readonly"
+                    :style="{ height: '100%', minHeight: '0' }"
+                />
+            </template>
 
-                    </NFlex>
-                </NFlex>
-            </NCard>
+            <template #optimized-result>
+                <OutputDisplay
+                    :content="contextUserTester.testResults.optimizedResult"
+                    :reasoning="contextUserTester.testResults.optimizedReasoning"
+                    :streaming="contextUserTester.testResults.isTestingOptimized"
+                    :enableDiff="false"
+                    mode="readonly"
+                    :style="{ height: '100%', minHeight: '0' }"
+                />
+            </template>
 
-            <!-- 测试区域主内容 -->
-            <NCard
-                style="flex: 1; overflow: auto"
-                content-style="height: 100%; max-height: 100%; overflow: hidden;"
-            >
-                <ContextUserTestPanel
-                    ref="testAreaPanelRef"
-                    :optimized-prompt="contextUserOptimization.optimizedPrompt"
-                    :is-test-running="contextUserTester.testResults.isTestingOriginal || contextUserTester.testResults.isTestingOptimized"
-                    :is-compare-mode="isCompareMode"
-                    @update:isCompareMode="emit('update:isCompareMode', $event)"
-                    :global-variables="globalVariables"
-                    :predefined-variables="predefinedVariables"
-                    :temporary-variables="temporaryVariables"
-                    :control-bar-layout="controlBarLayout"
-                    :button-size="buttonSize"
-                    :result-vertical-layout="resultVerticalLayout"
-                    :single-result-title="t('test.testResult')"
-                    @test="handleTestWithVariables"
-                    @compare-toggle="emit('compare-toggle')"
-                    @open-variable-manager="emit('open-variable-manager')"
-                    @variable-change="handleTestVariableChange"
-                    @save-to-global="
-                        (name: string, value: string) =>
-                            emit('save-to-global', name, value)
-                    "
-                    @temporary-variable-remove="handleTestVariableRemove"
-                    @temporary-variables-clear="handleClearTemporaryVariables"
-                    v-bind="evaluationHandler.testAreaEvaluationProps.value"
-                    @evaluate-original="evaluationHandler.handlers.onEvaluateOriginal"
-                    @evaluate-optimized="evaluationHandler.handlers.onEvaluateOptimized"
-                    @show-original-detail="evaluationHandler.handlers.onShowOriginalDetail"
-                    @show-optimized-detail="evaluationHandler.handlers.onShowOptimizedDetail"
-                    @apply-improvement="handleApplyImprovement"
-                >
-                    <!-- 模型选择插槽 -->
-                    <template #model-select>
-                        <slot name="test-model-select"></slot>
-                    </template>
-
-                    <!-- 🆕 对比模式结果插槽：直接绑定测试结果 -->
-                    <template #original-result>
-                        <OutputDisplay
-                            :content="contextUserTester.testResults.originalResult"
-                            :reasoning="contextUserTester.testResults.originalReasoning"
-                            :streaming="contextUserTester.testResults.isTestingOriginal"
-                            :enableDiff="false"
-                            mode="readonly"
-                            :style="{ height: '100%', minHeight: '0' }"
-                        />
-                    </template>
-
-                    <template #optimized-result>
-                        <OutputDisplay
-                            :content="contextUserTester.testResults.optimizedResult"
-                            :reasoning="contextUserTester.testResults.optimizedReasoning"
-                            :streaming="contextUserTester.testResults.isTestingOptimized"
-                            :enableDiff="false"
-                            mode="readonly"
-                            :style="{ height: '100%', minHeight: '0' }"
-                        />
-                    </template>
-
-                    <!-- 单一结果插槽 -->
-                    <template #single-result>
-                        <OutputDisplay
-                            :content="contextUserTester.testResults.optimizedResult"
-                            :reasoning="contextUserTester.testResults.optimizedReasoning"
-                            :streaming="contextUserTester.testResults.isTestingOptimized"
-                            :enableDiff="false"
-                            mode="readonly"
-                            :style="{ height: '100%', minHeight: '0' }"
-                        />
-                    </template>
-                </ContextUserTestPanel>
-            </NCard>
-        </NFlex>
+            <!-- 单一结果插槽 -->
+            <template #single-result>
+                <OutputDisplay
+                    :content="contextUserTester.testResults.optimizedResult"
+                    :reasoning="contextUserTester.testResults.optimizedReasoning"
+                    :streaming="contextUserTester.testResults.isTestingOptimized"
+                    :enableDiff="false"
+                    mode="readonly"
+                    :style="{ height: '100%', minHeight: '0' }"
+                />
+            </template>
+        </ContextUserTestPanel>
 
         <!-- 🆕 评估详情面板 -->
         <EvaluationPanel
@@ -257,8 +227,7 @@
 import { ref, computed, inject, type Ref } from 'vue'
 
 import { useI18n } from "vue-i18n";
-import { NCard, NFlex, NButton, NText } from "naive-ui";
-import { useBreakpoints } from "@vueuse/core";
+import { NCard, NFlex } from "naive-ui";
 import InputPanelUI from "../InputPanel.vue";
 import PromptPanelUI from "../PromptPanel.vue";
 import ContextUserTestPanel from "./ContextUserTestPanel.vue";
@@ -279,15 +248,6 @@ import { useTemporaryVariables } from "../../composables/variable/useTemporaryVa
 import { useContextUserOptimization } from '../../composables/prompt/useContextUserOptimization';
 import { useContextUserTester } from '../../composables/prompt/useContextUserTester';
 import { useEvaluationHandler } from '../../composables/prompt/useEvaluationHandler';
-
-// ========================
-// 响应式断点配置
-// ========================
-const breakpoints = useBreakpoints({
-    mobile: 640,
-    tablet: 1024,
-});
-const isMobile = breakpoints.smaller("mobile");
 
 // ========================
 // Props 定义

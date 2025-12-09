@@ -1,7 +1,7 @@
 <template>
-    <NFlex vertical :style="{ height: '100%' }">
+    <NFlex vertical :style="{ height: '100%', gap: '12px' }">
         <!-- 测试输入区域 (仅在系统提示词优化模式下显示) -->
-        <div v-if="showTestInput" :style="{ flexShrink: 0 }">
+        <NCard v-if="showTestInput" :style="{ flexShrink: 0 }" size="small">
             <TestInputSection
                 v-model="testContentProxy"
                 :label="t('test.content')"
@@ -11,14 +11,11 @@
                 :mode="adaptiveInputMode"
                 :size="inputSize"
                 :enable-fullscreen="enableFullscreen"
-                :style="{ marginBottom: '16px' }"
             />
-        </div>
-
-
+        </NCard>
 
         <!-- 控制工具栏 -->
-        <div :style="{ flexShrink: 0 }">
+        <NCard :style="{ flexShrink: 0 }" size="small">
             <TestControlBar
                 :model-label="t('test.model')"
                 :show-compare-toggle="enableCompareMode"
@@ -30,7 +27,6 @@
                 :button-size="adaptiveButtonSize"
                 @compare-toggle="handleCompareToggle"
                 @primary-action="handleTest"
-                :style="{ marginBottom: '16px' }"
             >
                 <template #model-select>
                     <slot name="model-select"></slot>
@@ -42,7 +38,7 @@
                     <slot name="custom-actions"></slot>
                 </template>
             </TestControlBar>
-        </div>
+        </NCard>
 
         <!-- 测试结果区域 -->
         <TestResultSection
@@ -137,6 +133,7 @@ import { computed, ref, onUnmounted } from 'vue'
 import { useI18n } from "vue-i18n";
 import {
     NFlex,
+    NCard,
 } from "naive-ui";
 import type {
     OptimizationMode,

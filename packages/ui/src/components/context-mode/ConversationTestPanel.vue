@@ -1,106 +1,109 @@
 <template>
-    <NFlex vertical :style="{ height: '100%' }">
+    <NFlex vertical :style="{ height: '100%', gap: '12px' }">
         <!-- 变量值输入表单 -->
-        <div
-            v-if="showVariableForm"
-            :style="{ flexShrink: 0, marginBottom: '16px' }"
+        <NCard
+            :title="t('test.variables.formTitle')"
+            size="small"
+            :bordered="true"
+            :style="{ flexShrink: 0 }"
         >
-            <NCard
-                :title="t('test.variables.formTitle')"
-                size="small"
-                :bordered="true"
-            >
-                <template #header-extra>
-                    <NSpace :size="8">
-                        <NTag :bordered="false" type="info" size="small">
-                            {{ t("test.variables.tempCount", { count: displayVariables.length }) }}
-                        </NTag>
-                        <NButton
-                            size="small"
-                            quaternary
-                            @click="handleClearAllVariables"
-                        >
-                            {{ t("test.variables.clearAll") }}
-                        </NButton>
-                    </NSpace>
-                </template>
-
-                <NSpace vertical :size="12">
-                    <!-- 变量输入项 -->
-                    <div
-                        v-for="varName in displayVariables"
-                        :key="varName"
-                        :style="{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                        }"
-                    >
-                        <NTag
-                            size="small"
-                            :bordered="false"
-                            :type="
-                                getVariableSource(varName) === 'predefined'
-                                    ? 'success'
-                                    : getVariableSource(varName) === 'test'
-                                      ? 'warning'
-                                      : 'default'
-                            "
-                            :style="{ minWidth: '120px', flexShrink: 0 }"
-                        >
-                            <span v-text="`{{${varName}}}`"></span>
-                        </NTag>
-                        <NInput
-                            :value="getVariableDisplayValue(varName)"
-                            :placeholder="getVariablePlaceholder(varName)"
-                            size="small"
-                            :style="{ flex: 1 }"
-                            @update:value="
-                                handleVariableValueChange(varName, $event)
-                            "
-                        />
-                        <!-- 删除按钮 (仅临时变量显示) -->
-                        <NButton
-                            v-if="getVariableSource(varName) === 'test'"
-                            size="small"
-                            quaternary
-                            @click="handleDeleteVariable(varName)"
-                            :title="t('test.variables.delete')"
-                        >
-                            🗑️
-                        </NButton>
-                        <!-- 保存到全局按钮 (仅测试变量显示) -->
-                        <NButton
-                            v-if="getVariableSource(varName) === 'test'"
-                            size="small"
-                            quaternary
-                            @click="handleSaveToGlobal(varName)"
-                            :title="t('test.variables.saveToGlobal')"
-                        >
-                            💾
-                        </NButton>
-                    </div>
-
-                    <!-- 无变量提示 -->
-                    <NEmpty
-                        v-if="displayVariables.length === 0"
-                        :description="t('test.variables.noVariables')"
+            <template #header-extra>
+                <NSpace :size="8">
+                    <NTag :bordered="false" type="info" size="small">
+                        {{ t("test.variables.tempCount", { count: displayVariables.length }) }}
+                    </NTag>
+                    <NButton
                         size="small"
-                    />
-
-                    <!-- 操作按钮 -->
-                    <NSpace :size="8" justify="end">
-                        <!-- 添加变量按钮 -->
-                        <NButton
-                            size="small"
-                            @click="showAddVariableDialog = true"
-                        >
-                            {{ t("test.variables.addVariable") }}
-                        </NButton>
-                    </NSpace>
+                        quaternary
+                        @click="handleClearAllVariables"
+                    >
+                        {{ t("test.variables.clearAll") }}
+                    </NButton>
+                    <NButton
+                        size="small"
+                        quaternary
+                        @click="emit('open-global-variables')"
+                    >
+                        {{ t("contextMode.actions.globalVariables") }}
+                    </NButton>
                 </NSpace>
-            </NCard>
-        </div>
+            </template>
+
+            <NSpace vertical :size="12">
+                <!-- 变量输入项 -->
+                <div
+                    v-for="varName in displayVariables"
+                    :key="varName"
+                    :style="{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                    }"
+                >
+                    <NTag
+                        size="small"
+                        :bordered="false"
+                        :type="
+                            getVariableSource(varName) === 'predefined'
+                                ? 'success'
+                                : getVariableSource(varName) === 'test'
+                                  ? 'warning'
+                                  : 'default'
+                        "
+                        :style="{ minWidth: '120px', flexShrink: 0 }"
+                    >
+                        <span v-text="`{{${varName}}}`"></span>
+                    </NTag>
+                    <NInput
+                        :value="getVariableDisplayValue(varName)"
+                        :placeholder="getVariablePlaceholder(varName)"
+                        size="small"
+                        :style="{ flex: 1 }"
+                        @update:value="
+                            handleVariableValueChange(varName, $event)
+                        "
+                    />
+                    <!-- 删除按钮 (仅临时变量显示) -->
+                    <NButton
+                        v-if="getVariableSource(varName) === 'test'"
+                        size="small"
+                        quaternary
+                        @click="handleDeleteVariable(varName)"
+                        :title="t('test.variables.delete')"
+                    >
+                        🗑️
+                    </NButton>
+                    <!-- 保存到全局按钮 (仅测试变量显示) -->
+                    <NButton
+                        v-if="getVariableSource(varName) === 'test'"
+                        size="small"
+                        quaternary
+                        @click="handleSaveToGlobal(varName)"
+                        :title="t('test.variables.saveToGlobal')"
+                    >
+                        💾
+                    </NButton>
+                </div>
+
+                <!-- 无变量提示 -->
+                <NEmpty
+                    v-if="displayVariables.length === 0"
+                    :description="t('test.variables.noVariables')"
+                    size="small"
+                />
+
+                <!-- 操作按钮 -->
+                <NSpace :size="8" justify="end">
+                    <!-- 添加变量按钮 -->
+                    <NButton
+                        size="small"
+                        @click="showAddVariableDialog = true"
+                    >
+                        {{ t("test.variables.addVariable") }}
+                    </NButton>
+                </NSpace>
+            </NSpace>
+        </NCard>
 
         <!-- 添加变量对话框 -->
         <NModal
@@ -141,7 +144,7 @@
         </NModal>
 
         <!-- 控制工具栏 -->
-        <div :style="{ flexShrink: 0 }">
+        <NCard :style="{ flexShrink: 0 }" size="small">
             <TestControlBar
                 :model-label="t('test.model')"
                 :show-compare-toggle="enableCompareMode"
@@ -153,7 +156,6 @@
                 :layout="adaptiveControlBarLayout"
                 :button-size="adaptiveButtonSize"
                 @primary-action="handleTest"
-                :style="{ marginBottom: '16px' }"
             >
                 <template #model-select>
                     <slot name="model-select"></slot>
@@ -165,7 +167,7 @@
                     <slot name="custom-actions"></slot>
                 </template>
             </TestControlBar>
-        </div>
+        </NCard>
 
         <!-- 测试结果区域（支持对比模式）-->
         <TestResultSection
@@ -388,6 +390,7 @@ const emit = defineEmits<{
     "update:isCompareMode": [value: boolean];
     "compare-toggle": [];
     "open-variable-manager": [];
+    "open-global-variables": [];
     "variable-change": [name: string, value: string];
     "save-to-global": [name: string, value: string];
     "tool-call": [toolCall: ToolCallResult];
@@ -551,11 +554,6 @@ const sortedTestVariables = computed(() => {
 // 实际显示的变量列表
 const displayVariables = computed(() => {
     return sortedTestVariables.value;
-});
-
-// 是否显示变量表单
-const showVariableForm = computed(() => {
-    return !props.isTestRunning;
 });
 
 // 获取变量的显示值

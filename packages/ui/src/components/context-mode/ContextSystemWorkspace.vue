@@ -132,119 +132,83 @@
         </NFlex>
 
         <!-- 右侧：测试区域 -->
-        <NFlex
-            vertical
+        <ConversationTestPanel
+            ref="testAreaPanelRef"
             :style="{
                 flex: 1,
                 overflow: 'auto',
                 height: '100%',
-                gap: '12px',
+                minHeight: 0,
             }"
+            :optimization-mode="optimizationMode"
+            :is-test-running="conversationTester.testResults.isTestingOriginal || conversationTester.testResults.isTestingOptimized"
+            :is-compare-mode="isCompareMode"
+            :enable-compare-mode="true"
+            @update:isCompareMode="emit('update:isCompareMode', $event)"
+            @compare-toggle="emit('compare-toggle')"
+            :global-variables="globalVariables"
+            :predefined-variables="predefinedVariables"
+            :temporary-variables="tempVars.temporaryVariables.value"
+            :input-mode="inputMode"
+            :control-bar-layout="controlBarLayout"
+            :button-size="buttonSize"
+            :result-vertical-layout="resultVerticalLayout"
+            @test="handleTestWithVariables"
+            @open-variable-manager="emit('open-variable-manager')"
+            @open-global-variables="emit('open-global-variables')"
+            @variable-change="handleVariableChange"
+            @save-to-global="(name: string, value: string) => emit('save-to-global', name, value)"
+            @temporary-variable-remove="handleVariableRemove"
+            @temporary-variables-clear="handleVariablesClear"
+            v-bind="evaluationHandler.testAreaEvaluationProps.value"
+            @evaluate-original="evaluationHandler.handlers.onEvaluateOriginal"
+            @evaluate-optimized="evaluationHandler.handlers.onEvaluateOptimized"
+            @show-original-detail="evaluationHandler.handlers.onShowOriginalDetail"
+            @show-optimized-detail="evaluationHandler.handlers.onShowOptimizedDetail"
+            @apply-improvement="handleApplyImprovement"
         >
-            <!-- 测试区域操作栏 -->
-            <NCard size="small" :style="{ flexShrink: 0 }">
-                <NFlex justify="space-between" align="center">
-                    <!-- 左侧：区域标识 -->
-                    <NFlex align="center" :size="8">
-                        <NText strong>{{ $t("test.areaTitle") }}</NText>
-                    </NFlex>
+            <!-- 模型选择插槽 -->
+            <template #model-select>
+                <slot name="test-model-select"></slot>
+            </template>
 
-                    <!-- 右侧：快捷操作按钮 -->
-                    <NFlex :size="8">
-                        <NButton
-                            size="small"
-                            quaternary
-                            @click="emit('open-global-variables')"
-                            :title="$t('contextMode.actions.globalVariables')"
-                        >
-                            <template #icon><span>📊</span></template>
-                            <span v-if="!isMobile">{{
-                                $t("contextMode.actions.globalVariables")
-                            }}</span>
-                        </NButton>
-                    </NFlex>
-                </NFlex>
-            </NCard>
+            <!-- 对比模式结果插槽 -->
+            <template #original-result>
+                <OutputDisplay
+                    :content="conversationTester.testResults.originalResult"
+                    :reasoning="conversationTester.testResults.originalReasoning"
+                    :streaming="conversationTester.testResults.isTestingOriginal"
+                    :enableDiff="false"
+                    mode="readonly"
+                    :style="{ height: '100%', minHeight: '0' }"
+                />
+            </template>
 
-            <!-- 测试区域主内容 -->
-            <NCard
-                :style="{ flex: 1, overflow: 'auto' }"
-                content-style="height: 100%; max-height: 100%; overflow: hidden;"
-            >
-                <ConversationTestPanel
-                    ref="testAreaPanelRef"
-                    :optimization-mode="optimizationMode"
-                    :is-test-running="conversationTester.testResults.isTestingOriginal || conversationTester.testResults.isTestingOptimized"
-                    :is-compare-mode="isCompareMode"
-                    :enable-compare-mode="true"
-                    @update:isCompareMode="emit('update:isCompareMode', $event)"
-                    @compare-toggle="emit('compare-toggle')"
-                    :global-variables="globalVariables"
-                    :predefined-variables="predefinedVariables"
-                    :temporary-variables="tempVars.temporaryVariables.value"
-                    :input-mode="inputMode"
-                    :control-bar-layout="controlBarLayout"
-                    :button-size="buttonSize"
-                    :result-vertical-layout="resultVerticalLayout"
-                    @test="handleTestWithVariables"
-                    @open-variable-manager="emit('open-variable-manager')"
-                    @variable-change="handleVariableChange"
-                    @save-to-global="
-                        (name: string, value: string) => emit('save-to-global', name, value)
-                    "
-                    @temporary-variable-remove="handleVariableRemove"
-                    @temporary-variables-clear="handleVariablesClear"
-                    v-bind="evaluationHandler.testAreaEvaluationProps.value"
-                    @evaluate-original="evaluationHandler.handlers.onEvaluateOriginal"
-                    @evaluate-optimized="evaluationHandler.handlers.onEvaluateOptimized"
-                    @show-original-detail="evaluationHandler.handlers.onShowOriginalDetail"
-                    @show-optimized-detail="evaluationHandler.handlers.onShowOptimizedDetail"
-                    @apply-improvement="handleApplyImprovement"
-                >
-                    <!-- 模型选择插槽 -->
-                    <template #model-select>
-                        <slot name="test-model-select"></slot>
-                    </template>
+            <template #optimized-result>
+                <OutputDisplay
+                    :content="conversationTester.testResults.optimizedResult"
+                    :reasoning="conversationTester.testResults.optimizedReasoning"
+                    :streaming="conversationTester.testResults.isTestingOptimized"
+                    :enableDiff="false"
+                    mode="readonly"
+                    :style="{ height: '100%', minHeight: '0' }"
+                />
+            </template>
 
-                    <!-- 🆕 对比模式结果插槽：直接绑定测试结果 -->
-                    <template #original-result>
-                        <OutputDisplay
-                            :content="conversationTester.testResults.originalResult"
-                            :reasoning="conversationTester.testResults.originalReasoning"
-                            :streaming="conversationTester.testResults.isTestingOriginal"
-                            :enableDiff="false"
-                            mode="readonly"
-                            :style="{ height: '100%', minHeight: '0' }"
-                        />
-                    </template>
+            <!-- 单一结果插槽 -->
+            <template #single-result>
+                <OutputDisplay
+                    :content="conversationTester.testResults.optimizedResult"
+                    :reasoning="conversationTester.testResults.optimizedReasoning"
+                    :streaming="conversationTester.testResults.isTestingOptimized"
+                    :enableDiff="false"
+                    mode="readonly"
+                    :style="{ height: '100%', minHeight: '0' }"
+                />
+            </template>
+        </ConversationTestPanel>
 
-                    <template #optimized-result>
-                        <OutputDisplay
-                            :content="conversationTester.testResults.optimizedResult"
-                            :reasoning="conversationTester.testResults.optimizedReasoning"
-                            :streaming="conversationTester.testResults.isTestingOptimized"
-                            :enableDiff="false"
-                            mode="readonly"
-                            :style="{ height: '100%', minHeight: '0' }"
-                        />
-                    </template>
-
-                    <!-- 单一结果插槽 -->
-                    <template #single-result>
-                        <OutputDisplay
-                            :content="conversationTester.testResults.optimizedResult"
-                            :reasoning="conversationTester.testResults.optimizedReasoning"
-                            :streaming="conversationTester.testResults.isTestingOptimized"
-                            :enableDiff="false"
-                            mode="readonly"
-                            :style="{ height: '100%', minHeight: '0' }"
-                        />
-                    </template>
-                </ConversationTestPanel>
-            </NCard>
-        </NFlex>
-
-        <!-- 🆕 评估详情面板 -->
+        <!-- 评估详情面板 -->
         <EvaluationPanel
             v-bind="evaluationHandler.panelProps.value"
             @close="evaluationHandler.evaluation.closePanel"
@@ -259,7 +223,6 @@ import { ref, computed, inject, provide, type Ref } from 'vue'
 
 import { useI18n } from "vue-i18n";
 import { NCard, NFlex, NButton, NText, NEmpty } from "naive-ui";
-import { useBreakpoints } from "@vueuse/core";
 import PromptPanelUI from "../PromptPanel.vue";
 import ConversationTestPanel from "./ConversationTestPanel.vue";
 import ConversationManager from "./ConversationManager.vue";
@@ -283,14 +246,6 @@ import type { IteratePayload, SaveFavoritePayload } from "../../types/workspace"
 import type { VariableManagerHooks } from '../../composables/prompt/useVariableManager'
 import type { AppServices } from '../../types/services'
 
-// 响应式断点
-const breakpoints = useBreakpoints({
-    mobile: 640,
-    tablet: 1024,
-});
-const isMobile = breakpoints.smaller("mobile");
-
-// Props 定义
 interface Props {
     // 核心状态
     optimizedReasoning?: string;
