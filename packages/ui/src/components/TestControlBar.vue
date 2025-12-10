@@ -22,17 +22,17 @@
         
         <!-- 主要控制按钮 -->
         <NFlex justify="end" align="center" :size="8">
-          <!-- 对比模式切换按钮 -->
-          <NButton
-            v-if="showCompareToggle"
-            @click="handleCompareToggle"
-            :type="isCompareMode ? 'primary' : 'default'"
-            :size="buttonSize"
-            class="whitespace-nowrap"
-            :ghost="!isCompareMode"
-          >
-            {{ isCompareMode ? t('test.toggleCompare.disable') : t('test.toggleCompare.enable') }}
-          </NButton>
+          <!-- 对比模式开关 -->
+          <NFlex v-if="showCompareToggle" align="center" :size="8">
+            <NSwitch
+              :value="isCompareMode"
+              @update:value="handleCompareToggle"
+              :size="buttonSize === 'large' ? 'medium' : 'small'"
+            />
+            <NText :depth="3" style="font-size: 13px; white-space: nowrap;">
+              {{ t('test.compareMode') }}
+            </NText>
+          </NFlex>
 
           <!-- 主要操作按钮 -->
           <NButton
@@ -58,7 +58,7 @@
 import { computed } from 'vue'
 
 import { useI18n } from 'vue-i18n'
-import { NGrid, NGridItem, NFlex, NText, NButton } from 'naive-ui'
+import { NGrid, NGridItem, NFlex, NText, NButton, NSwitch } from 'naive-ui'
 
 const { t } = useI18n()
 

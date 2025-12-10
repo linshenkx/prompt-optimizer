@@ -998,6 +998,7 @@ export default {
       enable: "開啟對比",
       disable: "關閉對比",
     },
+    compareMode: "對比模式",
     originalResult: "原始提示詞結果",
     optimizedResult: "優化後提示詞結果",
     testResult: "測試結果",

@@ -1003,6 +1003,7 @@ export default {
       enable: "开启对比",
       disable: "关闭对比",
     },
+    compareMode: "对比模式",
     originalResult: "原始提示词结果",
     optimizedResult: "优化后提示词结果",
     testResult: "测试结果",

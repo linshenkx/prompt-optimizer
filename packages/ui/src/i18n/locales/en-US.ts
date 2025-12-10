@@ -1035,6 +1035,7 @@ export default {
       enable: "Enable Compare",
       disable: "Disable Compare",
     },
+    compareMode: "Compare Mode",
     originalResult: "Original Prompt Result",
     optimizedResult: "Optimized Prompt Result",
     testResult: "Test Result",
