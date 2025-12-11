@@ -146,6 +146,8 @@
             :enable-compare-mode="true"
             @update:isCompareMode="emit('update:isCompareMode', $event)"
             @compare-toggle="emit('compare-toggle')"
+            :model-provider="props.testModelProvider"
+            :model-name="props.testModelName"
             :global-variables="globalVariables"
             :predefined-variables="predefinedVariables"
             :temporary-variables="tempVars.temporaryVariables.value"
@@ -289,6 +291,10 @@ interface Props {
 
     // 🆕 测试相关（避免通过 App.vue 中转）
     selectedTestModel?: string;
+    /** 测试模型提供商名称（用于显示标签） */
+    testModelProvider?: string;
+    /** 测试模型名称（用于显示标签） */
+    testModelName?: string;
 }
 
 interface ConversationSnapshotEntry extends ConversationMessage {

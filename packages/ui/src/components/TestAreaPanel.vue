@@ -18,6 +18,8 @@
         <NCard :style="{ flexShrink: 0 }" size="small">
             <TestControlBar
                 :model-label="t('test.model')"
+                :model-provider="props.modelProvider"
+                :model-name="props.modelName"
                 :show-compare-toggle="enableCompareMode"
                 :is-compare-mode="props.isCompareMode"
                 :primary-action-text="primaryActionText"
@@ -183,7 +185,9 @@ interface Props {
     optimizedPrompt?: string; // 优化后的提示词（用于变量检测）
     isCompareMode?: boolean;
 
-
+    // 模型信息（用于显示标签）
+    modelProvider?: string;
+    modelName?: string;
 
     // 功能开关
     enableCompareMode?: boolean;

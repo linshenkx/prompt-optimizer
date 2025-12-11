@@ -198,6 +198,8 @@
                             :selected-optimize-model="modelManager.selectedOptimizeModel"
                             :selected-template="currentSelectedTemplate"
                             :selected-test-model="modelManager.selectedTestModel"
+                            :test-model-provider="selectedTestModelInfo?.provider"
+                            :test-model-name="selectedTestModelInfo?.model"
                         >
                             <!-- 优化模型选择插槽 -->
                             <template #optimize-model-select>
@@ -276,6 +278,8 @@
                             :optimization-mode="selectedOptimizationMode"
                             :selected-optimize-model="modelManager.selectedOptimizeModel"
                             :selected-test-model="modelManager.selectedTestModel"
+                            :test-model-provider="selectedTestModelInfo?.provider"
+                            :test-model-name="selectedTestModelInfo?.model"
                             :selected-template="currentSelectedTemplate"
                             :selected-iterate-template="
                                 optimizer.selectedIterateTemplate
@@ -588,6 +592,8 @@
                                 :optimization-mode="
                                     selectedOptimizationMode
                                 "
+                                :model-provider="selectedTestModelInfo?.provider"
+                                :model-name="selectedTestModelInfo?.model"
                                 :context-mode="contextMode"
                                 :optimized-prompt="
                                     optimizer.optimizedPrompt
@@ -1539,6 +1545,21 @@ const refreshTextModels = async () => {
         textModelOptions.value = [];
     }
 };
+
+// 获取选中测试模型的详细信息（用于显示提供商和实际模型名称标签）
+const selectedTestModelInfo = computed(() => {
+    if (!modelManager.selectedTestModel) return null;
+    const option = textModelOptions.value.find(
+        (o) => o.value === modelManager.selectedTestModel,
+    );
+    if (!option?.raw) return null;
+    return {
+        // 提供商名称（如 OpenAI、DeepSeek）
+        provider: option.raw.providerMeta?.name || null,
+        // 实际模型ID（如 gpt-4、deepseek-chat）
+        model: option.raw.modelMeta?.id || null,
+    };
+});
 
 const selectedTemplateIdForSelect = computed<string>({
     get() {

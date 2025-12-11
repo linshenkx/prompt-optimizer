@@ -2,12 +2,27 @@
   <NGrid :cols="24" :x-gap="12" responsive="screen">
     <!-- 模型选择区域 -->
     <NGridItem :span="modelSelectSpan" :xs="24" :sm="modelSelectSpan">
-      <NFlex align="center" :size="12">
+      <NFlex align="center" :size="12" :wrap="false">
         <NText :depth="2" style="font-size: 14px; font-weight: 500; flex-shrink: 0;">
           {{ modelLabel }}：
         </NText>
-        <NFlex style="flex: 1;">
+        <div style="flex-shrink: 0;">
           <slot name="model-select"></slot>
+        </div>
+        <!-- 模型信息标签（窄屏幕时隐藏） -->
+        <NFlex
+          v-if="modelProvider || modelName"
+          align="center"
+          :size="4"
+          :wrap="false"
+          class="model-info-tags"
+        >
+          <NTag v-if="modelProvider" size="small" type="info" :bordered="false">
+            {{ modelProvider }}
+          </NTag>
+          <NTag v-if="modelName" size="small" type="primary" :bordered="false">
+            {{ modelName }}
+          </NTag>
         </NFlex>
       </NFlex>
     </NGridItem>
@@ -58,14 +73,16 @@
 import { computed } from 'vue'
 
 import { useI18n } from 'vue-i18n'
-import { NGrid, NGridItem, NFlex, NText, NButton, NSwitch } from 'naive-ui'
+import { NGrid, NGridItem, NFlex, NText, NButton, NSwitch, NTag } from 'naive-ui'
 
 const { t } = useI18n()
 
 interface Props {
   // 模型选择相关
   modelLabel: string
-  
+  modelProvider?: string
+  modelName?: string
+
   // 对比模式控制
   showCompareToggle?: boolean
   isCompareMode?: boolean
@@ -115,3 +132,12 @@ const handlePrimaryAction = () => {
   emit('primary-action')
 }
 </script>
+
+<style scoped>
+/* 窄屏幕时隐藏模型信息标签 */
+@media (max-width: 900px) {
+  .model-info-tags {
+    display: none;
+  }
+}
+</style>

@@ -119,6 +119,8 @@
             :is-test-running="contextUserTester.testResults.isTestingOriginal || contextUserTester.testResults.isTestingOptimized"
             :is-compare-mode="isCompareMode"
             @update:isCompareMode="emit('update:isCompareMode', $event)"
+            :model-provider="props.testModelProvider"
+            :model-name="props.testModelName"
             :global-variables="globalVariables"
             :predefined-variables="predefinedVariables"
             :temporary-variables="temporaryVariables"
@@ -262,6 +264,10 @@ interface Props {
     selectedOptimizeModel: string;
     /** 测试模型 */
     selectedTestModel: string;
+    /** 测试模型提供商名称（用于显示标签） */
+    testModelProvider?: string;
+    /** 测试模型名称（用于显示标签） */
+    testModelName?: string;
     /** 优化模板 */
     selectedTemplate: Template | null;
     /** 选中的迭代模板 */

@@ -147,6 +147,8 @@
         <NCard :style="{ flexShrink: 0 }" size="small">
             <TestControlBar
                 :model-label="t('test.model')"
+                :model-provider="modelProvider"
+                :model-name="modelName"
                 :show-compare-toggle="enableCompareMode"
                 :is-compare-mode="isCompareMode"
                 @compare-toggle="handleCompareToggle"
@@ -316,6 +318,10 @@ interface Props {
     // 🆕 对比模式
     isCompareMode?: boolean;
     enableCompareMode?: boolean;
+
+    // 模型信息（用于显示标签）
+    modelProvider?: string;
+    modelName?: string;
 
     // 变量管理
     globalVariables?: Record<string, string>;
