@@ -13,14 +13,14 @@ import { template as analytical_optimize } from './optimize/analytical-optimize'
 import { template as analytical_optimize_en } from './optimize/analytical-optimize_en';
 import { template as context_iterate } from './iterate/context/context-iterate';
 import { template as context_iterate_en } from './iterate/context/context-iterate_en';
-// 新增对齐的系统上下文模板：分析型/输出格式（中/英）
+// 上下文消息优化模板（多轮对话模式专用）- 通用模板优先
+import { template as context_message_optimize } from './optimize/context/context-message-optimize';
+import { template as context_message_optimize_en } from './optimize/context/context-message-optimize_en';
+// 上下文消息优化模板：分析型/输出格式（中/英）
 import { template as context_analytical_optimize } from './optimize/context/context-analytical-optimize';
 import { template as context_analytical_optimize_en } from './optimize/context/context-analytical-optimize_en';
 import { template as context_output_format_optimize } from './optimize/context/context-output-format-optimize';
 import { template as context_output_format_optimize_en } from './optimize/context/context-output-format-optimize_en';
-// 新增消息优化模板（多轮对话模式专用）
-import { template as context_message_optimize } from './optimize/context/context-message-optimize';
-import { template as context_message_optimize_en } from './optimize/context/context-message-optimize_en';
 // 新增对齐的用户上下文模板（基础/专业/规划）（中/英）
 import { template as context_user_prompt_basic } from './user-optimize/context/context-user-prompt-basic';
 import { template as context_user_prompt_basic_en } from './user-optimize/context/context-user-prompt-basic_en';
@@ -97,12 +97,12 @@ export const ALL_TEMPLATES = {
   analytical_optimize_en,
   context_iterate,
   context_iterate_en,
+  context_message_optimize,
+  context_message_optimize_en,
   context_analytical_optimize,
   context_analytical_optimize_en,
   context_output_format_optimize,
   context_output_format_optimize_en,
-  context_message_optimize,
-  context_message_optimize_en,
   context_user_prompt_basic,
   context_user_prompt_basic_en,
   context_user_prompt_professional_ctx,

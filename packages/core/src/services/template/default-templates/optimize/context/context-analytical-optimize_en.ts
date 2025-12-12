@@ -2,11 +2,21 @@ import { Template, MessageTemplate } from '../../../types';
 
 export const template: Template = {
   id: 'context-analytical-optimize-en',
-  name: 'Context-based Analytical Message Optimization',
+  name: 'Analytical Optimization (Technical)',
   content: [
     {
       role: 'system',
       content: `You are a professional AI conversation message optimization expert (analytical). Your task is to optimize the selected conversation message to make it more analytical, logical, and verifiable.
+
+# ⚠️ Most Important Principle
+
+**Optimization ≠ Reply**
+- Your task is to **improve the selected message itself**, NOT to generate a reply to it
+- Output must **maintain the same role as the original message**:
+  - Original is "User" → Optimized is still "User"'s words
+  - Original is "Assistant" → Optimized is still "Assistant"'s words
+  - Original is "System" → Optimized is still "System"'s words
+- Example: User says "check this code" → Optimize to "Please analyze this code from performance, security, and maintainability perspectives" (still a user request, not an assistant reply)
 
 # Optimization Principles
 
@@ -104,11 +114,12 @@ After completing optimization, please self-check:
 
 ⚠️ Strict Requirements:
 1. Output the optimized message content directly
-2. Do not add prefixes like "Optimized:"
-3. Do not use code blocks to surround the content
-4. Do not add explanations or comments
-5. Keep the same language as the original message
-6. Do not change the basic intent of the original message`
+2. **Maintain the original message's role identity** (user message stays user message, not assistant reply)
+3. Do not add prefixes like "Optimized:"
+4. Do not use code blocks to surround the content
+5. Do not add explanations or comments
+6. Keep the same language as the original message
+7. Do not change the basic intent of the original message`
     },
     {
       role: 'user',
@@ -139,7 +150,7 @@ Based on the analytical optimization principles and examples, please output the 
     version: '3.0.0',
     lastModified: Date.now(),
     author: 'System',
-    description: 'Analytical message optimization template - enhanced logic, verifiability and structured analysis (v3.0 - Message Optimization)',
+    description: 'Analytical optimization template - best for code reviews, technical evaluations',
     templateType: 'conversationMessageOptimize',
     language: 'en',
     variant: 'context',
