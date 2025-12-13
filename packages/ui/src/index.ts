@@ -56,7 +56,6 @@ export { default as PromptPanelUI } from "./components/PromptPanel.vue";
 export { default as OutputDisplay } from "./components/OutputDisplay.vue";
 export { default as TemplateManagerUI } from "./components/TemplateManager.vue";
 export { default as TemplateSelectUI } from "./components/TemplateSelect.vue";
-export { default as ModelSelectUI } from "./components/ModelSelect.vue";
 export { default as SelectWithConfig } from "./components/SelectWithConfig.vue";
 export { default as HistoryDrawerUI } from "./components/HistoryDrawer.vue";
 export { default as InputPanelUI } from "./components/InputPanel.vue";
@@ -68,7 +67,6 @@ export { default as ThemeToggleUI } from "./components/ThemeToggleUI.vue";
 export { default as ModalUI } from "./components/Modal.vue";
 export { default as PanelUI } from "./components/Panel.vue";
 
-export { default as BasicTestMode } from "./components/BasicTestMode.vue";
 export { default as VariableManagerModal } from "./components/variable/VariableManagerModal.vue";
 export { default as VariableEditor } from "./components/variable/VariableEditor.vue";
 export { default as VariableImporter } from "./components/variable/VariableImporter.vue";
@@ -102,6 +100,7 @@ export { default as ContextSystemWorkspace } from "./components/context-mode/Con
 export { default as ContextUserWorkspace } from "./components/context-mode/ContextUserWorkspace.vue";
 export { default as ContextUserTestPanel } from "./components/context-mode/ContextUserTestPanel.vue";
 export { default as ConversationTestPanel } from "./components/context-mode/ConversationTestPanel.vue";
+export { default as FunctionModelManagerUI } from "./components/FunctionModelManager.vue";
 
 // 评估组件
 export { EvaluationPanel, EvaluateButton, EvaluationScoreBadge } from "./components/evaluation";

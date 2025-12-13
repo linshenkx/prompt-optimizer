@@ -729,6 +729,7 @@ export default {
     title: "Model Manager",
     textModels: "Text Models",
     imageModels: "Image Models",
+    functionModels: "Function Models",
     modelList: "Model List",
     testConnection: "Test Connection",
     editModel: "Edit",
@@ -863,6 +864,10 @@ export default {
     saveEditAriaLabel: "Save model changes",
     cancelAddAriaLabel: "Cancel adding model",
     confirmAddAriaLabel: "Confirm add model",
+  },
+  functionModel: {
+    evaluationModel: "Evaluation Model",
+    evaluationModelHint: "Used for LLM evaluation, defaults to global optimization model",
   },
   templateManager: {
     title: "Template Manager",

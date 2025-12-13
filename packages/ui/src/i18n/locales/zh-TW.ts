@@ -709,6 +709,7 @@ export default {
     title: "模型管理",
     textModels: "文字模型",
     imageModels: "圖像模型",
+    functionModels: "功能模型",
     modelList: "模型清單",
     testConnection: "測試連線",
     editModel: "編輯",
@@ -832,6 +833,10 @@ export default {
     saveEditAriaLabel: "儲存模型修改",
     cancelAddAriaLabel: "取消新增模型",
     confirmAddAriaLabel: "確認新增模型",
+  },
+  functionModel: {
+    evaluationModel: "評估模型",
+    evaluationModelHint: "用於 LLM 智慧評估，預設使用全域優化模型",
   },
   templateManager: {
     title: "功能提示詞管理",

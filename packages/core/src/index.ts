@@ -145,6 +145,8 @@ export {
   MODEL_SELECTION_KEYS,
   TEMPLATE_SELECTION_KEYS,
   IMAGE_MODE_KEYS,
+  FUNCTION_MODEL_KEYS,
+  getModeModelKey,
   ALL_STORAGE_KEYS,
   ALL_STORAGE_KEYS_ARRAY
 } from './constants/storage-keys'
@@ -154,6 +156,7 @@ export type {
   ModelSelectionKey,
   TemplateSelectionKey,
   ImageModeKey,
+  FunctionModelKey,
   StorageKey
 } from './constants/storage-keys'
 

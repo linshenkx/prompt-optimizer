@@ -13,6 +13,7 @@ import { reactive, ref, computed, type Ref, type ComputedRef } from 'vue'
 import { useToast } from '../ui/useToast'
 import { useI18n } from 'vue-i18n'
 import { getErrorMessage } from '../../utils/error'
+import { useFunctionModelManager } from '../model/useFunctionModelManager'
 import type { AppServices } from '../../types/services'
 import type {
   EvaluationType,
@@ -202,6 +203,9 @@ export function useEvaluation(
   const toast = useToast()
   const { t, locale } = useI18n()
 
+  // 获取功能模型管理器
+  const functionModelManager = useFunctionModelManager(services)
+
   // 详情面板可见性
   const isPanelVisible = ref(false)
 
@@ -262,15 +266,28 @@ export function useEvaluation(
 
   /**
    * 获取评估模型 Key
+   * 规则：
+   * - 只要用户在「功能模型」里配置过评估模型（持久化有值），就始终使用该值
+   * - 否则使用调用方传入的 evaluationModelKey（通常为全局优化模型）
+   * - 若调用方未传入，则兜底跟随当前全局优化模型
    */
-  const getModelKey = (): string => {
-    if (options.evaluationModelKey?.value) {
-      return options.evaluationModelKey.value
+  const getModelKey = async (): Promise<string> => {
+    // 1) 持久化评估模型配置：一旦配置过就优先生效
+    await functionModelManager.initialize()
+    if (functionModelManager.evaluationModel.value) {
+      return functionModelManager.evaluationModel.value
     }
-    const modelManager = services.value?.modelManager
-    if (modelManager?.selectedOptimizeModel) {
-      return modelManager.selectedOptimizeModel
+
+    // 2) 默认：调用方提供的 key（通常是全局优化模型）
+    const passedModelKey = options.evaluationModelKey?.value || ''
+    if (passedModelKey) {
+      return passedModelKey
     }
+
+    // 3) 兜底：未设置评估模型且调用方未传入时，跟随当前全局优化模型
+    const selectedOptimizeModel =
+      (services.value?.modelManager as any)?.selectedOptimizeModel || ''
+    if (selectedOptimizeModel) return selectedOptimizeModel
     return ''
   }
 
@@ -363,7 +380,7 @@ export function useEvaluation(
       originalPrompt: params.originalPrompt,
       testContent: params.testContent || '',
       testResult: params.testResult,
-      evaluationModelKey: getModelKey(),
+      evaluationModelKey: await getModelKey(),
       variables: { language: getLanguage() },
       mode: getModeConfig(),
       proContext: params.proContext,
@@ -387,7 +404,7 @@ export function useEvaluation(
       optimizedPrompt: params.optimizedPrompt,
       testContent: params.testContent || '',
       testResult: params.testResult,
-      evaluationModelKey: getModelKey(),
+      evaluationModelKey: await getModelKey(),
       variables: { language: getLanguage() },
       mode: getModeConfig(),
       proContext: params.proContext,
@@ -413,7 +430,7 @@ export function useEvaluation(
       testContent: params.testContent || '',
       originalTestResult: params.originalTestResult,
       optimizedTestResult: params.optimizedTestResult,
-      evaluationModelKey: getModelKey(),
+      evaluationModelKey: await getModelKey(),
       variables: { language: getLanguage() },
       mode: getModeConfig(),
       proContext: params.proContext,

@@ -75,6 +75,9 @@
               @add="handleAddImageModel"
             />
           </NTabPane>
+          <NTabPane name="function" :tab="t('modelManager.functionModels')">
+            <FunctionModelManager ref="functionManagerRef" />
+          </NTabPane>
         </NTabs>
       </NScrollbar>
     </NModal>
@@ -96,6 +99,7 @@ import { NButton, NModal, NScrollbar, NTabs, NTabPane } from 'naive-ui'
 import ImageModelEditModal from './ImageModelEditModal.vue'
 import ImageModelManager from './ImageModelManager.vue'
 import TextModelManager from './TextModelManager.vue'
+import FunctionModelManager from './FunctionModelManager.vue'
 import ToastUI from './Toast.vue'
 import type { AppServices } from '../types/services'
 
@@ -110,9 +114,10 @@ const emit = defineEmits(['modelsUpdated', 'close', 'select', 'update:show'])
 
 const { t } = useI18n()
 
-const activeTab = ref<'text' | 'image'>('text')
+const activeTab = ref<'text' | 'image' | 'function'>('text')
 const textManagerRef = ref<InstanceType<typeof TextModelManager> | null>(null)
 const imageListRef = ref<InstanceType<typeof ImageModelManager> | null>(null)
+const functionManagerRef = ref<InstanceType<typeof FunctionModelManager> | null>(null)
 const showImageModelEdit = ref(false)
 const editingImageModelId = ref<string | undefined>(undefined)
 
@@ -168,7 +173,7 @@ if (typeof window !== 'undefined') {
   const tabHandler = (e: Event) => {
     try {
       const tab = (e as CustomEvent).detail
-      if (tab === 'text' || tab === 'image') activeTab.value = tab
+      if (tab === 'text' || tab === 'image' || tab === 'function') activeTab.value = tab
     } catch {
       // 静默处理错误
     }

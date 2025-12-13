@@ -54,6 +54,27 @@ export const IMAGE_MODE_KEYS = {
   COMPARE_MODE_ENABLED: "app:image-mode:compare-mode-enabled",
 } as const;
 
+// 功能模型配置相关
+export const FUNCTION_MODEL_KEYS = {
+  // 全局评估模型
+  EVALUATION_MODEL: "app:function-model:evaluation-model",
+} as const;
+
+/**
+ * 生成模式覆盖的存储键
+ * @param type 模型类型：'optimize' 或 'test'
+ * @param functionMode 功能模式：'basic' | 'pro' | 'image'
+ * @param subMode 子模式：'system' | 'user' | 'text2image' | 'image2image'
+ * @returns 存储键，格式如 "app:function-model:optimize:basic:system"
+ */
+export function getModeModelKey(
+  type: "optimize" | "test",
+  functionMode: "basic" | "pro" | "image",
+  subMode: "system" | "user" | "text2image" | "image2image"
+): string {
+  return `app:function-model:${type}:${functionMode}:${subMode}`;
+}
+
 // 所有存储键的联合类型
 export const ALL_STORAGE_KEYS = {
   ...CORE_SERVICE_KEYS,
@@ -61,6 +82,7 @@ export const ALL_STORAGE_KEYS = {
   ...MODEL_SELECTION_KEYS,
   ...TEMPLATE_SELECTION_KEYS,
   ...IMAGE_MODE_KEYS,
+  ...FUNCTION_MODEL_KEYS,
 } as const;
 
 // 导出所有键的数组（用于DataManager等需要遍历的场景）
@@ -77,5 +99,7 @@ export type TemplateSelectionKey =
   (typeof TEMPLATE_SELECTION_KEYS)[keyof typeof TEMPLATE_SELECTION_KEYS];
 export type ImageModeKey =
   (typeof IMAGE_MODE_KEYS)[keyof typeof IMAGE_MODE_KEYS];
+export type FunctionModelKey =
+  (typeof FUNCTION_MODEL_KEYS)[keyof typeof FUNCTION_MODEL_KEYS];
 export type StorageKey =
   (typeof ALL_STORAGE_KEYS)[keyof typeof ALL_STORAGE_KEYS];
