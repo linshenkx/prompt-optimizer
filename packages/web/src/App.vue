@@ -1003,6 +1003,7 @@ import {
     useAggregatedVariables,
     useContextEditorUIState,
     useEvaluationHandler,
+    useFunctionModelManager,
 
     // i18n functions
     initializeI18nWithStorage,
@@ -1290,6 +1291,10 @@ const modelSelectRefs = useModelSelectRefs();
 // 使用类型断言解决类型不匹配问题
 // 模型管理器
 const modelManager = useModelManager(services as any, modelSelectRefs);
+const functionModelManager = useFunctionModelManager(
+    services as any,
+    computed(() => modelManager.selectedOptimizeModel),
+);
 
 // 提示词优化器
 const optimizer = usePromptOptimizer(
@@ -1375,7 +1380,7 @@ const evaluationHandler = useEvaluationHandler({
     optimizedPrompt: toRef(optimizer, "optimizedPrompt") as any,
     testContent,
     testResults: testResults as any,
-    evaluationModelKey: computed(() => modelManager.selectedOptimizeModel),
+    evaluationModelKey: computed(() => functionModelManager.effectiveEvaluationModel.value),
     functionMode: functionMode as any,
     subMode: currentSubMode as any,
 });
@@ -1555,9 +1560,9 @@ const selectedTestModelInfo = computed(() => {
     if (!option?.raw) return null;
     return {
         // 提供商名称（如 OpenAI、DeepSeek）
-        provider: option.raw.providerMeta?.name || null,
-        // 实际模型ID（如 gpt-4、deepseek-chat）
-        model: option.raw.modelMeta?.id || null,
+        provider: option.raw.providerMeta?.name || option.raw.providerMeta?.id || null,
+        // 实际模型名称（优先 name，回退到 id）
+        model: option.raw.modelMeta?.name || option.raw.modelMeta?.id || null,
     };
 });
 
@@ -1906,8 +1911,8 @@ const handleTemplateManagerClosed = () => {
     }
 };
 
-// 提供 openModelManager 接口，支持直接定位到文本/图像页签
-const openModelManager = (tab: "text" | "image" = "text") => {
+// 提供 openModelManager 接口，支持直接定位到文本/图像/功能页签
+const openModelManager = (tab: "text" | "image" | "function" = "text") => {
     modelManager.showConfig = true;
     // 等模态渲染后再切换页签
     setTimeout(() => {

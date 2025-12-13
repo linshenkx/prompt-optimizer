@@ -18,14 +18,12 @@
         <NCard :style="{ flexShrink: 0 }" size="small">
             <TestControlBar
                 :model-label="t('test.model')"
-                :model-provider="props.modelProvider"
                 :model-name="props.modelName"
                 :show-compare-toggle="enableCompareMode"
                 :is-compare-mode="props.isCompareMode"
                 :primary-action-text="primaryActionText"
                 :primary-action-disabled="primaryActionDisabled"
                 :primary-action-loading="isTestRunning"
-                :layout="adaptiveControlBarLayout"
                 :button-size="adaptiveButtonSize"
                 @compare-toggle="handleCompareToggle"
                 @primary-action="handleTest"
@@ -186,7 +184,6 @@ interface Props {
     isCompareMode?: boolean;
 
     // 模型信息（用于显示标签）
-    modelProvider?: string;
     modelName?: string;
 
     // 功能开关
@@ -195,7 +192,6 @@ interface Props {
 
     // 布局配置
     inputMode?: "compact" | "normal";
-    controlBarLayout?: "default" | "compact" | "minimal";
     buttonSize?: "small" | "medium" | "large";
 
     // 结果显示配置
@@ -234,7 +230,6 @@ const props = withDefaults(defineProps<Props>(), {
     enableCompareMode: true,
     enableFullscreen: true,
     inputMode: "normal",
-    controlBarLayout: "default",
     buttonSize: "medium",
     showOriginalResult: true,
     resultVerticalLayout: false,
@@ -342,12 +337,6 @@ const showTestInput = computed(() => {
 const adaptiveInputMode = computed(() => {
     if (shouldUseCompactMode.value) return "compact";
     return props.inputMode || "normal";
-});
-
-const adaptiveControlBarLayout = computed(() => {
-    if (shouldUseCompactMode.value) return "minimal";
-    if (shouldUseVerticalLayout.value) return "compact";
-    return props.controlBarLayout || "default";
 });
 
 const adaptiveButtonSize = computed(() => {

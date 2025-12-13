@@ -38,8 +38,8 @@ export interface UseFunctionModelManagerReturn {
 
 // 全局单例实例（评估模型配置是全局的，所有组件共享）
 let instance: UseFunctionModelManagerReturn | null = null
-// 保存当前使用的 services，用于检测是否需要重新初始化
-let currentServicesRef: Ref<AppServices | null> | null = null
+// 保存可更新的 globalOptimizeModelKey 引用
+let globalOptimizeModelKeyRef: Ref<string> | ComputedRef<string> | null = null
 
 /**
  * 功能模型管理器 Composable
@@ -50,18 +50,16 @@ export function useFunctionModelManager(
   services: Ref<AppServices | null>,
   globalOptimizeModelKey?: Ref<string> | ComputedRef<string>
 ): UseFunctionModelManagerReturn {
-  // 如果已有实例且 services 相同，直接返回
-  if (instance && currentServicesRef === services) {
-    return instance
+  // 如果传入了新的 globalOptimizeModelKey，更新引用
+  if (globalOptimizeModelKey) {
+    globalOptimizeModelKeyRef = globalOptimizeModelKey
   }
 
-  // 如果已有实例但 services 不同，仍返回现有实例（评估模型配置是全局的）
-  // 但更新 globalOptimizeModelKey 引用（如果提供了新的）
+  // 如果已有实例，直接返回（评估模型配置是全局的）
   if (instance) {
     return instance
   }
 
-  currentServicesRef = services
   const { getPreference, setPreference } = usePreferences(services)
 
   const isLoading = ref(false)
@@ -71,9 +69,10 @@ export function useFunctionModelManager(
   let initPromise: Promise<void> | null = null
 
   // 创建固定的 computed（只创建一次）
+  // 使用全局的 globalOptimizeModelKeyRef，确保后续传入的参数能生效
   const effectiveEvaluationModel = computed(() => {
     const selectedOptimizeModel =
-      globalOptimizeModelKey?.value ||
+      globalOptimizeModelKeyRef?.value ||
       (services.value?.modelManager as any)?.selectedOptimizeModel ||
       ''
     return (
@@ -163,5 +162,5 @@ export function useFunctionModelManager(
  */
 export function resetFunctionModelManagerSingleton(): void {
   instance = null
-  currentServicesRef = null
+  globalOptimizeModelKeyRef = null
 }

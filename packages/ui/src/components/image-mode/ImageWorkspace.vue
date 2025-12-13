@@ -377,80 +377,15 @@
                                         @update:modelValue="saveSelections"
                                     />
                                 </template>
-                                <!-- 当前选中模型的Provider、Model和能力标签 -->
-                                <n-space
-                                    v-if="
-                                        selectedImageModelInfo ||
-                                        selectedImageModelCapabilities
-                                    "
-                                    :size="6"
-                                    :wrap="true"
+                                <!-- 当前选中模型名称标签 -->
+                                <n-tag
+                                    v-if="selectedImageModelInfo?.model"
+                                    size="small"
+                                    type="primary"
+                                    :bordered="false"
                                 >
-                                    <!-- Provider和Model标签 -->
-                                    <template v-if="selectedImageModelInfo">
-                                        <n-tag
-                                            size="small"
-                                            type="info"
-                                            :bordered="false"
-                                        >
-                                            {{
-                                                selectedImageModelInfo.provider
-                                            }}
-                                        </n-tag>
-                                        <n-tag
-                                            size="small"
-                                            type="primary"
-                                            :bordered="false"
-                                        >
-                                            {{ selectedImageModelInfo.model }}
-                                        </n-tag>
-                                    </template>
-                                    <!-- 能力标签 -->
-                                    <template
-                                        v-if="selectedImageModelCapabilities"
-                                    >
-                                        <n-tag
-                                            v-if="
-                                                selectedImageModelCapabilities.text2image
-                                            "
-                                            size="small"
-                                            type="success"
-                                            :bordered="false"
-                                        >
-                                            {{
-                                                t("image.capability.text2image")
-                                            }}
-                                        </n-tag>
-                                        <n-tag
-                                            v-if="
-                                                selectedImageModelCapabilities.image2image
-                                            "
-                                            size="small"
-                                            type="info"
-                                            :bordered="false"
-                                        >
-                                            {{
-                                                t(
-                                                    "image.capability.image2image",
-                                                )
-                                            }}
-                                        </n-tag>
-                                        <n-tag
-                                            v-if="
-                                                selectedImageModelCapabilities.highResolution
-                                            "
-                                            size="small"
-                                            type="primary"
-                                            :bordered="false"
-                                        >
-                                            {{
-                                                t(
-                                                    "image.capability.highResolution",
-                                                )
-                                            }}
-                                        </n-tag>
-                                    </template>
-                                </n-space>
+                                    {{ selectedImageModelInfo.model }}
+                                </n-tag>
                             </n-space>
                         </n-form-item>
                         <n-form-item>
@@ -1169,7 +1104,6 @@ const {
     imageModelOptions,
     optimizationMode,
     advancedModeEnabled,
-    selectedImageModelCapabilities,
     selectedImageModelInfo,
 
     // 图像生成状态
@@ -1207,10 +1141,9 @@ type TemplateEntryType =
 const appOpenTemplateManager = inject<
     ((type?: TemplateEntryType) => void) | null
 >("openTemplateManager", null);
-const appOpenModelManager = inject<((tab?: "text" | "image") => void) | null>(
-    "openModelManager",
-    null,
-);
+const appOpenModelManager = inject<
+    ((tab?: "text" | "image" | "function") => void) | null
+>("openModelManager", null);
 const appHandleSaveFavorite = inject<
     ((data: { content: string; originalContent?: string }) => void) | null
 >("handleSaveFavorite", null);

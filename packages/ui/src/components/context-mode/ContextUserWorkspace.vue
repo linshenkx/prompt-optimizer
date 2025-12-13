@@ -119,12 +119,10 @@
             :is-test-running="contextUserTester.testResults.isTestingOriginal || contextUserTester.testResults.isTestingOptimized"
             :is-compare-mode="isCompareMode"
             @update:isCompareMode="emit('update:isCompareMode', $event)"
-            :model-provider="props.testModelProvider"
             :model-name="props.testModelName"
             :global-variables="globalVariables"
             :predefined-variables="predefinedVariables"
             :temporary-variables="temporaryVariables"
-            :control-bar-layout="controlBarLayout"
             :button-size="buttonSize"
             :result-vertical-layout="resultVerticalLayout"
             :single-result-title="t('test.testResult')"
@@ -264,8 +262,6 @@ interface Props {
     selectedOptimizeModel: string;
     /** 测试模型 */
     selectedTestModel: string;
-    /** 测试模型提供商名称（用于显示标签） */
-    testModelProvider?: string;
     /** 测试模型名称（用于显示标签） */
     testModelName?: string;
     /** 优化模板 */
@@ -286,8 +282,6 @@ interface Props {
     predefinedVariables: Record<string, string>;
 
     // --- 响应式布局配置 ---
-    /** 控制栏布局 */
-    controlBarLayout?: "default" | "compact" | "minimal";
     /** 按钮尺寸 */
     buttonSize?: "small" | "medium" | "large";
     /** 对话历史最大高度 */
@@ -304,7 +298,6 @@ interface ContextUserHistoryPayload {
 
 const props = withDefaults(defineProps<Props>(), {
     isTestRunning: false,
-    controlBarLayout: "default",
     buttonSize: "medium",
     conversationMaxHeight: 300,
     resultVerticalLayout: false,

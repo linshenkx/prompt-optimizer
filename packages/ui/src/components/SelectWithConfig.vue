@@ -135,7 +135,7 @@ const forwardedAttrs = computed(() => {
     )
   }
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { ['onUpdate:value']: _, multiple: attrsMultiple, class: rootClass, ['menu-props']: menuPropsKebab, menuProps, ...rest } = attrs as Record<string, unknown>
+  const { ['onUpdate:value']: _, multiple: attrsMultiple, class: rootClass, ['menu-props']: menuPropsKebab, menuProps, style: rootStyle, ...rest } = attrs as Record<string, unknown>
 
   // 规范：通过 class & menu-props.class 注入样式作用域，避免使用 :deep
   const mergedRootClass = [rootClass, 'swc-select'].filter(Boolean).join(' ')
@@ -147,6 +147,7 @@ const forwardedAttrs = computed(() => {
     filterable: true,
     multiple: attrsMultiple ?? props.multiple,
     class: mergedRootClass,
+    style: { minWidth: '160px', ...(rootStyle as Record<string, unknown> || {}) },
     menuProps: normalizedMenuProps,
     ...rest,
     filter: hasCustomFilter ? (attrs as Record<string, unknown>).filter : internalFilter
