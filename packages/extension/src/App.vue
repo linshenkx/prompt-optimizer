@@ -198,6 +198,8 @@
                             :selected-optimize-model="modelManager.selectedOptimizeModel"
                             :selected-template="currentSelectedTemplate"
                             :selected-test-model="modelManager.selectedTestModel"
+                            :test-model-provider="selectedTestModelInfo?.provider"
+                            :test-model-name="selectedTestModelInfo?.model"
                         >
                             <!-- 优化模型选择插槽 -->
                             <template #optimize-model-select>
@@ -276,6 +278,8 @@
                             :optimization-mode="selectedOptimizationMode"
                             :selected-optimize-model="modelManager.selectedOptimizeModel"
                             :selected-test-model="modelManager.selectedTestModel"
+                            :test-model-provider="selectedTestModelInfo?.provider"
+                            :test-model-name="selectedTestModelInfo?.model"
                             :selected-template="currentSelectedTemplate"
                             :selected-iterate-template="
                                 optimizer.selectedIterateTemplate
@@ -283,8 +287,6 @@
                             @update:selectedIterateTemplate="
                                 optimizer.selectedIterateTemplate = $event
                             "
-                            :test-content="testContent"
-                            @update:testContent="testContent = $event"
                             :is-compare-mode="isCompareMode"
                             @update:isCompareMode="isCompareMode = $event"
                             :global-variables="
@@ -293,9 +295,6 @@
                             :predefined-variables="predefinedVariables"
                             @variable-change="handleTestPanelVariableChange"
                             @save-to-global="handleSaveToGlobal"
-                            :input-mode="
-                                responsiveLayout.recommendedInputMode.value
-                            "
                             :control-bar-layout="
                                 responsiveLayout.recommendedControlBarLayout
                                     .value
@@ -582,153 +581,196 @@
                             </NFlex>
 
                             <!-- 右侧：测试区域 -->
-                            <NCard
+                            <TestAreaPanel
+                                ref="testPanelRef"
                                 :style="{
                                     flex: 1,
                                     overflow: 'auto',
                                     height: '100%',
+                                    minHeight: 0,
                                 }"
-                                content-style="height: 100%; max-height: 100%; overflow: hidden;"
+                                :optimization-mode="
+                                    selectedOptimizationMode
+                                "
+                                :model-provider="selectedTestModelInfo?.provider"
+                                :model-name="selectedTestModelInfo?.model"
+                                :context-mode="contextMode"
+                                :optimized-prompt="
+                                    optimizer.optimizedPrompt
+                                "
+                                :is-test-running="false"
+                                :global-variables="
+                                    variableManager?.customVariables?.value ||
+                                    {}
+                                "
+                                :predefined-variables="predefinedVariables"
+                                v-model:test-content="testContent"
+                                v-model:is-compare-mode="isCompareMode"
+                                :enable-compare-mode="true"
+                                :enable-fullscreen="true"
+                                :input-mode="
+                                    responsiveLayout.recommendedInputMode
+                                        .value
+                                "
+                                :control-bar-layout="
+                                    responsiveLayout
+                                        .recommendedControlBarLayout.value
+                                "
+                                :button-size="
+                                    responsiveLayout.smartButtonSize.value
+                                "
+                                :conversation-max-height="
+                                    responsiveLayout.responsiveHeights.value
+                                        .conversationMax
+                                "
+                                :show-original-result="true"
+                                :result-vertical-layout="
+                                    responsiveLayout.isMobile.value
+                                "
+                                :show-evaluation="true"
+                                :has-original-result="!!testResults.originalResult"
+                                :has-optimized-result="!!testResults.optimizedResult"
+                                :is-evaluating-original="evaluation.isEvaluatingOriginal.value"
+                                :is-evaluating-optimized="evaluation.isEvaluatingOptimized.value"
+                                :original-score="evaluation.originalScore.value"
+                                :optimized-score="evaluation.optimizedScore.value"
+                                :has-original-evaluation="evaluation.hasOriginalResult.value"
+                                :has-optimized-evaluation="evaluation.hasOptimizedResult.value"
+                                :original-evaluation-result="evaluation.state.original.result"
+                                :optimized-evaluation-result="evaluation.state.optimized.result"
+                                :original-score-level="evaluation.originalLevel.value"
+                                :optimized-score-level="evaluation.optimizedLevel.value"
+                                @test="handleTestAreaTest"
+                                @compare-toggle="
+                                    handleTestAreaCompareToggle
+                                "
+                                @open-variable-manager="
+                                    handleOpenVariableManager
+                                "
+                                @evaluate-original="() => handleEvaluate('original')"
+                                @evaluate-optimized="() => handleEvaluate('optimized')"
+                                @show-original-detail="() => evaluation.showDetail('original')"
+                                @show-optimized-detail="() => evaluation.showDetail('optimized')"
+                                @apply-improvement="handleApplyImprovement"
                             >
-                                <!-- 使用新的统一TestAreaPanel组件 -->
-                                <TestAreaPanel
-                                    ref="testPanelRef"
-                                    :optimization-mode="
-                                        selectedOptimizationMode
-                                    "
-                                    :context-mode="contextMode"
-                                    :optimized-prompt="
-                                        optimizer.optimizedPrompt
-                                    "
-                                    :is-test-running="false"
-                                    :global-variables="
-                                        variableManager?.customVariables?.value ||
-                                        {}
-                                    "
-                                    :predefined-variables="predefinedVariables"
-                                    v-model:test-content="testContent"
-                                    v-model:is-compare-mode="isCompareMode"
-                                    :enable-compare-mode="true"
-                                    :enable-fullscreen="true"
-                                    :input-mode="
-                                        responsiveLayout.recommendedInputMode
-                                            .value
-                                    "
-                                    :control-bar-layout="
-                                        responsiveLayout
-                                            .recommendedControlBarLayout.value
-                                    "
-                                    :button-size="
-                                        responsiveLayout.smartButtonSize.value
-                                    "
-                                    :conversation-max-height="
-                                        responsiveLayout.responsiveHeights.value
-                                            .conversationMax
-                                    "
-                                    :show-original-result="true"
-                                    :result-vertical-layout="
-                                        responsiveLayout.isMobile.value
-                                    "
-                                    @test="handleTestAreaTest"
-                                    @compare-toggle="
-                                        handleTestAreaCompareToggle
-                                    "
-                                    @open-variable-manager="
-                                        handleOpenVariableManager
-                                    "
-                                >
-                                    <!-- 模型选择插槽 -->
-                                    <template #model-select>
-                                        <SelectWithConfig
-                                            v-model="
-                                                modelManager.selectedTestModel
-                                            "
-                                            :options="textModelOptions"
-                                            :getPrimary="
-                                                OptionAccessors.getPrimary
-                                            "
-                                            :getSecondary="
-                                                OptionAccessors.getSecondary
-                                            "
-                                            :getValue="OptionAccessors.getValue"
-                                            :placeholder="
-                                                t('model.select.placeholder')
-                                            "
-                                            size="medium"
-                                            filterable
-                                            :show-config-action="true"
-                                            :show-empty-config-c-t-a="true"
-                                            @focus="refreshTextModels"
-                                            @config="
-                                                modelManager.showConfig = true
-                                            "
-                                        />
-                                    </template>
+                                <!-- 模型选择插槽 -->
+                                <template #model-select>
+                                    <SelectWithConfig
+                                        v-model="
+                                            modelManager.selectedTestModel
+                                        "
+                                        :options="textModelOptions"
+                                        :getPrimary="
+                                            OptionAccessors.getPrimary
+                                        "
+                                        :getSecondary="
+                                            OptionAccessors.getSecondary
+                                        "
+                                        :getValue="OptionAccessors.getValue"
+                                        :placeholder="
+                                            t('model.select.placeholder')
+                                        "
+                                        size="medium"
+                                        filterable
+                                        :show-config-action="true"
+                                        :show-empty-config-c-t-a="true"
+                                        @focus="refreshTextModels"
+                                        @config="
+                                            modelManager.showConfig = true
+                                        "
+                                    />
+                                </template>
 
-                                    <!-- 原始结果插槽 -->
-                                    <template #original-result>
-                                        <OutputDisplay
-                                            :content="
-                                                testResults.originalResult
-                                            "
-                                            :reasoning="
-                                                testResults.originalReasoning
-                                            "
-                                            :streaming="
-                                                testResults.isTestingOriginal
-                                            "
-                                            :enableDiff="false"
-                                            mode="readonly"
-                                            :style="{
-                                                height: '100%',
-                                                minHeight: '0',
-                                            }"
-                                        />
-                                    </template>
+                                <!-- 原始结果插槽 -->
+                                <template #original-result>
+                                    <OutputDisplay
+                                        :content="
+                                            testResults.originalResult
+                                        "
+                                        :reasoning="
+                                            testResults.originalReasoning
+                                        "
+                                        :streaming="
+                                            testResults.isTestingOriginal
+                                        "
+                                        :enableDiff="false"
+                                        mode="readonly"
+                                        :style="{
+                                            height: '100%',
+                                            minHeight: '0',
+                                        }"
+                                    />
+                                </template>
 
-                                    <!-- 优化结果插槽 -->
-                                    <template #optimized-result>
-                                        <OutputDisplay
-                                            :content="
-                                                testResults.optimizedResult
-                                            "
-                                            :reasoning="
-                                                testResults.optimizedReasoning
-                                            "
-                                            :streaming="
-                                                testResults.isTestingOptimized
-                                            "
-                                            :enableDiff="false"
-                                            mode="readonly"
-                                            :style="{
-                                                height: '100%',
-                                                minHeight: '0',
-                                            }"
-                                        />
-                                    </template>
+                                <!-- 优化结果插槽 -->
+                                <template #optimized-result>
+                                    <OutputDisplay
+                                        :content="
+                                            testResults.optimizedResult
+                                        "
+                                        :reasoning="
+                                            testResults.optimizedReasoning
+                                        "
+                                        :streaming="
+                                            testResults.isTestingOptimized
+                                        "
+                                        :enableDiff="false"
+                                        mode="readonly"
+                                        :style="{
+                                            height: '100%',
+                                            minHeight: '0',
+                                        }"
+                                    />
+                                </template>
 
-                                    <!-- 单一结果插槽 -->
-                                    <template #single-result>
-                                        <OutputDisplay
-                                            :content="
-                                                testResults.optimizedResult
-                                            "
-                                            :reasoning="
-                                                testResults.optimizedReasoning
-                                            "
-                                            :streaming="
-                                                testResults.isTestingOptimized
-                                            "
-                                            :enableDiff="false"
-                                            mode="readonly"
-                                            :style="{
-                                                height: '100%',
-                                                minHeight: '0',
-                                            }"
+                                <!-- 单一结果插槽 -->
+                                <template #single-result>
+                                    <OutputDisplay
+                                        :content="
+                                            testResults.optimizedResult
+                                        "
+                                        :reasoning="
+                                            testResults.optimizedReasoning
+                                        "
+                                        :streaming="
+                                            testResults.isTestingOptimized
+                                        "
+                                        :enableDiff="false"
+                                        mode="readonly"
+                                        :style="{
+                                            height: '100%',
+                                            minHeight: '0',
+                                        }"
+                                    />
+                                </template>
+
+                                <!-- 对比评估按钮（仅在对比模式且有两个结果时显示） -->
+                                <template #custom-actions>
+                                    <template v-if="isCompareMode && testResults.originalResult && testResults.optimizedResult">
+                                        <!-- 已评估或评估中：显示分数徽章 -->
+                                        <EvaluationScoreBadge
+                                            v-if="evaluation.hasCompareResult.value || evaluation.isEvaluatingCompare.value"
+                                            :score="evaluation.compareScore.value"
+                                            :level="evaluation.compareLevel.value"
+                                            :loading="evaluation.isEvaluatingCompare.value"
+                                            :result="evaluation.state.compare.result"
+                                            type="compare"
+                                            size="small"
+                                            @show-detail="() => evaluation.showDetail('compare')"
+                                            @apply-improvement="handleApplyImprovement"
                                         />
+                                        <!-- 未评估：显示评估按钮 -->
+                                        <NButton
+                                            v-else
+                                            quaternary
+                                            size="small"
+                                            @click="() => handleEvaluate('compare')"
+                                        >
+                                            {{ t('evaluation.compareEvaluate') }}
+                                        </NButton>
                                     </template>
-                                </TestAreaPanel>
-                            </NCard>
+                                </template>
+                            </TestAreaPanel>
                         </NFlex>
                     </template>
                     <!-- 图像模式：渲染新的工作区组件，不破坏现有结构 -->
@@ -853,6 +895,20 @@
                 :renderPhase="renderPhase"
             />
 
+            <!-- 🆕 评估结果面板 -->
+            <EvaluationPanel
+                v-if="isReady"
+                v-model:show="evaluation.isPanelVisible.value"
+                :is-evaluating="evaluation.state.activeDetailType ? evaluation.state[evaluation.state.activeDetailType].isEvaluating : false"
+                :result="evaluation.activeResult.value"
+                :stream-content="evaluation.activeStreamContent.value"
+                :error="evaluation.activeError.value"
+                :current-type="evaluation.state.activeDetailType"
+                :score-level="evaluation.activeScoreLevel.value"
+                @re-evaluate="handleReEvaluate"
+                @apply-improvement="handleApplyImprovement"
+            />
+
             <!-- 关键:使用NGlobalStyle同步全局样式到body,消除CSS依赖 -->
             <NGlobalStyle />
 
@@ -921,6 +977,8 @@ import {
     PromptPreviewPanel,
     ContextSystemWorkspace,
     ContextUserWorkspace,
+    EvaluationPanel,
+    EvaluationScoreBadge,
 
     // Composables
     usePromptOptimizer,
@@ -944,6 +1002,7 @@ import {
     useContextManagement,
     useAggregatedVariables,
     useContextEditorUIState,
+    useEvaluationHandler,
 
     // i18n functions
     initializeI18nWithStorage,
@@ -963,6 +1022,7 @@ import type {
     ModelConfig,
     PromptRecordChain,
     PromptRecord,
+    EvaluationType,
 } from "@prompt-optimizer/core";
 import { isDevelopment } from "@prompt-optimizer/core";
 import type {
@@ -1042,6 +1102,7 @@ const systemWorkspaceRef = ref<ContextWorkspaceExpose | null>(null);
 const userWorkspaceRef = ref<ContextWorkspaceExpose | null>(null);
 const promptPanelRef = ref<{
     refreshIterateTemplateSelect?: () => void;
+    openIterateDialog?: (input?: string) => void;
 } | null>(null);
 
 // 高级模式状态
@@ -1299,6 +1360,29 @@ const handleSaveToGlobal = async (name: string, value: string) => {
     }
 };
 
+// 🆕 评估功能（使用 useEvaluationHandler 封装业务逻辑）
+// 根据当前功能模式动态获取子模式
+const currentSubMode = computed(() => {
+    if (functionMode.value === 'basic') return basicSubMode.value;
+    if (functionMode.value === 'pro') return proSubMode.value;
+    if (functionMode.value === 'image') return imageSubMode.value;
+    return 'system'; // 默认值
+});
+
+const evaluationHandler = useEvaluationHandler({
+    services: services as any,
+    originalPrompt: toRef(optimizer, "prompt") as any,
+    optimizedPrompt: toRef(optimizer, "optimizedPrompt") as any,
+    testContent,
+    testResults: testResults as any,
+    evaluationModelKey: computed(() => modelManager.selectedOptimizeModel),
+    functionMode: functionMode as any,
+    subMode: currentSubMode as any,
+});
+
+// 导出评估相关（供模板使用）
+const { evaluation, handleEvaluate, handleReEvaluate } = evaluationHandler;
+
 // 同步 contextManagement 中的 contextMode 到我们的 contextMode ref
 watch(
     contextManagement.contextMode,
@@ -1462,6 +1546,21 @@ const refreshTextModels = async () => {
     }
 };
 
+// 获取选中测试模型的详细信息（用于显示提供商和实际模型名称标签）
+const selectedTestModelInfo = computed(() => {
+    if (!modelManager.selectedTestModel) return null;
+    const option = textModelOptions.value.find(
+        (o) => o.value === modelManager.selectedTestModel,
+    );
+    if (!option?.raw) return null;
+    return {
+        // 提供商名称（如 OpenAI、DeepSeek）
+        provider: option.raw.providerMeta?.name || null,
+        // 实际模型ID（如 gpt-4、deepseek-chat）
+        model: option.raw.modelMeta?.id || null,
+    };
+});
+
 const selectedTemplateIdForSelect = computed<string>({
     get() {
         const current = currentSelectedTemplate.value;
@@ -1597,6 +1696,19 @@ const handleOptimizePrompt = () => {
 // 处理迭代提示词
 const handleIteratePrompt = (payload: any) => {
     optimizer.handleIteratePrompt(payload);
+};
+
+// 处理应用评估改进建议到迭代优化
+const handleApplyImprovement = (payload: { improvement: string; type: EvaluationType }) => {
+    const { improvement } = payload;
+
+    // 关闭评估面板
+    evaluation.closePanel();
+
+    // 打开迭代弹窗并预填充改进建议
+    if (promptPanelRef.value?.openIterateDialog) {
+        promptPanelRef.value.openIterateDialog(improvement);
+    }
 };
 
 // 处理切换版本
@@ -2129,6 +2241,9 @@ const getActiveTestPanelInstance = (): TestAreaPanelInstance | null => {
 // 2. Context User 模式在 ContextUserWorkspace 内部使用 useContextUserTester 处理
 // 3. 此函数仅被 Basic Mode 的 TestAreaPanel 调用
 const handleTestAreaTest = async (testVariables?: Record<string, string>) => {
+    // 重新测试时清理之前的评估结果
+    evaluation.clearAllResults();
+
     await promptTester.executeTest(
         optimizer.prompt,
         optimizer.optimizedPrompt,
