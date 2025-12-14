@@ -695,18 +695,19 @@ function setupIPC() {
   // Streaming handler - more complex due to callbacks
   ipcMain.handle('llm-sendMessageStream', async (event, messages, provider, streamId) => {
     try {
+      // 使用符合 StreamHandlers 接口的回调名称
       const callbacks = {
-        onContent: (content) => {
+        onToken: (token) => {
           if (mainWindow && !mainWindow.isDestroyed()) {
-            event.sender.send(`stream-content-${streamId}`, content);
+            event.sender.send(`stream-content-${streamId}`, token);
           }
         },
-        onThinking: (thinking) => {
+        onReasoningToken: (thinking) => {
           if (mainWindow && !mainWindow.isDestroyed()) {
             event.sender.send(`stream-thinking-${streamId}`, thinking);
           }
         },
-        onFinish: () => {
+        onComplete: () => {
           if (mainWindow && !mainWindow.isDestroyed()) {
             event.sender.send(`stream-finish-${streamId}`);
           }
@@ -717,7 +718,7 @@ function setupIPC() {
           }
         }
       };
-      
+
       await llmService.sendMessageStream(messages, provider, callbacks);
       return createSuccessResponse(null);
     } catch (error) {
