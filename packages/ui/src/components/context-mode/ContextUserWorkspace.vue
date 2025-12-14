@@ -403,17 +403,20 @@ const proContext = computed<ProUserEvaluationContext | undefined>(() => {
         }
     } else {
         // 回退方案：使用正则表达式扫描 {{varName}} 格式的变量
-        const varPattern = /\{\{(\w+)\}\}/g;
+        // 使用 [^{}]+ 替代 \w+ 以支持中文等 Unicode 变量名
+        const varPattern = /\{\{([^{}]+)\}\}/g;
         let match;
         if (rawPrompt) {
             while ((match = varPattern.exec(rawPrompt)) !== null) {
-                usedVarNames.add(match[1]);
+                const name = match[1]?.trim();
+                if (name) usedVarNames.add(name);
             }
         }
         if (resolvedPrompt) {
             varPattern.lastIndex = 0; // 重置正则表达式
             while ((match = varPattern.exec(resolvedPrompt)) !== null) {
-                usedVarNames.add(match[1]);
+                const name = match[1]?.trim();
+                if (name) usedVarNames.add(name);
             }
         }
     }

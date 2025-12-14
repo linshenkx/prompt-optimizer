@@ -269,7 +269,7 @@ export function useEvaluation(
    * 规则：
    * - 只要用户在「功能模型」里配置过评估模型（持久化有值），就始终使用该值
    * - 否则使用调用方传入的 evaluationModelKey（通常为全局优化模型）
-   * - 若调用方未传入，则兜底跟随当前全局优化模型
+   * - 若调用方未传入，则使用功能模型管理器的有效评估模型（从偏好设置读取）
    */
   const getModelKey = async (): Promise<string> => {
     // 1) 持久化评估模型配置：一旦配置过就优先生效
@@ -284,11 +284,8 @@ export function useEvaluation(
       return passedModelKey
     }
 
-    // 3) 兜底：未设置评估模型且调用方未传入时，跟随当前全局优化模型
-    const selectedOptimizeModel =
-      (services.value?.modelManager as any)?.selectedOptimizeModel || ''
-    if (selectedOptimizeModel) return selectedOptimizeModel
-    return ''
+    // 3) 兜底：使用功能模型管理器的有效评估模型（从偏好设置读取的全局优化模型）
+    return functionModelManager.effectiveEvaluationModel.value || ''
   }
 
   /**

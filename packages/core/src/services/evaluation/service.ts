@@ -25,6 +25,7 @@ import {
   EvaluationExecutionError,
   EvaluationParseError,
 } from './errors';
+import { jsonrepair } from 'jsonrepair';
 
 /**
  * 评估服务实现类
@@ -290,42 +291,69 @@ export class EvaluationService implements IEvaluationService {
 
   /**
    * 解析评估结果
+   *
+   * 使用 jsonrepair 库处理 LLM 输出的 JSON，支持：
+   * - 自动剥离 fenced code blocks（```json ... ```）
+   * - 修复缺失的引号、逗号等
+   * - 处理截断的 JSON
+   * - 转换 Python 常量（None → null, True → true）
    */
   private parseEvaluationResult(
     content: string,
     type: EvaluationType,
     metadata?: { model?: string; timestamp?: number; duration?: number }
   ): EvaluationResponse {
-    // 尝试解析 JSON 格式的评估结果
-    const parseErrors: string[] = [];
+    const tryNormalizeParsed = (parsed: unknown): EvaluationResponse | null => {
+      if (!parsed || typeof parsed !== 'object') return null;
 
-    // 提取 JSON 块（支持 ```json ... ``` 或直接 JSON 对象）
-    const jsonMatch =
-      content.match(/```json\s*([\s\S]*?)\s*```/) ||
-      content.match(/\{[\s\S]*"score"[\s\S]*\}/);
-
-    if (jsonMatch) {
-      try {
-        const jsonStr = jsonMatch[1] || jsonMatch[0];
-        const parsed = JSON.parse(jsonStr);
+      // 常规：直接是对象
+      if (!Array.isArray(parsed) && (parsed as any).score) {
         return this.normalizeEvaluationResponse(parsed, type, metadata, content);
-      } catch (e) {
-        parseErrors.push(`JSON 解析失败: ${e instanceof Error ? e.message : String(e)}`);
       }
-    } else {
-      parseErrors.push('未找到有效的 JSON 评估结果');
+
+      // 兼容：jsonrepair 在遇到“JSON + 额外文本”时可能返回数组（文本片段 + 对象）
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (item && typeof item === 'object' && (item as any).score) {
+            return this.normalizeEvaluationResponse(item, type, metadata, content);
+          }
+        }
+      }
+
+      return null;
+    };
+
+    // 1. 尝试使用 jsonrepair 修复并解析 JSON（优先解析 fenced code block 中的 JSON）
+    const fencedMatch = content.match(/```json\s*([\s\S]*?)\s*```/i);
+    const candidates = [fencedMatch?.[1], content].filter(Boolean) as string[];
+
+    for (const candidate of candidates) {
+      try {
+        const repairedJson = jsonrepair(candidate);
+        const parsed = JSON.parse(repairedJson);
+        const normalized = tryNormalizeParsed(parsed);
+        if (normalized) {
+          return normalized;
+        }
+      } catch (e) {
+        // 继续尝试下一个候选或降级解析
+        console.warn(
+          '[EvaluationService] jsonrepair 解析失败:',
+          e instanceof Error ? e.message : String(e)
+        );
+      }
     }
 
-    // 降级：尝试文本解析提取分数
+    // 2. 降级：尝试文本解析提取分数
     const textResult = this.parseTextEvaluation(content, type, metadata);
     if (textResult) {
-      console.warn('[EvaluationService] JSON解析失败，使用文本解析:', parseErrors.join('; '));
+      console.warn('[EvaluationService] 使用文本降级解析');
       return textResult;
     }
 
-    // 完全解析失败：抛出错误而非返回默认值
+    // 完全解析失败：抛出错误
     throw new EvaluationParseError(
-      `无法解析评估结果。${parseErrors.join('; ')}。原始内容长度: ${content.length} 字符`
+      `无法解析评估结果。原始内容长度: ${content.length} 字符`
     );
   }
 
@@ -407,9 +435,22 @@ export class EvaluationService implements IEvaluationService {
       metadata,
     };
 
-    // 对比评估专属字段
+    // 对比评估专属字段：规范化 isOptimizedBetter 为 boolean 类型
     if (type === 'compare') {
-      response.isOptimizedBetter = data.isOptimizedBetter;
+      const rawValue = data.isOptimizedBetter;
+      if (typeof rawValue === 'boolean') {
+        response.isOptimizedBetter = rawValue;
+      } else if (typeof rawValue === 'string') {
+        // 处理字符串形式的 "true"/"false"
+        const lowerValue = rawValue.toLowerCase().trim();
+        if (lowerValue === 'true' || lowerValue === 'yes') {
+          response.isOptimizedBetter = true;
+        } else if (lowerValue === 'false' || lowerValue === 'no') {
+          response.isOptimizedBetter = false;
+        }
+        // 其他字符串值保持 undefined
+      }
+      // 其他类型（null, undefined, number 等）保持 undefined
     }
 
     return response;

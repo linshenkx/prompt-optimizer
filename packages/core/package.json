@@ -35,6 +35,7 @@
     "@types/mustache": "^4.2.5",
     "dexie": "^4.0.11",
     "diff": "^8.0.2",
+    "jsonrepair": "^3.13.1",
     "mustache": "^4.2.0",
     "openai": "^4.83.0",
     "uuid": "^11.0.5",

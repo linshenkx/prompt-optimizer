@@ -1703,18 +1703,8 @@ const handleIteratePrompt = (payload: any) => {
     optimizer.handleIteratePrompt(payload);
 };
 
-// 处理应用评估改进建议到迭代优化
-const handleApplyImprovement = (payload: { improvement: string; type: EvaluationType }) => {
-    const { improvement } = payload;
-
-    // 关闭评估面板
-    evaluation.closePanel();
-
-    // 打开迭代弹窗并预填充改进建议
-    if (promptPanelRef.value?.openIterateDialog) {
-        promptPanelRef.value.openIterateDialog(improvement);
-    }
-};
+// 处理应用评估改进建议到迭代优化（使用 evaluationHandler 工厂方法）
+const handleApplyImprovement = evaluationHandler.createApplyImprovementHandler(promptPanelRef);
 
 // 处理切换版本
 const handleSwitchVersion = (versionId: any) => {
