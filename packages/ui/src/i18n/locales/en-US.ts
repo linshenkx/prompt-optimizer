@@ -58,6 +58,8 @@ export default {
     iterate: "Iterate",
     system: "System",
     user: "User",
+    basic: "Basic",
+    context: "Context",
     copySuccess: "Copied to clipboard",
     copyFailed: "Copy Failed",
     appName: "Prompt Optimizer",
@@ -456,6 +458,8 @@ export default {
     contextTitle: "Optimization Context",
     contextDescription:
       "Provide conversation background for optimization to help AI better understand optimization goals",
+    enterPrompt: "Enter Prompt",
+    placeholder: "Enter the prompt you want to optimize...",
   },
   variables: {
     title: "Variable Manager",
@@ -1264,6 +1268,8 @@ export default {
       chainAutoRestored: "Optimization chain automatically restored from history",
       imageHistoryRestored: "Image history restored",
       conversationRestored: "Complete conversation restored from history",
+      imageFavoriteLoaded: "Favorite image prompt loaded",
+      favoriteLoaded: "Prompt loaded to input",
     },
     warn: {
       loadOptimizeTemplateFailed: "Failed to load saved optimization template",
@@ -1285,6 +1291,7 @@ export default {
       optimizationModeAutoSwitched:
         "Automatically switched to {mode} prompt optimization mode",
       switchedToImageMode: "Automatically switched to image mode",
+      switchedToFunctionMode: "Automatically switched to {mode} mode",
       multiTurnOptimizationPrompt: "Multi-turn conversation optimization ({count} messages)",
     },
   },

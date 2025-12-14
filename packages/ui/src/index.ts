@@ -102,6 +102,12 @@ export { default as ContextUserTestPanel } from "./components/context-mode/Conte
 export { default as ConversationTestPanel } from "./components/context-mode/ConversationTestPanel.vue";
 export { default as FunctionModelManagerUI } from "./components/FunctionModelManager.vue";
 
+// 基础模式组件
+export { BasicModeWorkspace } from "./components/basic-mode";
+
+// App 布局组件
+export { AppHeaderActions, AppCoreNav, PromptOptimizerApp } from "./components/app-layout";
+
 // 评估组件
 export { EvaluationPanel, EvaluateButton, EvaluationScoreBadge } from "./components/evaluation";
 

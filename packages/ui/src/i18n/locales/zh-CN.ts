@@ -1,4 +1,4 @@
-﻿const favoriteCategoriesMessages = {
+const favoriteCategoriesMessages = {
   default: {
     uncategorized: "未分类",
     uncategorizedDesc: "默认分类",
@@ -57,6 +57,8 @@ export default {
     iterate: "迭代",
     system: "系统",
     user: "用户",
+    basic: "基础",
+    context: "上下文",
     copySuccess: "复制成功",
     copyFailed: "复制失败",
     appName: "提示词优化器",
@@ -441,6 +443,8 @@ export default {
     contextHelp: "在高级模式下，您可以添加会话上下文来帮助AI更好地理解优化需求",
     contextTitle: "优化上下文",
     contextDescription: "为优化提供会话背景，帮助AI更好地理解优化目标",
+    enterPrompt: "输入提示词",
+    placeholder: "请输入需要优化的提示词...",
   },
   variables: {
     title: "变量管理",
@@ -1228,6 +1232,8 @@ export default {
       chainAutoRestored: "已从历史记录自动恢复优化链",
       imageHistoryRestored: "图像历史记录已恢复",
       conversationRestored: "已从历史记录恢复完整会话",
+      imageFavoriteLoaded: "收藏的图像提示词已加载",
+      favoriteLoaded: "已将提示词加载到输入框",
     },
     warn: {
       loadOptimizeTemplateFailed: "加载已保存的优化提示词失败",
@@ -1248,6 +1254,7 @@ export default {
       templateSelected: "选择模板",
       optimizationModeAutoSwitched: "已自动切换到{mode}提示词优化模式",
       switchedToImageMode: "已自动切换到图像模式",
+      switchedToFunctionMode: "已自动切换到{mode}模式",
       multiTurnOptimizationPrompt: "多轮对话优化（{count}条消息）",
     },
   },

@@ -4,8 +4,16 @@
 
 // 统一的消息结构
 export interface ConversationMessage {
+  /**
+   * 可选消息 ID（上下文/会话模式用于精确定位与历史恢复）
+   */
+  id?: string
   role: 'system' | 'user' | 'assistant' | 'tool'
   content: string  // 可包含变量语法 {{variableName}}
+  /**
+   * 可选原始内容（用于对比/历史恢复）
+   */
+  originalContent?: string
   name?: string
   tool_calls?: {
     id: string
