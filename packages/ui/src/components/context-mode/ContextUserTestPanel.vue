@@ -1,18 +1,5 @@
 <template>
     <NFlex vertical :style="{ height: '100%' }">
-        <!-- 测试内容输入区 (ContextUser专属，ConversationTestPanel没有这个) -->
-        <div :style="{ flexShrink: 0, marginBottom: '16px' }">
-            <TestInputSection
-                v-model="testContentProxy"
-                :label="t('test.content')"
-                :placeholder="t('test.simpleMode.placeholder')"
-                :disabled="isTestRunning"
-                :mode="inputMode"
-                :size="inputSize"
-                :enable-fullscreen="enableFullscreen"
-            />
-        </div>
-
         <!-- 变量值输入表单 -->
         <div
             v-if="showVariableForm"
@@ -228,7 +215,6 @@ import { useResponsive } from '../../composables/ui/useResponsive';
 import { usePerformanceMonitor } from "../../composables/performance/usePerformanceMonitor";
 import { useDebounceThrottle } from "../../composables/performance/useDebounceThrottle";
 import { useTestVariableManager } from "../../composables/variable/useTestVariableManager";
-import TestInputSection from "../TestInputSection.vue";
 import TestControlBar from "../TestControlBar.vue";
 import TestResultSection from "../TestResultSection.vue";
 
@@ -245,13 +231,9 @@ const {
     shouldUseVerticalLayout,
     shouldUseCompactMode,
     buttonSize,
-    inputSize,
 } = useResponsive();
 
 interface Props {
-    // 测试内容（ContextUser专属）
-    testContent: string;
-
     // 优化后的提示词（用于检测变量）
     optimizedPrompt?: string;
 
@@ -265,11 +247,7 @@ interface Props {
     predefinedVariables?: Record<string, string>;
     temporaryVariables?: Record<string, string>;
 
-    // 功能开关
-    enableFullscreen?: boolean;
-
     // 布局配置
-    inputMode?: "compact" | "normal";
     controlBarLayout?: "default" | "compact" | "minimal";
     buttonSize?: "small" | "medium" | "large";
     resultVerticalLayout?: boolean;
@@ -283,8 +261,6 @@ const props = withDefaults(defineProps<Props>(), {
     isTestRunning: false,
     isCompareMode: false,
     enableCompareMode: true,
-    enableFullscreen: true,
-    inputMode: "normal",
     controlBarLayout: "default",
     buttonSize: "medium",
     resultVerticalLayout: false,
@@ -295,7 +271,6 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-    "update:testContent": [value: string];
     "update:isCompareMode": [value: boolean];
     test: [testVariables: Record<string, string>];
     "compare-toggle": [];
@@ -305,15 +280,6 @@ const emit = defineEmits<{
     "temporary-variable-remove": [name: string];
     "temporary-variables-clear": [];
 }>();
-
-// 测试内容双向绑定
-const testContentProxy = computed({
-    get: () => props.testContent,
-    set: (value: string) => {
-        emit("update:testContent", value);
-        recordUpdate();
-    },
-});
 
 // 处理对比模式切换
 const handleCompareModeToggle = (value: boolean) => {
@@ -347,11 +313,9 @@ const primaryActionText = computed(() => {
         : t("test.startTest");
 });
 
-// 主要操作按钮禁用状态（纯业务逻辑，无模式判断）
+// 主要操作按钮禁用状态
 const primaryActionDisabled = computed(() => {
-    if (props.isTestRunning) return true;
-    if (!props.testContent.trim()) return true;  // 测试内容不能为空
-    return false;
+    return props.isTestRunning;
 });
 
 const handleTest = throttle(

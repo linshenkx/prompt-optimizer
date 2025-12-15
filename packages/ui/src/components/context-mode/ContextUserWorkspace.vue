@@ -143,8 +143,6 @@
             >
                 <ContextUserTestPanel
                     ref="testAreaPanelRef"
-                    :test-content="testContent"
-                    @update:testContent="emit('update:testContent', $event)"
                     :optimized-prompt="contextUserOptimization.optimizedPrompt"
                     :is-test-running="contextUserTester.testResults.isTestingOriginal || contextUserTester.testResults.isTestingOptimized"
                     :is-compare-mode="isCompareMode"
@@ -152,8 +150,6 @@
                     :global-variables="globalVariables"
                     :predefined-variables="predefinedVariables"
                     :temporary-variables="temporaryVariables"
-                    :enable-fullscreen="true"
-                    :input-mode="inputMode"
                     :control-bar-layout="controlBarLayout"
                     :button-size="buttonSize"
                     :result-vertical-layout="resultVerticalLayout"
@@ -294,8 +290,6 @@ interface Props {
     selectedIterateTemplate: Template | null;
 
     // --- 测试数据 ---
-    /** 测试输入内容 */
-    testContent: string;
     /** 是否启用对比模式 */
     isCompareMode: boolean;
     /** 是否正在执行测试（兼容性保留，实际由内部管理）*/
@@ -308,8 +302,6 @@ interface Props {
     predefinedVariables: Record<string, string>;
 
     // --- 响应式布局配置 ---
-    /** 输入模式 */
-    inputMode?: "compact" | "normal";
     /** 控制栏布局 */
     controlBarLayout?: "default" | "compact" | "minimal";
     /** 按钮尺寸 */
@@ -328,7 +320,6 @@ interface ContextUserHistoryPayload {
 
 const props = withDefaults(defineProps<Props>(), {
     isTestRunning: false,
-    inputMode: "normal",
     controlBarLayout: "default",
     buttonSize: "medium",
     conversationMaxHeight: 300,
@@ -341,7 +332,6 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
     // --- 数据更新事件 ---
     "update:selectedIterateTemplate": [value: Template | null];
-    "update:testContent": [value: string];
     "update:isCompareMode": [value: boolean];
 
     // --- 操作事件 ---
@@ -617,7 +607,6 @@ const handleTestWithVariables = async () => {
         await contextUserTester.executeTest(
             contextUserOptimization.prompt,
             contextUserOptimization.optimizedPrompt,
-            props.testContent,
             props.isCompareMode,
             testVariables
         );

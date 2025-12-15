@@ -32,7 +32,6 @@ export interface UseContextUserTester {
   executeTest: (
     prompt: string,
     optimizedPrompt: string,
-    testContent: string,
     isCompareMode: boolean,
     testVariables?: Record<string, string>
   ) => Promise<void>
@@ -64,7 +63,6 @@ export interface UseContextUserTester {
  * await contextUserTester.executeTest(
  *   prompt,
  *   optimizedPrompt,
- *   testContent,
  *   isCompareMode,
  *   testVariables
  * )
@@ -97,7 +95,6 @@ export function useContextUserTester(
     executeTest: async (
       prompt: string,
       optimizedPrompt: string,
-      testContent: string,
       isCompareMode: boolean,
       testVariables?: Record<string, string>
     ) => {
@@ -118,14 +115,12 @@ export function useContextUserTester(
             'original',
             prompt,
             optimizedPrompt,
-            testContent,
             testVariables
           ),
           state.testPromptWithType(
             'optimized',
             prompt,
             optimizedPrompt,
-            testContent,
             testVariables
           )
         ])
@@ -135,7 +130,6 @@ export function useContextUserTester(
           'optimized',
           prompt,
           optimizedPrompt,
-          testContent,
           testVariables
         )
       }
@@ -148,7 +142,6 @@ export function useContextUserTester(
       type: 'original' | 'optimized',
       prompt: string,
       optimizedPrompt: string,
-      testContent: string,
       testVars?: Record<string, string>
     ) => {
       const isOriginal = type === 'original'

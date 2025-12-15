@@ -283,8 +283,6 @@
                             @update:selectedIterateTemplate="
                                 optimizer.selectedIterateTemplate = $event
                             "
-                            :test-content="testContent"
-                            @update:testContent="testContent = $event"
                             :is-compare-mode="isCompareMode"
                             @update:isCompareMode="isCompareMode = $event"
                             :global-variables="
@@ -293,9 +291,6 @@
                             :predefined-variables="predefinedVariables"
                             @variable-change="handleTestPanelVariableChange"
                             @save-to-global="handleSaveToGlobal"
-                            :input-mode="
-                                responsiveLayout.recommendedInputMode.value
-                            "
                             :control-bar-layout="
                                 responsiveLayout.recommendedControlBarLayout
                                     .value
