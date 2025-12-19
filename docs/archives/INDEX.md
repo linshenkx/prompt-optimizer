@@ -82,6 +82,18 @@
   - 修复图像模式刷新后文件上传按钮不显示的bug
   - 建立完整的状态管理最佳实践和设计模式
 
+### 上下文模式（Pro）
+- **[127-multi-turn-dialogue-mode-optimization](./127-multi-turn-dialogue-mode-optimization/)** - 多轮对话模式优化 💬
+  - 基于消息 ID 的稳定选择与映射（避免索引漂移）
+  - messageChainMap（消息 → 工作链）复用策略与自动应用
+  - 多轮对话（Pro-System / Conversation）体验与实施记录
+
+### 上下文模式（UI/变量）
+- **[128-context-ui-and-variable-system-refactor](./128-context-ui-and-variable-system-refactor/)** - 上下文 UI 改造与变量系统重构 🧩
+  - 子模式选择器/快捷操作栏布局调整
+  - 变量系统简化：移除会话变量，引入测试区临时变量
+  - 任务计划、设计与实施记录归档
+
 ## 🔧 问题修复系列
 
 ### 存储与数据

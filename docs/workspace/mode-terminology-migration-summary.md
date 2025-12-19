@@ -2,7 +2,9 @@
 
 ## 📋 迁移概述
 
-本次迁移旨在统一项目中的模式术语，将过时的 `optimizationMode`、`contextMode`、`selectedOptimizationMode` 等表达对齐到最新的 `functionMode` 和 `subMode` 设计。
+本次迁移旨在统一项目中的模式术语，将过时或语义不清的 `optimizationMode`、`contextMode`、`selectedOptimizationMode` 等表达，逐步对齐到 `functionMode`（一级功能模式）与 `subMode`（二级子模式）的设计，并确保各模式的子模式状态独立持久化。
+
+说明：该文档保留在 `docs/workspace/` 作为“模式术语与迁移现状”的单点入口；其中的“待办/清理项”只保留仍然有效的内容，避免对过往实现阶段产生误导。
 
 ## 🎯 统一设计架构
 
@@ -29,6 +31,19 @@ useImageSubMode(services)  // 图像模式子模式
 useCurrentMode()           // { functionMode, proSubMode, isBasicMode, ... }
 ```
 
+## ✅ 当前实现现状（已落地）
+
+### 1) 主装配位置从 Web/Extension App.vue 收敛到 UI 主组件
+
+- `packages/web/src/App.vue`、`packages/extension/src/App.vue` 目前仅作为壳组件渲染 UI 主应用。
+- 真实的模式状态管理与装配已收敛到：
+  - `packages/ui/src/components/app-layout/PromptOptimizerApp.vue`
+
+### 2) 子模式持久化已实现，且 `selectedOptimizationMode` 已改为 computed（非独立状态源）
+
+- `PromptOptimizerApp.vue` 使用 `useFunctionMode` + `useBasicSubMode/useProSubMode/useImageSubMode` 管理状态，并做独立持久化。
+- `selectedOptimizationMode` 不再是独立 `ref`，而是从 subMode 推导的 `computed`（兼容旧接口/props 形态）。
+
 ## ✅ 已完成的迁移
 
 ### 1. Composables 参数统一
@@ -42,27 +57,19 @@ useCurrentMode()           // { functionMode, proSubMode, isBasicMode, ... }
 ### 3. 文档和注释更新
 - 为迁移的参数添加 @deprecated 标记
 - 更新 JSDoc 注释，说明统一使用 subMode 概念
-- 在 App.vue 中添加兼容性注释
+- 在 `PromptOptimizerApp.vue` 中保留必要的兼容性注释（以反映真实装配位置）
 
 ## 🔍 仍需迁移的区域
 
-### 高优先级
-1. **App.vue 中的 selectedOptimizationMode**
-   ```typescript
-   // 当前：仍使用独立的 selectedOptimizationMode ref
-   const selectedOptimizationMode = ref<OptimizationMode>("system");
+### 高优先级（清理与一致性）
+1. **逐步移除命名上的“误导”**
+   - `selectedOptimizationMode` 虽已是 computed，但命名仍容易让人误以为它是“用户选择的优化模式状态源”。
+   - 建议方向：
+     - 对外仍可维持 `optimizationMode` props（避免大范围破坏性改动）
+     - 内部逐步改为更准确的命名（例如 `currentOptimizationMode` / `derivedOptimizationMode`），并集中在 UI 层统一出口
 
-   // 建议：改为根据 functionMode 动态获取对应的 subMode
-   const currentSubMode = computed(() => {
-     if (functionMode.value === 'basic') return basicSubMode.value;
-     if (functionMode.value === 'pro') return proSubMode.value;
-     return 'system'; // 默认值
-   });
-   ```
-
-2. **模板中的变量名**
-   - 搜索所有 Vue 模板中的 `selectedOptimizationMode`
-   - 替换为对应的 `basicSubMode`/`proSubMode`
+2. **组件/模板中的旧名收敛**
+   - 将零散的 `optimizationMode/contextMode/selectedOptimizationMode` 相关命名逐步统一为“functionMode/subMode 派生值”的表达（不强求一次性替换，但要避免继续引入新旧混用）
 
 ### 中优先级
 3. **类型定义中的过时术语**
@@ -79,20 +86,10 @@ useCurrentMode()           // { functionMode, proSubMode, isBasicMode, ... }
 
 ## 🚀 迁移建议
 
-### 阶段 1: 核心逻辑迁移
-1. 在 App.vue 中移除独立的 `selectedOptimizationMode`
-2. 使用 `basicSubMode`/`proSubMode` 作为唯一切换源
-3. 更新所有事件处理器
-
-### 阶段 2: UI 组件迁移
-1. 更新所有接收 `selectedOptimizationMode` 的组件
-2. 改为接收对应的 subMode 或使用 `useCurrentMode()`
-3. 验证所有功能正常工作
-
-### 阶段 3: 清理和优化
-1. 移除所有 @deprecated 标记的代码
-2. 更新文档和示例
-3. 添加 ESLint 规则防止回退
+### 重点方向：以“不破坏行为”为前提做术语清理
+1. 将“状态源”限定为 `functionMode + 各自 subMode`（已完成）
+2. 将“对外接口/props”保持可用，同时逐步减少旧命名在内部传播（进行中）
+3. 等调用方与文档一致后，再移除 `@deprecated` 标记（后续清理）
 
 ## 📝 迁移检查清单
 
@@ -101,8 +98,8 @@ useCurrentMode()           // { functionMode, proSubMode, isBasicMode, ... }
 - [x] 更新 useContextManagement 接口
 - [x] 统一内部变量名
 - [x] 添加 @deprecated 标记
-- [ ] 重构 App.vue 中的模式管理
-- [ ] 更新所有 Vue 模板绑定
+- [x] 模式管理收敛到 PromptOptimizerApp（由 subMode 推导 optimizationMode）
+- [ ] 更新所有 Vue 模板/props 命名（逐步收敛，避免引入新旧混用）
 - [ ] 更新类型定义
 - [ ] 更新测试文件
 - [ ] 验证功能完整性
@@ -112,17 +109,18 @@ useCurrentMode()           // { functionMode, proSubMode, isBasicMode, ... }
 
 1. **术语统一**: 消除混淆，提高代码可读性
 2. **架构清晰**: 明确的层级关系（functionMode → subMode）
-3. **状态隔离**: 不同功能模式的子模式���立持久化
+3. **状态隔离**: 不同功能模式的子模式独立持久化
 4. **开发体验**: 统一的 API 和清晰的使用模式
 
 ## 🔗 相关文档
 
 - [功能模式设计文档](../archives/126-submode-persistence/README.md)
 - [模式管理 API](../../../packages/ui/src/composables/mode/index.ts)
-- [迁移最佳实践](../migration/)
+- [上下文 UI 改造与变量系统重构（归档）](../archives/128-context-ui-and-variable-system-refactor/README.md)
 
 ---
 
 **文档版本**: v1.0
 **创建时间**: 2025-10-31
-**维护者**: Claude & 用户
+**最近更新**: 2025-12-19
+**维护者**: 用户
