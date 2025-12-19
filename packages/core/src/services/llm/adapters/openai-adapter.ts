@@ -501,14 +501,21 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
    * 某些 OpenAI 兼容 API会强制返回流式响应
    */
   private isStreamResponse(response: any): boolean {
+    // 首先检查是否为标准的非流式响应格式
+    // 如果响应包含 choices 数组且第一个 choice 有 message 属性，则是非流式响应
+    if (response && response.choices && Array.isArray(response.choices) && response.choices.length > 0) {
+      const firstChoice = response.choices[0]
+      // 非流式响应有 message 属性，流式响应有 delta 属性
+      if (firstChoice && firstChoice.message !== undefined) {
+        return false
+      }
+    }
+
     // 检测是否为异步迭代器（流式响应的特征）
     if (response && typeof response[Symbol.asyncIterator] === 'function') {
       return true
     }
-    // 检测是否有 controller 属性（OpenAI SDK 流式响应的特征）
-    if (response && response.controller !== undefined) {
-      return true
-    }
+
     return false
   }
 
