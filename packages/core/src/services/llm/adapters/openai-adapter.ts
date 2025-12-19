@@ -449,15 +449,28 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     }
 
     try {
-      const response = await openai.chat.completions.create(completionConfig)
+      const response: any = await openai.chat.completions.create(completionConfig)
+
+      // 调试日志：输出响应类型和关键属性
+      console.log('[OpenAIAdapter] Response type:', typeof response)
+      console.log('[OpenAIAdapter] Response constructor:', response?.constructor?.name)
+      console.log('[OpenAIAdapter] Has asyncIterator:', typeof response?.[Symbol.asyncIterator] === 'function')
+      console.log('[OpenAIAdapter] Has choices:', !!response?.choices)
+      console.log('[OpenAIAdapter] Choices length:', response?.choices?.length)
+      if (response?.choices?.[0]) {
+        console.log('[OpenAIAdapter] First choice has message:', 'message' in response.choices[0])
+        console.log('[OpenAIAdapter] First choice has delta:', 'delta' in response.choices[0])
+      }
 
       // 检测是否为流式响应（某些 API 强制返回流式响应）
       if (this.isStreamResponse(response)) {
-        return await this.consumeStreamResponse(response as unknown as AsyncIterable<any>, config.modelMeta.id)
+        console.log('[OpenAIAdapter] Detected stream response, consuming...')
+        return await this.consumeStreamResponse(response as AsyncIterable<any>, config.modelMeta.id)
       }
 
       // 处理响应中的 reasoning_content 和普通 content
       if (!response.choices || response.choices.length === 0) {
+        console.error('[OpenAIAdapter] Invalid response - no choices:', JSON.stringify(response, null, 2).slice(0, 500))
         throw new Error('API 返回无效响应: choices 为空或不存在')
       }
 
