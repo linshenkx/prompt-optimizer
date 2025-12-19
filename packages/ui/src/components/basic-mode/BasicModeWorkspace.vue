@@ -30,18 +30,55 @@
                 height: '100%',
             }"
         >
-            <!-- 组件 A: InputPanelUI -->
+            <!-- 组件 A: InputPanelUI (可折叠) -->
             <NCard
                 data-input-panel
                 :style="{
                     flexShrink: 0,
-                    minHeight: '200px',
                 }"
             >
+                <!-- 折叠态：只显示标题栏 -->
+                <NFlex
+                    v-if="isInputPanelCollapsed"
+                    justify="space-between"
+                    align="center"
+                >
+                    <NFlex align="center" :size="8">
+                        <NText :depth="1" style="font-size: 18px; font-weight: 500">
+                            {{ t('promptOptimizer.originalPrompt') }}
+                        </NText>
+                        <NText
+                            v-if="prompt"
+                            depth="3"
+                            style="font-size: 12px;"
+                        >
+                            {{ promptSummary }}
+                        </NText>
+                    </NFlex>
+                    <NButton
+                        type="tertiary"
+                        size="small"
+                        ghost
+                        round
+                        @click="isInputPanelCollapsed = false"
+                        :title="t('common.expand')"
+                    >
+                        <template #icon>
+                            <NIcon>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </NIcon>
+                        </template>
+                    </NButton>
+                </NFlex>
+
+                <!-- 展开态：完整输入面板 -->
                 <InputPanelUI
+                    v-else
                     :model-value="prompt"
                     @update:model-value="emit('update:prompt', $event)"
-                    :label="t('promptOptimizer.enterPrompt')"
+                    :label="t('promptOptimizer.originalPrompt')"
                     :placeholder="t('promptOptimizer.placeholder')"
                     :model-label="t('promptOptimizer.optimizeModel')"
                     :template-label="t('promptOptimizer.templateLabel')"
@@ -62,6 +99,26 @@
                     <!-- 模板选择插槽 -->
                     <template #template-select>
                         <slot name="template-select"></slot>
+                    </template>
+
+                    <!-- 标题栏折叠按钮 -->
+                    <template #header-extra>
+                        <NButton
+                            type="tertiary"
+                            size="small"
+                            ghost
+                            round
+                            @click="isInputPanelCollapsed = true"
+                            :title="t('common.collapse')"
+                        >
+                            <template #icon>
+                                <NIcon>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
+                                    </svg>
+                                </NIcon>
+                            </template>
+                        </NButton>
                     </template>
                 </InputPanelUI>
             </NCard>
@@ -261,9 +318,9 @@
  * </BasicModeWorkspace>
  * ```
  */
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NCard, NFlex, NButton } from 'naive-ui'
+import { NCard, NFlex, NButton, NText, NIcon } from 'naive-ui'
 import InputPanelUI from '../InputPanel.vue'
 import PromptPanelUI from '../PromptPanel.vue'
 import TestAreaPanel from '../TestAreaPanel.vue'
@@ -480,6 +537,17 @@ const { t } = useI18n()
 // 组件引用
 const promptPanelRef = ref<PromptPanelInstance | null>(null)
 const testAreaPanelRef = ref<TestAreaPanelInstance | null>(null)
+
+// 输入区折叠状态（初始展开）
+const isInputPanelCollapsed = ref(false)
+
+// 提示词摘要（折叠态显示）
+const promptSummary = computed(() => {
+    if (!props.prompt) return ''
+    return props.prompt.length > 50
+        ? props.prompt.slice(0, 50) + '...'
+        : props.prompt
+})
 
 // ========================
 // 事件处理

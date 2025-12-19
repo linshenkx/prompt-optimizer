@@ -19,7 +19,44 @@
         >
             <!-- 输入控制区域 - 对齐InputPanel布局 -->
             <NCard :style="{ flexShrink: 0 }">
-                <NSpace vertical :size="16">
+                <!-- 折叠态：只显示标题栏 -->
+                <NFlex
+                    v-if="isInputPanelCollapsed"
+                    justify="space-between"
+                    align="center"
+                >
+                    <NFlex align="center" :size="8">
+                        <NText :depth="1" style="font-size: 18px; font-weight: 500">
+                            {{ t('imageWorkspace.input.originalPrompt') }}
+                        </NText>
+                        <NText
+                            v-if="originalPrompt"
+                            depth="3"
+                            style="font-size: 12px;"
+                        >
+                            {{ promptSummary }}
+                        </NText>
+                    </NFlex>
+                    <NButton
+                        type="tertiary"
+                        size="small"
+                        ghost
+                        round
+                        @click="isInputPanelCollapsed = false"
+                        :title="t('common.expand')"
+                    >
+                        <template #icon>
+                            <NIcon>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </NIcon>
+                        </template>
+                    </NButton>
+                </NFlex>
+
+                <!-- 展开态：完整输入面板 -->
+                <NSpace v-else vertical :size="16">
                     <!-- 标题区域 -->
                     <NFlex justify="space-between" align="center" :wrap="false">
                         <NText
@@ -53,6 +90,23 @@
                                                 stroke-linejoin="round"
                                                 d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
                                             />
+                                        </svg>
+                                    </NIcon>
+                                </template>
+                            </NButton>
+                            <!-- 折叠按钮 -->
+                            <NButton
+                                type="tertiary"
+                                size="small"
+                                ghost
+                                round
+                                @click="isInputPanelCollapsed = true"
+                                :title="t('common.collapse')"
+                            >
+                                <template #icon>
+                                    <NIcon>
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
                                         </svg>
                                     </NIcon>
                                 </template>
@@ -1128,6 +1182,17 @@ const {
 
 // PromptPanel 引用，用于在语言切换后刷新迭代模板选择
 const promptPanelRef = ref<InstanceType<typeof PromptPanelUI> | null>(null);
+
+// 输入区折叠状态（初始展开）
+const isInputPanelCollapsed = ref(false);
+
+// 提示词摘要（折叠态显示）
+const promptSummary = computed(() => {
+    if (!originalPrompt.value) return '';
+    return originalPrompt.value.length > 50
+        ? originalPrompt.value.slice(0, 50) + '...'
+        : originalPrompt.value;
+});
 
 // 注入 App 层统一的 openTemplateManager / openModelManager / handleSaveFavorite 接口
 type TemplateEntryType =

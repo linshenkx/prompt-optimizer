@@ -23,11 +23,49 @@
             :size="12"
             style="flex: 1; height: 100%; overflow: auto"
         >
-            <!-- 提示词输入面板 -->
-            <NCard style="flex-shrink: 0; min-height: 200px">
+            <!-- 提示词输入面板 (可折叠) -->
+            <NCard style="flex-shrink: 0;">
+                <!-- 折叠态：只显示标题栏 -->
+                <NFlex
+                    v-if="isInputPanelCollapsed"
+                    justify="space-between"
+                    align="center"
+                >
+                    <NFlex align="center" :size="8">
+                        <NText :depth="1" style="font-size: 18px; font-weight: 500">
+                            {{ t('promptOptimizer.originalPrompt') }}
+                        </NText>
+                        <NText
+                            v-if="contextUserOptimization.prompt"
+                            depth="3"
+                            style="font-size: 12px;"
+                        >
+                            {{ promptSummary }}
+                        </NText>
+                    </NFlex>
+                    <NButton
+                        type="tertiary"
+                        size="small"
+                        ghost
+                        round
+                        @click="isInputPanelCollapsed = false"
+                        :title="t('common.expand')"
+                    >
+                        <template #icon>
+                            <NIcon>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </NIcon>
+                        </template>
+                    </NButton>
+                </NFlex>
+
+                <!-- 展开态：完整输入面板 -->
                 <InputPanelUI
+                    v-else
                     v-model="contextUserOptimization.prompt"
-                    :label="t('promptOptimizer.userPromptInput')"
+                    :label="t('promptOptimizer.originalPrompt')"
                     :placeholder="t('promptOptimizer.userPromptPlaceholder')"
                     :help-text="variableGuideInlineHint"
                     :model-label="t('promptOptimizer.optimizeModel')"
@@ -58,6 +96,26 @@
                     <!-- 模板选择插槽 -->
                     <template #template-select>
                         <slot name="template-select"></slot>
+                    </template>
+
+                    <!-- 标题栏折叠按钮 -->
+                    <template #header-extra>
+                        <NButton
+                            type="tertiary"
+                            size="small"
+                            ghost
+                            round
+                            @click="isInputPanelCollapsed = true"
+                            :title="t('common.collapse')"
+                        >
+                            <template #icon>
+                                <NIcon>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
+                                    </svg>
+                                </NIcon>
+                            </template>
+                        </NButton>
                     </template>
                 </InputPanelUI>
             </NCard>
@@ -227,7 +285,7 @@
 import { ref, computed, inject, type Ref } from 'vue'
 
 import { useI18n } from "vue-i18n";
-import { NCard, NFlex } from "naive-ui";
+import { NCard, NFlex, NText, NIcon, NButton } from "naive-ui";
 import InputPanelUI from "../InputPanel.vue";
 import PromptPanelUI from "../PromptPanel.vue";
 import ContextUserTestPanel from "./ContextUserTestPanel.vue";
@@ -359,6 +417,10 @@ const variableManager = inject<VariableManagerHooks | null>('variableManager');
 // ========================
 // 内部状态管理
 // ========================
+
+// 输入区折叠状态（初始展开）
+const isInputPanelCollapsed = ref(false);
+
 /** 🆕 使用全局临时变量管理器 (从文本提取的变量,仅当前会话有效) */
 const tempVarsManager = useTemporaryVariables();
 const temporaryVariables = tempVarsManager.temporaryVariables;
@@ -370,6 +432,15 @@ const contextUserOptimization = useContextUserOptimization(
     computed(() => props.selectedTemplate),
     computed(() => props.selectedIterateTemplate)
 );
+
+// 提示词摘要（折叠态显示）
+const promptSummary = computed(() => {
+    const prompt = contextUserOptimization.prompt;
+    if (!prompt) return '';
+    return prompt.length > 50
+        ? prompt.slice(0, 50) + '...'
+        : prompt;
+});
 
 // 🆕 初始化 ContextUser 专属测试器
 const contextUserTester = useContextUserTester(

@@ -106,6 +106,8 @@
                         </NIcon>
                     </template>
                 </NButton>
+                <!-- 标题栏额外按钮插槽 -->
+                <slot name="header-extra"></slot>
             </NFlex>
         </NFlex>
 
