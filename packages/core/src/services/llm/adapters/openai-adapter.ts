@@ -451,26 +451,18 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     try {
       const response: any = await openai.chat.completions.create(completionConfig)
 
-      // 调试日志：输出响应类型和关键属性
-      console.log('[OpenAIAdapter] Response type:', typeof response)
-      console.log('[OpenAIAdapter] Response constructor:', response?.constructor?.name)
-      console.log('[OpenAIAdapter] Has asyncIterator:', typeof response?.[Symbol.asyncIterator] === 'function')
-      console.log('[OpenAIAdapter] Has choices:', !!response?.choices)
-      console.log('[OpenAIAdapter] Choices length:', response?.choices?.length)
-      if (response?.choices?.[0]) {
-        console.log('[OpenAIAdapter] First choice has message:', 'message' in response.choices[0])
-        console.log('[OpenAIAdapter] First choice has delta:', 'delta' in response.choices[0])
+      // 处理原始 SSE 字符串响应（某些 API 返回未解析的 SSE 格式）
+      if (typeof response === 'string') {
+        return this.parseSSEResponse(response, config.modelMeta.id)
       }
 
       // 检测是否为流式响应（某些 API 强制返回流式响应）
       if (this.isStreamResponse(response)) {
-        console.log('[OpenAIAdapter] Detected stream response, consuming...')
         return await this.consumeStreamResponse(response as AsyncIterable<any>, config.modelMeta.id)
       }
 
       // 处理响应中的 reasoning_content 和普通 content
       if (!response.choices || response.choices.length === 0) {
-        console.error('[OpenAIAdapter] Invalid response - no choices:', JSON.stringify(response, null, 2).slice(0, 500))
         throw new Error('API 返回无效响应: choices 为空或不存在')
       }
 
@@ -506,6 +498,65 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     } catch (error) {
       console.error('[OpenAIAdapter] API call failed:', error)
       throw error // 保留原始错误堆栈，不包装
+    }
+  }
+
+  /**
+   * 解析原始 SSE 字符串响应
+   * 某些 OpenAI 兼容 API 会返回未解析的 SSE 格式字符串
+   */
+  private parseSSEResponse(sseString: string, modelId: string): LLMResponse {
+    let accumulatedContent = ''
+    let accumulatedReasoning = ''
+    let finishReason: string | undefined
+
+    // 按行分割 SSE 数据
+    const lines = sseString.split('\n')
+
+    for (const line of lines) {
+      // 跳过空行和 [DONE] 标记
+      if (!line.trim() || line.trim() === 'data: [DONE]') {
+        continue
+      }
+
+      // 解析 data: 前缀的行
+      if (line.startsWith('data: ')) {
+        const jsonStr = line.slice(6) // 移除 'data: ' 前缀
+        try {
+          const chunk = JSON.parse(jsonStr)
+
+          // 处理推理内容
+          const reasoningContent = chunk.choices?.[0]?.delta?.reasoning_content || ''
+          if (reasoningContent) {
+            accumulatedReasoning += reasoningContent
+          }
+
+          // 处理主要内容
+          const content = chunk.choices?.[0]?.delta?.content || ''
+          if (content) {
+            accumulatedContent += content
+          }
+
+          // 记录完成原因
+          if (chunk.choices?.[0]?.finish_reason && chunk.choices[0].finish_reason !== '') {
+            finishReason = chunk.choices[0].finish_reason
+          }
+        } catch (e) {
+          // 忽略无法解析的 chunk
+        }
+      }
+    }
+
+    // 处理 think 标签
+    const processed = this.processThinkTags(accumulatedContent)
+
+    return {
+      content: processed.content,
+      reasoning: accumulatedReasoning || processed.reasoning || undefined,
+      metadata: {
+        model: modelId,
+        finishReason
+      }
     }
   }
 
