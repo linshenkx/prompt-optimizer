@@ -514,14 +514,24 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     const lines = sseString.split('\n')
 
     for (const line of lines) {
-      // 跳过空行和 [DONE] 标记
-      if (!line.trim() || line.trim() === 'data: [DONE]') {
+      const trimmed = line.trim()
+
+      // 跳过空行
+      if (!trimmed) {
         continue
       }
 
-      // 解析 data: 前缀的行
-      if (line.startsWith('data: ')) {
-        const jsonStr = line.slice(6) // 移除 'data: ' 前缀
+      // 跳过 [DONE] 标记（兼容 data: [DONE] 和 data:[DONE]）
+      if (trimmed === 'data: [DONE]' || trimmed === 'data:[DONE]') {
+        continue
+      }
+
+      // 解析 data: 前缀的行（兼容有无空格：data: 或 data:）
+      if (trimmed.startsWith('data:')) {
+        const jsonStr = trimmed.slice(5).trimStart() // 移除 'data:' 前缀和可能的前导空格
+        if (!jsonStr) {
+          continue
+        }
         try {
           const chunk = JSON.parse(jsonStr)
 
@@ -545,6 +555,33 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
           // 忽略无法解析的 chunk
         }
       }
+    }
+
+    // 兜底：如果 SSE 解析未得到任何内容，尝试直接解析为 JSON
+    if (!accumulatedContent && !accumulatedReasoning) {
+      try {
+        const fallbackJson = JSON.parse(sseString)
+        // 尝试提取标准 OpenAI 响应格式
+        const fallbackContent = fallbackJson.choices?.[0]?.message?.content || ''
+        const fallbackReasoning = fallbackJson.choices?.[0]?.message?.reasoning_content || ''
+        if (fallbackContent || fallbackReasoning) {
+          const processed = this.processThinkTags(fallbackContent)
+          return {
+            content: processed.content,
+            reasoning: fallbackReasoning || processed.reasoning || undefined,
+            metadata: {
+              model: modelId,
+              finishReason: fallbackJson.choices?.[0]?.finish_reason
+            }
+          }
+        }
+      } catch {
+        // JSON 解析失败，继续抛出错误
+      }
+      // SSE 和 JSON 解析都失败，抛出明确错误
+      throw new Error(
+        `SSE 响应解析失败：未能从响应中提取任何内容。响应前 200 字符：${sseString.slice(0, 200)}`
+      )
     }
 
     // 处理 think 标签
