@@ -449,9 +449,23 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     }
 
     try {
-      const response = await openai.chat.completions.create(completionConfig)
+      const response: any = await openai.chat.completions.create(completionConfig)
+
+      // 处理原始 SSE 字符串响应（某些 API 返回未解析的 SSE 格式）
+      if (typeof response === 'string') {
+        return this.parseSSEResponse(response, config.modelMeta.id)
+      }
+
+      // 检测是否为流式响应（某些 API 强制返回流式响应）
+      if (this.isStreamResponse(response)) {
+        return await this.consumeStreamResponse(response as AsyncIterable<any>, config.modelMeta.id)
+      }
 
       // 处理响应中的 reasoning_content 和普通 content
+      if (!response.choices || response.choices.length === 0) {
+        throw new Error('API 返回无效响应: choices 为空或不存在')
+      }
+
       const choice = response.choices[0]
       if (!choice?.message) {
         throw new Error('未收到有效的响应')
@@ -484,6 +498,129 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     } catch (error) {
       console.error('[OpenAIAdapter] API call failed:', error)
       throw error // 保留原始错误堆栈，不包装
+    }
+  }
+
+  /**
+   * 解析原始 SSE 字符串响应
+   * 某些 OpenAI 兼容 API 会返回未解析的 SSE 格式字符串
+   */
+  private parseSSEResponse(sseString: string, modelId: string): LLMResponse {
+    let accumulatedContent = ''
+    let accumulatedReasoning = ''
+    let finishReason: string | undefined
+
+    // 按行分割 SSE 数据
+    const lines = sseString.split('\n')
+
+    for (const line of lines) {
+      // 跳过空行和 [DONE] 标记
+      if (!line.trim() || line.trim() === 'data: [DONE]') {
+        continue
+      }
+
+      // 解析 data: 前缀的行
+      if (line.startsWith('data: ')) {
+        const jsonStr = line.slice(6) // 移除 'data: ' 前缀
+        try {
+          const chunk = JSON.parse(jsonStr)
+
+          // 处理推理内容
+          const reasoningContent = chunk.choices?.[0]?.delta?.reasoning_content || ''
+          if (reasoningContent) {
+            accumulatedReasoning += reasoningContent
+          }
+
+          // 处理主要内容
+          const content = chunk.choices?.[0]?.delta?.content || ''
+          if (content) {
+            accumulatedContent += content
+          }
+
+          // 记录完成原因
+          if (chunk.choices?.[0]?.finish_reason && chunk.choices[0].finish_reason !== '') {
+            finishReason = chunk.choices[0].finish_reason
+          }
+        } catch (e) {
+          // 忽略无法解析的 chunk
+        }
+      }
+    }
+
+    // 处理 think 标签
+    const processed = this.processThinkTags(accumulatedContent)
+
+    return {
+      content: processed.content,
+      reasoning: accumulatedReasoning || processed.reasoning || undefined,
+      metadata: {
+        model: modelId,
+        finishReason
+      }
+    }
+  }
+
+  /**
+   * 检测响应是否为流式响应
+   * 某些 OpenAI 兼容 API会强制返回流式响应
+   */
+  private isStreamResponse(response: any): boolean {
+    // 首先检查是否为标准的非流式响应格式
+    // 如果响应包含 choices 数组且第一个 choice 有 message 属性，则是非流式响应
+    if (response && response.choices && Array.isArray(response.choices) && response.choices.length > 0) {
+      const firstChoice = response.choices[0]
+      // 非流式响应有 message 属性，流式响应有 delta 属性
+      if (firstChoice && firstChoice.message !== undefined) {
+        return false
+      }
+    }
+
+    // 检测是否为异步迭代器（流式响应的特征）
+    if (response && typeof response[Symbol.asyncIterator] === 'function') {
+      return true
+    }
+
+    return false
+  }
+
+  /**
+   * 消费流式响应并聚合为完整响应
+   * 用于处理强制返回流式响应的 API
+   */
+  private async consumeStreamResponse(stream: AsyncIterable<any>, modelId: string): Promise<LLMResponse> {
+    let accumulatedContent = ''
+    let accumulatedReasoning = ''
+    let finishReason: string | undefined
+
+    for await (const chunk of stream) {
+      // 处理推理内容
+      const reasoningContent = chunk.choices?.[0]?.delta?.reasoning_content || ''
+      if (reasoningContent) {
+        accumulatedReasoning += reasoningContent
+      }
+
+      // 处理主要内容
+      const content = chunk.choices?.[0]?.delta?.content || ''
+      if (content) {
+        accumulatedContent += content
+      }
+
+      // 记录完成原因
+      if (chunk.choices?.[0]?.finish_reason) {
+        finishReason = chunk.choices[0].finish_reason
+      }
+    }
+
+    // 处理 think 标签
+    const processed = this.processThinkTags(accumulatedContent)
+
+    return {
+      content: processed.content,
+      reasoning: accumulatedReasoning || processed.reasoning || undefined,
+      metadata: {
+        model: modelId,
+        finishReason
+      }
     }
   }
 
