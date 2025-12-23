@@ -12,6 +12,8 @@ export * from './useContextUserTester'  // 🆕 ContextUser 测试器
 export * from './usePromptDisplayAdapter'  // 🆕 提示词显示适配器
 export * from './useEvaluation'  // 🆕 LLM 智能评估
 export * from './useEvaluationHandler'  // 🆕 评估处理器（封装业务逻辑）
+export * from './useEvaluationContext'  // 🆕 评估上下文 (provide/inject)
+export * from './useProContext'  // 🆕 Pro 模式上下文 (provide/inject)
 
 // 变量管理相关 composables
 export * from '../variable'

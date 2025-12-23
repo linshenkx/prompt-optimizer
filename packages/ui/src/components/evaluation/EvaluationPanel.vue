@@ -190,6 +190,10 @@ const panelTitle = computed(() => {
       return t('evaluation.title.optimized')
     case 'compare':
       return t('evaluation.title.compare')
+    case 'prompt-only':
+      return t('evaluation.title.promptOnly')
+    case 'prompt-iterate':
+      return t('evaluation.title.promptIterate')
     default:
       return t('evaluation.title.default')
   }

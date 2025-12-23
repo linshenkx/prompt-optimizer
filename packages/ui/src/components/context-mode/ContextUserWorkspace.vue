@@ -160,6 +160,7 @@
                     @switchToV0="handleSwitchToV0"
                     @save-favorite="emit('save-favorite', $event)"
                     @open-preview="emit('open-prompt-preview')"
+                    @apply-improvement="handleApplyImprovement"
                 />
             </NCard>
         </NFlex>
@@ -243,13 +244,7 @@
             </template>
         </ContextUserTestPanel>
 
-        <!-- 🆕 评估详情面板 -->
-        <EvaluationPanel
-            v-bind="evaluationHandler.panelProps.value"
-            @close="evaluationHandler.evaluation.closePanel"
-            @re-evaluate="evaluationHandler.handleReEvaluate"
-            @apply-improvement="handleApplyImprovement"
-        />
+        <!-- 评估详情面板已移至 App 顶层统一管理，避免双套 evaluation 实例导致行为不一致 -->
     </NFlex>
 </template>
 
@@ -290,7 +285,6 @@ import InputPanelUI from "../InputPanel.vue";
 import PromptPanelUI from "../PromptPanel.vue";
 import ContextUserTestPanel from "./ContextUserTestPanel.vue";
 import OutputDisplay from "../OutputDisplay.vue";
-import { EvaluationPanel } from "../evaluation";
 import type { OptimizationMode } from "../../types";
 import type {
     PromptRecord,
@@ -305,7 +299,7 @@ import type { VariableManagerHooks } from '../../composables/prompt/useVariableM
 import { useTemporaryVariables } from "../../composables/variable/useTemporaryVariables";
 import { useContextUserOptimization } from '../../composables/prompt/useContextUserOptimization';
 import { useContextUserTester } from '../../composables/prompt/useContextUserTester';
-import { useEvaluationHandler } from '../../composables/prompt/useEvaluationHandler';
+import { useEvaluationHandler, provideProContext, useEvaluationContext } from '../../composables/prompt';
 
 // ========================
 // Props 定义
@@ -522,13 +516,28 @@ const proContext = computed<ProUserEvaluationContext | undefined>(() => {
     };
 });
 
+// 🆕 提供 Pro 模式上下文给子组件（如 PromptPanel），用于评估时传递变量解析上下文
+provideProContext(proContext);
+
+// 🆕 获取全局评估实例（由 App 层 provideEvaluation 注入）
+const globalEvaluation = useEvaluationContext();
+
 // 🆕 测试结果数据
 const testResultsData = computed(() => ({
     originalResult: contextUserTester.testResults.originalResult || undefined,
     optimizedResult: contextUserTester.testResults.optimizedResult || undefined,
 }));
 
-// 🆕 初始化评估处理器
+// 🆕 计算当前迭代需求（用于 prompt-iterate 的 re-evaluate）
+const currentIterateRequirement = computed(() => {
+    const versions = contextUserOptimization.currentVersions;
+    const versionId = contextUserOptimization.currentVersionId;
+    if (!versions || versions.length === 0 || !versionId) return '';
+    const currentVersion = versions.find((v) => v.id === versionId);
+    return currentVersion?.iterationNote || '';
+});
+
+// 🆕 初始化评估处理器（使用全局 evaluation 实例，避免双套状态）
 const evaluationHandler = useEvaluationHandler({
     services: services || ref(null),
     originalPrompt: computed(() => contextUserOptimization.prompt),
@@ -539,6 +548,8 @@ const evaluationHandler = useEvaluationHandler({
     functionMode: computed(() => 'pro'),
     subMode: computed(() => 'user'),
     proContext,
+    currentIterateRequirement,
+    externalEvaluation: globalEvaluation,
 });
 
 // ========================
@@ -771,6 +782,12 @@ const handleApplyImprovement = evaluationHandler.createApplyImprovementHandler(p
 // 暴露 TestAreaPanel 引用给父组件（用于工具调用等高级功能）
 defineExpose({
     testAreaPanelRef,
-    restoreFromHistory
+    restoreFromHistory,
+    openIterateDialog: (initialContent?: string) => {
+        promptPanelRef.value?.openIterateDialog?.(initialContent);
+    },
+    reEvaluateActive: async () => {
+        await evaluationHandler.handleReEvaluate();
+    },
 });
 </script>

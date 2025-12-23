@@ -18,9 +18,12 @@ import type { AppServices } from '../../types/services'
 import type {
   EvaluationType,
   EvaluationResponse,
+  EvaluationRequest,
   OriginalEvaluationRequest,
   OptimizedEvaluationRequest,
   CompareEvaluationRequest,
+  PromptOnlyEvaluationRequest,
+  PromptIterateEvaluationRequest,
   EvaluationModeConfig,
   EvaluationSubMode,
   ProEvaluationContext,
@@ -53,6 +56,10 @@ export interface TypedEvaluationState {
   optimized: SingleEvaluationState
   /** 对比评估状态 */
   compare: SingleEvaluationState
+  /** 仅提示词评估状态（无需测试结果） */
+  'prompt-only': SingleEvaluationState
+  /** 带迭代需求的提示词评估状态 */
+  'prompt-iterate': SingleEvaluationState
   /** 当前查看详情的类型 */
   activeDetailType: EvaluationType | null
 }
@@ -112,6 +119,26 @@ export interface UseEvaluationReturn {
   /** 优化后是否更好 */
   isOptimizedBetter: ComputedRef<boolean | null>
 
+  // ===== 仅提示词评估相关 =====
+  /** 仅提示词评估分数 */
+  promptOnlyScore: ComputedRef<number | null>
+  /** 仅提示词评估等级 */
+  promptOnlyLevel: ComputedRef<ScoreLevel | null>
+  /** 是否正在仅提示词评估 */
+  isEvaluatingPromptOnly: ComputedRef<boolean>
+  /** 是否有仅提示词评估结果 */
+  hasPromptOnlyResult: ComputedRef<boolean>
+
+  // ===== 迭代提示词评估相关 =====
+  /** 迭代提示词评估分数 */
+  promptIterateScore: ComputedRef<number | null>
+  /** 迭代提示词评估等级 */
+  promptIterateLevel: ComputedRef<ScoreLevel | null>
+  /** 是否正在迭代提示词评估 */
+  isEvaluatingPromptIterate: ComputedRef<boolean>
+  /** 是否有迭代提示词评估结果 */
+  hasPromptIterateResult: ComputedRef<boolean>
+
   // ===== 通用计算属性 =====
   /** 是否有任何评估正在进行 */
   isAnyEvaluating: ComputedRef<boolean>
@@ -147,6 +174,19 @@ export interface UseEvaluationReturn {
     testContent?: string
     originalTestResult: string
     optimizedTestResult: string
+    proContext?: ProEvaluationContext
+  }) => Promise<void>
+  /** 仅提示词评估（无需测试结果） */
+  evaluatePromptOnly: (params: {
+    originalPrompt: string
+    optimizedPrompt: string
+    proContext?: ProEvaluationContext
+  }) => Promise<void>
+  /** 带迭代需求的提示词评估 */
+  evaluatePromptIterate: (params: {
+    originalPrompt: string
+    optimizedPrompt: string
+    iterateRequirement: string
     proContext?: ProEvaluationContext
   }) => Promise<void>
 
@@ -214,6 +254,8 @@ export function useEvaluation(
     original: createInitialSingleState(),
     optimized: createInitialSingleState(),
     compare: createInitialSingleState(),
+    'prompt-only': createInitialSingleState(),
+    'prompt-iterate': createInitialSingleState(),
     activeDetailType: null,
   })
 
@@ -236,11 +278,25 @@ export function useEvaluation(
   const hasCompareResult = computed(() => state.compare.result !== null)
   const isOptimizedBetter = computed(() => state.compare.result?.isOptimizedBetter ?? null)
 
+  // ===== 仅提示词评估计算属性 =====
+  const promptOnlyScore = computed(() => state['prompt-only'].result?.score?.overall ?? null)
+  const promptOnlyLevel = computed(() => calculateScoreLevel(promptOnlyScore.value))
+  const isEvaluatingPromptOnly = computed(() => state['prompt-only'].isEvaluating)
+  const hasPromptOnlyResult = computed(() => state['prompt-only'].result !== null)
+
+  // ===== 迭代提示词评估计算属性 =====
+  const promptIterateScore = computed(() => state['prompt-iterate'].result?.score?.overall ?? null)
+  const promptIterateLevel = computed(() => calculateScoreLevel(promptIterateScore.value))
+  const isEvaluatingPromptIterate = computed(() => state['prompt-iterate'].isEvaluating)
+  const hasPromptIterateResult = computed(() => state['prompt-iterate'].result !== null)
+
   // ===== 通用计算属性 =====
   const isAnyEvaluating = computed(() =>
     state.original.isEvaluating ||
     state.optimized.isEvaluating ||
-    state.compare.isEvaluating
+    state.compare.isEvaluating ||
+    state['prompt-only'].isEvaluating ||
+    state['prompt-iterate'].isEvaluating
   )
 
   const activeResult = computed(() => {
@@ -318,7 +374,7 @@ export function useEvaluation(
    */
   const executeEvaluation = async (
     type: EvaluationType,
-    request: OriginalEvaluationRequest | OptimizedEvaluationRequest | CompareEvaluationRequest,
+    request: EvaluationRequest,
     openPanel: boolean = true
   ): Promise<void> => {
     const evaluationService = services.value?.evaluationService
@@ -436,6 +492,48 @@ export function useEvaluation(
   }
 
   /**
+   * 仅提示词评估（无需测试结果）
+   */
+  const evaluatePromptOnly = async (params: {
+    originalPrompt: string
+    optimizedPrompt: string
+    proContext?: ProEvaluationContext
+  }): Promise<void> => {
+    const request: PromptOnlyEvaluationRequest = {
+      type: 'prompt-only',
+      originalPrompt: params.originalPrompt,
+      optimizedPrompt: params.optimizedPrompt,
+      evaluationModelKey: await getModelKey(),
+      variables: { language: getLanguage() },
+      mode: getModeConfig(),
+      proContext: params.proContext,
+    }
+    await executeEvaluation('prompt-only', request)
+  }
+
+  /**
+   * 带迭代需求的提示词评估
+   */
+  const evaluatePromptIterate = async (params: {
+    originalPrompt: string
+    optimizedPrompt: string
+    iterateRequirement: string
+    proContext?: ProEvaluationContext
+  }): Promise<void> => {
+    const request: PromptIterateEvaluationRequest = {
+      type: 'prompt-iterate',
+      originalPrompt: params.originalPrompt,
+      optimizedPrompt: params.optimizedPrompt,
+      iterateRequirement: params.iterateRequirement,
+      evaluationModelKey: await getModelKey(),
+      variables: { language: getLanguage() },
+      mode: getModeConfig(),
+      proContext: params.proContext,
+    }
+    await executeEvaluation('prompt-iterate', request)
+  }
+
+  /**
    * 清除指定类型的评估结果
    */
   const clearResult = (type: EvaluationType): void => {
@@ -458,6 +556,8 @@ export function useEvaluation(
     clearResult('original')
     clearResult('optimized')
     clearResult('compare')
+    clearResult('prompt-only')
+    clearResult('prompt-iterate')
   }
 
   /**
@@ -505,6 +605,18 @@ export function useEvaluation(
     hasCompareResult,
     isOptimizedBetter,
 
+    // 仅提示词评估
+    promptOnlyScore,
+    promptOnlyLevel,
+    isEvaluatingPromptOnly,
+    hasPromptOnlyResult,
+
+    // 迭代提示词评估
+    promptIterateScore,
+    promptIterateLevel,
+    isEvaluatingPromptIterate,
+    hasPromptIterateResult,
+
     // 通用
     isAnyEvaluating,
     activeResult,
@@ -516,10 +628,13 @@ export function useEvaluation(
     evaluateOriginal,
     evaluateOptimized,
     evaluateCompare,
+    evaluatePromptOnly,
+    evaluatePromptIterate,
     clearResult,
     clearAllResults,
     showDetail,
     closePanel,
     getScoreLevel,
+
   }
 }

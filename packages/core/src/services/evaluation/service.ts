@@ -158,54 +158,71 @@ export class EvaluationService implements IEvaluationService {
    */
   private validateRequest(request: EvaluationRequest): void {
     if (!request.originalPrompt?.trim()) {
-      throw new EvaluationValidationError('原始提示词不能为空');
+      throw new EvaluationValidationError('Original prompt must not be empty.');
     }
 
     if (!request.evaluationModelKey?.trim()) {
-      throw new EvaluationValidationError('评估模型Key不能为空');
+      throw new EvaluationValidationError('Evaluation model key must not be empty.');
     }
 
     // 验证模式配置
     if (!request.mode) {
-      throw new EvaluationValidationError('评估模式配置不能为空');
+      throw new EvaluationValidationError('Evaluation mode configuration must not be empty.');
     }
     if (!request.mode.functionMode) {
-      throw new EvaluationValidationError('功能模式不能为空');
+      throw new EvaluationValidationError('Function mode must not be empty.');
     }
     if (!request.mode.subMode) {
-      throw new EvaluationValidationError('子模式不能为空');
+      throw new EvaluationValidationError('Sub mode must not be empty.');
     }
 
     switch (request.type) {
       case 'original':
         if (!request.testResult?.trim()) {
-          throw new EvaluationValidationError('测试结果不能为空');
+          throw new EvaluationValidationError('Test result must not be empty.');
         }
         break;
 
       case 'optimized':
         if (!request.optimizedPrompt?.trim()) {
-          throw new EvaluationValidationError('优化后的提示词不能为空');
+          throw new EvaluationValidationError('Optimized prompt must not be empty.');
         }
         if (!request.testResult?.trim()) {
-          throw new EvaluationValidationError('测试结果不能为空');
+          throw new EvaluationValidationError('Test result must not be empty.');
         }
         break;
 
       case 'compare':
         if (!request.optimizedPrompt?.trim()) {
-          throw new EvaluationValidationError('优化后的提示词不能为空');
+          throw new EvaluationValidationError('Optimized prompt must not be empty.');
         }
         if (!request.originalTestResult?.trim()) {
-          throw new EvaluationValidationError('原始测试结果不能为空');
+          throw new EvaluationValidationError('Original test result must not be empty.');
         }
         if (!request.optimizedTestResult?.trim()) {
-          throw new EvaluationValidationError('优化后测试结果不能为空');
+          throw new EvaluationValidationError('Optimized test result must not be empty.');
+        }
+        break;
+
+      case 'prompt-only':
+        // 仅提示词评估，不需要测试结果
+        if (!request.optimizedPrompt?.trim()) {
+          throw new EvaluationValidationError('Optimized prompt must not be empty.');
+        }
+        break;
+
+      case 'prompt-iterate':
+        // 带迭代需求的提示词评估
+        if (!request.optimizedPrompt?.trim()) {
+          throw new EvaluationValidationError('Optimized prompt must not be empty.');
+        }
+        if (!request.iterateRequirement?.trim()) {
+          throw new EvaluationValidationError('Iteration requirement must not be empty.');
         }
         break;
 
       default:
-        throw new EvaluationValidationError(`未知的评估类型: ${(request as any).type}`);
+        throw new EvaluationValidationError(`Unknown evaluation type: ${(request as any).type}`);
     }
   }
 
@@ -284,6 +301,19 @@ export class EvaluationService implements IEvaluationService {
           optimizedTestResult: request.optimizedTestResult,
         };
 
+      case 'prompt-only':
+        return {
+          ...baseContext,
+          optimizedPrompt: request.optimizedPrompt,
+        };
+
+      case 'prompt-iterate':
+        return {
+          ...baseContext,
+          optimizedPrompt: request.optimizedPrompt,
+          iterateRequirement: request.iterateRequirement,
+        };
+
       default:
         return baseContext;
     }
@@ -353,7 +383,7 @@ export class EvaluationService implements IEvaluationService {
 
     // 完全解析失败：抛出错误
     throw new EvaluationParseError(
-      `无法解析评估结果。原始内容长度: ${content.length} 字符`
+      `Failed to parse evaluation result. Raw content length: ${content.length} characters.`
     );
   }
 
@@ -369,21 +399,21 @@ export class EvaluationService implements IEvaluationService {
   ): EvaluationResponse {
     // 严格验证必要字段
     if (!data || typeof data !== 'object') {
-      throw new EvaluationParseError('评估结果不是有效的对象');
+      throw new EvaluationParseError('Evaluation result is not a valid object.');
     }
 
     if (!data.score || typeof data.score !== 'object') {
-      throw new EvaluationParseError('评估结果缺少 score 字段');
+      throw new EvaluationParseError('Evaluation result is missing the "score" field.');
     }
 
     // 安全地提取分数，无默认值
     const extractScore = (value: any, fieldName: string): number => {
       if (value === undefined || value === null) {
-        throw new EvaluationParseError(`评估结果缺少 ${fieldName} 分数`);
+        throw new EvaluationParseError(`Evaluation result is missing score for "${fieldName}".`);
       }
       const num = typeof value === 'number' ? value : parseInt(String(value));
       if (isNaN(num)) {
-        throw new EvaluationParseError(`${fieldName} 分数不是有效数字: ${value}`);
+        throw new EvaluationParseError(`Invalid numeric score for "${fieldName}": ${value}`);
       }
       return Math.max(0, Math.min(100, num));
     };
@@ -391,23 +421,23 @@ export class EvaluationService implements IEvaluationService {
     // 验证并提取维度分数（新格式：数组）
     const dimensionsData = data.score.dimensions;
     if (!dimensionsData || !Array.isArray(dimensionsData)) {
-      throw new EvaluationParseError('评估结果 dimensions 必须是数组格式');
+      throw new EvaluationParseError('Evaluation result "dimensions" must be an array.');
     }
 
     if (dimensionsData.length === 0) {
-      throw new EvaluationParseError('评估结果 dimensions 数组不能为空');
+      throw new EvaluationParseError('Evaluation result "dimensions" array must not be empty.');
     }
 
     // 解析维度数组
     const dimensions: EvaluationDimension[] = dimensionsData.map((dim: any, index: number) => {
       if (!dim || typeof dim !== 'object') {
-        throw new EvaluationParseError(`dimensions[${index}] 不是有效对象`);
+        throw new EvaluationParseError(`dimensions[${index}] is not a valid object.`);
       }
       if (!dim.key || typeof dim.key !== 'string') {
-        throw new EvaluationParseError(`dimensions[${index}] 缺少有效的 key 字段`);
+        throw new EvaluationParseError(`dimensions[${index}] is missing a valid "key" field.`);
       }
       if (!dim.label || typeof dim.label !== 'string') {
-        throw new EvaluationParseError(`dimensions[${index}] 缺少有效的 label 字段`);
+        throw new EvaluationParseError(`dimensions[${index}] is missing a valid "label" field.`);
       }
       return {
         key: dim.key,

@@ -669,6 +669,7 @@ import {
     useHistoryManager,
     useTemplateManager,
     useEvaluationHandler,
+    provideEvaluation,
     // App 级别
     useAppHistoryRestore,
     useAppFavorite,
@@ -727,6 +728,8 @@ type ContextUserHistoryPayload = {
 type ContextWorkspaceExpose = {
     testAreaPanelRef?: Ref<TestAreaPanelInstance | null>;
     restoreFromHistory?: (payload: ContextUserHistoryPayload) => void;
+    openIterateDialog?: (input?: string) => void;
+    reEvaluateActive?: () => Promise<void>;
 };
 
 const systemWorkspaceRef = ref<ContextWorkspaceExpose | null>(null);
@@ -763,6 +766,10 @@ const advancedModeEnabled = computed({
 
 // 处理功能模式变化
 const handleModeSelect = async (mode: "basic" | "pro" | "image") => {
+    // 模式切换时：关闭并清理评估状态，避免跨模式残留
+    evaluation.closePanel();
+    evaluation.clearAllResults();
+
     await setFunctionMode(mode);
 
     if (mode === "basic") {
@@ -975,6 +982,15 @@ const currentSubMode = computed(() => {
     return 'system';
 });
 
+// 计算当前版本的迭代需求（用于 prompt-iterate 类型的重新评估）
+const currentIterateRequirement = computed(() => {
+    const versions = optimizer.currentVersions;
+    const versionId = optimizer.currentVersionId;
+    if (!versions || versions.length === 0 || !versionId) return '';
+    const currentVersion = versions.find((v) => v.id === versionId);
+    return currentVersion?.iterationNote || '';
+});
+
 const evaluationHandler = useEvaluationHandler({
     services: services as any,
     originalPrompt: toRef(optimizer, "prompt") as any,
@@ -984,14 +1000,22 @@ const evaluationHandler = useEvaluationHandler({
     evaluationModelKey: computed(() => functionModelManager.effectiveEvaluationModel.value),
     functionMode: functionMode as any,
     subMode: currentSubMode as any,
+    currentIterateRequirement,
 });
 
-const { evaluation, handleEvaluate, handleReEvaluate } = evaluationHandler;
+const { evaluation, handleEvaluate, handleReEvaluate: handleReEvaluateBasic } = evaluationHandler;
+
+// 提供评估上下文给子组件
+provideEvaluation(evaluation);
 
 // 同步 contextManagement 中的 contextMode
 watch(
     contextManagement.contextMode,
     async (newMode) => {
+        // Context 子模式切换时：关闭并清理评估状态，避免残留
+        evaluation.closePanel();
+        evaluation.clearAllResults();
+
         contextMode.value = newMode;
 
         if (functionMode.value === "pro") {
@@ -1307,8 +1331,51 @@ const handleIteratePrompt = (payload: any) => {
     optimizer.handleIteratePrompt(payload);
 };
 
+// 注：handleEvaluatePromptOnly 已移除，PromptPanel 现在直接通过 inject 的 evaluation context 调用评估方法
+
 // 处理应用评估改进建议
-const handleApplyImprovement = evaluationHandler.createApplyImprovementHandler(basicModeWorkspaceRef);
+const _basicApplyImprovement = evaluationHandler.createApplyImprovementHandler(basicModeWorkspaceRef);
+const getActiveContextWorkspace = (): ContextWorkspaceExpose | null => {
+    if (contextMode.value === 'system') return systemWorkspaceRef.value;
+    if (contextMode.value === 'user') return userWorkspaceRef.value;
+    return null;
+};
+
+const handleApplyImprovement = (payload: { improvement: string; type: any }) => {
+    // 关闭评估面板
+    evaluation.closePanel();
+
+    if (functionMode.value === 'pro') {
+        const workspace = getActiveContextWorkspace();
+        if (!workspace?.openIterateDialog) {
+            // 这里按产品约定属于异常：Context 模式必须可以应用改进建议
+            console.error('[PromptOptimizerApp] Context apply-improvement handler missing openIterateDialog');
+            toast.error(t('toast.error.optimizeProcessFailed'));
+            return;
+        }
+        workspace.openIterateDialog(payload.improvement);
+        return;
+    }
+
+    _basicApplyImprovement(payload);
+};
+
+// 处理重新评估：始终使用当前模式/工作区的最新状态
+const handleReEvaluate = async (): Promise<void> => {
+    if (functionMode.value === 'pro') {
+        const workspace = getActiveContextWorkspace();
+        if (!workspace?.reEvaluateActive) {
+            // 这里按产品约定属于异常：Context 模式必须可以重新评估当前内容
+            console.error('[PromptOptimizerApp] Context re-evaluate handler missing reEvaluateActive');
+            toast.error(t('toast.error.optimizeProcessFailed'));
+            return;
+        }
+        await workspace.reEvaluateActive();
+        return;
+    }
+
+    await handleReEvaluateBasic();
+};
 
 // 处理切换版本
 const handleSwitchVersion = (versionId: any) => {
@@ -1330,6 +1397,16 @@ watch(showVariableManager, (newValue) => {
         focusVariableName.value = undefined;
     }
 });
+
+// 监听优化后的文本变化，重置 prompt-only 和 prompt-iterate 评估状态
+watch(
+    () => optimizer.optimizedPrompt,
+    () => {
+        // 当优化文本变化时，清除仅提示词评估结果
+        evaluation.clearResult('prompt-only');
+        evaluation.clearResult('prompt-iterate');
+    }
+);
 
 // 监听高级模式和优化模式变化
 watch(
@@ -1392,11 +1469,17 @@ const openTemplateManager = (
 
 // 基础模式子模式变更处理器
 const handleBasicSubModeChange = async (mode: OptimizationMode) => {
+    // 子模式切换时：关闭并清理评估状态，避免残留
+    evaluation.closePanel();
+    evaluation.clearAllResults();
     await setBasicSubMode(mode as import("@prompt-optimizer/core").BasicSubMode);
 };
 
 // 上下文模式子模式变更处理器
 const handleProSubModeChange = async (mode: OptimizationMode) => {
+    // 子模式切换时：关闭并清理评估状态，避免残留
+    evaluation.closePanel();
+    evaluation.clearAllResults();
     await setProSubMode(mode as import("@prompt-optimizer/core").ProSubMode);
 
     if (services.value?.contextMode.value !== mode) {
@@ -1410,6 +1493,9 @@ const handleProSubModeChange = async (mode: OptimizationMode) => {
 const handleImageSubModeChange = async (
     mode: import("@prompt-optimizer/core").ImageSubMode,
 ) => {
+    // 子模式切换时：关闭并清理评估状态，避免残留
+    evaluation.closePanel();
+    evaluation.clearAllResults();
     await setImageSubMode(mode);
 
     if (typeof window !== "undefined") {

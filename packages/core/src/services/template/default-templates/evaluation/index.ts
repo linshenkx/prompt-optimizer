@@ -10,6 +10,10 @@ export {
   evaluationBasicSystemOptimizedEn,
   evaluationBasicSystemCompare,
   evaluationBasicSystemCompareEn,
+  evaluationBasicSystemPromptOnly,
+  evaluationBasicSystemPromptOnlyEn,
+  evaluationBasicSystemPromptIterate,
+  evaluationBasicSystemPromptIterateEn,
 } from './basic/system';
 
 // 基础模式 - 用户提示词评估
@@ -20,6 +24,10 @@ export {
   evaluationBasicUserOptimizedEn,
   evaluationBasicUserCompare,
   evaluationBasicUserCompareEn,
+  evaluationBasicUserPromptOnly,
+  evaluationBasicUserPromptOnlyEn,
+  evaluationBasicUserPromptIterate,
+  evaluationBasicUserPromptIterateEn,
 } from './basic/user';
 
 // 高级模式 - 系统提示词评估（多消息模式）
@@ -30,6 +38,10 @@ export {
   evaluationProSystemOptimizedEn,
   evaluationProSystemCompare,
   evaluationProSystemCompareEn,
+  evaluationProSystemPromptOnly,
+  evaluationProSystemPromptOnlyEn,
+  evaluationProSystemPromptIterate,
+  evaluationProSystemPromptIterateEn,
 } from './pro/system';
 
 // 高级模式 - 用户提示词评估（变量模式）
@@ -40,4 +52,8 @@ export {
   evaluationProUserOptimizedEn,
   evaluationProUserCompare,
   evaluationProUserCompareEn,
+  evaluationProUserPromptOnly,
+  evaluationProUserPromptOnlyEn,
+  evaluationProUserPromptIterate,
+  evaluationProUserPromptIterateEn,
 } from './pro/user';

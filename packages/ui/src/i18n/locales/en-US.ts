@@ -1163,6 +1163,7 @@ export default {
     optimized: "Optimized Prompt",
     optimizing: "Optimizing...",
     continueOptimize: "Continue Optimize",
+    analyze: "Analyze",
     applyToConversation: "Apply to Conversation",
     copy: "Copy",
     applyToTest: "Apply to Test",
@@ -1183,6 +1184,7 @@ export default {
     },
     error: {
       noTemplate: "Please select an iteration template first",
+      noOptimizedPrompt: "Please optimize the prompt first",
     },
   },
   output: {
@@ -2079,6 +2081,8 @@ export default {
       original: "Original Prompt Evaluation",
       optimized: "Optimized Prompt Evaluation",
       compare: "Comparison Evaluation",
+      promptOnly: "Prompt Quality Analysis",
+      promptIterate: "Iteration Analysis",
     },
     type: {
       original: "Evaluate Original Prompt",

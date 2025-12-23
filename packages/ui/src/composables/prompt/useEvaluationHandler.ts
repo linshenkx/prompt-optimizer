@@ -44,6 +44,17 @@ export interface UseEvaluationHandlerOptions {
    * - Pro-User: 包含 variables, rawPrompt, resolvedPrompt
    */
   proContext?: Ref<ProEvaluationContext | undefined> | ComputedRef<ProEvaluationContext | undefined>
+  /**
+   * 当前迭代需求（可选）
+   * 用于 prompt-iterate 类型的重新评估，来自当前版本的 iterationNote
+   */
+  currentIterateRequirement?: Ref<string> | ComputedRef<string>
+  /**
+   * 外部评估实例（可选）
+   * 如果提供，则使用该实例而不是创建新的
+   * 用于 Workspace 共享全局评估状态的场景
+   */
+  externalEvaluation?: UseEvaluationReturn
 }
 
 /**
@@ -168,10 +179,13 @@ export function useEvaluationHandler(
     functionMode,
     subMode,
     proContext,
+    currentIterateRequirement,
+    externalEvaluation,
   } = options
 
-  // 使用基础评估 composable
-  const evaluation = useEvaluation(services, {
+  // 使用外部评估实例或创建新的
+  // 当 Workspace 需要共享全局评估状态时，应传入 externalEvaluation
+  const evaluation = externalEvaluation ?? useEvaluation(services, {
     evaluationModelKey,
     functionMode,
     subMode,
@@ -211,16 +225,35 @@ export function useEvaluationHandler(
         optimizedTestResult: results?.optimizedResult || '',
         proContext: context,
       })
+    } else if (type === 'prompt-only') {
+      // 仅提示词评估（无需测试结果）
+      await evaluation.evaluatePromptOnly({
+        originalPrompt: original,
+        optimizedPrompt: optimized,
+        proContext: context,
+      })
+    } else if (type === 'prompt-iterate') {
+      // 带迭代需求的提示词评估
+      const iterateRequirement = currentIterateRequirement?.value || ''
+      await evaluation.evaluatePromptIterate({
+        originalPrompt: original,
+        optimizedPrompt: optimized,
+        iterateRequirement,
+        proContext: context,
+      })
     }
   }
 
   /**
    * 重新评估（从详情面板触发）
+   * 规则：始终使用“当前业务状态”重新组装请求并执行一次评估
+   *
+   * 说明：该策略不保存/重放 lastRequest，符合“重新评估使用最新状态”的产品定义。
    */
-  const handleReEvaluate = (): void => {
+  const handleReEvaluate = async (): Promise<void> => {
     const currentType = evaluation.state.activeDetailType
     if (currentType) {
-      handleEvaluate(currentType)
+      await handleEvaluate(currentType)
     }
   }
 

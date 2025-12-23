@@ -132,6 +132,7 @@
                 }"
                 content-style="height: 100%; max-height: 100%; overflow: hidden;"
             >
+                <!-- PromptPanel 现在通过 inject 获取评估上下文，无需传递评估相关 props -->
                 <PromptPanelUI
                     ref="promptPanelRef"
                     :optimized-prompt="optimizedPrompt"
@@ -152,6 +153,7 @@
                     @switchVersion="handleSwitchVersion"
                     @save-favorite="emit('save-favorite', $event)"
                     @open-preview="emit('open-prompt-preview')"
+                    @apply-improvement="emit('apply-improvement', $event)"
                 />
             </NCard>
         </NFlex>
@@ -426,6 +428,8 @@ interface Props {
     /** 对比分数等级 */
     compareScoreLevel?: ScoreLevel
 
+    // 注：仅提示词评估状态（prompt-only/prompt-iterate）现在通过 provide/inject 机制在 PromptPanel 内部获取
+
     // === 响应式布局配置 ===
     /** 输入模式 */
     inputMode?: 'compact' | 'normal'
@@ -511,6 +515,7 @@ const emit = defineEmits<{
     'show-compare-detail': []
     /** 应用改进 */
     'apply-improvement': [payload: { improvement: string; type: string }]
+    // 注：evaluate-prompt-only 和 show-prompt-only-detail 事件已移除，PromptPanel 现在直接通过 inject 的 evaluation context 处理
 
     // === 保存/管理事件 ===
     /** 保存收藏 */

@@ -11,7 +11,12 @@ import type { BasicSubMode, ProSubMode, ImageSubMode } from '../prompt/types';
 /**
  * 评估类型枚举
  */
-export type EvaluationType = 'original' | 'optimized' | 'compare';
+export type EvaluationType =
+  | 'original'
+  | 'optimized'
+  | 'compare'
+  | 'prompt-only'      // 仅提示词评估（无需测试结果）
+  | 'prompt-iterate';  // 带迭代需求的提示词评估
 
 /**
  * 所有子模式的联合类型（用于评估模式配置）
@@ -138,12 +143,38 @@ export interface CompareEvaluationRequest extends EvaluationRequestBase {
 }
 
 /**
+ * 仅提示词评估请求
+ * 直接评估提示词本身的质量，无需测试结果
+ */
+export interface PromptOnlyEvaluationRequest extends EvaluationRequestBase {
+  type: 'prompt-only';
+  /** 优化后的提示词 */
+  optimizedPrompt: string;
+  // 不需要 testResult
+}
+
+/**
+ * 带迭代需求的提示词评估请求
+ * 评估优化后的提示词是否满足迭代需求
+ */
+export interface PromptIterateEvaluationRequest extends EvaluationRequestBase {
+  type: 'prompt-iterate';
+  /** 优化后的提示词 */
+  optimizedPrompt: string;
+  /** 迭代需求（来自 iterationNote） */
+  iterateRequirement: string;
+  // 不需要 testResult
+}
+
+/**
  * 评估请求联合类型
  */
 export type EvaluationRequest =
   | OriginalEvaluationRequest
   | OptimizedEvaluationRequest
-  | CompareEvaluationRequest;
+  | CompareEvaluationRequest
+  | PromptOnlyEvaluationRequest
+  | PromptIterateEvaluationRequest;
 
 // ==================== 评估结果类型 ====================
 
@@ -238,17 +269,25 @@ export interface IEvaluationService {
 // 模板 ID 格式: evaluation-{functionMode}-{subMode}-{type}
 //
 // 示例:
-//   - evaluation-basic-system-original   (基础模式/系统提示词/原始评估)
-//   - evaluation-basic-system-optimized  (基础模式/系统提示词/优化评估)
-//   - evaluation-basic-system-compare    (基础模式/系统提示词/对比评估)
-//   - evaluation-basic-user-original     (基础模式/用户提示词/原始评估)
-//   - evaluation-basic-user-optimized    (基础模式/用户提示词/优化评估)
-//   - evaluation-basic-user-compare      (基础模式/用户提示词/对比评估)
-//   - evaluation-pro-system-original     (高级模式/多消息模式/原始评估)
-//   - evaluation-pro-system-optimized    (高级模式/多消息模式/优化评估)
-//   - evaluation-pro-system-compare      (高级模式/多消息模式/对比评估)
-//   - evaluation-pro-user-original       (高级模式/变量模式/原始评估)
-//   - evaluation-pro-user-optimized      (高级模式/变量模式/优化评估)
-//   - evaluation-pro-user-compare        (高级模式/变量模式/对比评估)
+//   - evaluation-basic-system-original      (基础模式/系统提示词/原始评估)
+//   - evaluation-basic-system-optimized     (基础模式/系统提示词/优化评估)
+//   - evaluation-basic-system-compare       (基础模式/系统提示词/对比评估)
+//   - evaluation-basic-system-prompt-only   (基础模式/系统提示词/仅提示词评估)
+//   - evaluation-basic-system-prompt-iterate(基础模式/系统提示词/迭代需求评估)
+//   - evaluation-basic-user-original        (基础模式/用户提示词/原始评估)
+//   - evaluation-basic-user-optimized       (基础模式/用户提示词/优化评估)
+//   - evaluation-basic-user-compare         (基础模式/用户提示词/对比评估)
+//   - evaluation-basic-user-prompt-only     (基础模式/用户提示词/仅提示词评估)
+//   - evaluation-basic-user-prompt-iterate  (基础模式/用户提示词/迭代需求评估)
+//   - evaluation-pro-system-original        (高级模式/多消息模式/原始评估)
+//   - evaluation-pro-system-optimized       (高级模式/多消息模式/优化评估)
+//   - evaluation-pro-system-compare         (高级模式/多消息模式/对比评估)
+//   - evaluation-pro-system-prompt-only     (高级模式/多消息模式/仅提示词评估)
+//   - evaluation-pro-system-prompt-iterate  (高级模式/多消息模式/迭代需求评估)
+//   - evaluation-pro-user-original          (高级模式/变量模式/原始评估)
+//   - evaluation-pro-user-optimized         (高级模式/变量模式/优化评估)
+//   - evaluation-pro-user-compare           (高级模式/变量模式/对比评估)
+//   - evaluation-pro-user-prompt-only       (高级模式/变量模式/仅提示词评估)
+//   - evaluation-pro-user-prompt-iterate    (高级模式/变量模式/迭代需求评估)
 //
 // 模板 ID 由 EvaluationService.getTemplateId() 动态生成，无需硬编码常量

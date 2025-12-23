@@ -119,6 +119,46 @@
                         </template>
                         {{ t("prompt.applyToConversation") }}
                     </NButton>
+                    <!-- 评估入口：分数徽章或评估按钮 -->
+                    <div v-if="showEvaluation && optimizedPrompt" class="evaluation-entry">
+                        <EvaluationScoreBadge
+                            v-if="hasEvaluationResult || isEvaluating"
+                            :score="evaluationScore"
+                            :level="evaluationScoreLevel"
+                            :loading="isEvaluating"
+                            :result="evaluationResult"
+                            :type="evaluationType"
+                            size="small"
+                            @show-detail="handleShowEvaluationDetail"
+                            @evaluate="handleEvaluate"
+                            @apply-improvement="handleApplyImprovement"
+                        />
+                        <NButton
+                            v-else
+                            size="small"
+                            type="tertiary"
+                            @click="handleEvaluate"
+                        >
+                            <template #icon>
+                                <NIcon>
+                                    <svg
+                                        class="w-4 h-4"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            stroke-width="2"
+                                            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                                        ></path>
+                                    </svg>
+                                </NIcon>
+                            </template>
+                            {{ t("prompt.analyze") }}
+                        </NButton>
+                    </div>
                     <!-- 继续优化按钮 -->
                     <NButton
                         v-if="optimizedPrompt"
@@ -242,10 +282,13 @@ import { ref, computed, nextTick, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { NButton, NText, NInput, NCard, NFlex, NSpace, NTag, NIcon } from "naive-ui";
 import { useToast } from '../composables/ui/useToast';
+import { useEvaluationContextOptional } from '../composables/prompt/useEvaluationContext';
+import { useProContextOptional } from '../composables/prompt/useProContext';
 import TemplateSelect from "./TemplateSelect.vue";
 import Modal from "./Modal.vue";
 import OutputDisplay from "./OutputDisplay.vue";
-import type { Template, PromptRecord } from "@prompt-optimizer/core";
+import { EvaluationScoreBadge } from "./evaluation";
+import type { Template, PromptRecord, EvaluationType } from "@prompt-optimizer/core";
 
 const { t } = useI18n();
 const toast = useToast();
@@ -313,6 +356,64 @@ const props = defineProps({
     },
 });
 
+// 使用评估上下文（可选，不强制要求父组件提供）
+const evaluation = useEvaluationContextOptional();
+
+// 使用 Pro 模式上下文（可选，仅在 Pro 模式下由 Workspace 提供）
+const proContextRef = useProContextOptional();
+
+// 获取当前版本的迭代需求（如果有）- 需要在评估类型计算之前定义
+const currentIterationNote = computed(() => {
+    if (!props.versions || !props.currentVersionId) return "";
+    const currentVersion = props.versions.find((v) => v.id === props.currentVersionId);
+    return currentVersion?.iterationNote || "";
+});
+
+// 计算评估相关的状态（从 context 获取）
+const showEvaluation = computed(() => !!evaluation);
+
+// 判断当前使用的评估类型：有迭代需求用 prompt-iterate，否则用 prompt-only
+const evaluationType = computed<'prompt-only' | 'prompt-iterate'>(() => {
+    const hasIterateNote = currentIterationNote.value.trim().length > 0;
+    return hasIterateNote ? 'prompt-iterate' : 'prompt-only';
+});
+
+// 根据评估类型获取对应的状态
+const isEvaluating = computed(() => {
+    if (!evaluation) return false;
+    return evaluationType.value === 'prompt-iterate'
+        ? evaluation.isEvaluatingPromptIterate.value
+        : evaluation.isEvaluatingPromptOnly.value;
+});
+
+const evaluationScore = computed(() => {
+    if (!evaluation) return null;
+    return evaluationType.value === 'prompt-iterate'
+        ? evaluation.promptIterateScore.value
+        : evaluation.promptOnlyScore.value;
+});
+
+const evaluationScoreLevel = computed(() => {
+    if (!evaluation) return null;
+    return evaluationType.value === 'prompt-iterate'
+        ? evaluation.promptIterateLevel.value
+        : evaluation.promptOnlyLevel.value;
+});
+
+const hasEvaluationResult = computed(() => {
+    if (!evaluation) return false;
+    return evaluationType.value === 'prompt-iterate'
+        ? evaluation.hasPromptIterateResult.value
+        : evaluation.hasPromptOnlyResult.value;
+});
+
+const evaluationResult = computed(() => {
+    if (!evaluation) return null;
+    return evaluationType.value === 'prompt-iterate'
+        ? evaluation.state['prompt-iterate'].result
+        : evaluation.state['prompt-only'].result;
+});
+
 const emit = defineEmits<{
     "update:optimizedPrompt": [value: string];
     iterate: [payload: IteratePayload];
@@ -331,6 +432,8 @@ const emit = defineEmits<{
     "save-favorite": [data: { content: string; originalContent?: string }];
     "open-preview": [];
     "apply-to-conversation": [];
+    // 评估相关事件（evaluate 和 show-evaluation-detail 已通过 inject 的 evaluation context 直接处理）
+    "apply-improvement": [payload: { improvement: string; type: EvaluationType }];
 }>();
 
 const showIterateInput = ref(false);
@@ -386,6 +489,51 @@ const switchToV0 = async () => {
     console.log("[PromptPanel] 已切换到 V0（原始内容）");
 };
 
+// 处理评估按钮点击（触发评估）
+const handleEvaluate = async () => {
+    if (!props.optimizedPrompt?.trim()) {
+        toast.error(t("prompt.error.noOptimizedPrompt"));
+        return;
+    }
+
+    if (!evaluation) {
+        console.warn("[PromptPanel] 评估上下文不可用");
+        return;
+    }
+
+    const iterateRequirement = currentIterationNote.value.trim();
+    // 获取 Pro 模式上下文（如果可用）
+    const proContext = proContextRef?.value;
+
+    if (iterateRequirement) {
+        // 有迭代需求时使用 prompt-iterate 评估
+        await evaluation.evaluatePromptIterate({
+            originalPrompt: props.originalPrompt,
+            optimizedPrompt: props.optimizedPrompt,
+            iterateRequirement,
+            proContext,
+        });
+    } else {
+        // 无迭代需求时使用 prompt-only 评估
+        await evaluation.evaluatePromptOnly({
+            originalPrompt: props.originalPrompt,
+            optimizedPrompt: props.optimizedPrompt,
+            proContext,
+        });
+    }
+};
+
+// 处理显示评估详情
+const handleShowEvaluationDetail = () => {
+    if (!evaluation) return;
+    evaluation.showDetail(evaluationType.value);
+};
+
+// 处理应用改进建议（仍需要 emit，因为需要父组件打开迭代弹窗）
+const handleApplyImprovement = (payload: { improvement: string; type: EvaluationType }) => {
+    emit("apply-improvement", payload);
+};
+
 // 计算标题文本
 const templateTitleText = computed(() => {
     return t("prompt.iterateTitle");
@@ -426,10 +574,6 @@ const previousVersionText = computed(() => {
 // }
 
 const handleIterate = () => {
-    if (!props.selectedIterateTemplate) {
-        toast.error(t("prompt.error.noTemplate"));
-        return;
-    }
     showIterateInput.value = true;
 };
 
@@ -500,6 +644,19 @@ watch(
     { immediate: false },
 );
 
+// 监听内容或版本变化，清除评估结果以避免旧分数残留
+watch(
+    [() => props.optimizedPrompt, () => props.currentVersionId],
+    () => {
+        // 当内容或版本变化时，清除仅提示词评估结果
+        if (evaluation) {
+            evaluation.clearResult('prompt-only');
+            evaluation.clearResult('prompt-iterate');
+        }
+    },
+    { immediate: false },
+);
+
 // 暴露刷新迭代模板选择的方法
 const refreshIterateTemplateSelect = () => {
     if (iterateTemplateSelectRef.value?.refresh) {
@@ -509,10 +666,6 @@ const refreshIterateTemplateSelect = () => {
 
 // 打开迭代弹窗并可选预填充文本
 const openIterateDialog = (input?: string) => {
-    if (!props.selectedIterateTemplate) {
-        toast.error(t("prompt.error.noTemplate"));
-        return;
-    }
     if (input) {
         iterateInput.value = input;
     }
@@ -552,5 +705,12 @@ defineExpose({
     .version-container {
         margin-top: 4px;
     }
+}
+
+/* 评估入口样式 */
+.evaluation-entry {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
 }
 </style>

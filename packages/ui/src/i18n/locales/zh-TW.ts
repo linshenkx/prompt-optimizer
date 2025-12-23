@@ -1126,6 +1126,7 @@ export default {
     optimized: "優化後的提示詞",
     optimizing: "優化中...",
     continueOptimize: "繼續優化",
+    analyze: "分析",
     applyToConversation: "套用到對話",
     copy: "複製",
     applyToTest: "套用到測試",
@@ -1144,6 +1145,7 @@ export default {
     },
     error: {
       noTemplate: "請先選擇迭代提示詞",
+      noOptimizedPrompt: "請先優化提示詞",
     },
   },
   output: {
@@ -1991,6 +1993,8 @@ export default {
       original: "原始提示詞評估",
       optimized: "優化後評估",
       compare: "對比評估",
+      promptOnly: "提示詞品質分析",
+      promptIterate: "迭代優化分析",
     },
     type: {
       original: "評估原始提示詞",

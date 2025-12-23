@@ -86,6 +86,23 @@ import { template as evaluation_pro_user_optimized } from './evaluation/pro/user
 import { template as evaluation_pro_user_optimized_en } from './evaluation/pro/user/evaluation-optimized_en';
 import { template as evaluation_pro_user_compare } from './evaluation/pro/user/evaluation-compare';
 import { template as evaluation_pro_user_compare_en } from './evaluation/pro/user/evaluation-compare_en';
+// 评估模板 - 仅提示词评估（无需测试结果）
+import { template as evaluation_basic_system_prompt_only } from './evaluation/basic/system/evaluation-prompt-only';
+import { template as evaluation_basic_system_prompt_only_en } from './evaluation/basic/system/evaluation-prompt-only_en';
+import { template as evaluation_basic_system_prompt_iterate } from './evaluation/basic/system/evaluation-prompt-iterate';
+import { template as evaluation_basic_system_prompt_iterate_en } from './evaluation/basic/system/evaluation-prompt-iterate_en';
+import { template as evaluation_basic_user_prompt_only } from './evaluation/basic/user/evaluation-prompt-only';
+import { template as evaluation_basic_user_prompt_only_en } from './evaluation/basic/user/evaluation-prompt-only_en';
+import { template as evaluation_basic_user_prompt_iterate } from './evaluation/basic/user/evaluation-prompt-iterate';
+import { template as evaluation_basic_user_prompt_iterate_en } from './evaluation/basic/user/evaluation-prompt-iterate_en';
+import { template as evaluation_pro_system_prompt_only } from './evaluation/pro/system/evaluation-prompt-only';
+import { template as evaluation_pro_system_prompt_only_en } from './evaluation/pro/system/evaluation-prompt-only_en';
+import { template as evaluation_pro_system_prompt_iterate } from './evaluation/pro/system/evaluation-prompt-iterate';
+import { template as evaluation_pro_system_prompt_iterate_en } from './evaluation/pro/system/evaluation-prompt-iterate_en';
+import { template as evaluation_pro_user_prompt_only } from './evaluation/pro/user/evaluation-prompt-only';
+import { template as evaluation_pro_user_prompt_only_en } from './evaluation/pro/user/evaluation-prompt-only_en';
+import { template as evaluation_pro_user_prompt_iterate } from './evaluation/pro/user/evaluation-prompt-iterate';
+import { template as evaluation_pro_user_prompt_iterate_en } from './evaluation/pro/user/evaluation-prompt-iterate_en';
 
 // 简单的模板集合 - 模板自身已包含完整信息（id、name、language、type等）
 export const ALL_TEMPLATES = {
@@ -162,4 +179,21 @@ export const ALL_TEMPLATES = {
   evaluation_pro_user_optimized_en,
   evaluation_pro_user_compare,
   evaluation_pro_user_compare_en,
+  // 评估模板 - 仅提示词评估（无需测试结果）
+  evaluation_basic_system_prompt_only,
+  evaluation_basic_system_prompt_only_en,
+  evaluation_basic_system_prompt_iterate,
+  evaluation_basic_system_prompt_iterate_en,
+  evaluation_basic_user_prompt_only,
+  evaluation_basic_user_prompt_only_en,
+  evaluation_basic_user_prompt_iterate,
+  evaluation_basic_user_prompt_iterate_en,
+  evaluation_pro_system_prompt_only,
+  evaluation_pro_system_prompt_only_en,
+  evaluation_pro_system_prompt_iterate,
+  evaluation_pro_system_prompt_iterate_en,
+  evaluation_pro_user_prompt_only,
+  evaluation_pro_user_prompt_only_en,
+  evaluation_pro_user_prompt_iterate,
+  evaluation_pro_user_prompt_iterate_en,
 };
