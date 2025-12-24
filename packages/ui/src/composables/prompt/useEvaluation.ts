@@ -400,13 +400,19 @@ export function useEvaluation(
     try {
       await evaluationService.evaluateStream(request, {
         onToken: (token: string) => {
+          // 守卫：如果评估已被清理/取消，忽略后续 token
+          if (!targetState.isEvaluating) return
           targetState.streamContent += token
         },
         onComplete: (result: EvaluationResponse) => {
+          // 守卫：如果评估已被清理/取消，忽略结果
+          if (!targetState.isEvaluating) return
           targetState.result = result
           targetState.isEvaluating = false
         },
         onError: (error: Error) => {
+          // 守卫：如果评估已被清理/取消，忽略错误
+          if (!targetState.isEvaluating) return
           targetState.error = getErrorMessage(error)
           targetState.isEvaluating = false
           toast.error(t('evaluation.error.failed', { error: targetState.error }))
@@ -503,6 +509,7 @@ export function useEvaluation(
       type: 'prompt-only',
       originalPrompt: params.originalPrompt,
       optimizedPrompt: params.optimizedPrompt,
+      testContent: '', // prompt-only 模式不需要测试内容
       evaluationModelKey: await getModelKey(),
       variables: { language: getLanguage() },
       mode: getModeConfig(),
@@ -525,6 +532,7 @@ export function useEvaluation(
       originalPrompt: params.originalPrompt,
       optimizedPrompt: params.optimizedPrompt,
       iterateRequirement: params.iterateRequirement,
+      testContent: '', // prompt-iterate 模式不需要测试内容
       evaluationModelKey: await getModelKey(),
       variables: { language: getLanguage() },
       mode: getModeConfig(),
@@ -535,9 +543,11 @@ export function useEvaluation(
 
   /**
    * 清除指定类型的评估结果
+   * 同时重置评估状态，防止进行中的流式评估继续写回
    */
   const clearResult = (type: EvaluationType): void => {
     const targetState = state[type]
+    targetState.isEvaluating = false
     targetState.result = null
     targetState.streamContent = ''
     targetState.error = null

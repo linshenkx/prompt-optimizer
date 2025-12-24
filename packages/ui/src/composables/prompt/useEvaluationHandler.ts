@@ -75,7 +75,7 @@ export interface UseEvaluationHandlerReturn {
   handleEvaluate: (type: EvaluationType) => Promise<void>
 
   /** 重新评估（从详情面板触发） */
-  handleReEvaluate: () => void
+  handleReEvaluate: () => Promise<void>
 
   /**
    * 测试前清空评估结果
@@ -234,13 +234,22 @@ export function useEvaluationHandler(
       })
     } else if (type === 'prompt-iterate') {
       // 带迭代需求的提示词评估
-      const iterateRequirement = currentIterateRequirement?.value || ''
-      await evaluation.evaluatePromptIterate({
-        originalPrompt: original,
-        optimizedPrompt: optimized,
-        iterateRequirement,
-        proContext: context,
-      })
+      const iterateRequirement = currentIterateRequirement?.value?.trim() || ''
+      if (!iterateRequirement) {
+        // 迭代需求为空时，降级为 prompt-only 评估
+        await evaluation.evaluatePromptOnly({
+          originalPrompt: original,
+          optimizedPrompt: optimized,
+          proContext: context,
+        })
+      } else {
+        await evaluation.evaluatePromptIterate({
+          originalPrompt: original,
+          optimizedPrompt: optimized,
+          iterateRequirement,
+          proContext: context,
+        })
+      }
     }
   }
 
