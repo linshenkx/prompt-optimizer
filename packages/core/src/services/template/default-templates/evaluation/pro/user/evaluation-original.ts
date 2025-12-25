@@ -16,8 +16,8 @@ export const template: Template = {
 
 # 核心理解
 
-**评估对象是用户提示词（含变量）：**
-- 用户提示词：需要被优化的对象，包含 \`{{variableName}}\` 格式的变量占位符
+**评估对象是工作区中的用户提示词（含变量，当前可编辑文本）：**
+- 用户提示词（工作区）：需要被优化的对象，包含 \`{{variableName}}\` 格式的变量占位符
 - 变量：用户提供的动态参数，在测试时被替换为实际值
 - 测试结果：变量替换后提示词的 AI 输出
 
@@ -71,13 +71,18 @@ export const template: Template = {
       { "key": "outputGuidance", "label": "输出引导", "score": <0-100> }
     ]
   },
-  "issues": [
-    "<测试结果的问题1：具体指出输出中哪里有问题>",
-    "<测试结果的问题2：指出遗漏、错误或不足>"
-  ],
   "improvements": [
     "<用户提示词的具体改进1：如何更好地利用变量>",
     "<用户提示词的具体改进2：可直接指出需要补充或修改的内容>"
+  ],
+
+  "patchPlan": [
+    {
+      "op": "replace",
+      "oldText": "<原文中要精确替换的片段>",
+      "newText": "<修改后的内容>",
+      "instruction": "<问题说明 + 修复方案>"
+    }
   ],
   "summary": "<一句话结论，20字以内>"
 }
@@ -85,7 +90,7 @@ export const template: Template = {
 
 # 重要说明
 
-- **issues**：针对【测试结果】- 这次输出有什么问题
+- **patchPlan**：给出可以直接替换的局部修复方案（oldText/newText + instruction），且只针对【工作区用户提示词（评估对象）】生成（oldText 必须能精确匹配工作区文本）：针对【测试结果】- 这次输出有什么问题
 - **improvements**：针对【用户提示词】- 如何改进提示词以更好利用变量
 
 # 改进建议要求
@@ -100,8 +105,11 @@ improvements 应该是**具体可操作**的改进建议：
       role: 'user',
       content: `## 待评估内容
 
-### 用户提示词（评估对象，变量已替换）
+{{#hasOriginalPrompt}}
+### 工作区用户提示词（评估对象，变量已替换）
 {{originalPrompt}}
+
+{{/hasOriginalPrompt}}
 
 {{#proContext}}
 ### 变量信息
@@ -124,7 +132,7 @@ improvements 应该是**具体可操作**的改进建议：
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '1.0.0',
+    version: '3.0.0',
     lastModified: Date.now(),
     author: 'System',
     description: '评估带变量的原始用户提示词效果',

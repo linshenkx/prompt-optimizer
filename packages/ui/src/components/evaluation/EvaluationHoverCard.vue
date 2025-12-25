@@ -17,14 +17,6 @@
           <NTag :type="getScoreLevelType(result.score.overall)" size="small" round>
             {{ getScoreLevelText(result.score.overall) }}
           </NTag>
-          <!-- 对比评估：显示结论 -->
-          <NText
-            v-if="result.type === 'compare'"
-            :depth="2"
-            style="font-size: 11px;"
-          >
-            {{ result.isOptimizedBetter ? t('evaluation.optimizedBetter') : t('evaluation.originalBetter') }}
-          </NText>
         </div>
       </div>
 
@@ -43,17 +35,6 @@
         </div>
       </div>
 
-      <!-- 问题清单 -->
-      <div v-if="result.issues && result.issues.length > 0" class="section issues-section">
-        <div class="section-header">
-          <span class="section-icon">⚠️</span>
-          <NText depth="2" style="font-size: 11px; font-weight: 600;">{{ t('evaluation.issues') }}</NText>
-        </div>
-        <ul class="section-list">
-          <li v-for="(issue, idx) in result.issues" :key="idx">{{ issue }}</li>
-        </ul>
-      </div>
-
       <!-- 改进建议 -->
       <div v-if="result.improvements && result.improvements.length > 0" class="section improvements-section">
         <div class="section-header">
@@ -65,6 +46,34 @@
             <span class="improvement-text">{{ item }}</span>
             <NButton text size="tiny" type="primary" class="apply-btn" @click.stop="handleApplyImprovement(item)">
               {{ t('evaluation.applyToIterate') }}
+            </NButton>
+          </li>
+        </ul>
+      </div>
+
+      <!-- 精准修复 -->
+      <div v-if="result.patchPlan && result.patchPlan.length > 0" class="section patches-section">
+        <div class="section-header">
+          <span class="section-icon">🛠️</span>
+          <NText depth="2" style="font-size: 11px; font-weight: 600;">{{ t('evaluation.diagnose.title') }}</NText>
+        </div>
+        <ul class="section-list patch-list">
+          <li v-for="(op, idx) in result.patchPlan" :key="idx" class="patch-item">
+            <div class="patch-content">
+              <span class="patch-instruction">{{ op.instruction }}</span>
+              <div class="patch-diff">
+                <div class="patch-old">
+                  <span class="patch-label">-</span>
+                  <code>{{ op.oldText }}</code>
+                </div>
+                <div class="patch-new">
+                  <span class="patch-label">+</span>
+                  <code>{{ op.newText }}</code>
+                </div>
+              </div>
+            </div>
+            <NButton text size="tiny" type="primary" class="apply-btn" @click.stop="handleApplyPatch(op)">
+              {{ t('evaluation.diagnose.replaceNow') }}
             </NButton>
           </li>
         </ul>
@@ -93,9 +102,9 @@
       <NText depth="3" style="font-size: 12px; margin-bottom: 12px; display: block;">
         {{ t('evaluation.noResult') }}
       </NText>
-      <NButton type="primary" size="small" @click="handleEvaluate">
-        {{ t('evaluation.evaluate') }}
-      </NButton>
+          <NButton type="primary" size="small" @click="handleEvaluate">
+            {{ t('evaluation.evaluate') }}
+          </NButton>
     </div>
   </div>
 </template>
@@ -103,7 +112,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { NText, NTag, NProgress, NButton, NSpin, NSpace } from 'naive-ui'
-import type { EvaluationResponse, EvaluationType } from '@prompt-optimizer/core'
+import type { EvaluationResponse, EvaluationType, PatchOperation } from '@prompt-optimizer/core'
 
 const props = defineProps<{
   result: EvaluationResponse | null
@@ -115,6 +124,7 @@ const emit = defineEmits<{
   (e: 'show-detail'): void
   (e: 'evaluate'): void
   (e: 'apply-improvement', payload: { improvement: string; type: EvaluationType }): void
+  (e: 'apply-patch', payload: { operation: PatchOperation }): void
 }>()
 
 const { t } = useI18n()
@@ -165,6 +175,11 @@ const handleEvaluate = () => {
 // 处理应用改进建议到迭代
 const handleApplyImprovement = (improvement: string) => {
   emit('apply-improvement', { improvement, type: props.type })
+}
+
+// 处理应用单个补丁
+const handleApplyPatch = (operation: PatchOperation) => {
+  emit('apply-patch', { operation })
 }
 </script>
 
@@ -275,6 +290,79 @@ const handleApplyImprovement = (improvement: string) => {
 /* 改进建议分区 */
 .improvements-section .section-list {
   color: #2080f0;
+}
+
+/* 精准修复分区 */
+.patches-section .section-list {
+  color: #18a058;
+}
+
+.patch-list {
+  padding-left: 0;
+  list-style: none;
+}
+
+.patch-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  margin-bottom: 6px;
+  background: var(--n-color-embedded);
+  border-radius: 4px;
+}
+
+.patch-item:last-child {
+  margin-bottom: 0;
+}
+
+.patch-content {
+  flex: 1;
+}
+
+.patch-instruction {
+  word-break: break-word;
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.patch-diff {
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.patch-old, .patch-new {
+  display: flex;
+  gap: 4px;
+  padding: 2px 4px;
+  border-radius: 2px;
+  margin-bottom: 2px;
+}
+
+.patch-old {
+  background: rgba(208, 48, 80, 0.1);
+  color: #d03050;
+}
+
+.patch-new {
+  background: rgba(24, 160, 88, 0.1);
+  color: #18a058;
+}
+
+.patch-label {
+  font-weight: bold;
+  min-width: 10px;
+}
+
+.patch-old code, .patch-new code {
+  white-space: pre-wrap;
+  word-break: break-all;
+  flex: 1;
+}
+
+.patch-item .apply-btn {
+  align-self: flex-end;
 }
 
 /* 改进建议项 */

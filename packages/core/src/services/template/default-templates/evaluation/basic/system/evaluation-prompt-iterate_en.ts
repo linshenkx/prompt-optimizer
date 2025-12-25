@@ -2,6 +2,7 @@
  * Iterate Requirement Evaluation Template - Basic Mode/System Prompt - English Version
  *
  * Evaluate the optimized prompt quality with iteration requirement as background context
+ * Unified output: score + improvements + patchPlan + summary
  */
 
 import type { Template, MessageTemplate } from '../../../../types';
@@ -16,7 +17,7 @@ export const template: Template = {
 
 # Core Understanding
 
-**Evaluation target is the system prompt itself:**
+**The evaluation target is the WORKSPACE system prompt itself (current editable text):**
 - No test results needed, directly analyze the prompt design quality
 - Evaluate the improvement of the optimized prompt compared to the original version
 - Focus on prompt structure, expression, constraints and other design aspects
@@ -46,7 +47,7 @@ export const template: Template = {
 \`\`\`json
 {
   "score": {
-    "overall": <overall score 0-100>,
+    "overall": <0-100>,
     "dimensions": [
       { "key": "structureClarity", "label": "Structure Clarity", "score": <0-100> },
       { "key": "intentExpression", "label": "Intent Expression", "score": <0-100> },
@@ -54,34 +55,44 @@ export const template: Template = {
       { "key": "improvementDegree", "label": "Improvement Degree", "score": <0-100> }
     ]
   },
-  "issues": [
-    "<Current prompt issue 1>",
-    "<Current prompt issue 2>"
-  ],
   "improvements": [
-    "<Specific improvement suggestion 1>",
-    "<Specific improvement suggestion 2>"
+    "<Directional suggestion 1>",
+    "<Directional suggestion 2>",
+    "<Directional suggestion 3>"
   ],
-  "summary": "<One-line evaluation, within 15 words>",
-  "isOptimizedBetter": <true/false>
+  "patchPlan": [
+    {
+      "op": "replace",
+      "oldText": "<exact text to modify>",
+      "newText": "<modified content>",
+      "instruction": "<issue + fix description>"
+    }
+  ],
+  "summary": "<One-line evaluation, max 15 words>"
 }
 \`\`\`
 
-# Important Notes
+# Field Description
 
-- **issues**: Point out remaining issues in the optimized prompt
-- **improvements**: Provide specific actionable suggestions
-- **isOptimizedBetter**: Determine if the optimized version is better than the original
-- Iteration requirement is only for understanding the modification background, not as evaluation criteria`
+- **improvements**: Directional suggestions (max 3), for guiding rewrites
+- **patchPlan**: Precise fixes (max 3), for direct text replacement (oldText MUST be an exact substring of the workspace system prompt)
+  - oldText: Must exactly match text in the workspace system prompt (evaluation target)
+  - newText: Complete modified content (empty string for delete)
+  - instruction: Brief description of issue and fix
+- **summary**: One-line evaluation conclusion
+
+Output JSON only, no additional explanation.`
     },
     {
       role: 'user',
       content: `## Content to Evaluate
 
-### Original System Prompt
+{{#hasOriginalPrompt}}
+### Original System Prompt (Reference)
 {{originalPrompt}}
 
-### Optimized System Prompt (Evaluation Target)
+{{/hasOriginalPrompt}}
+### Workspace System Prompt (Evaluation Target)
 {{optimizedPrompt}}
 
 ### Modification Background (User's Iteration Requirement)
@@ -89,14 +100,14 @@ export const template: Template = {
 
 ---
 
-Please evaluate the improvement of the optimized system prompt compared to the original version. The iteration requirement is only for understanding the modification background.`
+Please evaluate the current system prompt{{#hasOriginalPrompt}} and compare with the original{{/hasOriginalPrompt}}. The iteration requirement is only for understanding the modification background.`
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '1.0.0',
+    version: '3.0.0',
     lastModified: Date.now(),
     author: 'System',
-    description: 'Evaluate system prompt quality with iteration requirement as background context',
+    description: 'Evaluate system prompt quality with unified improvements + patchPlan output',
     templateType: 'evaluation',
     language: 'en',
     tags: ['evaluation', 'prompt-iterate', 'scoring', 'basic', 'system']

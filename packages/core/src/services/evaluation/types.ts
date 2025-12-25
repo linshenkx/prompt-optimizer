@@ -86,16 +86,49 @@ export interface ProUserEvaluationContext {
  */
 export type ProEvaluationContext = ProSystemEvaluationContext | ProUserEvaluationContext;
 
+// ==================== 补丁操作类型 ====================
+
+/**
+ * 补丁操作类型
+ */
+export type PatchOperationType = 'insert' | 'replace' | 'delete';
+
+/**
+ * 补丁操作 - 精准修复指令
+ *
+ * 设计原则：
+ * - 用 oldText/newText 实现简单字符串替换
+ * - 支持 diff 可视化渲染（红删绿增）
+ * - 本地 apply 就是简单的字符串 replace
+ *
+ * 操作约定：
+ * - 插入：oldText 是锚点上下文，newText = oldText + 插入内容
+ * - 删除：newText = ""
+ * - 替换：直接 oldText → newText
+ */
+export interface PatchOperation {
+  /** 操作类型 */
+  op: PatchOperationType;
+  /** 修改前的原文本片段（用于定位和 diff 展示） */
+  oldText: string;
+  /** 修改后的文本（删除时为空字符串） */
+  newText: string;
+  /** 操作说明（包含问题描述 + 修复说明） */
+  instruction: string;
+  /** 出现次数（从1开始，用于处理多次出现的情况，默认1） */
+  occurrence?: number;
+}
+
 // ==================== 评估请求类型 ====================
 
 /**
  * 评估请求基础结构
  */
 export interface EvaluationRequestBase {
-  /** 原始提示词 */
-  originalPrompt: string;
+  /** 原始提示词（可选，用于对比） */
+  originalPrompt?: string;
   /** 测试文本/输入 */
-  testContent: string;
+  testContent?: string;
   /** 评估使用的模型Key */
   evaluationModelKey: string;
   /** 可选：自定义变量 */
@@ -150,7 +183,6 @@ export interface PromptOnlyEvaluationRequest extends EvaluationRequestBase {
   type: 'prompt-only';
   /** 优化后的提示词 */
   optimizedPrompt: string;
-  // 不需要 testResult
 }
 
 /**
@@ -163,7 +195,6 @@ export interface PromptIterateEvaluationRequest extends EvaluationRequestBase {
   optimizedPrompt: string;
   /** 迭代需求（来自 iterationNote） */
   iterateRequirement: string;
-  // 不需要 testResult
 }
 
 /**
@@ -201,21 +232,19 @@ export interface EvaluationScore {
 }
 
 /**
- * 评估响应
+ * 评估响应（统一结构）
  */
 export interface EvaluationResponse {
   /** 评估类型 */
   type: EvaluationType;
   /** 评估分数 */
   score: EvaluationScore;
-  /** 问题清单（最多3条） */
-  issues: string[];
-  /** 改进建议（可用于迭代优化，最多3条） */
+  /** 方向性改进建议（最多3条，用于迭代重写） */
   improvements: string[];
-  /** 一句话总结（简洁评价） */
+  /** 一句话总结 */
   summary: string;
-  /** 优化后是否更好（仅对比评估） */
-  isOptimizedBetter?: boolean;
+  /** 精准修复操作（最多3条，用于直接编辑） */
+  patchPlan: PatchOperation[];
   /** 元数据 */
   metadata?: {
     model?: string;

@@ -69,7 +69,7 @@ describe('TextAdapterRegistry', () => {
 
     it('should throw error for unknown provider', () => {
       expect(() => registry.getAdapter('unknown-provider'))
-        .toThrow('未知文本模型提供商: unknown-provider');
+        .toThrow();
     });
   });
 

@@ -137,6 +137,8 @@ export { validateCustomModelConfig } from './utils/environment'
 
 // 导出IPC序列化工具
 export { safeSerializeForIPC, debugIPCSerializability, safeSerializeArgs } from './utils/ipc-serialization'
+export { applyPatchOperationsToText } from './utils/patch-plan'
+export type { ApplyPatchResult, ApplyPatchReportItem, ApplyPatchStatus } from './utils/patch-plan'
 
 // 导出存储键常量
 export {

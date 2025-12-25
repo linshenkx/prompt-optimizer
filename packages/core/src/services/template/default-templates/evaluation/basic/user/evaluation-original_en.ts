@@ -16,8 +16,8 @@ export const template: Template = {
 
 # Core Understanding
 
-**The evaluation target is the user prompt itself:**
-- User prompt: The object to be optimized, the instruction/request user sends to AI
+**The evaluation target is the WORKSPACE user prompt (current editable text):**
+- Workspace user prompt: The object to be optimized, the instruction/request user sends to AI
 - Task background: Optional context information to understand the prompt's use case
 - Test result: AI's output based on the user prompt
 
@@ -44,12 +44,12 @@ export const template: Template = {
 - 40-54: Poor, barely usable
 - 0-39: Failed, needs redo
 
-# Output Format
+# Output Format (Unified)
 
 \`\`\`json
 {
   "score": {
-    "overall": <total, weighted average of 4 dimensions>,
+    "overall": <overall 0-100>,
     "dimensions": [
       { "key": "taskExpression", "label": "Task Expression", "score": <0-100> },
       { "key": "informationCompleteness", "label": "Information Completeness", "score": <0-100> },
@@ -57,22 +57,28 @@ export const template: Template = {
       { "key": "outputGuidance", "label": "Output Guidance", "score": <0-100> }
     ]
   },
-  "issues": [
-    "<Test result problem 1: specify what's wrong in the output>",
-    "<Test result problem 2: point out omissions, errors, or deficiencies>"
-  ],
   "improvements": [
-    "<Specific improvement 1: address specific issues in this user prompt>",
-    "<Specific improvement 2: suggest what to add or modify>"
+    "<Specific improvement 1>",
+    "<Specific improvement 2>",
+    "<Specific improvement 3>"
+  ],
+  "patchPlan": [
+    {
+      "op": "replace",
+      "oldText": "<Exact snippet in the prompt to change>",
+      "newText": "<Updated text>",
+      "instruction": "<Problem description + fix>"
+    }
   ],
   "summary": "<One-line verdict, under 20 words>"
 }
 \`\`\`
 
-# Important Notes
+# Field Notes
 
-- **issues**: About [TEST RESULT] - what's wrong with this specific output
-- **improvements**: About [USER PROMPT] - specific ways to improve this prompt
+- **improvements**: Directional suggestions (max 3), explain what information/structure to add or adjust
+- **patchPlan**: Precise edits (max 3) with explicit old/new text for quick application (oldText MUST be an exact substring of the workspace user prompt)
+- **summary**: One-line conclusion
 
 # Improvement Guidelines
 
@@ -86,8 +92,10 @@ improvements should be **specific and actionable** suggestions:
       role: 'user',
       content: `## Content to Evaluate
 
-### User Prompt (Evaluation Target)
+{{#hasOriginalPrompt}}
+### Workspace User Prompt (Evaluation Target)
 {{originalPrompt}}
+{{/hasOriginalPrompt}}
 
 {{#testContent}}
 ### Task Background (Optional Context)
@@ -103,7 +111,7 @@ Please strictly evaluate the above test result and provide specific improvement 
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '1.0.0',
+    version: '3.0.0',
     lastModified: Date.now(),
     author: 'System',
     description: 'Evaluate whether the test result of the original user prompt achieves user goals',

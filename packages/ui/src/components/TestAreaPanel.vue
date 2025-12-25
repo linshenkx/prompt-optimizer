@@ -71,6 +71,7 @@
             @show-original-detail="handleShowOriginalDetail"
             @show-optimized-detail="handleShowOptimizedDetail"
             @apply-improvement="handleApplyImprovement"
+            @apply-patch="handleApplyPatch"
         >
             <template #original-result>
                 <div class="result-container">
@@ -141,6 +142,7 @@ import type {
     ToolCallResult,
     EvaluationResponse,
     EvaluationType,
+    PatchOperation,
 } from "@prompt-optimizer/core";
 import type { ScoreLevel } from './evaluation/EvaluationScoreBadge.vue';
 import { useResponsive } from '../composables/ui/useResponsive';
@@ -276,6 +278,7 @@ const emit = defineEmits<{
     "show-original-detail": [];
     "show-optimized-detail": [];
     "apply-improvement": [payload: { improvement: string; type: EvaluationType }];
+    "apply-patch": [payload: { operation: PatchOperation }];
 }>();
 
 // 内部状态管理 - 去除防抖，保证输入即时响应
@@ -406,6 +409,11 @@ const handleShowOptimizedDetail = () => {
 // 应用改进建议处理
 const handleApplyImprovement = (payload: { improvement: string; type: EvaluationType }) => {
     emit("apply-improvement", payload);
+};
+
+// 应用补丁处理
+const handleApplyPatch = (payload: { operation: PatchOperation }) => {
+    emit("apply-patch", payload);
 };
 
 // ========== 变量管理 ==========

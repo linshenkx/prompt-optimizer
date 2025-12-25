@@ -48,6 +48,7 @@
                 @show-detail="handleShowOriginalDetail"
                 @evaluate="handleEvaluateOriginal"
                 @apply-improvement="handleApplyImprovement"
+                @apply-patch="handleApplyPatch"
               />
               <NButton
                 v-else
@@ -101,6 +102,7 @@
                 @show-detail="handleShowOptimizedDetail"
                 @evaluate="handleEvaluateOptimized"
                 @apply-improvement="handleApplyImprovement"
+                @apply-patch="handleApplyPatch"
               />
               <NButton
                 v-else
@@ -189,7 +191,7 @@ import { useI18n } from 'vue-i18n'
 import { NFlex, NCard, NText, NButton } from 'naive-ui'
 import ToolCallDisplay from './ToolCallDisplay.vue'
 import { EvaluationScoreBadge } from './evaluation'
-import type { AdvancedTestResult, EvaluationResponse, EvaluationType } from '@prompt-optimizer/core'
+import type { AdvancedTestResult, EvaluationResponse, EvaluationType, PatchOperation } from '@prompt-optimizer/core'
 import type { ScoreLevel } from './evaluation/EvaluationScoreBadge.vue'
 
 const { t } = useI18n()
@@ -270,6 +272,7 @@ const emit = defineEmits<{
   'show-original-detail': []
   'show-optimized-detail': []
   'apply-improvement': [payload: { improvement: string; type: EvaluationType }]
+  'apply-patch': [payload: { operation: PatchOperation }]
 }>()
 
 // 计算属性
@@ -305,6 +308,11 @@ const handleShowOptimizedDetail = () => {
 // 应用改进建议处理
 const handleApplyImprovement = (payload: { improvement: string; type: EvaluationType }) => {
   emit('apply-improvement', payload)
+}
+
+// 应用补丁处理
+const handleApplyPatch = (payload: { operation: PatchOperation }) => {
+  emit('apply-patch', payload)
 }
 </script>
 

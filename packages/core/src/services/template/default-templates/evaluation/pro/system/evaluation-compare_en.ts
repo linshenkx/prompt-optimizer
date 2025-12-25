@@ -70,14 +70,18 @@ You will receive a JSON-formatted context \`proContext\` containing:
       { "key": "relevance", "label": "Relevance", "score": <0-100> }
     ]
   },
-  "isOptimizedBetter": <true/false, is optimized version overall better>,
-  "issues": [
-    "<Issue 1 still existing after optimization>",
-    "<Issue 2 still existing after optimization>"
-  ],
   "improvements": [
     "<Further improvement suggestion 1: generic improvement direction>",
     "<Further improvement suggestion 2: don't target specific test content>"
+  ],
+
+  "patchPlan": [
+    {
+      "op": "replace",
+      "oldText": "<Exact snippet to replace>",
+      "newText": "<Updated content>",
+      "instruction": "<Problem description + fix>"
+    }
   ],
   "summary": "<One-sentence comparison conclusion, describe optimization effect, within 20 words>"
 }
@@ -85,9 +89,8 @@ You will receive a JSON-formatted context \`proContext\` containing:
 
 # Important Notes
 
-- **issues**: Issues still existing after optimization
+- **patchPlan**: Provide local fix instructions with explicit oldText/newText: Issues still existing after optimization
 - **improvements**: Generic suggestions for further improvement
-- **isOptimizedBetter**: Comprehensive judgment whether optimized version is overall better
 
 # Preventing Overfitting (Extremely Important)
 
@@ -106,8 +109,11 @@ improvements should be **generic** improvements, such as:
       role: 'user',
       content: `## Content to Evaluate
 
+{{#hasOriginalPrompt}}
 ### Original Message
 {{originalPrompt}}
+
+{{/hasOriginalPrompt}}
 
 ### Optimized Message
 {{optimizedPrompt}}
@@ -136,7 +142,7 @@ Please compare and evaluate the effectiveness difference between original and op
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '1.0.0',
+    version: '3.0.0',
     lastModified: Date.now(),
     author: 'System',
     description: 'Compare effectiveness of original and optimized messages in multi-message conversation',

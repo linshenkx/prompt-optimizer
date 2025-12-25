@@ -1230,6 +1230,7 @@ export default {
       conversationRestored: "已從歷史紀錄恢復完整對話",
       imageFavoriteLoaded: "收藏的圖像提示詞已載入",
       favoriteLoaded: "已將提示詞載入到輸入框",
+      localEditSaved: "已儲存為新版本",
     },
     warn: {
       loadOptimizeTemplateFailed: "載入已儲存的優化提示詞失敗",
@@ -1238,6 +1239,7 @@ export default {
     warning: {
       cannotOptimizeRole: "無法優化 {role} 角色的訊息",
       saveHistoryFailed: "儲存歷史紀錄失敗",
+      patchApplyFailed: "未能自動套用修復，請手動編輯",
       messageNotFound: "找不到訊息",
       noVersionSelected: "請先選擇要套用的版本",
       noContentToApply: "沒有可套用的內容",
@@ -1984,7 +1986,7 @@ export default {
     dimensions: "維度評分",
     issues: "問題",
     improvements: "改進建議",
-    applyToIterate: "應用",
+    applyToIterate: "迭代優化",
     applySuccess: "正在應用改進建議...",
     noResult: "暫無評估結果，點擊評估按鈕開始評估",
     viewDetails: "檢視詳情",
@@ -2021,6 +2023,47 @@ export default {
       serviceNotReady: "評估服務未就緒，請稍後再試",
       failed: "評估失敗：{error}",
       noOptimizedPrompt: "沒有可優化的提示詞",
+    },
+    // 診斷相關翻譯
+    diagnose: {
+      title: "診斷分析",
+      confidence: "置信度",
+      findings: "發現問題",
+      patchPlan: "修復計畫",
+      noFindings: "未發現問題",
+      noPatchPlan: "無修復計畫",
+      applyFix: "應用修復",
+      replaceNow: "立即替換",
+      invariantsWarning: "受限於不可改變項約束",
+      changeBudgetWarning: "受限於變更預算限制",
+      status: {
+        ok: "診斷正常",
+        degraded: "部分降級",
+        failed: "診斷失敗",
+      },
+      severity: {
+        critical: "嚴重",
+        major: "重要",
+        minor: "次要",
+        suggestion: "建議",
+        unknown: "未知",
+      },
+      anchorType: {
+        text: "文本",
+        section: "段落",
+        pattern: "正則",
+      },
+      operation: {
+        insert: "插入",
+        replace: "替換",
+        delete: "刪除",
+      },
+      anchorPosition: {
+        before: "之前",
+        after: "之後",
+        replace: "替換",
+      },
+      invariantsRisks: "約束衝突風險",
     },
   },
 };

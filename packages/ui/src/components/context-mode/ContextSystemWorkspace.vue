@@ -121,6 +121,7 @@
                         @open-preview="emit('open-prompt-preview')"
                         @apply-to-conversation="handleApplyToConversation"
                         @apply-improvement="handleApplyImprovement"
+                        @save-local-edit="handleSaveLocalEdit"
                     />
                 </template>
                 <template v-else>
@@ -228,12 +229,14 @@ import { usePromptDisplayAdapter } from '../../composables/prompt/usePromptDispl
 import { useTemporaryVariables } from '../../composables/variable/useTemporaryVariables'
 import { useEvaluationHandler, provideProContext, useEvaluationContext } from '../../composables/prompt'
 import type { OptimizationMode, ConversationMessage } from "../../types";
-import type {
-    PromptRecord,
-    PromptRecordChain,
-    Template,
-    ToolDefinition,
-    ProSystemEvaluationContext,
+import {
+    applyPatchOperationsToText,
+    type PromptRecord,
+    type PromptRecordChain,
+    type Template,
+    type ToolDefinition,
+    type ProSystemEvaluationContext,
+    type PatchOperation,
 } from "@prompt-optimizer/core";
 import type { TestAreaPanelInstance } from "../types/test-area";
 import type { IteratePayload, SaveFavoritePayload } from "../../types/workspace";
@@ -584,12 +587,33 @@ const handleTestWithVariables = async () => {
 // 🆕 处理应用改进建议事件（使用 evaluationHandler 提供的工厂方法）
 const handleApplyImprovement = evaluationHandler.createApplyImprovementHandler(promptPanelRef);
 
+// 处理保存本地编辑
+const handleSaveLocalEdit = async (payload: { note?: string }) => {
+    await conversationOptimization.saveLocalEdit({
+        optimizedPrompt: conversationOptimization.optimizedPrompt.value || '',
+        note: payload.note,
+        source: 'manual',
+    });
+};
+
 // 暴露引用
 defineExpose({
     testAreaPanelRef,
     restoreFromHistory,
     openIterateDialog: (initialContent?: string) => {
         promptPanelRef.value?.openIterateDialog?.(initialContent);
+    },
+    applyLocalPatch: (operation: PatchOperation) => {
+        // 直接覆盖当前 optimizedPrompt（不自动创建新版本）
+        // 用户可通过"保存修改"按钮显式保存为新版本
+        const current = conversationOptimization.optimizedPrompt.value || '';
+        const result = applyPatchOperationsToText(current, operation);
+        conversationOptimization.optimizedPrompt.value = result.text;
+        if (!result.ok) {
+            window.$message?.warning(t('toast.warning.patchApplyFailed'));
+        } else {
+            window.$message?.success(t('evaluation.diagnose.applyFix'));
+        }
     },
     reEvaluateActive: async () => {
         await evaluationHandler.handleReEvaluate();

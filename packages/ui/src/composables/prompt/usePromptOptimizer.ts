@@ -16,7 +16,7 @@ import type {
   OptimizationMode,
   OptimizationRequest,
   ConversationMessage,
-  ToolDefinition
+  ToolDefinition,
 } from '@prompt-optimizer/core'
 import type { AppServices } from '../../types/services'
 import { useFunctionMode, type FunctionMode } from '../mode'
@@ -80,6 +80,7 @@ export function usePromptOptimizer(
   handleOptimizePrompt: async () => {},
   handleOptimizePromptWithContext: async (_advancedContext: AdvancedContextPayload) => {},
   handleIteratePrompt: async (payload: { originalPrompt: string, optimizedPrompt: string, iterateInput: string }) => {},
+  saveLocalEdit: async (_payload: { optimizedPrompt: string; note?: string; source?: 'patch' | 'manual' }) => {},
   handleSwitchVersion: async (version: PromptChain['versions'][number]) => {}
 })
   
@@ -334,7 +335,8 @@ export function usePromptOptimizer(
   
   // 迭代优化
   state.handleIteratePrompt = async ({ originalPrompt, optimizedPrompt: lastOptimizedPrompt, iterateInput }: { originalPrompt: string, optimizedPrompt: string, iterateInput: string }) => {
-    if (!originalPrompt || !lastOptimizedPrompt || !iterateInput || state.isIterating) return
+    if (!originalPrompt || !lastOptimizedPrompt || state.isIterating) return
+    if (!iterateInput) return
     if (!state.selectedIterateTemplate) {
       toast.error(t('toast.error.noIterateTemplate'))
       return
@@ -366,7 +368,7 @@ export function usePromptOptimizer(
               state.isIterating = false
               return
             }
-            
+
             try {
               // 使用正确的addIteration方法来保存迭代历史，ElectronProxy会自动处理序列化
               const iterationData = {
@@ -379,10 +381,10 @@ export function usePromptOptimizer(
               };
 
               const updatedChain = await historyManager.value!.addIteration(iterationData);
-              
+
               state.currentVersions = updatedChain.versions
               state.currentVersionId = updatedChain.currentRecord.id
-              
+
               toast.success(t('toast.success.iterateComplete'))
             } catch (error: unknown) {
               console.error('[History] 迭代记录失败:', error)
@@ -403,6 +405,71 @@ export function usePromptOptimizer(
       console.error('[Iterate] 迭代失败:', error)
       toast.error(t('toast.error.iterateFailed'))
       state.isIterating = false
+    }
+  }
+
+  /**
+   * 保存本地修改为一个新版本（不触发 LLM）
+   * - 用于“直接修复”与手动编辑后的显式保存
+   */
+  state.saveLocalEdit = async ({ optimizedPrompt, note, source }: { optimizedPrompt: string; note?: string; source?: 'patch' | 'manual' }) => {
+    try {
+      if (!historyManager.value) throw new Error('History service unavailable')
+      if (!optimizedPrompt) return
+
+      const currentRecord = state.currentVersions.find(v => v.id === state.currentVersionId)
+      const modelKey = currentRecord?.modelKey || optimizeModel.value || 'local-edit'
+      const templateId =
+        currentRecord?.templateId ||
+        state.selectedIterateTemplate?.id ||
+        (optimizationMode.value === 'system' ? state.selectedOptimizeTemplate?.id : state.selectedUserOptimizeTemplate?.id) ||
+        'local-edit'
+
+      // 若当前没有链（极少数场景），创建新链以便后续版本管理
+      if (!state.currentChainId) {
+        const baseType = (optimizationMode.value === 'system' ? 'optimize' : 'userOptimize') as PromptRecordType
+        const recordData = {
+          id: uuidv4(),
+          originalPrompt: state.prompt,
+          optimizedPrompt,
+          type: baseType,
+          modelKey,
+          templateId,
+          timestamp: Date.now(),
+          metadata: {
+            optimizationMode: optimizationMode.value,
+            functionMode: functionMode.value,
+            localEdit: true,
+            localEditSource: source || 'manual',
+          }
+        }
+        const newRecord = await historyManager.value.createNewChain(recordData)
+        state.currentChainId = newRecord.chainId
+        state.currentVersions = newRecord.versions
+        state.currentVersionId = newRecord.currentRecord.id
+        return
+      }
+
+      const updatedChain = await historyManager.value.addIteration({
+        chainId: state.currentChainId,
+        originalPrompt: state.prompt,
+        optimizedPrompt,
+        modelKey,
+        templateId,
+        iterationNote: note || (source === 'patch' ? 'Direct fix' : 'Manual edit'),
+        metadata: {
+          optimizationMode: optimizationMode.value,
+          functionMode: functionMode.value,
+          localEdit: true,
+          localEditSource: source || 'manual',
+        }
+      })
+
+      state.currentVersions = updatedChain.versions
+      state.currentVersionId = updatedChain.currentRecord.id
+    } catch (error: unknown) {
+      console.error('[usePromptOptimizer] 保存本地修改失败:', error)
+      toast.warning(t('toast.warning.saveHistoryFailed'))
     }
   }
   

@@ -2,6 +2,7 @@
  * Iterate Requirement Evaluation Template - Pro Mode/System Prompt (Multi-message) - English Version
  *
  * Evaluate message quality in multi-message conversation with iteration requirement as background context
+ * Unified output: score + improvements + patchPlan + summary
  */
 
 import type { Template, MessageTemplate } from '../../../../types';
@@ -16,7 +17,7 @@ export const template: Template = {
 
 # Core Understanding
 
-**Evaluation target is the single message optimization in conversation:**
+**The evaluation target is the WORKSPACE single message optimization in conversation (current editable text):**
 - Target message: The message being optimized (could be system/user/assistant)
 - Conversation context: Complete multi-turn conversation message list
 - Direct comparison: Original message content vs optimized message content
@@ -52,7 +53,7 @@ You will receive a JSON format context \`proContext\` containing:
 \`\`\`json
 {
   "score": {
-    "overall": <overall score 0-100>,
+    "overall": <0-100>,
     "dimensions": [
       { "key": "structureClarity", "label": "Structure Clarity", "score": <0-100> },
       { "key": "roleAdaptation", "label": "Role Adaptation", "score": <0-100> },
@@ -60,34 +61,44 @@ You will receive a JSON format context \`proContext\` containing:
       { "key": "improvementDegree", "label": "Improvement Degree", "score": <0-100> }
     ]
   },
-  "issues": [
-    "<Remaining issue in optimized message 1>",
-    "<Remaining issue in optimized message 2>"
-  ],
   "improvements": [
-    "<Specific improvement suggestion 1>",
-    "<Specific improvement suggestion 2>"
+    "<Directional suggestion 1>",
+    "<Directional suggestion 2>",
+    "<Directional suggestion 3>"
   ],
-  "summary": "<One-line evaluation, within 15 words>",
-  "isOptimizedBetter": <true/false>
+  "patchPlan": [
+    {
+      "op": "replace",
+      "oldText": "<exact text to modify>",
+      "newText": "<modified content>",
+      "instruction": "<issue + fix description>"
+    }
+  ],
+  "summary": "<One-line evaluation, max 15 words>"
 }
 \`\`\`
 
-# Important Notes
+# Field Description
 
-- **issues**: Point out remaining issues in the optimized message
-- **improvements**: Provide specific actionable suggestions
-- **isOptimizedBetter**: Determine if the optimized version is better than the original
-- Iteration requirement is only for understanding the modification background, not as evaluation criteria`
+- **improvements**: Directional suggestions (max 3), for guiding rewrites
+- **patchPlan**: Precise fixes (max 3), for direct text replacement (oldText MUST be an exact substring of the workspace message)
+  - oldText: Must exactly match text in the workspace message (evaluation target)
+  - newText: Complete modified content (empty string for delete)
+  - instruction: Brief description of issue and fix
+- **summary**: One-line evaluation conclusion
+
+Output JSON only, no additional explanation.`
     },
     {
       role: 'user',
       content: `## Content to Evaluate
 
-### Original Message
+{{#hasOriginalPrompt}}
+### Original Message (Reference)
 {{originalPrompt}}
 
-### Optimized Message (Evaluation Target)
+{{/hasOriginalPrompt}}
+### Workspace Current Message (Evaluation Target)
 {{optimizedPrompt}}
 
 ### Modification Background (User's Iteration Requirement)
@@ -102,14 +113,14 @@ You will receive a JSON format context \`proContext\` containing:
 
 ---
 
-Please evaluate the improvement of the optimized message compared to the original version in the conversation context. The iteration requirement is only for understanding the modification background.`
+Please evaluate the current message{{#hasOriginalPrompt}} and compare with the original{{/hasOriginalPrompt}}. The iteration requirement is only for understanding the modification background.`
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '1.0.0',
+    version: '3.0.0',
     lastModified: Date.now(),
     author: 'System',
-    description: 'Evaluate message quality in multi-message conversation with iteration requirement as background context',
+    description: 'Evaluate message quality with unified improvements + patchPlan output',
     templateType: 'evaluation',
     language: 'en',
     tags: ['evaluation', 'prompt-iterate', 'scoring', 'pro', 'system', 'multi-message']

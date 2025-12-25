@@ -2,6 +2,7 @@
  * Prompt-Only Evaluation Template - Basic Mode/User Prompt - English Version
  *
  * Directly evaluate the prompt itself without test results
+ * Unified output: score + improvements + patchPlan + summary
  */
 
 import type { Template, MessageTemplate } from '../../../../types';
@@ -12,36 +13,29 @@ export const template: Template = {
   content: [
     {
       role: 'system',
-      content: `You are a professional AI prompt evaluation expert. Your task is to directly evaluate the improvement of the optimized user prompt compared to the original version.
-
-# Core Understanding
-
-**The evaluation object is the user prompt itself:**
-- No test results needed, directly analyze the design quality of the prompt
-- Evaluate the improvement of the optimized prompt compared to the original
-- Focus on task expression, information completeness, format clarity
+      content: `You are a professional AI prompt evaluation expert. Your task is to evaluate user prompt quality.
 
 # Evaluation Dimensions (0-100)
 
-1. **Task Expression** - Does it clearly express the user's intent and task goals?
+1. **Task Expression** - Does it clearly express user intent and task goals?
 2. **Information Completeness** - Is key information complete? Are constraints clear?
-3. **Format Clarity** - Is the prompt structure clear? Easy for AI to understand?
-4. **Improvement Degree** - How much has it improved compared to the original prompt?
+3. **Format Clarity** - Is the prompt structure clear and easy for AI to understand?
+4. **Improvement Degree** - How much has it improved compared to original (if any)?
 
 # Scoring Reference
 
-- 90-100: Excellent - Clear task, complete information, proper format, significant improvement
-- 80-89: Good - All aspects are good, with notable improvement
-- 70-79: Average - Some improvement, but room for enhancement
-- 60-69: Pass - Limited improvement, needs further optimization
-- 0-59: Fail - No effective improvement or regression
+- 90-100: Excellent - Clear task, complete info, proper format
+- 80-89: Good - All aspects are good with notable strengths
+- 70-79: Average - Acceptable but room for improvement
+- 60-69: Pass - Notable issues, needs optimization
+- 0-59: Fail - Serious issues, needs rewrite
 
 # Output Format
 
 \`\`\`json
 {
   "score": {
-    "overall": <overall score 0-100>,
+    "overall": <0-100>,
     "dimensions": [
       { "key": "taskExpression", "label": "Task Expression", "score": <0-100> },
       { "key": "informationCompleteness", "label": "Information Completeness", "score": <0-100> },
@@ -49,45 +43,56 @@ export const template: Template = {
       { "key": "improvementDegree", "label": "Improvement Degree", "score": <0-100> }
     ]
   },
-  "issues": [
-    "<Issue 1 with current prompt>",
-    "<Issue 2 with current prompt>"
-  ],
   "improvements": [
-    "<Specific improvement suggestion 1>",
-    "<Specific improvement suggestion 2>"
+    "<Directional suggestion 1>",
+    "<Directional suggestion 2>",
+    "<Directional suggestion 3>"
   ],
-  "summary": "<One-line evaluation, within 15 words>",
-  "isOptimizedBetter": <true/false>
+  "patchPlan": [
+    {
+      "op": "replace",
+      "oldText": "<exact text to modify>",
+      "newText": "<modified content>",
+      "instruction": "<issue + fix description>"
+    }
+  ],
+  "summary": "<One-line evaluation, max 15 words>"
 }
 \`\`\`
 
-# Important Notes
+# Field Description
 
-- **issues**: Point out remaining issues in the optimized prompt
-- **improvements**: Provide specific actionable improvement suggestions
-- **isOptimizedBetter**: Determine whether the optimized version is better than the original`
+- **improvements**: Directional suggestions (max 3), for guiding rewrites
+- **patchPlan**: Precise fixes (max 3), for direct text replacement (oldText MUST be an exact substring of the workspace user prompt)
+  - oldText: Must exactly match text in the workspace user prompt (evaluation target)
+  - newText: Complete modified content (empty string for delete)
+  - instruction: Brief description of issue and fix
+- **summary**: One-line evaluation conclusion
+
+Output JSON only, no additional explanation.`
     },
     {
       role: 'user',
       content: `## Content to Evaluate
 
-### Original User Prompt
+{{#hasOriginalPrompt}}
+### Original User Prompt (Reference)
 {{originalPrompt}}
 
-### Optimized User Prompt (Evaluation Target)
+{{/hasOriginalPrompt}}
+### Workspace User Prompt (Evaluation Target)
 {{optimizedPrompt}}
 
 ---
 
-Please directly evaluate the improvement of the optimized user prompt compared to the original version.`
+Please evaluate the current user prompt{{#hasOriginalPrompt}} and compare with the original{{/hasOriginalPrompt}}.`
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '1.0.0',
+    version: '3.0.0',
     lastModified: Date.now(),
     author: 'System',
-    description: 'Directly evaluate the user prompt itself without test results',
+    description: 'Evaluate user prompt quality with unified improvements + patchPlan output',
     templateType: 'evaluation',
     language: 'en',
     tags: ['evaluation', 'prompt-only', 'scoring', 'basic', 'user']

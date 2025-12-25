@@ -116,8 +116,6 @@ export interface UseEvaluationReturn {
   isEvaluatingCompare: ComputedRef<boolean>
   /** 是否有对比评估结果 */
   hasCompareResult: ComputedRef<boolean>
-  /** 优化后是否更好 */
-  isOptimizedBetter: ComputedRef<boolean | null>
 
   // ===== 仅提示词评估相关 =====
   /** 仅提示词评估分数 */
@@ -276,7 +274,6 @@ export function useEvaluation(
   const compareLevel = computed(() => calculateScoreLevel(compareScore.value))
   const isEvaluatingCompare = computed(() => state.compare.isEvaluating)
   const hasCompareResult = computed(() => state.compare.result !== null)
-  const isOptimizedBetter = computed(() => state.compare.result?.isOptimizedBetter ?? null)
 
   // ===== 仅提示词评估计算属性 =====
   const promptOnlyScore = computed(() => state['prompt-only'].result?.score?.overall ?? null)
@@ -467,6 +464,7 @@ export function useEvaluation(
       variables: { language: getLanguage() },
       mode: getModeConfig(),
       proContext: params.proContext,
+      // 注：optimized 评估暂不支持诊断模式，诊断功能仅在 prompt-only/prompt-iterate 中启用
     }
     await executeEvaluation('optimized', request, false)
   }
@@ -613,7 +611,6 @@ export function useEvaluation(
     compareLevel,
     isEvaluatingCompare,
     hasCompareResult,
-    isOptimizedBetter,
 
     // 仅提示词评估
     promptOnlyScore,
@@ -645,6 +642,5 @@ export function useEvaluation(
     showDetail,
     closePanel,
     getScoreLevel,
-
   }
 }

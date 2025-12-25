@@ -16,8 +16,8 @@ export const template: Template = {
 
 # Core Understanding
 
-**The evaluation object is the user prompt (with variables):**
-- User Prompt: The object to be optimized, contains variable placeholders in \`{{variableName}}\` format
+**The evaluation target is the WORKSPACE user prompt (with variables, current editable text):**
+- Workspace user prompt: The object to be optimized, contains variable placeholders in \`{{variableName}}\` format
 - Variables: Dynamic parameters provided by user, replaced with actual values during testing
 - Test Result: AI output after variable replacement in prompt
 
@@ -71,13 +71,18 @@ You will receive a JSON-formatted context \`proContext\` containing:
       { "key": "outputGuidance", "label": "Output Guidance", "score": <0-100> }
     ]
   },
-  "issues": [
-    "<Issue 1 with test result: specifically point out problems in output>",
-    "<Issue 2 with test result: point out omissions, errors, or deficiencies>"
-  ],
   "improvements": [
     "<Specific improvement 1 for user prompt: how to better utilize variables>",
     "<Specific improvement 2 for user prompt: directly point out content to add or modify>"
+  ],
+
+  "patchPlan": [
+    {
+      "op": "replace",
+      "oldText": "<Exact snippet to replace>",
+      "newText": "<Updated content>",
+      "instruction": "<Problem description + fix>"
+    }
   ],
   "summary": "<One-sentence conclusion, within 20 words>"
 }
@@ -85,7 +90,7 @@ You will receive a JSON-formatted context \`proContext\` containing:
 
 # Important Notes
 
-- **issues**: For [Test Results] - What problems exist in this output
+- **patchPlan**: Provide local fix instructions with explicit oldText/newText, ONLY for the WORKSPACE user prompt (oldText MUST be an exact substring of the workspace text): For [Test Results] - What problems exist in this output
 - **improvements**: For [User Prompt] - How to improve prompt to better utilize variables
 
 # Improvement Suggestion Requirements
@@ -100,8 +105,11 @@ improvements should be **specific and actionable** suggestions:
       role: 'user',
       content: `## Content to Evaluate
 
-### User Prompt (Evaluation Object, Variables Replaced)
+{{#hasOriginalPrompt}}
+### Workspace User Prompt (Evaluation Target, Variables Replaced)
 {{originalPrompt}}
+
+{{/hasOriginalPrompt}}
 
 {{#proContext}}
 ### Variable Information
@@ -124,7 +132,7 @@ Please strictly evaluate the above test result and provide specific improvement 
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '1.0.0',
+    version: '3.0.0',
     lastModified: Date.now(),
     author: 'System',
     description: 'Evaluate effectiveness of original user prompt with variables',

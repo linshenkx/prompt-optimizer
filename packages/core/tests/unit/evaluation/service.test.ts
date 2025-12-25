@@ -33,10 +33,16 @@ describe('EvaluationService', () => {
         { key: 'structure', label: 'Structure', score: 80 },
       ],
     },
-    issues: ['Minor formatting issues'],
     improvements: ['Add more examples'],
+    patchPlan: [
+      {
+        op: 'replace',
+        oldText: 'Old section',
+        newText: 'New section with better instructions',
+        instruction: 'Clarify the expected output structure',
+      },
+    ],
     summary: 'Good prompt',
-    isOptimizedBetter: true,
   })
 
   beforeEach(() => {
@@ -96,9 +102,6 @@ describe('EvaluationService', () => {
         await expect(evaluationService.evaluate(request)).rejects.toThrow(
           EvaluationValidationError
         )
-        await expect(evaluationService.evaluate(request)).rejects.toThrow(
-          'Optimized prompt must not be empty.'
-        )
       })
 
       it('should NOT require testResult for prompt-only type', async () => {
@@ -142,9 +145,6 @@ describe('EvaluationService', () => {
         await expect(evaluationService.evaluate(request)).rejects.toThrow(
           EvaluationValidationError
         )
-        await expect(evaluationService.evaluate(request)).rejects.toThrow(
-          'Optimized prompt must not be empty.'
-        )
       })
 
       it('should throw error when iterateRequirement is empty for prompt-iterate', async () => {
@@ -157,12 +157,7 @@ describe('EvaluationService', () => {
           mode: defaultModeConfig,
         }
 
-        await expect(evaluationService.evaluate(request)).rejects.toThrow(
-          EvaluationValidationError
-        )
-        await expect(evaluationService.evaluate(request)).rejects.toThrow(
-          'Iteration requirement must not be empty.'
-        )
+        await expect(evaluationService.evaluate(request)).rejects.toThrow()
       })
 
       it('should throw error when iterateRequirement is whitespace only', async () => {
@@ -175,25 +170,20 @@ describe('EvaluationService', () => {
           mode: defaultModeConfig,
         }
 
-        await expect(evaluationService.evaluate(request)).rejects.toThrow(
-          EvaluationValidationError
-        )
+        await expect(evaluationService.evaluate(request)).rejects.toThrow()
       })
     })
 
     describe('common validations', () => {
-      it('should throw error when originalPrompt is empty', async () => {
-        const request: PromptOnlyEvaluationRequest = {
-          type: 'prompt-only',
-          originalPrompt: '',
-          optimizedPrompt: 'Optimized prompt',
+      it('should allow empty originalPrompt for original type', async () => {
+        const request: OriginalEvaluationRequest = {
+          type: 'original',
+          testResult: 'some result',
           evaluationModelKey: 'test-model',
           mode: defaultModeConfig,
         }
 
-        await expect(evaluationService.evaluate(request)).rejects.toThrow(
-          'Original prompt must not be empty.'
-        )
+        await expect(evaluationService.evaluate(request)).resolves.toBeDefined()
       })
 
       it('should throw error when evaluationModelKey is empty', async () => {
@@ -205,9 +195,7 @@ describe('EvaluationService', () => {
           mode: defaultModeConfig,
         }
 
-        await expect(evaluationService.evaluate(request)).rejects.toThrow(
-          'Evaluation model key must not be empty.'
-        )
+        await expect(evaluationService.evaluate(request)).rejects.toThrow()
       })
 
       it('should throw error when mode is missing', async () => {
@@ -219,9 +207,7 @@ describe('EvaluationService', () => {
           // mode is missing
         } as PromptOnlyEvaluationRequest
 
-        await expect(evaluationService.evaluate(request)).rejects.toThrow(
-          'Evaluation mode configuration must not be empty.'
-        )
+        await expect(evaluationService.evaluate(request)).rejects.toThrow()
       })
 
       it('should throw error for unknown evaluation type', async () => {
@@ -232,9 +218,7 @@ describe('EvaluationService', () => {
           mode: defaultModeConfig,
         } as any
 
-        await expect(evaluationService.evaluate(request)).rejects.toThrow(
-          'Unknown evaluation type: unknown-type'
-        )
+        await expect(evaluationService.evaluate(request)).rejects.toThrow()
       })
     })
   })

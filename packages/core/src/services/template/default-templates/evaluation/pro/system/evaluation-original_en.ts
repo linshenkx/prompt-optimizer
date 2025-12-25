@@ -16,8 +16,8 @@ export const template: Template = {
 
 # Core Understanding
 
-**The evaluation object is a single message in the conversation:**
-- Target Message: The message selected for optimization (could be system/user/assistant)
+**The evaluation target is the WORKSPACE target message (current editable text):**
+- Workspace target message: The message selected for optimization (could be system/user/assistant)
 - Conversation Context: The complete list of multi-turn conversation messages
 - Test Result: AI output from the entire conversation with current configuration
 
@@ -72,13 +72,18 @@ You will receive a JSON-formatted context \`proContext\` containing:
       { "key": "relevance", "label": "Relevance", "score": <0-100> }
     ]
   },
-  "issues": [
-    "<Issue 1 with test result: specifically point out problems in output>",
-    "<Issue 2 with test result: point out omissions, errors, or deficiencies>"
-  ],
   "improvements": [
     "<Generic improvement 1 for target message: don't target specific test content>",
     "<Generic improvement 2 for target message: should apply to similar scenarios>"
+  ],
+
+  "patchPlan": [
+    {
+      "op": "replace",
+      "oldText": "<Exact snippet to replace>",
+      "newText": "<Updated content>",
+      "instruction": "<Problem description + fix>"
+    }
   ],
   "summary": "<One-sentence conclusion, within 20 words>"
 }
@@ -86,7 +91,7 @@ You will receive a JSON-formatted context \`proContext\` containing:
 
 # Important Distinction
 
-- **issues**: For [Test Results] - What problems exist in this output
+- **patchPlan**: Provide local fix instructions with explicit oldText/newText, ONLY for the WORKSPACE target message (oldText MUST be an exact substring of the workspace text): For [Test Results] - What problems exist in this output
 - **improvements**: For [Target Message] - How to improve this message
 
 # Preventing Overfitting (Extremely Important)
@@ -106,8 +111,11 @@ improvements should be **generic** improvements, such as:
       role: 'user',
       content: `## Content to Evaluate
 
-### Target Message (Evaluation Object)
+{{#hasOriginalPrompt}}
+### Workspace Target Message (Evaluation Target)
 {{originalPrompt}}
+
+{{/hasOriginalPrompt}}
 
 {{#proContext}}
 ### Conversation Context
@@ -130,7 +138,7 @@ Please strictly evaluate the above test result and provide generic improvement s
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '1.0.0',
+    version: '3.0.0',
     lastModified: Date.now(),
     author: 'System',
     description: 'Evaluate test results of original message in multi-message conversation',

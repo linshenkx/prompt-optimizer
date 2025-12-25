@@ -16,7 +16,7 @@ export const template: Template = {
 
 # Core Understanding
 
-**Evaluation object is the optimization effect of a single message:**
+**The evaluation target is the WORKSPACE optimized target message (current editable text):**
 - Target message: The optimized message (can be system/user/assistant)
 - Conversation context: Complete multi-turn conversation message list
 - Direct comparison: Original message content vs Optimized message content
@@ -55,33 +55,45 @@ You will receive a JSON format context \`proContext\` containing:
       { "key": "improvementDegree", "label": "Improvement Degree", "score": <0-100> }
     ]
   },
-  "issues": [
-    "<Remaining issue 1 with optimized message>",
-    "<Remaining issue 2 with optimized message>"
-  ],
   "improvements": [
     "<Specific improvement suggestion 1>",
     "<Specific improvement suggestion 2>"
   ],
+
+  "patchPlan": [
+    {
+      "op": "replace",
+      "oldText": "<Exact snippet to replace>",
+      "newText": "<Updated content>",
+      "instruction": "<Problem description + fix>"
+    }
+  ],
   "summary": "<One-line evaluation, within 15 words>",
-  "isOptimizedBetter": <true/false>
 }
 \`\`\`
 
-# Important Notes
+# Field Description
 
-- **issues**: Point out remaining issues in the optimized message
-- **improvements**: Provide specific actionable improvement suggestions
-- **isOptimizedBetter**: Determine whether the optimized version is better`
+- **improvements**: Directional suggestions (max 3), for guiding rewrites
+- **patchPlan**: Precise fixes (max 3), for direct text replacement (oldText MUST be an exact substring of the workspace message)
+  - oldText: Must exactly match text in the workspace message (evaluation target)
+  - newText: Complete modified content (empty string for delete)
+  - instruction: Brief description of issue and fix
+- **summary**: One-line evaluation conclusion
+
+Output JSON only, no additional explanation.`
     },
     {
       role: 'user',
       content: `## Content to Evaluate
 
+{{#hasOriginalPrompt}}
 ### Original Message
 {{originalPrompt}}
 
-### Optimized Message (Evaluation Target)
+{{/hasOriginalPrompt}}
+
+### Workspace Optimized Message (Evaluation Target)
 {{optimizedPrompt}}
 
 {{#proContext}}
@@ -97,7 +109,7 @@ Please directly evaluate the improvement of the optimized message compared to th
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '1.0.0',
+    version: '3.0.0',
     lastModified: Date.now(),
     author: 'System',
     description: 'Directly evaluate message quality in multi-message conversation without test results',

@@ -328,9 +328,12 @@ export function useEvaluationHandler(
   /**
    * 测试前清空评估结果
    * 应在执行测试前调用，确保旧的评估结果不会残留
+   * 注：只清除测试相关的评估（original/optimized/compare），保留左侧提示词评估（prompt-only/prompt-iterate）
    */
   const clearBeforeTest = (): void => {
-    evaluation.clearAllResults()
+    evaluation.clearResult('original')
+    evaluation.clearResult('optimized')
+    evaluation.clearResult('compare')
   }
 
   /**

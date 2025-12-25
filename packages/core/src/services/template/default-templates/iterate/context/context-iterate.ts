@@ -33,17 +33,18 @@ export const template: Template = {
 - 迭代要有明确可验证的输出要求或验收标准
 
 ## 输出
-- 直接输出“迭代后的完整提示词文本”`
+- 直接输出“迭代后的完整提示词文本”
+`
     },
     {
       role: 'user',
       content: `当前提示词：
 {{lastOptimizedPrompt}}
-
 迭代需求：
 {{iterateInput}}
 
-请基于以上信息，输出迭代后的提示词文本：`
+请基于以上信息，输出迭代后的提示词文本：
+`
     }
   ] as MessageTemplate[],
   metadata: {

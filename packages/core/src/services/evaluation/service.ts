@@ -17,6 +17,8 @@ import {
   type EvaluationType,
   type EvaluationDimension,
   type EvaluationModeConfig,
+  type PatchOperation,
+  type PatchOperationType,
 } from './types';
 import {
   EvaluationValidationError,
@@ -41,28 +43,18 @@ export class EvaluationService implements IEvaluationService {
    * 执行评估（非流式）
    */
   async evaluate(request: EvaluationRequest): Promise<EvaluationResponse> {
-    // 验证请求
     this.validateRequest(request);
-
-    // 验证模型
     await this.validateModel(request.evaluationModelKey);
 
-    // 获取评估模板（使用模式配置）
     const template = await this.getEvaluationTemplate(request.type, request.mode);
-
-    // 构建模板上下文
     const context = this.buildTemplateContext(request);
-
-    // 处理模板生成消息
     const messages = TemplateProcessor.processTemplate(template, context);
 
-    // 调用 LLM
     const startTime = Date.now();
     try {
       const result = await this.llmService.sendMessage(messages, request.evaluationModelKey);
       const duration = Date.now() - startTime;
 
-      // 解析评估结果
       return this.parseEvaluationResult(result, request.type, {
         model: request.evaluationModelKey,
         timestamp: Date.now(),
@@ -83,7 +75,6 @@ export class EvaluationService implements IEvaluationService {
     request: EvaluationRequest,
     callbacks: EvaluationStreamHandlers
   ): Promise<void> {
-    // 验证请求
     try {
       this.validateRequest(request);
     } catch (error) {
@@ -91,7 +82,6 @@ export class EvaluationService implements IEvaluationService {
       return;
     }
 
-    // 验证模型
     try {
       await this.validateModel(request.evaluationModelKey);
     } catch (error) {
@@ -99,7 +89,6 @@ export class EvaluationService implements IEvaluationService {
       return;
     }
 
-    // 获取评估模板（使用模式配置）
     let template: Template;
     try {
       template = await this.getEvaluationTemplate(request.type, request.mode);
@@ -108,13 +97,9 @@ export class EvaluationService implements IEvaluationService {
       return;
     }
 
-    // 构建模板上下文
     const context = this.buildTemplateContext(request);
-
-    // 处理模板生成消息
     const messages = TemplateProcessor.processTemplate(template, context);
 
-    // 流式调用 LLM
     let fullContent = '';
     const startTime = Date.now();
 
@@ -157,15 +142,10 @@ export class EvaluationService implements IEvaluationService {
    * 验证评估请求
    */
   private validateRequest(request: EvaluationRequest): void {
-    if (!request.originalPrompt?.trim()) {
-      throw new EvaluationValidationError('Original prompt must not be empty.');
-    }
-
     if (!request.evaluationModelKey?.trim()) {
       throw new EvaluationValidationError('Evaluation model key must not be empty.');
     }
 
-    // 验证模式配置
     if (!request.mode) {
       throw new EvaluationValidationError('Evaluation mode configuration must not be empty.');
     }
@@ -205,14 +185,12 @@ export class EvaluationService implements IEvaluationService {
         break;
 
       case 'prompt-only':
-        // 仅提示词评估，不需要测试结果
         if (!request.optimizedPrompt?.trim()) {
           throw new EvaluationValidationError('Optimized prompt must not be empty.');
         }
         break;
 
       case 'prompt-iterate':
-        // 带迭代需求的提示词评估
         if (!request.optimizedPrompt?.trim()) {
           throw new EvaluationValidationError('Optimized prompt must not be empty.');
         }
@@ -258,7 +236,6 @@ export class EvaluationService implements IEvaluationService {
 
   /**
    * 根据评估类型和模式获取模板ID
-   * 格式: evaluation-{functionMode}-{subMode}-{type}
    */
   private getTemplateId(type: EvaluationType, mode: EvaluationModeConfig): string {
     return `evaluation-${mode.functionMode}-${mode.subMode}-${type}`;
@@ -269,12 +246,19 @@ export class EvaluationService implements IEvaluationService {
    */
   private buildTemplateContext(request: EvaluationRequest): TemplateContext {
     const baseContext: TemplateContext = {
-      originalPrompt: request.originalPrompt,
       testContent: request.testContent || '',
       ...(request.variables || {}),
     };
 
-    // 如果有 Pro 模式上下文，序列化后添加到上下文
+    // 原始提示词（可选）
+    if (request.originalPrompt) {
+      baseContext.originalPrompt = request.originalPrompt;
+      baseContext.hasOriginalPrompt = true;
+    } else {
+      baseContext.hasOriginalPrompt = false;
+    }
+
+    // Pro 模式上下文
     if (request.proContext) {
       baseContext.proContext = JSON.stringify(request.proContext, null, 2);
     }
@@ -321,12 +305,6 @@ export class EvaluationService implements IEvaluationService {
 
   /**
    * 解析评估结果
-   *
-   * 使用 jsonrepair 库处理 LLM 输出的 JSON，支持：
-   * - 自动剥离 fenced code blocks（```json ... ```）
-   * - 修复缺失的引号、逗号等
-   * - 处理截断的 JSON
-   * - 转换 Python 常量（None → null, True → true）
    */
   private parseEvaluationResult(
     content: string,
@@ -336,16 +314,14 @@ export class EvaluationService implements IEvaluationService {
     const tryNormalizeParsed = (parsed: unknown): EvaluationResponse | null => {
       if (!parsed || typeof parsed !== 'object') return null;
 
-      // 常规：直接是对象
       if (!Array.isArray(parsed) && (parsed as any).score) {
-        return this.normalizeEvaluationResponse(parsed, type, metadata, content);
+        return this.normalizeEvaluationResponse(parsed, type, metadata);
       }
 
-      // 兼容：jsonrepair 在遇到“JSON + 额外文本”时可能返回数组（文本片段 + 对象）
       if (Array.isArray(parsed)) {
         for (const item of parsed) {
           if (item && typeof item === 'object' && (item as any).score) {
-            return this.normalizeEvaluationResponse(item, type, metadata, content);
+            return this.normalizeEvaluationResponse(item, type, metadata);
           }
         }
       }
@@ -353,7 +329,7 @@ export class EvaluationService implements IEvaluationService {
       return null;
     };
 
-    // 1. 尝试使用 jsonrepair 修复并解析 JSON（优先解析 fenced code block 中的 JSON）
+    // 尝试解析 JSON
     const fencedMatch = content.match(/```json\s*([\s\S]*?)\s*```/i);
     const candidates = [fencedMatch?.[1], content].filter(Boolean) as string[];
 
@@ -366,38 +342,33 @@ export class EvaluationService implements IEvaluationService {
           return normalized;
         }
       } catch (e) {
-        // 继续尝试下一个候选或降级解析
         console.warn(
-          '[EvaluationService] jsonrepair 解析失败:',
+          '[EvaluationService] jsonrepair failed:',
           e instanceof Error ? e.message : String(e)
         );
       }
     }
 
-    // 2. 降级：尝试文本解析提取分数
+    // 降级解析
     const textResult = this.parseTextEvaluation(content, type, metadata);
     if (textResult) {
-      console.warn('[EvaluationService] 使用文本降级解析');
+      console.warn('[EvaluationService] Using text fallback parsing');
       return textResult;
     }
 
-    // 完全解析失败：抛出错误
     throw new EvaluationParseError(
       `Failed to parse evaluation result. Raw content length: ${content.length} characters.`
     );
   }
 
   /**
-   * 标准化评估响应
-   * @throws {EvaluationParseError} 当必要字段缺失时抛出
+   * 标准化评估响应（统一结构）
    */
   private normalizeEvaluationResponse(
     data: any,
     type: EvaluationType,
-    metadata?: { model?: string; timestamp?: number; duration?: number },
-    _rawContent?: string
+    metadata?: { model?: string; timestamp?: number; duration?: number }
   ): EvaluationResponse {
-    // 严格验证必要字段
     if (!data || typeof data !== 'object') {
       throw new EvaluationParseError('Evaluation result is not a valid object.');
     }
@@ -406,7 +377,7 @@ export class EvaluationService implements IEvaluationService {
       throw new EvaluationParseError('Evaluation result is missing the "score" field.');
     }
 
-    // 安全地提取分数，无默认值
+    // 提取分数
     const extractScore = (value: any, fieldName: string): number => {
       if (value === undefined || value === null) {
         throw new EvaluationParseError(`Evaluation result is missing score for "${fieldName}".`);
@@ -418,7 +389,7 @@ export class EvaluationService implements IEvaluationService {
       return Math.max(0, Math.min(100, num));
     };
 
-    // 验证并提取维度分数（新格式：数组）
+    // 解析维度
     const dimensionsData = data.score.dimensions;
     if (!dimensionsData || !Array.isArray(dimensionsData)) {
       throw new EvaluationParseError('Evaluation result "dimensions" must be an array.');
@@ -428,7 +399,6 @@ export class EvaluationService implements IEvaluationService {
       throw new EvaluationParseError('Evaluation result "dimensions" array must not be empty.');
     }
 
-    // 解析维度数组
     const dimensions: EvaluationDimension[] = dimensionsData.map((dim: any, index: number) => {
       if (!dim || typeof dim !== 'object') {
         throw new EvaluationParseError(`dimensions[${index}] is not a valid object.`);
@@ -451,51 +421,34 @@ export class EvaluationService implements IEvaluationService {
       dimensions,
     };
 
-    // 解析新字段：issues, improvements, summary
-    const issues = Array.isArray(data.issues) ? data.issues : [];
-    const improvements = Array.isArray(data.improvements) ? data.improvements : [];
+    // 解析 improvements（最多3条）
+    const improvements = Array.isArray(data.improvements)
+      ? data.improvements.slice(0, 3)
+      : [];
+
+    // 解析 patchPlan（最多3条）
+    const patchPlan = this.normalizePatchPlan(data.patchPlan || []).slice(0, 3);
+
     const summary = typeof data.summary === 'string' ? data.summary : '';
 
-    const response: EvaluationResponse = {
+    return {
       type,
       score,
-      issues,
       improvements,
       summary,
+      patchPlan,
       metadata,
     };
-
-    // 对比评估专属字段：规范化 isOptimizedBetter 为 boolean 类型
-    if (type === 'compare') {
-      const rawValue = data.isOptimizedBetter;
-      if (typeof rawValue === 'boolean') {
-        response.isOptimizedBetter = rawValue;
-      } else if (typeof rawValue === 'string') {
-        // 处理字符串形式的 "true"/"false"
-        const lowerValue = rawValue.toLowerCase().trim();
-        if (lowerValue === 'true' || lowerValue === 'yes') {
-          response.isOptimizedBetter = true;
-        } else if (lowerValue === 'false' || lowerValue === 'no') {
-          response.isOptimizedBetter = false;
-        }
-        // 其他字符串值保持 undefined
-      }
-      // 其他类型（null, undefined, number 等）保持 undefined
-    }
-
-    return response;
   }
 
   /**
    * 文本解析评估结果（降级方案）
-   * 仅当能从文本中提取到有效分数时返回结果，否则返回 null
    */
   private parseTextEvaluation(
     content: string,
     type: EvaluationType,
     metadata?: { model?: string; timestamp?: number; duration?: number }
   ): EvaluationResponse | null {
-    // 尝试从文本中提取分数（需要明确的分数格式）
     const scorePatterns = [
       /总[分评][:：]\s*(\d{1,3})/,
       /overall[:：]\s*(\d{1,3})/i,
@@ -515,47 +468,96 @@ export class EvaluationService implements IEvaluationService {
       }
     }
 
-    // 如果无法提取到有效分数，返回 null 表示解析失败
     if (overall === null) {
       return null;
-    }
-
-    // 尝试判断对比评估的结论
-    let isOptimizedBetter: boolean | undefined;
-
-    if (type === 'compare') {
-      // 检查是否包含优化后更好的关键词
-      const betterKeywords = ['优化后更好', '优化后效果更好', '改进明显', 'optimized.*better'];
-      const worseKeywords = ['原始更好', '原始效果更好', '优化后变差', 'original.*better'];
-
-      const betterMatch = betterKeywords.some((kw) => new RegExp(kw, 'i').test(content));
-      const worseMatch = worseKeywords.some((kw) => new RegExp(kw, 'i').test(content));
-
-      if (betterMatch && !worseMatch) {
-        isOptimizedBetter = true;
-      } else if (worseMatch && !betterMatch) {
-        isOptimizedBetter = false;
-      }
     }
 
     return {
       type,
       score: {
         overall,
-        // 降级方案下创建单一维度表示总体评分
         dimensions: [
           { key: 'overall', label: '综合评分', score: overall },
         ],
       },
-      // 降级方案无法解析结构化内容，返回空数组
-      issues: [],
       improvements: [],
-      summary: isOptimizedBetter !== undefined
-        ? (isOptimizedBetter ? '优化后效果更好' : '原始效果更好')
-        : '评估完成',
-      isOptimizedBetter,
+      summary: '评估完成',
+      patchPlan: [],
       metadata,
     };
+  }
+
+  /**
+   * 标准化补丁计划数组（简化版）
+   */
+  private normalizePatchPlan(patchPlan: any[]): PatchOperation[] {
+    if (!Array.isArray(patchPlan)) {
+      return [];
+    }
+
+    const validOps: PatchOperationType[] = ['insert', 'replace', 'delete'];
+
+    return patchPlan
+      .map((op: any) => {
+        if (!op || typeof op !== 'object') {
+          return null;
+        }
+
+        let opType: PatchOperationType = 'replace';
+        if (op.op && validOps.includes(op.op)) {
+          opType = op.op;
+        }
+
+        // 反转义 HTML 实体（LLM 可能返回转义后的 XML 标签）
+        const oldText = this.unescapeHtmlEntities(String(op.oldText || ''));
+        if (!oldText) {
+          return null;
+        }
+
+        const newText = this.unescapeHtmlEntities(
+          op.newText !== undefined ? String(op.newText) : ''
+        );
+
+        const operation: PatchOperation = {
+          op: opType,
+          oldText,
+          newText,
+          instruction: String(op.instruction || ''),
+        };
+
+        if (typeof op.occurrence === 'number' && Number.isFinite(op.occurrence)) {
+          const occ = Math.trunc(op.occurrence);
+          if (occ > 0) {
+            operation.occurrence = occ;
+          }
+        }
+
+        return operation;
+      })
+      .filter((op): op is PatchOperation => op !== null);
+  }
+
+  /**
+   * 反转义 HTML 实体
+   * LLM 生成 JSON 时可能对 XML 标签进行 HTML 转义
+   * 支持：命名实体、十进制实体(&#123;)、十六进制实体(&#x2F;)
+   */
+  private unescapeHtmlEntities(text: string): string {
+    if (!text) return text;
+    return text
+      // 命名实体
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&apos;/g, "'")
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&sol;/g, '/')
+      // 十六进制实体 &#xHH; 或 &#xHHHH;
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+      // 十进制实体 &#DDD;
+      .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)));
   }
 }
 

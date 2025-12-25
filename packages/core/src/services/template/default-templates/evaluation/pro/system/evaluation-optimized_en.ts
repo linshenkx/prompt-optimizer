@@ -16,8 +16,8 @@ export const template: Template = {
 
 # Core Understanding
 
-**The evaluation object is the optimized message:**
-- Optimized Message: The target message after optimization
+**The evaluation target is the WORKSPACE optimized message (current editable text):**
+- Workspace optimized message: The target message after optimization
 - Original Message: The version before optimization (to understand improvement direction)
 - Conversation Context: Complete list of multi-turn conversation messages
 - Test Result: AI output using the optimized message
@@ -70,13 +70,18 @@ You will receive a JSON-formatted context \`proContext\` containing:
       { "key": "relevance", "label": "Relevance", "score": <0-100> }
     ]
   },
-  "issues": [
-    "<Issue 1 with test result: specifically point out problems in output>",
-    "<Issue 2 with test result: point out omissions, errors, or deficiencies>"
-  ],
   "improvements": [
     "<Further improvement 1: generic improvement direction based on current effect>",
     "<Further improvement 2: don't target specific test content>"
+  ],
+
+  "patchPlan": [
+    {
+      "op": "replace",
+      "oldText": "<Exact snippet to replace>",
+      "newText": "<Updated content>",
+      "instruction": "<Problem description + fix>"
+    }
   ],
   "summary": "<One-sentence conclusion, within 20 words>"
 }
@@ -84,7 +89,7 @@ You will receive a JSON-formatted context \`proContext\` containing:
 
 # Important Distinction
 
-- **issues**: For [Test Results] - What problems exist in this output
+- **patchPlan**: Provide local fix instructions with explicit oldText/newText, ONLY for the WORKSPACE optimized message (oldText MUST be an exact substring of the workspace text): For [Test Results] - What problems exist in this output
 - **improvements**: For [Optimized Message] - How to further improve
 
 # Preventing Overfitting (Extremely Important)
@@ -104,10 +109,13 @@ improvements should be **generic** improvements, such as:
       role: 'user',
       content: `## Content to Evaluate
 
-### Original Message
+{{#hasOriginalPrompt}}
+### Original Message (Reference, for intent understanding)
 {{originalPrompt}}
 
-### Optimized Message (Evaluation Object)
+{{/hasOriginalPrompt}}
+
+### Workspace Optimized Message (Evaluation Target)
 {{optimizedPrompt}}
 
 {{#proContext}}
@@ -131,7 +139,7 @@ Please strictly evaluate the effectiveness of the optimized message and provide 
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '1.0.0',
+    version: '3.0.0',
     lastModified: Date.now(),
     author: 'System',
     description: 'Evaluate effectiveness of optimized message in multi-message conversation',

@@ -16,8 +16,8 @@ export const template: Template = {
 
 # Core Understanding
 
-**The evaluation target is the system prompt, NOT the test input:**
-- System prompt: The object to be further optimized
+**The evaluation target is the WORKSPACE system prompt (current editable text), NOT the test input:**
+- Workspace system prompt: The object to be further optimized
 - Test input: Only a sample to verify prompt effectiveness, cannot be optimized
 - Test result: How the system prompt performs with this input
 
@@ -44,12 +44,12 @@ export const template: Template = {
 - 40-54: Poor, barely usable
 - 0-39: Failed, needs redo
 
-# Output Format
+# Output Format (Unified)
 
 \`\`\`json
 {
   "score": {
-    "overall": <total, weighted average of 4 dimensions>,
+    "overall": <overall 0-100>,
     "dimensions": [
       { "key": "goalAchievement", "label": "Goal Achievement", "score": <0-100> },
       { "key": "outputQuality", "label": "Output Quality", "score": <0-100> },
@@ -57,22 +57,28 @@ export const template: Template = {
       { "key": "relevance", "label": "Relevance", "score": <0-100> }
     ]
   },
-  "issues": [
-    "<Test result problem 1: specify what's wrong in the output>",
-    "<Test result problem 2: point out omissions, errors, or deficiencies>"
-  ],
   "improvements": [
-    "<System prompt generic improvement 1: not specific to test content>",
-    "<System prompt generic improvement 2: should apply to various similar inputs>"
+    "<Generic improvement 1>",
+    "<Generic improvement 2>",
+    "<Generic improvement 3>"
+  ],
+  "patchPlan": [
+    {
+      "op": "replace",
+      "oldText": "<Exact snippet to replace in the prompt>",
+      "newText": "<Updated content>",
+      "instruction": "<Problem description + fix>"
+    }
   ],
   "summary": "<One-line verdict, under 20 words>"
 }
 \`\`\`
 
-# Important Distinction
+# Field Notes
 
-- **issues**: About [TEST RESULT] - what's wrong with this specific output
-- **improvements**: About [SYSTEM PROMPT] - how to further improve the prompt
+- **improvements**: Directional suggestions (max 3), must stay generic and not overfit the sample test
+- **patchPlan**: Precise fixes (max 3) with clear old/new text for direct editing (oldText MUST be an exact substring of the workspace system prompt)
+- **summary**: One-line conclusion
 
 # Preventing Overfitting (Critical)
 
@@ -91,10 +97,12 @@ improvements SHOULD be **generic** improvements, for example:
       role: 'user',
       content: `## Content to Evaluate
 
-### Original Prompt (Before Optimization)
+{{#hasOriginalPrompt}}
+### Original Prompt (Reference, for intent understanding)
 {{originalPrompt}}
+{{/hasOriginalPrompt}}
 
-### Optimized System Prompt (Evaluation Target)
+### Workspace System Prompt (Evaluation Target)
 {{optimizedPrompt}}
 
 {{#testContent}}
@@ -111,7 +119,7 @@ Please strictly evaluate the above test result and provide generic improvement s
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '1.0.0',
+    version: '3.0.0',
     lastModified: Date.now(),
     author: 'System',
     description: 'Evaluate the effectiveness of the optimized prompt',

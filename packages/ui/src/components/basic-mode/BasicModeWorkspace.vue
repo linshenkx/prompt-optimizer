@@ -154,6 +154,8 @@
                     @save-favorite="emit('save-favorite', $event)"
                     @open-preview="emit('open-prompt-preview')"
                     @apply-improvement="emit('apply-improvement', $event)"
+                    @apply-patch="emit('apply-patch', $event)"
+                    @save-local-edit="emit('save-local-edit', $event)"
                 />
             </NCard>
         </NFlex>
@@ -207,6 +209,7 @@
             @show-original-detail="emit('show-original-detail')"
             @show-optimized-detail="emit('show-optimized-detail')"
             @apply-improvement="emit('apply-improvement', $event)"
+            @apply-patch="emit('apply-patch', $event)"
         >
             <!-- 模型选择插槽 -->
             <template #model-select>
@@ -272,6 +275,7 @@
                         size="small"
                         @show-detail="emit('show-compare-detail')"
                         @apply-improvement="emit('apply-improvement', $event)"
+                        @apply-patch="emit('apply-patch', $event)"
                     />
                     <!-- 未评估：显示评估按钮 -->
                     <NButton
@@ -329,7 +333,7 @@ import TestAreaPanel from '../TestAreaPanel.vue'
 import OutputDisplay from '../OutputDisplay.vue'
 import { EvaluationScoreBadge } from '../evaluation'
 import type { OptimizationMode } from '../../types'
-import type { PromptRecord, Template, EvaluationResult, ScoreLevel } from '@prompt-optimizer/core'
+import type { PromptRecord, Template, EvaluationResult, ScoreLevel, PatchOperation } from '@prompt-optimizer/core'
 import type { PromptPanelInstance } from '../types/prompt-panel'
 import type { TestAreaPanelInstance } from '../types/test-area'
 import type { SaveFavoritePayload, IteratePayload } from '../../types/workspace'
@@ -515,11 +519,15 @@ const emit = defineEmits<{
     'show-compare-detail': []
     /** 应用改进 */
     'apply-improvement': [payload: { improvement: string; type: string }]
+    /** 应用补丁 */
+    'apply-patch': [payload: { operation: PatchOperation }]
     // 注：evaluate-prompt-only 和 show-prompt-only-detail 事件已移除，PromptPanel 现在直接通过 inject 的 evaluation context 处理
 
     // === 保存/管理事件 ===
     /** 保存收藏 */
     'save-favorite': [data: SaveFavoritePayload]
+    /** 保存本地修改为新版本 */
+    'save-local-edit': [payload: { note?: string }]
 
     // === 打开面板/管理器 ===
     /** 打开变量管理器 */

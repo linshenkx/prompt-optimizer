@@ -33,6 +33,7 @@
       @show-detail="handleShowDetail"
       @evaluate="handleEvaluate"
       @apply-improvement="handleApplyImprovement"
+      @apply-patch="handleApplyPatch"
       @mouseenter="handlePopoverMouseEnter"
       @mouseleave="handlePopoverMouseLeave"
     />
@@ -43,7 +44,7 @@
 import { computed, ref } from 'vue'
 import { NSpin, NPopover } from 'naive-ui'
 import EvaluationHoverCard from './EvaluationHoverCard.vue'
-import type { EvaluationResponse, EvaluationType } from '@prompt-optimizer/core'
+import type { EvaluationResponse, EvaluationType, PatchOperation } from '@prompt-optimizer/core'
 
 export type ScoreLevel = 'excellent' | 'good' | 'acceptable' | 'poor' | 'very-poor'
 
@@ -76,6 +77,7 @@ const emit = defineEmits<{
   (e: 'show-detail'): void
   (e: 'evaluate'): void
   (e: 'apply-improvement', payload: { improvement: string; type: EvaluationType }): void
+  (e: 'apply-patch', payload: { operation: PatchOperation }): void
 }>()
 
 // Popover 显示状态
@@ -164,6 +166,12 @@ const handleEvaluate = () => {
 const handleApplyImprovement = (payload: { improvement: string; type: EvaluationType }) => {
   popoverVisible.value = false
   emit('apply-improvement', payload)
+}
+
+// 应用补丁处理 - 关闭悬浮预览并转发事件
+const handleApplyPatch = (payload: { operation: PatchOperation }) => {
+  popoverVisible.value = false
+  emit('apply-patch', payload)
 }
 </script>
 

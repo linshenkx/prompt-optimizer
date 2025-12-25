@@ -16,8 +16,8 @@ export const template: Template = {
 
 # Core Understanding
 
-**The evaluation object is the optimized user prompt:**
-- Optimized Prompt: The user prompt after optimization
+**The evaluation target is the WORKSPACE optimized user prompt (current editable text):**
+- Workspace optimized user prompt: The user prompt after optimization
 - Original Prompt: The version before optimization (to understand improvement direction)
 - Variables: Dynamic parameters provided by user
 - Test Result: AI output from optimized prompt (after variable replacement)
@@ -71,13 +71,18 @@ You will receive a JSON-formatted context \`proContext\` containing:
       { "key": "outputGuidance", "label": "Output Guidance", "score": <0-100> }
     ]
   },
-  "issues": [
-    "<Issue 1 with test result: specifically point out problems in output>",
-    "<Issue 2 with test result: point out omissions, errors, or deficiencies>"
-  ],
   "improvements": [
     "<Further improvement 1: how to continue improving variable utilization>",
     "<Further improvement 2: other aspects that can be improved>"
+  ],
+
+  "patchPlan": [
+    {
+      "op": "replace",
+      "oldText": "<Exact snippet to replace>",
+      "newText": "<Updated content>",
+      "instruction": "<Problem description + fix>"
+    }
   ],
   "summary": "<One-sentence conclusion, within 20 words>"
 }
@@ -85,7 +90,7 @@ You will receive a JSON-formatted context \`proContext\` containing:
 
 # Important Notes
 
-- **issues**: For [Test Results] - What problems exist in this output
+- **patchPlan**: Provide local fix instructions with explicit oldText/newText, ONLY for the WORKSPACE optimized user prompt (oldText MUST be an exact substring of the workspace text): For [Test Results] - What problems exist in this output
 - **improvements**: For [Optimized Prompt] - How to further improve
 
 # Improvement Suggestion Requirements
@@ -100,10 +105,13 @@ improvements should be **specific and actionable** suggestions:
       role: 'user',
       content: `## Content to Evaluate
 
-### Original User Prompt
+{{#hasOriginalPrompt}}
+### Original User Prompt (Reference, for intent understanding)
 {{originalPrompt}}
 
-### Optimized User Prompt (Evaluation Object, Variables Replaced)
+{{/hasOriginalPrompt}}
+
+### Workspace Optimized User Prompt (Evaluation Target, Variables Replaced)
 {{optimizedPrompt}}
 
 {{#proContext}}
@@ -127,7 +135,7 @@ Please strictly evaluate the effectiveness of the optimized prompt and provide s
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '1.0.0',
+    version: '3.0.0',
     lastModified: Date.now(),
     author: 'System',
     description: 'Evaluate effectiveness of optimized user prompt with variables',

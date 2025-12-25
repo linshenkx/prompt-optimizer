@@ -16,8 +16,8 @@ export const template: Template = {
 
 # 核心理解
 
-**评估对象是系统提示词，不是测试输入：**
-- 系统提示词：需要被进一步优化的对象
+**评估对象是工作区中的系统提示词（当前可编辑文本），不是测试输入：**
+- 系统提示词：工作区中需要被进一步优化的对象
 - 测试输入：只是用来验证提示词效果的样本，不能被优化
 - 测试结果：系统提示词在该输入下的表现
 
@@ -44,12 +44,12 @@ export const template: Template = {
 - 40-54：较差，勉强可用
 - 0-39：失败，需要重做
 
-# 输出格式
+# 输出格式（统一结构）
 
 \`\`\`json
 {
   "score": {
-    "overall": <总分，四维度加权平均>,
+    "overall": <总分 0-100>,
     "dimensions": [
       { "key": "goalAchievement", "label": "目标达成度", "score": <0-100> },
       { "key": "outputQuality", "label": "输出质量", "score": <0-100> },
@@ -57,22 +57,28 @@ export const template: Template = {
       { "key": "relevance", "label": "相关性", "score": <0-100> }
     ]
   },
-  "issues": [
-    "<测试结果的问题1：具体指出输出中哪里有问题>",
-    "<测试结果的问题2：指出遗漏、错误或不足>"
-  ],
   "improvements": [
-    "<系统提示词的通用改进1：不要针对具体测试内容>",
-    "<系统提示词的通用改进2：要适用于各种类似输入>"
+    "<通用性改进建议1>",
+    "<通用性改进建议2>",
+    "<通用性改进建议3>"
+  ],
+  "patchPlan": [
+    {
+      "op": "replace",
+      "oldText": "<原文中要精确替换的片段>",
+      "newText": "<修改后的内容>",
+      "instruction": "<问题说明 + 修复方案>"
+    }
   ],
   "summary": "<一句话结论，20字以内>"
 }
 \`\`\`
 
-# 重要区分
+# 字段说明
 
-- **issues**：针对【测试结果】- 这次输出有什么问题
-- **improvements**：针对【系统提示词】- 如何进一步改进提示词
+- **improvements**：方向性建议（最多3条），指导进一步重写，必须与单一测试输入解耦
+- **patchPlan**：精准修复（最多3条），直接给出 oldText/newText，方便本地替换（oldText 必须能在工作区系统提示词中精确匹配）
+- **summary**：一句话总结评估结论
 
 # 防止过拟合（极其重要）
 
@@ -91,10 +97,12 @@ improvements 应该是**通用性**改进，例如：
       role: 'user',
       content: `## 待评估内容
 
-### 原始提示词（优化前）
+{{#hasOriginalPrompt}}
+### 原始提示词（参考，用于理解意图）
 {{originalPrompt}}
+{{/hasOriginalPrompt}}
 
-### 优化后的系统提示词（评估对象）
+### 工作区系统提示词（评估对象）
 {{optimizedPrompt}}
 
 {{#testContent}}
@@ -111,7 +119,7 @@ improvements 应该是**通用性**改进，例如：
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '1.0.0',
+    version: '3.0.0',
     lastModified: Date.now(),
     author: 'System',
     description: '评估优化后提示词的测试效果',

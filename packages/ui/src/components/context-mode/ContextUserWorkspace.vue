@@ -161,6 +161,7 @@
                     @save-favorite="emit('save-favorite', $event)"
                     @open-preview="emit('open-prompt-preview')"
                     @apply-improvement="handleApplyImprovement"
+                    @save-local-edit="handleSaveLocalEdit"
                 />
             </NCard>
         </NFlex>
@@ -286,11 +287,13 @@ import PromptPanelUI from "../PromptPanel.vue";
 import ContextUserTestPanel from "./ContextUserTestPanel.vue";
 import OutputDisplay from "../OutputDisplay.vue";
 import type { OptimizationMode } from "../../types";
-import type {
-    PromptRecord,
-    PromptRecordChain,
-    Template,
-    ProUserEvaluationContext,
+import {
+    applyPatchOperationsToText,
+    type PatchOperation,
+    type PromptRecord,
+    type PromptRecordChain,
+    type Template,
+    type ProUserEvaluationContext,
 } from "@prompt-optimizer/core";
 import type { TestAreaPanelInstance } from "../types/test-area";
 import type { IteratePayload, SaveFavoritePayload } from "../../types/workspace";
@@ -779,12 +782,33 @@ const handleTestWithVariables = async () => {
 // 🆕 处理应用改进建议事件（使用 evaluationHandler 提供的工厂方法）
 const handleApplyImprovement = evaluationHandler.createApplyImprovementHandler(promptPanelRef);
 
+// 处理保存本地编辑
+const handleSaveLocalEdit = async (payload: { note?: string }) => {
+    await contextUserOptimization.saveLocalEdit({
+        optimizedPrompt: contextUserOptimization.optimizedPrompt || '',
+        note: payload.note,
+        source: 'manual',
+    });
+};
+
 // 暴露 TestAreaPanel 引用给父组件（用于工具调用等高级功能）
 defineExpose({
     testAreaPanelRef,
     restoreFromHistory,
     openIterateDialog: (initialContent?: string) => {
         promptPanelRef.value?.openIterateDialog?.(initialContent);
+    },
+    applyLocalPatch: (operation: PatchOperation) => {
+        // 直接覆盖当前 optimizedPrompt（不自动创建新版本）
+        // 用户可通过"保存修改"按钮显式保存为新版本
+        const current = contextUserOptimization.optimizedPrompt || '';
+        const result = applyPatchOperationsToText(current, operation);
+        contextUserOptimization.optimizedPrompt = result.text;
+        if (!result.ok) {
+            window.$message?.warning(t('toast.warning.patchApplyFailed'));
+        } else {
+            window.$message?.success(t('evaluation.diagnose.applyFix'));
+        }
     },
     reEvaluateActive: async () => {
         await evaluationHandler.handleReEvaluate();

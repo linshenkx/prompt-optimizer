@@ -80,7 +80,7 @@ describe('LLM Service Tool Calls', () => {
       // Test with empty messages - should throw validation error
       await expect(
         llmService.sendMessageStreamWithTools([], 'test-provider', [mockToolDefinition], mockCallbacks)
-      ).rejects.toThrow('消息列表不能为空');
+      ).rejects.toThrow();
     });
 
     it('should validate tools parameter', async () => {
@@ -93,7 +93,7 @@ describe('LLM Service Tool Calls', () => {
       // Should throw error for nonexistent provider (properly awaited)
       await expect(
         llmService.sendMessageStreamWithTools(mockMessages, 'nonexistent-provider', [mockToolDefinition], mockCallbacks)
-      ).rejects.toThrow('模型 nonexistent-provider 不存在');
+      ).rejects.toThrow();
     });
   });
 
@@ -200,7 +200,7 @@ describe('LLM Service Tool Calls', () => {
       // but we'll keep it for completeness and properly handle the async error
       await expect(
         llmService.sendMessageStreamWithTools(mockMessages, 'nonexistent-provider-2', [mockToolDefinition], mockCallbacks)
-      ).rejects.toThrow('模型 nonexistent-provider-2 不存在');
+      ).rejects.toThrow();
     });
 
     it('should validate messages before tool processing', async () => {

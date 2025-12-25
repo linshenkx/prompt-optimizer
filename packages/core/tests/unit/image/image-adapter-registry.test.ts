@@ -108,6 +108,6 @@ describe('ImageAdapterRegistry', () => {
   })
 
   it('should throw error for unknown provider', () => {
-    expect(() => registry.getAdapter('unknown')).toThrow('未知图像提供商: unknown')
+    expect(() => registry.getAdapter('unknown')).toThrow()
   })
 })

@@ -49,7 +49,8 @@ export const template: Template = {
 4. 输出完整的修改后提示词
 
 ## 输出要求
-直接输出优化后的提示词，保持原有格式，不添加解释。`
+直接输出优化后的提示词，保持原有格式，不添加解释。
+`
     },
     {
       role: 'user',
@@ -64,12 +65,13 @@ export const template: Template = {
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '2.0.0',
+    version: '3.0.0',
     lastModified: 1704067200000, // 2024-01-01 00:00:00 UTC (固定值，内置模板不可修改)
     author: 'System',
     description: '适合改进现有提示词，基于具体问题和需求对已有提示词进行针对性调整和完善',
     templateType: 'iterate',
-    language: 'zh'
+    language: 'zh',
+    tags: ['iterate', 'optimize']
   },
   isBuiltin: true
-}; 
+};

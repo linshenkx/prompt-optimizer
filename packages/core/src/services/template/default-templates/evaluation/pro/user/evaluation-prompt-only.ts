@@ -16,7 +16,7 @@ export const template: Template = {
 
 # 核心理解
 
-**评估对象是带变量的用户提示词：**
+**评估对象是工作区中的带变量用户提示词（当前可编辑文本）：**
 - 原始提示词和优化后提示词可能包含变量占位符（如 {{variableName}}）
 - 需要考虑变量的使用是否合理
 - 直接对比原始版本与优化后版本的质量
@@ -56,33 +56,45 @@ export const template: Template = {
       { "key": "improvementDegree", "label": "改进程度", "score": <0-100> }
     ]
   },
-  "issues": [
-    "<优化后提示词仍存在的问题1>",
-    "<优化后提示词仍存在的问题2>"
-  ],
   "improvements": [
     "<具体改进建议1>",
     "<具体改进建议2>"
   ],
+
+  "patchPlan": [
+    {
+      "op": "replace",
+      "oldText": "<原文中要精确替换的片段>",
+      "newText": "<修改后的内容>",
+      "instruction": "<问题说明 + 修复方案>"
+    }
+  ],
   "summary": "<一句话评价，15字以内>",
-  "isOptimizedBetter": <true/false>
 }
 \`\`\`
 
-# 重要说明
+# 字段说明
 
-- **issues**：指出优化后提示词仍存在的问题
-- **improvements**：给出具体可操作的改进建议
-- **isOptimizedBetter**：判断优化后是否比原始更好`
+- **improvements**：方向性建议，最多3条，用于指导整体重写
+- **patchPlan**：精准修复，最多3条，用于直接文本替换
+  - oldText：必须能在工作区用户提示词中精确匹配
+  - newText：修改后的完整内容（删除时为空字符串）
+  - instruction：简洁说明问题和修复方案
+- **summary**：一句话总结评估结论
+
+只输出 JSON，不添加额外解释。`
     },
     {
       role: 'user',
       content: `## 待评估内容
 
-### 原始用户提示词
+{{#hasOriginalPrompt}}
+### 原始用户提示词（参考，用于理解意图）
 {{originalPrompt}}
 
-### 优化后的用户提示词（评估对象）
+{{/hasOriginalPrompt}}
+
+### 工作区优化后用户提示词（评估对象）
 {{optimizedPrompt}}
 
 {{#proContext}}
@@ -98,7 +110,7 @@ export const template: Template = {
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '1.0.0',
+    version: '3.0.0',
     lastModified: Date.now(),
     author: 'System',
     description: '直接评估带变量的用户提示词质量，无需测试结果',

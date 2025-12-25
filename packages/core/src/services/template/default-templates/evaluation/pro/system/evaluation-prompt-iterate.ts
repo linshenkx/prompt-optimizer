@@ -2,6 +2,7 @@
  * 迭代需求评估模板 - Pro模式/系统提示词（多消息模式） - 中文版
  *
  * 评估多消息对话中单条消息的质量，迭代需求作为背景上下文
+ * 统一输出结构：score + improvements + patchPlan + summary
  */
 
 import type { Template, MessageTemplate } from '../../../../types';
@@ -16,8 +17,8 @@ export const template: Template = {
 
 # 核心理解
 
-**评估对象是对话中的单条消息优化效果：**
-- 目标消息：被优化的消息（可能是 system/user/assistant）
+**评估对象是工作区中的单条目标消息优化效果（当前可编辑文本）：**
+- 目标消息（工作区）：被优化的消息（可能是 system/user/assistant）
 - 对话上下文：完整的多轮对话消息列表
 - 直接对比：原始消息内容 vs 优化后消息内容
 
@@ -60,34 +61,44 @@ export const template: Template = {
       { "key": "improvementDegree", "label": "改进程度", "score": <0-100> }
     ]
   },
-  "issues": [
-    "<优化后消息仍存在的问题1>",
-    "<优化后消息仍存在的问题2>"
-  ],
   "improvements": [
-    "<具体改进建议1>",
-    "<具体改进建议2>"
+    "<方向性改进建议1>",
+    "<方向性改进建议2>",
+    "<方向性改进建议3>"
   ],
-  "summary": "<一句话评价，15字以内>",
-  "isOptimizedBetter": <true/false>
+  "patchPlan": [
+    {
+      "op": "replace",
+      "oldText": "<原文中要修改的精确片段>",
+      "newText": "<修改后的内容>",
+      "instruction": "<修改说明：问题 + 修复方案>"
+    }
+  ],
+  "summary": "<一句话评价，15字以内>"
 }
 \`\`\`
 
-# 重要说明
+# 字段说明
 
-- **issues**：指出优化后消息仍存在的问题
-- **improvements**：给出具体可操作的改进建议
-- **isOptimizedBetter**：判断优化后是否比原始更好
-- 迭代需求仅作为理解修改背景的参考，不作为评估标准`
+- **improvements**：方向性建议，最多3条，用于指导整体重写
+- **patchPlan**：精准修复，最多3条，用于直接文本替换
+  - oldText：必须能在工作区目标消息中精确匹配
+  - newText：修改后的完整内容（删除时为空字符串）
+  - instruction：简洁说明问题和修复方案
+- **summary**：一句话总结评估结论
+
+只输出 JSON，不添加额外解释。`
     },
     {
       role: 'user',
       content: `## 待评估内容
 
-### 原始消息
+{{#hasOriginalPrompt}}
+### 原始消息（参考对比）
 {{originalPrompt}}
 
-### 优化后的消息（评估对象）
+{{/hasOriginalPrompt}}
+### 工作区当前消息（评估对象）
 {{optimizedPrompt}}
 
 ### 修改背景（用户的迭代需求）
@@ -102,14 +113,14 @@ export const template: Template = {
 
 ---
 
-请直接评估优化后的消息相对于原始版本在对话上下文中的改进程度。迭代需求仅作为理解修改背景的参考。`
+请评估当前消息的质量{{#hasOriginalPrompt}}，并与原始版本对比{{/hasOriginalPrompt}}。迭代需求仅作为理解修改背景的参考。`
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '1.0.0',
+    version: '3.0.0',
     lastModified: Date.now(),
     author: 'System',
-    description: '评估多消息对话中单条消息的质量，迭代需求作为背景上下文',
+    description: '评估多消息对话中单条消息的质量，统一输出 improvements + patchPlan',
     templateType: 'evaluation',
     language: 'zh',
     tags: ['evaluation', 'prompt-iterate', 'scoring', 'pro', 'system', 'multi-message']

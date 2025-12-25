@@ -132,6 +132,7 @@
                             @show-detail="handleShowEvaluationDetail"
                             @evaluate="handleEvaluate"
                             @apply-improvement="handleApplyImprovement"
+                            @apply-patch="handleApplyPatch"
                         />
                         <NButton
                             v-else
@@ -159,6 +160,16 @@
                             {{ t("prompt.analyze") }}
                         </NButton>
                     </div>
+                    <!-- 保存本地修改（手动编辑/直接修复后建议保存到历史版本） -->
+                    <NButton
+                        v-if="showSaveChanges"
+                        type="default"
+                        size="small"
+                        class="min-w-[100px]"
+                        @click="handleSaveChanges"
+                    >
+                        {{ t("prompt.saveChanges") }}
+                    </NButton>
                     <!-- 继续优化按钮 -->
                     <NButton
                         v-if="optimizedPrompt"
@@ -288,7 +299,7 @@ import TemplateSelect from "./TemplateSelect.vue";
 import Modal from "./Modal.vue";
 import OutputDisplay from "./OutputDisplay.vue";
 import { EvaluationScoreBadge } from "./evaluation";
-import type { Template, PromptRecord, EvaluationType } from "@prompt-optimizer/core";
+import type { Template, PromptRecord, EvaluationType, PatchOperation } from "@prompt-optimizer/core";
 
 const { t } = useI18n();
 const toast = useToast();
@@ -434,6 +445,10 @@ const emit = defineEmits<{
     "apply-to-conversation": [];
     // 评估相关事件（evaluate 和 show-evaluation-detail 已通过 inject 的 evaluation context 直接处理）
     "apply-improvement": [payload: { improvement: string; type: EvaluationType }];
+    /** 应用补丁 */
+    "apply-patch": [payload: { operation: PatchOperation }];
+    /** 保存当前编辑内容为新版本（不触发 LLM） */
+    "save-local-edit": [payload: { note?: string }];
 }>();
 
 const showIterateInput = ref(false);
@@ -459,6 +474,19 @@ const isV0Selected = ref(false);
 // 🆕 是否显示 V0 标签（只有当 versions 存在且有原始内容时才显示）
 const showV0Tag = computed(() => {
     return props.versions && props.versions.length > 0 && props.versions[0]?.originalPrompt;
+});
+
+const currentVersionOptimizedPrompt = computed(() => {
+    if (!props.versions || !props.currentVersionId) return "";
+    return props.versions.find((v) => v.id === props.currentVersionId)?.optimizedPrompt || "";
+});
+
+const showSaveChanges = computed(() => {
+    if (!props.optimizedPrompt) return false;
+    if (!props.versions || props.versions.length === 0) return false;
+    if (!props.currentVersionId) return false;
+    if (isV0Selected.value) return false;
+    return props.optimizedPrompt !== currentVersionOptimizedPrompt.value;
 });
 
 // 🆕 切换到 V0（原始内容）
@@ -534,6 +562,11 @@ const handleApplyImprovement = (payload: { improvement: string; type: Evaluation
     emit("apply-improvement", payload);
 };
 
+// 处理应用补丁
+const handleApplyPatch = (payload: { operation: PatchOperation }) => {
+    emit("apply-patch", payload);
+};
+
 // 计算标题文本
 const templateTitleText = computed(() => {
     return t("prompt.iterateTitle");
@@ -604,6 +637,11 @@ const submitIterate = () => {
 const switchVersion = async (version: PromptRecord) => {
     if (version.id === props.currentVersionId && !isV0Selected.value) return;
 
+    if (showSaveChanges.value) {
+        const ok = window.confirm(t("prompt.unsavedChangesConfirm"));
+        if (!ok) return;
+    }
+
     // 🆕 清除 V0 选中状态
     isV0Selected.value = false;
 
@@ -624,6 +662,10 @@ const switchVersion = async (version: PromptRecord) => {
     });
 };
 
+const handleSaveChanges = () => {
+    emit("save-local-edit", { note: t("prompt.saveChangesNote") });
+};
+
 // 监听流式状态变化，强制退出编辑状态
 watch(
     [() => props.isOptimizing, () => props.isIterating],
@@ -639,19 +681,6 @@ watch(
                     "[PromptPanel] 检测到开始优化/迭代，强制退出编辑状态",
                 );
             }
-        }
-    },
-    { immediate: false },
-);
-
-// 监听内容或版本变化，清除评估结果以避免旧分数残留
-watch(
-    [() => props.optimizedPrompt, () => props.currentVersionId],
-    () => {
-        // 当内容或版本变化时，清除仅提示词评估结果
-        if (evaluation) {
-            evaluation.clearResult('prompt-only');
-            evaluation.clearResult('prompt-iterate');
         }
     },
     { immediate: false },

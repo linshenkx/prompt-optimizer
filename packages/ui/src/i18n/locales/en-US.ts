@@ -1174,6 +1174,10 @@ export default {
     iteratePlaceholder:
       "e.g., Make the prompt more concise, add specific functionality description, etc...",
     confirmOptimize: "Confirm Optimize",
+    saveChanges: "Save Changes",
+    saveChangesNote: "Saved local edits",
+    unsavedChangesConfirm:
+      "You have unsaved changes. Switching versions will discard them. Continue?",
     iterateTitle: "Iteration Template",
     selectIterateTemplate: "Please select iteration template:",
     diff: {
@@ -1272,6 +1276,7 @@ export default {
       conversationRestored: "Complete conversation restored from history",
       imageFavoriteLoaded: "Favorite image prompt loaded",
       favoriteLoaded: "Prompt loaded to input",
+      localEditSaved: "Saved as a new version",
     },
     warn: {
       loadOptimizeTemplateFailed: "Failed to load saved optimization template",
@@ -1280,6 +1285,7 @@ export default {
     warning: {
       cannotOptimizeRole: "Cannot optimize {role} role messages",
       saveHistoryFailed: "Failed to save history",
+      patchApplyFailed: "Couldn't apply the fix automatically. Please edit manually.",
       messageNotFound: "Message not found",
       noVersionSelected: "Please select a version to apply",
       noContentToApply: "No content to apply",
@@ -2072,7 +2078,7 @@ export default {
     dimensions: "Dimension Scores",
     issues: "Issues",
     improvements: "Improvements",
-    applyToIterate: "Apply",
+    applyToIterate: "Iterate",
     applySuccess: "Applying improvement...",
     noResult: "No evaluation result yet. Click the evaluate button to start.",
     viewDetails: "View Details",
@@ -2109,6 +2115,47 @@ export default {
       serviceNotReady: "Evaluation service not ready, please try again later",
       failed: "Evaluation failed: {error}",
       noOptimizedPrompt: "No prompt to optimize",
+    },
+    // Diagnosis related translations
+    diagnose: {
+      title: "Diagnosis Analysis",
+      confidence: "Confidence",
+      findings: "Findings",
+      patchPlan: "Patch Plan",
+      noFindings: "No issues found",
+      noPatchPlan: "No patch plan",
+      applyFix: "Apply Fix",
+      replaceNow: "Replace Now",
+      invariantsWarning: "Constrained by invariants",
+      changeBudgetWarning: "Constrained by change budget",
+      status: {
+        ok: "Diagnosis OK",
+        degraded: "Partially Degraded",
+        failed: "Diagnosis Failed",
+      },
+      severity: {
+        critical: "Critical",
+        major: "Major",
+        minor: "Minor",
+        suggestion: "Suggestion",
+        unknown: "Unknown",
+      },
+      anchorType: {
+        text: "Text",
+        section: "Section",
+        pattern: "Pattern",
+      },
+      operation: {
+        insert: "Insert",
+        replace: "Replace",
+        delete: "Delete",
+      },
+      anchorPosition: {
+        before: "Before",
+        after: "After",
+        replace: "Replace",
+      },
+      invariantsRisks: "Invariant Risks",
     },
   },
 };

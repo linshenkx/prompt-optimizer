@@ -16,8 +16,8 @@ export const template: Template = {
 
 # Core Understanding
 
-**The evaluation target is the system prompt, NOT the test input:**
-- System prompt: The object to be optimized
+**The evaluation target is the WORKSPACE system prompt (current editable text), NOT the test input:**
+- Workspace system prompt: The object to be optimized
 - Test input: Only a sample to verify prompt effectiveness, cannot be optimized
 - Comparison purpose: Determine if the optimized system prompt is better than the original
 
@@ -43,12 +43,12 @@ export const template: Template = {
 - 20-39: Some regression, some dimensions worsened
 - 0-19: Severe regression, optimization failed
 
-# Output Format
+# Output Format (Unified, 50 as baseline)
 
 \`\`\`json
 {
   "score": {
-    "overall": <total, 50 as baseline>,
+    "overall": <overall 0-100>,
     "dimensions": [
       { "key": "goalAchievement", "label": "Goal Achievement", "score": <0-100> },
       { "key": "outputQuality", "label": "Output Quality", "score": <0-100> },
@@ -56,23 +56,28 @@ export const template: Template = {
       { "key": "relevance", "label": "Relevance", "score": <0-100> }
     ]
   },
-  "issues": [
-    "<Problem 1 in optimized output: specific issue that still exists>",
-    "<Problem 2 in optimized output: what didn't improve or got worse>"
-  ],
   "improvements": [
-    "<System prompt generic improvement 1: not specific to test content>",
-    "<System prompt generic improvement 2: should apply to various similar inputs>"
+    "<Generic improvement 1>",
+    "<Generic improvement 2>",
+    "<Generic improvement 3>"
   ],
-  "summary": "<Comparison verdict, under 15 words>",
-  "isOptimizedBetter": <true/false>
+  "patchPlan": [
+    {
+      "op": "replace",
+      "oldText": "<Exact snippet to replace in the prompt>",
+      "newText": "<Updated content>",
+      "instruction": "<Problem description + fix>"
+    }
+  ],
+  "summary": "<Comparison verdict, under 15 words>"
 }
 \`\`\`
 
-# Important Distinction
+# Field Notes
 
-- **issues**: About [OPTIMIZED OUTPUT] - what problems remain
-- **improvements**: About [SYSTEM PROMPT] - how to further improve it
+- **improvements**: Directional suggestions (max 3), focus on prompt-level changes, keep generic
+- **patchPlan**: Precise edits (max 3) with explicit old/new text for direct replacement (oldText MUST be an exact substring of the workspace system prompt)
+- **summary**: One-line comparison conclusion
 
 # Preventing Overfitting (Critical)
 
@@ -91,10 +96,12 @@ improvements SHOULD be **generic** improvements, for example:
       role: 'user',
       content: `## Content to Compare
 
-### Original System Prompt
+{{#hasOriginalPrompt}}
+### Original System Prompt (Reference, for intent understanding)
 {{originalPrompt}}
+{{/hasOriginalPrompt}}
 
-### Optimized System Prompt (Evaluation Target)
+### Workspace System Prompt (Evaluation Target)
 {{optimizedPrompt}}
 
 {{#testContent}}
@@ -114,7 +121,7 @@ Please strictly compare and evaluate, determine if the optimization is effective
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '1.0.0',
+    version: '3.0.0',
     lastModified: Date.now(),
     author: 'System',
     description: 'Compare test results of original and optimized prompts',

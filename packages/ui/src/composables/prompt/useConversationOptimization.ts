@@ -37,6 +37,7 @@ export interface UseConversationOptimization {
   applyToConversation: (messageId: string, content: string) => void
   applyCurrentVersion: () => Promise<void>
   cleanupDeletedMessageMapping: (messageId: string, options?: { keepSelection?: boolean }) => void
+  saveLocalEdit: (payload: { optimizedPrompt: string; note?: string; source?: 'patch' | 'manual' }) => Promise<void>
 }
 
 /**
@@ -354,7 +355,17 @@ export function useConversationOptimization(
   /**
    * 迭代优化当前选中的消息
    */
-  const iterateMessage = async ({ originalPrompt, optimizedPrompt: lastOptimizedPrompt, iterateInput }: { originalPrompt: string, optimizedPrompt: string, iterateInput: string }) => {
+  const iterateMessage = async (
+    {
+      originalPrompt,
+      optimizedPrompt: lastOptimizedPrompt,
+      iterateInput,
+    }: {
+      originalPrompt: string,
+      optimizedPrompt: string,
+      iterateInput: string,
+    },
+  ) => {
     if (!selectedMessageId.value || !currentChainId.value) {
       toast.warning(t('toast.warning.noVersionSelected'))
       return
@@ -477,13 +488,12 @@ export function useConversationOptimization(
           }
         },
         templateId,
-        // 🆕 传递上下文数据
         {
           messages: conversationMessages.value,
           selectedMessageId: selectedMessageId.value,
           variables: {}, // 暂无变量支持
           tools: [] // 暂无工具支持
-        }
+        },
       )
     } catch (error) {
       console.error('[ConversationOptimization] 迭代失败:', error)
@@ -597,6 +607,81 @@ export function useConversationOptimization(
     optimizedPrompt.value = ''
   })
 
+  /**
+   * 保存本地修改为一个新版本（不触发 LLM）
+   * - 用于"直接修复"与手动编辑后的显式保存
+   */
+  const saveLocalEdit = async ({ optimizedPrompt: newPrompt, note, source }: { optimizedPrompt: string; note?: string; source?: 'patch' | 'manual' }) => {
+    try {
+      if (!historyManager.value) throw new Error('History service unavailable')
+      if (!newPrompt) return
+
+      const currentRecord = currentVersions.value.find(v => v.id === currentRecordId.value)
+      const modelKey = currentRecord?.modelKey || selectedOptimizeModel.value || 'local-edit'
+      const templateId =
+        currentRecord?.templateId ||
+        selectedIterateTemplate.value?.id ||
+        selectedTemplate.value?.id ||
+        'local-edit'
+
+      // 查找当前选中的消息
+      const message = conversationMessages.value.find(m => m.id === selectedMessageId.value)
+      const originalContent = message?.originalContent || message?.content || ''
+
+      // 若当前没有链（极少数场景），创建新链以便后续版本管理
+      if (!currentChainId.value) {
+        const recordData = {
+          id: uuidv4(),
+          originalPrompt: originalContent,
+          optimizedPrompt: newPrompt,
+          type: 'conversationMessageOptimize' as const,
+          modelKey,
+          templateId,
+          timestamp: Date.now(),
+          metadata: {
+            messageId: message?.id,
+            messageRole: message?.role,
+            optimizationMode: optimizationMode.value,
+            localEdit: true,
+            localEditSource: source || 'manual',
+          }
+        }
+        const newRecord = await historyManager.value.createNewChain(recordData)
+        currentChainId.value = newRecord.chainId
+        currentVersions.value = newRecord.versions
+        currentRecordId.value = newRecord.currentRecord.id
+
+        // 建立消息 ID 到工作链 ID 的映射
+        if (message?.id) {
+          messageChainMap.value.set(buildMapKey(message.id), newRecord.chainId)
+        }
+        return
+      }
+
+      const updatedChain = await historyManager.value.addIteration({
+        chainId: currentChainId.value,
+        originalPrompt: originalContent,
+        optimizedPrompt: newPrompt,
+        modelKey,
+        templateId,
+        iterationNote: note || (source === 'patch' ? 'Direct fix' : 'Manual edit'),
+        metadata: {
+          messageId: message?.id,
+          messageRole: message?.role,
+          optimizationMode: optimizationMode.value,
+          localEdit: true,
+          localEditSource: source || 'manual',
+        }
+      })
+
+      currentVersions.value = updatedChain.versions
+      currentRecordId.value = updatedChain.currentRecord.id
+    } catch (error: unknown) {
+      console.error('[useConversationOptimization] 保存本地修改失败:', error)
+      toast.warning(t('toast.warning.saveHistoryFailed'))
+    }
+  }
+
   return {
     // 状态
     selectedMessageId,
@@ -615,6 +700,7 @@ export function useConversationOptimization(
     switchToV0,  // 🆕 V0 切换方法
     applyToConversation,
     applyCurrentVersion,
-    cleanupDeletedMessageMapping
+    cleanupDeletedMessageMapping,
+    saveLocalEdit
   }
 }

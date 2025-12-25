@@ -16,8 +16,8 @@ export const template: Template = {
 
 # Core Understanding
 
-**The evaluation target is the user prompt, NOT the task background:**
-- User prompt: The object to be optimized, the instruction/request user sends to AI
+**The evaluation target is the WORKSPACE user prompt (current editable text), NOT the task background:**
+- Workspace user prompt: The object to be optimized, the instruction/request user sends to AI
 - Task background: Optional context information to understand the prompt's use case
 - Comparison purpose: Determine if the optimized user prompt is better than the original
 
@@ -43,12 +43,12 @@ export const template: Template = {
 - 20-39: Some regression, some dimensions worsened
 - 0-19: Severe regression, optimization failed
 
-# Output Format
+# Output Format (Unified, 50 as baseline)
 
 \`\`\`json
 {
   "score": {
-    "overall": <total, 50 as baseline>,
+    "overall": <overall 0-100>,
     "dimensions": [
       { "key": "taskExpression", "label": "Task Expression", "score": <0-100> },
       { "key": "informationCompleteness", "label": "Information Completeness", "score": <0-100> },
@@ -56,23 +56,28 @@ export const template: Template = {
       { "key": "outputGuidance", "label": "Output Guidance", "score": <0-100> }
     ]
   },
-  "issues": [
-    "<Problem 1 in optimized output: specific issue that still exists>",
-    "<Problem 2 in optimized output: what didn't improve or got worse>"
-  ],
   "improvements": [
-    "<Specific improvement 1 for user prompt: address specific issues in this prompt>",
-    "<Specific improvement 2 for user prompt: suggest what to add or modify>"
+    "<Generic improvement 1>",
+    "<Generic improvement 2>",
+    "<Generic improvement 3>"
   ],
-  "summary": "<Comparison verdict, under 15 words>",
-  "isOptimizedBetter": <true/false>
+  "patchPlan": [
+    {
+      "op": "replace",
+      "oldText": "<Exact snippet in the prompt to change>",
+      "newText": "<Updated text>",
+      "instruction": "<Problem description + fix>"
+    }
+  ],
+  "summary": "<Comparison verdict, under 15 words>"
 }
 \`\`\`
 
-# Important Notes
+# Field Notes
 
-- **issues**: About [OPTIMIZED OUTPUT] - what problems remain
-- **improvements**: About [USER PROMPT] - specific ways to further improve this prompt
+- **improvements**: Directional suggestions (max 3) about structure/information improvements for the prompt
+- **patchPlan**: Precise edits (max 3) listing old/new text for quick application (oldText MUST be an exact substring of the workspace user prompt)
+- **summary**: One-line comparison conclusion
 
 # Improvement Guidelines
 
@@ -86,10 +91,12 @@ improvements should be **specific and actionable** suggestions:
       role: 'user',
       content: `## Content to Compare
 
-### Original User Prompt
+{{#hasOriginalPrompt}}
+### Original User Prompt (Reference, for intent understanding)
 {{originalPrompt}}
+{{/hasOriginalPrompt}}
 
-### Optimized User Prompt (Evaluation Target)
+### Workspace User Prompt (Evaluation Target)
 {{optimizedPrompt}}
 
 {{#testContent}}
@@ -109,7 +116,7 @@ Please strictly compare and evaluate, determine if the optimization is effective
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '1.0.0',
+    version: '3.0.0',
     lastModified: Date.now(),
     author: 'System',
     description: 'Compare test results of original and optimized user prompts',

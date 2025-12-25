@@ -16,8 +16,8 @@ export const template: Template = {
 
 # 核心理解
 
-**评估对象是优化后的消息：**
-- 优化后消息：经过优化改进的目标消息
+**评估对象是工作区中的优化后消息（当前可编辑文本）：**
+- 优化后消息（工作区）：经过优化改进的目标消息
 - 原始消息：优化前的版本（用于理解改进方向）
 - 对话上下文：完整的多轮对话消息列表
 - 测试结果：使用优化后消息的 AI 输出
@@ -70,13 +70,18 @@ export const template: Template = {
       { "key": "relevance", "label": "相关性", "score": <0-100> }
     ]
   },
-  "issues": [
-    "<测试结果的问题1：具体指出输出中哪里有问题>",
-    "<测试结果的问题2：指出遗漏、错误或不足>"
-  ],
   "improvements": [
     "<进一步优化建议1：基于当前效果的通用改进方向>",
     "<进一步优化建议2：不要针对具体测试内容>"
+  ],
+
+  "patchPlan": [
+    {
+      "op": "replace",
+      "oldText": "<原文中要精确替换的片段>",
+      "newText": "<修改后的内容>",
+      "instruction": "<问题说明 + 修复方案>"
+    }
   ],
   "summary": "<一句话结论，20字以内>"
 }
@@ -84,7 +89,7 @@ export const template: Template = {
 
 # 重要区分
 
-- **issues**：针对【测试结果】- 这次输出有什么问题
+- **patchPlan**：给出可以直接替换的局部修复方案（oldText/newText + instruction），且只针对【工作区优化后消息（评估对象）】生成（oldText 必须能精确匹配工作区文本）：针对【测试结果】- 这次输出有什么问题
 - **improvements**：针对【优化后消息】- 如何进一步改进
 
 # 防止过拟合（极其重要）
@@ -104,10 +109,13 @@ improvements 应该是**通用性**改进，例如：
       role: 'user',
       content: `## 待评估内容
 
-### 原始消息
+{{#hasOriginalPrompt}}
+### 原始消息（参考，用于理解意图）
 {{originalPrompt}}
 
-### 优化后消息（评估对象）
+{{/hasOriginalPrompt}}
+
+### 工作区优化后消息（评估对象）
 {{optimizedPrompt}}
 
 {{#proContext}}
@@ -131,7 +139,7 @@ improvements 应该是**通用性**改进，例如：
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '1.0.0',
+    version: '3.0.0',
     lastModified: Date.now(),
     author: 'System',
     description: '评估多消息对话中优化后消息的效果',
