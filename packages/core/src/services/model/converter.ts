@@ -102,7 +102,7 @@ export async function convertLegacyToTextModelConfigWithRegistry(
       };
     } catch (fallbackError) {
       console.error(`[Converter] Fallback to OpenAI also failed for ${key}:`, fallbackError);
-      throw new Error(`无法转换配置 ${key}: ${error}`);
+      throw new Error(`Failed to convert config ${key}: ${error}`);
     }
   }
 }

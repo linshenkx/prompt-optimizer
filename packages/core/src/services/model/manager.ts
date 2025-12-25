@@ -47,7 +47,7 @@ export class ModelManager implements IModelManager {
         console.log('[ModelManager] Lazy-loaded TextAdapterRegistry');
       } catch (error) {
         console.error('[ModelManager] Failed to load TextAdapterRegistry:', error);
-        throw new ModelConfigError('无法加载模型适配器注册表');
+        throw new ModelConfigError('Failed to load model adapter registry');
       }
     }
     return this.registry;

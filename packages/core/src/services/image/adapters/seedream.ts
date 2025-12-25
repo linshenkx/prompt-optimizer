@@ -209,7 +209,7 @@ export class SeedreamImageAdapter extends AbstractImageProviderAdapter {
     })) || []
 
     if (images.length === 0) {
-      throw new Error('未返回图片数据')
+      throw new Error('No image data returned')
     }
 
     return {

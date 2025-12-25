@@ -73,7 +73,7 @@ export abstract class AbstractAdapterRegistry<
   public getAdapter(providerId: string): TAdapter {
     const adapter = this.adapters.get(providerId.toLowerCase());
     if (!adapter) {
-      throw new Error(`未知${this.getProviderTypeDescription()}: ${providerId}`);
+      throw new Error(`Unknown ${this.getProviderTypeDescription()}: ${providerId}`);
     }
     return adapter;
   }
@@ -138,13 +138,13 @@ export abstract class AbstractAdapterRegistry<
     const provider = this.getProviderFromAdapter(adapter);
 
     if (!provider.supportsDynamicModels) {
-      throw new Error(`${provider.name} 不支持动态模型获取`);
+      throw new Error(`${provider.name} does not support dynamic model fetching`);
     }
 
     try {
       return await this.getModelsAsyncFromAdapter(adapter, connectionConfig);
     } catch (error) {
-      console.warn(`动态获取模型失败 (${providerId}):`, error);
+      console.warn(`Failed to fetch dynamic models (${providerId}):`, error);
       throw error;
     }
   }

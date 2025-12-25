@@ -78,7 +78,7 @@ export class TextAdapterRegistry
   ): Promise<TextModel[]> {
     if (!adapter.getModelsAsync) {
       const provider = adapter.getProvider();
-      throw new Error(`Adapter ${provider.name} 未实现 getModelsAsync 方法`);
+      throw new Error(`Adapter ${provider.name} does not implement getModelsAsync method`);
     }
     return await adapter.getModelsAsync(config);
   }

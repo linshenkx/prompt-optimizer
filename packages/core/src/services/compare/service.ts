@@ -53,7 +53,7 @@ export class CompareService implements ICompareService {
       
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw new CompareCalculationError(
-        `文本对比计算失败: ${errorMessage}`
+        `Text comparison calculation failed: ${errorMessage}`
       );
     }
   }
@@ -63,10 +63,10 @@ export class CompareService implements ICompareService {
    */
   private validateInput(original: string, optimized: string): void {
     if (typeof original !== 'string') {
-      throw new CompareValidationError('原始文本必须是字符串');
+      throw new CompareValidationError('Original text must be a string');
     }
     if (typeof optimized !== 'string') {
-      throw new CompareValidationError('优化后文本必须是字符串');
+      throw new CompareValidationError('Optimized text must be a string');
     }
   }
 

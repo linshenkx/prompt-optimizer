@@ -47,20 +47,20 @@ export class PromptService implements IPromptService {
    */
   private checkDependencies() {
     if (!this.modelManager) {
-      throw new ServiceDependencyError("模型管理器未初始化", "ModelManager");
+      throw new ServiceDependencyError("Model manager not initialized", "ModelManager");
     }
     if (!this.llmService) {
-      throw new ServiceDependencyError("LLM服务未初始化", "LLMService");
+      throw new ServiceDependencyError("LLM service not initialized", "LLMService");
     }
     if (!this.templateManager) {
       throw new ServiceDependencyError(
-        "提示词管理器未初始化",
+        "Template manager not initialized",
         "TemplateManager",
       );
     }
     if (!this.historyManager) {
       throw new ServiceDependencyError(
-        "历史记录管理器未初始化",
+        "History manager not initialized",
         "HistoryManager",
       );
     }
@@ -333,7 +333,7 @@ export class PromptService implements IPromptService {
       // 获取模型配置
       const modelConfig = await this.modelManager.getModel(modelKey);
       if (!modelConfig) {
-        throw new ServiceDependencyError("模型不存在", "ModelManager");
+        throw new ServiceDependencyError("Model not found", "ModelManager");
       }
 
       // 获取迭代提示词
@@ -346,7 +346,7 @@ export class PromptService implements IPromptService {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         throw new IterationError(
-          `迭代失败: ${errorMessage}`,
+          `Iteration failed: ${errorMessage}`,
           originalPrompt,
           iterateInput,
         );
@@ -398,7 +398,7 @@ export class PromptService implements IPromptService {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       throw new IterationError(
-        `迭代失败: ${errorMessage}`,
+        `Iteration failed: ${errorMessage}`,
         originalPrompt,
         iterateInput,
       );

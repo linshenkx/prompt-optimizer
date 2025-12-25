@@ -70,7 +70,7 @@ export class FavoriteManagerElectronProxy implements IFavoriteManager {
       if (error.code === 'IMPORT_EXPORT_ERROR') {
         throw new FavoriteImportExportError(error.message || '', error.cause, error.details);
       }
-      throw new FavoriteError(error.message || '未知错误');
+      throw new FavoriteError(error.message || 'Unknown error');
     }
   }
 

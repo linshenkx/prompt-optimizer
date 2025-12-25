@@ -45,7 +45,7 @@ export class LocalStorageProvider implements IStorageProvider {
       const item = localStorage.getItem(key);
       return item;
     } catch (error) {
-      throw new StorageError(`获取存储项失败: ${key}`, 'read');
+      throw new StorageError(`Failed to get storage item: ${key}`, 'read');
     } finally {
       release();
     }
@@ -56,7 +56,7 @@ export class LocalStorageProvider implements IStorageProvider {
     try {
       localStorage.setItem(key, value);
     } catch (error) {
-      throw new StorageError(`设置存储项失败: ${key}`, 'write');
+      throw new StorageError(`Failed to set storage item: ${key}`, 'write');
     } finally {
       release();
     }
@@ -67,7 +67,7 @@ export class LocalStorageProvider implements IStorageProvider {
     try {
       localStorage.removeItem(key);
     } catch (error) {
-      throw new StorageError(`删除存储项失败: ${key}`, 'delete');
+      throw new StorageError(`Failed to remove storage item: ${key}`, 'delete');
     } finally {
       release();
     }
@@ -78,7 +78,7 @@ export class LocalStorageProvider implements IStorageProvider {
     try {
       localStorage.clear();
     } catch (error) {
-      throw new StorageError('清除所有存储项失败', 'clear');
+      throw new StorageError('Failed to clear all storage items', 'clear');
     } finally {
       release();
     }
@@ -108,15 +108,16 @@ export class LocalStorageProvider implements IStorageProvider {
       localStorage.setItem(key, JSON.stringify(newValue));
     } catch (error) {
       // 业务逻辑错误直接透传，保持错误类型
-      if (error instanceof Error && 
-          (error.name.includes('Error') || 
+      if (error instanceof Error &&
+          (error.name.includes('Error') ||
            error.constructor.name !== 'Error' ||
-           error.message.includes('模型') ||
-           error.message.includes('不存在'))) {
+           error.message.includes('Model') ||
+           error.message.includes('not found') ||
+           error.message.includes('not exist'))) {
         throw error;
       }
       // 只有真正的存储错误才包装为StorageError
-      throw new StorageError(`数据更新失败: ${key}`, 'write');
+      throw new StorageError(`Failed to update data: ${key}`, 'write');
     } finally {
       release();
     }
@@ -155,7 +156,7 @@ export class LocalStorageProvider implements IStorageProvider {
         }
       }
     } catch (error) {
-      throw new StorageError('批量更新失败', 'write');
+      throw new StorageError('Failed to perform batch update', 'write');
     } finally {
       // 释放所有锁
       releases.forEach(release => release());

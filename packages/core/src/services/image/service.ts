@@ -15,27 +15,27 @@ export class ImageService implements IImageService {
   async validateRequest(request: ImageRequest): Promise<void> {
     // 验证基本字段
     if (!request?.prompt || !request.prompt.trim()) {
-      throw new RequestConfigError('图像生成: 提示词不能为空')
+      throw new RequestConfigError('Image generation: prompt cannot be empty')
     }
 
     if (!request?.configId || !request.configId.trim()) {
-      throw new RequestConfigError('图像生成: 配置ID不能为空')
+      throw new RequestConfigError('Image generation: config ID cannot be empty')
     }
 
     // 验证配置是否存在且启用
     const config = await this.imageModelManager.getConfig(request.configId)
     if (!config) {
-      throw new RequestConfigError(`图像生成: 配置不存在: ${request.configId}`)
+      throw new RequestConfigError(`Image generation: config not found: ${request.configId}`)
     }
     if (!config.enabled) {
-      throw new RequestConfigError(`图像生成: 配置未启用: ${config.name}`)
+      throw new RequestConfigError(`Image generation: config not enabled: ${config.name}`)
     }
 
     // 快速验证：仅检查提供商是否存在（本地操作）
     try {
       this.registry.getAdapter(config.providerId)
     } catch (error) {
-      throw new RequestConfigError(`图像生成: 提供商不存在: ${config.providerId}`)
+      throw new RequestConfigError(`Image generation: provider not found: ${config.providerId}`)
     }
 
     // 获取静态模型信息进行基础验证（避免网络请求）
@@ -47,29 +47,29 @@ export class ImageService implements IImageService {
     if (model) {
       // 验证模型能力与请求的匹配性（仅当找到静态模型时）
       if (request.inputImage && !model.capabilities.image2image) {
-        throw new RequestConfigError(`图像生成: 模型 ${model.name} 不支持图生图功能`)
+        throw new RequestConfigError(`Image generation: model ${model.name} does not support image-to-image`)
       }
       if (!request.inputImage && !model.capabilities.text2image) {
-        throw new RequestConfigError(`图像生成: 模型 ${model.name} 不支持文生图功能`)
+        throw new RequestConfigError(`Image generation: model ${model.name} does not support text-to-image`)
       }
     }
 
     // 验证输入图像格式
     if (request.inputImage?.b64 && typeof request.inputImage.b64 !== 'string') {
-      throw new RequestConfigError('图像生成: 输入图片格式无效')
+      throw new RequestConfigError('Image generation: invalid input image format')
     }
 
     // 验证生成数量（仅支持单图）
     const count = request.count ?? 1
     if (count !== 1) {
-      throw new RequestConfigError('图像生成: 仅支持生成 1 张')
+      throw new RequestConfigError('Image generation: only single image generation is supported')
     }
 
     // 验证输入图像MIME类型和大小
     if (request.inputImage?.b64) {
       const mime = (request.inputImage.mimeType || '').toLowerCase()
       if (mime && mime !== 'image/png' && mime !== 'image/jpeg') {
-        throw new RequestConfigError('图像生成: 仅支持 PNG 或 JPEG 格式')
+        throw new RequestConfigError('Image generation: only PNG or JPEG format is supported')
       }
 
       // 估算 base64 大小：每4字符≈3字节，去除末尾填充
@@ -78,7 +78,7 @@ export class ImageService implements IImageService {
       const bytes = Math.floor(len * 3 / 4) - padding
       const maxSize = 10 * 1024 * 1024 // 10MB
       if (bytes > maxSize) {
-        throw new RequestConfigError('图像生成: 输入图片大小不能超过 10MB')
+        throw new RequestConfigError('Image generation: input image size cannot exceed 10MB')
       }
     }
   }
@@ -90,7 +90,7 @@ export class ImageService implements IImageService {
     // 获取配置
     const config = await this.imageModelManager.getConfig(request.configId)
     if (!config) {
-      throw new RequestConfigError(`图像生成: 配置不存在: ${request.configId}`)
+      throw new RequestConfigError(`Image generation: config not found: ${request.configId}`)
     }
 
     // 获取适配器
@@ -119,7 +119,7 @@ export class ImageService implements IImageService {
       return result
     } catch (error) {
       throw new RequestConfigError(
-        `图像生成失败: ${error instanceof Error ? error.message : String(error)}`
+        `Image generation failed: ${error instanceof Error ? error.message : String(error)}`
       )
     }
   }

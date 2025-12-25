@@ -463,12 +463,12 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
 
       // 处理响应中的 reasoning_content 和普通 content
       if (!response.choices || response.choices.length === 0) {
-        throw new Error('API 返回无效响应: choices 为空或不存在')
+        throw new Error('API returned invalid response: choices is empty or missing')
       }
 
       const choice = response.choices[0]
       if (!choice?.message) {
-        throw new Error('未收到有效的响应')
+        throw new Error('No valid response received')
       }
 
       let content = choice.message.content || ''
@@ -580,7 +580,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       }
       // SSE 和 JSON 解析都失败，抛出明确错误
       throw new Error(
-        `SSE 响应解析失败：未能从响应中提取任何内容。响应前 200 字符：${sseString.slice(0, 200)}`
+        `SSE response parsing failed: unable to extract any content from response. First 200 chars: ${sseString.slice(0, 200)}`
       )
     }
 
