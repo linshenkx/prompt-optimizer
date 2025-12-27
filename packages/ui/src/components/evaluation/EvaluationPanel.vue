@@ -14,7 +14,7 @@
           <!-- 流式内容预览 -->
           <div v-if="streamContent" class="stream-preview">
             <NText depth="3" class="stream-label">{{ t('evaluation.analyzing') }}</NText>
-            <NScrollbar style="max-height: 200px;">
+            <NScrollbar ref="streamScrollbarRef" style="max-height: 200px;">
               <NText class="stream-content">{{ streamContent }}</NText>
             </NScrollbar>
           </div>
@@ -80,26 +80,17 @@
             >
               <NList>
                 <NListItem v-for="(op, opIndex) in result.patchPlan" :key="opIndex">
-                  <div class="improvement-item">
-                    <div class="patch-left">
-                      <div class="patch-instruction">
-                        <NTag :type="getOperationType(op.op)" size="tiny">
-                          {{ getOperationLabel(op.op) }}
-                        </NTag>
-                        <NText class="improvement-text">{{ op.instruction }}</NText>
-                      </div>
-                      <div class="patch-diff">
-                        <div class="patch-block patch-old">
-                          <div class="patch-label">- old</div>
-                          <pre class="patch-pre">{{ op.oldText }}</pre>
-                        </div>
-                        <div class="patch-block patch-new">
-                          <div class="patch-label">+ new</div>
-                          <pre class="patch-pre">{{ op.newText }}</pre>
-                        </div>
-                      </div>
+                  <div class="patch-item">
+                    <div class="patch-header">
+                      <NTag :type="getOperationType(op.op)" size="tiny">
+                        {{ getOperationLabel(op.op) }}
+                      </NTag>
+                      <NText class="patch-instruction">{{ op.instruction }}</NText>
                     </div>
-                    <NButton size="tiny" type="primary" @click="handleApplyPatchLocal(op)">
+                    <div class="patch-diff-inline">
+                      <InlineDiff :old-text="op.oldText" :new-text="op.newText" />
+                    </div>
+                    <NButton size="tiny" type="primary" class="patch-apply-btn" @click="handleApplyPatchLocal(op)">
                       {{ t('evaluation.diagnose.replaceNow') }}
                     </NButton>
                   </div>
@@ -159,7 +150,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   NDrawer,
@@ -176,8 +167,10 @@ import {
   NList,
   NListItem,
   NTag,
+  type ScrollbarInst,
 } from 'naive-ui'
 import type { EvaluationResponse, EvaluationType, PatchOperation } from '@prompt-optimizer/core'
+import InlineDiff from './InlineDiff.vue'
 
 // Props
 const props = defineProps<{
@@ -204,6 +197,16 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+// 流式内容滚动条引用
+const streamScrollbarRef = ref<ScrollbarInst | null>(null)
+
+// 监听流式内容变化，自动滚动到底部
+watch(() => props.streamContent, () => {
+  nextTick(() => {
+    streamScrollbarRef.value?.scrollTo({ top: 999999, behavior: 'smooth' })
+  })
+})
 
 const tOr = (key: string, fallback: string): string => {
   const translated = t(key)
@@ -443,49 +446,33 @@ const handleApplyPatchLocal = (operation: PatchOperation) => {
 }
 
 /* patchPlan 相关样式 */
-.patch-left {
-  flex: 1;
-  min-width: 0;
-}
-
-.patch-instruction {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.patch-diff {
+.patch-item {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
 }
 
-.patch-block {
-  background: var(--n-color-embedded);
-  border-radius: 8px;
-  padding: 10px;
+.patch-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
 }
 
-.patch-old {
-  border-left: 3px solid #d03050;
-}
-
-.patch-new {
-  border-left: 3px solid #18a058;
-}
-
-.patch-label {
-  font-size: 12px;
-  opacity: 0.75;
-  margin-bottom: 6px;
-}
-
-.patch-pre {
-  margin: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size: 12px;
-  white-space: pre-wrap;
+.patch-instruction {
+  flex: 1;
   word-break: break-word;
+  font-size: 13px;
+}
+
+.patch-diff-inline {
+  background: var(--n-color-embedded);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.patch-apply-btn {
+  align-self: flex-end;
 }
 </style>

@@ -35,6 +35,25 @@
         </div>
       </div>
 
+      <!-- 精准修复（诊断分析） -->
+      <div v-if="result.patchPlan && result.patchPlan.length > 0" class="section patches-section">
+        <div class="section-header">
+          <span class="section-icon">🛠️</span>
+          <NText depth="2" style="font-size: 11px; font-weight: 600;">{{ t('evaluation.diagnose.title') }}</NText>
+        </div>
+        <div class="patch-list">
+          <div v-for="(op, idx) in result.patchPlan" :key="idx" class="patch-item">
+            <div class="patch-instruction">{{ op.instruction }}</div>
+            <div class="patch-diff-inline">
+              <InlineDiff :old-text="op.oldText" :new-text="op.newText" />
+            </div>
+            <NButton text size="tiny" type="primary" class="patch-apply-btn" @click.stop="handleApplyPatch(op)">
+              {{ t('evaluation.diagnose.replaceNow') }}
+            </NButton>
+          </div>
+        </div>
+      </div>
+
       <!-- 改进建议 -->
       <div v-if="result.improvements && result.improvements.length > 0" class="section improvements-section">
         <div class="section-header">
@@ -46,34 +65,6 @@
             <span class="improvement-text">{{ item }}</span>
             <NButton text size="tiny" type="primary" class="apply-btn" @click.stop="handleApplyImprovement(item)">
               {{ t('evaluation.applyToIterate') }}
-            </NButton>
-          </li>
-        </ul>
-      </div>
-
-      <!-- 精准修复 -->
-      <div v-if="result.patchPlan && result.patchPlan.length > 0" class="section patches-section">
-        <div class="section-header">
-          <span class="section-icon">🛠️</span>
-          <NText depth="2" style="font-size: 11px; font-weight: 600;">{{ t('evaluation.diagnose.title') }}</NText>
-        </div>
-        <ul class="section-list patch-list">
-          <li v-for="(op, idx) in result.patchPlan" :key="idx" class="patch-item">
-            <div class="patch-content">
-              <span class="patch-instruction">{{ op.instruction }}</span>
-              <div class="patch-diff">
-                <div class="patch-old">
-                  <span class="patch-label">-</span>
-                  <code>{{ op.oldText }}</code>
-                </div>
-                <div class="patch-new">
-                  <span class="patch-label">+</span>
-                  <code>{{ op.newText }}</code>
-                </div>
-              </div>
-            </div>
-            <NButton text size="tiny" type="primary" class="apply-btn" @click.stop="handleApplyPatch(op)">
-              {{ t('evaluation.diagnose.replaceNow') }}
             </NButton>
           </li>
         </ul>
@@ -113,6 +104,7 @@
 import { useI18n } from 'vue-i18n'
 import { NText, NTag, NProgress, NButton, NSpin, NSpace } from 'naive-ui'
 import type { EvaluationResponse, EvaluationType, PatchOperation } from '@prompt-optimizer/core'
+import InlineDiff from './InlineDiff.vue'
 
 const props = defineProps<{
   result: EvaluationResponse | null
@@ -185,9 +177,9 @@ const handleApplyPatch = (operation: PatchOperation) => {
 
 <style scoped>
 .evaluation-hover-card {
-  width: 280px;
-  padding: 12px;
-  max-height: 400px;
+  width: 360px;
+  padding: 14px;
+  max-height: 480px;
   overflow-y: auto;
 }
 
@@ -269,9 +261,9 @@ const handleApplyPatch = (operation: PatchOperation) => {
 .section-list {
   margin: 0;
   padding-left: 18px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--n-text-color-2);
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .section-list li {
@@ -293,75 +285,33 @@ const handleApplyPatch = (operation: PatchOperation) => {
 }
 
 /* 精准修复分区 */
-.patches-section .section-list {
-  color: #18a058;
-}
-
 .patch-list {
-  padding-left: 0;
-  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .patch-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 6px;
-  margin-bottom: 6px;
+  gap: 6px;
+  padding: 8px;
   background: var(--n-color-embedded);
-  border-radius: 4px;
-}
-
-.patch-item:last-child {
-  margin-bottom: 0;
-}
-
-.patch-content {
-  flex: 1;
+  border-radius: 6px;
 }
 
 .patch-instruction {
-  word-break: break-word;
-  display: block;
-  margin-bottom: 4px;
+  font-size: 12px;
   font-weight: 500;
+  word-break: break-word;
+  color: var(--n-text-color);
 }
 
-.patch-diff {
-  font-size: 10px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+.patch-diff-inline {
+  font-size: 11px;
 }
 
-.patch-old, .patch-new {
-  display: flex;
-  gap: 4px;
-  padding: 2px 4px;
-  border-radius: 2px;
-  margin-bottom: 2px;
-}
-
-.patch-old {
-  background: rgba(208, 48, 80, 0.1);
-  color: #d03050;
-}
-
-.patch-new {
-  background: rgba(24, 160, 88, 0.1);
-  color: #18a058;
-}
-
-.patch-label {
-  font-weight: bold;
-  min-width: 10px;
-}
-
-.patch-old code, .patch-new code {
-  white-space: pre-wrap;
-  word-break: break-all;
-  flex: 1;
-}
-
-.patch-item .apply-btn {
+.patch-apply-btn {
   align-self: flex-end;
 }
 
