@@ -5,6 +5,8 @@ import { useToast } from "../ui/useToast";
 import { useI18n } from "vue-i18n";
 import { usePreferences } from "../storage/usePreferenceManager";
 import { useImageGeneration } from "./useImageGeneration";
+import { useEvaluationHandler } from "../prompt/useEvaluationHandler";
+import type { UseEvaluationReturn } from "../prompt/useEvaluation";
 import { v4 as uuidv4 } from "uuid";
 
 import {
@@ -35,7 +37,10 @@ export interface ImageUploadChangePayload {
 
 type TemplateKind = Template['metadata']['templateType']
 
-export function useImageWorkspace(services: Ref<AppServices | null>) {
+export function useImageWorkspace(
+  services: Ref<AppServices | null>,
+  externalEvaluation?: UseEvaluationReturn,
+) {
   const toast = useToast();
   const { t } = useI18n();
   const { getPreference, setPreference } = usePreferences(services);
@@ -1023,6 +1028,48 @@ export function useImageWorkspace(services: Ref<AppServices | null>) {
     );
   }
 
+  // 🆕 评估处理器
+  const evaluationHandler = useEvaluationHandler({
+    services,
+    originalPrompt: toRef(state, "originalPrompt"),
+    optimizedPrompt: toRef(state, "optimizedPrompt"),
+    testContent: computed(() => ""),
+    testResults: ref(null),
+    evaluationModelKey: toRef(state, "selectedTextModelKey"),
+    functionMode: computed(() => "image"),
+    subMode: computed(() => state.imageMode),
+    externalEvaluation,
+  });
+
+  /**
+   * 分析功能：清空版本链，创建 V0（原始版本）
+   * - 不写入历史记录
+   * - 只创建内存中的虚拟 V0 版本
+   */
+  const handleAnalyze = () => {
+    if (!state.originalPrompt.trim()) return
+
+    // 生成虚拟的 V0 版本记录（不写入历史）
+    const virtualV0Id = uuidv4()
+    const virtualV0: PromptRecordChain["versions"][number] = {
+      id: virtualV0Id,
+      chainId: '', // 虚拟链，不关联真实历史
+      version: 0,
+      originalPrompt: state.originalPrompt,
+      optimizedPrompt: state.originalPrompt, // V0 的优化内容就是原始内容
+      type: 'imageOptimize',
+      timestamp: Date.now(),
+      modelKey: '',
+      templateId: '',
+    }
+
+    // 清空旧链条，设置新的 V0
+    currentChainId.value = ''
+    currentVersions.value = [virtualV0]
+    currentVersionId.value = virtualV0Id
+    state.optimizedPrompt = state.originalPrompt
+  }
+
   return {
     // 状态 - 使用 toRefs 保持响应式
     originalPrompt: toRef(state, "originalPrompt"),
@@ -1083,5 +1130,11 @@ export function useImageWorkspace(services: Ref<AppServices | null>) {
     refreshTextModels,
     refreshImageModels,
     templateManagerState,
+
+    // 🆕 评估处理器
+    evaluationHandler,
+
+    // 🆕 分析功能
+    handleAnalyze,
   };
 }

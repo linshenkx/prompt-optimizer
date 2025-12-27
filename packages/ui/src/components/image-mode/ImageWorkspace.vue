@@ -302,20 +302,41 @@
                             </NSpace>
                         </NGridItem>
 
-                        <!-- 优化按钮 -->
+                        <!-- 分析与优化按钮 -->
                         <NGridItem :span="4" :xs="24" :sm="4">
-                            <NSpace vertical :size="8" align="end">
+                            <NSpace :size="8" justify="end">
+                                <!-- 分析按钮（与优化同级） -->
+                                <NButton
+                                    type="default"
+                                    size="medium"
+                                    :loading="isAnalyzing"
+                                    @click="handleAnalyze"
+                                    :disabled="
+                                        isAnalyzing ||
+                                        isOptimizing ||
+                                        !originalPrompt.trim()
+                                    "
+                                    round
+                                >
+                                    {{
+                                        isAnalyzing
+                                            ? t('promptOptimizer.analyzing')
+                                            : t('promptOptimizer.analyze')
+                                    }}
+                                </NButton>
+                                <!-- 优化按钮 -->
                                 <NButton
                                     type="primary"
                                     size="medium"
                                     :loading="isOptimizing"
                                     @click="handleOptimizePrompt"
                                     :disabled="
+                                        isAnalyzing ||
+                                        isOptimizing ||
                                         !originalPrompt.trim() ||
                                         !selectedTextModelKey ||
                                         !selectedTemplate
                                     "
-                                    block
                                     round
                                 >
                                     {{
@@ -354,8 +375,8 @@
                     :advanced-mode-enabled="advancedModeEnabled"
                     iterate-template-type="imageIterate"
                     @iterate="handleIteratePrompt"
-                    @openTemplateManager="onOpenTemplateManager"
-                    @switchVersion="handleSwitchVersion"
+                    @open-template-manager="onOpenTemplateManager"
+                    @switch-version="handleSwitchVersion"
                     @save-favorite="handleSaveFavorite"
                 />
             </NCard>
@@ -1113,6 +1134,7 @@ import PromptPanelUI from "../PromptPanel.vue";
 import TestResultSection from "../TestResultSection.vue";
 import SelectWithConfig from "../SelectWithConfig.vue";
 import { useImageWorkspace, type ImageUploadChangePayload } from '../../composables/image/useImageWorkspace';
+import { provideEvaluation, useEvaluationContextOptional } from '../../composables/prompt/useEvaluationContext';
 import { DataTransformer, OptionAccessors } from "../../utils/data-transformer";
 import type { AppServices } from "../../types/services";
 import { useFullscreen } from "../../composables/ui/useFullscreen";
@@ -1128,6 +1150,9 @@ const toast = useToast();
 
 // 服务注入
 const services = inject<Ref<AppServices | null>>("services", ref(null));
+
+// 🆕 获取全局评估实例（如果存在，由 App 层 provideEvaluation 注入）
+const globalEvaluation = useEvaluationContextOptional();
 
 // 使用图像工作区 composable
 const {
@@ -1178,7 +1203,16 @@ const {
     refreshTextModels,
     refreshImageModels,
     restoreTemplateSelection,
-} = useImageWorkspace(services);
+
+    // 🆕 评估处理器
+    evaluationHandler,
+
+    // 🆕 分析功能
+    handleAnalyze: analyzePrompt,
+} = useImageWorkspace(services, globalEvaluation || undefined);
+
+// 🆕 提供评估上下文给 PromptPanel（优先复用全局 evaluation，避免与 App 的 EvaluationPanel 分裂）
+provideEvaluation(evaluationHandler.evaluation);
 
 // PromptPanel 引用，用于在语言切换后刷新迭代模板选择
 const promptPanelRef = ref<InstanceType<typeof PromptPanelUI> | null>(null);
@@ -1193,6 +1227,41 @@ const promptSummary = computed(() => {
         ? originalPrompt.value.slice(0, 50) + '...'
         : originalPrompt.value;
 });
+
+/** 是否正在执行分析 */
+const isAnalyzing = ref(false);
+
+/**
+ * 处理分析操作
+ * - 清空版本链，创建 V0（与优化同级）
+ * - 不写入历史（分析不产生新提示词）
+ * - 触发 prompt-only 评估
+ */
+const handleAnalyze = async () => {
+    if (!originalPrompt.value?.trim()) return;
+    if (isOptimizing.value) return;
+
+    isAnalyzing.value = true;
+
+    // 1. 清空版本链，创建虚拟 V0
+    analyzePrompt();
+
+    // 2. 清理旧的提示词评估结果，避免跨提示词残留
+    evaluationHandler.evaluation.clearResult('prompt-only');
+    evaluationHandler.evaluation.clearResult('prompt-iterate');
+
+    // 3. 收起输入区域
+    isInputPanelCollapsed.value = true;
+
+    await nextTick();
+
+    // 4. 触发 prompt-only 评估
+    try {
+        await evaluationHandler.handleEvaluate('prompt-only');
+    } finally {
+        isAnalyzing.value = false;
+    }
+};
 
 // 注入 App 层统一的 openTemplateManager / openModelManager / handleSaveFavorite 接口
 type TemplateEntryType =

@@ -206,7 +206,7 @@ export class HistoryManager implements IHistoryManager {
     // Generate chain ID
     const chainId = uuidv4();
     
-    // Create record with chainId and version=1
+    // Create record with chainId and initial version
     const record: PromptRecord = {
       ...params,
       chainId,

@@ -87,7 +87,10 @@
                     :loading="isOptimizing"
                     :disabled="isOptimizing"
                     :show-preview="false"
+                    :show-analyze-button="true"
+                    :analyze-loading="analyzing"
                     @submit="emit('optimize')"
+                    @analyze="handleAnalyze"
                     @configModel="emit('config-model')"
                     @open-preview="emit('open-input-preview')"
                 >
@@ -149,8 +152,8 @@
                     :advanced-mode-enabled="advancedModeEnabled"
                     :show-preview="false"
                     @iterate="handleIterate"
-                    @openTemplateManager="emit('open-template-manager')"
-                    @switchVersion="handleSwitchVersion"
+                    @open-template-manager="emit('open-template-manager')"
+                    @switch-version="handleSwitchVersion"
                     @save-favorite="emit('save-favorite', $event)"
                     @open-preview="emit('open-prompt-preview')"
                     @apply-improvement="emit('apply-improvement', $event)"
@@ -324,7 +327,7 @@
  * </BasicModeWorkspace>
  * ```
  */
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NCard, NFlex, NButton, NText, NIcon } from 'naive-ui'
 import InputPanelUI from '../InputPanel.vue'
@@ -445,6 +448,9 @@ interface Props {
     conversationMaxHeight?: number
     /** 结果区域是否垂直布局 */
     resultVerticalLayout?: boolean
+
+    /** 🆕 是否正在分析（由 App 层驱动） */
+    analyzing?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -475,6 +481,7 @@ const props = withDefaults(defineProps<Props>(), {
     buttonSize: 'medium',
     conversationMaxHeight: 300,
     resultVerticalLayout: false,
+    analyzing: false,
 })
 
 // ========================
@@ -511,6 +518,8 @@ const emit = defineEmits<{
     'evaluate-optimized': []
     /** 评估对比 */
     'evaluate-compare': []
+    /** 评估仅提示词（分析模式） */
+    'evaluate-prompt-only': []
     /** 显示原始详情 */
     'show-original-detail': []
     /** 显示优化详情 */
@@ -521,7 +530,8 @@ const emit = defineEmits<{
     'apply-improvement': [payload: { improvement: string; type: string }]
     /** 应用补丁 */
     'apply-patch': [payload: { operation: PatchOperation }]
-    // 注：evaluate-prompt-only 和 show-prompt-only-detail 事件已移除，PromptPanel 现在直接通过 inject 的 evaluation context 处理
+    // 注：PromptPanel 内的提示词评估（prompt-only/prompt-iterate）通过 inject 的 evaluation context 处理；
+    // 这里的 evaluate-prompt-only 仅用于“分析模式”触发 App 层的 prompt-only 评估。
 
     // === 保存/管理事件 ===
     /** 保存收藏 */
@@ -554,6 +564,9 @@ const testAreaPanelRef = ref<TestAreaPanelInstance | null>(null)
 // 输入区折叠状态（初始展开）
 const isInputPanelCollapsed = ref(false)
 
+/** 是否正在执行分析 */
+const analyzing = computed(() => !!props.analyzing)
+
 // 提示词摘要（折叠态显示）
 const promptSummary = computed(() => {
     if (!props.prompt) return ''
@@ -565,6 +578,26 @@ const promptSummary = computed(() => {
 // ========================
 // 事件处理
 // ========================
+
+/**
+ * 处理分析操作
+ * - 清空版本链，创建 V0（与优化同级）
+ * - 不写入历史（分析不产生新提示词）
+ * - 触发 prompt-only 评估
+ */
+const handleAnalyze = async () => {
+    if (!props.prompt?.trim()) return
+    if (props.isOptimizing) return
+    if (analyzing.value) return
+
+    // 1. 收起输入区域
+    isInputPanelCollapsed.value = true
+
+    await nextTick()
+
+    // 2. 触发 App 层的分析（会清空版本链、创建 V0、触发评估）
+    emit('evaluate-prompt-only')
+}
 
 /** 处理迭代 */
 const handleIterate = (payload: IteratePayload) => {

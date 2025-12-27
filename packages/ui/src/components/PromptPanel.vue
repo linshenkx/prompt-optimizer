@@ -43,16 +43,20 @@
                             >
                                 V{{ version.version }}
                             </NTag>
-                            <!-- 🆕 V0 固定放在最后 -->
-                            <NTag
-                                v-if="showV0Tag"
-                                :type="isV0Selected ? 'success' : 'default'"
-                                size="small"
-                                @click="switchToV0"
-                                :bordered="!isV0Selected"
-                            >
-                                V0
-                            </NTag>
+                            <!-- 🆕 原始版本固定放在最后 -->
+                            <NTooltip v-if="showV0Tag" trigger="hover">
+                                <template #trigger>
+                                    <NTag
+                                        :type="isV0Selected ? 'success' : 'default'"
+                                        size="small"
+                                        @click="switchToV0"
+                                        :bordered="!isV0Selected"
+                                    >
+                                        {{ t("prompt.originalVersion") }}
+                                    </NTag>
+                                </template>
+                                {{ t("prompt.originalVersionTooltip") }}
+                            </NTooltip>
                         </NSpace>
                     </NSpace>
                 </NSpace>
@@ -291,7 +295,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { NButton, NText, NInput, NCard, NFlex, NSpace, NTag, NIcon } from "naive-ui";
+import { NButton, NText, NInput, NCard, NFlex, NSpace, NTag, NIcon, NTooltip } from "naive-ui";
 import { useToast } from '../composables/ui/useToast';
 import { useEvaluationContextOptional } from '../composables/prompt/useEvaluationContext';
 import { useProContextOptional } from '../composables/prompt/useProContext';
@@ -473,7 +477,10 @@ const isV0Selected = ref(false);
 
 // 🆕 是否显示 V0 标签（只有当 versions 存在且有原始内容时才显示）
 const showV0Tag = computed(() => {
-    return props.versions && props.versions.length > 0 && props.versions[0]?.originalPrompt;
+    if (!props.versions || props.versions.length === 0) return false;
+    if (!props.versions[0]?.originalPrompt) return false;
+    // 如果链本身已经从 V0 开始（version===0），则无需额外的“V0 原始内容”标签，避免重复
+    return !props.versions.some((v) => v.version === 0);
 });
 
 const currentVersionOptimizedPrompt = computed(() => {

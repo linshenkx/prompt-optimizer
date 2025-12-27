@@ -36,6 +36,7 @@ export interface UseContextUserOptimization {
   switchToV0: (version: PromptChain['versions'][number]) => Promise<void>  // 🆕 V0 切换
   loadFromHistory: (payload: { rootPrompt: string, chain: PromptChain, record: PromptRecord }) => void
   saveLocalEdit: (payload: { optimizedPrompt: string; note?: string; source?: 'patch' | 'manual' }) => Promise<void>
+  handleAnalyze: () => void  // 🆕 分析功能
 }
 
 /**
@@ -398,6 +399,35 @@ export function useContextUserOptimization(
         console.error('[useContextUserOptimization] 保存本地修改失败:', error)
         toast.warning(t('toast.warning.saveHistoryFailed'))
       }
+    },
+
+    /**
+     * 分析功能：清空版本链，创建 V0（原始版本）
+     * - 不写入历史记录
+     * - 只创建内存中的虚拟 V0 版本
+     */
+    handleAnalyze: () => {
+      if (!state.prompt.trim()) return
+
+      // 生成虚拟的 V0 版本记录（不写入历史）
+      const virtualV0Id = uuidv4()
+      const virtualV0: PromptChain['versions'][number] = {
+        id: virtualV0Id,
+        chainId: '', // 虚拟链，不关联真实历史
+        version: 0,
+        originalPrompt: state.prompt,
+        optimizedPrompt: state.prompt, // V0 的优化内容就是原始内容
+        type: 'userOptimize',
+        timestamp: Date.now(),
+        modelKey: '',
+        templateId: '',
+      }
+
+      // 清空旧链条，设置新的 V0
+      state.currentChainId = ''
+      state.currentVersions = [virtualV0]
+      state.currentVersionId = virtualV0Id
+      state.optimizedPrompt = state.prompt
     }
   })
 

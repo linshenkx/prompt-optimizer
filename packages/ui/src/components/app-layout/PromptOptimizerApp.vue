@@ -37,7 +37,7 @@
                         :basicSubMode="basicSubMode"
                         :proSubMode="proSubMode"
                         :imageSubMode="imageSubMode"
-                        @update:functionMode="handleModeSelect"
+                        @update:function-mode="handleModeSelect"
                         @basic-sub-mode-change="handleBasicSubModeChange"
                         @pro-sub-mode-change="handleProSubModeChange"
                         @image-sub-mode-change="handleImageSubModeChange"
@@ -69,11 +69,11 @@
                             :selected-iterate-template="
                                 optimizer.selectedIterateTemplate
                             "
-                            @update:selectedIterateTemplate="
+                            @update:selected-iterate-template="
                                 optimizer.selectedIterateTemplate = $event
                             "
                             :optimization-context="optimizationContext"
-                            @update:optimizationContext="
+                            @update:optimization-context="
                                 optimizationContext = $event
                             "
                             :tool-count="optimizationContextTools.length"
@@ -109,7 +109,7 @@
                                 responsiveLayout.isMobile.value
                             "
                             :is-compare-mode="isCompareMode"
-                            @update:isCompareMode="isCompareMode = $event"
+                            @update:is-compare-mode="isCompareMode = $event"
                             @compare-toggle="handleTestAreaCompareToggle"
                             @optimize="handleOptimizePrompt"
                             @iterate="handleIteratePrompt"
@@ -211,11 +211,11 @@
                             :selected-iterate-template="
                                 optimizer.selectedIterateTemplate
                             "
-                            @update:selectedIterateTemplate="
+                            @update:selected-iterate-template="
                                 optimizer.selectedIterateTemplate = $event
                             "
                             :is-compare-mode="isCompareMode"
-                            @update:isCompareMode="isCompareMode = $event"
+                            @update:is-compare-mode="isCompareMode = $event"
                             :global-variables="
                                 variableManager?.customVariables?.value || {}
                             "
@@ -367,6 +367,7 @@
                             :button-size="responsiveLayout.smartButtonSize.value"
                             :conversation-max-height="responsiveLayout.responsiveHeights.value.conversationMax"
                             :result-vertical-layout="responsiveLayout.isMobile.value"
+                            :analyzing="isBasicAnalyzing"
                             @optimize="handleOptimizePrompt"
                             @iterate="handleIteratePrompt"
                             @switch-version="handleSwitchVersion"
@@ -375,6 +376,7 @@
                             @evaluate-original="() => handleEvaluate('original')"
                             @evaluate-optimized="() => handleEvaluate('optimized')"
                             @evaluate-compare="() => handleEvaluate('compare')"
+                            @evaluate-prompt-only="handleAnalyzeEvaluate"
                             @show-original-detail="() => evaluation.showDetail('original')"
                             @show-optimized-detail="() => evaluation.showDetail('optimized')"
                             @show-compare-detail="() => evaluation.showDetail('compare')"
@@ -1012,6 +1014,9 @@ const { evaluation, handleEvaluate, handleReEvaluate: handleReEvaluateBasic } = 
 // 提供评估上下文给子组件
 provideEvaluation(evaluation);
 
+// 基础模式“分析”专用 loading（避免与普通 prompt-only 评估混用）
+const isBasicAnalyzing = ref(false);
+
 // 同步 contextManagement 中的 contextMode
 watch(
     contextManagement.contextMode,
@@ -1363,6 +1368,31 @@ const handleIteratePrompt = (payload: any) => {
     }
 
     optimizer.handleIteratePrompt(payload);
+};
+
+/**
+ * 基础模式"分析"入口：
+ * - 清空版本链，创建 V0（与优化同级）
+ * - 不写入历史（分析不产生新提示词）
+ * - 触发 prompt-only 评估
+ */
+const handleAnalyzeEvaluate = async () => {
+    const prompt = optimizer.prompt || '';
+    if (!prompt.trim()) return;
+
+    // 清空版本链，创建虚拟 V0
+    optimizer.handleAnalyze();
+
+    // 清理旧的提示词评估结果，避免跨提示词残留
+    evaluation.clearResult('prompt-only');
+    evaluation.clearResult('prompt-iterate');
+
+    isBasicAnalyzing.value = true;
+    try {
+        await handleEvaluate('prompt-only');
+    } finally {
+        isBasicAnalyzing.value = false;
+    }
 };
 
 const handleSaveLocalEdit = async (payload: { note?: string }) => {

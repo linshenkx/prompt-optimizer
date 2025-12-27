@@ -81,7 +81,8 @@ export function usePromptOptimizer(
   handleOptimizePromptWithContext: async (_advancedContext: AdvancedContextPayload) => {},
   handleIteratePrompt: async (payload: { originalPrompt: string, optimizedPrompt: string, iterateInput: string }) => {},
   saveLocalEdit: async (_payload: { optimizedPrompt: string; note?: string; source?: 'patch' | 'manual' }) => {},
-  handleSwitchVersion: async (version: PromptChain['versions'][number]) => {}
+  handleSwitchVersion: async (version: PromptChain['versions'][number]) => {},
+  handleAnalyze: () => {}
 })
   
   // 注意：存储键现在由 useTemplateManager 统一管理
@@ -478,11 +479,40 @@ export function usePromptOptimizer(
     // 强制更新内容，确保UI同步
     state.optimizedPrompt = version.optimizedPrompt;
     state.currentVersionId = version.id;
-    
+
     // 等待一个微任务确保状态更新完成
     await nextTick()
   }
-  
+
+  /**
+   * 分析功能：清空版本链，创建 V0（原始版本）
+   * - 不写入历史记录
+   * - 只创建内存中的虚拟 V0 版本
+   */
+  state.handleAnalyze = () => {
+    if (!state.prompt.trim()) return
+
+    // 生成虚拟的 V0 版本记录（不写入历史）
+    const virtualV0Id = uuidv4()
+    const virtualV0: PromptChain['versions'][number] = {
+      id: virtualV0Id,
+      chainId: '', // 虚拟链，不关联真实历史
+      version: 0,
+      originalPrompt: state.prompt,
+      optimizedPrompt: state.prompt, // V0 的优化内容就是原始内容
+      type: 'optimize',
+      timestamp: Date.now(),
+      modelKey: '',
+      templateId: '',
+    }
+
+    // 清空旧链条，设置新的 V0
+    state.currentChainId = ''
+    state.currentVersions = [virtualV0]
+    state.currentVersionId = virtualV0Id
+    state.optimizedPrompt = state.prompt
+  }
+
   // 注意：模板初始化、选择保存和变化监听现在都由 useTemplateManager 负责
 
   // 返回 reactive 对象，而不是包含多个 ref 的对象

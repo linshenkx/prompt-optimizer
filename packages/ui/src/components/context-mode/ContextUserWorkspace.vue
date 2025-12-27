@@ -75,7 +75,10 @@
                     :loading="contextUserOptimization.isOptimizing"
                     :disabled="contextUserOptimization.isOptimizing"
                     :show-preview="true"
+                    :show-analyze-button="true"
+                    :analyze-loading="isAnalyzing"
                     @submit="handleOptimize"
+                    @analyze="handleAnalyze"
                     @configModel="emit('config-model')"
                     @open-preview="emit('open-input-preview')"
                     :enable-variable-extraction="true"
@@ -140,13 +143,13 @@
                 <PromptPanelUI
                     ref="promptPanelRef"
                     :optimized-prompt="contextUserOptimization.optimizedPrompt"
-                    @update:optimizedPrompt="contextUserOptimization.optimizedPrompt = $event"
+                    @update:optimized-prompt="contextUserOptimization.optimizedPrompt = $event"
                     :reasoning="contextUserOptimization.optimizedReasoning"
                     :original-prompt="contextUserOptimization.prompt"
                     :is-optimizing="contextUserOptimization.isOptimizing"
                     :is-iterating="contextUserOptimization.isIterating"
-                    :selectedIterateTemplate="selectedIterateTemplate"
-                    @update:selectedIterateTemplate="
+                    :selected-iterate-template="selectedIterateTemplate"
+                    @update:selected-iterate-template="
                         emit('update:selectedIterateTemplate', $event)
                     "
                     :versions="contextUserOptimization.currentVersions"
@@ -155,9 +158,9 @@
                     :advanced-mode-enabled="true"
                     :show-preview="true"
                     @iterate="handleIterate"
-                    @openTemplateManager="emit('open-template-manager', $event)"
-                    @switchVersion="handleSwitchVersion"
-                    @switchToV0="handleSwitchToV0"
+                    @open-template-manager="emit('open-template-manager', $event)"
+                    @switch-version="handleSwitchVersion"
+                    @switch-to-v0="handleSwitchToV0"
                     @save-favorite="emit('save-favorite', $event)"
                     @open-preview="emit('open-prompt-preview')"
                     @apply-improvement="handleApplyImprovement"
@@ -178,7 +181,7 @@
             :optimized-prompt="contextUserOptimization.optimizedPrompt"
             :is-test-running="contextUserTester.testResults.isTestingOriginal || contextUserTester.testResults.isTestingOptimized"
             :is-compare-mode="isCompareMode"
-            @update:isCompareMode="emit('update:isCompareMode', $event)"
+            @update:is-compare-mode="emit('update:isCompareMode', $event)"
             :model-name="props.testModelName"
             :global-variables="globalVariables"
             :predefined-variables="predefinedVariables"
@@ -278,7 +281,7 @@
  * />
  * ```
  */
-import { ref, computed, inject, type Ref } from 'vue'
+import { ref, computed, inject, nextTick, type Ref } from 'vue'
 
 import { useI18n } from "vue-i18n";
 import { NCard, NFlex, NText, NIcon, NButton } from "naive-ui";
@@ -417,6 +420,12 @@ const variableManager = inject<VariableManagerHooks | null>('variableManager');
 
 // 输入区折叠状态（初始展开）
 const isInputPanelCollapsed = ref(false);
+
+// ========================
+// 分析状态
+// ========================
+/** 是否正在执行分析 */
+const isAnalyzing = ref(false);
 
 /** 🆕 使用全局临时变量管理器 (从文本提取的变量,仅当前会话有效) */
 const tempVarsManager = useTemporaryVariables();
@@ -689,7 +698,41 @@ const handleClearTemporaryVariables = () => {
  * 🆕 处理优化事件
  */
 const handleOptimize = () => {
+    if (isAnalyzing.value) return;
     contextUserOptimization.optimize();
+};
+
+/**
+ * 处理分析操作
+ * - 清空版本链，创建 V0（与优化同级）
+ * - 不写入历史（分析不产生新提示词）
+ * - 触发 prompt-only 评估
+ */
+const handleAnalyze = async () => {
+    const prompt = contextUserOptimization.prompt;
+    if (!prompt?.trim()) return;
+    if (contextUserOptimization.isOptimizing) return;
+
+    isAnalyzing.value = true;
+
+    // 1. 清空版本链，创建虚拟 V0
+    contextUserOptimization.handleAnalyze();
+
+    // 2. 清理旧的提示词评估结果，避免跨提示词残留
+    evaluationHandler.evaluation.clearResult('prompt-only');
+    evaluationHandler.evaluation.clearResult('prompt-iterate');
+
+    // 3. 收起输入区域
+    isInputPanelCollapsed.value = true;
+
+    await nextTick();
+
+    // 4. 触发 prompt-only 评估
+    try {
+        await evaluationHandler.handleEvaluate('prompt-only');
+    } finally {
+        isAnalyzing.value = false;
+    }
 };
 
 /**
