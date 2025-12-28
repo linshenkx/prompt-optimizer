@@ -336,7 +336,9 @@ export function usePromptOptimizer(
   
   // 迭代优化
   state.handleIteratePrompt = async ({ originalPrompt, optimizedPrompt: lastOptimizedPrompt, iterateInput }: { originalPrompt: string, optimizedPrompt: string, iterateInput: string }) => {
-    if (!originalPrompt || !lastOptimizedPrompt || state.isIterating) return
+    // 🔧 修复：迭代模板实际上不需要 originalPrompt，只需要 lastOptimizedPrompt 和 iterateInput
+    // 移除 !originalPrompt 检查，允许用户直接在工作区编辑后迭代
+    if (!lastOptimizedPrompt || state.isIterating) return
     if (!iterateInput) return
     if (!state.selectedIterateTemplate) {
       toast.error(t('toast.error.noIterateTemplate'))

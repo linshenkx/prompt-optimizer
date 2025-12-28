@@ -58,14 +58,12 @@ export const template: Template = {
     ]
   },
   "improvements": [
-    "<具体改进建议1>",
-    "<具体改进建议2>",
-    "<具体改进建议3>"
+    "<方向性改进建议，如有>"
   ],
   "patchPlan": [
     {
       "op": "replace",
-      "oldText": "<提示词中需要替换的精确片段>",
+      "oldText": "<原文中要精确替换的片段>",
       "newText": "<修改后的内容>",
       "instruction": "<问题说明 + 修复方案>"
     }
@@ -76,9 +74,18 @@ export const template: Template = {
 
 # 字段说明
 
-- **improvements**：方向性/结构性建议（最多3条），指出缺失信息或结构问题
-- **patchPlan**：精准修复（最多3条），直接给出 oldText/newText，便于局部修改（oldText 必须能在工作区用户提示词中精确匹配）
-- **summary**：一句话总结评估结论
+- **improvements**：方向性改进建议（0-3条），指出缺失信息或结构问题
+  - 🔴 只在有明确问题时才给出
+  - 🔴 没有改进建议时返回空数组 []
+  - 🔴 不要强行凑3条，不要把评价变成建议
+  - 每条建议应指出具体问题和改进方向
+- **patchPlan**：精准修复操作（0-3条），直接给出 oldText → newText 的修改方案，便于本地替换
+  - 🔴 只在有具体可修复问题时才给出
+  - 🔴 没有修复时返回空数组 []
+  - oldText：必须能在工作区用户提示词中精确匹配
+  - newText：修改后的完整内容（删除时为空字符串）
+  - instruction：简洁说明问题和修复方案
+- **summary**：一句话总结评估结论（必填）
 
 # 改进建议要求
 

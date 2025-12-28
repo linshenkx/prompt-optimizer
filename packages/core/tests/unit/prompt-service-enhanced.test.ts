@@ -294,4 +294,96 @@ describe('PromptService Enhanced Features', () => {
       )
     })
   })
+
+  describe('iteratePrompt', () => {
+    it('should throw error when template is simple string format', async () => {
+      // Mock template manager to return a simple template
+      mockTemplateManager.getTemplate.mockResolvedValue({
+        id: 'simple-iterate-template',
+        name: 'Simple Iterate',
+        content: 'This is a simple string template',
+        metadata: {
+          version: '1.0',
+          lastModified: Date.now(),
+          templateType: 'iterate'
+        }
+      })
+
+      await expect(
+        promptService.iteratePrompt(
+          'original prompt',
+          'last optimized prompt',
+          'iterate input',
+          'test-model'
+        )
+      ).rejects.toThrow('Iteration requires advanced template (message array format)')
+    })
+
+    it('should work with message array template', async () => {
+      // Mock template manager to return an advanced template
+      mockTemplateManager.getTemplate.mockResolvedValue({
+        id: 'advanced-iterate-template',
+        name: 'Advanced Iterate',
+        content: [
+          {
+            role: 'system',
+            content: 'You are a prompt optimizer'
+          },
+          {
+            role: 'user',
+            content: 'Optimize: {{lastOptimizedPrompt}}\nRequirement: {{iterateInput}}'
+          }
+        ],
+        metadata: {
+          version: '1.0',
+          lastModified: Date.now(),
+          templateType: 'iterate'
+        }
+      })
+
+      mockLLMService.sendMessage.mockResolvedValue('iterated result')
+
+      const result = await promptService.iteratePrompt(
+        '',  // originalPrompt can be empty
+        'last optimized prompt',
+        'iterate input',
+        'test-model'
+      )
+
+      expect(result).toBe('iterated result')
+      expect(mockLLMService.sendMessage).toHaveBeenCalled()
+    })
+  })
+
+  describe('iteratePromptStream', () => {
+    it('should throw error when template is simple string format', async () => {
+      // Mock template manager to return a simple template
+      mockTemplateManager.getTemplate.mockResolvedValue({
+        id: 'simple-iterate-template',
+        name: 'Simple Iterate',
+        content: 'This is a simple string template',
+        metadata: {
+          version: '1.0',
+          lastModified: Date.now(),
+          templateType: 'iterate'
+        }
+      })
+
+      const callbacks = {
+        onContent: vi.fn(),
+        onComplete: vi.fn(),
+        onError: vi.fn()
+      }
+
+      await expect(
+        promptService.iteratePromptStream(
+          'original prompt',
+          'last optimized prompt',
+          'iterate input',
+          'test-model',
+          callbacks
+        )
+      ).rejects.toThrow('Iteration requires advanced template (message array format)')
+    })
+  })
 })

@@ -326,7 +326,8 @@ export class PromptService implements IPromptService {
     },
   ): Promise<string> {
     try {
-      this.validateInput(originalPrompt, modelKey);
+      // 🔧 迭代模板只需要 lastOptimizedPrompt 和 iterateInput
+      // originalPrompt 可以为空（用户直接在工作区编辑后迭代的场景）
       this.validateInput(lastOptimizedPrompt, modelKey);
       this.validateInput(iterateInput, modelKey);
 
@@ -355,6 +356,18 @@ export class PromptService implements IPromptService {
       if (!template?.content) {
         throw new IterationError(
           "Iteration failed: Template not found or invalid",
+          originalPrompt,
+          iterateInput,
+        );
+      }
+
+      // 🔧 迭代功能必须使用高级模板（message array 格式）以支持变量替换
+      if (typeof template.content === "string") {
+        throw new IterationError(
+          `Iteration requires advanced template (message array format) for variable substitution.\n` +
+            `Template ID: ${template.id}\n` +
+            `Current template type: Simple template (string format)\n` +
+            `Suggestion: Please use message array format template that supports {{lastOptimizedPrompt}} and {{iterateInput}} variables`,
           originalPrompt,
           iterateInput,
         );
@@ -760,7 +773,8 @@ export class PromptService implements IPromptService {
     },
   ): Promise<void> {
     try {
-      this.validateInput(originalPrompt, modelKey);
+      // 🔧 迭代模板只需要 lastOptimizedPrompt 和 iterateInput
+      // originalPrompt 可以为空（用户直接在工作区编辑后迭代的场景）
       this.validateInput(lastOptimizedPrompt, modelKey);
       this.validateInput(iterateInput, modelKey);
 
@@ -787,6 +801,18 @@ export class PromptService implements IPromptService {
       if (!template?.content) {
         throw new IterationError(
           "Iteration failed: Template not found or invalid",
+          originalPrompt,
+          iterateInput,
+        );
+      }
+
+      // 🔧 迭代功能必须使用高级模板（message array 格式）以支持变量替换
+      if (typeof template.content === "string") {
+        throw new IterationError(
+          `Iteration requires advanced template (message array format) for variable substitution.\n` +
+            `Template ID: ${template.id}\n` +
+            `Current template type: Simple template (string format)\n` +
+            `Suggestion: Please use message array format template that supports {{lastOptimizedPrompt}} and {{iterateInput}} variables`,
           originalPrompt,
           iterateInput,
         );

@@ -201,6 +201,14 @@ export function useEvaluationHandler(
     const results = testResults.value
     const context = proContext?.value
 
+    // 🔧 预先计算 trim 结果，避免重复调用
+    const originalTrimmed = original?.trim()
+    const optimizedTrimmed = optimized?.trim()
+    const shouldPassOriginal =
+      originalTrimmed &&
+      optimizedTrimmed &&
+      originalTrimmed !== optimizedTrimmed
+
     if (type === 'original') {
       await evaluation.evaluateOriginal({
         originalPrompt: original,
@@ -227,8 +235,10 @@ export function useEvaluationHandler(
       })
     } else if (type === 'prompt-only') {
       // 仅提示词评估（无需测试结果）
+      // 🔧 如果原始和优化内容一致，说明是分析模式，不传 originalPrompt
+      // 让评估聚焦在提示词本身，避免"优化前后无变化"的误判
       await evaluation.evaluatePromptOnly({
-        originalPrompt: original,
+        originalPrompt: shouldPassOriginal ? original : '',
         optimizedPrompt: optimized,
         proContext: context,
       })
@@ -237,14 +247,16 @@ export function useEvaluationHandler(
       const iterateRequirement = currentIterateRequirement?.value?.trim() || ''
       if (!iterateRequirement) {
         // 迭代需求为空时，降级为 prompt-only 评估
+        // 🔧 同样处理分析模式场景
         await evaluation.evaluatePromptOnly({
-          originalPrompt: original,
+          originalPrompt: shouldPassOriginal ? original : '',
           optimizedPrompt: optimized,
           proContext: context,
         })
       } else {
+        // 🔧 迭代评估同样处理分析模式场景
         await evaluation.evaluatePromptIterate({
-          originalPrompt: original,
+          originalPrompt: shouldPassOriginal ? original : '',
           optimizedPrompt: optimized,
           iterateRequirement,
           proContext: context,

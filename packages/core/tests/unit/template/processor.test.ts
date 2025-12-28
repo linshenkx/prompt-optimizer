@@ -74,27 +74,8 @@ describe('TemplateProcessor (Simplified)', () => {
       });
     });
 
-    it('should throw error for simple template in iteration context', () => {
-      const template: Template = {
-        id: 'test-iterate',
-        name: 'Test Iterate Template',
-        content: 'You are an expert prompt optimizer.',
-        metadata: {
-          version: '1.0',
-          lastModified: Date.now(),
-          templateType: 'iterate'
-        }
-      };
-
-      const context: TemplateContext = {
-        originalPrompt: 'Write a story',
-        iterateInput: 'Make it more dramatic'
-      };
-
-      expect(() => {
-        TemplateProcessor.processTemplate(template, context);
-      }).toThrow('Iteration context requires advanced template (message array format) for variable substitution');
-    });
+    // 注：TemplateProcessor 不再负责迭代上下文检查
+    // 该检查已移至 PromptService.iteratePrompt/iteratePromptStream 入口处
 
     it('should handle iteration context with advanced template', () => {
       const template: Template = {

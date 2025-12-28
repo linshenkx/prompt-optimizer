@@ -46,9 +46,6 @@ export class TemplateProcessor {
     // Validate template content
     this.validateTemplate(template);
 
-    // Validate context compatibility
-    this.validateContextCompatibility(template, context);
-
     // Build messages based on template type
     return this.buildMessages(template, context);
   }
@@ -67,25 +64,6 @@ export class TemplateProcessor {
     if (Array.isArray(template.content) && template.content.length === 0) {
       throw new Error(
         `Template content cannot be empty for template: ${template.id}`,
-      );
-    }
-  }
-
-  /**
-   * Validate context compatibility with template type
-   */
-  private static validateContextCompatibility(
-    template: Template,
-    context: TemplateContext,
-  ): void {
-    // Check that iteration context requires advanced template
-    const isIterateContext = context.originalPrompt && context.iterateInput;
-    if (isIterateContext && typeof template.content === "string") {
-      throw new Error(
-        `Iteration context requires advanced template (message array format) for variable substitution.\n` +
-          `Template ID: ${template.id}\n` +
-          `Current template type: Simple template (string format)\n` +
-          `Suggestion: Please use message array format template that supports variable substitution`,
       );
     }
   }

@@ -198,29 +198,7 @@ describe('TemplateProcessor with Mustache (Universal CSP-safe)', () => {
     }).toThrow('Template content is missing or invalid');
   });
 
-  it('should validate context compatibility for iteration', () => {
-    // Simple template should not work with iteration context
-    const simpleTemplate: Template = {
-      id: 'simple-iteration-test',
-      name: 'Simple Iteration Test',
-      content: 'Simple template content',
-      metadata: {
-        version: '1.0.0',
-        lastModified: Date.now(),
-        author: 'Test',
-        templateType: 'iterate',
-        language: 'zh'
-      },
-      isBuiltin: false
-    };
-
-    const iterateContext: TemplateContext = {
-      originalPrompt: 'Original prompt',
-      iterateInput: 'Iterate input'
-    };
-
-    expect(() => {
-      TemplateProcessor.processTemplate(simpleTemplate, iterateContext);
-    }).toThrow('Iteration context requires advanced template');
-  });
+  // 注：TemplateProcessor 不再负责迭代上下文检查
+  // 该检查已移至 PromptService.iteratePrompt/iteratePromptStream 入口处
+  // 相关测试已移至 prompt service 测试文件
 });
