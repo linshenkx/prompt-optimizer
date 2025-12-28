@@ -375,8 +375,8 @@
                     :advanced-mode-enabled="advancedModeEnabled"
                     iterate-template-type="imageIterate"
                     @iterate="handleIteratePrompt"
-                    @open-template-manager="onOpenTemplateManager"
-                    @switch-version="handleSwitchVersion"
+                    @openTemplateManager="onOpenTemplateManager"
+                    @switchVersion="handleSwitchVersion"
                     @save-favorite="handleSaveFavorite"
                 />
             </NCard>

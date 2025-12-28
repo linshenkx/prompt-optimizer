@@ -175,7 +175,7 @@ export default {
       add: "Add",
       emptySearchResult: "No matching favorites found",
       emptyDescription: "No favorites yet",
-      startOptimize: "Start optimizing prompts",
+      startOptimize: "Optimize",
       importDialog: {
         title: "Import Favorites",
         selectFile: "Select JSON file",
@@ -1039,8 +1039,8 @@ export default {
       help: "",
     },
     model: "Test Model",
-    startTest: "Start Test",
-    startCompare: "Start Compare Test",
+    startTest: "Test",
+    startCompare: "Test",
     testing: "Testing...",
     toggleCompare: {
       enable: "Enable Compare",
@@ -1052,7 +1052,7 @@ export default {
     testResult: "Test Result",
     userPromptTest: "User Prompt Test",
     advanced: {
-      startTest: "Start Test",
+      startTest: "Test",
       result: "Test Result",
       messageCount: "{count} messages",
       missingVariables: "{count} missing variables",

@@ -171,7 +171,7 @@ export default {
       add: "添加",
       emptySearchResult: "没有找到匹配的收藏",
       emptyDescription: "还没有收藏任何提示词",
-      startOptimize: "开始优化提示词",
+      startOptimize: "优化",
       importDialog: {
         title: "导入收藏",
         selectFile: "选择 JSON 文件",
@@ -415,7 +415,7 @@ export default {
   promptOptimizer: {
     title: "提示词优化器",
     inputPlaceholder: "请输入需要优化的prompt...",
-    optimize: "开始优化",
+    optimize: "优化",
     analyze: "分析",
     analyzing: "分析中...",
     history: "历史记录",
@@ -1007,8 +1007,8 @@ export default {
       help: "",
     },
     model: "测试模型",
-    startTest: "开始测试",
-    startCompare: "开始对比",
+    startTest: "测试",
+    startCompare: "测试",
     testing: "测试中...",
     toggleCompare: {
       enable: "开启对比",
@@ -1020,7 +1020,7 @@ export default {
     testResult: "测试结果",
     userPromptTest: "用户提示词测试",
     advanced: {
-      startTest: "开始测试",
+      startTest: "测试",
       result: "测试结果",
       messageCount: "{count} 条消息",
       missingVariables: "缺少 {count} 个变量",

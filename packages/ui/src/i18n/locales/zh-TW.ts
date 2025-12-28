@@ -171,7 +171,7 @@ export default {
       add: "新增",
       emptySearchResult: "沒有找到相符的收藏",
       emptyDescription: "還沒有收藏任何提示詞",
-      startOptimize: "開始優化提示詞",
+      startOptimize: "優化",
       importDialog: {
         title: "匯入收藏",
         selectFile: "選擇 JSON 檔案",
@@ -415,7 +415,7 @@ export default {
   promptOptimizer: {
     title: "提示詞優化器",
     inputPlaceholder: "請輸入需要優化的prompt...",
-    optimize: "開始優化",
+    optimize: "優化",
     analyze: "分析",
     analyzing: "分析中...",
     history: "歷史紀錄",
@@ -1002,8 +1002,8 @@ export default {
       help: "",
     },
     model: "測試模型",
-    startTest: "開始測試",
-    startCompare: "開始對比",
+    startTest: "測試",
+    startCompare: "測試",
     testing: "測試中...",
     toggleCompare: {
       enable: "開啟對比",
@@ -1015,7 +1015,7 @@ export default {
     testResult: "測試結果",
     userPromptTest: "使用者提示詞測試",
     advanced: {
-      startTest: "開始測試",
+      startTest: "測試",
       result: "測試結果",
       messageCount: "{count} 則訊息",
       missingVariables: "缺少 {count} 個變數",
