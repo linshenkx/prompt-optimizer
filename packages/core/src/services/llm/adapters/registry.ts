@@ -14,6 +14,7 @@ import { SiliconflowAdapter } from './siliconflow-adapter';
 import { ZhipuAdapter } from './zhipu-adapter';
 import { DashScopeAdapter } from './dashscope-adapter';
 import { OpenRouterAdapter } from './openrouter-adapter';
+import { ModelScopeAdapter } from './modelscope-adapter';
 
 /**
  * 文本模型适配器注册表实现
@@ -41,6 +42,7 @@ export class TextAdapterRegistry
     const geminiAdapter = new GeminiAdapter();
     const dashscopeAdapter = new DashScopeAdapter();
     const openrouterAdapter = new OpenRouterAdapter();
+    const modelscopeAdapter = new ModelScopeAdapter();
 
     this.adapters.set('openai', openaiAdapter);
     this.adapters.set('deepseek', deepseekAdapter);
@@ -50,6 +52,7 @@ export class TextAdapterRegistry
     this.adapters.set('gemini', geminiAdapter);
     this.adapters.set('dashscope', dashscopeAdapter);
     this.adapters.set('openrouter', openrouterAdapter);
+    this.adapters.set('modelscope', modelscopeAdapter);
 
     // 预加载静态模型缓存
     this.preloadStaticModels();

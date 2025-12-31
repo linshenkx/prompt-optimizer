@@ -12,7 +12,8 @@ const IMAGE_PROVIDER_ENV_KEYS = {
   openai: 'VITE_OPENAI_API_KEY',
   siliconflow: 'VITE_SILICONFLOW_API_KEY',
   seedream: 'VITE_SEEDREAM_API_KEY',
-  dashscope: 'VITE_DASHSCOPE_API_KEY'
+  dashscope: 'VITE_DASHSCOPE_API_KEY',
+  modelscope: 'VITE_MODELSCOPE_API_KEY'
 } as const
 
 /**
@@ -25,7 +26,8 @@ const IMAGE_CONFIG_IDS: Record<string, string> = {
   openai: 'image-openai-gpt',
   siliconflow: 'image-siliconflow-kolors',
   seedream: 'image-seedream',
-  dashscope: 'image-dashscope'
+  dashscope: 'image-dashscope',
+  modelscope: 'image-modelscope'
 }
 
 /**

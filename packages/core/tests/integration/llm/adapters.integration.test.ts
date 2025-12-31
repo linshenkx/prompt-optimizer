@@ -336,6 +336,80 @@ describe.skipIf(!RUN_REAL_API)('Adapter Integration Tests - Real SDK', () => {
     }, 30000);
   });
 
+  describe('ModelScopeAdapter Real API', () => {
+    const hasApiKey = !!(process.env.MODELSCOPE_API_KEY || process.env.VITE_MODELSCOPE_API_KEY);
+
+    it.skipIf(!hasApiKey)('should successfully call ModelScope API with sendMessage', async () => {
+      const apiKey = process.env.MODELSCOPE_API_KEY || process.env.VITE_MODELSCOPE_API_KEY;
+      const adapter = registry.getAdapter('modelscope');
+
+      const config = createTestConfig(adapter, apiKey!, {
+        temperature: 0.7,
+        max_tokens: 100
+      });
+
+      const messages: Message[] = [
+        { role: 'user', content: '请用一句话介绍你自己' }
+      ];
+
+      const response = await adapter.sendMessage(messages, config);
+
+      expect(response).toBeDefined();
+      expect(response.content).toBeDefined();
+      expect(typeof response.content).toBe('string');
+      expect(response.content.length).toBeGreaterThan(0);
+      expect(response.metadata.model).toBeDefined();
+
+      console.log('ModelScope API Response:', response.content.substring(0, 100));
+      console.log('Model:', response.metadata.model);
+    }, 30000);
+
+    it.skipIf(!hasApiKey)('should successfully stream ModelScope API with callbacks', async () => {
+      const apiKey = process.env.MODELSCOPE_API_KEY || process.env.VITE_MODELSCOPE_API_KEY;
+      const adapter = registry.getAdapter('modelscope');
+
+      const config = createTestConfig(adapter, apiKey!);
+
+      const messages: Message[] = [
+        { role: 'user', content: '请说"你好"' }
+      ];
+
+      let contentTokens = '';
+      let tokenCount = 0;
+      let finalResponse: any = null;
+      let isCompleted = false;
+
+      await adapter.sendMessageStream(messages, config, {
+        onToken: (token) => {
+          contentTokens += token;
+          tokenCount++;
+        },
+        onComplete: (response) => {
+          finalResponse = response;
+          isCompleted = true;
+        },
+        onError: (error) => {
+          console.error('ModelScope streaming error:', error);
+        }
+      });
+
+      // Wait for stream to complete
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      expect(isCompleted).toBe(true);
+      expect(tokenCount).toBeGreaterThan(0);
+      expect(contentTokens.length).toBeGreaterThan(0);
+      expect(finalResponse).toBeDefined();
+      expect(finalResponse.content).toBe(contentTokens);
+
+      console.log('ModelScope Streaming Result:', {
+        tokenCount,
+        contentLength: contentTokens.length,
+        content: contentTokens
+      });
+    }, 30000);
+  });
+
   describe('Error Handling', () => {
     it('should throw clear error for unknown provider', () => {
       expect(() => registry.getAdapter('unknown-provider'))
@@ -346,14 +420,17 @@ describe.skipIf(!RUN_REAL_API)('Adapter Integration Tests - Real SDK', () => {
       const openaiModels = registry.getStaticModels('openai');
       const geminiModels = registry.getStaticModels('gemini');
       const anthropicModels = registry.getStaticModels('anthropic');
+      const modelscopeModels = registry.getStaticModels('modelscope');
 
       expect(openaiModels.length).toBeGreaterThan(0);
       expect(geminiModels.length).toBeGreaterThan(0);
       expect(anthropicModels.length).toBeGreaterThan(0);
+      expect(modelscopeModels.length).toBeGreaterThan(0);
 
       expect(openaiModels.every(m => m.providerId === 'openai')).toBe(true);
       expect(geminiModels.every(m => m.providerId === 'gemini')).toBe(true);
       expect(anthropicModels.every(m => m.providerId === 'anthropic')).toBe(true);
+      expect(modelscopeModels.every(m => m.providerId === 'modelscope')).toBe(true);
     });
   });
 });

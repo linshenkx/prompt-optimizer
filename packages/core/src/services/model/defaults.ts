@@ -15,7 +15,8 @@ const PROVIDER_ENV_KEYS = {
   siliconflow: 'VITE_SILICONFLOW_API_KEY',
   zhipu: 'VITE_ZHIPU_API_KEY',
   dashscope: 'VITE_DASHSCOPE_API_KEY',
-  openrouter: 'VITE_OPENROUTER_API_KEY'
+  openrouter: 'VITE_OPENROUTER_API_KEY',
+  modelscope: 'VITE_MODELSCOPE_API_KEY'
 } as const;
 
 /**
