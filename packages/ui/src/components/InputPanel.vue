@@ -142,7 +142,7 @@
         />
 
         <!-- 控制面板 -->
-        <NGrid :cols="24" :x-gap="12" responsive="screen">
+        <NGrid :cols="24" :x-gap="8" responsive="screen">
             <!-- 模型选择 -->
             <NGridItem :span="6" :xs="24" :sm="6">
                 <NSpace vertical :size="8">
@@ -179,7 +179,7 @@
             </NGridItem>
 
             <!-- 提交按钮区域 -->
-            <NGridItem :span="5" :xs="24" :sm="5">
+            <NGridItem :span="5" :xs="24" :sm="5" class="flex items-end">
                 <NSpace :size="8" justify="end" style="width: 100%">
                     <!-- 分析按钮（与优化同级） -->
                     <NButton

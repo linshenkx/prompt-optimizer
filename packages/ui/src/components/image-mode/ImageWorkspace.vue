@@ -186,9 +186,9 @@
                     </NSpace>
 
                     <!-- 控制面板 - 使用网格布局 -->
-                    <NGrid :cols="24" :x-gap="12" responsive="screen">
+                    <NGrid :cols="24" :x-gap="8" responsive="screen">
                         <!-- 优化模板选择 -->
-                        <NGridItem :span="12" :xs="24" :sm="12">
+                        <NGridItem :span="11" :xs="24" :sm="11">
                             <NSpace vertical :size="8">
                                 <NText
                                     :depth="2"
@@ -241,7 +241,7 @@
                         </NGridItem>
 
                         <!-- 文本模型选择 -->
-                        <NGridItem :span="8" :xs="24" :sm="8">
+                        <NGridItem :span="7" :xs="24" :sm="7">
                             <NSpace vertical :size="8">
                                 <NText
                                     :depth="2"
@@ -303,8 +303,8 @@
                         </NGridItem>
 
                         <!-- 分析与优化按钮 -->
-                        <NGridItem :span="4" :xs="24" :sm="4">
-                            <NSpace :size="8" justify="end">
+                        <NGridItem :span="6" :xs="24" :sm="6" class="flex items-end justify-end">
+                            <NSpace :size="8">
                                 <!-- 分析按钮（与优化同级） -->
                                 <NButton
                                     type="default"
@@ -316,7 +316,6 @@
                                         isOptimizing ||
                                         !originalPrompt.trim()
                                     "
-                                    round
                                 >
                                     {{
                                         isAnalyzing
@@ -337,16 +336,11 @@
                                         !selectedTextModelKey ||
                                         !selectedTemplate
                                     "
-                                    round
                                 >
                                     {{
                                         isOptimizing
-                                            ? t(
-                                                  "imageWorkspace.input.optimizing",
-                                              )
-                                            : t(
-                                                  "imageWorkspace.input.optimizePrompt",
-                                              )
+                                            ? t("common.loading")
+                                            : t("promptOptimizer.optimize")
                                     }}
                                 </NButton>
                             </NSpace>
