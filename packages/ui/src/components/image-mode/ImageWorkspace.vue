@@ -221,7 +221,6 @@
                                         :show-config-action="true"
                                         :show-empty-config-c-t-a="true"
                                         @focus="handleTemplateSelectFocus"
-                                        @update:modelValue="saveSelections"
                                         @config="
                                             () =>
                                                 onOpenTemplateManager(
@@ -270,7 +269,6 @@
                                         :show-config-action="true"
                                         :show-empty-config-c-t-a="true"
                                         @focus="handleTextModelSelectFocus"
-                                        @update:modelValue="saveSelections"
                                         @config="
                                             () =>
                                                 appOpenModelManager &&
@@ -296,7 +294,6 @@
                                         :disabled="isOptimizing"
                                         filterable
                                         @focus="handleTextModelSelectFocus"
-                                        @update:modelValue="saveSelections"
                                     />
                                 </template>
                             </NSpace>
@@ -413,7 +410,6 @@
                                         "
                                         :disabled="isGenerating"
                                         filterable
-                                        @update:modelValue="saveSelections"
                                         @config="
                                             () =>
                                                 appOpenModelManager &&
@@ -443,7 +439,6 @@
                                         "
                                         :disabled="isGenerating"
                                         filterable
-                                        @update:modelValue="saveSelections"
                                     />
                                 </template>
                                 <!-- 当前选中模型名称标签 -->
@@ -462,7 +457,6 @@
                                 <n-switch
                                     v-model:value="isCompareMode"
                                     :disabled="isGenerating"
-                                    @update:value="saveSelections"
                                 />
                                 <n-text depth="3">{{
                                     t("imageWorkspace.generation.compareMode")
@@ -1129,6 +1123,7 @@ import TestResultSection from "../TestResultSection.vue";
 import SelectWithConfig from "../SelectWithConfig.vue";
 import { useImageWorkspace, type ImageUploadChangePayload } from '../../composables/image/useImageWorkspace';
 import { provideEvaluation, useEvaluationContextOptional } from '../../composables/prompt/useEvaluationContext';
+import { useImageSubMode } from '../../composables/mode/useImageSubMode'
 import { DataTransformer, OptionAccessors } from "../../utils/data-transformer";
 import type { AppServices } from "../../types/services";
 import { useFullscreen } from "../../composables/ui/useFullscreen";
@@ -1148,6 +1143,9 @@ const services = inject<Ref<AppServices | null>>("services", ref(null));
 // 🆕 获取全局评估实例（如果存在，由 App 层 provideEvaluation 注入）
 const globalEvaluation = useEvaluationContextOptional();
 
+// 图像子模式（全局单例 + 持久化）
+const { imageSubMode, setImageSubMode } = useImageSubMode(services as any)
+
 // 使用图像工作区 composable
 const {
     // 状态
@@ -1159,6 +1157,7 @@ const {
     imageMode,
     selectedTextModelKey,
     selectedImageModelKey,
+    selectedTemplateId,
     selectedTemplate,
     selectedIterateTemplate,
     isCompareMode,
@@ -1192,7 +1191,6 @@ const {
     handleSwitchVersion,
     getImageSrc,
     downloadImageFromResult,
-    saveSelections,
     cleanup,
     refreshTextModels,
     refreshImageModels,
@@ -1203,7 +1201,11 @@ const {
 
     // 🆕 分析功能
     handleAnalyze: analyzePrompt,
-} = useImageWorkspace(services, globalEvaluation || undefined);
+} = useImageWorkspace(services, {
+    imageSubMode: imageSubMode as any,
+    setImageSubMode,
+    externalEvaluation: globalEvaluation || undefined,
+});
 
 // 🆕 提供评估上下文给 PromptPanel（优先复用全局 evaluation，避免与 App 的 EvaluationPanel 分裂）
 provideEvaluation(evaluationHandler.evaluation);
@@ -1341,7 +1343,7 @@ const { isFullscreen, fullscreenValue, openFullscreen } = useFullscreen(
 // 使用模板对象列表与字符串 id 进行绑定
 const selectedTemplateIdForSelect = computed<string>({
     get() {
-        const id = selectedTemplate?.value?.id || "";
+        const id = selectedTemplateId.value || "";
         if (!id) return "";
         // 仅当当前下拉列表中存在该模板时再返回，避免在列表尚未加载完成时出现短暂的失配导致清空
         const existsInList = (templateOptions.value || []).some(
@@ -1350,25 +1352,11 @@ const selectedTemplateIdForSelect = computed<string>({
         return existsInList ? id : "";
     },
     set(id: string) {
-        if (!id) {
-            selectedTemplate.value = null;
-            return;
-        }
-        const option =
-            (templateOptions.value || []).find((opt) => opt.value === id) ||
-            null;
-        selectedTemplate.value = option?.raw || null;
-        // 用户选择模板时立即保存到对应模式的存储键
-        if (option?.raw) {
-            nextTick(() => {
-                saveSelections();
-            });
-        }
+        selectedTemplateId.value = id || "";
     },
 });
 
-// 持久化模板选择的时机由具体的用户操作控制，而不是自动同步
-// 避免在模板选择变化时自动触发saveSelections，防止跨模式数据污染
+// 模板选择已由 image session store 持久化，无需额外存储逻辑
 
 // 弹窗状态
 const showUploadModal = ref(false);
@@ -1429,7 +1417,7 @@ interface RestoreFavoriteDetail {
     imageSubMode?: "text2image" | "image2image";
 }
 
-const handleRestoreFavorite = (event: Event) => {
+const handleRestoreFavorite = async (event: Event) => {
     if (!(event instanceof CustomEvent)) {
         return;
     }
@@ -1441,7 +1429,7 @@ const handleRestoreFavorite = (event: Event) => {
 
     // 设置图像子模式
     if (imageSubMode) {
-        imageMode.value = imageSubMode;
+        await handleImageModeChange(imageSubMode);
     }
 
     // 设置原始提示词
@@ -1454,7 +1442,7 @@ const handleRestoreFavorite = (event: Event) => {
 if (typeof window !== "undefined") {
     window.addEventListener(
         "image-workspace-restore-favorite",
-        handleRestoreFavorite,
+        handleRestoreFavorite as EventListener,
     );
     console.log(
         "[ImageWorkspace] Favorite restore event listener registered immediately on component creation",
@@ -1591,7 +1579,7 @@ onUnmounted(() => {
         );
         window.removeEventListener(
             "image-workspace-restore-favorite",
-            handleRestoreFavorite,
+            handleRestoreFavorite as EventListener,
         );
     }
 });

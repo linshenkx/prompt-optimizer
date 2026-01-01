@@ -52,6 +52,8 @@ export interface AppFavoriteOptions {
     optimizerPrompt: Ref<string>
     /** i18n 翻译函数 */
     t: (key: string, params?: Record<string, any>) => string
+    /** 外部数据加载中标志（防止模式切换的自动 restore 覆盖外部数据） */
+    isLoadingExternalData: Ref<boolean>
 }
 
 /**
@@ -88,6 +90,7 @@ export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
         handleContextModeChange,
         optimizerPrompt,
         t,
+        isLoadingExternalData,
     } = options
 
     const toast = useToast()
@@ -132,9 +135,9 @@ export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
     }
 
     /**
-     * 处理使用收藏 - 智能模式切换
+     * 处理使用收藏 - 智能模式切换（内部实现）
      */
-    const handleUseFavorite = async (favorite: FavoriteItem) => {
+    const handleUseFavoriteImpl = async (favorite: FavoriteItem) => {
         const {
             functionMode: favFunctionMode,
             optimizationMode: favOptimizationMode,
@@ -220,6 +223,26 @@ export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
 
         // 显示成功提示
         toast.success(t('toast.success.favoriteLoaded'))
+    }
+
+    /**
+     * 收藏加载的错误处理包装器
+     */
+    const handleUseFavorite = async (favorite: FavoriteItem) => {
+        try {
+            // 🔧 设置外部数据加载标志，防止模式切换的自动 restore 覆盖外部数据
+            isLoadingExternalData.value = true
+
+            await handleUseFavoriteImpl(favorite)
+        } catch (error) {
+            // 捕获收藏加载过程中的所有错误
+            console.error('[App] 收藏加载失败:', error)
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            toast.error(t('toast.error.favoriteLoadFailed', { error: errorMessage }))
+        } finally {
+            // 🔧 恢复完成，重置标志，允许正常的模式切换 restore
+            isLoadingExternalData.value = false
+        }
     }
 
     return {

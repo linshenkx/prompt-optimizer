@@ -19,6 +19,7 @@ import type {
     PromptRecordChain,
     IHistoryManager,
     OptimizationMode,
+    ImageSubMode,
 } from '@prompt-optimizer/core'
 
 /**
@@ -56,6 +57,10 @@ export interface AppHistoryRestoreOptions {
     proSubMode: Ref<ProSubMode>
     /** 设置专业子模式 */
     setProSubMode: (mode: ProSubMode) => Promise<void>
+    /** 图像子模式 */
+    imageSubMode: Ref<ImageSubMode>
+    /** 设置图像子模式 */
+    setImageSubMode: (mode: ImageSubMode) => Promise<void>
     /** 处理上下文模式变更 */
     handleContextModeChange: (mode: ContextMode) => Promise<void>
     /** 处理历史记录选择 */
@@ -68,6 +73,8 @@ export interface AppHistoryRestoreOptions {
     userWorkspaceRef: Ref<WorkspaceRef | null>
     /** i18n 翻译函数 */
     t: (key: string, params?: Record<string, any>) => string
+    /** 外部数据加载中标志（防止模式切换的自动 restore 覆盖外部数据） */
+    isLoadingExternalData: Ref<boolean>
 }
 
 /**
@@ -90,12 +97,15 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
         setBasicSubMode,
         proSubMode,
         setProSubMode,
+        imageSubMode,
+        setImageSubMode,
         handleContextModeChange,
         handleSelectHistory,
         optimizationContext,
         systemWorkspaceRef,
         userWorkspaceRef,
         t,
+        isLoadingExternalData,
     } = options
 
     const toast = useToast()
@@ -134,6 +144,14 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
                     : rt === 'image2imageOptimize'
                       ? 'image2image'
                       : 'text2image' // 默认为文生图模式
+
+            // 🔧 先切换图像子模式（在 isLoadingExternalData 保护下）
+            // 这样 dispatch event 时不会再触发子模式切换，避免 session restore 覆盖历史数据
+            const needsImageSubModeSwitch = imageSubMode.value !== imageMode
+            if (needsImageSubModeSwitch) {
+                await setImageSubMode(imageMode)
+                await nextTick()
+            }
 
             // 通过全局事件或直接访问ImageWorkspace的数据来回填
             // 由于ImageWorkspace是独立组件，我们需要通过provide/inject或事件系统来传递数据
@@ -350,12 +368,18 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
      */
     const handleHistoryReuse = async (context: HistoryContext) => {
         try {
+            // 🔧 设置外部数据加载标志，防止模式切换的自动 restore 覆盖外部数据
+            isLoadingExternalData.value = true
+
             await handleHistoryReuseImpl(context)
         } catch (error) {
             // 捕获历史记录恢复过程中的所有错误
             console.error('[App] 历史记录恢复失败:', error)
             const errorMessage = error instanceof Error ? error.message : String(error)
             toast.error(t('toast.error.historyRestoreFailed', { error: errorMessage }))
+        } finally {
+            // 🔧 恢复完成，重置标志，允许正常的模式切换 restore
+            isLoadingExternalData.value = false
         }
     }
 

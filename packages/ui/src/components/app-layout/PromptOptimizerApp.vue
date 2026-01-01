@@ -1182,6 +1182,10 @@ const getCurrentSession = () => {
 // 🔄 应用初始化后从 session store 恢复状态到 UI
 const hasRestoredInitialState = ref(false);
 
+// 🔧 外部数据加载中标志（防止模式切换的自动 restore 覆盖外部数据）
+// 适用场景：历史记录恢复、收藏加载、模板导入等任何外部数据加载导致模式切换的情况
+const isLoadingExternalData = ref(false);
+
 /**
  * 🔧 Codex 修复：恢复 Basic / Pro-variable 模式的 session 状态
  * 这些模式使用通用型 session store，支持所有标准字段和方法
@@ -1209,6 +1213,26 @@ const restoreBasicOrProVariableSession = () => {
 
     // 恢复对比模式
     isCompareMode.value = savedState.isCompareMode;
+
+    // 🔧 恢复测试结果（修复子模式测试结果共享问题）
+    // 只恢复稳定字段，不恢复 isTesting* 临时状态
+    if (savedState.testResults) {
+        promptTester.testResults.originalResult = savedState.testResults.originalResult || '';
+        promptTester.testResults.originalReasoning = savedState.testResults.originalReasoning || '';
+        promptTester.testResults.optimizedResult = savedState.testResults.optimizedResult || '';
+        promptTester.testResults.optimizedReasoning = savedState.testResults.optimizedReasoning || '';
+        // 重置测试中状态
+        promptTester.testResults.isTestingOriginal = false;
+        promptTester.testResults.isTestingOptimized = false;
+    } else {
+        // 如果 session 中没有测试结果，清空当前测试结果
+        promptTester.testResults.originalResult = '';
+        promptTester.testResults.originalReasoning = '';
+        promptTester.testResults.optimizedResult = '';
+        promptTester.testResults.optimizedReasoning = '';
+        promptTester.testResults.isTestingOriginal = false;
+        promptTester.testResults.isTestingOptimized = false;
+    }
 };
 
 /**
@@ -1318,9 +1342,12 @@ watch(
     [isReady, () => functionMode.value, () => basicSubMode.value, () => proSubMode.value],
     async ([ready]) => {
         // 🔧 只在已完成首次恢复后才响应模式切换
-        if (ready && hasRestoredInitialState.value) {
-            await restoreSessionToUI();
-        }
+        if (!ready || !hasRestoredInitialState.value) return;
+
+        // 🔧 外部数据加载中不响应模式切换（防止 session restore 覆盖外部数据）
+        if (isLoadingExternalData.value) return;
+
+        await restoreSessionToUI();
     },
     { immediate: false }  // 🔧 改为 false，不在 watch 创建时立即执行
 );
@@ -1368,8 +1395,10 @@ watch(
 
 // 同步测试结果到 session store
 // 🔧 Codex 修复：Image 模式没有 updateTestResults 方法，需要分支处理
+// 🔧 使用 deep: true 捕获深层变化（如 originalResult += token）
+// 🔧 过滤掉 isTesting* 临时状态，只持久化稳定字段
 watch(
-    testResults,
+    () => promptTester.testResults,
     (newTestResults) => {
         if (sessionManager.isSwitching) return;
 
@@ -1380,9 +1409,17 @@ watch(
 
         const session = getCurrentSession();
         if (session && typeof (session as any).updateTestResults === 'function') {
-            (session as any).updateTestResults(newTestResults);  // 允许 null
+            // 只保存稳定字段，不保存 isTesting* 临时状态
+            const stableResults = newTestResults ? {
+                originalResult: newTestResults.originalResult || '',
+                originalReasoning: newTestResults.originalReasoning || '',
+                optimizedResult: newTestResults.optimizedResult || '',
+                optimizedReasoning: newTestResults.optimizedReasoning || '',
+            } : null;
+            (session as any).updateTestResults(stableResults);
         }
-    }
+    },
+    { deep: true }  // 🔧 启用深层监听，捕获 streaming 写入等深层变化
 );
 
 // 同步优化模型选择到 session store
@@ -1554,12 +1591,15 @@ const { handleHistoryReuse } = useAppHistoryRestore({
     setBasicSubMode,
     proSubMode,
     setProSubMode,
+    imageSubMode,
+    setImageSubMode,
     handleContextModeChange,
     handleSelectHistory: promptHistory.handleSelectHistory,
     optimizationContext,
     systemWorkspaceRef,
     userWorkspaceRef,
     t,
+    isLoadingExternalData,
 });
 
 // App 级别收藏管理
@@ -1581,6 +1621,7 @@ const {
     handleContextModeChange,
     optimizerPrompt: toRef(optimizer, "prompt") as any,
     t,
+    isLoadingExternalData,
 });
 
 provide("handleSaveFavorite", handleSaveFavorite);
@@ -2149,10 +2190,30 @@ const handleTestAreaCompareToggle = () => {
 };
 
 // ========== Session Management ==========
+/**
+ * 🔧 开发规范（防止回归）：
+ *
+ * 任何新增触发 switchMode / switchSubMode / restoreSessionToUI 的 watch 或入口
+ * 都**必须**添加以下检查，防止 session restore 覆盖外部数据：
+ *
+ *   if (isLoadingExternalData.value) return;
+ *
+ * 适用场景：历史记录恢复、收藏加载、模板导入、配置恢复等任何外部数据加载
+ *
+ * 当前已保护的 5 个入口：
+ *   1. watch(functionMode, ...)              - 功能模式切换
+ *   2. watch(basicSubMode, ...)              - Basic 子模式切换
+ *   3. watch(proSubMode, ...)                - Pro 子模式切换
+ *   4. watch(imageSubMode, ...)              - Image 子模式切换
+ *   5. watch([isReady, ...modes], ...)       - 综合模式监听
+ */
 // 监听功能模式切换（Codex要求：传递 oldKey/newKey）
 watch(functionMode, async (newMode, oldMode) => {
   // 🔧 Codex 修复：首次恢复完成前不响应模式切换，避免提前触发 switchMode
   if (!hasRestoredInitialState.value) return;
+
+  // 🔧 外部数据加载中不响应模式切换（防止 session restore 覆盖外部数据）
+  if (isLoadingExternalData.value) return;
 
   if (newMode !== oldMode && !sessionManager.isSwitching) {
     // 计算 oldKey 和 newKey
@@ -2181,6 +2242,9 @@ watch(basicSubMode, async (newSubMode, oldSubMode) => {
   // 🔧 Codex 修复：首次恢复完成前不响应子模式切换
   if (!hasRestoredInitialState.value) return;
 
+  // 🔧 外部数据加载中不响应子模式切换（防止 session restore 覆盖外部数据）
+  if (isLoadingExternalData.value) return;
+
   if (
     functionMode.value === 'basic' &&
     newSubMode !== oldSubMode &&
@@ -2201,6 +2265,9 @@ watch(proSubMode, async (newSubMode, oldSubMode) => {
   // 🔧 Codex 修复：首次恢复完成前不响应子模式切换
   if (!hasRestoredInitialState.value) return;
 
+  // 🔧 外部数据加载中不响应子模式切换（防止 session restore 覆盖外部数据）
+  if (isLoadingExternalData.value) return;
+
   if (
     functionMode.value === 'pro' &&
     newSubMode !== oldSubMode &&
@@ -2220,6 +2287,9 @@ watch(proSubMode, async (newSubMode, oldSubMode) => {
 watch(imageSubMode, async (newSubMode, oldSubMode) => {
   // 🔧 Codex 修复：首次恢复完成前不响应子模式切换
   if (!hasRestoredInitialState.value) return;
+
+  // 🔧 外部数据加载中不响应子模式切换（防止 session restore 覆盖外部数据）
+  if (isLoadingExternalData.value) return;
 
   if (
     functionMode.value === 'image' &&
