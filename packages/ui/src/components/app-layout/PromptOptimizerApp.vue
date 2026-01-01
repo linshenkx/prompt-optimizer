@@ -618,10 +618,14 @@
 import {
     ref,
     watch,
+    watchEffect,
     provide,
     computed,
     shallowRef,
     toRef,
+    onMounted,
+    onBeforeUnmount,
+    nextTick,
     type Ref,
 } from "vue";
 import { useI18n } from "vue-i18n";
@@ -698,6 +702,18 @@ import {
 // i18n functions
 import { initializeI18nWithStorage, setI18nServices } from '../../plugins/i18n'
 
+// Pinia functions
+import { setPiniaServices, getPiniaServices } from '../../plugins/pinia'
+// ⚠️ Codex 建议：改用直接路径导入，避免 barrel exports 循环依赖导致 TDZ
+import { useSessionManager, type SubModeKey } from '../../stores/session/useSessionManager'
+import { useBasicSystemSession } from '../../stores/session/useBasicSystemSession'
+import { useBasicUserSession } from '../../stores/session/useBasicUserSession'
+import { useProMultiMessageSession } from '../../stores/session/useProMultiMessageSession'
+import { useProVariableSession } from '../../stores/session/useProVariableSession'
+import { useSessionRestoreCoordinator } from '../../composables/session/useSessionRestoreCoordinator'
+import { useImageText2ImageSession } from '../../stores/session/useImageText2ImageSession'
+import { useImageImage2ImageSession } from '../../stores/session/useImageImage2ImageSession'
+
 // Data Transformation
 import { DataTransformer, OptionAccessors } from '../../utils/data-transformer'
 
@@ -713,20 +729,37 @@ const toast = useToast();
 // 2. 初始化应用服务
 const { services, isInitializing } = useAppInitializer();
 
-// 3. Initialize i18n with storage when services are ready
+// 3. 初始化功能模式和子模式（必须在 sessionManager 之前）
+const { functionMode, setFunctionMode } = useFunctionMode(services as any);
+const { basicSubMode, setBasicSubMode } = useBasicSubMode(services as any);
+const { proSubMode, setProSubMode } = useProSubMode(services as any);
+const { imageSubMode, setImageSubMode } = useImageSubMode(services as any);
+
+// 4. 初始化 SessionManager（必须在 services watch 之前）
+const sessionManager = useSessionManager();
+
+// 注入子模式读取器（避免双真源）
+sessionManager.injectSubModeReaders({
+  getFunctionMode: () => functionMode.value,
+  getBasicSubMode: () => basicSubMode.value,
+  getProSubMode: () => proSubMode.value,
+  getImageSubMode: () => imageSubMode.value,
+});
+
+// 5. Initialize i18n with storage when services are ready
 watch(
     services,
     async (newServices) => {
         if (newServices) {
             setI18nServices(newServices);
+            setPiniaServices(newServices);
             await initializeI18nWithStorage();
-            console.log("[PromptOptimizerApp] i18n initialized");
         }
     },
-    { immediate: true },
+    { immediate: false },  // ⚠️ 移除 immediate，避免在 setup 未完成时执行
 );
 
-// 4. 向子组件提供服务
+// 6. 向子组件提供服务
 provide("services", services);
 
 // 5. 控制主UI渲染的标志
@@ -751,10 +784,19 @@ type ContextWorkspaceExpose = {
     openIterateDialog?: (input?: string) => void;
     applyLocalPatch?: (operation: PatchOperation) => void;
     reEvaluateActive?: () => Promise<void>;
+    restoreConversationOptimizationFromSession?: () => void; // 🔧 Codex 修复：session 恢复方法
 };
 
 const systemWorkspaceRef = ref<ContextWorkspaceExpose | null>(null);
-const userWorkspaceRef = ref<ContextWorkspaceExpose | null>(null);
+type ContextUserWorkspaceExpose = ContextWorkspaceExpose & {
+    // 提供最小可用 API，避免父组件依赖子组件内部实现细节
+    setPrompt?: (prompt: string) => void;
+    getPrompt?: () => string;
+    getOptimizedPrompt?: () => string;
+    getTemporaryVariableNames?: () => string[];
+};
+
+const userWorkspaceRef = ref<ContextUserWorkspaceExpose | null>(null);
 const basicModeWorkspaceRef = ref<{
     promptPanelRef?: {
         openIterateDialog?: (input?: string) => void;
@@ -762,14 +804,6 @@ const basicModeWorkspaceRef = ref<{
     } | null;
     openIterateDialog?: (input?: string) => void;
 } | null>(null);
-
-// 高级模式状态
-const { functionMode, setFunctionMode } = useFunctionMode(services as any);
-
-// 三种功能模式的子模式持久化（独立存储）
-const { basicSubMode, setBasicSubMode } = useBasicSubMode(services as any);
-const { proSubMode, setProSubMode } = useProSubMode(services as any);
-const { imageSubMode, setImageSubMode } = useImageSubMode(services as any);
 
 // selectedOptimizationMode 改为 computed，从对应的 subMode 动态计算
 const selectedOptimizationMode = computed<OptimizationMode>(() => {
@@ -870,10 +904,7 @@ const variableExtraction = useVariableExtraction(
     },
     (replacedPrompt: string) => {
         // 替换提示词回调：更新 ContextUser 工作区的提示词内容
-        const userWorkspace = userWorkspaceRef.value as any;
-        if (userWorkspace?.contextUserOptimization) {
-            userWorkspace.contextUserOptimization.prompt = replacedPrompt;
-        }
+        userWorkspaceRef.value?.setPrompt?.(replacedPrompt);
     }
 );
 
@@ -902,8 +933,7 @@ const handleOpenInputPreview = () => {
 
     if (isUserMode && isPro) {
         // 上下文/变量模式：使用 ContextUser 工作区的提示词
-        const userWorkspace = userWorkspaceRef.value as any;
-        promptPreviewContent.value = userWorkspace?.contextUserOptimization?.prompt || "";
+        promptPreviewContent.value = userWorkspaceRef.value?.getPrompt?.() || "";
     } else {
         // 基础模式或其他模式：使用 optimizer 的提示词
         promptPreviewContent.value = optimizer.prompt || "";
@@ -920,8 +950,8 @@ const handleOpenPromptPreview = () => {
 
     if (isUserMode && isPro) {
         // 上下文/变量模式：使用 ContextUser 工作区的优化后提示词
-        const userWorkspace = userWorkspaceRef.value as any;
-        promptPreviewContent.value = userWorkspace?.contextUserOptimization?.optimizedPrompt || "";
+        promptPreviewContent.value =
+            userWorkspaceRef.value?.getOptimizedPrompt?.() || "";
     } else {
         // 基础模式或其他模式：使用 optimizer 的优化后提示词
         promptPreviewContent.value = optimizer.optimizedPrompt || "";
@@ -954,6 +984,7 @@ const handleOpenVariableManager = (variableName?: string) => {
 };
 
 // 🆕 AI 变量提取处理函数
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const handleExtractVariables = async (
     promptContent: string,
     extractionModelKey: string
@@ -972,14 +1003,14 @@ const handleExtractVariables = async (
 // 🆕 处理ContextUser模式的 AI 变量提取
 const handleExtractVariablesForContextUser = async () => {
     // 从userWorkspaceRef获取提示词内容
-    const userWorkspace = userWorkspaceRef.value as any;
-    if (!userWorkspace?.contextUserOptimization) {
+    const userWorkspace = userWorkspaceRef.value;
+    if (!userWorkspace?.getPrompt) {
         console.error('[PromptOptimizerApp] Unable to access ContextUser workspace');
         toast.warning(t('evaluation.variableExtraction.workspaceNotReady'));
         return;
     }
 
-    const promptContent = userWorkspace.contextUserOptimization.prompt || '';
+    const promptContent = userWorkspace.getPrompt() || '';
     // 🔧 使用评估模型（复用评估功能的模型配置）
     const extractionModelKey = functionModelManager.effectiveEvaluationModel.value || '';
 
@@ -995,7 +1026,7 @@ const handleExtractVariablesForContextUser = async () => {
 
     // 收集已存在的变量名（全局+临时）
     const globalVarNames = Object.keys(variableManager.customVariables.value || {});
-    const tempVarNames = Object.keys(userWorkspace.temporaryVariables?.value || {});
+    const tempVarNames = userWorkspace.getTemporaryVariableNames?.() || [];
     const existingVariableNames = [...globalVarNames, ...tempVarNames];
 
     await variableExtraction.extractVariables(
@@ -1124,8 +1155,353 @@ const { evaluation, handleEvaluate, handleReEvaluate: handleReEvaluateBasic } = 
 // 提供评估上下文给子组件
 provideEvaluation(evaluation);
 
-// 基础模式“分析”专用 loading（避免与普通 prompt-only 评估混用）
+// 基础模式"分析"专用 loading（避免与普通 prompt-only 评估混用）
 const isBasicAnalyzing = ref(false);
+
+// ========== Session Store 状态同步 ==========
+// 创建 session store 实例
+const basicSystemSession = useBasicSystemSession();
+const basicUserSession = useBasicUserSession();
+const proMultiMessageSession = useProMultiMessageSession();
+const proVariableSession = useProVariableSession();
+const imageText2ImageSession = useImageText2ImageSession();
+const imageImage2ImageSession = useImageImage2ImageSession();
+
+// 辅助函数：获取当前活动的 session store
+const getCurrentSession = () => {
+    if (functionMode.value === 'basic') {
+        return basicSubMode.value === 'system' ? basicSystemSession : basicUserSession;
+    } else if (functionMode.value === 'pro') {
+        return proSubMode.value === 'system' ? proMultiMessageSession : proVariableSession;
+    } else if (functionMode.value === 'image') {
+        return imageSubMode.value === 'text2image' ? imageText2ImageSession : imageImage2ImageSession;
+    }
+    return null;
+};
+
+// 🔄 应用初始化后从 session store 恢复状态到 UI
+const hasRestoredInitialState = ref(false);
+
+/**
+ * 🔧 Codex 修复：恢复 Basic / Pro-variable 模式的 session 状态
+ * 这些模式使用通用型 session store，支持所有标准字段和方法
+ */
+const restoreBasicOrProVariableSession = () => {
+    const session = getCurrentSession();
+    if (!session || !session.state) return;
+
+    const savedState = session.state;
+
+    // 恢复提示词和优化结果
+    optimizer.prompt = savedState.prompt || '';
+    optimizer.optimizedPrompt = savedState.optimizedPrompt || '';
+    optimizer.optimizedReasoning = savedState.reasoning || '';
+    optimizer.currentChainId = savedState.chainId || '';
+    optimizer.currentVersionId = savedState.versionId || '';
+
+    // 恢复模型选择
+    if (savedState.selectedOptimizeModelKey) {
+        modelManager.selectedOptimizeModel = savedState.selectedOptimizeModelKey;
+    }
+    if (savedState.selectedTestModelKey) {
+        modelManager.selectedTestModel = savedState.selectedTestModelKey;
+    }
+
+    // 恢复对比模式
+    isCompareMode.value = savedState.isCompareMode;
+};
+
+/**
+ * 🔧 Codex 修复：恢复 Pro-system 模式的 session 状态
+ * Pro 多消息模式使用专用 session store，字段结构不同
+ */
+const restoreProMultiMessageSession = async () => {
+    const session = proMultiMessageSession;
+    if (!session || !session.state) return;
+
+    const savedState = session.state;
+
+    // ⚠️ Pro 多消息模式没有 prompt 字段，只有 conversationMessagesSnapshot
+    // 恢复优化结果（不恢复 prompt）
+    optimizer.optimizedPrompt = savedState.optimizedPrompt || '';
+    optimizer.optimizedReasoning = savedState.reasoning || '';
+    optimizer.currentChainId = savedState.chainId || '';
+    optimizer.currentVersionId = savedState.versionId || '';
+
+    // 恢复模型选择
+    if (savedState.selectedOptimizeModelKey) {
+        modelManager.selectedOptimizeModel = savedState.selectedOptimizeModelKey;
+    }
+    if (savedState.selectedTestModelKey) {
+        modelManager.selectedTestModel = savedState.selectedTestModelKey;
+    }
+
+    // 恢复对比模式
+    isCompareMode.value = savedState.isCompareMode;
+
+    // 恢复对话消息列表（Pro 多消息专有字段）
+    if (savedState.conversationMessagesSnapshot && savedState.conversationMessagesSnapshot.length > 0) {
+        optimizationContext.value = [...savedState.conversationMessagesSnapshot];
+    }
+
+    // 🔧 Codex 修复：等待 DOM 更新，确保子组件 ref 已建立
+    await nextTick();
+
+    // 🔧 Codex 修复：显式恢复 conversationOptimization 的状态（selectedMessageId 和 messageChainMap）
+    // 确保在 session restore 完成后再调用，避免时序问题
+    // 通过子组件 ref 调用（子组件已在 defineExpose 中暴露此方法）
+    systemWorkspaceRef.value?.restoreConversationOptimizationFromSession?.();
+};
+
+/**
+ * 🔧 Codex 修复：恢复 Image 模式的 session 状态
+ * Image 模式使用专用 session store，字段和方法不同
+ */
+const restoreImageSession = () => {
+    const session = getCurrentSession();
+    if (!session || !session.state) return;
+
+    const savedState = session.state;
+
+    // Image 模式使用 originalPrompt（不是 prompt）
+    // 但 optimizer 仍使用 prompt 字段，这里做一个映射
+    optimizer.prompt = (savedState as any).originalPrompt || '';
+    optimizer.optimizedPrompt = savedState.optimizedPrompt || '';
+    optimizer.optimizedReasoning = savedState.reasoning || '';
+    optimizer.currentChainId = savedState.chainId || '';
+    optimizer.currentVersionId = savedState.versionId || '';
+
+    // Image 模式使用 selectedTextModelKey 和 selectedImageModelKey
+    if ((savedState as any).selectedTextModelKey) {
+        modelManager.selectedOptimizeModel = (savedState as any).selectedTextModelKey;
+    }
+    if ((savedState as any).selectedImageModelKey) {
+        // Image 模式暂时没有对应的 UI 字段，跳过
+    }
+
+    // 恢复对比模式
+    isCompareMode.value = savedState.isCompareMode;
+
+    // 注意：Image 模式的 originalImageResult 和 optimizedImageResult 由 ImageWorkspace 内部管理
+};
+
+/**
+ * 从 session store 恢复状态到 UI（内部实现）
+ * 🔧 Codex 修复：按 mode/subMode 分支调用对应的恢复函数，避免调用不存在的方法
+ *
+ * 注意：这是内部实现，不包含互斥控制逻辑
+ * 互斥控制由 useSessionRestoreCoordinator 处理
+ */
+const restoreSessionToUIInternal = async () => {
+    if (functionMode.value === 'basic' || (functionMode.value === 'pro' && proSubMode.value === 'user')) {
+        // Basic 模式或 Pro-variable 模式：使用通用恢复逻辑
+        restoreBasicOrProVariableSession();
+    } else if (functionMode.value === 'pro' && proSubMode.value === 'system') {
+        // Pro-system 模式：使用专用恢复逻辑（异步，等待 DOM 更新）
+        await restoreProMultiMessageSession();
+    } else if (functionMode.value === 'image') {
+        // Image 模式：使用专用恢复逻辑
+        restoreImageSession();
+    }
+};
+
+// 🔧 架构优化：使用 session 恢复协调器
+// 负责处理互斥锁、pending 重试、卸载检查等协调逻辑
+const restoreCoordinator = useSessionRestoreCoordinator(restoreSessionToUIInternal);
+
+// 对外暴露的恢复函数（带协调逻辑）
+const restoreSessionToUI = restoreCoordinator.executeRestore;
+
+// 🔧 Codex 修复：watch 只负责模式切换后的恢复（不负责首次恢复）
+// 首次恢复由 onMounted watchEffect 负责，避免双入口冲突
+watch(
+    [isReady, () => functionMode.value, () => basicSubMode.value, () => proSubMode.value],
+    async ([ready]) => {
+        // 🔧 只在已完成首次恢复后才响应模式切换
+        if (ready && hasRestoredInitialState.value) {
+            await restoreSessionToUI();
+        }
+    },
+    { immediate: false }  // 🔧 改为 false，不在 watch 创建时立即执行
+);
+
+// 同步 prompt 变化到 session store
+// 🔧 Codex 修复：Pro-system 模式没有 updatePrompt 方法，需要分支处理
+watch(
+    () => optimizer.prompt,
+    (newPrompt) => {
+        if (sessionManager.isSwitching) return;
+
+        // Pro-system 模式没有 prompt 字段，跳过同步
+        if (functionMode.value === 'pro' && proSubMode.value === 'system') {
+            return;
+        }
+
+        const session = getCurrentSession();
+        if (session && typeof (session as any).updatePrompt === 'function') {
+            (session as any).updatePrompt(newPrompt);
+        }
+    }
+);
+
+// 同步优化结果到 session store（包含 optimizedPrompt, reasoning, chainId, versionId）
+// ⚠️ Codex 要求：移除 truthy 检查，支持清空状态同步
+watch(
+    [
+        () => optimizer.optimizedPrompt,
+        () => optimizer.optimizedReasoning,
+        () => optimizer.currentChainId,
+        () => optimizer.currentVersionId,
+    ],
+    ([newOptimizedPrompt, newReasoning, newChainId, newVersionId]) => {
+        const session = getCurrentSession();
+        if (session && !sessionManager.isSwitching) {
+            session.updateOptimizedResult({
+                optimizedPrompt: newOptimizedPrompt || '',
+                reasoning: newReasoning || '',
+                chainId: newChainId || '',
+                versionId: newVersionId || '',
+            });
+        }
+    }
+);
+
+// 同步测试结果到 session store
+// 🔧 Codex 修复：Image 模式没有 updateTestResults 方法，需要分支处理
+watch(
+    testResults,
+    (newTestResults) => {
+        if (sessionManager.isSwitching) return;
+
+        // Image 模式没有 updateTestResults 方法，跳过同步
+        if (functionMode.value === 'image') {
+            return;
+        }
+
+        const session = getCurrentSession();
+        if (session && typeof (session as any).updateTestResults === 'function') {
+            (session as any).updateTestResults(newTestResults);  // 允许 null
+        }
+    }
+);
+
+// 同步优化模型选择到 session store
+// 🔧 Codex 修复：Image 模式使用 updateTextModel，其他模式使用 updateOptimizeModel
+watch(
+    () => modelManager.selectedOptimizeModel,
+    (newModel) => {
+        if (sessionManager.isSwitching) return;
+
+        const session = getCurrentSession();
+        if (!session) return;
+
+        // Image 模式使用 updateTextModel
+        if (functionMode.value === 'image') {
+            if (typeof (session as any).updateTextModel === 'function') {
+                (session as any).updateTextModel(newModel || '');
+            }
+        } else {
+            // Basic/Pro 模式使用 updateOptimizeModel
+            if (typeof (session as any).updateOptimizeModel === 'function') {
+                (session as any).updateOptimizeModel(newModel || '');
+            }
+        }
+    }
+);
+
+// 同步测试模型选择到 session store
+// 🔧 Codex 修复：Image 模式没有对应的 testModel 字段，跳过同步
+watch(
+    () => modelManager.selectedTestModel,
+    (newModel) => {
+        if (sessionManager.isSwitching) return;
+
+        // Image 模式不使用 testModel，跳过同步
+        if (functionMode.value === 'image') {
+            return;
+        }
+
+        const session = getCurrentSession();
+        if (session && typeof (session as any).updateTestModel === 'function') {
+            (session as any).updateTestModel(newModel || '');
+        }
+    }
+);
+
+// 当前选中的模板（根据 system/user 模式映射到 optimizer 对应字段）
+// 注意：必须在任何 watch/计算属性引用之前声明，避免 TDZ。
+const currentSelectedTemplate = computed({
+    get() {
+        return selectedOptimizationMode.value === "system"
+            ? optimizer.selectedOptimizeTemplate
+            : optimizer.selectedUserOptimizeTemplate;
+    },
+    set(newValue) {
+        if (!newValue) return;
+        if (selectedOptimizationMode.value === "system") {
+            optimizer.selectedOptimizeTemplate = newValue;
+        } else {
+            optimizer.selectedUserOptimizeTemplate = newValue;
+        }
+    },
+});
+
+// 同步模板选择到 session store
+watch(
+    currentSelectedTemplate,
+    (newTemplate) => {
+        const session = getCurrentSession();
+        if (session && !sessionManager.isSwitching) {
+            session.updateTemplate(newTemplate?.id || null);
+        }
+    }
+);
+
+// 同步迭代模板选择到 session store
+// 🔧 Codex 修复：Pro-system 模式没有 updateIterateTemplate 方法，需要分支处理
+watch(
+    () => optimizer.selectedIterateTemplate,
+    (newTemplate) => {
+        if (sessionManager.isSwitching) return;
+
+        // Pro-system 模式没有 updateIterateTemplate 方法，跳过同步
+        if (functionMode.value === 'pro' && proSubMode.value === 'system') {
+            return;
+        }
+
+        const session = getCurrentSession();
+        if (session && typeof (session as any).updateIterateTemplate === 'function') {
+            (session as any).updateIterateTemplate(newTemplate?.id || null);
+        }
+    }
+);
+
+// 同步对比模式到 session store
+watch(
+    isCompareMode,
+    (newMode) => {
+        const session = getCurrentSession();
+        if (session && !sessionManager.isSwitching) {
+            session.toggleCompareMode(newMode);
+        }
+    }
+);
+
+// ========== Pro 多消息模式特有状态同步 ==========
+// 同步对话消息快照到 Pro-MultiMessage session
+watch(
+    optimizationContext,
+    (newMessages) => {
+        if (
+            functionMode.value === 'pro' &&
+            proSubMode.value === 'system' &&
+            !sessionManager.isSwitching
+        ) {
+            proMultiMessageSession.updateConversationMessages([...newMessages]);
+        }
+    },
+    { deep: true }
+);
 
 // 同步 contextManagement 中的 contextMode
 watch(
@@ -1214,22 +1590,6 @@ const templateManagerState = useTemplateManager(services as any, {
     selectedOptimizeTemplate: toRef(optimizer, "selectedOptimizeTemplate"),
     selectedUserOptimizeTemplate: toRef(optimizer, "selectedUserOptimizeTemplate"),
     selectedIterateTemplate: toRef(optimizer, "selectedIterateTemplate"),
-});
-
-const currentSelectedTemplate = computed({
-    get() {
-        return selectedOptimizationMode.value === "system"
-            ? optimizer.selectedOptimizeTemplate
-            : optimizer.selectedUserOptimizeTemplate;
-    },
-    set(newValue) {
-        if (!newValue) return;
-        if (selectedOptimizationMode.value === "system") {
-            optimizer.selectedOptimizeTemplate = newValue;
-        } else {
-            optimizer.selectedUserOptimizeTemplate = newValue;
-        }
-    },
 });
 
 const templateOptions = ref<TemplateSelectOption[]>([]);
@@ -1787,6 +2147,215 @@ const handleTestAreaTest = async (testVariables?: Record<string, string>) => {
 const handleTestAreaCompareToggle = () => {
     // Compare mode toggle handler
 };
+
+// ========== Session Management ==========
+// 监听功能模式切换（Codex要求：传递 oldKey/newKey）
+watch(functionMode, async (newMode, oldMode) => {
+  // 🔧 Codex 修复：首次恢复完成前不响应模式切换，避免提前触发 switchMode
+  if (!hasRestoredInitialState.value) return;
+
+  if (newMode !== oldMode && !sessionManager.isSwitching) {
+    // 计算 oldKey 和 newKey
+    const fromKey = sessionManager.computeSubModeKey(
+      oldMode,
+      basicSubMode.value,
+      proSubMode.value,
+      imageSubMode.value
+    )
+    const toKey = sessionManager.computeSubModeKey(
+      newMode,
+      basicSubMode.value,
+      proSubMode.value,
+      imageSubMode.value
+    )
+
+    await sessionManager.switchMode(fromKey, toKey)
+
+    // ⚠️ Codex 要求：切换后恢复状态到 UI
+    await restoreSessionToUI()
+  }
+})
+
+// 监听 Basic 子模式切换
+watch(basicSubMode, async (newSubMode, oldSubMode) => {
+  // 🔧 Codex 修复：首次恢复完成前不响应子模式切换
+  if (!hasRestoredInitialState.value) return;
+
+  if (
+    functionMode.value === 'basic' &&
+    newSubMode !== oldSubMode &&
+    !sessionManager.isSwitching
+  ) {
+    const fromKey = `basic-${oldSubMode}` as SubModeKey
+    const toKey = `basic-${newSubMode}` as SubModeKey
+
+    await sessionManager.switchSubMode(fromKey, toKey)
+
+    // ⚠️ Codex 要求：切换后恢复状态到 UI
+    await restoreSessionToUI()
+  }
+})
+
+// 监听 Pro 子模式切换
+watch(proSubMode, async (newSubMode, oldSubMode) => {
+  // 🔧 Codex 修复：首次恢复完成前不响应子模式切换
+  if (!hasRestoredInitialState.value) return;
+
+  if (
+    functionMode.value === 'pro' &&
+    newSubMode !== oldSubMode &&
+    !sessionManager.isSwitching
+  ) {
+    const fromKey = `pro-${oldSubMode}` as SubModeKey
+    const toKey = `pro-${newSubMode}` as SubModeKey
+
+    await sessionManager.switchSubMode(fromKey, toKey)
+
+    // ⚠️ Codex 要求：切换后恢复状态到 UI
+    await restoreSessionToUI()
+  }
+})
+
+// 监听 Image 子模式切换
+watch(imageSubMode, async (newSubMode, oldSubMode) => {
+  // 🔧 Codex 修复：首次恢复完成前不响应子模式切换
+  if (!hasRestoredInitialState.value) return;
+
+  if (
+    functionMode.value === 'image' &&
+    newSubMode !== oldSubMode &&
+    !sessionManager.isSwitching
+  ) {
+    const fromKey = `image-${oldSubMode}` as SubModeKey
+    const toKey = `image-${newSubMode}` as SubModeKey
+
+    await sessionManager.switchSubMode(fromKey, toKey)
+
+    // ⚠️ Codex 要求：切换后恢复状态到 UI
+    await restoreSessionToUI()
+  }
+})
+
+// 应用启动时恢复当前会话（在services ready后自动触发）
+// 注意：恢复逻辑已集成到services ready的watch中
+
+
+// 定时自动保存（每30秒）
+let autoSaveIntervalId: number | null = null
+// Services 初始化超时定时器
+let initTimeoutId: number | null = null
+
+// ⚠️ 具名函数：pagehide 事件处理器（Codex 建议）
+const handlePagehide = () => {
+  // ⚠️ 注意：这里不能用 await，因为浏览器不会等异步完成
+  // 使用非异步方式触发保存（best-effort）
+  sessionManager.saveAllSessions().catch(err => {
+    console.error('[PromptOptimizerApp] pagehide 保存失败:', err)
+  })
+}
+
+// ⚠️ 具名函数：visibilitychange 事件处理器（Codex 建议）
+const handleVisibilityChange = () => {
+  if (document.visibilityState === 'hidden') {
+    sessionManager.saveAllSessions().catch(err => {
+      console.error('[PromptOptimizerApp] visibilitychange 保存失败:', err)
+    })
+  }
+}
+
+onMounted(() => {
+  // ⚠️ 使用 watchEffect + 独立超时定时器（Codex 建议）
+  const TIMEOUT = 10000 // 10秒超时
+
+  // 设置超时定时器
+  initTimeoutId = window.setTimeout(() => {
+    console.error('[PromptOptimizerApp] Services 初始化超时')
+    stopWatch()
+  }, TIMEOUT)
+
+  const stopWatch = watchEffect(async () => {
+    // 等待 services 和初始化完成
+    if (!services.value || isInitializing.value) {
+      return
+    }
+
+    // ⚠️ 防御性检查：确保 Pinia services 已注入（防止时序竞态）
+    // 理论上 watch(services) 会先执行 setPiniaServices()，但这里添加二次确认
+    const $services = getPiniaServices()
+    if (!$services) {
+      console.warn('[PromptOptimizerApp] Pinia services 尚未注入，但 services.value 已存在')
+      console.warn('[PromptOptimizerApp] 这可能是时序问题，继续等待下一轮')
+      // 不调用 stopWatch()，继续等待下一轮
+      return
+    }
+
+    // Services 和 Pinia 均已就绪，清除超时定时器并停止监听
+    console.log('[PromptOptimizerApp] Services 和 Pinia 均已就绪，开始恢复会话')
+    if (initTimeoutId !== null) {
+      window.clearTimeout(initTimeoutId)
+      initTimeoutId = null
+    }
+    stopWatch()
+
+    try {
+      const currentKey = sessionManager.getActiveSubModeKey()
+      await sessionManager.restoreSubModeSession(currentKey)
+
+      // 恢复到 UI
+      await restoreSessionToUI()
+
+      // 🔧 Codex 修复：标记首次恢复已完成，允许 watch 响应后续模式切换
+      hasRestoredInitialState.value = true
+
+      // 启动自动保存定时器
+      autoSaveIntervalId = window.setInterval(async () => {
+        // ⚠️ Codex 要求：切换期间禁用自动保存，避免竞态条件
+        // ⚠️ 注意：SessionManager.saveSubModeSession 内部已有全局锁（saveInFlight），无需额外锁
+        if (sessionManager.isSwitching) {
+          return
+        }
+
+        const currentKey = sessionManager.getActiveSubModeKey()
+        await sessionManager.saveSubModeSession(currentKey)
+      }, 30000) // 每30秒
+
+      // ⚠️ Codex 建议：使用 pagehide 代替 beforeunload（更可靠）
+      // pagehide 在页面即将卸载时触发，比 beforeunload 更可靠
+      if (typeof window !== 'undefined') {
+        window.addEventListener('pagehide', handlePagehide)
+
+        // ⚠️ 额外的保险：visibilitychange hidden 时也触发一次保存
+        document.addEventListener('visibilitychange', handleVisibilityChange)
+      }
+    } catch (error) {
+      console.error('[PromptOptimizerApp] 初始化过程中发生错误:', error)
+    }
+  })
+})
+
+// 应用卸载前清理并保存所有会话
+onBeforeUnmount(async () => {
+  // 🔧 Codex 修复：设置卸载标志，阻止后续 microtask 执行恢复
+  restoreCoordinator.markUnmounted();
+
+  // 清除定时器
+  if (autoSaveIntervalId !== null) {
+    window.clearInterval(autoSaveIntervalId)
+  }
+
+  // ⚠️ 清除初始化超时定时器（Codex 建议：避免悬挂定时器）
+  if (initTimeoutId !== null) {
+    window.clearTimeout(initTimeoutId)
+  }
+
+  // ⚠️ Codex 建议：移除事件监听器，避免内存泄漏
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('pagehide', handlePagehide)
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }
+
+  await sessionManager.saveAllSessions()
+})
 </script>
 
 <style scoped>

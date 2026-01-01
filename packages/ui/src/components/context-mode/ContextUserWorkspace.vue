@@ -869,6 +869,13 @@ defineExpose({
     restoreFromHistory,
     contextUserOptimization,  // 🆕 暴露优化器状态，供父组件访问（如AI变量提取）
     temporaryVariables,        // 🆕 暴露临时变量，供父组件访问
+    // 🆕 提供最小可用的公开 API，避免父组件依赖内部实现细节（不再需要 as any 访问内部状态）
+    setPrompt: (prompt: string) => {
+        contextUserOptimization.prompt = prompt;
+    },
+    getPrompt: () => contextUserOptimization.prompt || '',
+    getOptimizedPrompt: () => contextUserOptimization.optimizedPrompt || '',
+    getTemporaryVariableNames: () => Object.keys(temporaryVariables.value || {}),
     openIterateDialog: (initialContent?: string) => {
         promptPanelRef.value?.openIterateDialog?.(initialContent);
     },

@@ -170,6 +170,21 @@ vi.mock('../../../src/composables/useAccessibility', () => ({
   })
 }))
 
+// Mock useTemporaryVariables (临时变量管理器)
+vi.mock('../../../src/composables/variable/useTemporaryVariables', () => ({
+  useTemporaryVariables: () => ({
+    temporaryVariables: { value: {} },
+    setVariable: vi.fn(),
+    getVariable: vi.fn(() => undefined),
+    deleteVariable: vi.fn(),
+    clearAll: vi.fn(),
+    hasVariable: vi.fn(() => false),
+    listVariables: vi.fn(() => ({})),
+    batchSet: vi.fn(),
+    batchDelete: vi.fn()
+  })
+}))
+
 // Mock useContextEditor
 const mockContextEditor = {
   currentData: { value: null },

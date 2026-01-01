@@ -27,9 +27,6 @@ import {
   ElectronPreferenceServiceProxy,
   createPreferenceService,
   FavoriteManager,
-} from '../../'; // 从UI包的index导出所有核心模块
-import type { AppServices } from '../../types/services';
-import {
   createImageModelManager,
   createImageService,
   createImageAdapterRegistry,
@@ -51,6 +48,7 @@ import {
   type ContextMode,
   DEFAULT_CONTEXT_MODE
 } from '@prompt-optimizer/core';
+import type { AppServices } from '../../types/services';
 
 /**
  * 应用服务统一初始化器。

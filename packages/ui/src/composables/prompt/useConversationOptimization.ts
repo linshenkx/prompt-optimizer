@@ -14,6 +14,7 @@ import type {
   Template
 } from '@prompt-optimizer/core'
 import type { AppServices } from '../../types/services'
+import { useProMultiMessageSession } from '../../stores/session/useProMultiMessageSession'
 
 /**
  * 多轮对话消息优化 Composable 返回值接口
@@ -38,6 +39,7 @@ export interface UseConversationOptimization {
   applyCurrentVersion: () => Promise<void>
   cleanupDeletedMessageMapping: (messageId: string, options?: { keepSelection?: boolean }) => void
   saveLocalEdit: (payload: { optimizedPrompt: string; note?: string; source?: 'patch' | 'manual' }) => Promise<void>
+  restoreFromSessionStore: () => void  // 🔧 Codex 修复：显式恢复函数
 }
 
 /**
@@ -71,20 +73,34 @@ export function useConversationOptimization(
   const historyManager = computed(() => services.value?.historyManager)
   const promptService = computed(() => services.value?.promptService)
 
-  // 核心映射表: (mode + messageId) → chainId，避免跨模式串链
+  // ⚠️ Pro 多消息 session store（仅 Pro-system 模式使用）
+  const proMultiMessageSession = useProMultiMessageSession()
+
+  // 辅助函数：同步 messageChainMap 到 session store
+  // ⚠️ Codex 修复：messageChainMap 是 ref(new Map())，watch 无法追踪 Map 内部修改
+  // 改为在每次 set/delete 后显式同步
+  const syncMessageChainMapToSession = () => {
+    if (optimizationMode.value === 'system') {
+      const record: Record<string, string> = {}
+      for (const [key, value] of messageChainMap.value.entries()) {
+        record[key] = value
+      }
+      proMultiMessageSession.setMessageChainMap(record)
+    }
+  }
+
+  // 🔧 Codex 修复：核心映射表现在直接使用 messageId → chainId，移除 mode 前缀
+  // 原因：Session Store 已做子模式隔离（session/v1/pro-system），无需在 key 中重复 mode 信息
   // 使用 Map 数据结构确保 O(1) 查找性能
   const messageChainMap = ref<Map<string, string>>(new Map())
-  const buildMapKey = (messageId?: string) =>
-    `${optimizationMode.value}:${messageId || ''}`
+
+  // 🔧 Codex 修复：简化删除逻辑，直接使用 messageId
   const removeMessageMapping = (messageId?: string) => {
     if (!messageId) return false
-    const suffix = `:${messageId}`
-    let removed = false
-    for (const key of messageChainMap.value.keys()) {
-      if (key.endsWith(suffix)) {
-        messageChainMap.value.delete(key)
-        removed = true
-      }
+    const removed = messageChainMap.value.delete(messageId)
+    // ⚠️ Codex 修复：显式同步到 session store
+    if (removed) {
+      syncMessageChainMapToSession()
     }
     return removed
   }
@@ -96,6 +112,67 @@ export function useConversationOptimization(
   const currentVersions = ref<PromptRecordChain['versions']>([])
   const optimizedPrompt = ref<string>('')
   const isOptimizing = ref<boolean>(false)
+
+  // ========== Session Store 同步逻辑 ==========
+  // 同步选中的消息 ID 到 session store (仅 Pro-system 模式)
+  watch(selectedMessageId, (newMessageId) => {
+    if (optimizationMode.value === 'system') {
+      proMultiMessageSession.selectMessage(newMessageId)
+    }
+  })
+
+  // ⚠️ Codex 修复：messageChainMap 是 ref(new Map())，watch 无法追踪 Map 内部修改
+  // 改为在每次 set/delete 后显式同步（见 optimizeMessage、iterateMessage、removeMessageMapping）
+  // syncMessageChainMapToSession() 已在上方定义
+
+  /**
+   * 🔧 Codex 修复：从 Session Store 恢复状态（仅 Pro-system 模式）
+   * 由 PromptOptimizerApp.vue 在 session restore 完成后显式调用，确保时序正确
+   */
+  const restoreFromSessionStore = () => {
+    if (optimizationMode.value !== 'system') return
+
+    const savedState = proMultiMessageSession.state
+
+    // 恢复选中的消息 ID
+    if (savedState.selectedMessageId) {
+      selectedMessageId.value = savedState.selectedMessageId
+    }
+
+    // 🔧 Codex 修复：恢复消息-链映射表，并迁移旧格式 key
+    if (savedState.messageChainMap && Object.keys(savedState.messageChainMap).length > 0) {
+      const restoredMap = new Map<string, string>()
+      let hasMigrated = false
+
+      // 🔧 Codex 建议：使用严格前缀匹配，避免误迁移包含 `:` 的 messageId
+      const oldKeyPattern = /^(system|user|basic|pro|image):/
+
+      for (const [key, value] of Object.entries(savedState.messageChainMap)) {
+        // 🔧 识别旧格式 key（匹配 "system:", "user:", "basic:", "pro:", "image:" 前缀）
+        const match = key.match(oldKeyPattern)
+        if (match) {
+          // 提取纯 messageId（前缀后的部分）
+          const messageId = key.substring(match[0].length)
+          if (messageId) {
+            restoredMap.set(messageId, value)
+            hasMigrated = true
+            console.log(`[ConversationOptimization] 迁移旧格式 key: ${key} → ${messageId}`)
+          }
+        } else {
+          // 新格式 key，直接使用
+          restoredMap.set(key, value)
+        }
+      }
+
+      messageChainMap.value = restoredMap
+
+      // 🔧 如果发生了迁移，立即同步到 session store 以保存新格式
+      if (hasMigrated) {
+        console.log('[ConversationOptimization] 检测到旧格式 key，已自动迁移并保存')
+        syncMessageChainMapToSession()
+      }
+    }
+  }
 
   /**
    * 🆕 辅助函数：从历史记录获取消息的当前应用版本号
@@ -162,9 +239,8 @@ export function useConversationOptimization(
     // 更新选中的消息 ID
     selectedMessageId.value = message.id || ''
 
-    // 检查是否已有工作链映射
-    const mapKey = message.id ? buildMapKey(message.id) : ''
-    const existingChainId = message.id ? messageChainMap.value.get(mapKey) : undefined
+    // 🔧 Codex 修复：直接使用 messageId 作为 key，移除 mode 前缀
+    const existingChainId = message.id ? messageChainMap.value.get(message.id) : undefined
 
     if (existingChainId) {
       // 加载现有工作链
@@ -267,7 +343,8 @@ export function useConversationOptimization(
               // 🆕 为每条消息记录其优化链和版本号
               const conversationSnapshot = await Promise.all(
                   conversationMessages.value.map(async (msg) => {
-                    const msgChainId = msg.id ? messageChainMap.value.get(buildMapKey(msg.id)) : undefined
+                    // 🔧 Codex 修复：直接使用 messageId 作为 key
+                    const msgChainId = msg.id ? messageChainMap.value.get(msg.id) : undefined
                     let appliedVersion = 0
 
                     // 🔧 修复：首次优化时，当前消息没有 chainId，但已经应用了 v1
@@ -283,7 +360,7 @@ export function useConversationOptimization(
                         msg.originalContent
                       )
                     }
-                    
+
                     return {
                       id: msg.id,
                       role: msg.role,
@@ -318,9 +395,11 @@ export function useConversationOptimization(
               currentVersions.value = newChain.versions
               currentRecordId.value = newChain.currentRecord.id
 
-              // 建立消息 ID 到工作链 ID 的映射
+              // 🔧 Codex 修复：建立消息 ID 到工作链 ID 的映射（直接使用 messageId）
               if (message.id) {
-                  messageChainMap.value.set(buildMapKey(message.id), newChain.chainId)
+                  messageChainMap.value.set(message.id, newChain.chainId)
+                  // ⚠️ Codex 修复：显式同步到 session store
+                  syncMessageChainMapToSession()
               }
 
               // 触发全局历史记录刷新事件
@@ -417,7 +496,8 @@ export function useConversationOptimization(
                 // 构建快照（使用手动计算的版本号）
                 const conversationSnapshot = await Promise.all(
                   conversationMessages.value.map(async (msg) => {
-                    const msgChainId = msg.id ? messageChainMap.value.get(buildMapKey(msg.id)) : undefined
+                    // 🔧 Codex 修复：直接使用 messageId 作为 key
+                    const msgChainId = msg.id ? messageChainMap.value.get(msg.id) : undefined
                     let appliedVersion = 0
 
                     // 🔧 修复：迭代优化时，优先判断是否为当前消息
@@ -600,6 +680,8 @@ export function useConversationOptimization(
   // 模式切换时软重置，防止跨模式复用链与 V0/V1 混用
   watch(optimizationMode, () => {
     messageChainMap.value = new Map()
+    // ⚠️ Codex 修复：清空 Map 后同步到 session store，避免数据残留
+    syncMessageChainMapToSession()
     selectedMessageId.value = ''
     currentChainId.value = ''
     currentRecordId.value = ''
@@ -651,9 +733,11 @@ export function useConversationOptimization(
         currentVersions.value = newRecord.versions
         currentRecordId.value = newRecord.currentRecord.id
 
-        // 建立消息 ID 到工作链 ID 的映射
+        // 🔧 Codex 修复：建立消息 ID 到工作链 ID 的映射（直接使用 messageId）
         if (message?.id) {
-          messageChainMap.value.set(buildMapKey(message.id), newRecord.chainId)
+          messageChainMap.value.set(message.id, newRecord.chainId)
+          // ⚠️ Codex 修复：显式同步到 session store
+          syncMessageChainMapToSession()
         }
         return
       }
@@ -701,6 +785,7 @@ export function useConversationOptimization(
     applyToConversation,
     applyCurrentVersion,
     cleanupDeletedMessageMapping,
-    saveLocalEdit
+    saveLocalEdit,
+    restoreFromSessionStore  // 🔧 Codex 修复：显式恢复函数
   }
 }

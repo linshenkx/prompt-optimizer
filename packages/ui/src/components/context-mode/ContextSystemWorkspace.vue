@@ -480,9 +480,9 @@ const restoreFromHistory = async ({
             let mappingCount = 0;
             conversationSnapshot.forEach((snapshotMsg) => {
                 if (snapshotMsg.id && snapshotMsg.chainId) {
-                    const mapKey = `${props.optimizationMode}:${snapshotMsg.id}`;
+                    // 🔧 Codex 修复：使用纯 messageId 作为 key，与 useConversationOptimization 统一
                     conversationOptimization.messageChainMap.value.set(
-                        mapKey,
+                        snapshotMsg.id,
                         snapshotMsg.chainId,
                     );
                     mappingCount += 1;
@@ -619,6 +619,10 @@ defineExpose({
     },
     reEvaluateActive: async () => {
         await evaluationHandler.handleReEvaluate();
+    },
+    // 🔧 Codex 修复：暴露 session store 恢复方法，供父组件在 session restore 完成后调用
+    restoreConversationOptimizationFromSession: () => {
+        conversationOptimization.restoreFromSessionStore();
     },
 });
 </script>

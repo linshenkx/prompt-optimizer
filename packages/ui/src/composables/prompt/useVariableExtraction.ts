@@ -168,9 +168,12 @@ export function useVariableExtraction(
     if (!name || name.trim() === '') {
       return false
     }
-    // 只允许字母、数字、下划线、中文字符（Unicode CJK范围）
-    // 不允许空格和特殊符号
-    const validPattern = /^[\w\u4e00-\u9fa5]+$/
+    // 与手动“提取为变量”命名规则保持一致：
+    // - 只能包含中文、英文、数字、下划线
+    // - 不能以数字开头
+    // - 不允许空格/特殊符号（如 Mustache 控制标签 {{#...}}）
+    // 中文范围使用更完整的 CJK Unified Ideographs：\u4E00-\u9FFF
+    const validPattern = /^[\u4e00-\u9fffA-Za-z_][\u4e00-\u9fffA-Za-z0-9_]*$/u
     return validPattern.test(name)
   }
 

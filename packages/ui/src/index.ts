@@ -30,6 +30,8 @@ export {
   i18n,
 } from "./plugins/i18n";
 
+export { pinia, installPinia, setPiniaServices } from "./plugins/pinia";
+
 // 导出Naive UI配置
 export {
   currentNaiveTheme as naiveTheme,
