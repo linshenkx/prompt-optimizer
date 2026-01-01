@@ -256,6 +256,8 @@ interface Props {
     selectedOptimizeModel: string;
     selectedTemplate: Template | null;
     selectedIterateTemplate: Template | null;
+    // 🆕 评估模型（用于评估功能）
+    evaluationModelKey?: string;
 
     // 上下文数据 (系统模式专属)
     optimizationContext: ConversationMessage[];
@@ -441,7 +443,7 @@ const evaluationHandler = useEvaluationHandler({
     optimizedPrompt: computed(() => conversationOptimization.optimizedPrompt.value),
     testContent: computed(() => ''), // Pro-System 模式无测试内容输入
     testResults: testResultsData,
-    evaluationModelKey: computed(() => props.selectedOptimizeModel),
+    evaluationModelKey: computed(() => props.evaluationModelKey || props.selectedOptimizeModel),
     functionMode: computed(() => 'pro'),
     subMode: computed(() => 'system'),
     proContext,

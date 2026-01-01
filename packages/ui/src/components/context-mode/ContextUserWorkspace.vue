@@ -82,12 +82,15 @@
                     @configModel="emit('config-model')"
                     @open-preview="emit('open-input-preview')"
                     :enable-variable-extraction="true"
+                    :show-extract-button="true"
+                    :extracting="props.isExtracting"
                     :existing-global-variables="existingGlobalVariableNames"
                     :existing-temporary-variables="existingTemporaryVariableNames"
                     :predefined-variables="predefinedVariableNames"
                     :global-variable-values="globalVariableValues"
                     :temporary-variable-values="temporaryVariableValues"
                     :predefined-variable-values="predefinedVariableValues"
+                    @extract-variables="handleExtractVariables"
                     @variable-extracted="handleVariableExtracted"
                     @add-missing-variable="handleAddMissingVariable"
                 >
@@ -178,11 +181,14 @@
                 height: '100%',
                 minHeight: 0,
             }"
+            :prompt="contextUserOptimization.prompt"
             :optimized-prompt="contextUserOptimization.optimizedPrompt"
             :is-test-running="contextUserTester.testResults.isTestingOriginal || contextUserTester.testResults.isTestingOptimized"
             :is-compare-mode="isCompareMode"
             @update:isCompareMode="emit('update:isCompareMode', $event)"
             :model-name="props.testModelName"
+            :evaluation-model-key="props.evaluationModelKey"
+            :services="services"
             :global-variables="globalVariables"
             :predefined-variables="predefinedVariables"
             :temporary-variables="temporaryVariables"
@@ -322,6 +328,8 @@ interface Props {
     selectedTestModel: string;
     /** 测试模型名称（用于显示标签） */
     testModelName?: string;
+    /** 🆕 评估模型（用于变量提取和变量值生成） */
+    evaluationModelKey?: string;
     /** 优化模板 */
     selectedTemplate: Template | null;
     /** 选中的迭代模板 */
@@ -332,6 +340,8 @@ interface Props {
     isCompareMode: boolean;
     /** 是否正在执行测试（兼容性保留，实际由内部管理）*/
     isTestRunning?: boolean;
+    /** 🆕 是否正在执行AI变量提取 */
+    isExtracting?: boolean;
 
     // --- 变量数据 ---
     /** 全局变量 (持久化存储) */
@@ -356,6 +366,7 @@ interface ContextUserHistoryPayload {
 
 const props = withDefaults(defineProps<Props>(), {
     isTestRunning: false,
+    isExtracting: false,
     buttonSize: "medium",
     conversationMaxHeight: 300,
     resultVerticalLayout: false,
@@ -396,6 +407,8 @@ const emit = defineEmits<{
     "variable-change": [name: string, value: string];
     /** 保存测试变量到全局 */
     "save-to-global": [name: string, value: string];
+    /** 🆕 AI变量提取事件 */
+    "extract-variables": [];
     /** 🆕 变量提取事件 (用于处理文本选择提取的变量) */
     "variable-extracted": [
         data: {
@@ -556,7 +569,7 @@ const evaluationHandler = useEvaluationHandler({
     optimizedPrompt: computed(() => contextUserOptimization.optimizedPrompt),
     testContent: computed(() => ''), // 变量模式不需要单独的测试内容，通过变量系统管理
     testResults: testResultsData,
-    evaluationModelKey: computed(() => props.selectedOptimizeModel),
+    evaluationModelKey: computed(() => props.evaluationModelKey || props.selectedOptimizeModel),
     functionMode: computed(() => 'pro'),
     subMode: computed(() => 'user'),
     proContext,
@@ -661,6 +674,22 @@ const handleAddMissingVariable = (varName: string) => {
     // window.$message?.success(
     //     t("variableDetection.addSuccess", { name: varName })
     // );
+};
+
+/**
+ * 🆕 处理AI变量提取事件
+ *
+ * 当用户点击"AI提取变量"按钮时触发
+ *
+ * 工作流程:
+ * 1. 验证提示词内容和模型选择
+ * 2. 收集已存在的变量名（全局+临时）
+ * 3. 触发父组件的extract-variables事件
+ * 4. 父组件调用AI服务并显示结果对话框
+ */
+const handleExtractVariables = () => {
+    // 触发父组件事件，由App层处理AI提取逻辑
+    emit('extract-variables');
 };
 
 /**
@@ -838,6 +867,8 @@ const handleSaveLocalEdit = async (payload: { note?: string }) => {
 defineExpose({
     testAreaPanelRef,
     restoreFromHistory,
+    contextUserOptimization,  // 🆕 暴露优化器状态，供父组件访问（如AI变量提取）
+    temporaryVariables,        // 🆕 暴露临时变量，供父组件访问
     openIterateDialog: (initialContent?: string) => {
         promptPanelRef.value?.openIterateDialog?.(initialContent);
     },

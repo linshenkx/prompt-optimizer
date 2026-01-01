@@ -12,6 +12,8 @@ import {
   createCompareService,
   createContextRepo,
   createEvaluationService,
+  createVariableExtractionService,
+  createVariableValueGenerationService,
   ElectronContextRepoProxy,
   ElectronModelManagerProxy,
   ElectronTemplateManagerProxy,
@@ -44,6 +46,8 @@ import {
   type IPreferenceService,
   type IFavoriteManager,
   type IEvaluationService,
+  type IVariableExtractionService,
+  type IVariableValueGenerationService,
   type ContextMode,
   DEFAULT_CONTEXT_MODE
 } from '@prompt-optimizer/core';
@@ -76,6 +80,8 @@ export function useAppInitializer(): {
       let preferenceService: IPreferenceService;
       let favoriteManager: IFavoriteManager;
       let evaluationService: IEvaluationService | undefined;
+      let variableExtractionService: IVariableExtractionService | undefined;
+      let variableValueGenerationService: IVariableValueGenerationService | undefined;
       let imageModelManager: IImageModelManager | undefined;
       let imageService: IImageService | undefined;
       let imageAdapterRegistryInstance: ReturnType<typeof createImageAdapterRegistry> | undefined;
@@ -131,6 +137,12 @@ export function useAppInitializer(): {
         // 🆕 创建评估服务（使用代理的 llmService, modelManager, templateManager）
         evaluationService = createEvaluationService(llmService, modelManager, templateManager);
 
+        // 🆕 创建变量提取服务（使用代理的 llmService, modelManager, templateManager）
+        variableExtractionService = createVariableExtractionService(llmService, modelManager, templateManager);
+
+        // 🆕 创建变量值生成服务（使用代理的 llmService, modelManager, templateManager）
+        variableValueGenerationService = createVariableValueGenerationService(llmService, modelManager, templateManager);
+
         // 🆕 读取当前上下文的模式
         console.log('[AppInitializer] 读取当前上下文模式...');
         const contextMode = ref<ContextMode>(DEFAULT_CONTEXT_MODE);
@@ -161,6 +173,8 @@ export function useAppInitializer(): {
           imageService,
           imageAdapterRegistry: imageAdapterRegistryInstance,
           evaluationService, // 🆕 评估服务
+          variableExtractionService, // 🆕 变量提取服务
+          variableValueGenerationService, // 🆕 变量值生成服务
         };
         console.log('[AppInitializer] Electron代理服务初始化完成');
 
@@ -291,6 +305,12 @@ export function useAppInitializer(): {
         // 🆕 创建评估服务
         evaluationService = createEvaluationService(llmService, modelManagerAdapter, templateManagerAdapter);
 
+        // 🆕 创建变量提取服务
+        variableExtractionService = createVariableExtractionService(llmService, modelManagerAdapter, templateManagerAdapter);
+
+        // 🆕 创建变量值生成服务
+        variableValueGenerationService = createVariableValueGenerationService(llmService, modelManagerAdapter, templateManagerAdapter);
+
         // 🆕 读取当前上下文的模式
         console.log('[AppInitializer] 读取当前上下文模式...');
         const contextMode = ref<ContextMode>(DEFAULT_CONTEXT_MODE);
@@ -322,6 +342,8 @@ export function useAppInitializer(): {
           imageService,
           imageAdapterRegistry: imageAdapterRegistryInstance,
           evaluationService, // 🆕 评估服务
+          variableExtractionService, // 🆕 变量提取服务
+          variableValueGenerationService, // 🆕 变量值生成服务
         };
 
         console.log('[AppInitializer] 所有服务初始化完成');

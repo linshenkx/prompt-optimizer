@@ -46,6 +46,26 @@
                 </NPopover>
             </NFlex>
             <NFlex align="center" :size="12">
+                <!-- 🆕 AI提取变量按钮（带文字） -->
+                <NButton
+                    v-if="enableVariableExtraction && showExtractButton"
+                    type="tertiary"
+                    size="small"
+                    @click="$emit('extract-variables')"
+                    :loading="extracting"
+                    :disabled="extracting || !modelValue.trim()"
+                    ghost
+                    round
+                >
+                    <template #icon>
+                        <NIcon>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+                            </svg>
+                        </NIcon>
+                    </template>
+                    {{ extracting ? $t('evaluation.variableExtraction.extracting') : $t('evaluation.variableExtraction.extractButton') }}
+                </NButton>
                 <!-- 预览按钮 -->
                 <NButton
                     v-if="showPreview"
@@ -279,6 +299,11 @@ interface Props {
     /** 分析按钮是否正在加载 */
     analyzeLoading?: boolean;
 
+    /** 🆕 是否显示AI提取变量按钮 */
+    showExtractButton?: boolean;
+    /** 🆕 AI提取变量是否进行中 */
+    extracting?: boolean;
+
     /** 🆕 是否启用变量提取功能 */
     enableVariableExtraction?: boolean;
     /** 🆕 已存在的全局变量名列表 */
@@ -304,6 +329,8 @@ const props = withDefaults(defineProps<Props>(), {
     helpText: "",
     showAnalyzeButton: false,
     analyzeLoading: false,
+    showExtractButton: false,
+    extracting: false,
     enableVariableExtraction: false,
     existingGlobalVariables: () => [],
     existingTemporaryVariables: () => [],
@@ -320,6 +347,8 @@ const emit = defineEmits<{
     analyze: [];
     configModel: [];
     "open-preview": [];
+    /** 🆕 AI提取变量事件 */
+    "extract-variables": [];
     /** 🆕 变量提取事件 */
     "variable-extracted": [
         data: {

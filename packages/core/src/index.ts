@@ -182,3 +182,13 @@ export * from './types/advanced'
 export * from './services/evaluation/types'
 export * from './services/evaluation/errors'
 export { EvaluationService, createEvaluationService } from './services/evaluation/service'
+
+// 🆕 导出变量提取服务相关
+export * from './services/variable-extraction/types'
+export * from './services/variable-extraction/errors'
+export { VariableExtractionService, createVariableExtractionService } from './services/variable-extraction/service'
+
+// 🆕 导出变量值生成服务相关
+export * from './services/variable-value-generation/types'
+export * from './services/variable-value-generation/errors'
+export { VariableValueGenerationService, createVariableValueGenerationService } from './services/variable-value-generation/service'

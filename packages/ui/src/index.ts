@@ -184,6 +184,10 @@ export {
   // 评估服务
   EvaluationService,
   createEvaluationService,
+  // 🆕 变量提取服务
+  createVariableExtractionService,
+  // 🆕 变量值生成服务
+  createVariableValueGenerationService,
 } from "@prompt-optimizer/core";
 
 // 导出类型
@@ -213,6 +217,11 @@ export type {
   EvaluationResponse,
   EvaluationScore,
   EvaluationStreamHandlers,
+  // 🆕 变量提取服务类型
+  IVariableExtractionService,
+  VariableExtractionRequest,
+  VariableExtractionResponse,
+  ExtractedVariable,
 } from "@prompt-optimizer/core";
 
 // 导出新增的类型和服务

@@ -104,6 +104,14 @@ import { template as evaluation_pro_user_prompt_only_en } from './evaluation/pro
 import { template as evaluation_pro_user_prompt_iterate } from './evaluation/pro/user/evaluation-prompt-iterate';
 import { template as evaluation_pro_user_prompt_iterate_en } from './evaluation/pro/user/evaluation-prompt-iterate_en';
 
+// 变量提取模板
+import { variableExtractionTemplate } from './variable-extraction';
+import { variableExtractionTemplateEn } from './variable-extraction';
+
+// 变量值生成模板
+import { variableValueGenerationTemplate } from './variable-value-generation';
+import { variableValueGenerationTemplateEn } from './variable-value-generation';
+
 // 简单的模板集合 - 模板自身已包含完整信息（id、name、language、type等）
 export const ALL_TEMPLATES = {
   general_optimize,
@@ -196,4 +204,10 @@ export const ALL_TEMPLATES = {
   evaluation_pro_user_prompt_only_en,
   evaluation_pro_user_prompt_iterate,
   evaluation_pro_user_prompt_iterate_en,
+  // 变量提取模板
+  variableExtractionTemplate,
+  variableExtractionTemplateEn,
+  // 变量值生成模板
+  variableValueGenerationTemplate,
+  variableValueGenerationTemplateEn,
 };

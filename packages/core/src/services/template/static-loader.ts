@@ -131,8 +131,9 @@ export class StaticLoader {
         
         // 只有内置模板且有language字段时才按语言分类
         if (template.isBuiltin && language) {
-          byLanguage[language][id] = template;
-          byType[normalizedType][language][id] = template;
+          const lang = language as Language;  // 类型断言确保language是Language类型
+          byLanguage[lang][id] = template;
+          byType[normalizedType][lang][id] = template;
         }
       });
 

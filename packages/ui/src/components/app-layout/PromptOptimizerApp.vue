@@ -126,6 +126,7 @@
                             :enable-message-optimization="true"
                             :selected-optimize-model="modelManager.selectedOptimizeModel"
                             :selected-template="currentSelectedTemplate"
+                            :evaluation-model-key="functionModelManager.effectiveEvaluationModel.value"
                             :selected-test-model="modelManager.selectedTestModel"
                             :test-model-provider="selectedTestModelInfo?.provider"
                             :test-model-name="selectedTestModelInfo?.model"
@@ -207,6 +208,7 @@
                             :selected-test-model="modelManager.selectedTestModel"
                             :test-model-provider="selectedTestModelInfo?.provider"
                             :test-model-name="selectedTestModelInfo?.model"
+                            :evaluation-model-key="functionModelManager.effectiveEvaluationModel.value"
                             :selected-template="currentSelectedTemplate"
                             :selected-iterate-template="
                                 optimizer.selectedIterateTemplate
@@ -216,6 +218,7 @@
                             "
                             :is-compare-mode="isCompareMode"
                             @update:isCompareMode="isCompareMode = $event"
+                            :is-extracting="variableExtraction.isExtracting.value"
                             :global-variables="
                                 variableManager?.customVariables?.value || {}
                             "
@@ -244,6 +247,7 @@
                             @config-model="modelManager.showConfig = true"
                             @open-input-preview="handleOpenInputPreview"
                             @open-prompt-preview="handleOpenPromptPreview"
+                            @extract-variables="handleExtractVariablesForContextUser"
                         >
                             <!-- 优化模型选择插槽 -->
                             <template #optimize-model-select>
@@ -522,6 +526,14 @@
                 :focus-variable="focusVariableName"
             />
 
+            <!-- 🆕 AI 变量提取结果对话框 -->
+            <VariableExtractionResultDialog
+                v-if="isReady"
+                v-model:show="variableExtraction.showResultDialog.value"
+                :result="variableExtraction.extractionResult.value"
+                @confirm="variableExtraction.confirmBatchCreate"
+            />
+
             <!-- 工具管理弹窗 -->
             <ToolManagerModal
                 v-if="isReady"
@@ -631,6 +643,7 @@ import DataManagerUI from '../DataManager.vue'
 import FavoriteManagerUI from '../FavoriteManager.vue'
 import SaveFavoriteDialog from '../SaveFavoriteDialog.vue'
 import VariableManagerModal from '../variable/VariableManagerModal.vue'
+import { VariableExtractionResultDialog } from '../variable-extraction'
 import ToolManagerModal from '../tool/ToolManagerModal.vue'
 import ImageWorkspace from '../image-mode/ImageWorkspace.vue'
 import ContextEditor from '../context-mode/ContextEditor.vue'
@@ -665,6 +678,8 @@ import {
     // 变量相关
     useVariableManager,
     useAggregatedVariables,
+    useVariableExtraction,
+    useTemporaryVariables,
     // UI 相关
     useToast,
     useNaiveTheme,
@@ -843,6 +858,25 @@ const showPreviewPanel = ref(false);
 // 变量管理器实例
 const variableManager = useVariableManager(services as any);
 
+// 🆕 临时变量管理器（全局单例，用于AI提取的变量）
+const tempVarsManager = useTemporaryVariables();
+
+// 🆕 AI 智能变量提取
+const variableExtraction = useVariableExtraction(
+    services,
+    (variableName: string, variableValue: string) => {
+        // 创建变量时的回调：保存到临时变量（不持久化）
+        tempVarsManager.setVariable(variableName, variableValue);
+    },
+    (replacedPrompt: string) => {
+        // 替换提示词回调：更新 ContextUser 工作区的提示词内容
+        const userWorkspace = userWorkspaceRef.value as any;
+        if (userWorkspace?.contextUserOptimization) {
+            userWorkspace.contextUserOptimization.prompt = replacedPrompt;
+        }
+    }
+);
+
 // 使用聚合变量管理器
 const aggregatedVariables = useAggregatedVariables(variableManager);
 const promptPreviewContent = ref("");
@@ -862,13 +896,37 @@ const promptPreview = usePromptPreview(
 
 // 预览处理函数
 const handleOpenInputPreview = () => {
-    promptPreviewContent.value = optimizer.prompt || "";
+    // 根据当前模式选择正确的提示词内容
+    const isPro = advancedModeEnabled.value;
+    const isUserMode = selectedOptimizationMode.value === "user";
+
+    if (isUserMode && isPro) {
+        // 上下文/变量模式：使用 ContextUser 工作区的提示词
+        const userWorkspace = userWorkspaceRef.value as any;
+        promptPreviewContent.value = userWorkspace?.contextUserOptimization?.prompt || "";
+    } else {
+        // 基础模式或其他模式：使用 optimizer 的提示词
+        promptPreviewContent.value = optimizer.prompt || "";
+    }
+
     renderPhase.value = "test";
     showPreviewPanel.value = true;
 };
 
 const handleOpenPromptPreview = () => {
-    promptPreviewContent.value = optimizer.optimizedPrompt || "";
+    // 根据当前模式选择正确的优化后提示词内容
+    const isPro = advancedModeEnabled.value;
+    const isUserMode = selectedOptimizationMode.value === "user";
+
+    if (isUserMode && isPro) {
+        // 上下文/变量模式：使用 ContextUser 工作区的优化后提示词
+        const userWorkspace = userWorkspaceRef.value as any;
+        promptPreviewContent.value = userWorkspace?.contextUserOptimization?.optimizedPrompt || "";
+    } else {
+        // 基础模式或其他模式：使用 optimizer 的优化后提示词
+        promptPreviewContent.value = optimizer.optimizedPrompt || "";
+    }
+
     renderPhase.value = "test";
     showPreviewPanel.value = true;
 };
@@ -893,6 +951,58 @@ const handleOpenVariableManager = (variableName?: string) => {
         focusVariableName.value = variableName;
     }
     showVariableManager.value = true;
+};
+
+// 🆕 AI 变量提取处理函数
+const handleExtractVariables = async (
+    promptContent: string,
+    extractionModelKey: string
+) => {
+    const existingVariableNames = Object.keys(
+        variableManager.customVariables.value || {}
+    );
+
+    await variableExtraction.extractVariables(
+        promptContent,
+        extractionModelKey,
+        existingVariableNames
+    );
+};
+
+// 🆕 处理ContextUser模式的 AI 变量提取
+const handleExtractVariablesForContextUser = async () => {
+    // 从userWorkspaceRef获取提示词内容
+    const userWorkspace = userWorkspaceRef.value as any;
+    if (!userWorkspace?.contextUserOptimization) {
+        console.error('[PromptOptimizerApp] Unable to access ContextUser workspace');
+        toast.warning(t('evaluation.variableExtraction.workspaceNotReady'));
+        return;
+    }
+
+    const promptContent = userWorkspace.contextUserOptimization.prompt || '';
+    // 🔧 使用评估模型（复用评估功能的模型配置）
+    const extractionModelKey = functionModelManager.effectiveEvaluationModel.value || '';
+
+    if (!promptContent.trim()) {
+        toast.warning(t('evaluation.variableExtraction.noPromptContent'));
+        return;
+    }
+
+    if (!extractionModelKey) {
+        toast.warning(t('evaluation.variableExtraction.noEvaluationModel'));
+        return;
+    }
+
+    // 收集已存在的变量名（全局+临时）
+    const globalVarNames = Object.keys(variableManager.customVariables.value || {});
+    const tempVarNames = Object.keys(userWorkspace.temporaryVariables?.value || {});
+    const existingVariableNames = [...globalVarNames, ...tempVarNames];
+
+    await variableExtraction.extractVariables(
+        promptContent,
+        extractionModelKey,
+        existingVariableNames
+    );
 };
 
 // 工具管理器处理函数
