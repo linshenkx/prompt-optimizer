@@ -238,11 +238,11 @@ export class ModelScopeImageAdapter extends AbstractImageProviderAdapter {
         // 任务失败或被取消，提取错误信息
         const errorMessage = data.error?.message || data.error || data.message || 'Unknown error'
         throw new Error(`Task ${status.toLowerCase()}: ${errorMessage}`)
-      } else if (status !== 'PENDING' && status !== 'RUNNING') {
+      } else if (status !== 'PENDING' && status !== 'RUNNING' && status !== 'PROCESSING') {
         // 未知的终态，视为失败
         throw new Error(`Unknown task status: ${status}`)
       }
-      // task_status 为 PENDING 或 RUNNING，继续轮询
+      // task_status 为 PENDING、RUNNING 或 PROCESSING，继续轮询
     }
 
     throw new Error(`Task timeout after ${maxAttempts} attempts`)

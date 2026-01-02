@@ -38,6 +38,9 @@ export interface BasicSystemSessionState {
   chainId: string
   versionId: string
 
+  // 测试区域内容（system 模式必填，用于测试区输入框）
+  testContent: string
+
   // 测试结果
   testResults: TestResults | null
 
@@ -63,6 +66,7 @@ const createDefaultState = (): BasicSystemSessionState => ({
   reasoning: '',
   chainId: '',
   versionId: '',
+  testContent: '',
   testResults: null,
   selectedOptimizeModelKey: '',
   selectedTestModelKey: '',
@@ -107,6 +111,14 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
    */
   const updateTestResults = (results: TestResults | null) => {
     state.value.testResults = results
+    state.value.lastActiveAt = Date.now()
+  }
+
+  /**
+   * 更新测试内容
+   */
+  const updateTestContent = (content: string) => {
+    state.value.testContent = content
     state.value.lastActiveAt = Date.now()
   }
 
@@ -218,6 +230,7 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
     // 更新方法
     updatePrompt,
     updateOptimizedResult,
+    updateTestContent,
     updateTestResults,
     updateOptimizeModel,
     updateTestModel,

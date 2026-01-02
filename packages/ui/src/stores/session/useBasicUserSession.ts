@@ -20,6 +20,7 @@ export interface BasicUserSessionState {
   reasoning: string
   chainId: string
   versionId: string
+  testContent: string
   testResults: TestResults | null
   selectedOptimizeModelKey: string
   selectedTestModelKey: string
@@ -35,6 +36,7 @@ const createDefaultState = (): BasicUserSessionState => ({
   reasoning: '',
   chainId: '',
   versionId: '',
+  testContent: '',
   testResults: null,
   selectedOptimizeModelKey: '',
   selectedTestModelKey: '',
@@ -67,6 +69,11 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
 
   const updateTestResults = (results: TestResults | null) => {
     state.value.testResults = results
+    state.value.lastActiveAt = Date.now()
+  }
+
+  const updateTestContent = (content: string) => {
+    state.value.testContent = content
     state.value.lastActiveAt = Date.now()
   }
 
@@ -149,6 +156,7 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
     state,
     updatePrompt,
     updateOptimizedResult,
+    updateTestContent,
     updateTestResults,
     updateOptimizeModel,
     updateTestModel,

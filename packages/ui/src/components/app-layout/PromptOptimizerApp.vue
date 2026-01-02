@@ -790,6 +790,7 @@ type ContextWorkspaceExpose = {
 const systemWorkspaceRef = ref<ContextWorkspaceExpose | null>(null);
 type ContextUserWorkspaceExpose = ContextWorkspaceExpose & {
     // 提供最小可用 API，避免父组件依赖子组件内部实现细节
+    contextUserOptimization?: import("../../composables/prompt/useContextUserOptimization").UseContextUserOptimization;
     setPrompt?: (prompt: string) => void;
     getPrompt?: () => string;
     getOptimizedPrompt?: () => string;
@@ -1203,6 +1204,9 @@ const restoreBasicOrProVariableSession = () => {
     optimizer.currentChainId = savedState.chainId || '';
     optimizer.currentVersionId = savedState.versionId || '';
 
+    // 恢复测试内容（系统/用户模式都需要）
+    testContent.value = savedState.testContent || '';
+
     // 恢复模型选择
     if (savedState.selectedOptimizeModelKey) {
         modelManager.selectedOptimizeModel = savedState.selectedOptimizeModelKey;
@@ -1232,6 +1236,57 @@ const restoreBasicOrProVariableSession = () => {
         promptTester.testResults.optimizedReasoning = '';
         promptTester.testResults.isTestingOriginal = false;
         promptTester.testResults.isTestingOptimized = false;
+    }
+};
+
+/**
+ * 🔧 Pro-user（变量模式）会话恢复：恢复到 ContextUserWorkspace 的独立状态树
+ *
+ * 根因修复：
+ * - Pro-user 实际使用 useContextUserOptimization/useContextUserTester 的内部 reactive 状态
+ * - 若只恢复 optimizer 的字段，ContextUserWorkspace 仍保持空状态，导致切换/重挂载后“内容丢失”
+ */
+const restoreProVariableSessionToUserWorkspace = async () => {
+    const savedState = proVariableSession.state;
+
+    // 这些字段是 App 层单例，仍需跟随 session 切换
+    testContent.value = savedState.testContent || '';
+    isCompareMode.value = savedState.isCompareMode;
+
+    // 等待 DOM 更新，确保 ContextUserWorkspace 已挂载并建立 ref
+    await nextTick();
+
+    let contextUserOptimization = userWorkspaceRef.value?.contextUserOptimization;
+    if (!contextUserOptimization) {
+        // 防御性重试：部分切换路径下首次 nextTick 可能仍未建立 ref
+        await nextTick();
+        contextUserOptimization = userWorkspaceRef.value?.contextUserOptimization;
+        if (!contextUserOptimization) return;
+    }
+
+    // 恢复提示词与优化结果
+    contextUserOptimization.prompt = savedState.prompt || '';
+    contextUserOptimization.optimizedPrompt = savedState.optimizedPrompt || '';
+    contextUserOptimization.optimizedReasoning = savedState.reasoning || '';
+
+    // 恢复链信息（versions 尝试通过 historyManager 重新拉取）
+    contextUserOptimization.currentChainId = savedState.chainId || '';
+    contextUserOptimization.currentVersionId = savedState.versionId || '';
+    contextUserOptimization.currentVersions = [];
+
+    // 重置过程态（避免恢复后停留在 loading）
+    contextUserOptimization.isOptimizing = false;
+    contextUserOptimization.isIterating = false;
+
+    const historyManager = services.value?.historyManager;
+    if (historyManager && savedState.chainId) {
+        try {
+            const chain = await historyManager.getChain(savedState.chainId);
+            contextUserOptimization.currentVersions = chain.versions;
+            contextUserOptimization.currentVersionId = savedState.versionId || chain.currentRecord.id;
+        } catch (error) {
+            console.warn('[PromptOptimizerApp] Pro-user 恢复链失败，使用 session 快照继续:', error);
+        }
     }
 };
 
@@ -1317,9 +1372,12 @@ const restoreImageSession = () => {
  * 互斥控制由 useSessionRestoreCoordinator 处理
  */
 const restoreSessionToUIInternal = async () => {
-    if (functionMode.value === 'basic' || (functionMode.value === 'pro' && proSubMode.value === 'user')) {
-        // Basic 模式或 Pro-variable 模式：使用通用恢复逻辑
+    if (functionMode.value === 'basic') {
+        // Basic 模式：使用通用恢复逻辑
         restoreBasicOrProVariableSession();
+    } else if (functionMode.value === 'pro' && proSubMode.value === 'user') {
+        // Pro-user（变量模式）：恢复到 ContextUserWorkspace
+        await restoreProVariableSessionToUserWorkspace();
     } else if (functionMode.value === 'pro' && proSubMode.value === 'system') {
         // Pro-system 模式：使用专用恢复逻辑（异步，等待 DOM 更新）
         await restoreProMultiMessageSession();
@@ -1360,7 +1418,8 @@ watch(
         if (sessionManager.isSwitching) return;
 
         // Pro-system 模式没有 prompt 字段，跳过同步
-        if (functionMode.value === 'pro' && proSubMode.value === 'system') {
+        // Pro-user 模式的 prompt 由 ContextUserWorkspace 内部管理，避免用 optimizer 覆盖 session
+        if (functionMode.value === 'pro') {
             return;
         }
 
@@ -1369,6 +1428,47 @@ watch(
             (session as any).updatePrompt(newPrompt);
         }
     }
+);
+
+// 同步 Pro-user（变量模式）工作区状态到 session store
+// 说明：Pro-user 使用 ContextUserWorkspace 内部的 useContextUserOptimization 状态树，不走 optimizer
+watch(
+    () => {
+        if (functionMode.value !== 'pro' || proSubMode.value !== 'user') return null;
+        return userWorkspaceRef.value?.contextUserOptimization?.prompt ?? null;
+    },
+    (newPrompt) => {
+        if (newPrompt === null) return;
+        if (sessionManager.isSwitching) return;
+        proVariableSession.updatePrompt(newPrompt || '');
+    },
+    { flush: 'sync' }
+);
+
+watch(
+    () => {
+        if (functionMode.value !== 'pro' || proSubMode.value !== 'user') return null;
+        const opt = userWorkspaceRef.value?.contextUserOptimization;
+        if (!opt) return null;
+        return [
+            opt.optimizedPrompt,
+            opt.optimizedReasoning,
+            opt.currentChainId,
+            opt.currentVersionId,
+        ] as const;
+    },
+    (payload) => {
+        if (!payload) return;
+        if (sessionManager.isSwitching) return;
+        const [optimizedPrompt, reasoning, chainId, versionId] = payload;
+        proVariableSession.updateOptimizedResult({
+            optimizedPrompt: optimizedPrompt || '',
+            reasoning: reasoning || '',
+            chainId: chainId || '',
+            versionId: versionId || '',
+        });
+    },
+    { flush: 'sync' }
 );
 
 // 同步优化结果到 session store（包含 optimizedPrompt, reasoning, chainId, versionId）
@@ -1381,6 +1481,11 @@ watch(
         () => optimizer.currentVersionId,
     ],
     ([newOptimizedPrompt, newReasoning, newChainId, newVersionId]) => {
+        // Pro-user 模式的优化结果由 ContextUserWorkspace 内部管理，避免用 optimizer 覆盖 session
+        if (functionMode.value === 'pro' && proSubMode.value === 'user') {
+            return;
+        }
+
         const session = getCurrentSession();
         if (session && !sessionManager.isSwitching) {
             session.updateOptimizedResult({
@@ -1402,8 +1507,8 @@ watch(
     (newTestResults) => {
         if (sessionManager.isSwitching) return;
 
-        // Image 模式没有 updateTestResults 方法，跳过同步
-        if (functionMode.value === 'image') {
+        // 仅 Basic 模式使用 promptTester（其他模式有各自的测试器/工作区）
+        if (functionMode.value !== 'basic') {
             return;
         }
 
@@ -1434,6 +1539,10 @@ watch(
 
         // Image 模式使用 updateTextModel
         if (functionMode.value === 'image') {
+            // 避免模型选择初始化/短暂空值时覆盖 image session（导致下拉变成“未选择”）
+            if (!modelManager.isModelSelectionReady || !newModel) {
+                return;
+            }
             if (typeof (session as any).updateTextModel === 'function') {
                 (session as any).updateTextModel(newModel || '');
             }
@@ -1511,6 +1620,24 @@ watch(
             (session as any).updateIterateTemplate(newTemplate?.id || null);
         }
     }
+);
+
+// 同步测试内容到 session store（用于刷新/切换后保留测试输入）
+watch(
+    testContent,
+    (newContent) => {
+        if (sessionManager.isSwitching) return;
+
+        // Image 模式没有 testContent；Pro-system/ContextUser 模式也不使用此输入
+        if (functionMode.value === 'image') return;
+        if (functionMode.value === 'pro' && proSubMode.value === 'system') return;
+
+        const session = getCurrentSession();
+        if (session && typeof (session as any).updateTestContent === 'function') {
+            (session as any).updateTestContent(newContent || '');
+        }
+    },
+    { flush: 'sync' }
 );
 
 // 同步对比模式到 session store

@@ -286,7 +286,6 @@ export function useImageWorkspace(services: Ref<AppServices | null>, options: Us
   const refreshTextModels = async () => {
     if (!modelManager.value) {
       textModelOptions.value = []
-      selectedTextModelKey.value = ''
       return
     }
 
@@ -303,6 +302,11 @@ export function useImageWorkspace(services: Ref<AppServices | null>, options: Us
         raw: m,
       }))
 
+      // 没有可用模型时：不要清空已选 key（避免服务/配置短暂不可用时把 session 覆盖成空）
+      if (!textModels.length) {
+        return
+      }
+
       const currentKey = selectedTextModelKey.value
       const keys = new Set(textModels.map(m => m.id))
       const fallback = textModels[0]?.id || ''
@@ -310,10 +314,6 @@ export function useImageWorkspace(services: Ref<AppServices | null>, options: Us
       const needsFallback = (!currentKey && fallback) || (currentKey && !keys.has(currentKey))
       if (needsFallback) {
         selectedTextModelKey.value = fallback
-      }
-
-      if (!textModels.length) {
-        selectedTextModelKey.value = ''
       }
     } catch (error) {
       console.error('[useImageWorkspace] Failed to refresh text models:', error)
@@ -331,6 +331,11 @@ export function useImageWorkspace(services: Ref<AppServices | null>, options: Us
         value: m.id,
         raw: m,
       }))
+
+      // 没有可用模型时：不要清空已选 key（避免加载失败/初始化未就绪时覆盖 session）
+      if (!imageModels.value.length) {
+        return
+      }
 
       const current = selectedImageModelKey.value
       const exists = imageModels.value.some(m => m.id === current)

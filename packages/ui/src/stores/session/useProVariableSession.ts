@@ -22,6 +22,7 @@ export interface ProVariableSessionState {
   reasoning: string
   chainId: string
   versionId: string
+  testContent: string
   testResults: TestResults | null
   selectedOptimizeModelKey: string
   selectedTestModelKey: string
@@ -37,6 +38,7 @@ const createDefaultState = (): ProVariableSessionState => ({
   reasoning: '',
   chainId: '',
   versionId: '',
+  testContent: '',
   testResults: null,
   selectedOptimizeModelKey: '',
   selectedTestModelKey: '',
@@ -69,6 +71,11 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
 
   const updateTestResults = (results: TestResults | null) => {
     state.value.testResults = results
+    state.value.lastActiveAt = Date.now()
+  }
+
+  const updateTestContent = (content: string) => {
+    state.value.testContent = content
     state.value.lastActiveAt = Date.now()
   }
 
@@ -151,6 +158,7 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
     state,
     updatePrompt,
     updateOptimizedResult,
+    updateTestContent,
     updateTestResults,
     updateOptimizeModel,
     updateTestModel,
