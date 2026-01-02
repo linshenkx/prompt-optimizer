@@ -33,7 +33,8 @@ const errorColor = computed(() => themeOverrides.value?.common?.errorColor || '#
 const textColor3 = computed(() => themeOverrides.value?.common?.textColor3 || '#6b7280')
 
 // 长度阈值：超过此值降级显示
-const MAX_LENGTH = 2000
+// 图像模式的 JSON 提示词可能很长；为保持与其它模式一致，这里不再做长度限制
+const MAX_LENGTH = Number.POSITIVE_INFINITY
 
 // 本地 fallback service（仅在全局不可用时创建）
 let localService: ICompareService | null = null

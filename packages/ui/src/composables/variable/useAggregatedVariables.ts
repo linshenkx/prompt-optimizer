@@ -26,7 +26,7 @@ import { PREDEFINED_VARIABLES } from '../../types/variable'
 /**
  * 变量来源类型
  */
-export type VariableSource = 'predefined' | 'global' | 'temporary'
+export type AggregatedVariableSource = 'predefined' | 'global' | 'temporary'
 
 /**
  * 按来源分组的变量
@@ -51,7 +51,7 @@ export interface AggregatedVariablesManager {
   readonly variablesBySource: ComputedRef<VariablesBySource>
 
   /** 查询变量来源 */
-  getVariableSource: (name: string) => VariableSource | null
+  getVariableSource: (name: string) => AggregatedVariableSource | null
 
   /** 获取变量值（按优先级） */
   getVariable: (name: string) => string | undefined
@@ -163,7 +163,7 @@ export function useAggregatedVariables(
    * @param name 变量名
    * @returns 变量来源，如果不存在返回 null
    */
-  const getVariableSource = (name: string): VariableSource | null => {
+  const getVariableSource = (name: string): AggregatedVariableSource | null => {
     // 按优先级从高到低检查
     if (name in temporaryVarsMap.value) {
       return 'temporary'

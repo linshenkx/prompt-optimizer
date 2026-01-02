@@ -1272,6 +1272,8 @@ export default {
       noOptimizeModel: "Please select an optimization model first",
       noIterateTemplate: "Please select an iteration template first",
       incompleteTestInfo: "Please fill in complete test information",
+      favoriteNotInitialized: "Favorite feature not initialized",
+      noContentToSave: "No content to save",
       noDefaultTemplate: "Failed to load default template",
       optimizeProcessFailed: "Error in optimization process",
       promptServiceUnavailable: "Optimization service is currently unavailable",
@@ -1300,6 +1302,9 @@ export default {
       imageFavoriteLoaded: "Favorite image prompt loaded",
       favoriteLoaded: "Prompt loaded to input",
       localEditSaved: "Saved as a new version",
+      testComplete: "Test complete",
+      optimizeCompleteNoHistory: "Prompt optimization complete (history service unavailable)",
+      iterateCompleteNoHistory: "Iteration complete (history service unavailable)",
     },
     warn: {
       loadOptimizeTemplateFailed: "Failed to load saved optimization template",
@@ -1315,6 +1320,8 @@ export default {
       messageNotFoundInSnapshot: "History restored successfully, but optimized message not found",
       restoredFromLegacyHistory: "Restored from legacy history (only optimized message restored)",
       messageNotFoundInCurrentConversation: "Optimized message not found in current conversation, cannot restore",
+      optimizeCompleteButHistoryFailed: "Optimization complete, but history save failed. Version management temporarily unavailable",
+      iterateCompleteButHistoryFailed: "Iteration complete, but history save failed. Version management temporarily unavailable",
     },
     info: {
       modelUpdated: "Model updated",

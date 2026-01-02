@@ -239,7 +239,11 @@ export function useEvaluation(
   options: UseEvaluationOptions
 ): UseEvaluationReturn {
   const toast = useToast()
-  const { t, locale } = useI18n()
+  // NOTE: 由于本项目对 vue-i18n 的类型增强与使用方式较复杂，这里显式标注 locale 以满足 tsc
+  const { t, locale } = useI18n() as unknown as {
+    t: (key: string, ...args: unknown[]) => string
+    locale: Ref<string>
+  }
 
   // 获取功能模型管理器
   const functionModelManager = useFunctionModelManager(services)

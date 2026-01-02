@@ -135,7 +135,7 @@ export function createTestPinia(
  *     async ({ pinia, services }) => {
  *       const store = useBasicUserSession(pinia)
  *       await store.restoreSession()
- *       expect(store.state.prompt).toBe('saved-data')
+ *       expect(store.prompt).toBe('saved-data')
  *     }
  *   )
  *   // 自动恢复到调用前的状态

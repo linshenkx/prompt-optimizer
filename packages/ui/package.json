@@ -44,7 +44,8 @@
     "naive-ui": "^2.42.0",
     "pinia": "^3.0.3",
     "uuid": "^11.0.5",
-    "vue": "^3.3.4"
+    "vue": "^3.3.4",
+    "vue-router": "4"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

@@ -17,6 +17,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { BasicSubMode, ProSubMode, ImageSubMode } from '@prompt-optimizer/core'
 import type { FunctionMode } from '../../composables/mode/useFunctionMode'
+import { getPiniaServices } from '../../plugins/pinia'
 import { useBasicSystemSession } from './useBasicSystemSession'
 import { useBasicUserSession } from './useBasicUserSession'
 import { useProMultiMessageSession } from './useProMultiMessageSession'
@@ -58,6 +59,12 @@ export const useSessionManager = defineStore('sessionManager', () => {
    * 防止所有保存入口（定时器、pagehide、visibilitychange、切换）并发写入
    */
   const saveInFlight = ref(false)
+
+  /**
+   * 全量 hydrate 标志（防止“未恢复的默认空 state”在 saveAllSessions 时覆盖持久化内容）
+   */
+  const hasRestoredAllSessions = ref(false)
+  const restoreAllInFlight = ref<Promise<void> | null>(null)
 
   /**
    * 子模式读取器（从外部注入，避免双真源）
@@ -211,8 +218,15 @@ export const useSessionManager = defineStore('sessionManager', () => {
 
   /**
    * 保存指定子模式会话（带全局锁保护）
+   * 🔧 加强防护：未恢复前不允许保存，避免覆盖持久化数据
    */
   const saveSubModeSession = async (key: SubModeKey) => {
+    // ✅ 强制检查：必须先恢复才能保存
+    if (!hasRestoredAllSessions.value) {
+      console.warn(`[SessionManager] 尝试保存 ${key} 但未完成全局恢复，跳过以避免覆盖持久化数据`)
+      return
+    }
+
     // ⚠️ 并发保护：如果上一次保存还在进行中，跳过本次
     if (saveInFlight.value) {
       console.warn(`[SessionManager] 保存操作进行中，跳过 ${key} 会话保存`)
@@ -262,10 +276,64 @@ export const useSessionManager = defineStore('sessionManager', () => {
    * ⚠️ 关键修复：等待当前保存完成，而非直接跳过（避免退出时丢失数据）
    * ⚠️ Codex 修复：使用 acquired 标记防止误解锁
    */
+  /**
+   * 恢复所有子模式会话到内存（hydrate all）
+   *
+   * 目的：避免只恢复当前子模式时，其它子模式仍保持默认空值，
+   * 在 pagehide/onBeforeUnmount 的 saveAllSessions 中被写回持久化，从而覆盖历史数据。
+   */
+  const restoreAllSessions = async () => {
+    if (hasRestoredAllSessions.value) {
+      return
+    }
+
+    const $services = getPiniaServices()
+    if (!$services?.preferenceService) {
+      return
+    }
+
+    if (restoreAllInFlight.value) {
+      await restoreAllInFlight.value
+      return
+    }
+
+    const task = (async () => {
+      // IMPORTANT:
+      // Do NOT restore all sessions in parallel.
+      // Some users may have very large persisted snapshots (e.g. long prompts / test outputs / image metadata).
+      // Parallel JSON.parse + reactive assignment across 6 stores can spike memory and crash the browser process.
+      // Restore sequentially to reduce peak memory usage and avoid "browser crash" reports.
+      const keys: SubModeKey[] = [
+        'basic-system',
+        'basic-user',
+        'pro-system',
+        'pro-user',
+        'image-text2image',
+        'image-image2image',
+      ]
+
+      for (const key of keys) {
+        await restoreSubModeSession(key)
+        // Yield to the event loop to keep the UI responsive and reduce long-task pressure.
+        await new Promise(resolve => setTimeout(resolve, 0))
+      }
+      hasRestoredAllSessions.value = true
+    })()
+
+    restoreAllInFlight.value = task
+    try {
+      await task
+    } finally {
+      restoreAllInFlight.value = null
+    }
+  }
+
   const saveAllSessions = async () => {
     // ⚠️ 等待当前保存完成（最多等待 5 秒）
     const startTime = Date.now()
     const MAX_WAIT = 5000 // 5 秒超时
+
+    await restoreAllSessions()
 
     while (saveInFlight.value) {
       if (Date.now() - startTime > MAX_WAIT) {
@@ -284,15 +352,21 @@ export const useSessionManager = defineStore('sessionManager', () => {
       saveInFlight.value = true
       acquired = true // ✅ 标记：我获得了锁
 
-      // 并行保存所有子模式（使用内部方法避免重复加锁）
-      await Promise.all([
-        _saveSubModeSessionUnsafe('basic-system'),
-        _saveSubModeSessionUnsafe('basic-user'),
-        _saveSubModeSessionUnsafe('pro-system'),
-        _saveSubModeSessionUnsafe('pro-user'),
-        _saveSubModeSessionUnsafe('image-text2image'),
-        _saveSubModeSessionUnsafe('image-image2image'),
-      ])
+      // IMPORTANT:
+      // Save sequentially to reduce peak memory usage for very large sessions.
+      // (Parallel JSON.stringify across 6 stores can spike memory and crash the browser on pagehide/unmount.)
+      const keys: SubModeKey[] = [
+        'basic-system',
+        'basic-user',
+        'pro-system',
+        'pro-user',
+        'image-text2image',
+        'image-image2image',
+      ]
+      for (const key of keys) {
+        await _saveSubModeSessionUnsafe(key)
+        await new Promise(resolve => setTimeout(resolve, 0))
+      }
     } catch (error) {
       console.error('[SessionManager] 保存所有会话失败:', error)
     } finally {
@@ -315,6 +389,7 @@ export const useSessionManager = defineStore('sessionManager', () => {
     switchSubMode,
     saveSubModeSession,
     restoreSubModeSession,
+    restoreAllSessions,
     saveAllSessions,
   }
 })

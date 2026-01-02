@@ -45,8 +45,7 @@ import { computed, ref } from 'vue'
 import { NSpin, NPopover } from 'naive-ui'
 import EvaluationHoverCard from './EvaluationHoverCard.vue'
 import type { EvaluationResponse, EvaluationType, PatchOperation } from '@prompt-optimizer/core'
-
-export type ScoreLevel = 'excellent' | 'good' | 'acceptable' | 'poor' | 'very-poor'
+import type { ScoreLevel } from './types'
 
 const props = withDefaults(
   defineProps<{

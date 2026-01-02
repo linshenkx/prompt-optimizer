@@ -7,8 +7,13 @@ const UI_SETTINGS_KEYS = [
   "app:settings:ui:theme-id",
   "app:settings:ui:preferred-language",
   "app:settings:ui:builtin-template-language",
+
+  // 已废弃：模型选择已迁移到各模式的 session store
+  // 保留用于导入旧版本数据时的向后兼容，避免导入失败
+  // TODO: 确认无旧数据后可安全移除（预计 v3.0）
   "app:selected-optimize-model",
   "app:selected-test-model",
+
   "app:selected-optimize-template", // 系统优化模板
   "app:selected-user-optimize-template", // 用户优化模板
   "app:selected-iterate-template", // 迭代模板

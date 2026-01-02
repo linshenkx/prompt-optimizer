@@ -155,6 +155,9 @@ const completionColorVars = computed(() => ({
 const editorRef = ref<HTMLElement>();
 let editorView: EditorView | null = null;
 
+// 防止“外部 props 同步 -> CodeMirror dispatch -> updateListener emit -> 再同步”的回路
+const isSyncingFromModel = ref(false);
+
 // 创建 Compartment 用于动态更新扩展
 const autocompletionCompartment = new Compartment();
 const highlighterCompartment = new Compartment();
@@ -596,8 +599,11 @@ onMounted(() => {
             // 监听文档变化
             EditorView.updateListener.of((update) => {
                 if (update.docChanged) {
-                    const newValue = update.state.doc.toString();
-                    emit("update:modelValue", newValue);
+                    // 外部同步导致的变更不回写（避免循环/重复写入）
+                    if (!isSyncingFromModel.value) {
+                        const newValue = update.state.doc.toString();
+                        emit("update:modelValue", newValue);
+                    }
                 }
 
                 // 监听选择变化
@@ -623,12 +629,16 @@ watch(
     () => props.modelValue,
     (newValue) => {
         if (editorView && newValue !== editorView.state.doc.toString()) {
+            isSyncingFromModel.value = true;
             editorView.dispatch({
                 changes: {
                     from: 0,
                     to: editorView.state.doc.length,
                     insert: newValue,
                 },
+            });
+            queueMicrotask(() => {
+                isSyncingFromModel.value = false;
             });
         }
     },

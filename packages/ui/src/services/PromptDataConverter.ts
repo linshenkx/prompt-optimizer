@@ -26,6 +26,13 @@ export class PromptDataConverter implements DataConverter {
       let metadata: Record<string, unknown> = {}
       let messages: unknown[] | undefined
 
+      const coerceRole = (value: unknown): StandardMessage['role'] => {
+        const allowed: StandardMessage['role'][] = ['system', 'user', 'assistant', 'tool']
+        return typeof value === 'string' && allowed.includes(value as StandardMessage['role'])
+          ? (value as StandardMessage['role'])
+          : 'user'
+      }
+
       const ensureRecord = (value: unknown): Record<string, unknown> | undefined => {
         if (value && typeof value === 'object' && !Array.isArray(value)) {
           return value as Record<string, unknown>
@@ -105,7 +112,7 @@ export class PromptDataConverter implements DataConverter {
           continue
         }
 
-        const role = messageRecord.role
+        const role = coerceRole(messageRecord.role)
         if (typeof role !== 'string' || !['system', 'user', 'assistant', 'tool'].includes(role)) {
           continue
         }

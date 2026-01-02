@@ -76,6 +76,28 @@ export function useConversationOptimization(
   // ⚠️ Pro 多消息 session store（仅 Pro-system 模式使用）
   const proMultiMessageSession = useProMultiMessageSession()
 
+  const isSyncingMapToSession = ref(false)
+
+  const patchProSystemOptimizedResult = (
+    partial: Partial<{
+      optimizedPrompt: string
+      reasoning: string
+      chainId: string
+      versionId: string
+    }>
+  ) => {
+    if (optimizationMode.value !== 'system') return
+    proMultiMessageSession.updateOptimizedResult({
+      optimizedPrompt:
+        partial.optimizedPrompt ??
+        proMultiMessageSession.optimizedPrompt ??
+        '',
+      reasoning: partial.reasoning ?? proMultiMessageSession.reasoning ?? '',
+      chainId: partial.chainId ?? proMultiMessageSession.chainId ?? '',
+      versionId: partial.versionId ?? proMultiMessageSession.versionId ?? '',
+    })
+  }
+
   // 辅助函数：同步 messageChainMap 到 session store
   // ⚠️ Codex 修复：messageChainMap 是 ref(new Map())，watch 无法追踪 Map 内部修改
   // 改为在每次 set/delete 后显式同步
@@ -85,7 +107,9 @@ export function useConversationOptimization(
       for (const [key, value] of messageChainMap.value.entries()) {
         record[key] = value
       }
+      isSyncingMapToSession.value = true
       proMultiMessageSession.setMessageChainMap(record)
+      isSyncingMapToSession.value = false
     }
   }
 
@@ -105,49 +129,113 @@ export function useConversationOptimization(
     return removed
   }
 
-  // 状态管理
-  const selectedMessageId = ref<string>('')
-  const currentChainId = ref<string>('')
-  const currentRecordId = ref<string>('')
+  // 状态管理（将可持久化字段绑定到 session store，消除双真源）
+  const localSelectedMessageId = ref<string>('')
+  const localChainId = ref<string>('')
+  const localRecordId = ref<string>('')
+  const localOptimizedPrompt = ref<string>('')
+  const localOptimizedReasoning = ref<string>('')
+
+  const selectedMessageId = computed<string>({
+    get: () =>
+      optimizationMode.value === 'system'
+        ? (proMultiMessageSession.selectedMessageId ?? '')
+        : localSelectedMessageId.value,
+    set: (id) => {
+      if (optimizationMode.value === 'system') {
+        proMultiMessageSession.selectMessage(id)
+      } else {
+        localSelectedMessageId.value = id
+      }
+    },
+  })
+
+  const currentChainId = computed<string>({
+    get: () =>
+      optimizationMode.value === 'system'
+        ? (proMultiMessageSession.chainId ?? '')
+        : localChainId.value,
+    set: (chainId) => {
+      if (optimizationMode.value === 'system') {
+        patchProSystemOptimizedResult({ chainId })
+      } else {
+        localChainId.value = chainId
+      }
+    },
+  })
+
+  const currentRecordId = computed<string>({
+    get: () =>
+      optimizationMode.value === 'system'
+        ? (proMultiMessageSession.versionId ?? '')
+        : localRecordId.value,
+    set: (recordId) => {
+      if (optimizationMode.value === 'system') {
+        patchProSystemOptimizedResult({ versionId: recordId })
+      } else {
+        localRecordId.value = recordId
+      }
+    },
+  })
+
+  const optimizedPrompt = computed<string>({
+    get: () =>
+      optimizationMode.value === 'system'
+        ? (proMultiMessageSession.optimizedPrompt ?? '')
+        : localOptimizedPrompt.value,
+    set: (prompt) => {
+      if (optimizationMode.value === 'system') {
+        patchProSystemOptimizedResult({ optimizedPrompt: prompt })
+      } else {
+        localOptimizedPrompt.value = prompt
+      }
+    },
+  })
+
+  const optimizedReasoning = computed<string>({
+    get: () =>
+      optimizationMode.value === 'system'
+        ? (proMultiMessageSession.reasoning ?? '')
+        : localOptimizedReasoning.value,
+    set: (reasoning) => {
+      if (optimizationMode.value === 'system') {
+        patchProSystemOptimizedResult({ reasoning })
+      } else {
+        localOptimizedReasoning.value = reasoning
+      }
+    },
+  })
+
   const currentVersions = ref<PromptRecordChain['versions']>([])
-  const optimizedPrompt = ref<string>('')
   const isOptimizing = ref<boolean>(false)
 
   // ========== Session Store 同步逻辑 ==========
-  // 同步选中的消息 ID 到 session store (仅 Pro-system 模式)
-  watch(selectedMessageId, (newMessageId) => {
-    if (optimizationMode.value === 'system') {
-      proMultiMessageSession.selectMessage(newMessageId)
-    }
-  })
 
   // ⚠️ Codex 修复：messageChainMap 是 ref(new Map())，watch 无法追踪 Map 内部修改
   // 改为在每次 set/delete 后显式同步（见 optimizeMessage、iterateMessage、removeMessageMapping）
   // syncMessageChainMapToSession() 已在上方定义
 
   /**
-   * 🔧 Codex 修复：从 Session Store 恢复状态（仅 Pro-system 模式）
-   * 由 PromptOptimizerApp.vue 在 session restore 完成后显式调用，确保时序正确
+   * 🔧 Codex 修复：从 Session Store 恢复 messageChainMap（仅 Pro-system 模式）
+   *
+   * 说明：
+   * - 其它可持久化字段已通过 computed 直绑到 session store（单一真源）
+   * - 这里只负责 Map/Record 互转 + 旧 key 迁移
    */
   const restoreFromSessionStore = () => {
     if (optimizationMode.value !== 'system') return
 
-    const savedState = proMultiMessageSession.state
-
-    // 恢复选中的消息 ID
-    if (savedState.selectedMessageId) {
-      selectedMessageId.value = savedState.selectedMessageId
-    }
+    const messageChainMapFromStore = proMultiMessageSession.messageChainMap
 
     // 🔧 Codex 修复：恢复消息-链映射表，并迁移旧格式 key
-    if (savedState.messageChainMap && Object.keys(savedState.messageChainMap).length > 0) {
+    if (messageChainMapFromStore && Object.keys(messageChainMapFromStore).length > 0) {
       const restoredMap = new Map<string, string>()
       let hasMigrated = false
 
       // 🔧 Codex 建议：使用严格前缀匹配，避免误迁移包含 `:` 的 messageId
       const oldKeyPattern = /^(system|user|basic|pro|image):/
 
-      for (const [key, value] of Object.entries(savedState.messageChainMap)) {
+      for (const [key, value] of Object.entries(messageChainMapFromStore)) {
         // 🔧 识别旧格式 key（匹配 "system:", "user:", "basic:", "pro:", "image:" 前缀）
         const match = key.match(oldKeyPattern)
         if (match) {
@@ -173,6 +261,17 @@ export function useConversationOptimization(
       }
     }
   }
+
+  // session store → Map 同步（支持刷新/切换后恢复）
+  watch(
+    () => proMultiMessageSession.messageChainMap,
+    () => {
+      if (optimizationMode.value !== 'system') return
+      if (isSyncingMapToSession.value) return
+      restoreFromSessionStore()
+    },
+    { immediate: true, flush: 'sync', deep: true }
+  )
 
   /**
    * 🆕 辅助函数：从历史记录获取消息的当前应用版本号
@@ -271,6 +370,7 @@ export function useConversationOptimization(
       currentChainId.value = ''
       currentVersions.value = []
       optimizedPrompt.value = ''
+      optimizedReasoning.value = ''
       currentRecordId.value = ''
     }
   }
@@ -300,6 +400,7 @@ export function useConversationOptimization(
     // 强制重置状态，开始新的优化链
     isOptimizing.value = true
     optimizedPrompt.value = ''
+    optimizedReasoning.value = ''
     currentChainId.value = ''
     currentVersions.value = []
     currentRecordId.value = ''
@@ -327,7 +428,7 @@ export function useConversationOptimization(
             optimizedPrompt.value += token
           },
           onReasoningToken: (reasoningToken: string) => {
-            // 可选：处理推理内容
+            optimizedReasoning.value += reasoningToken
           },
           onComplete: async () => {
             try {
@@ -362,7 +463,7 @@ export function useConversationOptimization(
                     }
 
                     return {
-                      id: msg.id,
+                      id: msg.id || '',
                       role: msg.role,
                       // 🔧 确保使用最新的优化内容
                       content: (msg.id === message.id) ? optimizedPrompt.value : msg.content,
@@ -465,6 +566,7 @@ export function useConversationOptimization(
 
     isOptimizing.value = true
     optimizedPrompt.value = ''  // 🔧 清空旧内容，避免累加
+    optimizedReasoning.value = ''
     await nextTick()
 
     try {
@@ -481,7 +583,7 @@ export function useConversationOptimization(
             optimizedPrompt.value += token
           },
           onReasoningToken: (reasoningToken: string) => {
-             // 处理推理内容
+            optimizedReasoning.value += reasoningToken
           },
           onComplete: async () => {
              try {
@@ -515,7 +617,7 @@ export function useConversationOptimization(
                     }
 
                     return {
-                      id: msg.id,
+                      id: msg.id || '',
                       role: msg.role,
                       content: msg.content,
                       originalContent: msg.originalContent,
@@ -665,29 +767,28 @@ export function useConversationOptimization(
         currentChainId.value = ''
         currentVersions.value = []
         optimizedPrompt.value = ''
+        optimizedReasoning.value = ''
         currentRecordId.value = ''
       } else {
         selectedMessageId.value = ''
         currentChainId.value = ''
         currentVersions.value = []
         optimizedPrompt.value = ''
+        optimizedReasoning.value = ''
         currentRecordId.value = ''
         console.log('[ConversationOptimization] 已清空当前选中状态')
       }
     }
   }
 
-  // 模式切换时软重置，防止跨模式复用链与 V0/V1 混用
-  watch(optimizationMode, () => {
-    messageChainMap.value = new Map()
-    // ⚠️ Codex 修复：清空 Map 后同步到 session store，避免数据残留
-    syncMessageChainMapToSession()
-    selectedMessageId.value = ''
-    currentChainId.value = ''
-    currentRecordId.value = ''
-    currentVersions.value = []
-    optimizedPrompt.value = ''
-  })
+  /*
+   * 模式切换不在这里做“软重置”：
+   * - Pro-system 状态分离/持久化应由 session store + SessionManager 负责
+   * - 这里清空并同步到 session 会导致切换子模式时把持久化数据覆盖为“空”（刷新后尤为明显）
+   *
+   * 原逻辑（已禁用）：
+   * watch(optimizationMode, () => { ...clear...; syncMessageChainMapToSession() })
+   */
 
   /**
    * 保存本地修改为一个新版本（不触发 LLM）

@@ -7,6 +7,7 @@ import { ref, computed } from 'vue'
 
 import type { 
   StandardPromptData,
+  OpenAIRequest,
   ConversionResult,
   VariableSuggestion,
   ConversationMessage
@@ -21,6 +22,14 @@ import { useToast } from '../ui/useToast'
 
 export function useContextEditor() {
   const toast = useToast()
+
+  const isOpenAIRequest = (value: unknown): value is OpenAIRequest => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+    const record = value as Record<string, unknown>
+    if (typeof record.model !== 'string') return false
+    if (!Array.isArray(record.messages)) return false
+    return true
+  }
   
   // 服务实例
   const converter = new PromptDataConverter()
@@ -87,6 +96,10 @@ export function useContextEditor() {
       isLoading.value = true
       error.value = null
       
+      if (!isOpenAIRequest(openaiData)) {
+        return { success: false, error: 'Invalid OpenAI request: missing model/messages' }
+      }
+
       const result = converter.fromOpenAI(openaiData)
       if (result.success && result.data) {
         currentData.value = result.data
@@ -121,7 +134,11 @@ export function useContextEditor() {
           result = converter.fromLangFuse(data)
           break
         case 'openai':
-          result = converter.fromOpenAI(data)
+          if (!isOpenAIRequest(data)) {
+            result = { success: false, error: 'Invalid OpenAI request: missing model/messages' }
+          } else {
+            result = converter.fromOpenAI(data)
+          }
           break
         case 'conversation':
           result = converter.fromConversationMessages(data as Array<Partial<ConversationMessage>>)
@@ -178,10 +195,12 @@ export function useContextEditor() {
       if (!currentData.value.metadata) {
         currentData.value.metadata = {}
       }
-      if (!currentData.value.metadata.variables) {
-        currentData.value.metadata.variables = {}
+      const metadataRecord = currentData.value.metadata as Record<string, unknown>
+      const variables = metadataRecord.variables
+      if (!variables || typeof variables !== 'object' || Array.isArray(variables)) {
+        metadataRecord.variables = {}
       }
-      currentData.value.metadata.variables[variableName] = result.extractedVariable.value
+      (metadataRecord.variables as Record<string, string>)[variableName] = result.extractedVariable.value
 
       toast.success(`变量 ${variableName} 提取成功`)
       return true

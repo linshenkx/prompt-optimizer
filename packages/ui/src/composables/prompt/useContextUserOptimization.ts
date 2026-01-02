@@ -13,6 +13,14 @@ import type { AppServices } from '../../types/services'
 
 type PromptChain = PromptRecordChain
 
+export interface ContextUserOptimizationBindings {
+  prompt?: Ref<string>
+  optimizedPrompt?: Ref<string>
+  optimizedReasoning?: Ref<string>
+  currentChainId?: Ref<string>
+  currentVersionId?: Ref<string>
+}
+
 /**
  * ContextUser 模式提示词优化器接口
  */
@@ -71,7 +79,8 @@ export function useContextUserOptimization(
   services: Ref<AppServices | null>,
   selectedOptimizeModel: Ref<string>,
   selectedTemplate: Ref<Template | null>,
-  selectedIterateTemplate: Ref<Template | null>
+  selectedIterateTemplate: Ref<Template | null>,
+  bindings?: ContextUserOptimizationBindings
 ): UseContextUserOptimization {
   const toast = useToast()
   const { t } = useI18n()
@@ -80,19 +89,25 @@ export function useContextUserOptimization(
   const historyManager = computed(() => services.value?.historyManager)
   const promptService = computed(() => services.value?.promptService)
 
+  const boundPrompt = bindings?.prompt ?? ref('')
+  const boundOptimizedPrompt = bindings?.optimizedPrompt ?? ref('')
+  const boundOptimizedReasoning = bindings?.optimizedReasoning ?? ref('')
+  const boundCurrentChainId = bindings?.currentChainId ?? ref('')
+  const boundCurrentVersionId = bindings?.currentVersionId ?? ref('')
+
   // 使用 reactive 创建响应式状态对象
-  const state = reactive<UseContextUserOptimization>({
+  const state = reactive<any>({
     // 状态
-    prompt: '',
-    optimizedPrompt: '',
-    optimizedReasoning: '',
+    prompt: boundPrompt,
+    optimizedPrompt: boundOptimizedPrompt,
+    optimizedReasoning: boundOptimizedReasoning,
     isOptimizing: false,
     isIterating: false,
     selectedTemplate: null,
     selectedIterateTemplate: null,
-    currentChainId: '',
+    currentChainId: boundCurrentChainId,
     currentVersions: [],
-    currentVersionId: '',
+    currentVersionId: boundCurrentVersionId,
 
     // 方法
     optimize: async () => {
@@ -330,7 +345,15 @@ export function useContextUserOptimization(
      * @param payload.chain - 提示链数据（包含所有版本）
      * @param payload.record - 当前选中的提示记录
      */
-    loadFromHistory: ({ rootPrompt, chain, record }) => {
+    loadFromHistory: ({
+      rootPrompt,
+      chain,
+      record
+    }: {
+      rootPrompt?: string
+      chain: { chainId: string; versions: Array<{ id: string; modelKey?: string; templateId?: string }> }
+      record: { id: string; originalPrompt?: string; optimizedPrompt?: string }
+    }) => {
       state.prompt = rootPrompt || record.originalPrompt || ''
       state.optimizedPrompt = record.optimizedPrompt || ''
       state.optimizedReasoning = ''
@@ -348,7 +371,7 @@ export function useContextUserOptimization(
         if (!historyManager.value) throw new Error('History service unavailable')
         if (!optimizedPrompt) return
 
-        const currentRecord = state.currentVersions.find(v => v.id === state.currentVersionId)
+        const currentRecord = state.currentVersions.find((v: { id: string; modelKey?: string; templateId?: string }) => v.id === state.currentVersionId)
         const modelKey = currentRecord?.modelKey || selectedOptimizeModel.value || 'local-edit'
         const templateId =
           currentRecord?.templateId ||

@@ -2,11 +2,19 @@
  * 数据导入导出管理器实现
  */
 
-import type { DataImportExport, StandardPromptData, ConversionResult, ConversationMessage } from '../types'
+import type { DataImportExport, StandardPromptData, ConversionResult, ConversationMessage, OpenAIRequest } from '../types'
 import { PromptDataConverter } from './PromptDataConverter'
 
 export class DataImportExportManager implements DataImportExport {
   private converter = new PromptDataConverter()
+
+  private isOpenAIRequest(value: unknown): value is OpenAIRequest {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+    const record = value as Record<string, unknown>
+    if (typeof record.model !== 'string') return false
+    if (!Array.isArray(record.messages)) return false
+    return true
+  }
 
   /**
    * 从文件导入数据
@@ -191,7 +199,10 @@ export class DataImportExportManager implements DataImportExport {
         return this.converter.fromLangFuse(jsonData as Record<string, unknown>)
 
       case 'openai':
-        return this.converter.fromOpenAI(jsonData as Record<string, unknown>)
+        if (!this.isOpenAIRequest(jsonData)) {
+          return { success: false, error: 'Invalid OpenAI request: missing model/messages' }
+        }
+        return this.converter.fromOpenAI(jsonData)
 
       case 'conversation':
         return this.converter.fromConversationMessages(jsonData as Array<Partial<ConversationMessage>>, {
@@ -218,7 +229,10 @@ export class DataImportExportManager implements DataImportExport {
         if (!openaiResult.success) {
           throw new Error(openaiResult.error)
         }
-        return openaiResult.data
+        if (!openaiResult.data) {
+          throw new Error('Failed to convert to OpenAI format: missing result data')
+        }
+        return openaiResult.data as unknown as Record<string, unknown>
       }
 
       case 'template':

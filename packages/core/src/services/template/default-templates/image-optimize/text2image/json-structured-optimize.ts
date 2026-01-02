@@ -2,7 +2,7 @@ import { Template, MessageTemplate } from '../../../types';
 
 export const template: Template = {
   id: 'image-json-structured-optimize',
-  name: 'JSON结构化提示词（通用）',
+  name: '中文 JSON 结构化提示词（通用）',
   content: [
     {
       role: 'system',
@@ -70,7 +70,7 @@ export const template: Template = {
     version: '1.0.0',
     lastModified: 1736208000000,
     author: 'System',
-    description: '输出严格 JSON 的图像提示词优化模板；结构通用，允许自由扩展字段以适配任意场景',
+    description: '输出严格 JSON 的图像提示词优化模板（字段名/字段值均为中文）；结构通用，允许自由扩展字段以适配任意场景',
     templateType: 'text2imageOptimize',
     language: 'zh'
   },

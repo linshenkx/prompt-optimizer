@@ -11,56 +11,23 @@
 import { defineStore } from 'pinia'
 import { ref, type Ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
-import type { ConversationMessage } from '@prompt-optimizer/core'
+import { TEMPLATE_SELECTION_KEYS, type ConversationMessage } from '@prompt-optimizer/core'
 
 export interface TestResults {
   originalResult: string
+  originalReasoning: string
   optimizedResult: string
+  optimizedReasoning: string
 }
 
 /**
- * Pro-MultiMessage 会话状态
+ * 默认状态
  */
-export interface ProMultiMessageSessionState {
-  // 对话消息快照（仅用于恢复）
-  conversationMessagesSnapshot: ConversationMessage[]
-
-  // 当前选中的消息ID
-  selectedMessageId: string
-
-  // 当前消息的优化结果
-  optimizedPrompt: string
-
-  // 🔧 Codex 修复：添加 reasoning 字段，与其他 session store 保持一致
-  reasoning: string
-
-  // 历史相关（只存 ID）
-  chainId: string
-  versionId: string
-
-  // 消息-历史链映射（Codex 要求：Map 改 Record）
-  messageChainMap: Record<string, string>
-
-  // 测试结果
-  testResults: TestResults | null
-
-  // 模型和模板选择（只存 ID/key）
-  selectedOptimizeModelKey: string
-  selectedTestModelKey: string
-  selectedTemplateId: string | null
-
-  // 对比模式
-  isCompareMode: boolean
-
-  // 最后活跃时间
-  lastActiveAt: number
-}
-
-const createDefaultState = (): ProMultiMessageSessionState => ({
+const createDefaultState = () => ({
   conversationMessagesSnapshot: [],
   selectedMessageId: '',
   optimizedPrompt: '',
-  reasoning: '', // 🔧 Codex 修复：添加默认值
+  reasoning: '',
   chainId: '',
   versionId: '',
   messageChainMap: {},
@@ -68,27 +35,62 @@ const createDefaultState = (): ProMultiMessageSessionState => ({
   selectedOptimizeModelKey: '',
   selectedTestModelKey: '',
   selectedTemplateId: null,
+  selectedIterateTemplateId: null,
   isCompareMode: true,
   lastActiveAt: Date.now(),
 })
 
 export const useProMultiMessageSession = defineStore('proMultiMessageSession', () => {
-  const state: Ref<ProMultiMessageSessionState> = ref(createDefaultState())
+  // ========== 状态定义（使用独立 ref，而非包装在 state 对象中）==========
+
+  // 对话消息快照（仅用于恢复）
+  const conversationMessagesSnapshot = ref<ConversationMessage[]>([])
+
+  // 当前选中的消息ID
+  const selectedMessageId = ref('')
+
+  // 当前消息的优化结果
+  const optimizedPrompt = ref('')
+
+  // 🔧 Codex 修复：添加 reasoning 字段，与其他 session store 保持一致
+  const reasoning = ref('')
+
+  // 历史相关（只存 ID）
+  const chainId = ref('')
+  const versionId = ref('')
+
+  // 消息-历史链映射（Codex 要求：Map 改 Record）
+  const messageChainMap = ref<Record<string, string>>({})
+
+  // 测试结果
+  const testResults = ref<TestResults | null>(null)
+
+  // 模型和模板选择（只存 ID/key）
+  const selectedOptimizeModelKey = ref('')
+  const selectedTestModelKey = ref('')
+  const selectedTemplateId = ref<string | null>(null)
+  const selectedIterateTemplateId = ref<string | null>(null)
+
+  // 对比模式
+  const isCompareMode = ref(true)
+
+  // 最后活跃时间
+  const lastActiveAt = ref(Date.now())
 
   /**
    * 更新对话消息快照
    */
   const updateConversationMessages = (messages: ConversationMessage[]) => {
-    state.value.conversationMessagesSnapshot = messages
-    state.value.lastActiveAt = Date.now()
+    conversationMessagesSnapshot.value = messages
+    lastActiveAt.value = Date.now()
   }
 
   /**
    * 选择消息
    */
   const selectMessage = (messageId: string) => {
-    state.value.selectedMessageId = messageId
-    state.value.lastActiveAt = Date.now()
+    selectedMessageId.value = messageId
+    lastActiveAt.value = Date.now()
   }
 
   /**
@@ -101,82 +103,138 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
     chainId: string
     versionId: string
   }) => {
-    state.value.optimizedPrompt = payload.optimizedPrompt
-    state.value.reasoning = payload.reasoning
-    state.value.chainId = payload.chainId
-    state.value.versionId = payload.versionId
-    state.value.lastActiveAt = Date.now()
+    const nextOptimizedPrompt = payload.optimizedPrompt
+    const nextReasoning = payload.reasoning
+    const nextChainId = payload.chainId
+    const nextVersionId = payload.versionId
+
+    const changed =
+      optimizedPrompt.value !== nextOptimizedPrompt ||
+      reasoning.value !== nextReasoning ||
+      chainId.value !== nextChainId ||
+      versionId.value !== nextVersionId
+
+    if (!changed) return
+
+    optimizedPrompt.value = nextOptimizedPrompt
+    reasoning.value = nextReasoning
+    chainId.value = nextChainId
+    versionId.value = nextVersionId
+    lastActiveAt.value = Date.now()
   }
 
   /**
    * 更新消息-历史链映射
    */
   const updateMessageChainMap = (messageId: string, chainId: string) => {
-    state.value.messageChainMap[messageId] = chainId
-    state.value.lastActiveAt = Date.now()
+    messageChainMap.value[messageId] = chainId
+    lastActiveAt.value = Date.now()
   }
 
   /**
    * 批量更新消息-历史链映射
    */
   const setMessageChainMap = (map: Record<string, string>) => {
-    state.value.messageChainMap = { ...map }
-    state.value.lastActiveAt = Date.now()
+    messageChainMap.value = { ...map }
+    lastActiveAt.value = Date.now()
   }
 
   /**
    * 移除消息的历史链映射
    */
   const removeMessageChainMapping = (messageId: string) => {
-    delete state.value.messageChainMap[messageId]
-    state.value.lastActiveAt = Date.now()
+    delete messageChainMap.value[messageId]
+    lastActiveAt.value = Date.now()
   }
 
   /**
    * 更新测试结果
    */
   const updateTestResults = (results: TestResults | null) => {
-    state.value.testResults = results
-    state.value.lastActiveAt = Date.now()
+    const prev = testResults.value
+
+    // 检查是否相同
+    const isSame =
+      prev === results ||
+      (!!prev &&
+        !!results &&
+        prev.originalResult === results.originalResult &&
+        prev.originalReasoning === results.originalReasoning &&
+        prev.optimizedResult === results.optimizedResult &&
+        prev.optimizedReasoning === results.optimizedReasoning)
+
+    if (isSame) return
+
+    // 直接赋值给 ref（现在是响应式的）
+    testResults.value = results
+    lastActiveAt.value = Date.now()
   }
 
   /**
    * 更新优化模型选择
    */
   const updateOptimizeModel = (modelKey: string) => {
-    state.value.selectedOptimizeModelKey = modelKey
-    state.value.lastActiveAt = Date.now()
+    if (selectedOptimizeModelKey.value === modelKey) return
+    selectedOptimizeModelKey.value = modelKey
+    lastActiveAt.value = Date.now()
   }
 
   /**
    * 更新测试模型选择
    */
   const updateTestModel = (modelKey: string) => {
-    state.value.selectedTestModelKey = modelKey
-    state.value.lastActiveAt = Date.now()
+    if (selectedTestModelKey.value === modelKey) return
+    selectedTestModelKey.value = modelKey
+    lastActiveAt.value = Date.now()
   }
 
   /**
    * 更新模板选择
    */
   const updateTemplate = (templateId: string | null) => {
-    state.value.selectedTemplateId = templateId
-    state.value.lastActiveAt = Date.now()
+    if (selectedTemplateId.value === templateId) return
+    selectedTemplateId.value = templateId
+    lastActiveAt.value = Date.now()
+  }
+
+  /**
+   * 更新迭代模板选择
+   */
+  const updateIterateTemplate = (templateId: string | null) => {
+    if (selectedIterateTemplateId.value === templateId) return
+    selectedIterateTemplateId.value = templateId
+    lastActiveAt.value = Date.now()
   }
 
   /**
    * 切换对比模式
    */
   const toggleCompareMode = (enabled?: boolean) => {
-    state.value.isCompareMode = enabled ?? !state.value.isCompareMode
-    state.value.lastActiveAt = Date.now()
+    const nextValue = enabled ?? !isCompareMode.value
+    if (isCompareMode.value === nextValue) return
+    isCompareMode.value = nextValue
+    lastActiveAt.value = Date.now()
   }
 
   /**
    * 重置状态
    */
   const reset = () => {
-    state.value = createDefaultState()
+    const defaultState = createDefaultState()
+    conversationMessagesSnapshot.value = defaultState.conversationMessagesSnapshot
+    selectedMessageId.value = defaultState.selectedMessageId
+    optimizedPrompt.value = defaultState.optimizedPrompt
+    reasoning.value = defaultState.reasoning
+    chainId.value = defaultState.chainId
+    versionId.value = defaultState.versionId
+    messageChainMap.value = defaultState.messageChainMap
+    testResults.value = defaultState.testResults
+    selectedOptimizeModelKey.value = defaultState.selectedOptimizeModelKey
+    selectedTestModelKey.value = defaultState.selectedTestModelKey
+    selectedTemplateId.value = defaultState.selectedTemplateId
+    selectedIterateTemplateId.value = defaultState.selectedIterateTemplateId
+    isCompareMode.value = defaultState.isCompareMode
+    lastActiveAt.value = defaultState.lastActiveAt
   }
 
   /**
@@ -190,7 +248,24 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
     }
 
     try {
-      const snapshot = JSON.stringify(state.value)
+      // 构建完整的会话状态对象用于序列化
+      const sessionState = {
+        conversationMessagesSnapshot: conversationMessagesSnapshot.value,
+        selectedMessageId: selectedMessageId.value,
+        optimizedPrompt: optimizedPrompt.value,
+        reasoning: reasoning.value,
+        chainId: chainId.value,
+        versionId: versionId.value,
+        messageChainMap: messageChainMap.value,
+        testResults: testResults.value,
+        selectedOptimizeModelKey: selectedOptimizeModelKey.value,
+        selectedTestModelKey: selectedTestModelKey.value,
+        selectedTemplateId: selectedTemplateId.value,
+        selectedIterateTemplateId: selectedIterateTemplateId.value,
+        isCompareMode: isCompareMode.value,
+        lastActiveAt: lastActiveAt.value,
+      }
+      const snapshot = JSON.stringify(sessionState)
       await $services.preferenceService.set(
         'session/v1/pro-system',
         snapshot
@@ -217,14 +292,43 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
       )
 
       if (saved) {
-        const parsed = JSON.parse(saved) as ProMultiMessageSessionState
-        state.value = {
-          ...createDefaultState(),
-          ...parsed,
-          lastActiveAt: Date.now(),
-        }
+        const parsed = JSON.parse(saved)
+        conversationMessagesSnapshot.value = parsed.conversationMessagesSnapshot || []
+        selectedMessageId.value = parsed.selectedMessageId || ''
+        optimizedPrompt.value = parsed.optimizedPrompt || ''
+        reasoning.value = parsed.reasoning || ''
+        chainId.value = parsed.chainId || ''
+        versionId.value = parsed.versionId || ''
+        messageChainMap.value = parsed.messageChainMap || {}
+        testResults.value = parsed.testResults || null
+        selectedOptimizeModelKey.value = parsed.selectedOptimizeModelKey || ''
+        selectedTestModelKey.value = parsed.selectedTestModelKey || ''
+        selectedTemplateId.value = parsed.selectedTemplateId || null
+        selectedIterateTemplateId.value = parsed.selectedIterateTemplateId || null
+        isCompareMode.value = parsed.isCompareMode ?? true
+        lastActiveAt.value = Date.now()
       }
       // else: 没有保存的会话，使用默认状态
+
+      // 兼容迁移：模板选择（从旧 TEMPLATE_SELECTION_KEYS 迁移一次）
+      if (!selectedTemplateId.value) {
+        const legacyTemplateId = await $services.preferenceService.get(
+          TEMPLATE_SELECTION_KEYS.CONTEXT_SYSTEM_OPTIMIZE_TEMPLATE,
+          ''
+        )
+        if (legacyTemplateId) {
+          selectedTemplateId.value = legacyTemplateId
+        }
+      }
+      if (!selectedIterateTemplateId.value) {
+        const legacyIterateTemplateId = await $services.preferenceService.get(
+          TEMPLATE_SELECTION_KEYS.CONTEXT_ITERATE_TEMPLATE,
+          ''
+        )
+        if (legacyIterateTemplateId) {
+          selectedIterateTemplateId.value = legacyIterateTemplateId
+        }
+      }
     } catch (error) {
       console.error('[ProMultiMessageSession] 恢复会话失败:', error)
       reset()
@@ -232,7 +336,23 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
   }
 
   return {
-    state,
+    // ========== 状态（直接返回，Pinia 会自动追踪响应式）==========
+    conversationMessagesSnapshot,
+    selectedMessageId,
+    optimizedPrompt,
+    reasoning,
+    chainId,
+    versionId,
+    messageChainMap,
+    testResults,
+    selectedOptimizeModelKey,
+    selectedTestModelKey,
+    selectedTemplateId,
+    selectedIterateTemplateId,
+    isCompareMode,
+    lastActiveAt,
+
+    // ========== 更新方法 ==========
     updateConversationMessages,
     selectMessage,
     updateOptimizedResult,
@@ -243,8 +363,11 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
     updateOptimizeModel,
     updateTestModel,
     updateTemplate,
+    updateIterateTemplate,
     toggleCompareMode,
     reset,
+
+    // ========== 持久化方法 ==========
     saveSession,
     restoreSession,
   }

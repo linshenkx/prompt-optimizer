@@ -44,6 +44,9 @@ export function useSessionRestoreCoordinator(restoreFn: () => Promise<void> | vo
     try {
       // 执行具体的恢复逻辑（由调用方提供）
       await restoreFn()
+    } catch (error) {
+      // 🔧 修复：添加错误处理，避免未处理的 Promise rejection 传播到 Vue watcher
+      console.error('[SessionRestoreCoordinator] restore failed', error)
     } finally {
       // 🔧 无论成功或失败，都要释放锁
       isRestoring.value = false

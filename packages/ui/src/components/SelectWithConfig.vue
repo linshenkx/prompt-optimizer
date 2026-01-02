@@ -43,7 +43,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, useAttrs } from 'vue'
+import { computed, h, useAttrs, toValue } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import { NSelect, NSpace, NButton, NText } from 'naive-ui'
@@ -93,7 +93,9 @@ const shouldShowEmptyConfigCTA = computed(() => !!props.showEmptyConfigCTA)
 
 // 将外部原始 options 转换为 NSelect 可识别的选项，label 为两行结构
 const mappedOptions = computed(() => {
-  return (props.options || []).map((opt: SelectOption) => {
+  // 使用 toValue 解包可能的 Ref，兼容直接传递 ref 或数组
+  const optionsArray = toValue(props.options) || []
+  return optionsArray.map((opt: SelectOption) => {
     const primary = props.getPrimary(opt) || ''
     const secondary = props.getSecondary ? (props.getSecondary(opt) || '') : ''
     const value = props.getValue(opt)

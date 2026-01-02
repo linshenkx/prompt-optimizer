@@ -32,16 +32,7 @@
 
                 <!-- Core Navigation Slot -->
                 <template #core-nav>
-                    <AppCoreNav
-                        :functionMode="functionMode"
-                        :basicSubMode="basicSubMode"
-                        :proSubMode="proSubMode"
-                        :imageSubMode="imageSubMode"
-                        @update:functionMode="handleModeSelect"
-                        @basic-sub-mode-change="handleBasicSubModeChange"
-                        @pro-sub-mode-change="handleProSubModeChange"
-                        @image-sub-mode-change="handleImageSubModeChange"
-                    />
+                    <AppCoreNav />
                 </template>
 
                 <!-- Actions Slot -->
@@ -56,410 +47,20 @@
                     />
                 </template>
                 <template #main>
-                    <!-- 上下文模式：根据模式使用不同的独立组件 -->
-                    <template v-if="functionMode === 'pro'">
-                        <!-- 上下文-系统模式 -->
-                        <ContextSystemWorkspace
-                            ref="systemWorkspaceRef"
-                            v-if="contextMode === 'system'"
-                            :optimized-reasoning="optimizer.optimizedReasoning"
-                            :optimization-mode="selectedOptimizationMode"
-                            :is-optimizing="optimizer.isOptimizing"
-                            :is-iterating="optimizer.isIterating"
-                            :selected-iterate-template="
-                                optimizer.selectedIterateTemplate
-                            "
-                            @update:selectedIterateTemplate="
-                                optimizer.selectedIterateTemplate = $event
-                            "
-                            :optimization-context="optimizationContext"
-                            @update:optimizationContext="
-                                optimizationContext = $event
-                            "
-                            :tool-count="optimizationContextTools.length"
-                            :global-variables="
-                                variableManager?.customVariables?.value || {}
-                            "
-                            :predefined-variables="predefinedVariables"
-                            :available-variables="
-                                variableManager?.variableManager.value?.resolveAllVariables() ||
-                                {}
-                            "
-                            :scan-variables="
-                                (content) =>
-                                    variableManager?.variableManager.value?.scanVariablesInContent(
-                                        content,
-                                    ) || []
-                            "
-                            :input-mode="
-                                responsiveLayout.recommendedInputMode.value
-                            "
-                            :control-bar-layout="
-                                responsiveLayout.recommendedControlBarLayout
-                                    .value
-                            "
-                            :button-size="
-                                responsiveLayout.smartButtonSize.value
-                            "
-                            :conversation-max-height="
-                                responsiveLayout.responsiveHeights.value
-                                    .conversationMax
-                            "
-                            :result-vertical-layout="
-                                responsiveLayout.isMobile.value
-                            "
-                            :is-compare-mode="isCompareMode"
-                            @update:isCompareMode="isCompareMode = $event"
-                            @compare-toggle="handleTestAreaCompareToggle"
-                            @optimize="handleOptimizePrompt"
-                            @iterate="handleIteratePrompt"
-                            @switchVersion="handleSwitchVersion"
-                            @save-favorite="handleSaveFavorite"
-                            @open-global-variables="openVariableManager()"
-                            @open-variable-manager="handleOpenVariableManager"
-                            @open-context-editor="handleOpenContextEditor()"
-                            @open-tool-manager="handleOpenToolManager"
-                            @openTemplateManager="openTemplateManager"
-                            @config-model="modelManager.showConfig = true"
-                            @open-input-preview="handleOpenInputPreview"
-                            @open-prompt-preview="handleOpenPromptPreview"
-                            :enable-message-optimization="true"
-                            :selected-optimize-model="modelManager.selectedOptimizeModel"
-                            :selected-template="currentSelectedTemplate"
-                            :evaluation-model-key="functionModelManager.effectiveEvaluationModel.value"
-                            :selected-test-model="modelManager.selectedTestModel"
-                            :test-model-provider="selectedTestModelInfo?.provider"
-                            :test-model-name="selectedTestModelInfo?.model"
-                        >
-                            <!-- 优化模型选择插槽 -->
-                            <template #optimize-model-select>
-                                <SelectWithConfig
-                                    v-model="modelManager.selectedOptimizeModel"
-                                    :options="textModelOptions"
-                                    :getPrimary="OptionAccessors.getPrimary"
-                                    :getSecondary="OptionAccessors.getSecondary"
-                                    :getValue="OptionAccessors.getValue"
-                                    :placeholder="t('model.select.placeholder')"
-                                    size="medium"
-                                    :disabled="optimizer.isOptimizing"
-                                    filterable
-                                    :show-config-action="true"
-                                    :show-empty-config-c-t-a="true"
-                                    @focus="refreshTextModels"
-                                    @config="modelManager.showConfig = true"
-                                />
-                            </template>
-
-                            <!-- 模板选择插槽 -->
-                            <template #template-select>
-                                <template
-                                    v-if="services && services.templateManager"
-                                >
-                                    <SelectWithConfig
-                                        v-model="selectedTemplateIdForSelect"
-                                        :options="templateOptions"
-                                        :getPrimary="OptionAccessors.getPrimary"
-                                        :getSecondary="
-                                            OptionAccessors.getSecondary
-                                        "
-                                        :getValue="OptionAccessors.getValue"
-                                        :placeholder="t('template.select')"
-                                        size="medium"
-                                        :disabled="optimizer.isOptimizing"
-                                        filterable
-                                        :show-config-action="true"
-                                        :show-empty-config-c-t-a="true"
-                                        @focus="refreshOptimizeTemplates"
-                                        @config="
-                                            handleOpenOptimizeTemplateManager
-                                        "
-                                    />
-                                </template>
-                                <NText v-else depth="3" class="p-2 text-sm">
-                                    {{ t("template.loading") || "加载中..." }}
-                                </NText>
-                            </template>
-
-                            <!-- 测试模型选择插槽 -->
-                            <template #test-model-select>
-                                <SelectWithConfig
-                                    v-model="modelManager.selectedTestModel"
-                                    :options="textModelOptions"
-                                    :getPrimary="OptionAccessors.getPrimary"
-                                    :getSecondary="OptionAccessors.getSecondary"
-                                    :getValue="OptionAccessors.getValue"
-                                    :placeholder="t('model.select.placeholder')"
-                                    size="medium"
-                                    filterable
-                                    :show-config-action="true"
-                                    :show-empty-config-c-t-a="true"
-                                    @focus="refreshTextModels"
-                                    @config="modelManager.showConfig = true"
-                                />
-                            </template>
-                        </ContextSystemWorkspace>
-
-                        <!-- 上下文-用户模式 -->
-                        <ContextUserWorkspace
-                            ref="userWorkspaceRef"
-                            v-else-if="contextMode === 'user'"
-                            :optimization-mode="selectedOptimizationMode"
-                            :selected-optimize-model="modelManager.selectedOptimizeModel"
-                            :selected-test-model="modelManager.selectedTestModel"
-                            :test-model-provider="selectedTestModelInfo?.provider"
-                            :test-model-name="selectedTestModelInfo?.model"
-                            :evaluation-model-key="functionModelManager.effectiveEvaluationModel.value"
-                            :selected-template="currentSelectedTemplate"
-                            :selected-iterate-template="
-                                optimizer.selectedIterateTemplate
-                            "
-                            @update:selectedIterateTemplate="
-                                optimizer.selectedIterateTemplate = $event
-                            "
-                            :is-compare-mode="isCompareMode"
-                            @update:isCompareMode="isCompareMode = $event"
-                            :is-extracting="variableExtraction.isExtracting.value"
-                            :global-variables="
-                                variableManager?.customVariables?.value || {}
-                            "
-                            :predefined-variables="predefinedVariables"
-                            @variable-change="handleTestPanelVariableChange"
-                            @save-to-global="handleSaveToGlobal"
-                            :control-bar-layout="
-                                responsiveLayout.recommendedControlBarLayout
-                                    .value
-                            "
-                            :button-size="
-                                responsiveLayout.smartButtonSize.value
-                            "
-                            :conversation-max-height="
-                                responsiveLayout.responsiveHeights.value
-                                    .conversationMax
-                            "
-                            :result-vertical-layout="
-                                responsiveLayout.isMobile.value
-                            "
-                            @compare-toggle="handleTestAreaCompareToggle"
-                            @save-favorite="handleSaveFavorite"
-                            @open-global-variables="openVariableManager()"
-                            @open-variable-manager="handleOpenVariableManager"
-                            @openTemplateManager="openTemplateManager"
-                            @config-model="modelManager.showConfig = true"
-                            @open-input-preview="handleOpenInputPreview"
-                            @open-prompt-preview="handleOpenPromptPreview"
-                            @extract-variables="handleExtractVariablesForContextUser"
-                        >
-                            <!-- 优化模型选择插槽 -->
-                            <template #optimize-model-select>
-                                <SelectWithConfig
-                                    v-model="modelManager.selectedOptimizeModel"
-                                    :options="textModelOptions"
-                                    :getPrimary="OptionAccessors.getPrimary"
-                                    :getSecondary="OptionAccessors.getSecondary"
-                                    :getValue="OptionAccessors.getValue"
-                                    :placeholder="t('model.select.placeholder')"
-                                    size="medium"
-                                    :disabled="optimizer.isOptimizing"
-                                    filterable
-                                    :show-config-action="true"
-                                    :show-empty-config-c-t-a="true"
-                                    @focus="refreshTextModels"
-                                    @config="modelManager.showConfig = true"
-                                />
-                            </template>
-
-                            <!-- 模板选择插槽 -->
-                            <template #template-select>
-                                <template
-                                    v-if="services && services.templateManager"
-                                >
-                                    <SelectWithConfig
-                                        v-model="selectedTemplateIdForSelect"
-                                        :options="templateOptions"
-                                        :getPrimary="OptionAccessors.getPrimary"
-                                        :getSecondary="
-                                            OptionAccessors.getSecondary
-                                        "
-                                        :getValue="OptionAccessors.getValue"
-                                        :placeholder="t('template.select')"
-                                        size="medium"
-                                        :disabled="optimizer.isOptimizing"
-                                        filterable
-                                        :show-config-action="true"
-                                        :show-empty-config-c-t-a="true"
-                                        @focus="refreshOptimizeTemplates"
-                                        @config="
-                                            handleOpenOptimizeTemplateManager
-                                        "
-                                    />
-                                </template>
-                                <NText v-else depth="3" class="p-2 text-sm">
-                                    {{ t("template.loading") || "加载中..." }}
-                                </NText>
-                            </template>
-
-                            <!-- 测试模型选择插槽 -->
-                            <template #test-model-select>
-                                <SelectWithConfig
-                                    v-model="modelManager.selectedTestModel"
-                                    :options="textModelOptions"
-                                    :getPrimary="OptionAccessors.getPrimary"
-                                    :getSecondary="OptionAccessors.getSecondary"
-                                    :getValue="OptionAccessors.getValue"
-                                    :placeholder="t('model.select.placeholder')"
-                                    size="medium"
-                                    filterable
-                                    :show-config-action="true"
-                                    :show-empty-config-c-t-a="true"
-                                    @focus="refreshTextModels"
-                                    @config="modelManager.showConfig = true"
-                                />
-                            </template>
-                        </ContextUserWorkspace>
-                    </template>
-
-                    <!-- 基础模式：使用 BasicModeWorkspace 组件 -->
-                    <template v-else-if="functionMode === 'basic'">
-                        <BasicModeWorkspace
-                            ref="basicModeWorkspaceRef"
-                            :optimization-mode="selectedOptimizationMode"
-                            :advanced-mode-enabled="advancedModeEnabled"
-                            :prompt="optimizer.prompt"
-                            @update:prompt="optimizer.prompt = $event"
-                            :optimized-prompt="optimizer.optimizedPrompt"
-                            @update:optimized-prompt="optimizer.optimizedPrompt = $event"
-                            :optimized-reasoning="optimizer.optimizedReasoning"
-                            :is-optimizing="optimizer.isOptimizing"
-                            :is-iterating="optimizer.isIterating"
-                            :current-versions="optimizer.currentVersions"
-                            :current-version-id="optimizer.currentVersionId"
-                            :selected-iterate-template="optimizer.selectedIterateTemplate"
-                            @update:selectedIterateTemplate="optimizer.selectedIterateTemplate = $event"
-                            :test-content="testContent"
-                            @update:test-content="testContent = $event"
-                            :is-compare-mode="isCompareMode"
-                            @update:isCompareMode="isCompareMode = $event"
-                            :original-result="testResults.originalResult"
-                            :original-reasoning="testResults.originalReasoning"
-                            :optimized-result="testResults.optimizedResult"
-                            :test-optimized-reasoning="testResults.optimizedReasoning"
-                            :is-testing-original="testResults.isTestingOriginal"
-                            :is-testing-optimized="testResults.isTestingOptimized"
-                            :global-variables="variableManager?.customVariables?.value || {}"
-                            :predefined-variables="predefinedVariables"
-                            :model-provider="selectedTestModelInfo?.provider"
-                            :model-name="selectedTestModelInfo?.model"
-                            :has-original-result="!!testResults.originalResult"
-                            :has-optimized-result="!!testResults.optimizedResult"
-                            :is-evaluating-original="evaluation.isEvaluatingOriginal.value"
-                            :is-evaluating-optimized="evaluation.isEvaluatingOptimized.value"
-                            :is-evaluating-compare="evaluation.isEvaluatingCompare.value"
-                            :original-score="evaluation.originalScore.value"
-                            :optimized-score="evaluation.optimizedScore.value"
-                            :compare-score="evaluation.compareScore.value"
-                            :has-original-evaluation="evaluation.hasOriginalResult.value"
-                            :has-optimized-evaluation="evaluation.hasOptimizedResult.value"
-                            :has-compare-evaluation="evaluation.hasCompareResult.value"
-                            :original-evaluation-result="evaluation.state.original.result"
-                            :optimized-evaluation-result="evaluation.state.optimized.result"
-                            :compare-evaluation-result="evaluation.state.compare.result"
-                            :original-score-level="evaluation.originalLevel.value"
-                            :optimized-score-level="evaluation.optimizedLevel.value"
-                            :compare-score-level="evaluation.compareLevel.value"
-                            :input-mode="responsiveLayout.recommendedInputMode.value"
-                            :control-bar-layout="responsiveLayout.recommendedControlBarLayout.value"
-                            :button-size="responsiveLayout.smartButtonSize.value"
-                            :conversation-max-height="responsiveLayout.responsiveHeights.value.conversationMax"
-                            :result-vertical-layout="responsiveLayout.isMobile.value"
-                            :analyzing="isBasicAnalyzing"
-                            @optimize="handleOptimizePrompt"
-                            @iterate="handleIteratePrompt"
-                            @switchVersion="handleSwitchVersion"
-                            @test="handleTestAreaTest"
-                            @compare-toggle="handleTestAreaCompareToggle"
-                            @evaluate-original="() => handleEvaluate('original')"
-                            @evaluate-optimized="() => handleEvaluate('optimized')"
-                            @evaluate-compare="() => handleEvaluate('compare')"
-                            @evaluate-prompt-only="handleAnalyzeEvaluate"
-                            @show-original-detail="() => evaluation.showDetail('original')"
-                            @show-optimized-detail="() => evaluation.showDetail('optimized')"
-                            @show-compare-detail="() => evaluation.showDetail('compare')"
-                            @apply-improvement="handleApplyImprovement"
-                            @apply-patch="handleApplyLocalPatch"
-                            @save-local-edit="handleSaveLocalEdit"
-                            @save-favorite="handleSaveFavorite"
-                            @open-variable-manager="handleOpenVariableManager"
-                            @open-input-preview="handleOpenInputPreview"
-                            @open-prompt-preview="handleOpenPromptPreview"
-                            @config-model="modelManager.showConfig = true"
-                            @openTemplateManager="openTemplateManager"
-                        >
-                            <!-- 优化模型选择插槽 -->
-                            <template #optimize-model-select>
-                                <SelectWithConfig
-                                    v-model="modelManager.selectedOptimizeModel"
-                                    :options="textModelOptions"
-                                    :getPrimary="OptionAccessors.getPrimary"
-                                    :getSecondary="OptionAccessors.getSecondary"
-                                    :getValue="OptionAccessors.getValue"
-                                    :placeholder="t('model.select.placeholder')"
-                                    size="medium"
-                                    :disabled="optimizer.isOptimizing"
-                                    filterable
-                                    :show-config-action="true"
-                                    :show-empty-config-c-t-a="true"
-                                    @focus="refreshTextModels"
-                                    @config="modelManager.showConfig = true"
-                                />
-                            </template>
-
-                            <!-- 模板选择插槽 -->
-                            <template #template-select>
-                                <template v-if="services && services.templateManager">
-                                    <SelectWithConfig
-                                        v-model="selectedTemplateIdForSelect"
-                                        :options="templateOptions"
-                                        :getPrimary="OptionAccessors.getPrimary"
-                                        :getSecondary="OptionAccessors.getSecondary"
-                                        :getValue="OptionAccessors.getValue"
-                                        :placeholder="t('template.select')"
-                                        size="medium"
-                                        :disabled="optimizer.isOptimizing"
-                                        filterable
-                                        :show-config-action="true"
-                                        :show-empty-config-c-t-a="true"
-                                        @focus="refreshOptimizeTemplates"
-                                        @config="handleOpenOptimizeTemplateManager"
-                                    />
-                                </template>
-                                <NText v-else depth="3" class="p-2 text-sm">
-                                    {{ t("template.loading") || "加载中..." }}
-                                </NText>
-                            </template>
-
-                            <!-- 测试模型选择插槽 -->
-                            <template #test-model-select>
-                                <SelectWithConfig
-                                    v-model="modelManager.selectedTestModel"
-                                    :options="textModelOptions"
-                                    :getPrimary="OptionAccessors.getPrimary"
-                                    :getSecondary="OptionAccessors.getSecondary"
-                                    :getValue="OptionAccessors.getValue"
-                                    :placeholder="t('model.select.placeholder')"
-                                    size="medium"
-                                    filterable
-                                    :show-config-action="true"
-                                    :show-empty-config-c-t-a="true"
-                                    @focus="refreshTextModels"
-                                    @config="modelManager.showConfig = true"
-                                />
-                            </template>
-                        </BasicModeWorkspace>
-                    </template>
-                    <!-- 图像模式：渲染新的工作区组件，不破坏现有结构 -->
-                    <template v-else>
-                        <ImageWorkspace />
-                    </template>
+                    <!-- 🔧 路由架构：使用 RouterView 自动渲染对应的工作区容器 -->
+                    <!-- - /basic/system → BasicSystemWorkspace -->
+                    <!-- - /basic/user → BasicUserWorkspace -->
+                    <!-- - /pro/system, /pro/multi → ContextSystemWorkspace -->
+                    <!-- - /pro/user, /pro/variable → ContextUserWorkspace -->
+                    <!-- - /image/text2image → ImageText2ImageWorkspace -->
+                    <!-- - /image/image2image → ImageImage2ImageWorkspace -->
+                    <RouterView v-slot="{ Component, route: viewRoute }">
+                        <component
+                            :is="Component"
+                            :key="viewRoute.fullPath"
+                            :ref="(instance) => setWorkspaceRef(instance, viewRoute.name)"
+                        />
+                    </RouterView>
                 </template>
             </MainLayoutUI>
 
@@ -476,9 +77,13 @@
             <TemplateManagerUI
                 v-if="isReady"
                 v-model:show="templateManagerState.showTemplates"
-                :templateType="templateManagerState.currentType"
+                :selected-system-optimize-template="optimizer.selectedOptimizeTemplate"
+                :selected-user-optimize-template="optimizer.selectedUserOptimizeTemplate"
+                :selected-iterate-template="optimizer.selectedIterateTemplate"
+                :template-type="templateManagerState.currentType"
+                @select="handleTemplateSelected"
                 @close="handleTemplateManagerClosed"
-                @languageChanged="handleTemplateLanguageChanged"
+                @language-changed="handleTemplateLanguageChanged"
             />
             <HistoryDrawerUI
                 v-if="isReady"
@@ -513,7 +118,7 @@
                 v-model:show="showSaveFavoriteDialog"
                 :content="saveFavoriteData?.content || ''"
                 :original-content="saveFavoriteData?.originalContent || ''"
-                :current-function-mode="functionMode"
+                :current-function-mode="routeFunctionMode"
                 :current-optimization-mode="selectedOptimizationMode"
                 @saved="handleSaveFavoriteComplete"
             />
@@ -628,11 +233,12 @@ import {
     nextTick,
     type Ref,
 } from "vue";
+import { RouterView } from "vue-router";
+import { router as routerInstance } from '../../router';
 import { useI18n } from "vue-i18n";
 import {
     NConfigProvider,
     NGlobalStyle,
-    NText,
 } from "naive-ui";
 import hljs from "highlight.js/lib/core";
 import jsonLang from "highlight.js/lib/languages/json";
@@ -649,13 +255,8 @@ import SaveFavoriteDialog from '../SaveFavoriteDialog.vue'
 import VariableManagerModal from '../variable/VariableManagerModal.vue'
 import { VariableExtractionResultDialog } from '../variable-extraction'
 import ToolManagerModal from '../tool/ToolManagerModal.vue'
-import ImageWorkspace from '../image-mode/ImageWorkspace.vue'
 import ContextEditor from '../context-mode/ContextEditor.vue'
 import PromptPreviewPanel from '../PromptPreviewPanel.vue'
-import ContextSystemWorkspace from '../context-mode/ContextSystemWorkspace.vue'
-import ContextUserWorkspace from '../context-mode/ContextUserWorkspace.vue'
-import BasicModeWorkspace from '../basic-mode/BasicModeWorkspace.vue'
-import SelectWithConfig from '../SelectWithConfig.vue'
 import AppHeaderActions from './AppHeaderActions.vue'
 import AppCoreNav from './AppCoreNav.vue'
 import EvaluationPanel from '../evaluation/EvaluationPanel.vue'
@@ -687,7 +288,6 @@ import {
     // UI 相关
     useToast,
     useNaiveTheme,
-    useResponsiveTestLayout,
     // 系统相关
     useAppInitializer,
     useHistoryManager,
@@ -713,57 +313,259 @@ import { useProVariableSession } from '../../stores/session/useProVariableSessio
 import { useSessionRestoreCoordinator } from '../../composables/session/useSessionRestoreCoordinator'
 import { useImageText2ImageSession } from '../../stores/session/useImageText2ImageSession'
 import { useImageImage2ImageSession } from '../../stores/session/useImageImage2ImageSession'
+import { useGlobalSettings, type GlobalSettingsApi } from '../../stores/settings/useGlobalSettings'
 
 // Data Transformation
-import { DataTransformer, OptionAccessors } from '../../utils/data-transformer'
+import { DataTransformer } from '../../utils/data-transformer'
 
 // Types
 import type { OptimizationMode, ConversationMessage, ModelSelectOption, TemplateSelectOption, TestAreaPanelInstance } from '../../types'
-import { applyPatchOperationsToText, type IPromptService, type PromptRecordChain, type PromptRecord, type PatchOperation } from "@prompt-optimizer/core";
+import { applyPatchOperationsToText, type IPromptService, type PromptRecordChain, type PromptRecord, type PatchOperation, type Template, type FunctionMode, type BasicSubMode, type ProSubMode, type ImageSubMode } from "@prompt-optimizer/core";
 
 // 1. 基础 composables
 const hljsInstance = hljs;
-const { t } = useI18n();
+const i18n = useI18n();
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const t = i18n.t;  // 在模板中使用
 const toast = useToast();
 
 // 2. 初始化应用服务
 const { services, isInitializing } = useAppInitializer();
 
 // 3. 初始化功能模式和子模式（必须在 sessionManager 之前）
-const { functionMode, setFunctionMode } = useFunctionMode(services as any);
-const { basicSubMode, setBasicSubMode } = useBasicSubMode(services as any);
-const { proSubMode, setProSubMode } = useProSubMode(services as any);
-const { imageSubMode, setImageSubMode } = useImageSubMode(services as any);
+//
+// ⚠️ 重要：这些 composable 仅用于一次性初始化（ensureInitialized），不得作为状态来源！
+// 🔧 Step E 完成：所有模式/子模式的读取已统一使用 route-computed（routeFunctionMode/route*SubMode）
+// 🔴 禁止事项：
+//   - 严禁在业务逻辑中读取 functionMode/basicSubMode/proSubMode/imageSubMode 的 .value
+//   - 严禁使用这些 composable 的 set* 方法（已被 navigateToSubModeKey 替代）
+//   - 严禁基于这些 state 注册新的 watch（路由是唯一真源）
+// ✅ 允许用途：
+//   - 仅在 services ready watch 中调用 ensureInitialized 进行一次性初始化
+//   - 确保 PreferenceService 中的历史偏好能够加载（但不影响路由驱动的行为）
+//
+// TODO（后续重构）：将 ensureInitialized 拆为纯 initModePreferences() 函数，完全移除这些 composable 的依赖
+// ⚠️ 注意：这些 composable 的调用会触发初始化副作用，但返回的 state 不得作为业务逻辑的状态来源
+// 🔧 修复：保存 composable 返回值，避免在 watch 回调中重复调用（导致 inject() 错误）
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const functionModeApi = useFunctionMode(services as any);
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const basicSubModeApi = useBasicSubMode(services as any);
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const proSubModeApi = useProSubMode(services as any);
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const imageSubModeApi = useImageSubMode(services as any);
+
+// 3.5. 🔧 Step A: 建立路由驱动的单一真源（优先于 state，避免双真源）
+//
+// ⚠️ 注意：PromptOptimizerApp 不在 RouterView 上下文中，无法使用 useRoute/useRouter
+// 解决方案：直接导入 router 实例，使用 currentRoute 访问路由状态
+// ⚠️ 重要：computed 只做纯解析，纠错逻辑移到独立的 watch（避免循环导航）
+//
+// 纯解析函数：从路由路径提取模式和子模式
+const parseRouteInfo = () => {
+  const currentRoute = routerInstance.currentRoute.value
+  const path = currentRoute.path
+  const subMode = path.split('/')[2]
+
+  // 解析 functionMode
+  let functionMode: 'basic' | 'pro' | 'image' = 'basic'
+  if (path.startsWith('/basic')) functionMode = 'basic'
+  else if (path.startsWith('/pro')) functionMode = 'pro'
+  else if (path.startsWith('/image')) functionMode = 'image'
+  else if (path === '/' || path === '') functionMode = 'basic'  // 根路径默认
+
+  // 解析子模式（带白名单验证）
+  const parseSubMode = (
+    mode: 'basic' | 'pro' | 'image',
+    subModeParam: string | undefined
+  ): { subMode: string; isValid: boolean; canonicalSubMode: string } => {
+    const validSubModes: Record<string, string[]> = {
+      basic: ['system', 'user'],
+      pro: ['system', 'user', 'multi', 'variable'],
+      image: ['text2image', 'image2image'],
+    }
+
+    const allowed = validSubModes[mode] || []
+    const isValid = subModeParam !== undefined && allowed.includes(subModeParam)
+
+    // 兼容性映射（multi→system, variable→user）
+    let canonicalSubMode = subModeParam || ''
+    if (mode === 'pro') {
+      if (canonicalSubMode === 'multi') canonicalSubMode = 'system'
+      if (canonicalSubMode === 'variable') canonicalSubMode = 'user'
+    }
+
+    // 默认值
+    if (!canonicalSubMode || !isValid) {
+      canonicalSubMode = mode === 'image' ? 'text2image' : 'system'
+    }
+
+    return { subMode: canonicalSubMode, isValid, canonicalSubMode }
+  }
+
+  const subModeInfo = parseSubMode(functionMode, subMode)
+
+  return {
+    functionMode,
+    basicSubMode:
+      (functionMode === 'basic' ? subModeInfo.canonicalSubMode : 'system') as 'system' | 'user',
+    proSubMode:
+      (functionMode === 'pro' ? subModeInfo.canonicalSubMode : 'system') as 'system' | 'user',
+    imageSubMode:
+      (functionMode === 'image' ? subModeInfo.canonicalSubMode : 'text2image') as 'text2image' | 'image2image',
+    isValid: subModeInfo.isValid,
+    canonicalPath: `/${functionMode}/${subModeInfo.canonicalSubMode}`,
+  }
+}
+
+// Route-computed（纯解析，无副作用）
+const routeFunctionMode = computed<FunctionMode>(() => parseRouteInfo().functionMode)
+const routeBasicSubMode = computed<BasicSubMode>(() => parseRouteInfo().basicSubMode)
+const routeProSubMode = computed<ProSubMode>(() => parseRouteInfo().proSubMode)
+const routeImageSubMode = computed<ImageSubMode>(() => parseRouteInfo().imageSubMode)
+
+// 🔧 路由纠错 watch：独立于 computed，避免循环导航
+// 只在检测到非法路径时触发 redirect（确保 UI 永远看到合法的 route-computed）
+watch(
+  () => routerInstance.currentRoute.value.path,
+  (currentPath) => {
+    // 根路径由 useGlobalSettings 驱动初始化路由，不在此处强制纠错
+    if (currentPath === '/' || currentPath === '') return
+
+    const routeInfo = parseRouteInfo()
+
+    // 如果当前路径非法，redirect 到规范路径
+    if (!routeInfo.isValid && currentPath !== routeInfo.canonicalPath) {
+      console.warn(`[PromptOptimizerApp] 检测到非法路径: ${currentPath}，redirect 到 ${routeInfo.canonicalPath}`)
+      routerInstance.replace(routeInfo.canonicalPath)
+    }
+  },
+  { immediate: true }  // 立即检查一次
+)
+
+// ========== GlobalSettings ⇢ 初始路由（仅在根路径时生效） ==========
+let _routeInitInFlight: Promise<void> | null = null
+const routeInitialized = ref(false)  // 🔧 标记路由初始化完成，防止过早渲染
+
+const initializeRouteFromGlobalSettings = async (globalSettings: GlobalSettingsApi) => {
+  const currentPath = routerInstance.currentRoute.value.path
+
+  // 只在根路径时应用（避免干扰正常导航/深链路刷新）
+  if (currentPath !== '/' && currentPath !== '') {
+    // 🔧 非根路径（深链接/刷新），直接标记路由已就绪
+    routeInitialized.value = true
+    return
+  }
+
+  // 等待 globalSettings 恢复完成（双保险：调用方通常已 await restore）
+  if (!globalSettings.isInitialized) {
+    await new Promise<void>((resolve) => {
+      const unwatch = watch(
+        () => globalSettings.isInitialized,
+        (initialized) => {
+          if (initialized) {
+            unwatch()
+            resolve()
+          }
+        },
+        { immediate: true }
+      )
+    })
+  }
+
+  const { functionMode, basicSubMode, proSubMode, imageSubMode } = globalSettings.state
+
+  let initialRoute = '/basic/system'
+  switch (functionMode) {
+    case 'basic':
+      initialRoute = `/basic/${basicSubMode}`
+      break
+    case 'pro':
+      initialRoute = `/pro/${proSubMode}`
+      break
+    case 'image':
+      initialRoute = `/image/${imageSubMode}`
+      break
+  }
+
+  if (routerInstance.currentRoute.value.path !== initialRoute) {
+    console.log(`[PromptOptimizerApp] 初始化路由: ${initialRoute}`)
+    await routerInstance.replace(initialRoute)
+  }
+
+  // 🔧 标记路由初始化完成
+  routeInitialized.value = true
+}
+
+// ========== 路由 ⇢ GlobalSettings（仅记录，不反向驱动路由） ==========
+watch(
+  () => routerInstance.currentRoute.value.path,
+  () => {
+    const globalSettings = useGlobalSettings()
+    if (!globalSettings.hasRestored) return
+
+    const routeInfo = parseRouteInfo()
+
+    if (routeInfo.functionMode !== globalSettings.state.functionMode) {
+      globalSettings.updateFunctionMode(routeInfo.functionMode)
+    }
+
+    // 子模式隔离：只更新“当前功能模式”对应的 subMode
+    if (routeInfo.functionMode === 'basic' && routeInfo.basicSubMode !== globalSettings.state.basicSubMode) {
+      globalSettings.updateBasicSubMode(routeInfo.basicSubMode)
+    }
+    if (routeInfo.functionMode === 'pro' && routeInfo.proSubMode !== globalSettings.state.proSubMode) {
+      globalSettings.updateProSubMode(routeInfo.proSubMode)
+    }
+    if (routeInfo.functionMode === 'image' && routeInfo.imageSubMode !== globalSettings.state.imageSubMode) {
+      globalSettings.updateImageSubMode(routeInfo.imageSubMode)
+    }
+  }
+)
 
 // 4. 初始化 SessionManager（必须在 services watch 之前）
 const sessionManager = useSessionManager();
 
-// 注入子模式读取器（避免双真源）
+// 🔧 Step B: 注入 route-computed 读取器（替代旧 state，避免双真源）
 sessionManager.injectSubModeReaders({
-  getFunctionMode: () => functionMode.value,
-  getBasicSubMode: () => basicSubMode.value,
-  getProSubMode: () => proSubMode.value,
-  getImageSubMode: () => imageSubMode.value,
+  getFunctionMode: () => routeFunctionMode.value,
+  getBasicSubMode: () => routeBasicSubMode.value,
+  getProSubMode: () => routeProSubMode.value,
+  getImageSubMode: () => routeImageSubMode.value,
 });
 
 // 5. Initialize i18n with storage when services are ready
 watch(
     services,
-    async (newServices) => {
-        if (newServices) {
-            setI18nServices(newServices);
-            setPiniaServices(newServices);
-            await initializeI18nWithStorage();
-        }
-    },
-    { immediate: false },  // ⚠️ 移除 immediate，避免在 setup 未完成时执行
+        async (newServices) => {
+            if (newServices) {
+                setI18nServices(newServices);
+                setPiniaServices(newServices);
+                // Phase 1：恢复全局配置 Store（global-settings/v1），并从旧 UI_SETTINGS_KEYS 迁移（若为空）
+              // 同时基于 globalSettings 决定初始路由（仅根路径时生效）
+              if (!_routeInitInFlight) {
+                _routeInitInFlight = (async () => {
+                  const globalSettings = useGlobalSettings()
+                  await globalSettings.restoreGlobalSettings()
+                  await initializeRouteFromGlobalSettings(globalSettings)
+                })()
+              }
+              await _routeInitInFlight
+                await initializeI18nWithStorage();
+            }
+        },
+    // 🔧 必须 immediate：部分运行环境下 services 可能在 watch 注册前就已就绪，
+    // 若不触发则 Pinia/Preferences 永远不注入，表现为“刷新后一切都找不到/不持久化”。
+    { immediate: true },
 );
 
 // 6. 向子组件提供服务
 provide("services", services);
 
 // 5. 控制主UI渲染的标志
-const isReady = computed(() => !!services.value && !isInitializing.value);
+// 🔧 必须等待路由初始化完成，避免短暂显示根路径的空白页
+const isReady = computed(() => !!services.value && !isInitializing.value && routeInitialized.value);
 
 // 创建 ContextEditor 使用的 services 引用
 const servicesForContextEditor = computed(() => services?.value || null);
@@ -806,49 +608,42 @@ const basicModeWorkspaceRef = ref<{
     openIterateDialog?: (input?: string) => void;
 } | null>(null);
 
-// selectedOptimizationMode 改为 computed，从对应的 subMode 动态计算
+// 🔧 Step E: 使用 route-computed 代替旧 state
+type WorkspaceRouteName = string | symbol | null | undefined;
+const setWorkspaceRef = (instance: unknown, routeName: WorkspaceRouteName) => {
+    const resolvedInstance = (instance as any) ?? null;
+
+    switch (routeName) {
+        case "basic-system":
+        case "basic-user":
+            basicModeWorkspaceRef.value = resolvedInstance;
+            break;
+        case "pro-system":
+        case "pro-multi":
+            systemWorkspaceRef.value = resolvedInstance;
+            break;
+        case "pro-user":
+        case "pro-variable":
+            userWorkspaceRef.value = resolvedInstance;
+            break;
+    }
+};
+
 const selectedOptimizationMode = computed<OptimizationMode>(() => {
-    if (functionMode.value === 'basic') return basicSubMode.value as OptimizationMode;
-    if (functionMode.value === 'pro') return proSubMode.value as OptimizationMode;
+    if (routeFunctionMode.value === 'basic') return routeBasicSubMode.value as OptimizationMode;
+    if (routeFunctionMode.value === 'pro') return routeProSubMode.value as OptimizationMode;
     return 'system';
 });
 
-const advancedModeEnabled = computed({
-    get: () => functionMode.value === "pro",
-    set: (val: boolean) => {
-        setFunctionMode(val ? "pro" : "basic");
-    },
-});
+// 🔧 Step D: advancedModeEnabled 改为只读（从 route-computed 读取，不再支持写入）
+const advancedModeEnabled = computed(() => routeFunctionMode.value === "pro");
 
-// 处理功能模式变化
-const handleModeSelect = async (mode: "basic" | "pro" | "image") => {
-    // 模式切换时：关闭并清理评估状态，避免跨模式残留
-    evaluation.closePanel();
-    evaluation.clearAllResults();
-
-    await setFunctionMode(mode);
-
-    if (mode === "basic") {
-        const { ensureInitialized } = useBasicSubMode(services as any);
-        await ensureInitialized();
-    } else if (mode === "pro") {
-        const { ensureInitialized } = useProSubMode(services as any);
-        await ensureInitialized();
-        await handleContextModeChange(
-            proSubMode.value as import("@prompt-optimizer/core").ContextMode,
-        );
-    } else if (mode === "image") {
-        const { ensureInitialized } = useImageSubMode(services as any);
-        await ensureInitialized();
-    }
-};
+// 🔧 Step D: 已删除死代码 - handleModeSelect/handleBasicSubModeChange/handleProSubModeChange/handleImageSubModeChange
+// 这些函数已被 AppCoreNav 的 router.push 导航替代（2024-01-06）
 
 // 测试内容状态
 const testContent = ref("");
 const isCompareMode = ref(true);
-
-// 响应式布局
-const responsiveLayout = useResponsiveTestLayout();
 
 // Naive UI 主题配置
 const { naiveTheme, themeOverrides, initTheme } = useNaiveTheme();
@@ -926,42 +721,6 @@ const promptPreview = usePromptPreview(
     renderPhase,
 );
 
-// 预览处理函数
-const handleOpenInputPreview = () => {
-    // 根据当前模式选择正确的提示词内容
-    const isPro = advancedModeEnabled.value;
-    const isUserMode = selectedOptimizationMode.value === "user";
-
-    if (isUserMode && isPro) {
-        // 上下文/变量模式：使用 ContextUser 工作区的提示词
-        promptPreviewContent.value = userWorkspaceRef.value?.getPrompt?.() || "";
-    } else {
-        // 基础模式或其他模式：使用 optimizer 的提示词
-        promptPreviewContent.value = optimizer.prompt || "";
-    }
-
-    renderPhase.value = "test";
-    showPreviewPanel.value = true;
-};
-
-const handleOpenPromptPreview = () => {
-    // 根据当前模式选择正确的优化后提示词内容
-    const isPro = advancedModeEnabled.value;
-    const isUserMode = selectedOptimizationMode.value === "user";
-
-    if (isUserMode && isPro) {
-        // 上下文/变量模式：使用 ContextUser 工作区的优化后提示词
-        promptPreviewContent.value =
-            userWorkspaceRef.value?.getOptimizedPrompt?.() || "";
-    } else {
-        // 基础模式或其他模式：使用 optimizer 的优化后提示词
-        promptPreviewContent.value = optimizer.optimizedPrompt || "";
-    }
-
-    renderPhase.value = "test";
-    showPreviewPanel.value = true;
-};
-
 const templateSelectType = computed<
     | "optimize"
     | "userOptimize"
@@ -1001,47 +760,7 @@ const handleExtractVariables = async (
     );
 };
 
-// 🆕 处理ContextUser模式的 AI 变量提取
-const handleExtractVariablesForContextUser = async () => {
-    // 从userWorkspaceRef获取提示词内容
-    const userWorkspace = userWorkspaceRef.value;
-    if (!userWorkspace?.getPrompt) {
-        console.error('[PromptOptimizerApp] Unable to access ContextUser workspace');
-        toast.warning(t('evaluation.variableExtraction.workspaceNotReady'));
-        return;
-    }
-
-    const promptContent = userWorkspace.getPrompt() || '';
-    // 🔧 使用评估模型（复用评估功能的模型配置）
-    const extractionModelKey = functionModelManager.effectiveEvaluationModel.value || '';
-
-    if (!promptContent.trim()) {
-        toast.warning(t('evaluation.variableExtraction.noPromptContent'));
-        return;
-    }
-
-    if (!extractionModelKey) {
-        toast.warning(t('evaluation.variableExtraction.noEvaluationModel'));
-        return;
-    }
-
-    // 收集已存在的变量名（全局+临时）
-    const globalVarNames = Object.keys(variableManager.customVariables.value || {});
-    const tempVarNames = userWorkspace.getTemporaryVariableNames?.() || [];
-    const existingVariableNames = [...globalVarNames, ...tempVarNames];
-
-    await variableExtraction.extractVariables(
-        promptContent,
-        extractionModelKey,
-        existingVariableNames
-    );
-};
-
 // 工具管理器处理函数
-const handleOpenToolManager = () => {
-    showToolManager.value = true;
-};
-
 const handleToolManagerConfirm = (tools: any[]) => {
     optimizationContextTools.value = tools;
     showToolManager.value = false;
@@ -1050,24 +769,165 @@ const handleToolManagerConfirm = (tools: any[]) => {
 // 6. 在顶层调用所有 Composables
 const modelSelectRefs = useModelSelectRefs();
 const modelManager = useModelManager(services as any, modelSelectRefs);
-const functionModelManager = useFunctionModelManager(
-    services as any,
-    computed(() => modelManager.selectedOptimizeModel),
+const functionModelManager = useFunctionModelManager(services as any);
+
+// ========== Session Store（单一真源：可持久化字段） ==========
+// 注意：这里需要在 optimizer 创建之前初始化，以便把基础模式字段直绑到 session store
+const basicSystemSession = useBasicSystemSession();
+const basicUserSession = useBasicUserSession();
+const proMultiMessageSession = useProMultiMessageSession();
+const proVariableSession = useProVariableSession();
+const imageText2ImageSession = useImageText2ImageSession();
+const imageImage2ImageSession = useImageImage2ImageSession();
+
+// 🔧 Step E: 使用 route-computed 代替旧 state
+const activeBasicSession = computed(() =>
+    routeBasicSubMode.value === "system" ? basicSystemSession : basicUserSession,
 );
+
+// ========== Text Model Selection（单一真源：Session Store） ==========
+// 目标：移除旧的“模型选择全局键”遗留概念，避免双真源与反向同步 watch
+const selectedOptimizeModelKey = computed<string>({
+    get: () => {
+        if (routeFunctionMode.value === "basic") {
+            return activeBasicSession.value.selectedOptimizeModelKey || "";
+        }
+        if (routeFunctionMode.value === "pro") {
+            const session =
+                routeProSubMode.value === "system"
+                    ? proMultiMessageSession
+                    : proVariableSession;
+            return session.selectedOptimizeModelKey || "";
+        }
+        if (routeFunctionMode.value === "image") {
+            const session =
+                routeImageSubMode.value === "text2image"
+                    ? imageText2ImageSession
+                    : imageImage2ImageSession;
+            return session.selectedTextModelKey || "";
+        }
+        return "";
+    },
+    set: (value) => {
+        const next = value || "";
+        if (routeFunctionMode.value === "basic") {
+            activeBasicSession.value.updateOptimizeModel(next);
+            return;
+        }
+        if (routeFunctionMode.value === "pro") {
+            const session =
+                routeProSubMode.value === "system"
+                    ? proMultiMessageSession
+                    : proVariableSession;
+            session.updateOptimizeModel(next);
+            return;
+        }
+        if (routeFunctionMode.value === "image") {
+            const session =
+                routeImageSubMode.value === "text2image"
+                    ? imageText2ImageSession
+                    : imageImage2ImageSession;
+            session.updateTextModel(next);
+        }
+    },
+});
+
+const selectedTestModelKey = computed<string>({
+    get: () => {
+        if (routeFunctionMode.value === "basic") {
+            return activeBasicSession.value.selectedTestModelKey || "";
+        }
+        if (routeFunctionMode.value === "pro") {
+            const session =
+                routeProSubMode.value === "system"
+                    ? proMultiMessageSession
+                    : proVariableSession;
+            return session.selectedTestModelKey || "";
+        }
+        return "";
+    },
+    set: (value) => {
+        const next = value || "";
+        if (routeFunctionMode.value === "basic") {
+            activeBasicSession.value.updateTestModel(next);
+            return;
+        }
+        if (routeFunctionMode.value === "pro") {
+            const session =
+                routeProSubMode.value === "system"
+                    ? proMultiMessageSession
+                    : proVariableSession;
+            session.updateTestModel(next);
+        }
+    },
+});
+
+// 更新 functionModelManager 的“全局优化模型 key”引用（singleton 内部会替换 ref）
+useFunctionModelManager(services as any, selectedOptimizeModelKey);
+
+const patchActiveBasicOptimizedResult = (
+    partial: Partial<{
+        optimizedPrompt: string;
+        reasoning: string;
+        chainId: string;
+        versionId: string;
+    }>,
+) => {
+    const session = activeBasicSession.value;
+    session.updateOptimizedResult({
+        optimizedPrompt:
+            partial.optimizedPrompt ?? session.optimizedPrompt ?? "",
+        reasoning: partial.reasoning ?? session.reasoning ?? "",
+        chainId: partial.chainId ?? session.chainId ?? "",
+        versionId: partial.versionId ?? session.versionId ?? "",
+    });
+};
+
+const basicSessionPrompt = computed<string>({
+    get: () => activeBasicSession.value.prompt ?? "",
+    set: (value) => activeBasicSession.value.updatePrompt(value || ""),
+});
+
+const basicSessionOptimizedPrompt = computed<string>({
+    get: () => activeBasicSession.value.optimizedPrompt ?? "",
+    set: (value) =>
+        patchActiveBasicOptimizedResult({ optimizedPrompt: value || "" }),
+});
+
+const basicSessionOptimizedReasoning = computed<string>({
+    get: () => activeBasicSession.value.reasoning ?? "",
+    set: (value) => patchActiveBasicOptimizedResult({ reasoning: value || "" }),
+});
+
+const basicSessionChainId = computed<string>({
+    get: () => activeBasicSession.value.chainId ?? "",
+    set: (value) => patchActiveBasicOptimizedResult({ chainId: value || "" }),
+});
+
+const basicSessionVersionId = computed<string>({
+    get: () => activeBasicSession.value.versionId ?? "",
+    set: (value) => patchActiveBasicOptimizedResult({ versionId: value || "" }),
+});
 
 // 提示词优化器
 const optimizer = usePromptOptimizer(
     services as any,
     selectedOptimizationMode,
-    toRef(modelManager, "selectedOptimizeModel"),
-    toRef(modelManager, "selectedTestModel"),
+    selectedOptimizeModelKey as any,
+    selectedTestModelKey as any,
     contextMode,
+    {
+        prompt: basicSessionPrompt as any,
+        optimizedPrompt: basicSessionOptimizedPrompt as any,
+        optimizedReasoning: basicSessionOptimizedReasoning as any,
+        currentChainId: basicSessionChainId as any,
+        currentVersionId: basicSessionVersionId as any,
+    },
 );
 
 // 上下文管理
 const contextManagement = useContextManagement({
     services,
-    selectedOptimizationMode,
     advancedModeEnabled,
     showContextEditor,
     contextEditorDefaultTab,
@@ -1079,21 +939,20 @@ const contextManagement = useContextManagement({
 // 从 contextManagement 提取其他状态和方法
 const optimizationContext = contextManagement.optimizationContext;
 const optimizationContextTools = contextManagement.optimizationContextTools;
-const predefinedVariables = contextManagement.predefinedVariables;
 const initializeContextPersistence = contextManagement.initializeContextPersistence;
-const handleOpenContextEditor = contextManagement.handleOpenContextEditor;
 const handleContextEditorSave = contextManagement.handleContextEditorSave;
 const handleContextEditorStateUpdate = contextManagement.handleContextEditorStateUpdate;
 const handleContextModeChange = contextManagement.handleContextModeChange;
 
 // 提供依赖给子组件
 provide("variableManager", variableManager);
+provide("optimizationContext", optimizationContext);
 provide("optimizationContextTools", optimizationContextTools);
 
 // 基础模式提示词测试
 const promptTester = usePromptTester(
     services as any,
-    toRef(modelManager, 'selectedTestModel'),
+    selectedTestModelKey as any,
     selectedOptimizationMode,
     variableManager
 );
@@ -1101,32 +960,11 @@ const promptTester = usePromptTester(
 // 测试结果引用
 const testResults = computed(() => promptTester.testResults);
 
-// 处理测试面板的变量变化
-const handleTestPanelVariableChange = async (_name: string, _value: string) => {
-    // 测试变量现在只在TestAreaPanel内部管理
-};
-
-// 处理保存测试变量到全局
-const handleSaveToGlobal = async (name: string, value: string) => {
-    if (!variableManager) {
-        console.warn("[PromptOptimizerApp] variableManager not ready");
-        return;
-    }
-
-    try {
-        variableManager.updateVariable(name, value);
-        toast.success(t('test.variables.savedToGlobal', { name }));
-    } catch (error) {
-        console.error("[PromptOptimizerApp] Failed to save variable to global:", error);
-        toast.error(t('test.error.saveToGlobalFailed', { name }));
-    }
-};
-
-// 评估功能
+// 🔧 Step E: 使用 route-computed 代替旧 state
 const currentSubMode = computed(() => {
-    if (functionMode.value === 'basic') return basicSubMode.value;
-    if (functionMode.value === 'pro') return proSubMode.value;
-    if (functionMode.value === 'image') return imageSubMode.value;
+    if (routeFunctionMode.value === 'basic') return routeBasicSubMode.value;
+    if (routeFunctionMode.value === 'pro') return routeProSubMode.value;
+    if (routeFunctionMode.value === 'image') return routeImageSubMode.value;
     return 'system';
 });
 
@@ -1146,36 +984,27 @@ const evaluationHandler = useEvaluationHandler({
     testContent,
     testResults: testResults as any,
     evaluationModelKey: computed(() => functionModelManager.effectiveEvaluationModel.value),
-    functionMode: functionMode as any,
+    // 🔧 Step E: 使用 route-computed 代替旧 state
+    functionMode: routeFunctionMode as any,
     subMode: currentSubMode as any,
     currentIterateRequirement,
 });
 
-const { evaluation, handleEvaluate, handleReEvaluate: handleReEvaluateBasic } = evaluationHandler;
+const { evaluation, handleReEvaluate: handleReEvaluateBasic } = evaluationHandler;
 
 // 提供评估上下文给子组件
 provideEvaluation(evaluation);
 
-// 基础模式"分析"专用 loading（避免与普通 prompt-only 评估混用）
-const isBasicAnalyzing = ref(false);
-
 // ========== Session Store 状态同步 ==========
-// 创建 session store 实例
-const basicSystemSession = useBasicSystemSession();
-const basicUserSession = useBasicUserSession();
-const proMultiMessageSession = useProMultiMessageSession();
-const proVariableSession = useProVariableSession();
-const imageText2ImageSession = useImageText2ImageSession();
-const imageImage2ImageSession = useImageImage2ImageSession();
 
-// 辅助函数：获取当前活动的 session store
+// 🔧 Step E: 使用 route-computed 代替旧 state
 const getCurrentSession = () => {
-    if (functionMode.value === 'basic') {
-        return basicSubMode.value === 'system' ? basicSystemSession : basicUserSession;
-    } else if (functionMode.value === 'pro') {
-        return proSubMode.value === 'system' ? proMultiMessageSession : proVariableSession;
-    } else if (functionMode.value === 'image') {
-        return imageSubMode.value === 'text2image' ? imageText2ImageSession : imageImage2ImageSession;
+    if (routeFunctionMode.value === 'basic') {
+        return routeBasicSubMode.value === 'system' ? basicSystemSession : basicUserSession;
+    } else if (routeFunctionMode.value === 'pro') {
+        return routeProSubMode.value === 'system' ? proMultiMessageSession : proVariableSession;
+    } else if (routeFunctionMode.value === 'image') {
+        return routeImageSubMode.value === 'text2image' ? imageText2ImageSession : imageImage2ImageSession;
     }
     return null;
 };
@@ -1188,70 +1017,74 @@ const hasRestoredInitialState = ref(false);
 const isLoadingExternalData = ref(false);
 
 /**
- * 🔧 Codex 修复：恢复 Basic / Pro-variable 模式的 session 状态
- * 这些模式使用通用型 session store，支持所有标准字段和方法
+ * 🔧 方案 A 修复：恢复 Basic 模式的 session 状态（移除冗余赋值）
+ *
+ * 设计原则：
+ * - Basic 模式的核心状态（prompt/optimizedPrompt/reasoning/chainId/versionId）
+ *   已通过 computed 绑定到 session store（单一真源），无需手动赋值
+ * - 只恢复未绑定的 UI 状态（testContent/modelManager/isCompareMode/testResults）
+ *
+ * 根因分析：
+ * - 旧逻辑手动赋值 optimizer.prompt 等字段，破坏了"单一真源"架构
+ * - 导致模式切换时，旧模式的 UI 状态可能通过 watch 污染新模式的 session store
  */
 const restoreBasicOrProVariableSession = () => {
     const session = getCurrentSession();
-    if (!session || !session.state) return;
+    if (!session) return;
 
-    const savedState = session.state;
+    // ✅ 核心状态（prompt/optimizedPrompt/reasoning/chainId/versionId）
+    // 已通过 basicSessionPrompt 等 computed 绑定，自动从 session store 读取，无需手动赋值
 
-    // 恢复提示词和优化结果
-    optimizer.prompt = savedState.prompt || '';
-    optimizer.optimizedPrompt = savedState.optimizedPrompt || '';
-    optimizer.optimizedReasoning = savedState.reasoning || '';
-    optimizer.currentChainId = savedState.chainId || '';
-    optimizer.currentVersionId = savedState.versionId || '';
-
-    // 恢复测试内容（系统/用户模式都需要）
-    testContent.value = savedState.testContent || '';
-
-    // 恢复模型选择
-    if (savedState.selectedOptimizeModelKey) {
-        modelManager.selectedOptimizeModel = savedState.selectedOptimizeModelKey;
-    }
-    if (savedState.selectedTestModelKey) {
-        modelManager.selectedTestModel = savedState.selectedTestModelKey;
-    }
+    // ✅ 恢复未绑定的 UI 状态
+    testContent.value = session.testContent || '';
 
     // 恢复对比模式
-    isCompareMode.value = savedState.isCompareMode;
+    isCompareMode.value = session.isCompareMode;
 
-    // 🔧 恢复测试结果（修复子模式测试结果共享问题）
+    // 🔧 恢复测试结果（仅 Basic 模式使用 promptTester）
     // 只恢复稳定字段，不恢复 isTesting* 临时状态
-    if (savedState.testResults) {
-        promptTester.testResults.originalResult = savedState.testResults.originalResult || '';
-        promptTester.testResults.originalReasoning = savedState.testResults.originalReasoning || '';
-        promptTester.testResults.optimizedResult = savedState.testResults.optimizedResult || '';
-        promptTester.testResults.optimizedReasoning = savedState.testResults.optimizedReasoning || '';
-        // 重置测试中状态
-        promptTester.testResults.isTestingOriginal = false;
-        promptTester.testResults.isTestingOptimized = false;
-    } else {
-        // 如果 session 中没有测试结果，清空当前测试结果
-        promptTester.testResults.originalResult = '';
-        promptTester.testResults.originalReasoning = '';
-        promptTester.testResults.optimizedResult = '';
-        promptTester.testResults.optimizedReasoning = '';
-        promptTester.testResults.isTestingOriginal = false;
-        promptTester.testResults.isTestingOptimized = false;
+    // 🔧 Step E: 使用 route-computed 代替旧 state
+    if (routeFunctionMode.value === 'basic') {
+        if (session.testResults) {
+            promptTester.testResults.originalResult = session.testResults.originalResult || '';
+            promptTester.testResults.originalReasoning = session.testResults.originalReasoning || '';
+            promptTester.testResults.optimizedResult = session.testResults.optimizedResult || '';
+            promptTester.testResults.optimizedReasoning = session.testResults.optimizedReasoning || '';
+            // 重置测试中状态
+            promptTester.testResults.isTestingOriginal = false;
+            promptTester.testResults.isTestingOptimized = false;
+        } else {
+            // 如果 session 中没有测试结果，清空当前测试结果
+            promptTester.testResults.originalResult = '';
+            promptTester.testResults.originalReasoning = '';
+            promptTester.testResults.optimizedResult = '';
+            promptTester.testResults.optimizedReasoning = '';
+            promptTester.testResults.isTestingOriginal = false;
+            promptTester.testResults.isTestingOptimized = false;
+        }
     }
 };
 
 /**
- * 🔧 Pro-user（变量模式）会话恢复：恢复到 ContextUserWorkspace 的独立状态树
+ * 🔧 方案 A 修复：Pro-user（变量模式）会话恢复（移除冗余赋值）
  *
- * 根因修复：
- * - Pro-user 实际使用 useContextUserOptimization/useContextUserTester 的内部 reactive 状态
- * - 若只恢复 optimizer 的字段，ContextUserWorkspace 仍保持空状态，导致切换/重挂载后“内容丢失”
+ * 设计原则：
+ * - Pro-user 使用 ContextUserWorkspace 内部的 useContextUserOptimization 状态树
+ * - 核心状态（prompt/optimizedPrompt/reasoning/chainId/versionId）
+ *   已通过 computed 绑定到 proVariableSession（单一真源），无需手动赋值
+ * - 只恢复未绑定的 UI 状态（testContent/isCompareMode）和过程态重置
+ *
+ * 根因分析：
+ * - 旧逻辑手动赋值 contextUserOptimization.prompt 等字段，破坏了"单一真源"架构
+ * - 导致模式切换时，旧模式的 UI 状态可能通过 watch 污染新模式的 session store
  */
 const restoreProVariableSessionToUserWorkspace = async () => {
-    const savedState = proVariableSession.state;
+    // ✅ 核心状态（prompt/optimizedPrompt/reasoning/chainId/versionId）
+    // 已通过 sessionPrompt 等 computed 绑定到 proVariableSession，无需手动赋值
 
-    // 这些字段是 App 层单例，仍需跟随 session 切换
-    testContent.value = savedState.testContent || '';
-    isCompareMode.value = savedState.isCompareMode;
+    // ✅ 恢复未绑定的 UI 状态
+    testContent.value = proVariableSession.testContent || '';
+    isCompareMode.value = proVariableSession.isCompareMode;
 
     // 等待 DOM 更新，确保 ContextUserWorkspace 已挂载并建立 ref
     await nextTick();
@@ -1264,26 +1097,22 @@ const restoreProVariableSessionToUserWorkspace = async () => {
         if (!contextUserOptimization) return;
     }
 
-    // 恢复提示词与优化结果
-    contextUserOptimization.prompt = savedState.prompt || '';
-    contextUserOptimization.optimizedPrompt = savedState.optimizedPrompt || '';
-    contextUserOptimization.optimizedReasoning = savedState.reasoning || '';
-
-    // 恢复链信息（versions 尝试通过 historyManager 重新拉取）
-    contextUserOptimization.currentChainId = savedState.chainId || '';
-    contextUserOptimization.currentVersionId = savedState.versionId || '';
+    // ✅ 只恢复非绑定字段
+    // currentVersions 需要从历史记录重新拉取
     contextUserOptimization.currentVersions = [];
 
     // 重置过程态（避免恢复后停留在 loading）
     contextUserOptimization.isOptimizing = false;
     contextUserOptimization.isIterating = false;
 
+    // 尝试从历史记录恢复版本列表
     const historyManager = services.value?.historyManager;
-    if (historyManager && savedState.chainId) {
+    const chainId = proVariableSession.chainId || '';
+    if (historyManager && chainId) {
         try {
-            const chain = await historyManager.getChain(savedState.chainId);
+            const chain = await historyManager.getChain(chainId);
             contextUserOptimization.currentVersions = chain.versions;
-            contextUserOptimization.currentVersionId = savedState.versionId || chain.currentRecord.id;
+            // currentVersionId 已通过 binding 绑定，无需手动赋值
         } catch (error) {
             console.warn('[PromptOptimizerApp] Pro-user 恢复链失败，使用 session 快照继续:', error);
         }
@@ -1291,8 +1120,17 @@ const restoreProVariableSessionToUserWorkspace = async () => {
 };
 
 /**
- * 🔧 Codex 修复：恢复 Pro-system 模式的 session 状态
- * Pro 多消息模式使用专用 session store，字段结构不同
+ * 🔧 方案 A 修复：恢复 Pro-system 模式的 session 状态（移除冗余赋值）
+ *
+ * 设计原则：
+ * - Pro-system 模式使用 useConversationOptimization 的状态树（不是 optimizer）
+ * - 核心状态（optimizedPrompt/reasoning/chainId/versionId/selectedMessageId）
+ *   已通过 computed 绑定到 proMultiMessageSession（单一真源），无需手动赋值
+ * - 只恢复未绑定的 UI 状态（modelManager/isCompareMode/optimizationContext）
+ *
+ * 根因分析：
+ * - 旧逻辑错误地赋值给 optimizer，但 Pro-system 实际使用 conversationOptimization
+ * - 这导致 optimizer 的 watch 触发，可能污染其他模式的 session store
  */
 const restoreProMultiMessageSession = async () => {
     const session = proMultiMessageSession;
@@ -1300,21 +1138,10 @@ const restoreProMultiMessageSession = async () => {
 
     const savedState = session.state;
 
-    // ⚠️ Pro 多消息模式没有 prompt 字段，只有 conversationMessagesSnapshot
-    // 恢复优化结果（不恢复 prompt）
-    optimizer.optimizedPrompt = savedState.optimizedPrompt || '';
-    optimizer.optimizedReasoning = savedState.reasoning || '';
-    optimizer.currentChainId = savedState.chainId || '';
-    optimizer.currentVersionId = savedState.versionId || '';
+    // ✅ 核心状态（optimizedPrompt/reasoning/chainId/versionId/selectedMessageId）
+    // 已通过 useConversationOptimization 的 computed 绑定到 session.state，无需手动赋值
 
-    // 恢复模型选择
-    if (savedState.selectedOptimizeModelKey) {
-        modelManager.selectedOptimizeModel = savedState.selectedOptimizeModelKey;
-    }
-    if (savedState.selectedTestModelKey) {
-        modelManager.selectedTestModel = savedState.selectedTestModelKey;
-    }
-
+    // ✅ 恢复未绑定的 UI 状态
     // 恢复对比模式
     isCompareMode.value = savedState.isCompareMode;
 
@@ -1333,35 +1160,25 @@ const restoreProMultiMessageSession = async () => {
 };
 
 /**
- * 🔧 Codex 修复：恢复 Image 模式的 session 状态
- * Image 模式使用专用 session store，字段和方法不同
+ * 🔧 方案 A 修复：恢复 Image 模式的 session 状态（移除所有冗余赋值）
+ *
+ * 设计原则：
+ * - Image 模式使用独立的 Session Store（完全不涉及 optimizer）
+ * - 所有状态（originalPrompt/optimizedPrompt/reasoning/chainId/versionId/isCompareMode等）
+ *   已通过 computed 绑定到 imageText2ImageSession/imageImage2ImageSession（单一真源）
+ * - ImageWorkspace 是完全独立的组件，状态由自身管理
+ *
+ * 根因分析：
+ * - 旧逻辑错误地赋值给 optimizer，但 Image 模式根本不使用 optimizer
+ * - 这导致 optimizer 的 watch 触发，污染 Basic 模式的 session store（因为切换后 getCurrentSession 返回新模式）
+ * - 即使恢复 isCompareMode，也已通过 ImageWorkspace 的 computed 自动同步，无需手动赋值
+ *
+ * 结论：
+ * - Image 模式的所有状态由 ImageWorkspace 独立管理，此函数无需做任何操作
  */
 const restoreImageSession = () => {
-    const session = getCurrentSession();
-    if (!session || !session.state) return;
-
-    const savedState = session.state;
-
-    // Image 模式使用 originalPrompt（不是 prompt）
-    // 但 optimizer 仍使用 prompt 字段，这里做一个映射
-    optimizer.prompt = (savedState as any).originalPrompt || '';
-    optimizer.optimizedPrompt = savedState.optimizedPrompt || '';
-    optimizer.optimizedReasoning = savedState.reasoning || '';
-    optimizer.currentChainId = savedState.chainId || '';
-    optimizer.currentVersionId = savedState.versionId || '';
-
-    // Image 模式使用 selectedTextModelKey 和 selectedImageModelKey
-    if ((savedState as any).selectedTextModelKey) {
-        modelManager.selectedOptimizeModel = (savedState as any).selectedTextModelKey;
-    }
-    if ((savedState as any).selectedImageModelKey) {
-        // Image 模式暂时没有对应的 UI 字段，跳过
-    }
-
-    // 恢复对比模式
-    isCompareMode.value = savedState.isCompareMode;
-
-    // 注意：Image 模式的 originalImageResult 和 optimizedImageResult 由 ImageWorkspace 内部管理
+    // ✅ Image 模式的所有状态已通过 ImageWorkspace 的 computed 绑定到 session store
+    // 无需任何手动恢复操作，状态会自动从 session store 读取
 };
 
 /**
@@ -1371,17 +1188,18 @@ const restoreImageSession = () => {
  * 注意：这是内部实现，不包含互斥控制逻辑
  * 互斥控制由 useSessionRestoreCoordinator 处理
  */
+// 🔧 Step E: 使用 route-computed 代替旧 state
 const restoreSessionToUIInternal = async () => {
-    if (functionMode.value === 'basic') {
+    if (routeFunctionMode.value === 'basic') {
         // Basic 模式：使用通用恢复逻辑
         restoreBasicOrProVariableSession();
-    } else if (functionMode.value === 'pro' && proSubMode.value === 'user') {
+    } else if (routeFunctionMode.value === 'pro' && routeProSubMode.value === 'user') {
         // Pro-user（变量模式）：恢复到 ContextUserWorkspace
         await restoreProVariableSessionToUserWorkspace();
-    } else if (functionMode.value === 'pro' && proSubMode.value === 'system') {
+    } else if (routeFunctionMode.value === 'pro' && routeProSubMode.value === 'system') {
         // Pro-system 模式：使用专用恢复逻辑（异步，等待 DOM 更新）
         await restoreProMultiMessageSession();
-    } else if (functionMode.value === 'image') {
+    } else if (routeFunctionMode.value === 'image') {
         // Image 模式：使用专用恢复逻辑
         restoreImageSession();
     }
@@ -1396,8 +1214,9 @@ const restoreSessionToUI = restoreCoordinator.executeRestore;
 
 // 🔧 Codex 修复：watch 只负责模式切换后的恢复（不负责首次恢复）
 // 首次恢复由 onMounted watchEffect 负责，避免双入口冲突
+// 🔧 Step E: 使用 route-computed 代替旧 state
 watch(
-    [isReady, () => functionMode.value, () => basicSubMode.value, () => proSubMode.value],
+    [isReady, () => routeFunctionMode.value, () => routeBasicSubMode.value, () => routeProSubMode.value],
     async ([ready]) => {
         // 🔧 只在已完成首次恢复后才响应模式切换
         if (!ready || !hasRestoredInitialState.value) return;
@@ -1405,70 +1224,39 @@ watch(
         // 🔧 外部数据加载中不响应模式切换（防止 session restore 覆盖外部数据）
         if (isLoadingExternalData.value) return;
 
-        await restoreSessionToUI();
+        try {
+            await restoreSessionToUI();
+        } catch (error) {
+            // 🔧 错误处理：避免未处理的 Promise rejection 传播到 Vue
+            console.error('[PromptOptimizerApp] 模式切换后恢复会话失败:', error);
+        }
     },
     { immediate: false }  // 🔧 改为 false，不在 watch 创建时立即执行
 );
 
 // 同步 prompt 变化到 session store
-// 🔧 Codex 修复：Pro-system 模式没有 updatePrompt 方法，需要分支处理
+// 🔧 方案 A 修复：严格限制在 Basic 模式，避免跨模式污染
+// 根本原因：optimizer.prompt 已通过 computed 绑定到 session store（单一真源）
+// - Basic 模式：optimizer.prompt ↔ basicSessionPrompt ↔ session.prompt
+// - Pro/Image 模式：不使用 optimizer.prompt，但 watch 仍会触发并错误写入
 watch(
     () => optimizer.prompt,
     (newPrompt) => {
         if (sessionManager.isSwitching) return;
 
-        // Pro-system 模式没有 prompt 字段，跳过同步
-        // Pro-user 模式的 prompt 由 ContextUserWorkspace 内部管理，避免用 optimizer 覆盖 session
-        if (functionMode.value === 'pro') {
+        // ⚠️ 严格限制在 Basic 模式
+        // - Pro 模式：没有 prompt 字段
+        // - Image 模式：使用独立的 ImageWorkspace 状态，不涉及 optimizer
+        if (routeFunctionMode.value !== 'basic') {
             return;
         }
 
+        // ✅ 只有 Basic 模式才同步到 session
         const session = getCurrentSession();
         if (session && typeof (session as any).updatePrompt === 'function') {
             (session as any).updatePrompt(newPrompt);
         }
     }
-);
-
-// 同步 Pro-user（变量模式）工作区状态到 session store
-// 说明：Pro-user 使用 ContextUserWorkspace 内部的 useContextUserOptimization 状态树，不走 optimizer
-watch(
-    () => {
-        if (functionMode.value !== 'pro' || proSubMode.value !== 'user') return null;
-        return userWorkspaceRef.value?.contextUserOptimization?.prompt ?? null;
-    },
-    (newPrompt) => {
-        if (newPrompt === null) return;
-        if (sessionManager.isSwitching) return;
-        proVariableSession.updatePrompt(newPrompt || '');
-    },
-    { flush: 'sync' }
-);
-
-watch(
-    () => {
-        if (functionMode.value !== 'pro' || proSubMode.value !== 'user') return null;
-        const opt = userWorkspaceRef.value?.contextUserOptimization;
-        if (!opt) return null;
-        return [
-            opt.optimizedPrompt,
-            opt.optimizedReasoning,
-            opt.currentChainId,
-            opt.currentVersionId,
-        ] as const;
-    },
-    (payload) => {
-        if (!payload) return;
-        if (sessionManager.isSwitching) return;
-        const [optimizedPrompt, reasoning, chainId, versionId] = payload;
-        proVariableSession.updateOptimizedResult({
-            optimizedPrompt: optimizedPrompt || '',
-            reasoning: reasoning || '',
-            chainId: chainId || '',
-            versionId: versionId || '',
-        });
-    },
-    { flush: 'sync' }
 );
 
 // 同步优化结果到 session store（包含 optimizedPrompt, reasoning, chainId, versionId）
@@ -1481,8 +1269,19 @@ watch(
         () => optimizer.currentVersionId,
     ],
     ([newOptimizedPrompt, newReasoning, newChainId, newVersionId]) => {
+        // 🔧 Basic/Image 模式的可持久化字段已直接绑定到对应 session store，
+        // 避免重复同步（尤其是 streaming token 会造成双写）。
+        if (routeFunctionMode.value === 'basic') return;
+        if (routeFunctionMode.value === 'image') return;
+
         // Pro-user 模式的优化结果由 ContextUserWorkspace 内部管理，避免用 optimizer 覆盖 session
-        if (functionMode.value === 'pro' && proSubMode.value === 'user') {
+        if (routeFunctionMode.value === 'pro' && routeProSubMode.value === 'user') {
+            return;
+        }
+
+        // 🔧 Pro-system 模式的优化结果由 useConversationOptimization 直写 session store，
+        // 避免用不相关的 optimizer 状态覆盖（刷新后易写入空值）。
+        if (routeFunctionMode.value === 'pro' && routeProSubMode.value === 'system') {
             return;
         }
 
@@ -1502,15 +1301,14 @@ watch(
 // 🔧 Codex 修复：Image 模式没有 updateTestResults 方法，需要分支处理
 // 🔧 使用 deep: true 捕获深层变化（如 originalResult += token）
 // 🔧 过滤掉 isTesting* 临时状态，只持久化稳定字段
+// 🔧 修复：移除提前的 same value 检查，让 session store 自己处理（避免初始化时的空对象被跳过）
 watch(
     () => promptTester.testResults,
     (newTestResults) => {
         if (sessionManager.isSwitching) return;
 
         // 仅 Basic 模式使用 promptTester（其他模式有各自的测试器/工作区）
-        if (functionMode.value !== 'basic') {
-            return;
-        }
+        if (routeFunctionMode.value !== 'basic') return;
 
         const session = getCurrentSession();
         if (session && typeof (session as any).updateTestResults === 'function') {
@@ -1521,25 +1319,32 @@ watch(
                 optimizedResult: newTestResults.optimizedResult || '',
                 optimizedReasoning: newTestResults.optimizedReasoning || '',
             } : null;
+            // 🔧 直接调用，让 session store 的 updateTestResults 方法自己处理 same value 检查
             (session as any).updateTestResults(stableResults);
         }
     },
     { deep: true }  // 🔧 启用深层监听，捕获 streaming 写入等深层变化
 );
 
-// 同步优化模型选择到 session store
-// 🔧 Codex 修复：Image 模式使用 updateTextModel，其他模式使用 updateOptimizeModel
+/*
+// 同步优化模型选择到 session store（已废弃：模型选择以 Session Store 为唯一真源）
+// 🔧 Codex 修复：Image 模式使用 updateTextModel，Basic 模式使用 updateOptimizeModel
+// 🔧 清理：Pro 模式的模型选择已由各 workspace/controller 直接管理，不在此处写入
 watch(
     () => modelManager.selectedOptimizeModel,
     (newModel) => {
         if (sessionManager.isSwitching) return;
 
+        // 🔧 Pro 模式的模型选择已由 workspace/controller 持久化到 session store
+        // 避免在此处写入导致双写或污染
+        if (routeFunctionMode.value === 'pro') return;
+
         const session = getCurrentSession();
         if (!session) return;
 
         // Image 模式使用 updateTextModel
-        if (functionMode.value === 'image') {
-            // 避免模型选择初始化/短暂空值时覆盖 image session（导致下拉变成“未选择”）
+        if (routeFunctionMode.value === 'image') {
+            // 避免模型选择初始化/短暂空值时覆盖 image session（导致下拉变成"未选择"）
             if (!modelManager.isModelSelectionReady || !newModel) {
                 return;
             }
@@ -1547,7 +1352,7 @@ watch(
                 (session as any).updateTextModel(newModel || '');
             }
         } else {
-            // Basic/Pro 模式使用 updateOptimizeModel
+            // Basic 模式使用 updateOptimizeModel
             if (typeof (session as any).updateOptimizeModel === 'function') {
                 (session as any).updateOptimizeModel(newModel || '');
             }
@@ -1557,15 +1362,16 @@ watch(
 
 // 同步测试模型选择到 session store
 // 🔧 Codex 修复：Image 模式没有对应的 testModel 字段，跳过同步
+// 🔧 清理：Pro 模式的测试模型选择已由各 workspace/controller 直接管理
 watch(
     () => modelManager.selectedTestModel,
     (newModel) => {
         if (sessionManager.isSwitching) return;
 
-        // Image 模式不使用 testModel，跳过同步
-        if (functionMode.value === 'image') {
-            return;
-        }
+        // 🔧 Pro 模式的测试模型选择已由 workspace/controller 持久化到 session store
+        // Image 模式不使用 testModel 字段
+        if (routeFunctionMode.value === 'image') return;
+        if (routeFunctionMode.value === 'pro') return;
 
         const session = getCurrentSession();
         if (session && typeof (session as any).updateTestModel === 'function') {
@@ -1574,6 +1380,7 @@ watch(
     }
 );
 
+*/
 // 当前选中的模板（根据 system/user 模式映射到 optimizer 对应字段）
 // 注意：必须在任何 watch/计算属性引用之前声明，避免 TDZ。
 const currentSelectedTemplate = computed({
@@ -1593,9 +1400,18 @@ const currentSelectedTemplate = computed({
 });
 
 // 同步模板选择到 session store
+// 🔧 方案 A 修复：Image 模式不使用 optimizer 的模板，需要排除
+// 🔧 清理：Pro 模式的模板选择已由各 workspace/controller 直接管理
 watch(
     currentSelectedTemplate,
     (newTemplate) => {
+        if (sessionManager.isSwitching) return;
+
+        // ⚠️ Image 模式使用独立的 session 模板管理
+        // 🔧 Pro 模式的模板选择已由 workspace/controller 持久化到 session store
+        if (routeFunctionMode.value === 'image') return;
+        if (routeFunctionMode.value === 'pro') return;
+
         const session = getCurrentSession();
         if (session && !sessionManager.isSwitching) {
             session.updateTemplate(newTemplate?.id || null);
@@ -1604,16 +1420,19 @@ watch(
 );
 
 // 同步迭代模板选择到 session store
-// 🔧 Codex 修复：Pro-system 模式没有 updateIterateTemplate 方法，需要分支处理
+// 🔧 清理：仅 Basic 模式使用 optimizer.selectedIterateTemplate
+// 🔧 Pro 模式的迭代模板选择已由 workspace/controller 直接管理
 watch(
     () => optimizer.selectedIterateTemplate,
     (newTemplate) => {
         if (sessionManager.isSwitching) return;
 
-        // Pro-system 模式没有 updateIterateTemplate 方法，跳过同步
-        if (functionMode.value === 'pro' && proSubMode.value === 'system') {
-            return;
-        }
+        // ⚠️ 仅 Basic 模式使用此迭代模板
+        // - Pro-system：没有 updateIterateTemplate 方法
+        // - Pro-user：已由 workspace/controller 持久化
+        // - Image：使用独立的模板管理
+        if (routeFunctionMode.value === 'image') return;
+        if (routeFunctionMode.value === 'pro') return;
 
         const session = getCurrentSession();
         if (session && typeof (session as any).updateIterateTemplate === 'function') {
@@ -1623,14 +1442,16 @@ watch(
 );
 
 // 同步测试内容到 session store（用于刷新/切换后保留测试输入）
+// 🔧 清理：Pro 模式的测试内容已由 workspace 内部管理
 watch(
     testContent,
     (newContent) => {
         if (sessionManager.isSwitching) return;
 
-        // Image 模式没有 testContent；Pro-system/ContextUser 模式也不使用此输入
-        if (functionMode.value === 'image') return;
-        if (functionMode.value === 'pro' && proSubMode.value === 'system') return;
+        // 🔧 仅 Basic 模式使用此 testContent
+        // Image 模式没有 testContent；Pro 模式已由 workspace 内部管理
+        if (routeFunctionMode.value === 'image') return;
+        if (routeFunctionMode.value === 'pro') return;
 
         const session = getCurrentSession();
         if (session && typeof (session as any).updateTestContent === 'function') {
@@ -1641,9 +1462,13 @@ watch(
 );
 
 // 同步对比模式到 session store
+// 🔧 清理：Pro 模式的对比模式已由 workspace/controller 直接管理
 watch(
     isCompareMode,
     (newMode) => {
+        // 🔧 Pro 模式的对比模式已由 workspace/controller 持久化到 session store
+        if (routeFunctionMode.value === 'pro') return;
+
         const session = getCurrentSession();
         if (session && !sessionManager.isSwitching) {
             session.toggleCompareMode(newMode);
@@ -1652,20 +1477,8 @@ watch(
 );
 
 // ========== Pro 多消息模式特有状态同步 ==========
-// 同步对话消息快照到 Pro-MultiMessage session
-watch(
-    optimizationContext,
-    (newMessages) => {
-        if (
-            functionMode.value === 'pro' &&
-            proSubMode.value === 'system' &&
-            !sessionManager.isSwitching
-        ) {
-            proMultiMessageSession.updateConversationMessages([...newMessages]);
-        }
-    },
-    { deep: true }
-);
+// 🔧 已清理：optimizationContext 现在由 ProWorkspaceContainer 直接管理
+// 避免在 App 层写入导致双写或污染（刷新后易写入空值）
 
 // 同步 contextManagement 中的 contextMode
 watch(
@@ -1677,8 +1490,11 @@ watch(
 
         contextMode.value = newMode;
 
-        if (functionMode.value === "pro") {
-            await setProSubMode(newMode as import("@prompt-optimizer/core").ProSubMode);
+        // 🔧 Step D 修复：使用 router.push 而非 setProSubMode
+        // 只有在 Pro 模式下才导航（避免其他模式触发不必要的路由变化）
+        if (routeFunctionMode.value === "pro") {
+            // newMode 已经是合法的 'system' | 'user'
+            navigateToSubModeKey(`pro-${newMode}` as SubModeKey);
         }
     },
     { immediate: true },
@@ -1712,14 +1528,7 @@ const historyManager = useHistoryManager(
 // App 级别历史记录恢复
 const { handleHistoryReuse } = useAppHistoryRestore({
     services: services as any,
-    functionMode,
-    setFunctionMode,
-    basicSubMode,
-    setBasicSubMode,
-    proSubMode,
-    setProSubMode,
-    imageSubMode,
-    setImageSubMode,
+    navigateToSubModeKey,  // 🔧 Step D: 替代旧的 setFunctionMode/set*SubMode
     handleContextModeChange,
     handleSelectHistory: promptHistory.handleSelectHistory,
     optimizationContext,
@@ -1739,12 +1548,7 @@ const {
     handleFavoriteOptimizePrompt,
     handleUseFavorite,
 } = useAppFavorite({
-    functionMode,
-    setFunctionMode,
-    basicSubMode,
-    setBasicSubMode,
-    proSubMode,
-    setProSubMode,
+    navigateToSubModeKey,  // 🔧 Step D: 替代旧的 setFunctionMode/set*SubMode
     handleContextModeChange,
     optimizerPrompt: toRef(optimizer, "prompt") as any,
     t,
@@ -1760,13 +1564,34 @@ const templateManagerState = useTemplateManager(services as any, {
     selectedIterateTemplate: toRef(optimizer, "selectedIterateTemplate"),
 });
 
+// TemplateManager 选择回调：写入 Session Store（单一真源），避免写入旧 TEMPLATE_SELECTION_KEYS
+const handleTemplateSelected = (
+    template: Template | null,
+    type: Template["metadata"]["templateType"],
+) => {
+    templateManagerState.handleTemplateSelect(template, type, false);
+
+    if (!template) return;
+    const session = getCurrentSession();
+    if (!session) return;
+
+    const templateType = String(type || "");
+    const isIterate =
+        templateType === "iterate" ||
+        templateType === "contextIterate" ||
+        templateType === "imageIterate";
+
+    if (isIterate && typeof (session as any).updateIterateTemplate === "function") {
+        (session as any).updateIterateTemplate(template.id || null);
+        return;
+    }
+    if (typeof (session as any).updateTemplate === "function") {
+        (session as any).updateTemplate(template.id || null);
+    }
+};
+
 const templateOptions = ref<TemplateSelectOption[]>([]);
 const textModelOptions = ref<ModelSelectOption[]>([]);
-
-const handleOpenOptimizeTemplateManager = () => {
-    const type = templateSelectType.value;
-    openTemplateManager(type as any);
-};
 
 const clearCurrentTemplateSelection = () => {
     if (selectedOptimizationMode.value === "system") {
@@ -1836,11 +1661,18 @@ const refreshTextModels = async () => {
         const selectionReady = modelManager.isModelSelectionReady;
 
         if (fallbackValue && selectionReady) {
-            if (!availableKeys.has(modelManager.selectedOptimizeModel)) {
-                modelManager.selectedOptimizeModel = fallbackValue;
+            if (selectedOptimizeModelKey.value && !availableKeys.has(selectedOptimizeModelKey.value)) {
+                selectedOptimizeModelKey.value = fallbackValue;
             }
-            if (!availableKeys.has(modelManager.selectedTestModel)) {
-                modelManager.selectedTestModel = fallbackValue;
+            if (selectedTestModelKey.value && !availableKeys.has(selectedTestModelKey.value)) {
+                selectedTestModelKey.value = fallbackValue;
+            }
+            if (!selectedOptimizeModelKey.value) {
+                selectedOptimizeModelKey.value = fallbackValue;
+            }
+            // Image 模式不使用 testModel；setter 会忽略
+            if (!selectedTestModelKey.value) {
+                selectedTestModelKey.value = fallbackValue;
             }
         }
     } catch (error) {
@@ -1848,39 +1680,6 @@ const refreshTextModels = async () => {
         textModelOptions.value = [];
     }
 };
-
-// 获取选中测试模型的详细信息
-const selectedTestModelInfo = computed(() => {
-    if (!modelManager.selectedTestModel) return null;
-    const option = textModelOptions.value.find(
-        (o) => o.value === modelManager.selectedTestModel,
-    );
-    if (!option?.raw) return null;
-    return {
-        provider: option.raw.providerMeta?.name || option.raw.providerMeta?.id || null,
-        model: option.raw.modelMeta?.name || option.raw.modelMeta?.id || null,
-    };
-});
-
-const selectedTemplateIdForSelect = computed<string>({
-    get() {
-        const current = currentSelectedTemplate.value;
-        if (!current) return "";
-        return templateOptions.value.some((t) => t.raw.id === current.id)
-            ? current.id
-            : "";
-    },
-    set(id: string) {
-        if (!id) {
-            clearCurrentTemplateSelection();
-            return;
-        }
-        const tpl = templateOptions.value.find((t) => t.raw.id === id);
-        if (tpl) {
-            currentSelectedTemplate.value = tpl.raw;
-        }
-    },
-});
 
 watch(
     () => services.value?.templateManager,
@@ -1921,18 +1720,21 @@ watch(services, async (newServices) => {
     promptService.value = newServices.promptService;
     await initializeContextPersistence();
 
-    if (functionMode.value === "basic") {
-        const { ensureInitialized } = useBasicSubMode(services as any);
-        await ensureInitialized();
-    } else if (functionMode.value === "pro") {
-        const { ensureInitialized } = useProSubMode(services as any);
-        await ensureInitialized();
+    // 等待基于 globalSettings 的初始路由初始化完成（避免根路径时读取到错误的 routeFunctionMode）
+    if (_routeInitInFlight) {
+        await _routeInitInFlight;
+    }
+
+    // 🔧 修复：使用 setup 顶层保存的 composable 引用，避免在 watch 回调中重复调用（导致 inject() 错误）
+    if (routeFunctionMode.value === "basic") {
+        await basicSubModeApi.ensureInitialized();
+    } else if (routeFunctionMode.value === "pro") {
+        await proSubModeApi.ensureInitialized();
         await handleContextModeChange(
-            proSubMode.value as import("@prompt-optimizer/core").ContextMode,
+            routeProSubMode.value as import("@prompt-optimizer/core").ContextMode,
         );
-    } else if (functionMode.value === "image") {
-        const { ensureInitialized } = useImageSubMode(services as any);
-        await ensureInitialized();
+    } else if (routeFunctionMode.value === "image") {
+        await imageSubModeApi.ensureInitialized();
     }
 
     const handleGlobalHistoryRefresh = () => {
@@ -1952,98 +1754,6 @@ const handleDataImported = () => {
     }, 1500);
 };
 
-// 处理优化提示词
-const handleOptimizePrompt = () => {
-    const shouldClearPromptEvaluation = (() => {
-        const hasPrompt = !!optimizer.prompt?.trim();
-        const hasMessages = optimizationContext.value.length > 0;
-        const hasInput = advancedModeEnabled.value ? (hasPrompt || hasMessages) : hasPrompt;
-        const hasTemplate = !!currentSelectedTemplate.value;
-        const hasModel = !!modelManager.selectedOptimizeModel;
-        return hasInput && hasTemplate && hasModel;
-    })();
-
-    // 只有在确定会发起生成时才清除旧的 prompt-only / prompt-iterate 评估结果
-    if (shouldClearPromptEvaluation) {
-        evaluation.clearResult('prompt-only');
-        evaluation.clearResult('prompt-iterate');
-    }
-
-    if (advancedModeEnabled.value) {
-        const advancedContext = {
-            variables:
-                variableManager?.variableManager.value?.resolveAllVariables() || {},
-            messages:
-                optimizationContext.value.length > 0
-                    ? optimizationContext.value
-                    : undefined,
-            tools:
-                optimizationContextTools.value.length > 0
-                    ? optimizationContextTools.value
-                    : undefined,
-        };
-        optimizer.handleOptimizePromptWithContext(advancedContext);
-    } else {
-        optimizer.handleOptimizePrompt();
-    }
-};
-
-// 处理迭代提示词
-const handleIteratePrompt = (payload: any) => {
-    const shouldClearPromptEvaluation = (() => {
-        const hasOriginal = !!payload?.originalPrompt?.trim?.();
-        const hasOptimized = !!payload?.optimizedPrompt?.trim?.();
-        const hasIterateInput = !!payload?.iterateInput?.trim?.();
-        const hasTemplate = !!optimizer.selectedIterateTemplate;
-        const hasModel = !!modelManager.selectedOptimizeModel;
-        return hasOriginal && hasOptimized && hasIterateInput && hasTemplate && hasModel;
-    })();
-
-    // 只有在确定会发起迭代时才清除旧的 prompt-only / prompt-iterate 评估结果
-    if (shouldClearPromptEvaluation) {
-        evaluation.clearResult('prompt-only');
-        evaluation.clearResult('prompt-iterate');
-    }
-
-    optimizer.handleIteratePrompt(payload);
-};
-
-/**
- * 基础模式"分析"入口：
- * - 清空版本链，创建 V0（与优化同级）
- * - 不写入历史（分析不产生新提示词）
- * - 触发 prompt-only 评估
- */
-const handleAnalyzeEvaluate = async () => {
-    const prompt = optimizer.prompt || '';
-    if (!prompt.trim()) return;
-
-    // 清空版本链，创建虚拟 V0
-    optimizer.handleAnalyze();
-
-    // 清理旧的提示词评估结果，避免跨提示词残留
-    evaluation.clearResult('prompt-only');
-    evaluation.clearResult('prompt-iterate');
-
-    isBasicAnalyzing.value = true;
-    try {
-        await handleEvaluate('prompt-only');
-    } finally {
-        isBasicAnalyzing.value = false;
-    }
-};
-
-const handleSaveLocalEdit = async (payload: { note?: string }) => {
-    await optimizer.saveLocalEdit({
-        optimizedPrompt: optimizer.optimizedPrompt || '',
-        note: payload.note,
-        source: 'manual',
-    });
-    toast.success(t('toast.success.localEditSaved'));
-};
-
-// 注：handleEvaluatePromptOnly 已移除，PromptPanel 现在直接通过 inject 的 evaluation context 调用评估方法
-
 // 处理应用评估改进建议
 const _basicApplyImprovement = evaluationHandler.createApplyImprovementHandler(basicModeWorkspaceRef);
 const getActiveContextWorkspace = (): ContextWorkspaceExpose | null => {
@@ -2056,7 +1766,7 @@ const handleApplyImprovement = (payload: { improvement: string; type: any }) => 
     // 关闭评估面板
     evaluation.closePanel();
 
-    if (functionMode.value === 'pro') {
+    if (routeFunctionMode.value === 'pro') {
         const workspace = getActiveContextWorkspace();
         if (!workspace?.openIterateDialog) {
             // 这里按产品约定属于异常：Context 模式必须可以应用改进建议
@@ -2074,7 +1784,7 @@ const handleApplyImprovement = (payload: { improvement: string; type: any }) => 
 const handleApplyLocalPatch = async (payload: { operation: PatchOperation }) => {
     if (!payload.operation) return;
 
-    if (functionMode.value === 'pro') {
+    if (routeFunctionMode.value === 'pro') {
         const workspace = getActiveContextWorkspace();
         if (!workspace || typeof (workspace as any).applyLocalPatch !== 'function') {
             toast.error(t('toast.error.optimizeProcessFailed'));
@@ -2099,7 +1809,7 @@ const handleApplyLocalPatch = async (payload: { operation: PatchOperation }) => 
 
 // 处理重新评估：始终使用当前模式/工作区的最新状态
 const handleReEvaluate = async (): Promise<void> => {
-    if (functionMode.value === 'pro') {
+    if (routeFunctionMode.value === 'pro') {
         const workspace = getActiveContextWorkspace();
         if (!workspace?.reEvaluateActive) {
             // 这里按产品约定属于异常：Context 模式必须可以重新评估当前内容
@@ -2112,23 +1822,6 @@ const handleReEvaluate = async (): Promise<void> => {
     }
 
     await handleReEvaluateBasic();
-};
-
-// 处理切换版本
-const handleSwitchVersion = (versionId: any) => {
-    // 版本切换时清除 prompt-only / prompt-iterate 评估结果（内容已变更）
-    evaluation.clearResult('prompt-only');
-    evaluation.clearResult('prompt-iterate');
-    optimizer.handleSwitchVersion(versionId);
-};
-
-// 打开变量管理器
-const openVariableManager = (variableName?: string) => {
-    if (variableManager?.refresh) {
-        variableManager.refresh();
-    }
-    focusVariableName.value = variableName;
-    showVariableManager.value = true;
 };
 
 // 监听变量管理器关闭
@@ -2197,56 +1890,21 @@ const openTemplateManager = (
     templateManagerState.showTemplates = true;
 };
 
-// 基础模式子模式变更处理器
-const handleBasicSubModeChange = async (mode: OptimizationMode) => {
-    // 子模式切换时：关闭并清理评估状态，避免残留
-    evaluation.closePanel();
-    evaluation.clearAllResults();
-    await setBasicSubMode(mode as import("@prompt-optimizer/core").BasicSubMode);
-};
-
-// 上下文模式子模式变更处理器
-const handleProSubModeChange = async (mode: OptimizationMode) => {
-    // 子模式切换时：关闭并清理评估状态，避免残留
-    evaluation.closePanel();
-    evaluation.clearAllResults();
-    await setProSubMode(mode as import("@prompt-optimizer/core").ProSubMode);
-
-    if (services.value?.contextMode.value !== mode) {
-        await handleContextModeChange(
-            mode as import("@prompt-optimizer/core").ContextMode,
-        );
-    }
-};
-
-// 图像模式子模式变更处理器
-const handleImageSubModeChange = async (
-    mode: import("@prompt-optimizer/core").ImageSubMode,
-) => {
-    // 子模式切换时：关闭并清理评估状态，避免残留
-    evaluation.closePanel();
-    evaluation.clearAllResults();
-    await setImageSubMode(mode);
-
-    if (typeof window !== "undefined") {
-        window.dispatchEvent(
-            new CustomEvent("image-submode-changed", {
-                detail: { mode },
-            }),
-        );
-    }
-};
+// 🔧 Step D: 已删除死代码 - handleBasicSubModeChange/handleProSubModeChange/handleImageSubModeChange
+// 这些函数已被 AppCoreNav 的 router.push 导航替代（2024-01-06）
 
 // 处理模板语言变化
 const handleTemplateLanguageChanged = (_newLanguage: string) => {
     refreshOptimizeTemplates();
 
-    // 通过 BasicModeWorkspace 访问 PromptPanel 的方法
+    // Basic 工作区：若存在则直接刷新迭代模板选择（同时也会广播 refresh 事件）
     if (basicModeWorkspaceRef.value?.promptPanelRef?.refreshIterateTemplateSelect) {
         basicModeWorkspaceRef.value.promptPanelRef.refreshIterateTemplateSelect();
     }
 
     if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("basic-workspace-refresh-templates"));
+        window.dispatchEvent(new Event("basic-workspace-refresh-iterate-select"));
         window.dispatchEvent(new Event("image-workspace-refresh-iterate-select"));
     }
 };
@@ -2265,6 +1923,7 @@ const handleTemplateManagerClosed = () => {
     }
     refreshOptimizeTemplates();
     if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("basic-workspace-refresh-templates"));
         window.dispatchEvent(new Event("image-workspace-refresh-templates"));
     }
 };
@@ -2291,29 +1950,10 @@ const handleModelManagerClosed = async () => {
     }
     await refreshTextModels();
     if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("basic-workspace-refresh-text-models"));
         window.dispatchEvent(new Event("image-workspace-refresh-text-models"));
         window.dispatchEvent(new Event("image-workspace-refresh-image-models"));
     }
-};
-
-// 基础模式的测试处理函数
-const handleTestAreaTest = async (testVariables?: Record<string, string>) => {
-    // 只清除测试相关的评估结果，保留左侧提示词评估（prompt-only/prompt-iterate）
-    evaluation.clearResult('original');
-    evaluation.clearResult('optimized');
-    evaluation.clearResult('compare');
-
-    await promptTester.executeTest(
-        optimizer.prompt,
-        optimizer.optimizedPrompt,
-        testContent.value,
-        isCompareMode.value,
-        testVariables || {}
-    );
-};
-
-const handleTestAreaCompareToggle = () => {
-    // Compare mode toggle handler
 };
 
 // ========== Session Management ==========
@@ -2334,104 +1974,140 @@ const handleTestAreaCompareToggle = () => {
  *   4. watch(imageSubMode, ...)              - Image 子模式切换
  *   5. watch([isReady, ...modes], ...)       - 综合模式监听
  */
-// 监听功能模式切换（Codex要求：传递 oldKey/newKey）
-watch(functionMode, async (newMode, oldMode) => {
-  // 🔧 Codex 修复：首次恢复完成前不响应模式切换，避免提前触发 switchMode
-  if (!hasRestoredInitialState.value) return;
 
-  // 🔧 外部数据加载中不响应模式切换（防止 session restore 覆盖外部数据）
-  if (isLoadingExternalData.value) return;
+// ========== 🔧 Step C: 路由驱动的模式切换（替代旧 state-watch） ==========
+/**
+ * 从路由路径解析 SubModeKey（使用与 route-computed 相同的严格解析逻辑）
+ *
+ * @param path - 路由路径，如 '/basic/system', '/pro/user', '/image/text2image'
+ * @returns SubModeKey，如 'basic-system', 'pro-user', 'image-text2image'
+ * @returns null - 如果路径非法
+ */
+const parseSubModeKey = (path: string): SubModeKey | null => {
+  if (!path) return null;
 
-  if (newMode !== oldMode && !sessionManager.isSwitching) {
-    // 计算 oldKey 和 newKey
-    const fromKey = sessionManager.computeSubModeKey(
-      oldMode,
-      basicSubMode.value,
-      proSubMode.value,
-      imageSubMode.value
-    )
-    const toKey = sessionManager.computeSubModeKey(
-      newMode,
-      basicSubMode.value,
-      proSubMode.value,
-      imageSubMode.value
-    )
+  // 移除查询参数和哈希
+  const cleanPath = path.split('?')[0].split('#')[0];
 
-    await sessionManager.switchMode(fromKey, toKey)
+  // 匹配模式：/mode/subMode
+  const match = cleanPath.match(/^\/([a-z]+)\/([a-z0-9]+)$/);
+  if (!match) return null;
 
-    // ⚠️ Codex 要求：切换后恢复状态到 UI
-    await restoreSessionToUI()
+  const [, mode, subMode] = match;
+
+  // 严格验证 mode 和 subMode 的合法性
+  const validModes: Record<string, string[]> = {
+    basic: ['system', 'user'],
+    pro: ['system', 'user', 'multi', 'variable'],
+    image: ['text2image', 'image2image'],
+  };
+
+  const validSubModes = validModes[mode];
+  if (!validSubModes || !validSubModes.includes(subMode)) {
+    return null;
   }
-})
 
-// 监听 Basic 子模式切换
-watch(basicSubMode, async (newSubMode, oldSubMode) => {
-  // 🔧 Codex 修复：首次恢复完成前不响应子模式切换
-  if (!hasRestoredInitialState.value) return;
-
-  // 🔧 外部数据加载中不响应子模式切换（防止 session restore 覆盖外部数据）
-  if (isLoadingExternalData.value) return;
-
-  if (
-    functionMode.value === 'basic' &&
-    newSubMode !== oldSubMode &&
-    !sessionManager.isSwitching
-  ) {
-    const fromKey = `basic-${oldSubMode}` as SubModeKey
-    const toKey = `basic-${newSubMode}` as SubModeKey
-
-    await sessionManager.switchSubMode(fromKey, toKey)
-
-    // ⚠️ Codex 要求：切换后恢复状态到 UI
-    await restoreSessionToUI()
+  // 🔧 Pro 模式兼容性映射（与 routeProSubMode computed 保持一致）
+  let normalizedSubMode = subMode;
+  if (mode === 'pro') {
+    if (subMode === 'multi') normalizedSubMode = 'system';
+    if (subMode === 'variable') normalizedSubMode = 'user';
   }
-})
 
-// 监听 Pro 子模式切换
-watch(proSubMode, async (newSubMode, oldSubMode) => {
-  // 🔧 Codex 修复：首次恢复完成前不响应子模式切换
-  if (!hasRestoredInitialState.value) return;
+  return `${mode}-${normalizedSubMode}` as SubModeKey;
+};
 
-  // 🔧 外部数据加载中不响应子模式切换（防止 session restore 覆盖外部数据）
-  if (isLoadingExternalData.value) return;
+/**
+ * 🔧 Step C - 新增：路由变化监听（替代旧 state-watch，避免双触发）
+ *
+ * 主链路：路由变化 → sessionManager.switchMode/switchSubMode → restoreSessionToUI
+ *
+ * 设计原则：
+ * - 路由变化是唯一触发模式切换事务的入口
+ * - 使用 route-computed 解析 fromKey/toKey（与 Step A 保持一致）
+ * - 保留 isLoadingExternalData 和 hasRestoredInitialState 短路逻辑
+ * - 与旧 state-watch 并存但让旧的短路，便于验证和回滚
+ */
+watch(
+  () => routerInstance.currentRoute.value.fullPath,
+  async (toPath, fromPath) => {
+    // 🔧 首次恢复完成前不响应路由变化
+    if (!hasRestoredInitialState.value) return;
 
-  if (
-    functionMode.value === 'pro' &&
-    newSubMode !== oldSubMode &&
-    !sessionManager.isSwitching
-  ) {
-    const fromKey = `pro-${oldSubMode}` as SubModeKey
-    const toKey = `pro-${newSubMode}` as SubModeKey
+    // 🔧 外部数据加载中不响应路由变化（防止 session restore 覆盖外部数据）
+    if (isLoadingExternalData.value) return;
 
-    await sessionManager.switchSubMode(fromKey, toKey)
+    // 解析 fromKey 和 toKey（使用与 route-computed 相同的严格解析逻辑）
+    const fromKey = parseSubModeKey(fromPath);
+    const toKey = parseSubModeKey(toPath);
 
-    // ⚠️ Codex 要求：切换后恢复状态到 UI
-    await restoreSessionToUI()
+    // 非法路径：不触发切换（由 route-computed 的 redirect 处理）
+    if (!fromKey || !toKey) return;
+
+    // 路由未变化：不触发切换
+    if (fromKey === toKey) return;
+
+    // 🔧 判断是跨 mode 切换还是同 mode 子模式切换
+    const fromMode = fromKey.split('-')[0];
+    const toMode = toKey.split('-')[0];
+
+    try {
+      if (fromMode !== toMode) {
+        // 跨 mode 切换
+        await sessionManager.switchMode(fromKey, toKey);
+      } else {
+        // 同 mode 子模式切换
+        await sessionManager.switchSubMode(fromKey, toKey);
+      }
+
+      // ⚠️ 切换后恢复状态到 UI
+      await restoreSessionToUI();
+    } catch (error) {
+      console.error(`[PromptOptimizerApp] 路由切换失败: ${fromKey} → ${toKey}`, error);
+    }
   }
-})
+);
 
-// 监听 Image 子模式切换
-watch(imageSubMode, async (newSubMode, oldSubMode) => {
-  // 🔧 Codex 修复：首次恢复完成前不响应子模式切换
-  if (!hasRestoredInitialState.value) return;
+// ========== 🔧 Step D: 路由导航 helper（替代 setFunctionMode/set*SubMode） ==========
+/**
+ * 通过 SubModeKey 进行路由导航（替代旧的 setFunctionMode/set*SubMode 写入口）
+ *
+ * @param toKey - 目标子模式键，如 'basic-system', 'pro-user', 'image-text2image'
+ * @param opts - 导航选项
+ * @param opts.replace - 是否使用 router.replace 而非 router.push（默认 false）
+ *
+ * 使用场景：
+ * - 历史记录恢复：navigateToSubModeKey(chain.functionMode + '-' + chain.subMode)
+ * - 收藏使用：navigateToSubModeKey(favorite.functionMode + '-' + favorite.subMode)
+ * - 任何需要切换模式/子模式的场景
+ */
+function navigateToSubModeKey(
+  toKey: SubModeKey,
+  opts?: { replace?: boolean }
+) {
+  // SubModeKey 格式：'basic-system' | 'pro-user' | 'image-text2image'
+  const [mode, subMode] = toKey.split('-') as [
+    FunctionMode,
+    BasicSubMode | ProSubMode | ImageSubMode
+  ]
 
-  // 🔧 外部数据加载中不响应子模式切换（防止 session restore 覆盖外部数据）
-  if (isLoadingExternalData.value) return;
+  const path = `/${mode}/${subMode}`
 
-  if (
-    functionMode.value === 'image' &&
-    newSubMode !== oldSubMode &&
-    !sessionManager.isSwitching
-  ) {
-    const fromKey = `image-${oldSubMode}` as SubModeKey
-    const toKey = `image-${newSubMode}` as SubModeKey
-
-    await sessionManager.switchSubMode(fromKey, toKey)
-
-    // ⚠️ Codex 要求：切换后恢复状态到 UI
-    await restoreSessionToUI()
+  if (opts?.replace) {
+    routerInstance.replace(path)
+  } else {
+    routerInstance.push(path)
   }
-})
+}
+
+// 🔧 Step C 阶段2：已删除四个旧 state-watch，route-watch 成为唯一触发源
+// - watch(functionMode, ...) ❌ 已删除（2024-01-06）
+// - watch(basicSubMode, ...) ❌ 已删除（2024-01-06）
+// - watch(proSubMode, ...) ❌ 已删除（2024-01-06）
+// - watch(imageSubMode, ...) ❌ 已删除（2024-01-06）
+//
+// 主链路：route.fullPath 变化 → sessionManager.switchMode/switchSubMode → restoreSessionToUI
+// 保留 watch([isReady, ...modes], ...) 用于首次恢复（第1121-1131行）
 
 // 应用启动时恢复当前会话（在services ready后自动触发）
 // 注意：恢复逻辑已集成到services ready的watch中
@@ -2495,8 +2171,8 @@ onMounted(() => {
     stopWatch()
 
     try {
-      const currentKey = sessionManager.getActiveSubModeKey()
-      await sessionManager.restoreSubModeSession(currentKey)
+      // hydrate all：避免未恢复的子模式在 saveAllSessions 时用默认空值覆盖持久化内容
+      await sessionManager.restoreAllSessions()
 
       // 恢复到 UI
       await restoreSessionToUI()

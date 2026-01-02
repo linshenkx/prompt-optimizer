@@ -1,4 +1,4 @@
-import type { MessageApiInjection, MessageOptions, MessageReactive } from 'naive-ui'
+import type { MessageOptions, MessageReactive } from 'naive-ui'
 
 export interface Toast {
   id: number
@@ -7,10 +7,17 @@ export interface Toast {
 }
 
 // 全局消息API实例 - 在NMessageProvider上下文中初始化
-let globalMessageApi: MessageApiInjection | null = null
+type MessageApi = {
+  success: (content: string, options?: MessageOptions) => MessageReactive
+  error: (content: string, options?: MessageOptions) => MessageReactive
+  warning: (content: string, options?: MessageOptions) => MessageReactive
+  info: (content: string, options?: MessageOptions) => MessageReactive
+}
+
+let globalMessageApi: MessageApi | null = null
 
 // 设置全局消息API（在Toast组件中调用）
-export function setGlobalMessageApi(api: MessageApiInjection) {
+export function setGlobalMessageApi(api: MessageApi) {
   globalMessageApi = api
   console.log('[useToast] Global message API set successfully')
 }
@@ -18,7 +25,7 @@ export function setGlobalMessageApi(api: MessageApiInjection) {
 type ToastOptions = number | MessageOptions
 
 export function useToast() {
-  const getMessageApi = (): MessageApiInjection | null => {
+  const getMessageApi = (): MessageApi | null => {
     if (!globalMessageApi) {
       console.warn('[useToast] NMessageProvider context not available yet.')
     }

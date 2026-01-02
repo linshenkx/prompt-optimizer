@@ -61,7 +61,14 @@
                             <NText :depth="3" style="font-size: 12px">
                                 {{ $t('promptOptimizer.optimizeModel') }}
                             </NText>
-                            <slot name="optimize-model-select"></slot>
+                            <SelectWithConfig
+                                v-model="selectedOptimizeModelKeyModel"
+                                :options="modelSelection.textModelOptions.value"
+                                :getPrimary="OptionAccessors.getPrimary"
+                                :getSecondary="OptionAccessors.getSecondary"
+                                :getValue="OptionAccessors.getValue"
+                                @config="emit('config-model')"
+                            />
                         </NFlex>
 
                         <!-- 模板选择 -->
@@ -69,7 +76,14 @@
                             <NText :depth="3" style="font-size: 12px">
                                 {{ $t('promptOptimizer.templateLabel') }}
                             </NText>
-                            <slot name="template-select"></slot>
+                            <SelectWithConfig
+                                v-model="selectedTemplateIdModel"
+                                :options="templateSelection.templateOptions.value"
+                                :getPrimary="OptionAccessors.getPrimary"
+                                :getSecondary="OptionAccessors.getSecondary"
+                                :getValue="OptionAccessors.getValue"
+                                @config="emit('open-template-manager')"
+                            />
                         </NFlex>
                     </NFlex>
 
@@ -171,7 +185,14 @@
         >
             <!-- 模型选择插槽 -->
             <template #model-select>
-                <slot name="test-model-select"></slot>
+                <SelectWithConfig
+                    v-model="selectedTestModelKeyModel"
+                    :options="modelSelection.textModelOptions.value"
+                    :getPrimary="OptionAccessors.getPrimary"
+                    :getSecondary="OptionAccessors.getSecondary"
+                    :getValue="OptionAccessors.getValue"
+                    @config="emit('config-model')"
+                />
             </template>
 
             <!-- 对比模式结果插槽 -->
@@ -215,22 +236,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject, provide, type Ref } from 'vue'
+import { ref, computed, inject, provide, watch, onMounted, type Ref } from 'vue'
 
 import { useI18n } from "vue-i18n";
+import { useProMultiMessageSession, type TestResults } from '../../stores/session/useProMultiMessageSession'
 import { NCard, NFlex, NButton, NText, NEmpty } from "naive-ui";
 import PromptPanelUI from "../PromptPanel.vue";
 import ConversationTestPanel from "./ConversationTestPanel.vue";
 import ConversationManager from "./ConversationManager.vue";
 import OutputDisplay from "../OutputDisplay.vue";
+import SelectWithConfig from "../SelectWithConfig.vue";
 import { useConversationTester } from '../../composables/prompt/useConversationTester'
 import { useConversationOptimization } from '../../composables/prompt/useConversationOptimization'
 import { usePromptDisplayAdapter } from '../../composables/prompt/usePromptDisplayAdapter'
 import { useTemporaryVariables } from '../../composables/variable/useTemporaryVariables'
 import { useEvaluationHandler, provideProContext, useEvaluationContext } from '../../composables/prompt'
+import { useWorkspaceModelSelection } from '../../composables/workspaces/useWorkspaceModelSelection'
+import { useWorkspaceTemplateSelection } from '../../composables/workspaces/useWorkspaceTemplateSelection'
+import { OptionAccessors } from '../../utils/data-transformer'
 import type { OptimizationMode, ConversationMessage } from "../../types";
 import {
     applyPatchOperationsToText,
+    PREDEFINED_VARIABLES,
     type PromptRecord,
     type PromptRecordChain,
     type Template,
@@ -246,32 +273,24 @@ import type { AppServices } from '../../types/services'
 interface Props {
     // 核心状态
     optimizedReasoning?: string;
-    optimizationMode: OptimizationMode;
 
     // 优化状态
-    isOptimizing: boolean;
-    isIterating: boolean;
+    isOptimizing?: boolean;
+    isIterating?: boolean;
 
     // 外部状态注入（用于初始化本地 hook）
-    selectedOptimizeModel: string;
-    selectedTemplate: Template | null;
-    selectedIterateTemplate: Template | null;
+    // ✅ 已移除：selectedOptimizeModel, selectedTemplate, selectedIterateTemplate - 现在从 session store 直接读取
     // 🆕 评估模型（用于评估功能）
     evaluationModelKey?: string;
 
-    // 上下文数据 (系统模式专属)
-    optimizationContext: ConversationMessage[];
-    toolCount: number;
+    // ✅ 已移除：optimizationContext - 改为从 inject('optimizationContext') 获取
+    // ✅ 已移除：toolCount - 可从 optimizationContextTools 派生
 
-    // 变量数据
-    globalVariables: Record<string, string>;
-    predefinedVariables: Record<string, string>;
-    availableVariables: Record<string, string>;
-    scanVariables: (content: string) => string[];
+    // ✅ 已移除：变量相关 props - 改为从 inject('variableManager') 获取
+    // globalVariables, predefinedVariables, availableVariables, scanVariables
 
-    // 🆕 消息优化功能（本地管理，移除部分外部 props）
-    enableMessageOptimization?: boolean;
-    
+    // ✅ 已移除：enableMessageOptimization - 消息优化功能已移除
+
     // 全局优化链（用于历史记录恢复）
     versions?: PromptRecord[];
     currentVersionId?: string;
@@ -282,11 +301,10 @@ interface Props {
     conversationMaxHeight?: number;
     resultVerticalLayout?: boolean;
 
-    // 🆕 对比模式
+    // 对比模式
     isCompareMode?: boolean;
 
-    // 🆕 测试相关（避免通过 App.vue 中转）
-    selectedTestModel?: string;
+    // ✅ 已移除：selectedTestModel - 现在从 session store 直接读取
     /** 测试模型名称（用于显示标签） */
     testModelName?: string;
 }
@@ -305,12 +323,17 @@ interface ContextSystemHistoryPayload {
 
 const props = withDefaults(defineProps<Props>(), {
     optimizedReasoning: "",
+    isOptimizing: false,
+    isIterating: false,
+    evaluationModelKey: undefined,
+    versions: () => [],
+    currentVersionId: "",
     inputMode: "normal",
     buttonSize: "medium",
     conversationMaxHeight: 300,
     resultVerticalLayout: false,
-    enableMessageOptimization: false,
     isCompareMode: false,
+    testModelName: undefined,
 });
 
 // Emits 定义
@@ -352,17 +375,65 @@ const { t } = useI18n();
 const services = inject<Ref<AppServices | null>>('services')
 const variableManager = inject<VariableManagerHooks | null>('variableManager')
 
+// 🆕 注入优化上下文（多轮对话消息）
+const optimizationContext = inject<Ref<ConversationMessage[]>>('optimizationContext', ref([]))
+
+// ✅ 优化模式：固定为 'system'（此组件专门用于系统模式优化）
+const optimizationMode: OptimizationMode = 'system';
+
+// 🆕 访问变量数据（从 variableManager inject）
+const globalVariables = computed(() => variableManager?.variableManager.value?.listVariables() || {})
+
+const predefinedVariables = computed(() => {
+    // 从 PREDEFINED_VARIABLES 常量获取预定义变量
+    return PREDEFINED_VARIABLES.reduce((acc, name) => {
+        acc[name] = variableManager?.variableManager.value?.getVariable(name) || ''
+        return acc
+    }, {} as Record<string, string>)
+})
+
+const availableVariables = computed(() => {
+    // 合并全局变量和预定义变量
+    return { ...globalVariables.value, ...predefinedVariables.value }
+})
+
+const scanVariables = (content: string) => {
+    return variableManager?.variableManager.value?.scanVariablesInContent(content) || []
+}
+
+const toolCount = computed(() => {
+    // 从 optimizationContextTools 派生
+    return optimizationContextToolsRef.value?.length || 0
+})
+
+const enableMessageOptimization = computed(() => {
+    // 固定为 false（消息优化功能已移除）
+    return false
+})
+
 // 🆕 初始化临时变量管理器（与 ContextEditor 共享）
 const tempVars = useTemporaryVariables()
+
+// 🆕 测试结果持久化（Pro-system）
+const proMultiSession = useProMultiMessageSession()
+
+// ✨ 新增：直接使用 session store 管理模型和模板选择
+const modelSelection = useWorkspaceModelSelection(services || ref(null), proMultiSession)
+const templateSelection = useWorkspaceTemplateSelection(
+    services || ref(null),
+    proMultiSession,
+    'conversationMessageOptimize',
+    'contextIterate'
+)
 
 // 🆕 初始化本地会话优化逻辑
 const conversationOptimization = useConversationOptimization(
     services || ref(null),
-    computed(() => props.optimizationContext),
-    computed(() => props.optimizationMode),
-    computed(() => props.selectedOptimizeModel),
-    computed(() => props.selectedTemplate),
-    computed(() => props.selectedIterateTemplate)
+    optimizationContext,
+    computed(() => optimizationMode),
+    modelSelection.selectedOptimizeModelKey,
+    templateSelection.selectedTemplate,
+    templateSelection.selectedIterateTemplate
 )
 
 // 暴露给子组件（虽然目前主要通过 Props 传递给 ConversationManager，但保持 Provide 以防万一）
@@ -372,8 +443,8 @@ provide('conversationOptimization', conversationOptimization);
 const displayAdapter = usePromptDisplayAdapter(
     conversationOptimization,
     {
-        enableMessageOptimization: computed(() => props.enableMessageOptimization || false),
-        optimizationContext: computed(() => props.optimizationContext),
+        enableMessageOptimization,
+        optimizationContext,
         globalVersions: computed(() => props.versions || []),
         globalCurrentVersionId: computed(() => props.currentVersionId),
         globalIsOptimizing: computed(() => props.isOptimizing),
@@ -381,7 +452,7 @@ const displayAdapter = usePromptDisplayAdapter(
 )
 
 // 🆕 初始化多对话测试器
-const selectedTestModel = computed(() => props.selectedTestModel || '')
+// ✅ 从 session store 读取测试模型
 // 从 inject 获取 optimizationContextTools（由 App.vue 提供）
 const optimizationContextToolsRef = inject<Ref<ToolDefinition[]>>('optimizationContextTools', ref([]))
 // 使用本地 managed 的 selectedMessageId
@@ -389,11 +460,84 @@ const selectedMessageId = conversationOptimization.selectedMessageId
 
 const conversationTester = useConversationTester(
     services || ref(null),
-    selectedTestModel,
-    computed(() => props.optimizationContext),
+    modelSelection.selectedTestModelKey,
+    optimizationContext,
     optimizationContextToolsRef,
     variableManager,
     selectedMessageId
+)
+
+// 🔧 为 SelectWithConfig 的 v-model 创建解包的 computed（避免 Vue prop 类型警告）
+const selectedOptimizeModelKeyModel = computed({
+    get: () => modelSelection.selectedOptimizeModelKey.value,
+    set: (value) => { modelSelection.selectedOptimizeModelKey.value = value }
+})
+
+const selectedTemplateIdModel = computed({
+    get: () => templateSelection.selectedTemplateId.value,
+    set: (value) => { templateSelection.selectedTemplateId.value = value }
+})
+
+const selectedTestModelKeyModel = computed({
+    get: () => modelSelection.selectedTestModelKey.value,
+    set: (value) => { modelSelection.selectedTestModelKey.value = value }
+})
+
+const selectedIterateTemplate = computed<Template | null>({
+    get: () => templateSelection.selectedIterateTemplate.value,
+    set: (value) => {
+        templateSelection.selectedIterateTemplateId.value = value?.id ?? ''
+        templateSelection.selectedIterateTemplate.value = value ?? null
+    }
+})
+
+// 🆕 从 session store 恢复测试结果（只恢复稳定字段，不恢复过程态）
+onMounted(() => {
+    // ✅ 刷新模型列表
+    modelSelection.refreshTextModels()
+
+    const saved = proMultiSession.testResults
+    if (!saved) {
+        return
+    }
+
+    // 只恢复稳定字段，不恢复 isTesting* 过程态
+    conversationTester.testResults.originalResult = saved.originalResult || ""
+    conversationTester.testResults.originalReasoning = saved.originalReasoning || ""
+    conversationTester.testResults.optimizedResult = saved.optimizedResult || ""
+    conversationTester.testResults.optimizedReasoning = saved.optimizedReasoning || ""
+    conversationTester.testResults.isTestingOriginal = false
+    conversationTester.testResults.isTestingOptimized = false
+})
+
+// 🆕 监听测试结果变化，同步到 session store（只持久化稳定字段）
+watch(
+    () => ({
+        originalResult: conversationTester.testResults.originalResult,
+        originalReasoning: conversationTester.testResults.originalReasoning,
+        optimizedResult: conversationTester.testResults.optimizedResult,
+        optimizedReasoning: conversationTester.testResults.optimizedReasoning,
+    }),
+    (stable) => {
+        const hasAny =
+            !!stable.originalResult ||
+            !!stable.originalReasoning ||
+            !!stable.optimizedResult ||
+            !!stable.optimizedReasoning
+
+        if (!hasAny) {
+            proMultiSession.updateTestResults(null)
+            return
+        }
+
+        const snapshot: TestResults = {
+            originalResult: stable.originalResult || "",
+            originalReasoning: stable.originalReasoning || "",
+            optimizedResult: stable.optimizedResult || "",
+            optimizedReasoning: stable.optimizedReasoning || "",
+        }
+        proMultiSession.updateTestResults(snapshot)
+    },
 )
 
 // 🆕 构建 Pro-System 评估上下文
@@ -407,7 +551,7 @@ const proContext = computed<ProSystemEvaluationContext | undefined>(() => {
             content: conversationOptimization.optimizedPrompt.value || selectedMsg.content,
             originalContent: selectedMsg.content,
         },
-        conversationMessages: props.optimizationContext.map((msg) => ({
+        conversationMessages: optimizationContext.value.map((msg) => ({
             role: msg.role,
             content: msg.content,
             isTarget: msg.id === selectedMsg.id,
@@ -443,7 +587,7 @@ const evaluationHandler = useEvaluationHandler({
     optimizedPrompt: computed(() => conversationOptimization.optimizedPrompt.value),
     testContent: computed(() => ''), // Pro-System 模式无测试内容输入
     testResults: testResultsData,
-    evaluationModelKey: computed(() => props.evaluationModelKey || props.selectedOptimizeModel),
+    evaluationModelKey: computed(() => props.evaluationModelKey || modelSelection.selectedOptimizeModelKey.value),
     functionMode: computed(() => 'pro'),
     subMode: computed(() => 'system'),
     proContext,

@@ -38,12 +38,10 @@ describe('messageChainMap 迁移逻辑测试', () => {
   let selectedIterateTemplate: any
 
   beforeEach(() => {
-    // Mock session store
+    // Mock session store（标准模式，直接暴露字段）
     mockSession = {
-      state: {
-        selectedMessageId: '',
-        messageChainMap: {}
-      },
+      selectedMessageId: '',
+      messageChainMap: {},
       selectMessage: vi.fn(),
       setMessageChainMap: vi.fn()
     }
@@ -69,7 +67,7 @@ describe('messageChainMap 迁移逻辑测试', () => {
 
   it('应该将旧格式 key (system:messageId) 迁移为新格式 (messageId)', () => {
     // 准备旧格式数据
-    mockSession.state.messageChainMap = {
+    mockSession.messageChainMap = {
       'system:msg-123': 'chain-abc',
       'system:msg-456': 'chain-def',
       'user:msg-789': 'chain-ghi'
@@ -108,7 +106,7 @@ describe('messageChainMap 迁移逻辑测试', () => {
 
   it('应该正确处理新格式 key（不需要迁移）', () => {
     // 准备新格式数据
-    mockSession.state.messageChainMap = {
+    mockSession.messageChainMap = {
       'msg-123': 'chain-abc',
       'msg-456': 'chain-def'
     }
@@ -134,7 +132,7 @@ describe('messageChainMap 迁移逻辑测试', () => {
 
   it('应该正确处理混合格式数据（部分旧格式，部分新格式）', () => {
     // 准备混合格式数据
-    mockSession.state.messageChainMap = {
+    mockSession.messageChainMap = {
       'system:msg-old-1': 'chain-old-1',
       'msg-new-1': 'chain-new-1',
       'user:msg-old-2': 'chain-old-2',
@@ -168,7 +166,7 @@ describe('messageChainMap 迁移逻辑测试', () => {
   })
 
   it('应该正确处理空数据', () => {
-    mockSession.state.messageChainMap = {}
+    mockSession.messageChainMap = {}
 
     const composable = useConversationOptimization(
       services,
@@ -189,7 +187,7 @@ describe('messageChainMap 迁移逻辑测试', () => {
   })
 
   it('应该忽略非 system 模式的迁移（只在 Pro-system 模式触发）', () => {
-    mockSession.state.messageChainMap = {
+    mockSession.messageChainMap = {
       'system:msg-123': 'chain-abc'
     }
 
@@ -216,7 +214,7 @@ describe('messageChainMap 迁移逻辑测试', () => {
 
   it('应该使用严格前缀匹配，不误迁移包含 : 的 messageId', () => {
     // 准备混合数据：包含旧格式、新格式、以及包含 : 但不是旧格式的 messageId
-    mockSession.state.messageChainMap = {
+    mockSession.messageChainMap = {
       'system:msg-123': 'chain-abc',         // 旧格式，应迁移
       'msg-with:colon': 'chain-def',         // 新格式但包含 :，不应迁移
       'random:prefix:msg': 'chain-ghi',      // 新格式但包含多个 :，不应迁移
@@ -257,7 +255,7 @@ describe('messageChainMap 迁移逻辑测试', () => {
 
   it('应该支持所有已知的旧格式前缀 (system, user, basic, pro, image)', () => {
     // 准备所有旧格式前缀的数据
-    mockSession.state.messageChainMap = {
+    mockSession.messageChainMap = {
       'system:msg-1': 'chain-1',
       'user:msg-2': 'chain-2',
       'basic:msg-3': 'chain-3',

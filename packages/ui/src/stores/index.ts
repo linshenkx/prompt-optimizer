@@ -56,3 +56,10 @@ export {
   type ImageImage2ImageSessionState,
   type ImageImage2ImageSessionApi,
 } from './session/useImageImage2ImageSession'
+
+// Global settings（Phase 1）
+export {
+  useGlobalSettings,
+  type GlobalSettingsState,
+  type GlobalSettingsApi,
+} from './settings/useGlobalSettings'

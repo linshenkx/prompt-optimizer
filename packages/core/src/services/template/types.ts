@@ -43,6 +43,8 @@ export interface Template {
  */
 export type TemplateSourceType = 'builtin' | 'localStorage';
 
+export type TemplateType = TemplateMetadata['templateType'];
+
 // TemplateManagerConfig 已删除 - 配置参数从未被使用
 
 /**
@@ -82,7 +84,7 @@ export interface ITemplateManager extends IImportExportable {
   /**
    * List templates by type
    */
-  listTemplatesByType(type: 'optimize' | 'userOptimize' | 'text2imageOptimize' | 'image2imageOptimize' | 'imageIterate' | 'iterate' | 'contextUserOptimize' | 'contextIterate' | 'conversationMessageOptimize' | 'contextSystemOptimize' | 'evaluation'): Promise<Template[]>;
+  listTemplatesByType(type: TemplateType): Promise<Template[]>;
 
   /**
    * Change built-in template language

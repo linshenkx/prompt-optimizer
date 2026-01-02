@@ -1,7 +1,9 @@
 // Naive UI 主题配置 - 全面基于 Naive UI 的 themeOverrides 系统
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { darkTheme, lightTheme, type GlobalThemeOverrides, type GlobalTheme } from 'naive-ui'
+import { pinia } from '../plugins/pinia'
+import { useGlobalSettings } from '../stores/settings/useGlobalSettings'
 
 // 当前主题ID
 export const currentThemeId = ref<string>('light')
@@ -749,24 +751,38 @@ export const currentThemeOverrides = computed<GlobalThemeOverrides>(() =>
   currentThemeConfig.value.themeOverrides || {}
 )
 
-// 纯Naive UI主题切换 - 无需DOM操作
-export const switchTheme = (themeId: string): boolean => {
-  if (!naiveThemeConfigs[themeId]) {
-    console.warn(`Theme '${themeId}' not found`)
+const resolveAppliedThemeId = (selectedThemeId: string): string => {
+  if (selectedThemeId === 'auto') {
+    try {
+      const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches
+      return prefersDark ? 'dark' : 'light'
+    } catch {
+      return 'light'
+    }
+  }
+  return selectedThemeId
+}
+
+const applyThemeId = (selectedThemeId: string): boolean => {
+  const applied = resolveAppliedThemeId(selectedThemeId)
+  if (!naiveThemeConfigs[applied]) {
+    console.warn(`Theme '${applied}' not found`)
     return false
   }
-
-  currentThemeId.value = themeId
-  
-  // 仅保存到 localStorage，完全依赖Naive UI的themeOverrides
-  try {
-    localStorage.setItem('naive-theme-id', themeId)
-  } catch (error) {
-    console.warn('Failed to save theme preference:', error)
-  }
-  
-  console.log(`Pure Naive UI theme switched to: ${themeId}`)
+  currentThemeId.value = applied
   return true
+}
+
+// 主题切换（统一由 useGlobalSettings 持久化）
+export const switchTheme = (themeId: string): boolean => {
+  const settings = useGlobalSettings(pinia)
+  settings.updateThemeId(themeId)
+
+  const ok = applyThemeId(themeId)
+  if (ok) {
+    console.log(`Pure Naive UI theme switched to: ${themeId}`)
+  }
+  return ok
 }
 
 // 获取当前主题ID
@@ -779,23 +795,38 @@ export const getThemeConfig = (themeId: string): ThemeConfig | null => {
 
 // 初始化主题系统
 export const initializeNaiveTheme = (): void => {
-  // 从 localStorage 获取保存的主题
-  let savedTheme: string | null = null
+  const settings = useGlobalSettings(pinia)
+
+  // 一次性迁移：localStorage('naive-theme-id') → useGlobalSettings
+  // 只在 global-settings/v1 尚未恢复且当前为默认 'auto' 时执行
   try {
-    savedTheme = localStorage.getItem('naive-theme-id')
+    const legacy = localStorage.getItem('naive-theme-id')
+    if (legacy && settings.state.selectedThemeId === 'auto' && !settings.hasRestored) {
+      settings.updateThemeId(legacy)
+    }
   } catch (error) {
-    console.warn('Failed to load theme preference:', error)
+    console.warn('Failed to load legacy theme preference:', error)
   }
-  
-  // 如果没有保存的主题，使用系统偏好
-  if (!savedTheme) {
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    savedTheme = prefersDark ? 'dark' : 'light'
+
+  // 监听全局配置的主题选择，驱动实际应用主题
+  // 使用模块级 guard，防止 initializeNaiveTheme 被多次调用时重复注册 watch
+  if (!__themeWatchInitialized) {
+    __themeWatchInitialized = true
+    watch(
+      () => settings.state.selectedThemeId,
+      (selectedId) => {
+        if (!selectedId) return
+        applyThemeId(selectedId)
+      },
+      { immediate: true }
+    )
+  } else {
+    // 已注册 watch：手动应用一次，确保初始化时 theme 与 state 对齐
+    applyThemeId(settings.state.selectedThemeId)
   }
-  
-  // 应用主题
-  switchTheme(savedTheme)
 }
+
+let __themeWatchInitialized = false
 
 // 检查是否为深色主题
 export const isDarkTheme = computed(() => {

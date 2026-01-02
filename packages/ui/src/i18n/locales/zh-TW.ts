@@ -1226,6 +1226,8 @@ export default {
       noOptimizeModel: "請先選擇優化模型",
       noIterateTemplate: "請先選擇迭代提示詞",
       incompleteTestInfo: "請填寫完整的測試資訊",
+      favoriteNotInitialized: "收藏功能未初始化",
+      noContentToSave: "沒有可儲存的內容",
       noDefaultTemplate: "無法載入預設提示詞",
       optimizeProcessFailed: "優化過程出錯",
       promptServiceUnavailable: "優化服務暫時不可用",
@@ -1254,6 +1256,9 @@ export default {
       imageFavoriteLoaded: "收藏的圖像提示詞已載入",
       favoriteLoaded: "已將提示詞載入到輸入框",
       localEditSaved: "已儲存為新版本",
+      testComplete: "測試完成",
+      optimizeCompleteNoHistory: "提示詞優化完成（歷史紀錄服務不可用）",
+      iterateCompleteNoHistory: "迭代完成（歷史紀錄服務不可用）",
     },
     warn: {
       loadOptimizeTemplateFailed: "載入已儲存的優化提示詞失敗",
@@ -1269,6 +1274,8 @@ export default {
       messageNotFoundInSnapshot: "歷史紀錄恢復成功，但找不到被優化的訊息",
       restoredFromLegacyHistory: "從舊版本歷史紀錄恢復（僅恢復被優化的訊息）",
       messageNotFoundInCurrentConversation: "目前對話中找不到被優化的訊息，無法恢復",
+      optimizeCompleteButHistoryFailed: "優化完成，但歷史紀錄儲存失敗，版本管理暫時不可用",
+      iterateCompleteButHistoryFailed: "迭代完成，但歷史紀錄儲存失敗，版本管理暫時不可用",
     },
     info: {
       modelUpdated: "模型已更新",

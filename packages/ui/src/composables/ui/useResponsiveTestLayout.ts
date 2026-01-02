@@ -1,12 +1,12 @@
 import { ref, computed, onMounted, onUnmounted, readonly } from 'vue'
 
-import type { 
-  TestAreaConfig, 
-  TestControlLayout, 
+import type {
+  TestAreaConfig,
+  TestControlLayout,
   TestResultConfig,
   ComponentSize,
   ButtonSize
-} from '../components/types/test-area'
+} from '../../components/types/test-area'
 
 // 屏幕断点定义
 const BREAKPOINTS = {

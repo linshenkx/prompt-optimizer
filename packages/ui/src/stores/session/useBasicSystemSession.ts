@@ -16,13 +16,16 @@
 import { defineStore } from 'pinia'
 import { ref, type Ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
+import { TEMPLATE_SELECTION_KEYS } from '@prompt-optimizer/core'
 
 /**
  * 测试结果结构
  */
 export interface TestResults {
   originalResult: string
+  originalReasoning: string
   optimizedResult: string
+  optimizedReasoning: string
 }
 
 /**
@@ -77,17 +80,42 @@ const createDefaultState = (): BasicSystemSessionState => ({
 })
 
 export const useBasicSystemSession = defineStore('basicSystemSession', () => {
-  /**
-   * 会话状态
-   */
-  const state: Ref<BasicSystemSessionState> = ref(createDefaultState())
+  // ========== 状态定义（使用独立 ref，而非包装在 state 对象中）==========
+
+  // 提示词相关
+  const prompt = ref('')
+  const optimizedPrompt = ref('')
+  const reasoning = ref('')
+
+  // 历史相关（只存 ID）
+  const chainId = ref('')
+  const versionId = ref('')
+
+  // 测试区域内容
+  const testContent = ref('')
+
+  // 测试结果
+  const testResults = ref<TestResults | null>(null)
+
+  // 模型和模板选择（只存 ID/key，不存对象）
+  const selectedOptimizeModelKey = ref('')
+  const selectedTestModelKey = ref('')
+  const selectedTemplateId = ref<string | null>(null)
+  const selectedIterateTemplateId = ref<string | null>(null)
+
+  // 对比模式
+  const isCompareMode = ref(true)
+
+  // 最后活跃时间
+  const lastActiveAt = ref(Date.now())
 
   /**
    * 更新提示词
    */
-  const updatePrompt = (prompt: string) => {
-    state.value.prompt = prompt
-    state.value.lastActiveAt = Date.now()
+  const updatePrompt = (promptValue: string) => {
+    if (prompt.value === promptValue) return
+    prompt.value = promptValue
+    lastActiveAt.value = Date.now()
   }
 
   /**
@@ -99,74 +127,124 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
     chainId: string
     versionId: string
   }) => {
-    state.value.optimizedPrompt = payload.optimizedPrompt
-    state.value.reasoning = payload.reasoning || ''
-    state.value.chainId = payload.chainId
-    state.value.versionId = payload.versionId
-    state.value.lastActiveAt = Date.now()
+    const nextOptimizedPrompt = payload.optimizedPrompt
+    const nextReasoning = payload.reasoning || ''
+    const nextChainId = payload.chainId
+    const nextVersionId = payload.versionId
+
+    const changed =
+      optimizedPrompt.value !== nextOptimizedPrompt ||
+      reasoning.value !== nextReasoning ||
+      chainId.value !== nextChainId ||
+      versionId.value !== nextVersionId
+
+    if (!changed) return
+
+    optimizedPrompt.value = nextOptimizedPrompt
+    reasoning.value = nextReasoning
+    chainId.value = nextChainId
+    versionId.value = nextVersionId
+    lastActiveAt.value = Date.now()
   }
 
   /**
    * 更新测试结果
    */
   const updateTestResults = (results: TestResults | null) => {
-    state.value.testResults = results
-    state.value.lastActiveAt = Date.now()
+    const prev = testResults.value
+
+    // 检查是否相同
+    const isSame =
+      prev === results ||
+      (!!prev &&
+        !!results &&
+        prev.originalResult === results.originalResult &&
+        prev.originalReasoning === results.originalReasoning &&
+        prev.optimizedResult === results.optimizedResult &&
+        prev.optimizedReasoning === results.optimizedReasoning)
+
+    if (isSame) {
+      return
+    }
+
+    // 直接赋值给 ref（现在是响应式的）
+    testResults.value = results
+    lastActiveAt.value = Date.now()
   }
 
   /**
    * 更新测试内容
    */
   const updateTestContent = (content: string) => {
-    state.value.testContent = content
-    state.value.lastActiveAt = Date.now()
+    if (testContent.value === content) return
+    testContent.value = content
+    lastActiveAt.value = Date.now()
   }
 
   /**
    * 更新优化模型选择
    */
   const updateOptimizeModel = (modelKey: string) => {
-    state.value.selectedOptimizeModelKey = modelKey
-    state.value.lastActiveAt = Date.now()
+    if (selectedOptimizeModelKey.value === modelKey) return
+    selectedOptimizeModelKey.value = modelKey
+    lastActiveAt.value = Date.now()
   }
 
   /**
    * 更新测试模型选择
    */
   const updateTestModel = (modelKey: string) => {
-    state.value.selectedTestModelKey = modelKey
-    state.value.lastActiveAt = Date.now()
+    if (selectedTestModelKey.value === modelKey) return
+    selectedTestModelKey.value = modelKey
+    lastActiveAt.value = Date.now()
   }
 
   /**
    * 更新模板选择
    */
   const updateTemplate = (templateId: string | null) => {
-    state.value.selectedTemplateId = templateId
-    state.value.lastActiveAt = Date.now()
+    if (selectedTemplateId.value === templateId) return
+    selectedTemplateId.value = templateId
+    lastActiveAt.value = Date.now()
   }
 
   /**
    * 更新迭代模板选择
    */
   const updateIterateTemplate = (templateId: string | null) => {
-    state.value.selectedIterateTemplateId = templateId
-    state.value.lastActiveAt = Date.now()
+    if (selectedIterateTemplateId.value === templateId) return
+    selectedIterateTemplateId.value = templateId
+    lastActiveAt.value = Date.now()
   }
 
   /**
    * 切换对比模式
    */
   const toggleCompareMode = (enabled?: boolean) => {
-    state.value.isCompareMode = enabled ?? !state.value.isCompareMode
-    state.value.lastActiveAt = Date.now()
+    const nextValue = enabled ?? !isCompareMode.value
+    if (isCompareMode.value === nextValue) return
+    isCompareMode.value = nextValue
+    lastActiveAt.value = Date.now()
   }
 
   /**
    * 重置状态
    */
   const reset = () => {
-    state.value = createDefaultState()
+    const defaultState = createDefaultState()
+    prompt.value = defaultState.prompt
+    optimizedPrompt.value = defaultState.optimizedPrompt
+    reasoning.value = defaultState.reasoning
+    chainId.value = defaultState.chainId
+    versionId.value = defaultState.versionId
+    testContent.value = defaultState.testContent
+    testResults.value = defaultState.testResults
+    selectedOptimizeModelKey.value = defaultState.selectedOptimizeModelKey
+    selectedTestModelKey.value = defaultState.selectedTestModelKey
+    selectedTemplateId.value = defaultState.selectedTemplateId
+    selectedIterateTemplateId.value = defaultState.selectedIterateTemplateId
+    isCompareMode.value = defaultState.isCompareMode
+    lastActiveAt.value = Date.now()
   }
 
   /**
@@ -181,7 +259,22 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
     }
 
     try {
-      const snapshot = JSON.stringify(state.value)
+      const sessionState = {
+        prompt: prompt.value,
+        optimizedPrompt: optimizedPrompt.value,
+        reasoning: reasoning.value,
+        chainId: chainId.value,
+        versionId: versionId.value,
+        testContent: testContent.value,
+        testResults: testResults.value,
+        selectedOptimizeModelKey: selectedOptimizeModelKey.value,
+        selectedTestModelKey: selectedTestModelKey.value,
+        selectedTemplateId: selectedTemplateId.value,
+        selectedIterateTemplateId: selectedIterateTemplateId.value,
+        isCompareMode: isCompareMode.value,
+        lastActiveAt: lastActiveAt.value,
+      }
+      const snapshot = JSON.stringify(sessionState)
       await $services.preferenceService.set(
         'session/v1/basic-system',
         snapshot
@@ -210,10 +303,38 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
 
       if (saved) {
         const parsed = JSON.parse(saved) as BasicSystemSessionState
-        state.value = {
-          ...createDefaultState(),
-          ...parsed,
-          lastActiveAt: Date.now(), // 更新活跃时间
+        prompt.value = parsed.prompt
+        optimizedPrompt.value = parsed.optimizedPrompt
+        reasoning.value = parsed.reasoning
+        chainId.value = parsed.chainId
+        versionId.value = parsed.versionId
+        testContent.value = parsed.testContent
+        testResults.value = parsed.testResults
+        selectedOptimizeModelKey.value = parsed.selectedOptimizeModelKey
+        selectedTestModelKey.value = parsed.selectedTestModelKey
+        selectedTemplateId.value = parsed.selectedTemplateId
+        selectedIterateTemplateId.value = parsed.selectedIterateTemplateId
+        isCompareMode.value = parsed.isCompareMode
+        lastActiveAt.value = Date.now()
+      }
+
+      // 兼容迁移：模板选择（从旧 TEMPLATE_SELECTION_KEYS 迁移一次）
+      if (!selectedTemplateId.value) {
+        const legacyTemplateId = await $services.preferenceService.get(
+          TEMPLATE_SELECTION_KEYS.SYSTEM_OPTIMIZE_TEMPLATE,
+          ''
+        )
+        if (legacyTemplateId) {
+          selectedTemplateId.value = legacyTemplateId
+        }
+      }
+      if (!selectedIterateTemplateId.value) {
+        const legacyIterateTemplateId = await $services.preferenceService.get(
+          TEMPLATE_SELECTION_KEYS.ITERATE_TEMPLATE,
+          ''
+        )
+        if (legacyIterateTemplateId) {
+          selectedIterateTemplateId.value = legacyIterateTemplateId
         }
       }
     } catch (error) {
@@ -224,10 +345,22 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
   }
 
   return {
-    // 状态
-    state,
+    // ========== 状态（直接返回，Pinia 会自动追踪响应式）==========
+    prompt,
+    optimizedPrompt,
+    reasoning,
+    chainId,
+    versionId,
+    testContent,
+    testResults,
+    selectedOptimizeModelKey,
+    selectedTestModelKey,
+    selectedTemplateId,
+    selectedIterateTemplateId,
+    isCompareMode,
+    lastActiveAt,
 
-    // 更新方法
+    // ========== 更新方法 ==========
     updatePrompt,
     updateOptimizedResult,
     updateTestContent,
@@ -239,7 +372,7 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
     toggleCompareMode,
     reset,
 
-    // 持久化方法
+    // ========== 持久化方法 ==========
     saveSession,
     restoreSession,
   }

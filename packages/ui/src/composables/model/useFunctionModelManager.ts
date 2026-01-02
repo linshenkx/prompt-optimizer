@@ -7,7 +7,6 @@
 import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 import { usePreferences } from '../storage/usePreferenceManager'
 import {
-  MODEL_SELECTION_KEYS,
   FUNCTION_MODEL_KEYS,
 } from '@prompt-optimizer/core'
 import type { AppServices } from '../../types/services'
@@ -100,11 +99,14 @@ export function useFunctionModelManager(
 
       isLoading.value = true
       try {
-        // 读取全局优化模型（偏好）作为兜底：当运行时 services.modelManager 不可用时使用
-        globalOptimizeModelFallback.value = await getPreference(
-          MODEL_SELECTION_KEYS.OPTIMIZE_MODEL,
-          ''
-        )
+        // 兜底：从当前可用模型中选一个
+        if (services.value?.modelManager) {
+          const allModels = await services.value.modelManager.getAllModels()
+          const enabledModels = allModels.filter(m => m.enabled)
+          globalOptimizeModelFallback.value = enabledModels[0]?.id || ''
+        } else {
+          globalOptimizeModelFallback.value = ''
+        }
 
         // 读取评估模型
         const savedEvaluationModel = await getPreference(

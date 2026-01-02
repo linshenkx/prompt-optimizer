@@ -27,12 +27,6 @@ export const UI_SETTINGS_KEYS = {
 } as const;
 
 // 模型选择相关
-export const MODEL_SELECTION_KEYS = {
-  OPTIMIZE_MODEL: "app:selected-optimize-model",
-  TEST_MODEL: "app:selected-test-model",
-} as const;
-
-// 模板选择相关
 export const TEMPLATE_SELECTION_KEYS = {
   SYSTEM_OPTIMIZE_TEMPLATE: "app:selected-optimize-template", // 系统优化模板（兼容旧版本）
   USER_OPTIMIZE_TEMPLATE: "app:selected-user-optimize-template", // 用户优化模板
@@ -79,7 +73,6 @@ export function getModeModelKey(
 export const ALL_STORAGE_KEYS = {
   ...CORE_SERVICE_KEYS,
   ...UI_SETTINGS_KEYS,
-  ...MODEL_SELECTION_KEYS,
   ...TEMPLATE_SELECTION_KEYS,
   ...IMAGE_MODE_KEYS,
   ...FUNCTION_MODEL_KEYS,
@@ -93,8 +86,6 @@ export type CoreServiceKey =
   (typeof CORE_SERVICE_KEYS)[keyof typeof CORE_SERVICE_KEYS];
 export type UISettingsKey =
   (typeof UI_SETTINGS_KEYS)[keyof typeof UI_SETTINGS_KEYS];
-export type ModelSelectionKey =
-  (typeof MODEL_SELECTION_KEYS)[keyof typeof MODEL_SELECTION_KEYS];
 export type TemplateSelectionKey =
   (typeof TEMPLATE_SELECTION_KEYS)[keyof typeof TEMPLATE_SELECTION_KEYS];
 export type ImageModeKey =
