@@ -19,3 +19,12 @@ if [ ! -f "pnpm-lock.yaml" ]; then
   echo "警告: 未检测到pnpm-lock.yaml文件。"
   echo "请确保使用pnpm install安装依赖。"
 fi 
+
+# 测试门禁（可用 SKIP_TEST_GATE=1 跳过，仅用于紧急情况）
+if [ "$SKIP_TEST_GATE" = "1" ]; then
+  echo "跳过测试门禁：检测到 SKIP_TEST_GATE=1"
+  exit 0
+fi
+
+echo "运行测试门禁（fast）：pnpm test:gate"
+pnpm test:gate

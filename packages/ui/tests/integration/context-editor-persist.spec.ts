@@ -328,17 +328,18 @@ const TestContextEditorWithPersistence = {
     }
   },
   template: `
-    <ContextEditor
-      v-model:visible="visible"
-      :state="initialState"
-      :scan-variables="scanVariables"
-      :replace-variables="replaceVariables"
-      :is-predefined-variable="isPredefinedVariable"
-      :variable-manager="mockVariableManager"
-      @update:state="handleStateUpdate"
-      @contextChange="handleContextChange"
-      data-testid="context-editor-with-persistence"
-    />
+    <div data-testid="context-editor-with-persistence">
+      <ContextEditor
+        v-model:visible="visible"
+        :state="initialState"
+        :scan-variables="scanVariables"
+        :replace-variables="replaceVariables"
+        :is-predefined-variable="isPredefinedVariable"
+        :variable-manager="mockVariableManager"
+        @update:state="handleStateUpdate"
+        @contextChange="handleContextChange"
+      />
+    </div>
   `,
   components: {
     ContextEditor

@@ -25,7 +25,7 @@ export default defineConfig({
 
   // 测试报告配置
   reporter: [
-    ['html'],
+    ['html', { open: 'never' }],
     ['list']
   ],
 

@@ -19,12 +19,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:gate": "vitest run tests/unit/utils/vcr.spec.ts tests/unit/utils/llm-mock-service.spec.ts",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "dotenv": "^16.4.7",
+    "msw": "^2.6.0",
     "tsup": "^8.5.1",
     "typescript": "^5.3.3",
     "vitest": "^4.0.15"

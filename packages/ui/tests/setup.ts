@@ -9,6 +9,7 @@ import { createI18n } from 'vue-i18n'
 import zhCN from '../src/i18n/locales/zh-CN'
 import zhTW from '../src/i18n/locales/zh-TW'
 import enUS from '../src/i18n/locales/en-US'
+import { setupErrorDetection } from './utils/error-detection'
 
 // 创建测试用的 i18n 实例
 const i18n = createI18n({
@@ -159,3 +160,6 @@ afterEach(() => {
 })
 
 console.log('[Test Setup] Pinia services cleanup registered')
+
+// ========== UI 错误检测（console + 未捕获异常）==========
+setupErrorDetection()
