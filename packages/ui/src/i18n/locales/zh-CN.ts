@@ -951,6 +951,7 @@ export default {
     title: "历史记录",
     iterationNote: "迭代说明",
     optimizedPrompt: "优化后",
+    searchPlaceholder: "搜索历史记录...",
     confirmClear: "确定要清空所有历史记录吗？此操作不可恢复。",
     confirmDeleteChain: "确定要删除此条历史记录吗？此操作不可恢复。",
     cleared: "历史记录已清空",
