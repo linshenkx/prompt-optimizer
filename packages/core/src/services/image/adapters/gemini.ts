@@ -17,6 +17,7 @@ export class GeminiImageAdapter extends AbstractImageProviderAdapter {
       requiresApiKey: true,
       defaultBaseURL: 'https://generativelanguage.googleapis.com',
       supportsDynamicModels: false,
+      apiKeyUrl: 'https://aistudio.google.com/apikey',
       connectionSchema: {
         required: ['apiKey'],
         optional: ['baseURL'],

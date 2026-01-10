@@ -70,6 +70,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       requiresApiKey: true,
       defaultBaseURL: 'https://api.openai.com/v1',
       supportsDynamicModels: true,
+      apiKeyUrl: 'https://platform.openai.com/api-keys',
       connectionSchema: {
         required: ['apiKey'],
         optional: ['baseURL'],

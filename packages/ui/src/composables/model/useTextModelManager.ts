@@ -24,6 +24,7 @@ interface TextModelForm {
   name: string
   enabled: boolean
   providerId: string
+  providerMeta?: TextProvider
   modelId: string
   connectionConfig: TextConnectionConfig
   paramOverrides: Record<string, unknown>
@@ -343,6 +344,7 @@ export function useTextModelManager() {
 
     // 使用共享函数处理连接配置
     const providerMeta = providers.value.find(p => p.id === providerId)
+    form.value.providerMeta = providerMeta
     form.value.connectionConfig = computeConnectionConfig(
       form.value.connectionConfig,
       providerMeta,

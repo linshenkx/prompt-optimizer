@@ -57,6 +57,32 @@
               </NSpace>
             </template>
 
+            <template v-if="field.name === 'apiKey'" #label>
+              <NSpace align="center" :size="4">
+                <span>{{ t('modelManager.apiKey') }}</span>
+                <NButton
+                  v-if="currentProviderApiKeyUrl"
+                  text
+                  size="tiny"
+                  type="primary"
+                  tag="a"
+                  :href="currentProviderApiKeyUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style="padding: 0 4px;"
+                  :title="t('modelManager.getApiKey')"
+                >
+                  <template #icon>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/>
+                      <line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                  </template>
+                </NButton>
+              </NSpace>
+            </template>
+
             <template v-if="field.type === 'string'">
               <NInput
                 v-model:value="form.connectionConfig[field.name]"
@@ -240,6 +266,17 @@ const canTestFormConnection = manager.canTestFormConnection
 const isSaving = manager.isSaving
 
 const isEditing = computed(() => !!manager.editingModelId.value)
+
+// 获取当前选择的 Provider 的 API Key URL
+const currentProviderApiKeyUrl = computed(() => {
+  if (!form.value?.providerId) {
+    return null
+  }
+  
+  // 从 form 的 providerMeta 中获取 apiKeyUrl
+  const providerMeta = form.value?.providerMeta
+  return providerMeta?.apiKeyUrl || null
+})
 
 const handleUpdateShow = async (value: boolean) => {
   emit('update:show', value)
