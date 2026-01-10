@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { SeedreamImageAdapter } from '../../../src/services/image/adapters/seedream'
 import type { ImageRequest, ImageModelConfig } from '../../../src/services/image/types'
 
@@ -6,9 +6,16 @@ const RUN_REAL_API = process.env.RUN_REAL_API === '1'
 
 describe('SeedreamImageAdapter', () => {
   let adapter: SeedreamImageAdapter
+  let modelId: string
+  const realFetch = global.fetch
 
   beforeEach(() => {
     adapter = new SeedreamImageAdapter()
+    modelId = adapter.getModels()[0].id
+  })
+
+  afterEach(() => {
+    global.fetch = realFetch
   })
 
   describe('Provider Information', () => {
@@ -73,7 +80,7 @@ describe('SeedreamImageAdapter', () => {
         id: 'test-seedream-config',
         name: 'Test Seedream Config',
         providerId: 'seedream',
-        modelId: 'doubao-seedream-4-0-250828',
+        modelId,
         enabled: true,
         connectionConfig: {
           apiKey: 'test-api-key',
@@ -127,7 +134,7 @@ describe('SeedreamImageAdapter', () => {
         id: 'test-config',
         name: 'Test Config',
         providerId: 'seedream',
-        modelId: 'doubao-seedream-4-0-250828',
+        modelId,
         enabled: true,
         connectionConfig: {
           apiKey: 'test-api-key'
@@ -158,7 +165,7 @@ describe('SeedreamImageAdapter', () => {
         id: 'test-config',
         name: 'Test Config',
         providerId: 'seedream',
-        modelId: 'doubao-seedream-4-0-250828',
+        modelId,
         enabled: true,
         connectionConfig: {
           // Missing apiKey
@@ -181,7 +188,7 @@ describe('SeedreamImageAdapter', () => {
         id: 'chinese-test-config',
         name: 'Chinese Test Config',
         providerId: 'seedream',
-        modelId: 'doubao-seedream-4-0-250828',
+        modelId,
         enabled: true,
         connectionConfig: {
           apiKey: 'test-api-key'
@@ -263,7 +270,6 @@ describe('SeedreamImageAdapter', () => {
     test('should perform real API call when API key is provided', async () => {
       const apiKey = process.env.VITE_SEEDREAM_API_KEY || process.env.VITE_ARK_API_KEY
       if (!apiKey) {
-        console.log('跳过 Seedream 真实 API 测试：未设置 VITE_SEEDREAM_API_KEY 或 VITE_ARK_API_KEY')
         return
       }
 
@@ -271,7 +277,7 @@ describe('SeedreamImageAdapter', () => {
         id: 'real-seedream-test',
         name: 'Real Seedream Test',
         providerId: 'seedream',
-        modelId: 'doubao-seedream-4-0-250828',
+        modelId,
         enabled: true,
         connectionConfig: {
           apiKey: apiKey,
@@ -289,23 +295,27 @@ describe('SeedreamImageAdapter', () => {
         count: 1
       }
 
-      const startTime = Date.now()
       const result = await adapter.generate(request, config)
-      const endTime = Date.now()
-      const duration = ((endTime - startTime) / 1000).toFixed(1)
-
-      console.log(`Seedream 真实API生成耗时: ${duration}秒`)
 
       expect(result).toBeDefined()
       expect(result.images).toHaveLength(1)
       expect(result.images[0].url).toBeTruthy()
-      expect(result.metadata?.created).toBeGreaterThan(0)
 
       // 验证图像 URL 可访问性
       if (result.images[0].url) {
-        const response = await fetch(result.images[0].url, { method: 'HEAD' })
-        expect(response.ok).toBe(true)
-        console.log('生成的图像 URL 可访问，状态码:', response.status)
+        // Seedream 返回的签名 URL 对 HTTP method 敏感（HEAD 可能 403），用 GET 进行可达性校验
+        const response = await fetch(result.images[0].url, { method: 'GET' })
+        if (!response.ok) {
+          throw new Error(
+            `Seedream image URL fetch failed: ${response.status} ${response.statusText}`
+          )
+        }
+
+        const contentType = response.headers.get('content-type') || ''
+        expect(contentType.startsWith('image/')).toBe(true)
+
+        // 确保连接被消费/释放
+        await response.arrayBuffer()
       }
     }, 45000) // 45秒超时
   })

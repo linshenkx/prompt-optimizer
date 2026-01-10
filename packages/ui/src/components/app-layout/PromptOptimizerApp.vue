@@ -50,8 +50,8 @@
                     <!-- 🔧 路由架构：使用 RouterView 自动渲染对应的工作区容器 -->
                     <!-- - /basic/system → BasicSystemWorkspace -->
                     <!-- - /basic/user → BasicUserWorkspace -->
-                    <!-- - /pro/system, /pro/multi → ContextSystemWorkspace -->
-                    <!-- - /pro/user, /pro/variable → ContextUserWorkspace -->
+                    <!-- - /pro/multi → ContextSystemWorkspace -->
+                    <!-- - /pro/variable → ContextUserWorkspace -->
                     <!-- - /image/text2image → ImageText2ImageWorkspace -->
                     <!-- - /image/image2image → ImageImage2ImageWorkspace -->
                     <RouterView v-slot="{ Component, route: viewRoute }">
@@ -382,23 +382,21 @@ const parseRouteInfo = () => {
   ): { subMode: string; isValid: boolean; canonicalSubMode: string } => {
     const validSubModes: Record<string, string[]> = {
       basic: ['system', 'user'],
-      pro: ['system', 'user', 'multi', 'variable'],
+      pro: ['multi', 'variable'],  // ✅ pro 模式支持 multi 和 variable
       image: ['text2image', 'image2image'],
     }
 
     const allowed = validSubModes[mode] || []
     const isValid = subModeParam !== undefined && allowed.includes(subModeParam)
 
-    // 兼容性映射（multi→system, variable→user）
+    // ✅ 移除错误的兼容性映射，直接使用原始 subMode
     let canonicalSubMode = subModeParam || ''
-    if (mode === 'pro') {
-      if (canonicalSubMode === 'multi') canonicalSubMode = 'system'
-      if (canonicalSubMode === 'variable') canonicalSubMode = 'user'
-    }
 
-    // 默认值
+    // 默认值（仅在 subModeParam 为空或非法时使用）
     if (!canonicalSubMode || !isValid) {
-      canonicalSubMode = mode === 'image' ? 'text2image' : 'system'
+      if (mode === 'image') canonicalSubMode = 'text2image'
+      else if (mode === 'pro') canonicalSubMode = 'variable'
+      else canonicalSubMode = 'system'
     }
 
     return { subMode: canonicalSubMode, isValid, canonicalSubMode }
@@ -411,7 +409,7 @@ const parseRouteInfo = () => {
     basicSubMode:
       (functionMode === 'basic' ? subModeInfo.canonicalSubMode : 'system') as 'system' | 'user',
     proSubMode:
-      (functionMode === 'pro' ? subModeInfo.canonicalSubMode : 'system') as 'system' | 'user',
+      (functionMode === 'pro' ? subModeInfo.canonicalSubMode : 'variable') as 'multi' | 'variable',
     imageSubMode:
       (functionMode === 'image' ? subModeInfo.canonicalSubMode : 'text2image') as 'text2image' | 'image2image',
     isValid: subModeInfo.isValid,
@@ -425,21 +423,18 @@ const routeBasicSubMode = computed<BasicSubMode>(() => parseRouteInfo().basicSub
 const routeProSubMode = computed<ProSubMode>(() => parseRouteInfo().proSubMode)
 const routeImageSubMode = computed<ImageSubMode>(() => parseRouteInfo().imageSubMode)
 
-// 🔧 路由纠错 watch：独立于 computed，避免循环导航
-// 只在检测到非法路径时触发 redirect（确保 UI 永远看到合法的 route-computed）
+// 🔧 路由纠错 watch：已禁用
+// 路由验证和重定向已移至路由守卫（beforeRouteSwitch），避免双重验证导致冲突
 watch(
   () => routerInstance.currentRoute.value.path,
   (currentPath) => {
     // 根路径由 useGlobalSettings 驱动初始化路由，不在此处强制纠错
     if (currentPath === '/' || currentPath === '') return
 
-    const routeInfo = parseRouteInfo()
+    // ✅ 路由初始化完成前不进行纠错，避免干扰初始化过程
+    if (!routeInitialized.value) return
 
-    // 如果当前路径非法，redirect 到规范路径
-    if (!routeInfo.isValid && currentPath !== routeInfo.canonicalPath) {
-      console.warn(`[PromptOptimizerApp] 检测到非法路径: ${currentPath}，redirect 到 ${routeInfo.canonicalPath}`)
-      routerInstance.replace(routeInfo.canonicalPath)
-    }
+    parseRouteInfo()
   },
   { immediate: true }  // 立即检查一次
 )
@@ -451,14 +446,7 @@ const routeInitialized = ref(false)  // 🔧 标记路由初始化完成，防�
 const initializeRouteFromGlobalSettings = async (globalSettings: GlobalSettingsApi) => {
   const currentPath = routerInstance.currentRoute.value.path
 
-  // 只在根路径时应用（避免干扰正常导航/深链路刷新）
-  if (currentPath !== '/' && currentPath !== '') {
-    // 🔧 非根路径（深链接/刷新），直接标记路由已就绪
-    routeInitialized.value = true
-    return
-  }
-
-  // 等待 globalSettings 恢复完成（双保险：调用方通常已 await restore）
+  // ✅ 等待 globalSettings 恢复完成（双保险：调用方通常已 await restore）
   if (!globalSettings.isInitialized) {
     await new Promise<void>((resolve) => {
       const unwatch = watch(
@@ -474,27 +462,30 @@ const initializeRouteFromGlobalSettings = async (globalSettings: GlobalSettingsA
     })
   }
 
-  const { functionMode, basicSubMode, proSubMode, imageSubMode } = globalSettings.state
+  // ✅ 只在根路径时根据 globalSettings 初始化路由
+  if (currentPath === '/' || currentPath === '') {
+    const { functionMode, basicSubMode, proSubMode, imageSubMode } = globalSettings.state
 
-  let initialRoute = '/basic/system'
-  switch (functionMode) {
-    case 'basic':
-      initialRoute = `/basic/${basicSubMode}`
-      break
-    case 'pro':
-      initialRoute = `/pro/${proSubMode}`
-      break
-    case 'image':
-      initialRoute = `/image/${imageSubMode}`
-      break
+    let initialRoute = '/basic/system'
+    switch (functionMode) {
+      case 'basic':
+        initialRoute = `/basic/${basicSubMode}`
+        break
+      case 'pro':
+        initialRoute = `/pro/${proSubMode}`
+        break
+      case 'image':
+        initialRoute = `/image/${imageSubMode}`
+        break
+    }
+
+    if (routerInstance.currentRoute.value.path !== initialRoute) {
+      console.log(`[PromptOptimizerApp] 初始化路由: ${initialRoute}`)
+      await routerInstance.replace(initialRoute)
+    }
   }
 
-  if (routerInstance.currentRoute.value.path !== initialRoute) {
-    console.log(`[PromptOptimizerApp] 初始化路由: ${initialRoute}`)
-    await routerInstance.replace(initialRoute)
-  }
-
-  // 🔧 标记路由初始化完成
+  // 🔧 标记路由初始化完成（任何路径访问时都设置）
   routeInitialized.value = true
 }
 
@@ -618,11 +609,9 @@ const setWorkspaceRef = (instance: unknown, routeName: WorkspaceRouteName) => {
         case "basic-user":
             basicModeWorkspaceRef.value = resolvedInstance;
             break;
-        case "pro-system":
         case "pro-multi":
             systemWorkspaceRef.value = resolvedInstance;
             break;
-        case "pro-user":
         case "pro-variable":
             userWorkspaceRef.value = resolvedInstance;
             break;
@@ -631,7 +620,7 @@ const setWorkspaceRef = (instance: unknown, routeName: WorkspaceRouteName) => {
 
 const selectedOptimizationMode = computed<OptimizationMode>(() => {
     if (routeFunctionMode.value === 'basic') return routeBasicSubMode.value as OptimizationMode;
-    if (routeFunctionMode.value === 'pro') return routeProSubMode.value as OptimizationMode;
+    if (routeFunctionMode.value === 'pro') return routeProSubMode.value === 'multi' ? 'system' : 'user';
     return 'system';
 });
 
@@ -794,7 +783,7 @@ const selectedOptimizeModelKey = computed<string>({
         }
         if (routeFunctionMode.value === "pro") {
             const session =
-                routeProSubMode.value === "system"
+                routeProSubMode.value === "multi"
                     ? proMultiMessageSession
                     : proVariableSession;
             return session.selectedOptimizeModelKey || "";
@@ -816,7 +805,7 @@ const selectedOptimizeModelKey = computed<string>({
         }
         if (routeFunctionMode.value === "pro") {
             const session =
-                routeProSubMode.value === "system"
+                routeProSubMode.value === "multi"
                     ? proMultiMessageSession
                     : proVariableSession;
             session.updateOptimizeModel(next);
@@ -839,7 +828,7 @@ const selectedTestModelKey = computed<string>({
         }
         if (routeFunctionMode.value === "pro") {
             const session =
-                routeProSubMode.value === "system"
+                routeProSubMode.value === "multi"
                     ? proMultiMessageSession
                     : proVariableSession;
             return session.selectedTestModelKey || "";
@@ -854,7 +843,7 @@ const selectedTestModelKey = computed<string>({
         }
         if (routeFunctionMode.value === "pro") {
             const session =
-                routeProSubMode.value === "system"
+                routeProSubMode.value === "multi"
                     ? proMultiMessageSession
                     : proVariableSession;
             session.updateTestModel(next);
@@ -1002,7 +991,7 @@ const getCurrentSession = () => {
     if (routeFunctionMode.value === 'basic') {
         return routeBasicSubMode.value === 'system' ? basicSystemSession : basicUserSession;
     } else if (routeFunctionMode.value === 'pro') {
-        return routeProSubMode.value === 'system' ? proMultiMessageSession : proVariableSession;
+        return routeProSubMode.value === 'multi' ? proMultiMessageSession : proVariableSession;
     } else if (routeFunctionMode.value === 'image') {
         return routeImageSubMode.value === 'text2image' ? imageText2ImageSession : imageImage2ImageSession;
     }
@@ -1193,11 +1182,11 @@ const restoreSessionToUIInternal = async () => {
     if (routeFunctionMode.value === 'basic') {
         // Basic 模式：使用通用恢复逻辑
         restoreBasicOrProVariableSession();
-    } else if (routeFunctionMode.value === 'pro' && routeProSubMode.value === 'user') {
-        // Pro-user（变量模式）：恢复到 ContextUserWorkspace
+    } else if (routeFunctionMode.value === 'pro' && routeProSubMode.value === 'variable') {
+        // Pro-variable（变量模式）：恢复到 ContextUserWorkspace
         await restoreProVariableSessionToUserWorkspace();
-    } else if (routeFunctionMode.value === 'pro' && routeProSubMode.value === 'system') {
-        // Pro-system 模式：使用专用恢复逻辑（异步，等待 DOM 更新）
+    } else if (routeFunctionMode.value === 'pro' && routeProSubMode.value === 'multi') {
+        // Pro-multi（多消息模式）：使用专用恢复逻辑（异步，等待 DOM 更新）
         await restoreProMultiMessageSession();
     } else if (routeFunctionMode.value === 'image') {
         // Image 模式：使用专用恢复逻辑
@@ -1275,13 +1264,13 @@ watch(
         if (routeFunctionMode.value === 'image') return;
 
         // Pro-user 模式的优化结果由 ContextUserWorkspace 内部管理，避免用 optimizer 覆盖 session
-        if (routeFunctionMode.value === 'pro' && routeProSubMode.value === 'user') {
+        if (routeFunctionMode.value === 'pro' && routeProSubMode.value === 'variable') {
             return;
         }
 
         // 🔧 Pro-system 模式的优化结果由 useConversationOptimization 直写 session store，
         // 避免用不相关的 optimizer 状态覆盖（刷新后易写入空值）。
-        if (routeFunctionMode.value === 'pro' && routeProSubMode.value === 'system') {
+        if (routeFunctionMode.value === 'pro' && routeProSubMode.value === 'multi') {
             return;
         }
 
@@ -1494,7 +1483,8 @@ watch(
         // 只有在 Pro 模式下才导航（避免其他模式触发不必要的路由变化）
         if (routeFunctionMode.value === "pro") {
             // newMode 已经是合法的 'system' | 'user'
-            navigateToSubModeKey(`pro-${newMode}` as SubModeKey);
+            const targetSubMode = newMode === 'system' ? 'multi' : 'variable';
+            navigateToSubModeKey(`pro-${targetSubMode}` as SubModeKey);
         }
     },
     { immediate: true },
@@ -1731,7 +1721,7 @@ watch(services, async (newServices) => {
     } else if (routeFunctionMode.value === "pro") {
         await proSubModeApi.ensureInitialized();
         await handleContextModeChange(
-            routeProSubMode.value as import("@prompt-optimizer/core").ContextMode,
+            routeProSubMode.value === 'multi' ? 'system' : 'user',
         );
     } else if (routeFunctionMode.value === "image") {
         await imageSubModeApi.ensureInitialized();
@@ -1979,8 +1969,8 @@ const handleModelManagerClosed = async () => {
 /**
  * 从路由路径解析 SubModeKey（使用与 route-computed 相同的严格解析逻辑）
  *
- * @param path - 路由路径，如 '/basic/system', '/pro/user', '/image/text2image'
- * @returns SubModeKey，如 'basic-system', 'pro-user', 'image-text2image'
+ * @param path - 路由路径，如 '/basic/system', '/pro/variable', '/image/text2image'
+ * @returns SubModeKey，如 'basic-system', 'pro-variable', 'image-text2image'
  * @returns null - 如果路径非法
  */
 const parseSubModeKey = (path: string): SubModeKey | null => {
@@ -1998,20 +1988,20 @@ const parseSubModeKey = (path: string): SubModeKey | null => {
   // 严格验证 mode 和 subMode 的合法性
   const validModes: Record<string, string[]> = {
     basic: ['system', 'user'],
-    pro: ['system', 'user', 'multi', 'variable'],
+    pro: ['multi', 'variable'],
     image: ['text2image', 'image2image'],
   };
-
-  const validSubModes = validModes[mode];
-  if (!validSubModes || !validSubModes.includes(subMode)) {
-    return null;
-  }
 
   // 🔧 Pro 模式兼容性映射（与 routeProSubMode computed 保持一致）
   let normalizedSubMode = subMode;
   if (mode === 'pro') {
-    if (subMode === 'multi') normalizedSubMode = 'system';
-    if (subMode === 'variable') normalizedSubMode = 'user';
+    if (subMode === 'system') normalizedSubMode = 'multi';
+    if (subMode === 'user') normalizedSubMode = 'variable';
+  }
+
+  const validSubModes = validModes[mode];
+  if (!validSubModes || !validSubModes.includes(normalizedSubMode)) {
+    return null;
   }
 
   return `${mode}-${normalizedSubMode}` as SubModeKey;
@@ -2072,7 +2062,7 @@ watch(
 /**
  * 通过 SubModeKey 进行路由导航（替代旧的 setFunctionMode/set*SubMode 写入口）
  *
- * @param toKey - 目标子模式键，如 'basic-system', 'pro-user', 'image-text2image'
+ * @param toKey - 目标子模式键，如 'basic-system', 'pro-variable', 'image-text2image'
  * @param opts - 导航选项
  * @param opts.replace - 是否使用 router.replace 而非 router.push（默认 false）
  *
@@ -2085,7 +2075,7 @@ function navigateToSubModeKey(
   toKey: SubModeKey,
   opts?: { replace?: boolean }
 ) {
-  // SubModeKey 格式：'basic-system' | 'pro-user' | 'image-text2image'
+  // SubModeKey 格式：'basic-system' | 'pro-variable' | 'image-text2image'
   const [mode, subMode] = toKey.split('-') as [
     FunctionMode,
     BasicSubMode | ProSubMode | ImageSubMode

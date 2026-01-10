@@ -19,7 +19,7 @@ import { getPiniaServices } from '../../plugins/pinia'
 
 export type FunctionMode = 'basic' | 'pro' | 'image'
 export type BasicSubMode = 'system' | 'user'
-export type ProSubMode = 'system' | 'user'
+export type ProSubMode = 'multi' | 'variable'
 export type ImageSubMode = 'text2image' | 'image2image'
 
 export interface GlobalSettingsState {
@@ -43,7 +43,7 @@ const createDefaultState = (): GlobalSettingsState => ({
   builtinTemplateLanguage: 'zh-CN',
   functionMode: 'basic',
   basicSubMode: 'system',
-  proSubMode: 'system',
+  proSubMode: 'variable',
   imageSubMode: 'text2image',
   lastActiveAt: Date.now(),
 })
@@ -55,7 +55,14 @@ const isBasicSubMode = (value: unknown): value is BasicSubMode =>
   value === 'system' || value === 'user'
 
 const isProSubMode = (value: unknown): value is ProSubMode =>
-  value === 'system' || value === 'user'
+  value === 'multi' || value === 'variable'
+
+const normalizeLegacyProSubMode = (value: unknown): ProSubMode | null => {
+  if (value === 'multi' || value === 'variable') return value
+  if (value === 'system') return 'multi'
+  if (value === 'user') return 'variable'
+  return null
+}
 
 const isImageSubMode = (value: unknown): value is ImageSubMode =>
   value === 'text2image' || value === 'image2image'
@@ -227,7 +234,13 @@ export const useGlobalSettings = defineStore('globalSettings', () => {
           UI_SETTINGS_KEYS.PRO_SUB_MODE,
           ''
         )
-        if (isProSubMode(mode)) state.value.proSubMode = mode
+        const normalized = normalizeLegacyProSubMode(mode)
+        if (normalized) {
+          state.value.proSubMode = normalized
+          if (mode !== normalized) {
+            await $services.preferenceService.set(UI_SETTINGS_KEYS.PRO_SUB_MODE, normalized)
+          }
+        }
       }
 
       if (shouldOverride(state.value.imageSubMode, defaults.imageSubMode)) {
@@ -276,9 +289,7 @@ export const useGlobalSettings = defineStore('globalSettings', () => {
             basicSubMode: isBasicSubMode(parsed.basicSubMode)
               ? parsed.basicSubMode
               : defaults.basicSubMode,
-            proSubMode: isProSubMode(parsed.proSubMode)
-              ? parsed.proSubMode
-              : defaults.proSubMode,
+            proSubMode: normalizeLegacyProSubMode(parsed.proSubMode) ?? defaults.proSubMode,
             imageSubMode: isImageSubMode(parsed.imageSubMode)
               ? parsed.imageSubMode
               : defaults.imageSubMode,
@@ -295,9 +306,7 @@ export const useGlobalSettings = defineStore('globalSettings', () => {
             basicSubMode: isBasicSubMode(state.value.basicSubMode)
               ? state.value.basicSubMode
               : defaults.basicSubMode,
-            proSubMode: isProSubMode(state.value.proSubMode)
-              ? state.value.proSubMode
-              : defaults.proSubMode,
+            proSubMode: normalizeLegacyProSubMode(state.value.proSubMode) ?? defaults.proSubMode,
             imageSubMode: isImageSubMode(state.value.imageSubMode)
               ? state.value.imageSubMode
               : defaults.imageSubMode,

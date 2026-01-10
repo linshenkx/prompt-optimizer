@@ -12,6 +12,8 @@
         - 包含工具管理按钮 (系统模式不包含)
     -->
     <NFlex
+        data-testid="workspace"
+        data-mode="pro-variable"
         justify="space-between"
         :wrap="false"
         :size="16"
@@ -64,6 +66,7 @@
                 <!-- 展开态：完整输入面板 -->
                 <InputPanelUI
                     v-else
+                    test-id-prefix="pro-variable"
                     v-model="contextUserOptimization.prompt"
                     :label="t('promptOptimizer.originalPrompt')"
                     :placeholder="t('promptOptimizer.userPromptPlaceholder')"

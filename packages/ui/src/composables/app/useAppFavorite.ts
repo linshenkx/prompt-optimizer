@@ -164,9 +164,15 @@ export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
             const targetFunctionMode = (favFunctionMode === 'context' || favFunctionMode === 'pro') ? 'pro' : 'basic'
 
             // 2. 确定目标子模式（如果收藏指定了优化模式）
-            const targetSubMode = favOptimizationMode || (
-                targetFunctionMode === 'pro' ? 'system' : 'system'
-            )
+            // - basic: system/user
+            // - pro: multi/variable（兼容旧 optimizationMode: system->multi, user->variable）
+            let targetSubMode: BasicSubMode | ProSubMode
+            if (targetFunctionMode === 'pro') {
+                const mode = favOptimizationMode ?? 'user'
+                targetSubMode = mode === 'system' ? 'multi' : 'variable'
+            } else {
+                targetSubMode = (favOptimizationMode ?? 'system') as BasicSubMode
+            }
 
             // 3. 一次性导航到目标路由
             const targetKey = `${targetFunctionMode}-${targetSubMode}`

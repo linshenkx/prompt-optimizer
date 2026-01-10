@@ -5,7 +5,6 @@ import { withVCR } from '../utils/vcr'
 import {
   createRealLLMTestContext,
   hasAvailableProvider,
-  printAvailableProviders,
   type RealLLMTestContext
 } from '../helpers/real-llm'
 
@@ -31,26 +30,13 @@ describe('LLM Service Integration', () => {
   let context: RealLLMTestContext | undefined
 
   beforeAll(async () => {
-    // 打印可用提供商信息（便于调试）
-    if (RUN_REAL_API) {
-      printAvailableProviders()
-    }
-
-    // 创建测试上下文
     context = await createRealLLMTestContext()
   })
 
   describe('Basic functionality', () => {
     test('should have available provider when API keys are configured', () => {
-      if (!RUN_REAL_API) {
-        console.log('⏭️  Skipping: RUN_REAL_API not enabled')
-        return
-      }
-
-      if (!hasAvailableProvider()) {
-        console.log('⏭️  Skipping: No API keys configured')
-        return
-      }
+      if (!RUN_REAL_API) return
+      if (!hasAvailableProvider()) return
 
       expect(context).toBeDefined()
       expect(context?.llmService).toBeDefined()
@@ -68,10 +54,7 @@ describe('LLM Service Integration', () => {
     ]
 
     test('Provider works with VCR (non-streaming)', async () => {
-      if (!context) {
-        console.log('⏭️  No context available, skipping')
-        return
-      }
+      if (!context) return
 
       const response = await withVCR(
         'llm-basic-hello',
@@ -81,9 +64,9 @@ describe('LLM Service Integration', () => {
           stream: false
         },
         async () => {
-          return await context!.llmService.sendMessageStructured(
+          return await context.llmService.sendMessageStructured(
             testMessage,
-            context!.modelKey
+            context.modelKey
           )
         }
       )
@@ -92,15 +75,10 @@ describe('LLM Service Integration', () => {
       expect(response.content).toBeTruthy()
       expect(typeof response.content).toBe('string')
       expect(response.content.length).toBeGreaterThan(0)
-
-      console.log(`✅ Response from ${context.provider.providerName}:`, response.content.substring(0, 50))
     }, 30000)
 
     test('sendMessage (legacy format) works correctly', async () => {
-      if (!context) {
-        console.log('⏭️  No context available, skipping')
-        return
-      }
+      if (!context) return
 
       const response = await withVCR(
         'llm-legacy-format',
@@ -110,9 +88,9 @@ describe('LLM Service Integration', () => {
           stream: false
         },
         async () => {
-          return await context!.llmService.sendMessage(
+          return await context.llmService.sendMessage(
             testMessage,
-            context!.modelKey
+            context.modelKey
           )
         }
       )
@@ -125,10 +103,7 @@ describe('LLM Service Integration', () => {
 
   describe.skipIf(!RUN_REAL_API || !hasAvailableProvider())('Streaming response', () => {
     test('Stream tokens are correctly accumulated', async () => {
-      if (!context) {
-        console.log('⏭️  No context available, skipping')
-        return
-      }
+      if (!context) return
 
       const messages: Message[] = [
         {
@@ -141,28 +116,18 @@ describe('LLM Service Integration', () => {
       let fullContent = ''
       let completeResponse: any = null
 
-      await withVCR(
-        'llm-stream-counting',
-        {
-          provider: context.provider.providerId,
-          messages,
-          stream: true
+      await context.llmService.sendMessageStream(messages, context.modelKey, {
+        onToken: (token) => {
+          tokens.push(token)
+          fullContent += token
         },
-        async () => {
-          await context!.llmService.sendMessageStream(messages, context!.modelKey, {
-            onToken: (token) => {
-              tokens.push(token)
-              fullContent += token
-            },
-            onComplete: (response) => {
-              completeResponse = response
-            },
-            onError: (error) => {
-              throw error
-            }
-          })
+        onComplete: (response) => {
+          completeResponse = response
+        },
+        onError: (error) => {
+          throw error
         }
-      )
+      })
 
       expect(tokens.length).toBeGreaterThan(0)
       expect(fullContent).toBeTruthy()
@@ -170,73 +135,52 @@ describe('LLM Service Integration', () => {
       if (completeResponse) {
         expect(completeResponse.content).toBe(fullContent)
       }
-
-      console.log(`✅ Received ${tokens.length} tokens, total length: ${fullContent.length}`)
     }, 30000)
   })
 
   describe('Error handling', () => {
     test('Invalid provider throws RequestConfigError', async () => {
-      if (!context) {
-        console.log('⏭️  No context available, skipping')
-        return
-      }
+      if (!context) return
 
       const messages: Message[] = [{ role: 'user', content: 'test' }]
 
       await expect(async () => {
-        await context!.llmService.sendMessageStructured(messages, 'invalid-provider-12345')
+        await context.llmService.sendMessageStructured(messages, 'invalid-provider-12345')
       }).rejects.toThrow(RequestConfigError)
     })
 
     test('Empty messages array throws RequestConfigError', async () => {
-      if (!context) {
-        console.log('⏭️  No context available, skipping')
-        return
-      }
+      if (!context) return
 
       await expect(async () => {
-        await context!.llmService.sendMessageStructured([], context!.modelKey)
+        await context.llmService.sendMessageStructured([], context.modelKey)
       }).rejects.toThrow(RequestConfigError)
     })
 
     test('Invalid message format throws RequestConfigError', async () => {
-      if (!context) {
-        console.log('⏭️  No context available, skipping')
-        return
-      }
+      if (!context) return
 
-      const invalidMessages = [
-        { role: 'invalid-role', content: 'test' }
-      ] as Message[]
+      const invalidMessages = [{ role: 'invalid-role', content: 'test' }] as Message[]
 
       await expect(async () => {
-        await context!.llmService.sendMessageStructured(invalidMessages, context!.modelKey)
+        await context.llmService.sendMessageStructured(invalidMessages, context.modelKey)
       }).rejects.toThrow(RequestConfigError)
     })
 
     test('Message with missing content throws RequestConfigError', async () => {
-      if (!context) {
-        console.log('⏭️  No context available, skipping')
-        return
-      }
+      if (!context) return
 
-      const invalidMessages = [
-        { role: 'user' } as any
-      ]
+      const invalidMessages = [{ role: 'user' } as any]
 
       await expect(async () => {
-        await context!.llmService.sendMessageStructured(invalidMessages, context!.modelKey)
+        await context.llmService.sendMessageStructured(invalidMessages, context.modelKey)
       }).rejects.toThrow(RequestConfigError)
     })
   })
 
   describe.skipIf(!RUN_REAL_API || !hasAvailableProvider())('Response formatting', () => {
     test('Non-streaming response has correct structure', async () => {
-      if (!context) {
-        console.log('⏭️  No context available, skipping')
-        return
-      }
+      if (!context) return
 
       const messages: Message[] = [{ role: 'user', content: 'Say hello' }]
 
@@ -248,28 +192,20 @@ describe('LLM Service Integration', () => {
           stream: false
         },
         async () => {
-          return await context!.llmService.sendMessageStructured(messages, context!.modelKey)
+          return await context.llmService.sendMessageStructured(messages, context.modelKey)
         }
       )
 
-      // 验证响应结构
       expect(response).toHaveProperty('content')
       expect(response.content).toBeTruthy()
-
-      // 验证基本属性
       expect(typeof response.content).toBe('string')
       expect(response.content.length).toBeGreaterThan(0)
-
-      console.log('✅ Response structure validated')
     }, 30000)
   })
 
   describe.skipIf(!RUN_REAL_API || !hasAvailableProvider())('Context and conversation', () => {
     test('Multi-turn conversation works correctly', async () => {
-      if (!context) {
-        console.log('⏭️  No context available, skipping')
-        return
-      }
+      if (!context) return
 
       const conversation: Message[] = [
         { role: 'user', content: 'My name is Alice' },
@@ -285,15 +221,12 @@ describe('LLM Service Integration', () => {
           stream: false
         },
         async () => {
-          return await context!.llmService.sendMessageStructured(conversation, context!.modelKey)
+          return await context.llmService.sendMessageStructured(conversation, context.modelKey)
         }
       )
 
       expect(response.content).toBeTruthy()
-      // 验证模型能够记住上下文（回复应包含 "Alice"）
       expect(response.content.toLowerCase()).toContain('alice')
-
-      console.log('✅ Multi-turn conversation validated')
     }, 30000)
   })
 })

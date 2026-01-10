@@ -64,12 +64,8 @@ describe.skipIf(!RUN_REAL_API)('Real LLM Helper - Usage Examples', () => {
       // 创建测试上下文
       const context = await createRealLLMTestContext();
       if (!context) {
-        console.log('跳过测试：无可用的LLM提供商');
         return;
       }
-
-      console.log(`\n使用提供商: ${context.provider.providerName}`);
-      console.log(`模型: ${context.modelConfig.modelMeta.name}`);
 
       // 发送消息
       const messages: Message[] = [
@@ -78,13 +74,10 @@ describe.skipIf(!RUN_REAL_API)('Real LLM Helper - Usage Examples', () => {
 
       const response = await context.llmService.sendMessage(messages, context.modelKey);
 
-      console.log(`\n响应内容: ${response.content}`);
-
       // 验证响应
       expect(response).toBeDefined();
-      expect(response.content).toBeDefined();
-      expect(typeof response.content).toBe('string');
-      expect(response.content.length).toBeGreaterThan(0);
+      expect(typeof response).toBe('string');
+      expect(response.length).toBeGreaterThan(0);
     }, 30000);
 
     it.skipIf(!hasAvailableProvider())('应该能使用自定义参数', async () => {
@@ -96,11 +89,8 @@ describe.skipIf(!RUN_REAL_API)('Real LLM Helper - Usage Examples', () => {
       });
 
       if (!context) {
-        console.log('跳过测试：无可用的LLM提供商');
         return;
       }
-
-      console.log(`\n使用自定义参数: temperature=0.1`);
 
       const messages: Message[] = [
         { role: 'user', content: '1+1等于几？' }
@@ -108,10 +98,10 @@ describe.skipIf(!RUN_REAL_API)('Real LLM Helper - Usage Examples', () => {
 
       const response = await context.llmService.sendMessage(messages, context.modelKey);
 
-      console.log(`响应: ${response.content}`);
-
       // 验证响应
-      expect(response.content).toBeDefined();
+      expect(response).toBeDefined();
+      expect(typeof response).toBe('string');
+      expect(response.length).toBeGreaterThan(0);
     }, 30000);
   });
 
@@ -119,11 +109,8 @@ describe.skipIf(!RUN_REAL_API)('Real LLM Helper - Usage Examples', () => {
     it.skipIf(!hasAvailableProvider())('应该能进行多轮对话', async () => {
       const context = await createRealLLMTestContext();
       if (!context) {
-        console.log('跳过测试：无可用的LLM提供商');
         return;
       }
-
-      console.log(`\n开始多轮对话测试`);
 
       // 第一轮
       const messages1: Message[] = [
@@ -131,28 +118,22 @@ describe.skipIf(!RUN_REAL_API)('Real LLM Helper - Usage Examples', () => {
       ];
 
       const response1 = await context.llmService.sendMessage(messages1, context.modelKey);
-      console.log(`\n第1轮 - 用户: 我的名字叫Alice`);
 
       expect(response1).toBeDefined();
-      expect(response1.content).toBeDefined();
-
-      const content1 = typeof response1.content === 'string' ? response1.content : JSON.stringify(response1.content);
-      const preview1 = content1.length > 100 ? content1.substring(0, 100) + '...' : content1;
-      console.log(`第1轮 - 助手: ${preview1}`);
+      expect(typeof response1).toBe('string');
+      expect(response1.length).toBeGreaterThan(0);
 
       // 第二轮（包含上下文）
       const messages2: Message[] = [
         { role: 'user', content: '我的名字叫Alice' },
-        { role: 'assistant', content: response1.content },
+        { role: 'assistant', content: response1 },
         { role: 'user', content: '我的名字是什么？' }
       ];
 
       const response2 = await context.llmService.sendMessage(messages2, context.modelKey);
-      console.log(`\n第2轮 - 用户: 我的名字是什么？`);
-      console.log(`第2轮 - 助手: ${response2.content}`);
 
       // 验证AI记住了名字（大部分情况下应该包含"Alice"）
-      expect(response2.content).toBeDefined();
+      expect(response2).toBeDefined();
       // 注意：由于LLM的不确定性，这个断言可能偶尔失败
       // expect(response2.content.toLowerCase()).toContain('alice');
     }, 60000);
@@ -162,7 +143,6 @@ describe.skipIf(!RUN_REAL_API)('Real LLM Helper - Usage Examples', () => {
     it.skipIf(!hasAvailableProvider())('应该能正确处理空消息', async () => {
       const context = await createRealLLMTestContext();
       if (!context) {
-        console.log('跳过测试：无可用的LLM提供商');
         return;
       }
 
@@ -175,27 +155,10 @@ describe.skipIf(!RUN_REAL_API)('Real LLM Helper - Usage Examples', () => {
     }, 30000);
 
     it('应该在无可用提供商时返回undefined', async () => {
-      // 暂时清空环境变量（模拟）
-      const originalEnv = { ...process.env };
-
-      // 清空所有API key环境变量
-      const apiKeyEnvVars = [
-        'VITE_OPENAI_API_KEY', 'OPENAI_API_KEY',
-        'VITE_ANTHROPIC_API_KEY', 'ANTHROPIC_API_KEY',
-        'VITE_GEMINI_API_KEY', 'GEMINI_API_KEY',
-        'VITE_DEEPSEEK_API_KEY', 'DEEPSEEK_API_KEY',
-        'VITE_MODELSCOPE_API_KEY', 'MODELSCOPE_API_KEY',
-        'VITE_ZHIPU_API_KEY', 'ZHIPU_API_KEY',
-      ];
-
-      // 注意：这个测试仅在没有API key时才有效
-      // 如果环境中已有API key，这个测试会失败
-
       if (!hasAvailableProvider()) {
         const context = await createRealLLMTestContext();
         expect(context).toBeUndefined();
       } else {
-        console.log('跳过测试：环境中已有可用的API key');
       }
     });
   });
@@ -209,7 +172,6 @@ describe.skipIf(!RUN_REAL_API)('Real LLM Helper - Usage Examples', () => {
       });
 
       if (!context) {
-        console.log('跳过测试：无可用的LLM提供商');
         return;
       }
 
@@ -223,12 +185,11 @@ describe.skipIf(!RUN_REAL_API)('Real LLM Helper - Usage Examples', () => {
       const endTime = Date.now();
       const duration = endTime - startTime;
 
-      console.log(`\n响应时间: ${duration}ms`);
-      console.log(`响应内容: ${response.content}`);
-
       // 验证响应时间在合理范围内（30秒内）
       expect(duration).toBeLessThan(30000);
-      expect(response.content).toBeDefined();
+      expect(response).toBeDefined();
+      expect(typeof response).toBe('string');
+      expect(response.length).toBeGreaterThan(0);
     }, 35000);
   });
 });

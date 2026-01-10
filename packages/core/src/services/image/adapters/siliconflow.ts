@@ -313,7 +313,27 @@ export class SiliconFlowImageAdapter extends AbstractImageProviderAdapter {
     const url = this.resolveEndpointUrl(config, endpoint)
     const response = await fetch(url, options)
     if (!response.ok) {
-      throw new Error(`SiliconFlow API error: ${response.status} ${response.statusText}`)
+      let bodyText = ''
+      try {
+        bodyText = await response.text()
+      } catch {
+        bodyText = ''
+      }
+
+      const headers: any = (response as any)?.headers
+      const getHeader = (name: string) => (headers?.get ? headers.get(name) : undefined)
+      const requestId =
+        getHeader('x-request-id') ||
+        getHeader('x-siliconflow-request-id') ||
+        getHeader('cf-ray') ||
+        getHeader('x-amzn-requestid') ||
+        getHeader('x-requestid')
+
+      throw new Error(
+        `SiliconFlow API error: ${response.status} ${response.statusText}` +
+        (requestId ? ` (requestId=${requestId})` : '') +
+        (bodyText ? `\n\n${bodyText}` : '')
+      )
     }
     return await response.json()
   }

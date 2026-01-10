@@ -267,13 +267,13 @@ describe('EvaluationService', () => {
         originalPrompt: 'Original',
         optimizedPrompt: 'Optimized',
         evaluationModelKey: 'test-model',
-        mode: { functionMode: 'pro', subMode: 'user' },
+        mode: { functionMode: 'pro', subMode: 'variable' },
       }
 
       await evaluationService.evaluate(request)
 
       expect(mockTemplateManager.getTemplate).toHaveBeenCalledWith(
-        'evaluation-pro-user-prompt-only'
+        'evaluation-pro-variable-prompt-only'
       )
     })
 

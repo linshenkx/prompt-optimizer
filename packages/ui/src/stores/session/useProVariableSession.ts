@@ -187,7 +187,7 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
       }
       const snapshot = JSON.stringify(sessionState)
       await $services.preferenceService.set(
-        'session/v1/pro-user',
+        'session/v1/pro-variable',
         snapshot
       )
     } catch (error) {
@@ -204,7 +204,7 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
 
     try {
       const saved = await $services.preferenceService.get(
-        'session/v1/pro-user',
+        'session/v1/pro-variable',
         ''
       )
 

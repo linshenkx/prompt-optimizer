@@ -114,7 +114,7 @@ export function useConversationOptimization(
   }
 
   // 🔧 Codex 修复：核心映射表现在直接使用 messageId → chainId，移除 mode 前缀
-  // 原因：Session Store 已做子模式隔离（session/v1/pro-system），无需在 key 中重复 mode 信息
+  // 原因：Session Store 已做子模式隔离（session/v1/pro-multi），无需在 key 中重复 mode 信息
   // 使用 Map 数据结构确保 O(1) 查找性能
   const messageChainMap = ref<Map<string, string>>(new Map())
 

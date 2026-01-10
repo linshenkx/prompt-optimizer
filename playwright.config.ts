@@ -14,6 +14,7 @@ export default defineConfig({
   testDir: './tests/e2e',
 
   // 完全并行运行测试
+  // 通过为每个测试创建独立的 BrowserContext (见 fixtures.ts) 确保存储隔离
   fullyParallel: true,
 
   // CI 环境下失败时不重试,本地开发时重试一次
@@ -65,9 +66,12 @@ export default defineConfig({
 
   // 自动启动 E2E 测试专用开发服务器
   webServer: {
-    command: `pnpm -F @prompt-optimizer/web dev --port ${E2E_PORT}`,
+    // E2E 依赖 workspace 包的 dist 产物（@prompt-optimizer/core/@prompt-optimizer/ui），
+    // 先构建再启动 web dev server，避免跑到过期 dist 导致交互/事件异常。
+    command: `pnpm -F @prompt-optimizer/core build && pnpm -F @prompt-optimizer/ui build && pnpm -F @prompt-optimizer/web dev --port ${E2E_PORT}`,
     url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
+    // 为了保证每次测试都使用最新构建产物，默认不复用已有 server。
+    reuseExistingServer: false,
     timeout: 120 * 1000,
   },
 });

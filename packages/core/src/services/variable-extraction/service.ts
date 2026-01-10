@@ -55,12 +55,36 @@ export class VariableExtractionService implements IVariableExtractionService {
       const result = await this.llmService.sendMessage(messages, request.extractionModelKey);
 
       // 7. 解析 LLM 返回的 JSON 结果
-      return this.parseExtractionResult(result);
+      const parsed = this.parseExtractionResult(result);
+      return this.filterResponse(parsed, request.existingVariableNames);
     } catch (error) {
       throw new VariableExtractionParseError(
         error instanceof Error ? error.message : String(error)
       );
     }
+  }
+
+  private filterResponse(
+    response: VariableExtractionResponse,
+    existingVariableNames?: string[]
+  ): VariableExtractionResponse {
+    const normalize = (name: string) => name.trim().toLowerCase();
+
+    const existing = new Set(
+      (existingVariableNames ?? []).map(normalize).filter(Boolean)
+    );
+
+    const seen = new Set<string>();
+    const variables = response.variables.filter((v) => {
+      const key = normalize(v.name);
+      if (!key) return false;
+      if (existing.has(key)) return false;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return { ...response, variables };
   }
 
   /**

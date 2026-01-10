@@ -267,7 +267,7 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
       }
       const snapshot = JSON.stringify(sessionState)
       await $services.preferenceService.set(
-        'session/v1/pro-system',
+        'session/v1/pro-multi',
         snapshot
       )
     } catch (error) {
@@ -287,7 +287,7 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
 
     try {
       const saved = await $services.preferenceService.get(
-        'session/v1/pro-system',
+        'session/v1/pro-multi',
         ''
       )
 

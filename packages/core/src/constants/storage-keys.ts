@@ -22,7 +22,7 @@ export const UI_SETTINGS_KEYS = {
 
   // 子模式持久化（三种功能模式独立存储）
   BASIC_SUB_MODE: "app:settings:ui:basic-sub-mode", // 基础模式的子模式（system/user）
-  PRO_SUB_MODE: "app:settings:ui:pro-sub-mode", // 上下文模式的子模式（system/user）
+  PRO_SUB_MODE: "app:settings:ui:pro-sub-mode", // Pro 模式的子模式（multi/variable）
   IMAGE_SUB_MODE: "app:settings:ui:image-sub-mode", // 图像模式的子模式（text2image/image2image）
 } as const;
 
@@ -58,13 +58,13 @@ export const FUNCTION_MODEL_KEYS = {
  * 生成模式覆盖的存储键
  * @param type 模型类型：'optimize' 或 'test'
  * @param functionMode 功能模式：'basic' | 'pro' | 'image'
- * @param subMode 子模式：'system' | 'user' | 'text2image' | 'image2image'
+ * @param subMode 子模式：'system' | 'user' | 'multi' | 'variable' | 'text2image' | 'image2image'
  * @returns 存储键，格式如 "app:function-model:optimize:basic:system"
  */
 export function getModeModelKey(
   type: "optimize" | "test",
   functionMode: "basic" | "pro" | "image",
-  subMode: "system" | "user" | "text2image" | "image2image"
+  subMode: "system" | "user" | "multi" | "variable" | "text2image" | "image2image"
 ): string {
   return `app:function-model:${type}:${functionMode}:${subMode}`;
 }

@@ -7,7 +7,7 @@
 import type { Template, MessageTemplate } from '../../../../types';
 
 export const template: Template = {
-  id: 'evaluation-pro-user-prompt-only',
+  id: 'evaluation-pro-variable-prompt-only',
   name: 'Variable Mode Direct Evaluation',
   content: [
     {

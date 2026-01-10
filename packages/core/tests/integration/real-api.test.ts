@@ -26,16 +26,7 @@ describe.skipIf(!RUN_REAL_API)('Real API Integration Tests', () => {
   let promptService: PromptService
 
   beforeAll(() => {
-    console.log('环境变量检查:', {
-      OPENAI_API_KEY: hasOpenAIKey,
-      CUSTOM_API_KEY: hasCustomKey,
-      GEMINI_API_KEY: hasGeminiKey,
-      DEEPSEEK_API_KEY: hasDeepSeekKey
-    })
-
-    if (!hasOpenAIKey && !hasCustomKey && !hasGeminiKey && !hasDeepSeekKey) {
-      console.log('跳过真实API测试：未设置任何API密钥环境变量')
-    }
+    if (!hasOpenAIKey && !hasCustomKey && !hasGeminiKey && !hasDeepSeekKey) return
   })
 
   beforeEach(async () => {
@@ -72,23 +63,11 @@ describe.skipIf(!RUN_REAL_API)('Real API Integration Tests', () => {
     const runOpenAITests = hasOpenAIKey
 
     it.runIf(runOpenAITests)('应该能使用OpenAI API优化提示词', async () => {
-      // 添加OpenAI模型
-      const openaiModel = {
-        name: 'OpenAI API',
-        baseURL: 'https://api.openai.com/v1',
-        apiKey: process.env.VITE_OPENAI_API_KEY!,
-        models: ['gpt-3.5-turbo'],
-        defaultModel: 'gpt-3.5-turbo',
-        enabled: true,
-        provider: 'openai' as const
-      }
-      await modelManager.addModel('test-openai', openaiModel)
-
       // 执行优化
       const request = {
         optimizationMode: 'system' as const,
         targetPrompt: '请优化这个提示词：写一个关于人工智能的故事',
-        modelKey: 'test-openai'
+        modelKey: 'openai'
       };
       const result = await promptService.optimizePrompt(request)
 
@@ -111,23 +90,11 @@ describe.skipIf(!RUN_REAL_API)('Real API Integration Tests', () => {
     const runCustomTests = hasCustomKey
 
     it.runIf(runCustomTests)('应该能使用Custom API优化提示词', async () => {
-      // 添加Custom模型
-      const customModel = {
-        name: 'Custom API',
-        baseURL: process.env.VITE_CUSTOM_BASE_URL!,
-        apiKey: process.env.VITE_CUSTOM_API_KEY!,
-        models: ['custom-model'],
-        defaultModel: 'custom-model',
-        enabled: true,
-        provider: 'openai' as const // 使用OpenAI兼容格式
-      }
-      await modelManager.addModel('test-custom', customModel)
-
       // 执行优化
       const request = {
         optimizationMode: 'system' as const,
         targetPrompt: '请优化这个提示词：写一个关于机器人的故事',
-        modelKey: 'test-custom'
+        modelKey: 'custom'
       };
       const result = await promptService.optimizePrompt(request)
 
@@ -149,29 +116,12 @@ describe.skipIf(!RUN_REAL_API)('Real API Integration Tests', () => {
   describe('Gemini API 测试', () => {
     const runGeminiTests = hasGeminiKey
 
-    // Gemini API 可能会有频率限制，因此在每个测试之间添加延迟
-    beforeEach(async () => {
-      await new Promise(resolve => setTimeout(resolve, 5000)); // 等待 5 秒
-    });
-
     it.runIf(runGeminiTests)('应该能使用Gemini API优化提示词', async () => {
-      // 添加Gemini模型
-      const geminiModel = {
-        name: 'Google Gemini',
-        baseURL: 'https://generativelanguage.googleapis.com/v1beta',
-        apiKey: process.env.VITE_GEMINI_API_KEY!,
-        models: ['gemini-2.0-flash'],
-        defaultModel: 'gemini-2.0-flash',
-        enabled: true,
-        provider: 'gemini' as const
-      }
-      await modelManager.addModel('test-gemini', geminiModel)
-
       // 执行优化
       const request = {
         optimizationMode: 'system' as const,
         targetPrompt: '请优化这个提示词：写一个关于太空探索的故事',
-        modelKey: 'test-gemini'
+        modelKey: 'gemini'
       };
       const result = await promptService.optimizePrompt(request)
 
@@ -204,23 +154,11 @@ describe.skipIf(!RUN_REAL_API)('Real API Integration Tests', () => {
     const runDeepSeekTests = hasDeepSeekKey
 
     it.runIf(runDeepSeekTests)('应该能使用DeepSeek API优化提示词', async () => {
-      // 添加DeepSeek模型
-      const deepseekModel = {
-        name: 'DeepSeek',
-        baseURL: 'https://api.deepseek.com/v1',
-        apiKey: process.env.VITE_DEEPSEEK_API_KEY!,
-        models: ['deepseek-chat'],
-        defaultModel: 'deepseek-chat',
-        enabled: true,
-        provider: 'deepseek' as const
-      }
-      await modelManager.addModel('test-deepseek', deepseekModel)
-
       // 执行优化
       const request = {
         optimizationMode: 'system' as const,
         targetPrompt: '请优化这个提示词：写一个关于人工智能的故事',
-        modelKey: 'test-deepseek'
+        modelKey: 'deepseek'
       };
       const result = await promptService.optimizePrompt(request)
 
@@ -254,21 +192,7 @@ describe.skipIf(!RUN_REAL_API)('Real API Integration Tests', () => {
 
     it.runIf(runWorkflowTests)('应该能完成基本的优化流程', async () => {
       // 选择可用的模型
-      const modelKey = hasOpenAIKey ? 'openai-model' : 'custom-model'
-      const apiKey = hasOpenAIKey ? process.env.VITE_OPENAI_API_KEY! : process.env.VITE_CUSTOM_API_KEY!
-      const baseURL = hasOpenAIKey ? 'https://api.openai.com/v1' : process.env.VITE_CUSTOM_BASE_URL!
-      const modelName = hasOpenAIKey ? 'gpt-3.5-turbo' : 'custom-model'
-
-      // 添加模型
-      await modelManager.addModel(modelKey, {
-        name: 'Workflow Test Model',
-        baseURL,
-        apiKey,
-        models: [modelName],
-        defaultModel: modelName,
-        enabled: true,
-        provider: 'openai' as const
-      })
+      const modelKey = hasOpenAIKey ? 'openai' : 'custom'
 
       // 优化原始提示词
       const request = {
@@ -307,15 +231,20 @@ describe.skipIf(!RUN_REAL_API)('Real API Integration Tests', () => {
     const runStabilityTests = hasOpenAIKey || (hasCustomKey && !!process.env.VITE_CUSTOM_BASE_URL)
 
     it.runIf(runStabilityTests)('应该能正确处理API错误', async () => {
-      // 添加一个有无效API密钥的模型
+      const models = await modelManager.getAllModels()
+      const baseModel = models.find(m => m.enabled && m.providerMeta?.requiresApiKey && m.providerMeta?.id !== 'custom')
+      if (!baseModel) return
+
+      // 添加一个有无效API密钥的模型（复用已启用模型的元数据，替换 apiKey）
       await modelManager.addModel('invalid-model', {
+        ...baseModel,
+        id: 'invalid-model',
         name: 'Invalid Model',
-        baseURL: 'https://api.openai.com/v1',
-        apiKey: 'invalid-key',
-        models: ['gpt-3.5-turbo'],
-        defaultModel: 'gpt-3.5-turbo',
         enabled: true,
-        provider: 'openai' as const
+        connectionConfig: {
+          ...(baseModel.connectionConfig ?? {}),
+          apiKey: 'invalid-key'
+        }
       })
 
       // 尝试优化应该失败

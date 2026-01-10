@@ -138,6 +138,7 @@
             @update:model-value="$emit('update:modelValue', $event)"
             :placeholder="placeholder"
             :autosize="{ minRows: 4, maxRows: 12 }"
+            :data-testid="`${testIdPrefix}-input`"
             :existing-global-variables="existingGlobalVariables"
             :existing-temporary-variables="existingTemporaryVariables"
             :predefined-variables="predefinedVariables"
@@ -159,6 +160,7 @@
             :autosize="{ minRows: 4, maxRows: 12 }"
             clearable
             show-count
+            :data-testid="`${testIdPrefix}-input`"
         />
 
         <!-- 控制面板 -->
@@ -206,6 +208,7 @@
                         v-if="showAnalyzeButton"
                         type="default"
                         size="medium"
+                        :data-testid="`${testIdPrefix}-analyze-button`"
                         @click="$emit('analyze')"
                         :loading="analyzeLoading"
                         :disabled="analyzeLoading || loading || disabled || !modelValue.trim()"
@@ -216,6 +219,7 @@
                     <NButton
                         type="primary"
                         size="medium"
+                        :data-testid="`${testIdPrefix}-optimize-button`"
                         @click="$emit('submit')"
                         :loading="loading"
                         :disabled="analyzeLoading || loading || disabled || !modelValue.trim()"
@@ -318,6 +322,9 @@ interface Props {
     temporaryVariableValues?: Record<string, string>;
     /** 🆕 预定义变量名到变量值的映射 */
     predefinedVariableValues?: Record<string, string>;
+
+    /** 🆕 测试 ID 前缀（用于区分不同模式，如 'basic-system', 'basic-user'） */
+    testIdPrefix?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -338,6 +345,7 @@ const props = withDefaults(defineProps<Props>(), {
     globalVariableValues: () => ({}),
     temporaryVariableValues: () => ({}),
     predefinedVariableValues: () => ({}),
+    testIdPrefix: "input-panel",
 });
 
 const emit = defineEmits<{

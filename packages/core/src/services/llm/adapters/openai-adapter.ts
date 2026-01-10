@@ -119,7 +119,6 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
 
     try {
       const response = await openai.models.list()
-      console.log('[OpenAIAdapter] API returned models:', response)
 
       // 检查返回格式
       if (response && response.data && Array.isArray(response.data)) {
@@ -684,7 +683,6 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         content: msg.content
       }))
 
-      console.log('[OpenAIAdapter] Creating stream request...')
       const {
         timeout, // 已在createOpenAIInstance中处理
         model: _paramModel, // 避免覆盖主model
@@ -702,8 +700,6 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
 
       // 直接使用流式响应
       const stream = await openai.chat.completions.create(completionConfig)
-
-      console.log('[OpenAIAdapter] Stream response received')
 
       // 累积内容
       let accumulatedReasoning = ''
@@ -733,8 +729,6 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
           this.processStreamContentWithThinkTags(content, callbacks, thinkState)
         }
       }
-
-      console.log('[OpenAIAdapter] Stream completed')
 
       // 构建完整响应
       const response: LLMResponse = {
@@ -778,7 +772,6 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         content: msg.content
       }))
 
-      console.log('[OpenAIAdapter] Creating stream request with tools...')
       const {
         timeout,
         model: _paramModel,
@@ -798,7 +791,6 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       }
 
       const stream = await openai.chat.completions.create(completionConfig)
-      console.log('[OpenAIAdapter] Stream response with tools received')
 
       let accumulatedReasoning = ''
       let accumulatedContent = ''
@@ -867,8 +859,6 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         }
       }
 
-      console.log('[OpenAIAdapter] Stream with tools completed, tool calls:', toolCalls.length)
-
       const response: LLMResponse = {
         content: accumulatedContent,
         reasoning: accumulatedReasoning || undefined,
@@ -884,4 +874,3 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     }
   }
 }
-

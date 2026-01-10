@@ -1,5 +1,9 @@
 <template>
-    <div class="basic-user-workspace">
+    <div
+        class="basic-user-workspace"
+        data-testid="workspace"
+        data-mode="basic-user"
+    >
         <NFlex
             justify="space-between"
             :style="{
@@ -61,8 +65,8 @@
                     <!-- 展开态：完整输入面板 -->
                     <InputPanelUI
                         v-else
-                        :model-value="promptModel"
-                        @update:model-value="(v) => (promptModel.value = v)"
+                        v-model="promptModel"
+                        test-id-prefix="basic-user"
                         :label="t('promptOptimizer.originalPrompt')"
                         :placeholder="t('promptOptimizer.placeholder')"
                         :model-label="t('promptOptimizer.optimizeModel')"
@@ -132,14 +136,12 @@
                 >
                     <PromptPanelUI
                         ref="promptPanelRef"
-                        :optimized-prompt="optimizedPromptModel"
-                        @update:optimized-prompt="(v) => (optimizedPromptModel.value = v)"
+                        v-model:optimized-prompt="optimizedPromptModel"
                         :reasoning="unwrappedLogicProps.optimizedReasoning"
                         :original-prompt="promptModel"
                         :is-optimizing="unwrappedLogicProps.isOptimizing"
                         :is-iterating="unwrappedLogicProps.isIterating"
-                        :selected-iterate-template="selectedIterateTemplate"
-                        @update:selectedIterateTemplate="(v) => (selectedIterateTemplate.value = v)"
+                        v-model:selected-iterate-template="selectedIterateTemplate"
                         :versions="unwrappedLogicProps.currentVersions"
                         :current-version-id="unwrappedLogicProps.currentVersionId"
                         optimization-mode="user"
@@ -394,9 +396,19 @@ const handleAnalyze = async () => {
   if (logic.isOptimizing.value) return
   if (analyzing.value) return
 
-  isInputPanelCollapsed.value = true
-  await nextTick()
-  await handleAnalyzeEvaluate()
+  analyzing.value = true
+  try {
+    // 分析模式不产生新提示词，但评估请求需要 non-empty optimizedPrompt
+    // 将当前原始提示词同步到 optimizedPrompt，供 prompt-only 评估使用
+    logic.optimizedPrompt.value = logic.prompt.value
+    logic.optimizedReasoning.value = ''
+
+    isInputPanelCollapsed.value = true
+    await nextTick()
+    await handleAnalyzeEvaluate()
+  } finally {
+    analyzing.value = false
+  }
 }
 
 // 🔧 解包 logic 中的 ref，用于传递给子组件（避免 Vue prop 类型警告）

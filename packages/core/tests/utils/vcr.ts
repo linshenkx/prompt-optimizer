@@ -117,9 +117,8 @@ export class VCR {
   private enableRealLLM: boolean
 
   constructor(options: VCROptions = {}) {
-    // 默认 fixtures 目录
-    const projectRoot = join(__dirname, '../../../')
-    this.fixtureDir = options.fixtureDir || join(projectRoot, 'tests/fixtures')
+    // 默认 fixtures 目录：packages/core/tests/fixtures
+    this.fixtureDir = options.fixtureDir || join(__dirname, '..', 'fixtures')
 
     // 从环境变量读取模式
     const envMode = process.env.VCR_MODE as VCRMode
@@ -191,14 +190,32 @@ export class VCR {
    * 回放 fixture
    */
   private replayFixture(fixturePath: string): LLMResponse {
-    const fixture: Fixture = JSON.parse(readFileSync(fixturePath, 'utf-8'))
-
-    // 如果是流式响应，需要模拟延迟
-    if (fixture.response.type === 'streaming' && fixture.response.chunks) {
-      return this.simulateStreamingResponse(fixture.response)
+    const raw = JSON.parse(readFileSync(fixturePath, 'utf-8')) as Partial<Fixture>
+    if (!raw || typeof raw !== 'object') {
+      throw new Error(`[VCR] Invalid fixture (not an object): ${fixturePath}`)
+    }
+    if (!('response' in raw)) {
+      throw new Error(
+        `[VCR] Invalid fixture (missing { request, response, metadata }): ${fixturePath}\n` +
+        `Re-record this fixture with VCR_MODE=record and ENABLE_REAL_LLM=true.`
+      )
+    }
+    if (!raw.response) {
+      throw new Error(
+        `[VCR] Invalid fixture (missing response). This usually happens when recording a void-return call.\n` +
+        `Fixture: ${fixturePath}\n` +
+        `Delete it and re-record with VCR_MODE=record, or fix the test to return a value.`
+      )
     }
 
-    return fixture.response
+    const response = raw.response
+
+    // 如果是流式响应，需要模拟延迟
+    if (response.type === 'streaming' && response.chunks) {
+      return this.simulateStreamingResponse(response)
+    }
+
+    return response
   }
 
   /**
@@ -223,6 +240,13 @@ export class VCR {
 
     // 调用真实 API
     const result = await realFn()
+    if (result === undefined) {
+      throw new Error(
+        `[VCR] Cannot record fixture because the intercepted function returned undefined.\n` +
+        `Scenario: ${scenarioName}\n` +
+        `Fix: make the function return a serializable response value, or don’t wrap void-return calls with VCR.`
+      )
+    }
 
     const duration = Date.now() - startTime
 

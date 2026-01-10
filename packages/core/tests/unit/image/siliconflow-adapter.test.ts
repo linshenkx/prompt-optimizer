@@ -1,12 +1,17 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { SiliconFlowImageAdapter } from '../../../src/services/image/adapters/siliconflow'
 import type { ImageRequest, ImageModelConfig } from '../../../src/services/image/types'
 
 describe('SiliconFlowImageAdapter', () => {
   let adapter: SiliconFlowImageAdapter
+  const realFetch = global.fetch
 
   beforeEach(() => {
     adapter = new SiliconFlowImageAdapter()
+  })
+
+  afterEach(() => {
+    global.fetch = realFetch
   })
 
   describe('Provider Information', () => {
@@ -81,11 +86,15 @@ describe('SiliconFlowImageAdapter', () => {
 
   describe('Image Generation', () => {
     test('should generate image with valid configuration', async () => {
+      const models = adapter.getModels()
+      expect(models.length).toBeGreaterThan(0)
+      const modelId = models[0].id
+
       const config: ImageModelConfig = {
         id: 'test-config',
         name: 'Test SiliconFlow Config',
         providerId: 'siliconflow',
-        modelId: 'Kolors',
+        modelId,
         enabled: true,
         connectionConfig: {
           apiKey: 'test-api-key',
@@ -142,11 +151,15 @@ describe('SiliconFlowImageAdapter', () => {
     })
 
     test('should handle generation failure', async () => {
+      const models = adapter.getModels()
+      expect(models.length).toBeGreaterThan(0)
+      const modelId = models[0].id
+
       const config: ImageModelConfig = {
         id: 'test-config',
         name: 'Test Config',
         providerId: 'siliconflow',
-        modelId: 'Kolors',
+        modelId,
         enabled: true,
         connectionConfig: {
           apiKey: 'test-api-key'
@@ -175,11 +188,15 @@ describe('SiliconFlowImageAdapter', () => {
     })
 
     test('should validate required parameters', async () => {
+      const models = adapter.getModels()
+      expect(models.length).toBeGreaterThan(0)
+      const modelId = models[0].id
+
       const config: ImageModelConfig = {
         id: 'test-config',
         name: 'Test Config',
         providerId: 'siliconflow',
-        modelId: 'Kolors',
+        modelId,
         enabled: true,
         connectionConfig: {
           // Missing apiKey
@@ -207,11 +224,15 @@ describe('SiliconFlowImageAdapter', () => {
         return
       }
 
+      const models = adapter.getModels()
+      expect(models.length).toBeGreaterThan(0)
+      const modelId = models[0].id
+
       const config: ImageModelConfig = {
         id: 'real-test-config',
         name: 'Real SiliconFlow Test',
         providerId: 'siliconflow',
-        modelId: 'Kolors',
+        modelId,
         enabled: true,
         connectionConfig: {
           apiKey: apiKey,
@@ -230,12 +251,7 @@ describe('SiliconFlowImageAdapter', () => {
         count: 1
       }
 
-      const startTime = Date.now()
       const result = await adapter.generate(request, config)
-      const endTime = Date.now()
-      const duration = ((endTime - startTime) / 1000).toFixed(1)
-
-      console.log(`SiliconFlow 真实API生成耗时: ${duration}秒`)
 
       expect(result).toBeDefined()
       expect(result.images).toHaveLength(1)
@@ -246,7 +262,6 @@ describe('SiliconFlowImageAdapter', () => {
       if (result.images[0].url) {
         const response = await fetch(result.images[0].url, { method: 'HEAD' })
         expect(response.ok).toBe(true)
-        console.log('生成的图像 URL 可访问，状态码:', response.status)
       }
     }, 30000) // 30秒超时
   })

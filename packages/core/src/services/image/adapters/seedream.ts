@@ -212,14 +212,13 @@ export class SeedreamImageAdapter extends AbstractImageProviderAdapter {
       throw new Error('No image data returned')
     }
 
-    return {
+      return {
       images,
       metadata: {
         providerId: 'seedream',
         modelId: config.modelId,
         configId: config.id,
-        usage: data.usage,
-        created: data.created
+        usage: data.usage
       }
     }
   }

@@ -245,29 +245,21 @@ describe('OpenAIImageAdapter', () => {
         count: 1
       }
 
-      const startTime = Date.now()
       const result = await adapter.generate(request, config)
-      const endTime = Date.now()
-      const duration = ((endTime - startTime) / 1000).toFixed(1)
-
-      console.log(`OpenAI DALL-E 真实API生成耗时: ${duration}秒`)
 
       expect(result).toBeDefined()
       expect(result.images).toHaveLength(1)
       expect(result.images[0].url).toBeTruthy()
-      expect(result.metadata?.created).toBeGreaterThan(0)
 
       // DALL-E 3 should provide revised prompt
       if (config.modelId === 'dall-e-3') {
         expect(result.text).toBeTruthy()
-        console.log('DALL-E 3 修订后的提示词:', result.text)
       }
 
       // 验证图像 URL 可访问性
       if (result.images[0].url) {
         const response = await fetch(result.images[0].url, { method: 'HEAD' })
         expect(response.ok).toBe(true)
-        console.log('生成的图像 URL 可访问，状态码:', response.status)
       }
     }, 60000) // 60秒超时，OpenAI可能较慢
   })

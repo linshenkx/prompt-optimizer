@@ -3,8 +3,8 @@ import { test, expect } from '../fixtures'
 const ROUTES: Array<{ name: string; hashPath: string }> = [
   { name: 'basic-system', hashPath: '/#/basic/system' },
   { name: 'basic-user', hashPath: '/#/basic/user' },
-  { name: 'pro-system', hashPath: '/#/pro/system' },
-  { name: 'pro-user', hashPath: '/#/pro/user' },
+  { name: 'pro-multi', hashPath: '/#/pro/multi' },
+  { name: 'pro-variable', hashPath: '/#/pro/variable' },
   { name: 'image-text2image', hashPath: '/#/image/text2image' },
   { name: 'image-image2image', hashPath: '/#/image/image2image' }
 ]

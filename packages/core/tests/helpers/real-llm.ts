@@ -96,8 +96,6 @@ export function createTestConfig(
   // 直接使用系统加载的配置，只覆盖参数
   return {
     ...provider.modelConfig,
-    id: `test-${provider.providerId}`,
-    name: `Test ${provider.providerName}`,
     paramOverrides: {
       ...provider.modelConfig.paramOverrides,
       ...paramOverrides
@@ -135,24 +133,33 @@ export async function createRealLLMTestContext(options?: {
     return undefined;
   }
 
-  // 创建模型配置（使用系统加载的配置 + 可选的参数覆盖）
-  const modelConfig = createTestConfig(
-    provider,
-    options?.paramOverrides ?? {}
-  );
-
   // 创建存储和模型管理器
   const storage = new LocalStorageProvider();
   await storage.clearAll();
 
   const modelManager = createModelManager(storage);
 
-  // 添加模型到管理器
-  const modelKey = `test-${provider.providerId}`;
-  await modelManager.addModel(modelKey, {
-    ...modelConfig,
-    id: modelKey
-  });
+  // 直接使用默认模型键（= providerId），避免跨测试依赖存储写入
+  const modelKey = provider.providerId;
+  const baseConfig = await modelManager.getModel(modelKey);
+  if (!baseConfig || !baseConfig.enabled) {
+    return undefined;
+  }
+
+  // 可选：覆盖参数（写入到 modelManager，使 LLMService 能读取到）
+  if (options?.paramOverrides && Object.keys(options.paramOverrides).length > 0) {
+    await modelManager.updateModel(modelKey, {
+      paramOverrides: {
+        ...(baseConfig.paramOverrides ?? {}),
+        ...options.paramOverrides
+      }
+    });
+  }
+
+  const modelConfig = await modelManager.getModel(modelKey);
+  if (!modelConfig) {
+    return undefined;
+  }
 
   // 创建LLM服务
   const llmService = createLLMService(modelManager);

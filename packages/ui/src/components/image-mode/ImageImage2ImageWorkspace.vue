@@ -1,6 +1,8 @@
 <template>
     <!-- 使用NFlex实现水平左右布局，参考App.vue的实现 -->
     <NFlex
+        data-testid="workspace"
+        data-mode="image-image2image"
         justify="space-between"
         :style="{
             display: 'flex',
@@ -117,6 +119,7 @@
                     <NInput
                         v-model:value="originalPrompt"
                         type="textarea"
+                        data-testid="image-image2image-input"
                         :placeholder="
                             t('imageWorkspace.input.originalPromptPlaceholder')
                         "
@@ -302,6 +305,7 @@
                                 <NButton
                                     type="default"
                                     size="medium"
+                                    data-testid="image-image2image-analyze-button"
                                     :loading="isAnalyzing"
                                     @click="handleAnalyze"
                                     :disabled="
@@ -320,6 +324,7 @@
                                 <NButton
                                     type="primary"
                                     size="medium"
+                                    data-testid="image-image2image-optimize-button"
                                     :loading="isOptimizing"
                                     @click="handleOptimizePrompt"
                                     :disabled="

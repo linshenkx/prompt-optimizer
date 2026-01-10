@@ -32,8 +32,8 @@ import { useImageImage2ImageSession } from './useImageImage2ImageSession'
 export type SubModeKey =
   | 'basic-system'
   | 'basic-user'
-  | 'pro-system'      // Pro-多消息
-  | 'pro-user'        // Pro-变量
+  | 'pro-multi'       // Pro-多消息模式
+  | 'pro-variable'    // Pro-变量模式
   | 'image-text2image'  // 文生图
   | 'image-image2image' // 图生图
 
@@ -198,10 +198,10 @@ export const useSessionManager = defineStore('sessionManager', () => {
         case 'basic-user':
           await useBasicUserSession().saveSession()
           break
-        case 'pro-system':
+        case 'pro-multi':
           await useProMultiMessageSession().saveSession()
           break
-        case 'pro-user':
+        case 'pro-variable':
           await useProVariableSession().saveSession()
           break
         case 'image-text2image':
@@ -253,10 +253,10 @@ export const useSessionManager = defineStore('sessionManager', () => {
         case 'basic-user':
           await useBasicUserSession().restoreSession()
           break
-        case 'pro-system':
+        case 'pro-multi':
           await useProMultiMessageSession().restoreSession()
           break
-        case 'pro-user':
+        case 'pro-variable':
           await useProVariableSession().restoreSession()
           break
         case 'image-text2image':
@@ -306,8 +306,8 @@ export const useSessionManager = defineStore('sessionManager', () => {
       const keys: SubModeKey[] = [
         'basic-system',
         'basic-user',
-        'pro-system',
-        'pro-user',
+        'pro-multi',
+        'pro-variable',
         'image-text2image',
         'image-image2image',
       ]
@@ -358,8 +358,8 @@ export const useSessionManager = defineStore('sessionManager', () => {
       const keys: SubModeKey[] = [
         'basic-system',
         'basic-user',
-        'pro-system',
-        'pro-user',
+        'pro-multi',
+        'pro-variable',
         'image-text2image',
         'image-image2image',
       ]

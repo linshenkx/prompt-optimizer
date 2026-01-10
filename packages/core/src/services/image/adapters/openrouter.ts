@@ -38,9 +38,22 @@ export class OpenRouterImageAdapter extends AbstractImageProviderAdapter {
   getModels(): ImageModel[] {
     return [
       {
+        id: 'openai/gpt-5-image-mini',
+        name: 'GPT-5 Image Mini',
+        description: 'OpenAI GPT-5 Image Mini（通过 OpenRouter），支持文生图与图生图',
+        providerId: 'openrouter',
+        capabilities: {
+          text2image: true,
+          image2image: true,
+          multiImage: true
+        },
+        parameterDefinitions: [],
+        defaultParameterValues: {}
+      },
+      {
         id: 'google/gemini-2.5-flash-image-preview',
         name: 'Gemini 2.5 Flash Image (Nano Banana)',
-        description: 'Google Gemini 2.5 Flash 图像模型，支持文生图、图生图和多轮对话编辑',
+        description: 'Google Gemini 2.5 Flash 图像模型（通过 OpenRouter），支持文生图、图生图和多轮对话编辑',
         providerId: 'openrouter',
         capabilities: {
           text2image: true,

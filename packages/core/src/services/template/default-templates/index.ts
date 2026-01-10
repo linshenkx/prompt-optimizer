@@ -107,6 +107,12 @@ import { template as evaluation_pro_user_prompt_only } from './evaluation/pro/us
 import { template as evaluation_pro_user_prompt_only_en } from './evaluation/pro/user/evaluation-prompt-only_en';
 import { template as evaluation_pro_user_prompt_iterate } from './evaluation/pro/user/evaluation-prompt-iterate';
 import { template as evaluation_pro_user_prompt_iterate_en } from './evaluation/pro/user/evaluation-prompt-iterate_en';
+// 评估模板 - 图像模式/文生图
+import { template as evaluation_image_text2image_prompt_only } from './evaluation/image/text2image/evaluation-prompt-only';
+import { template as evaluation_image_text2image_prompt_only_en } from './evaluation/image/text2image/evaluation-prompt-only_en';
+// 评估模板 - 图像模式/图生图
+import { template as evaluation_image_image2image_prompt_only } from './evaluation/image/image2image/evaluation-prompt-only';
+import { template as evaluation_image_image2image_prompt_only_en } from './evaluation/image/image2image/evaluation-prompt-only_en';
 
 // 变量提取模板
 import { variableExtractionTemplate } from './variable-extraction';
@@ -212,6 +218,12 @@ export const ALL_TEMPLATES = {
   evaluation_pro_user_prompt_only_en,
   evaluation_pro_user_prompt_iterate,
   evaluation_pro_user_prompt_iterate_en,
+  // 评估模板 - 图像模式/文生图
+  evaluation_image_text2image_prompt_only,
+  evaluation_image_text2image_prompt_only_en,
+  // 评估模板 - 图像模式/图生图
+  evaluation_image_image2image_prompt_only,
+  evaluation_image_image2image_prompt_only_en,
   // 变量提取模板
   variableExtractionTemplate,
   variableExtractionTemplateEn,

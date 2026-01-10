@@ -13,7 +13,6 @@ import { useToast } from '../ui/useToast'
 import type { ConversationMessage } from '../../types'
 import type {
     BasicSubMode,
-    ProSubMode,
     ContextMode,
     PromptRecord,
     PromptRecordChain,
@@ -167,7 +166,10 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
 
             // 🔧 Step D: 使用 navigateToSubModeKey 一次性导航到目标路由
             // 不再分两步（先切 functionMode 再切 subMode）
-            const targetKey = `${targetFunctionMode}-${targetMode}`
+            const targetKey =
+                targetFunctionMode === 'pro'
+                    ? `pro-${targetMode === 'system' ? 'multi' : 'variable'}`
+                    : `basic-${targetMode}`
             navigateToSubModeKey(targetKey)
 
             // 等待路由切换完成

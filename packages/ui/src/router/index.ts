@@ -32,21 +32,13 @@ const routes: RouteRecordRaw[] = [
     name: 'basic-user',
     component: () => import('../components/basic-mode/BasicUserWorkspace.vue')
   },
-  // ✨ Pro 模式重构：4 个独立路由，直接指向 ContextWorkspace
-  {
-    path: '/pro/system',
-    name: 'pro-system',
-    component: () => import('../components/context-mode/ContextSystemWorkspace.vue')
-  },
+  // ✨ Pro 模式：2 个独立路由
+  // - /pro/multi: 多消息模式（ContextSystemWorkspace）
+  // - /pro/variable: 变量模式（ContextUserWorkspace）
   {
     path: '/pro/multi',
     name: 'pro-multi',
     component: () => import('../components/context-mode/ContextSystemWorkspace.vue')
-  },
-  {
-    path: '/pro/user',
-    name: 'pro-user',
-    component: () => import('../components/context-mode/ContextUserWorkspace.vue')
   },
   {
     path: '/pro/variable',

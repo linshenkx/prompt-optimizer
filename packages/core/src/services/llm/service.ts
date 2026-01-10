@@ -79,12 +79,6 @@ export class LLMService implements ILLMService {
       this.validateModelConfig(modelConfig);
       this.validateMessages(messages);
 
-      console.log('Sending message:', {
-        provider: modelConfig.providerMeta.id,
-        model: modelConfig.modelMeta.id,
-        messagesCount: messages.length
-      });
-
       // 通过 Registry 获取 Adapter
       const adapter = this.registry.getAdapter(modelConfig.providerMeta.id);
 
@@ -121,7 +115,6 @@ export class LLMService implements ILLMService {
     callbacks: StreamHandlers
   ): Promise<void> {
     try {
-      console.log('Starting stream request:', { provider, messagesCount: messages.length });
       this.validateMessages(messages);
 
       const modelConfig = await this.modelManager.getModel(provider);
@@ -130,11 +123,6 @@ export class LLMService implements ILLMService {
       }
 
       this.validateModelConfig(modelConfig);
-
-      console.log('Model instance retrieved:', {
-        provider: modelConfig.providerMeta.id,
-        model: modelConfig.modelMeta.id
-      });
 
       // 通过 Registry 获取 Adapter
       const adapter = this.registry.getAdapter(modelConfig.providerMeta.id);
@@ -162,12 +150,6 @@ export class LLMService implements ILLMService {
     callbacks: StreamHandlers
   ): Promise<void> {
     try {
-      console.log('Starting stream request with tools:', {
-        provider,
-        messagesCount: messages.length,
-        toolsCount: tools.length
-      });
-
       this.validateMessages(messages);
 
       const modelConfig = await this.modelManager.getModel(provider);
@@ -176,12 +158,6 @@ export class LLMService implements ILLMService {
       }
 
       this.validateModelConfig(modelConfig);
-
-      console.log('Model instance retrieved (with tools):', {
-        provider: modelConfig.providerMeta.id,
-        model: modelConfig.modelMeta.id,
-        tools: tools.map(t => t.function.name)
-      });
 
       // 通过 Registry 获取 Adapter
       const adapter = this.registry.getAdapter(modelConfig.providerMeta.id);
@@ -207,9 +183,6 @@ export class LLMService implements ILLMService {
       if (!provider) {
         throw new RequestConfigError('Model provider cannot be empty');
       }
-      console.log('Testing connection provider:', {
-        provider: provider,
-      });
 
       // 发送一个简单的测试消息
       const testMessages: Message[] = [
@@ -243,8 +216,6 @@ export class LLMService implements ILLMService {
       // 获取基础配置
       const baseConfig = await this.modelManager.getModel(provider);
       const modelConfig = await this.buildEffectiveModelConfig(provider, baseConfig, customConfig);
-
-      console.log(`获取 ${modelConfig.name || provider} 的模型列表`);
 
       // 使用 Registry 获取模型列表
       const providerId = modelConfig.providerMeta.id;

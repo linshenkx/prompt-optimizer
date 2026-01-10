@@ -11,15 +11,17 @@
       <div
         class="evaluation-score-badge"
         :class="[sizeClass, levelClass, { clickable: !loading, loading }]"
+        :data-testid="`score-badge-${type}`"
+        :data-eval-type="type"
         @click="handleClick"
         @mouseenter="handleMouseEnter"
         @mouseleave="handleMouseLeave"
       >
         <template v-if="loading">
-          <NSpin :size="spinSize" />
+          <NSpin :size="spinSize" data-testid="score-loading" />
         </template>
         <template v-else-if="score !== null && score !== undefined">
-          <span class="score-value">{{ score }}</span>
+          <span class="score-value" data-testid="score-value">{{ score }}</span>
         </template>
         <template v-else>
           <span class="score-placeholder">--</span>

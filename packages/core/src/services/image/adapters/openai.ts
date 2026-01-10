@@ -250,8 +250,7 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
         providerId: 'openai',
         modelId: config.modelId,
         configId: config.id,
-        usage: response.usage,
-        created: response.created
+        usage: response.usage
       }
     }
   }

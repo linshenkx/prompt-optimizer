@@ -7,13 +7,19 @@ import { UI_SETTINGS_KEYS, type ProSubMode } from '@prompt-optimizer/core'
 interface UseProSubModeApi {
   proSubMode: Ref<ProSubMode>
   setProSubMode: (mode: ProSubMode) => Promise<void>
-  switchToSystem: () => Promise<void>
-  switchToUser: () => Promise<void>
+  switchToMulti: () => Promise<void>
+  switchToVariable: () => Promise<void>
   ensureInitialized: () => Promise<void>
 }
 
-// 默认模式为 user，系统模式（多对话）在任何环境下都可用
-const DEFAULT_PRO_SUB_MODE: ProSubMode = 'user'
+const DEFAULT_PRO_SUB_MODE: ProSubMode = 'variable'
+
+const normalizeLegacyProSubMode = (value: unknown): ProSubMode => {
+  if (value === 'multi' || value === 'variable') return value
+  if (value === 'system') return 'multi'
+  if (value === 'user') return 'variable'
+  return DEFAULT_PRO_SUB_MODE
+}
 
 let singleton: {
   mode: Ref<ProSubMode>
@@ -47,18 +53,15 @@ export function useProSubMode(services: Ref<AppServices | null>): UseProSubModeA
     }
     singleton!.initializing = (async () => {
       try {
-        // 读取 pro-sub-mode；若不存在，返回默认值 'user'
+        // 读取 pro-sub-mode；若不存在，返回默认值
         const saved = await getPreference<ProSubMode>(UI_SETTINGS_KEYS.PRO_SUB_MODE, DEFAULT_PRO_SUB_MODE)
 
-        // 系统模式（多对话）在任何环境下都可用
-        singleton!.mode.value = (saved === 'system' || saved === 'user') ? saved : DEFAULT_PRO_SUB_MODE
+        const normalized = normalizeLegacyProSubMode(saved)
+        singleton!.mode.value = normalized
 
-        console.log(`[useProSubMode] 初始化完成，当前值: ${singleton!.mode.value}`)
-
-        // 将默认值持久化（若未设置过或值无效）
-        if (saved !== 'system' && saved !== 'user') {
-          await setPreference(UI_SETTINGS_KEYS.PRO_SUB_MODE, DEFAULT_PRO_SUB_MODE)
-          console.log(`[useProSubMode] 已持久化默认值: ${DEFAULT_PRO_SUB_MODE}`)
+        // 将规范化后的值持久化（兼容旧值 system/user -> multi/variable）
+        if (saved !== normalized) {
+          await setPreference(UI_SETTINGS_KEYS.PRO_SUB_MODE, normalized)
         }
       } catch (e) {
         console.error(`[useProSubMode] 初始化失败，使用默认值 ${DEFAULT_PRO_SUB_MODE}:`, e)
@@ -80,17 +83,16 @@ export function useProSubMode(services: Ref<AppServices | null>): UseProSubModeA
     await ensureInitialized()
     singleton!.mode.value = mode
     await setPreference(UI_SETTINGS_KEYS.PRO_SUB_MODE, mode)
-    console.log(`[useProSubMode] 子模式已切换并持久化: ${mode}`)
   }
 
-  const switchToSystem = () => setProSubMode('system')
-  const switchToUser = () => setProSubMode('user')
+  const switchToMulti = () => setProSubMode('multi')
+  const switchToVariable = () => setProSubMode('variable')
 
   return {
     proSubMode: readonly(singleton.mode) as Ref<ProSubMode>,
     setProSubMode,
-    switchToSystem,
-    switchToUser,
+    switchToMulti,
+    switchToVariable,
     ensureInitialized
   }
 }
