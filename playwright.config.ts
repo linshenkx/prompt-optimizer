@@ -14,14 +14,14 @@ export default defineConfig({
   testDir: './tests/e2e',
 
   // 完全并行运行测试
-  // 通过为每个测试创建独立的 BrowserContext (见 fixtures.ts) 确保存储隔离
+  // 每个测试使用独立的 BrowserContext 和数据库名称，完全隔离
   fullyParallel: true,
 
   // CI 环境下失败时不重试,本地开发时重试一次
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
 
-  // CI 环境下使用更少的 worker
+  // CI 环境下使用更少的 worker，本地使用所有可用核心
   workers: process.env.CI ? 1 : undefined,
 
   // 测试报告配置

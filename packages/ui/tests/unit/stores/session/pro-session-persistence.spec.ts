@@ -5,7 +5,7 @@ import { useProVariableSession } from '../../../../src/stores/session/useProVari
 import { TEMPLATE_SELECTION_KEYS } from '@prompt-optimizer/core'
 
 describe('Session stores (pro) persistence', () => {
-  it('pro-system saveSession writes snapshot to preferenceService', async () => {
+  it('pro-multi saveSession writes snapshot to preferenceService', async () => {
     const set = vi.fn(async () => {})
 
     const { pinia } = createTestPinia({
@@ -34,7 +34,7 @@ describe('Session stores (pro) persistence', () => {
     await store.saveSession()
 
     expect(set).toHaveBeenCalledTimes(1)
-    expect(set.mock.calls[0]?.[0]).toBe('session/v1/pro-system')
+    expect(set.mock.calls[0]?.[0]).toBe('session/v1/pro-multi')
 
     const saved = JSON.parse(String(set.mock.calls[0]?.[1] || '{}'))
     expect(saved).toMatchObject({
@@ -49,9 +49,9 @@ describe('Session stores (pro) persistence', () => {
     })
   })
 
-  it('pro-user restoreSession migrates legacy optimize/iterate templates when missing', async () => {
+  it('pro-variable restoreSession migrates legacy optimize/iterate templates when missing', async () => {
     const get = vi.fn(async (key: string, defaultValue: any) => {
-      if (key === 'session/v1/pro-user') return ''
+      if (key === 'session/v1/pro-variable') return ''
       if (key === TEMPLATE_SELECTION_KEYS.CONTEXT_USER_OPTIMIZE_TEMPLATE) return 'legacy-opt'
       if (key === TEMPLATE_SELECTION_KEYS.CONTEXT_ITERATE_TEMPLATE) return 'legacy-iter'
       return defaultValue
@@ -77,7 +77,13 @@ describe('Session stores (pro) persistence', () => {
 
     expect(store.selectedTemplateId).toBe('legacy-opt')
     expect(store.selectedIterateTemplateId).toBe('legacy-iter')
-    expect(get).toHaveBeenCalledWith('session/v1/pro-user', '')
+
+    // restoreSession 会读取 3 个键：
+    // 1. session/v1/pro-variable
+    // 2. app:selected-context-user-optimize-template (迁移)
+    // 3. app:selected-context-iterate-template (迁移)
+    expect(get).toHaveBeenCalledTimes(3)
+    expect(get).toHaveBeenCalledWith('session/v1/pro-variable', '')
   })
 })
 

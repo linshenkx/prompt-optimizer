@@ -120,15 +120,22 @@ export class VCR {
     // 默认 fixtures 目录：packages/core/tests/fixtures
     this.fixtureDir = options.fixtureDir || join(__dirname, '..', 'fixtures')
 
-    // 从环境变量读取模式
-    const envMode = process.env.VCR_MODE as VCRMode
-    this.mode = options.mode || envMode || 'auto'
-
     // 是否启用真实 LLM
     const envEnableReal =
       process.env.ENABLE_REAL_LLM === 'true' ||
       process.env.RUN_REAL_API === '1'
     this.enableRealLLM = options.enableRealLLM ?? envEnableReal
+
+    // 从环境变量读取模式
+    const envMode = process.env.VCR_MODE as VCRMode
+
+    // core 模块默认策略：启用真实 LLM 时，默认使用 'off' 模式（始终调用真实 API）
+    // 这样可以确保 core 模块的集成测试真正测试 API，而不是回放 fixtures
+    if (this.enableRealLLM && !options.mode && !envMode) {
+      this.mode = 'off'
+    } else {
+      this.mode = options.mode || envMode || 'auto'
+    }
   }
 
   /**

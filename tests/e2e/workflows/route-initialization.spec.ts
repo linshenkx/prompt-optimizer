@@ -1,3 +1,15 @@
+/**
+ * 路由初始化测试 - 验证所有下拉框都有值
+ *
+ * 功能：
+ * - 验证各个路由初始化后，模型选择下拉框和提示词模板下拉框都有选项
+ * - 确保数据加载正常，避免空状态
+ *
+ * 测试范围：
+ * - Basic 模式：basic-system, basic-user
+ * - Pro 模式：pro-multi, pro-variable
+ * - Image 模式：text2image, image2image
+ */
 import { test, expect } from '../fixtures'
 import { navigateToMode } from '../helpers/common'
 

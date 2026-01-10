@@ -44,7 +44,6 @@ interface VCRFixture {
   requestBody: any
   responseBody: any // 解析后的响应（用于调试，实际回放时使用 rawSSE）
   rawSSE: string // 原始 SSE 响应文本（回放时使用）
-  recordedAt: string
   duration: number
 }
 
@@ -168,7 +167,6 @@ class E2EVCR {
       url,
       requestBody,
       responseBody,
-      recordedAt: new Date().toISOString(),
       duration,
       rawSSE
     }

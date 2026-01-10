@@ -22,16 +22,51 @@ function formatConsoleMessage(msg: ConsoleMessage): string {
 }
 
 /**
+ * 清理旧的测试数据库
+ *
+ * 在测试开始前删除所有 test-db- 开头的 IndexedDB 数据库
+ * 确保每次测试运行都有干净的环境
+ */
+async function cleanOldTestDatabases(page: Page): Promise<void> {
+  try {
+    await page.evaluate(async () => {
+      const databases = await (indexedDB as any).databases()
+      await Promise.all(
+        databases
+          .filter((db: any) => db.name.startsWith('test-db-'))
+          .map((db: any) => {
+            return new Promise<void>((resolve) => {
+              const req = indexedDB.deleteDatabase(db.name)
+              req.onsuccess = () => resolve()
+              req.onerror = () => resolve() // 失败也继续，不阻塞测试
+            })
+          })
+      )
+    })
+  } catch (err) {
+    // indexedDB.databases() 可能在某些浏览器不支持，忽略错误
+    console.warn('Failed to clean old test databases (non-critical):', err)
+  }
+}
+
+/**
  * 自定义测试 fixture，扩展页面功能
  *
- * - 为每个测试创建独立的 BrowserContext 确保存储完全隔离
- * - 支持完全并行测试，无需担心测试间状态泄漏
- * - 监控控制台错误和页面错误
+ * 存储隔离策略：
+ * 1. 为每个测试生成唯一的测试数据库名称
+ * 2. 在每次测试前清理旧的测试数据库
+ * 3. 通过 init script 注入数据库名称
+ * 4. 支持完全并行测试，无需担心测试间状态泄漏
  */
 export const test = base.extend<{ context: BrowserContext; page: Page }>({
   // 为每个测试创建独立的 BrowserContext
   context: async ({ browser }, use) => {
-    const context = await browser.newContext()
+    // ✅ 创建新的 BrowserContext，禁用所有存储（避免测试间状态泄漏）
+    const context = await browser.newContext({
+      // 禁用 localStorage 和 sessionStorage
+      storageState: undefined, // 不加载任何存储状态
+      // 可以在这里添加其他 context 级别的配置
+    })
     await use(context)
     await context.close()
   },
@@ -40,6 +75,22 @@ export const test = base.extend<{ context: BrowserContext; page: Page }>({
   page: async ({ context }, use, testInfo) => {
     const page = await context.newPage()
     const problems: string[] = []
+
+    // ✅ Step 1: 清理旧的测试数据库（确保磁盘空间不会累积）
+    await cleanOldTestDatabases(page)
+
+    // ✅ Step 2: 为本次测试生成唯一数据库名称
+    // 使用 workerIndex + timestamp + random 确保唯一性
+    const testDbName = `test-db-${testInfo.workerIndex}-${Date.now()}-${Math.random().toString(36).substring(7)}`
+
+    // ✅ Step 3: 注入测试配置到页面（合并为一次 addInitScript 调用）
+    await page.addInitScript((dbName) => {
+      // 清理 localStorage 和 sessionStorage（避免测试间状态泄漏）
+      localStorage.clear()
+      sessionStorage.clear()
+      // 注入测试数据库名称
+      ;(window as any).__TEST_DB_NAME__ = dbName
+    }, testDbName)
 
     const onConsole = (msg: ConsoleMessage) => {
       const type = msg.type()
@@ -72,6 +123,8 @@ export const test = base.extend<{ context: BrowserContext; page: Page }>({
       page.off('console', onConsole)
       page.off('pageerror', onPageError)
       await page.close()
+      // ✅ Step 4: 不需要显式清理当前测试的数据库
+      // 下次测试会自动清理所有 test-db-* 数据库
     }
 
     if (testInfo.status === 'skipped') return
