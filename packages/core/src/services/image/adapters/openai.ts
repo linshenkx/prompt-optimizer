@@ -273,7 +273,8 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
     } else {
       throw new Error('Base64 decoding is not supported in this environment')
     }
-    return new Blob([bytes], { type: mimeType })
+    // 使用 Uint8Array 直接创建 Blob，避免 SharedArrayBuffer 类型问题
+    return new Blob([new Uint8Array(bytes)], { type: mimeType })
   }
 
   private async apiCall(config: ImageModelConfig, endpoint: string, options: any) {

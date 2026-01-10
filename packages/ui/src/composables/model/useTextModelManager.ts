@@ -48,9 +48,13 @@ export function useTextModelManager() {
     throw new Error('Services not provided!')
   }
 
-  const modelManager = services.value.modelManager
-  const llmService = services.value.llmService
-  const textAdapterRegistry = services.value.textAdapterRegistry
+  const modelManager = services.modelManager
+  const llmService = services.llmService
+  const textAdapterRegistry = services.textAdapterRegistry
+  
+  if (!modelManager || !llmService || !textAdapterRegistry) {
+    throw new Error('Required services not available!')
+  }
 
   const models = ref<TextModelConfig[]>([])
   const loadingModels = ref(false)
@@ -283,7 +287,8 @@ export function useTextModelManager() {
       toast.success(t('modelManager.enableSuccess'))
     } catch (error) {
       console.error('启用模型失败:', error)
-      toast.error(t('modelManager.enableFailed', { error: error.message }))
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      toast.error(t('modelManager.enableFailed', { error: errorMessage }))
     }
   }
 
@@ -296,7 +301,8 @@ export function useTextModelManager() {
       toast.success(t('modelManager.disableSuccess'))
     } catch (error) {
       console.error('禁用模型失败:', error)
-      toast.error(t('modelManager.disableFailed', { error: error.message }))
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      toast.error(t('modelManager.disableFailed', { error: errorMessage }))
     }
   }
 
@@ -307,7 +313,8 @@ export function useTextModelManager() {
       toast.success(t('modelManager.deleteSuccess'))
     } catch (error) {
       console.error('删除模型失败:', error)
-      toast.error(t('modelManager.deleteFailed', { error: error.message }))
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      toast.error(t('modelManager.deleteFailed', { error: errorMessage }))
     }
   }
 
@@ -501,7 +508,8 @@ export function useTextModelManager() {
       }
     } catch (error) {
       console.error('获取模型列表失败:', error)
-      toast.error(error instanceof Error ? error.message : 'Unknown error' || t('modelManager.loadFailed'))
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      toast.error(errorMessage || t('modelManager.loadFailed'))
       modelOptions.value = []
     } finally {
       isLoadingModelOptions.value = false

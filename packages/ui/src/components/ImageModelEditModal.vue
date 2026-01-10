@@ -457,7 +457,7 @@ const save = async () => {
     emit('saved')
     close()
   } catch (_error) {
-    console.error('保存配置失败:', error)
+    console.error('保存配置失败:', _error)
     toast.error(t('image.config.saveFailed'))
   }
 }

@@ -3,7 +3,7 @@
     :show="show"
     preset="card"
     :style="{ width: '90vw', maxWidth: '1000px' }"
-    :title="modalTitle.value"
+    :title="modalTitle"
     size="large"
     :bordered="false"
     :segmented="true"
@@ -85,7 +85,7 @@
 
             <template v-if="field.type === 'string'">
               <NInput
-                v-model:value="form.connectionConfig[field.name]"
+                v-model:value="form.connectionConfig[field.name] as string"
                 :type="field.name.toLowerCase().includes('key') ? 'password' : 'text'"
                 :placeholder="field.placeholder"
                 :required="field.required"
@@ -94,13 +94,13 @@
             </template>
             <template v-else-if="field.type === 'number'">
               <NInputNumber
-                v-model:value="form.connectionConfig[field.name]"
+                v-model:value="form.connectionConfig[field.name] as number"
                 :placeholder="field.placeholder"
                 :required="field.required"
               />
             </template>
             <template v-else-if="field.type === 'boolean'">
-              <NCheckbox v-model:checked="form.connectionConfig[field.name]">
+              <NCheckbox v-model:checked="form.connectionConfig[field.name] as boolean">
                 {{ field.name }}
               </NCheckbox>
             </template>
