@@ -178,6 +178,8 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
     if (selectedOptimizeModelKey.value === modelKey) return
     selectedOptimizeModelKey.value = modelKey
     lastActiveAt.value = Date.now()
+    // 异步保存完整状态（best-effort）
+    saveSession()
   }
 
   /**
@@ -187,6 +189,7 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
     if (selectedTestModelKey.value === modelKey) return
     selectedTestModelKey.value = modelKey
     lastActiveAt.value = Date.now()
+    saveSession()
   }
 
   /**
@@ -196,6 +199,7 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
     if (selectedTemplateId.value === templateId) return
     selectedTemplateId.value = templateId
     lastActiveAt.value = Date.now()
+    saveSession()
   }
 
   /**
@@ -205,6 +209,7 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
     if (selectedIterateTemplateId.value === templateId) return
     selectedIterateTemplateId.value = templateId
     lastActiveAt.value = Date.now()
+    saveSession()
   }
 
   /**
@@ -264,10 +269,9 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
         isCompareMode: isCompareMode.value,
         lastActiveAt: lastActiveAt.value,
       }
-      const snapshot = JSON.stringify(sessionState)
       await $services.preferenceService.set(
         'session/v1/basic-user',
-        snapshot
+        sessionState
       )
     } catch (error) {
       console.error('[BasicUserSession] 保存会话失败:', error)
@@ -286,13 +290,16 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
     }
 
     try {
-      const saved = await $services.preferenceService.get(
+      const saved = await $services.preferenceService.get<unknown>(
         'session/v1/basic-user',
-        ''
+        null
       )
 
       if (saved) {
-        const parsed = JSON.parse(saved) as BasicUserSessionState
+        const parsed =
+          typeof saved === 'string'
+            ? (JSON.parse(saved) as BasicUserSessionState)
+            : (saved as BasicUserSessionState)
         prompt.value = parsed.prompt
         optimizedPrompt.value = parsed.optimizedPrompt
         reasoning.value = parsed.reasoning

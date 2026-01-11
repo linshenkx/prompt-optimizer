@@ -177,6 +177,8 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
     if (selectedOptimizeModelKey.value === modelKey) return
     selectedOptimizeModelKey.value = modelKey
     lastActiveAt.value = Date.now()
+    // 异步保存完整状态（best-effort）
+    saveSession()
   }
 
   /**
@@ -186,6 +188,7 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
     if (selectedTestModelKey.value === modelKey) return
     selectedTestModelKey.value = modelKey
     lastActiveAt.value = Date.now()
+    saveSession()
   }
 
   /**
@@ -195,6 +198,7 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
     if (selectedTemplateId.value === templateId) return
     selectedTemplateId.value = templateId
     lastActiveAt.value = Date.now()
+    saveSession()
   }
 
   /**
@@ -204,6 +208,7 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
     if (selectedIterateTemplateId.value === templateId) return
     selectedIterateTemplateId.value = templateId
     lastActiveAt.value = Date.now()
+    saveSession()
   }
 
   /**
@@ -265,10 +270,9 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
         isCompareMode: isCompareMode.value,
         lastActiveAt: lastActiveAt.value,
       }
-      const snapshot = JSON.stringify(sessionState)
       await $services.preferenceService.set(
         'session/v1/pro-multi',
-        snapshot
+        sessionState
       )
     } catch (error) {
       console.error('[ProMultiMessageSession] 保存会话失败:', error)
@@ -286,13 +290,16 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
     }
 
     try {
-      const saved = await $services.preferenceService.get(
+      const saved = await $services.preferenceService.get<unknown>(
         'session/v1/pro-multi',
-        ''
+        null
       )
 
       if (saved) {
-        const parsed = JSON.parse(saved)
+        const parsed =
+          typeof saved === 'string'
+            ? (JSON.parse(saved) as Record<string, unknown>)
+            : (saved as Record<string, unknown>)
         conversationMessagesSnapshot.value = parsed.conversationMessagesSnapshot || []
         selectedMessageId.value = parsed.selectedMessageId || ''
         optimizedPrompt.value = parsed.optimizedPrompt || ''

@@ -32,10 +32,13 @@ describe('Session stores (basic) persistence', () => {
 
     await store.saveSession()
 
-    expect(set).toHaveBeenCalledTimes(1)
-    expect(set.mock.calls[0]?.[0]).toBe('session/v1/basic-system')
+    expect(set).toHaveBeenCalled()
+    const lastCall = set.mock.calls.at(-1)
+    expect(lastCall?.[0]).toBe('session/v1/basic-system')
 
-    const saved = JSON.parse(String(set.mock.calls[0]?.[1] || '{}'))
+    const raw = lastCall?.[1]
+    const saved =
+      typeof raw === 'string' ? JSON.parse(raw || '{}') : (raw as Record<string, unknown> | undefined) || {}
     expect(saved).toMatchObject({
       prompt: 'p',
       optimizedPrompt: 'o',
@@ -50,7 +53,7 @@ describe('Session stores (basic) persistence', () => {
 
   it('basic-user restoreSession migrates legacy template selection when missing', async () => {
     const get = vi.fn(async (key: string, defaultValue: any) => {
-      if (key === 'session/v1/basic-user') return ''
+      if (key === 'session/v1/basic-user') return null
       if (key === TEMPLATE_SELECTION_KEYS.USER_OPTIMIZE_TEMPLATE) return 'legacy-template'
       return defaultValue
     })
@@ -74,7 +77,6 @@ describe('Session stores (basic) persistence', () => {
     await store.restoreSession()
 
     expect(store.selectedTemplateId).toBe('legacy-template')
-    expect(get).toHaveBeenCalledWith('session/v1/basic-user', '')
+    expect(get).toHaveBeenCalledWith('session/v1/basic-user', null)
   })
 })
-

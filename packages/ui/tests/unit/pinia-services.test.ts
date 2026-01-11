@@ -24,7 +24,8 @@ describe('Pinia 服务集成', () => {
 
     expect(set).toHaveBeenCalledTimes(1)
     expect(set.mock.calls[0]?.[0]).toBe('session/v1/basic-user')
-    expect(typeof set.mock.calls[0]?.[1]).toBe('string')
+    expect(typeof set.mock.calls[0]?.[1]).toBe('object')
+    expect(set.mock.calls[0]?.[1]).toMatchObject({ prompt: 'hello' })
     // ✅ 清理由全局 afterEach 自动完成，无需手动 cleanup
   })
 })

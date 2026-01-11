@@ -1,23 +1,10 @@
-import { reactive, type Ref } from 'vue'
-
-import type { Template } from '@prompt-optimizer/core'
+import { reactive } from 'vue'
 
 export interface TemplateManagerHooks {
   showTemplates: boolean
   currentType: string
-  handleTemplateSelect: (
-    template: Template | null,
-    type: Template['metadata']['templateType'],
-    _showToast?: boolean
-  ) => void
-  openTemplateManager: (type: Template['metadata']['templateType']) => void
+  openTemplateManager: (type: string) => void
   handleTemplateManagerClose: (refreshCallback?: () => void) => void
-}
-
-export interface TemplateManagerOptions {
-  selectedOptimizeTemplate: Ref<Template | null>
-  selectedUserOptimizeTemplate: Ref<Template | null>
-  selectedIterateTemplate: Ref<Template | null>
 }
 
 /**
@@ -33,31 +20,14 @@ export interface TemplateManagerOptions {
  * - 禁止在此处读写 TEMPLATE_SELECTION_KEYS（避免双真源）
  */
 export function useTemplateManager(
-  _services: Ref<any>,
-  options: TemplateManagerOptions
+  _services: unknown
 ): TemplateManagerHooks {
   void _services
-
-  const { selectedOptimizeTemplate, selectedUserOptimizeTemplate, selectedIterateTemplate } =
-    options
 
   const state = reactive<TemplateManagerHooks>({
     showTemplates: false,
     currentType: '',
-    handleTemplateSelect: (
-      template: Template | null,
-      type: Template['metadata']['templateType']
-    ) => {
-      const family = normalizeTypeToFamily(type)
-      if (family === 'system') {
-        selectedOptimizeTemplate.value = template
-      } else if (family === 'user') {
-        selectedUserOptimizeTemplate.value = template
-      } else {
-        selectedIterateTemplate.value = template
-      }
-    },
-    openTemplateManager: (type: Template['metadata']['templateType']) => {
+    openTemplateManager: (type: string) => {
       state.currentType = type
       state.showTemplates = true
     },
@@ -69,20 +39,3 @@ export function useTemplateManager(
 
   return state
 }
-
-function normalizeTypeToFamily(type: string): 'system' | 'user' | 'iterate' {
-  if (
-    type === 'optimize' ||
-    type === 'conversationMessageOptimize' ||
-    type === 'text2imageOptimize' ||
-    type === 'image2imageOptimize' ||
-    type === 'contextSystemOptimize'
-  ) {
-    return 'system'
-  }
-  if (type === 'userOptimize' || type === 'contextUserOptimize') {
-    return 'user'
-  }
-  return 'iterate'
-}
-

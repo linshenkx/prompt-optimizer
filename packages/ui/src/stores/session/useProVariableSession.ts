@@ -117,24 +117,29 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
     if (selectedOptimizeModelKey.value === modelKey) return
     selectedOptimizeModelKey.value = modelKey
     lastActiveAt.value = Date.now()
+    // 异步保存完整状态（best-effort）
+    saveSession()
   }
 
   const updateTestModel = (modelKey: string) => {
     if (selectedTestModelKey.value === modelKey) return
     selectedTestModelKey.value = modelKey
     lastActiveAt.value = Date.now()
+    saveSession()
   }
 
   const updateTemplate = (templateId: string | null) => {
     if (selectedTemplateId.value === templateId) return
     selectedTemplateId.value = templateId
     lastActiveAt.value = Date.now()
+    saveSession()
   }
 
   const updateIterateTemplate = (templateId: string | null) => {
     if (selectedIterateTemplateId.value === templateId) return
     selectedIterateTemplateId.value = templateId
     lastActiveAt.value = Date.now()
+    saveSession()
   }
 
   const toggleCompareMode = (enabled?: boolean) => {
@@ -185,10 +190,9 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
         isCompareMode: isCompareMode.value,
         lastActiveAt: lastActiveAt.value,
       }
-      const snapshot = JSON.stringify(sessionState)
       await $services.preferenceService.set(
         'session/v1/pro-variable',
-        snapshot
+        sessionState
       )
     } catch (error) {
       console.error('[ProVariableSession] 保存会话失败:', error)
@@ -203,13 +207,16 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
     }
 
     try {
-      const saved = await $services.preferenceService.get(
+      const saved = await $services.preferenceService.get<unknown>(
         'session/v1/pro-variable',
-        ''
+        null
       )
 
       if (saved) {
-        const parsed = JSON.parse(saved)
+        const parsed =
+          typeof saved === 'string'
+            ? (JSON.parse(saved) as Record<string, unknown>)
+            : (saved as Record<string, unknown>)
         prompt.value = parsed.prompt || ''
         optimizedPrompt.value = parsed.optimizedPrompt || ''
         reasoning.value = parsed.reasoning || ''

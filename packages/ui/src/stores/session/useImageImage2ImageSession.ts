@@ -115,24 +115,29 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
     if (selectedTextModelKey.value === modelKey) return
     selectedTextModelKey.value = modelKey
     lastActiveAt.value = Date.now()
+    saveSession()
   }
 
   const updateImageModel = (modelKey: string) => {
     if (selectedImageModelKey.value === modelKey) return
     selectedImageModelKey.value = modelKey
     lastActiveAt.value = Date.now()
+    // 异步保存完整状态（best-effort）
+    saveSession()
   }
 
   const updateTemplate = (templateId: string | null) => {
     if (selectedTemplateId.value === templateId) return
     selectedTemplateId.value = templateId
     lastActiveAt.value = Date.now()
+    saveSession()
   }
 
   const updateIterateTemplate = (templateId: string | null) => {
     if (selectedIterateTemplateId.value === templateId) return
     selectedIterateTemplateId.value = templateId
     lastActiveAt.value = Date.now()
+    saveSession()
   }
 
   const toggleCompareMode = (enabled?: boolean) => {
@@ -338,7 +343,7 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
       }
 
       // 构建快照（不包含 base64）
-      const snapshot = JSON.stringify({
+      const snapshot = {
         originalPrompt: originalPrompt.value,
         optimizedPrompt: optimizedPrompt.value,
         reasoning: reasoning.value,
@@ -354,7 +359,7 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
         selectedTemplateId: selectedTemplateId.value,
         selectedIterateTemplateId: selectedIterateTemplateId.value,
         lastActiveAt: lastActiveAt.value,
-      })
+      }
 
       await $services.preferenceService.set(
         'session/v1/image-image2image',
@@ -377,13 +382,16 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
     }
 
     try {
-      const saved = await $services.preferenceService.get(
+      const saved = await $services.preferenceService.get<unknown>(
         'session/v1/image-image2image',
-        ''
+        null
       )
 
       if (saved) {
-        const parsed = JSON.parse(saved)
+        const parsed =
+          typeof saved === 'string'
+            ? (JSON.parse(saved) as Record<string, unknown>)
+            : (saved as Record<string, unknown>)
 
         // 从存储加载输入图像
         let inputImageB64Loaded = null

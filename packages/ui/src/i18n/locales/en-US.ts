@@ -879,6 +879,8 @@ export default {
     title: "Template Manager",
     optimizeTemplates: "System Prompt Optimization Templates",
     iterateTemplates: "Iteration Optimization Templates",
+    iterateTemplatesSystem: "Iteration Templates (System)",
+    iterateTemplatesUser: "Iteration Templates (User)",
     optimizeTemplatesContext: "System Prompt Optimization Templates (Context)",
     iterateTemplatesContext: "Iteration Optimization Templates (Context)",
     optimizeTemplateList: "System Prompt Optimization Template List",

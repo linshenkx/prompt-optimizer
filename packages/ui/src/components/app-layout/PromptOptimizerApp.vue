@@ -23,7 +23,11 @@
         <div v-else-if="!services" class="loading-container error">
             <p>{{ t("toast.error.appInitFailed") }}</p>
         </div>
-        <template v-if="isReady">
+        <div v-else-if="!isReady" class="loading-container">
+            <div class="spinner"></div>
+            <p>{{ t("log.info.initializing") }}</p>
+        </div>
+        <template v-else>
             <MainLayoutUI>
                 <!-- Title Slot -->
                 <template #title>
@@ -77,10 +81,10 @@
             <TemplateManagerUI
                 v-if="isReady"
                 v-model:show="templateManagerState.showTemplates"
-                :selected-system-optimize-template="optimizer.selectedOptimizeTemplate"
-                :selected-user-optimize-template="optimizer.selectedUserOptimizeTemplate"
-                :selected-iterate-template="optimizer.selectedIterateTemplate"
                 :template-type="templateManagerState.currentType"
+                :basic-sub-mode="routeBasicSubMode"
+                :pro-sub-mode="routeProSubMode"
+                :image-sub-mode="routeImageSubMode"
                 @select="handleTemplateSelected"
                 @close="handleTemplateManagerClosed"
                 @language-changed="handleTemplateLanguageChanged"
@@ -319,7 +323,7 @@ import { useGlobalSettings, type GlobalSettingsApi } from '../../stores/settings
 import { DataTransformer } from '../../utils/data-transformer'
 
 // Types
-import type { OptimizationMode, ConversationMessage, ModelSelectOption, TemplateSelectOption, TestAreaPanelInstance } from '../../types'
+import type { OptimizationMode, ConversationMessage, ModelSelectOption, TestAreaPanelInstance } from '../../types'
 import { applyPatchOperationsToText, type IPromptService, type PromptRecordChain, type PromptRecord, type PatchOperation, type Template, type FunctionMode, type BasicSubMode, type ProSubMode, type ImageSubMode } from "@prompt-optimizer/core";
 
 // 1. 基础 composables
@@ -554,9 +558,23 @@ watch(
 // 6. 向子组件提供服务
 provide("services", services);
 
+// ✅ 应用初始化后从 session store 恢复状态到 UI
+// 用于避免“默认值写回”覆盖持久化内容（刷新后选择丢失）
+const hasRestoredInitialState = ref(false);
+
+// ✅ 外部数据加载中标志（防止模式切换的自动 restore 覆盖外部数据）
+// 适用场景：历史记录恢复、收藏加载、模板导入等任何外部数据加载导致模式切换的情况
+const isLoadingExternalData = ref(false);
+
 // 5. 控制主UI渲染的标志
 // 🔧 必须等待路由初始化完成，避免短暂显示根路径的空白页
-const isReady = computed(() => !!services.value && !isInitializing.value && routeInitialized.value);
+const isReady = computed(
+    () =>
+        !!services.value &&
+        !isInitializing.value &&
+        routeInitialized.value &&
+        hasRestoredInitialState.value,
+);
 
 // 创建 ContextEditor 使用的 services 引用
 const servicesForContextEditor = computed(() => services?.value || null);
@@ -709,20 +727,6 @@ const promptPreview = usePromptPreview(
     contextMode,
     renderPhase,
 );
-
-const templateSelectType = computed<
-    | "optimize"
-    | "userOptimize"
-    | "iterate"
-    | "conversationMessageOptimize"
-    | "contextUserOptimize"
->(() => {
-    const isPro = advancedModeEnabled.value;
-    if (selectedOptimizationMode.value === "system") {
-        return isPro ? "conversationMessageOptimize" : "optimize";
-    }
-    return isPro ? "contextUserOptimize" : "userOptimize";
-});
 
 // 变量管理处理函数
 const handleOpenVariableManager = (variableName?: string) => {
@@ -997,13 +1001,6 @@ const getCurrentSession = () => {
     }
     return null;
 };
-
-// 🔄 应用初始化后从 session store 恢复状态到 UI
-const hasRestoredInitialState = ref(false);
-
-// 🔧 外部数据加载中标志（防止模式切换的自动 restore 覆盖外部数据）
-// 适用场景：历史记录恢复、收藏加载、模板导入等任何外部数据加载导致模式切换的情况
-const isLoadingExternalData = ref(false);
 
 /**
  * 🔧 方案 A 修复：恢复 Basic 模式的 session 状态（移除冗余赋值）
@@ -1372,18 +1369,17 @@ watch(
 */
 // 当前选中的模板（根据 system/user 模式映射到 optimizer 对应字段）
 // 注意：必须在任何 watch/计算属性引用之前声明，避免 TDZ。
-const currentSelectedTemplate = computed({
-    get() {
-        return selectedOptimizationMode.value === "system"
+// （选择已下沉到各 workspace；此处不再维护 currentSelectedTemplate）
+const currentSelectedTemplate = computed<Template | null>({
+    get: () =>
+        selectedOptimizationMode.value === "system"
             ? optimizer.selectedOptimizeTemplate
-            : optimizer.selectedUserOptimizeTemplate;
-    },
-    set(newValue) {
-        if (!newValue) return;
+            : optimizer.selectedUserOptimizeTemplate,
+    set: (value) => {
         if (selectedOptimizationMode.value === "system") {
-            optimizer.selectedOptimizeTemplate = newValue;
+            optimizer.selectedOptimizeTemplate = value;
         } else {
-            optimizer.selectedUserOptimizeTemplate = newValue;
+            optimizer.selectedUserOptimizeTemplate = value;
         }
     },
 });
@@ -1395,6 +1391,7 @@ watch(
     currentSelectedTemplate,
     (newTemplate) => {
         if (sessionManager.isSwitching) return;
+        if (!hasRestoredInitialState.value) return;
 
         // ⚠️ Image 模式使用独立的 session 模板管理
         // 🔧 Pro 模式的模板选择已由 workspace/controller 持久化到 session store
@@ -1415,6 +1412,7 @@ watch(
     () => optimizer.selectedIterateTemplate,
     (newTemplate) => {
         if (sessionManager.isSwitching) return;
+        if (!hasRestoredInitialState.value) return;
 
         // ⚠️ 仅 Basic 模式使用此迭代模板
         // - Pro-system：没有 updateIterateTemplate 方法
@@ -1436,6 +1434,7 @@ watch(
     testContent,
     (newContent) => {
         if (sessionManager.isSwitching) return;
+        if (!hasRestoredInitialState.value) return;
 
         // 🔧 仅 Basic 模式使用此 testContent
         // Image 模式没有 testContent；Pro 模式已由 workspace 内部管理
@@ -1548,22 +1547,48 @@ const {
 provide("handleSaveFavorite", handleSaveFavorite);
 
 // 模板管理器
-const templateManagerState = useTemplateManager(services as any, {
-    selectedOptimizeTemplate: toRef(optimizer, "selectedOptimizeTemplate"),
-    selectedUserOptimizeTemplate: toRef(optimizer, "selectedUserOptimizeTemplate"),
-    selectedIterateTemplate: toRef(optimizer, "selectedIterateTemplate"),
-});
+const templateManagerState = useTemplateManager(services as any);
 
 // TemplateManager 选择回调：写入 Session Store（单一真源），避免写入旧 TEMPLATE_SELECTION_KEYS
 const handleTemplateSelected = (
     template: Template | null,
     type: Template["metadata"]["templateType"],
+    category?: string,
 ) => {
-    templateManagerState.handleTemplateSelect(template, type, false);
-
-    if (!template) return;
     const session = getCurrentSession();
-    if (!session) return;
+    if (!session && !category) return;
+
+    const sessionByCategory = (() => {
+        switch (category) {
+            case "system-optimize":
+            case "basic-system-iterate":
+                return basicSystemSession;
+            case "user-optimize":
+            case "basic-user-iterate":
+                return basicUserSession;
+            case "context-system-optimize":
+                return proMultiMessageSession;
+            case "context-user-optimize":
+                return proVariableSession;
+            case "context-iterate":
+                return routeProSubMode.value === "multi"
+                    ? proMultiMessageSession
+                    : proVariableSession;
+            case "image-text2image-optimize":
+                return imageText2ImageSession;
+            case "image-image2image-optimize":
+                return imageImage2ImageSession;
+            case "image-iterate":
+                return routeImageSubMode.value === "image2image"
+                    ? imageImage2ImageSession
+                    : imageText2ImageSession;
+            default:
+                return null;
+        }
+    })();
+
+    const targetSession = (sessionByCategory || session) as any;
+    if (!targetSession) return;
 
     const templateType = String(type || "");
     const isIterate =
@@ -1571,66 +1596,17 @@ const handleTemplateSelected = (
         templateType === "contextIterate" ||
         templateType === "imageIterate";
 
-    if (isIterate && typeof (session as any).updateIterateTemplate === "function") {
-        (session as any).updateIterateTemplate(template.id || null);
+    const templateId = template?.id || null;
+
+    if (isIterate && typeof targetSession.updateIterateTemplate === "function") {
+        targetSession.updateIterateTemplate(templateId);
         return;
     }
-    if (typeof (session as any).updateTemplate === "function") {
-        (session as any).updateTemplate(template.id || null);
+    if (typeof targetSession.updateTemplate === "function") {
+        targetSession.updateTemplate(templateId);
     }
 };
-
-const templateOptions = ref<TemplateSelectOption[]>([]);
 const textModelOptions = ref<ModelSelectOption[]>([]);
-
-const clearCurrentTemplateSelection = () => {
-    if (selectedOptimizationMode.value === "system") {
-        optimizer.selectedOptimizeTemplate = null;
-    } else {
-        optimizer.selectedUserOptimizeTemplate = null;
-    }
-};
-
-const ensureTemplateSelection = () => {
-    const current = currentSelectedTemplate.value;
-    const available = templateOptions.value;
-
-    if (current) {
-        const matched = available.find((t) => t.raw.id === current.id);
-        if (matched) {
-            if (matched.raw !== current) {
-                currentSelectedTemplate.value = matched.raw;
-            }
-            return;
-        }
-    }
-
-    if (available.length > 0) {
-        currentSelectedTemplate.value = available[0].raw;
-    } else {
-        clearCurrentTemplateSelection();
-    }
-};
-
-const refreshOptimizeTemplates = async () => {
-    if (!services.value?.templateManager) {
-        templateOptions.value = [];
-        clearCurrentTemplateSelection();
-        return;
-    }
-
-    try {
-        const list = await services.value.templateManager.listTemplatesByType(
-            templateSelectType.value as any,
-        );
-        templateOptions.value = DataTransformer.templatesToSelectOptions(list || []);
-    } catch (error) {
-        console.warn("[PromptOptimizerApp] Failed to refresh optimize templates:", error);
-        templateOptions.value = [];
-    }
-
-    ensureTemplateSelection();
-};
 
 const refreshTextModels = async () => {
     if (!services.value?.modelManager) {
@@ -1650,7 +1626,7 @@ const refreshTextModels = async () => {
         const fallbackValue = textModelOptions.value[0]?.value || "";
         const selectionReady = modelManager.isModelSelectionReady;
 
-        if (fallbackValue && selectionReady) {
+        if (fallbackValue && selectionReady && hasRestoredInitialState.value) {
             if (selectedOptimizeModelKey.value && !availableKeys.has(selectedOptimizeModelKey.value)) {
                 selectedOptimizeModelKey.value = fallbackValue;
             }
@@ -1674,12 +1650,7 @@ const refreshTextModels = async () => {
 watch(
     () => services.value?.templateManager,
     async (manager) => {
-        if (manager) {
-            await refreshOptimizeTemplates();
-        } else {
-            templateOptions.value = [];
-            clearCurrentTemplateSelection();
-        }
+        void manager
     },
     { immediate: true },
 );
@@ -1694,13 +1665,6 @@ watch(
         }
     },
     { immediate: true },
-);
-
-watch(
-    () => templateSelectType.value,
-    async () => {
-        await refreshOptimizeTemplates();
-    },
 );
 
 // 7. 监听服务初始化
@@ -1885,8 +1849,6 @@ const openTemplateManager = (
 
 // 处理模板语言变化
 const handleTemplateLanguageChanged = (_newLanguage: string) => {
-    refreshOptimizeTemplates();
-
     // Basic 工作区：若存在则直接刷新迭代模板选择（同时也会广播 refresh 事件）
     if (basicModeWorkspaceRef.value?.promptPanelRef?.refreshIterateTemplateSelect) {
         basicModeWorkspaceRef.value.promptPanelRef.refreshIterateTemplateSelect();
@@ -1905,13 +1867,10 @@ provide("openTemplateManager", openTemplateManager);
 // 模板管理器关闭回调
 const handleTemplateManagerClosed = () => {
     try {
-        templateManagerState.handleTemplateManagerClose(() => {
-            refreshOptimizeTemplates();
-        });
+        templateManagerState.handleTemplateManagerClose();
     } catch (e) {
         console.warn("[PromptOptimizerApp] Failed to run template manager close handler:", e);
     }
-    refreshOptimizeTemplates();
     if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("basic-workspace-refresh-templates"));
         window.dispatchEvent(new Event("image-workspace-refresh-templates"));
@@ -2110,10 +2069,9 @@ let initTimeoutId: number | null = null
 
 // ⚠️ 具名函数：pagehide 事件处理器（Codex 建议）
 const handlePagehide = () => {
-  // ⚠️ 注意：这里不能用 await，因为浏览器不会等异步完成
-  // 使用非异步方式触发保存（best-effort）
+  // 注意：这里不能用 await，因为浏览器不会等异步完成
   sessionManager.saveAllSessions().catch(err => {
-    console.error('[PromptOptimizerApp] pagehide 保存失败:', err)
+    console.error('[PromptOptimizerApp] pagehide 异步保存失败:', err)
   })
 }
 
@@ -2130,13 +2088,16 @@ onMounted(() => {
   // ⚠️ 使用 watchEffect + 独立超时定时器（Codex 建议）
   const TIMEOUT = 10000 // 10秒超时
 
+  // ⚠️ 避免 watchEffect 回调内 stopWatch() 的 TDZ 风险
+  let stopWatch: (() => void) | null = null
+
   // 设置超时定时器
   initTimeoutId = window.setTimeout(() => {
     console.error('[PromptOptimizerApp] Services 初始化超时')
-    stopWatch()
+    stopWatch?.()
   }, TIMEOUT)
 
-  const stopWatch = watchEffect(async () => {
+  stopWatch = watchEffect(async () => {
     // 等待 services 和初始化完成
     if (!services.value || isInitializing.value) {
       return
@@ -2151,6 +2112,10 @@ onMounted(() => {
       // 不调用 stopWatch()，继续等待下一轮
       return
     }
+    if (!$services.preferenceService) {
+      // PreferenceService 还未就绪：继续等待，避免 restoreAllSessions() 直接返回导致默认值写回覆盖持久化内容
+      return
+    }
 
     // Services 和 Pinia 均已就绪，清除超时定时器并停止监听
     console.log('[PromptOptimizerApp] Services 和 Pinia 均已就绪，开始恢复会话')
@@ -2158,7 +2123,7 @@ onMounted(() => {
       window.clearTimeout(initTimeoutId)
       initTimeoutId = null
     }
-    stopWatch()
+    stopWatch?.()
 
     try {
       // hydrate all：避免未恢复的子模式在 saveAllSessions 时用默认空值覆盖持久化内容
@@ -2192,6 +2157,9 @@ onMounted(() => {
       }
     } catch (error) {
       console.error('[PromptOptimizerApp] 初始化过程中发生错误:', error)
+    } finally {
+      // Ensure the app can render even if session restore fails.
+      hasRestoredInitialState.value = true
     }
   })
 })

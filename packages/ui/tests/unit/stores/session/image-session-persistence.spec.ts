@@ -40,9 +40,11 @@ describe('Session stores (image) persistence', () => {
     await store.saveSession()
 
     expect(saveImage).toHaveBeenCalledTimes(1)
-    expect(set).toHaveBeenCalledWith('session/v1/image-text2image', expect.any(String))
+    expect(set).toHaveBeenCalledWith('session/v1/image-text2image', expect.any(Object))
 
-    const saved = JSON.parse(String(set.mock.calls[0]?.[1] || '{}'))
+    const raw = set.mock.calls[0]?.[1]
+    const saved =
+      typeof raw === 'string' ? JSON.parse(raw || '{}') : (raw as Record<string, any> | undefined) || {}
     expect(saved.originalImageResult.images[0]).toEqual({ id: 'img-1', _type: 'image-ref' })
 
     const runtimeAfter = store.originalImageResult?.images?.[0] as any
@@ -100,7 +102,6 @@ describe('Session stores (image) persistence', () => {
 
     expect(store.inputImageB64).toBe('INPUT_B64')
     expect(store.originalImageResult?.images?.[0]).toMatchObject({ b64: 'RESULT_B64', mimeType: 'image/png' })
-    expect(get).toHaveBeenCalledWith('session/v1/image-image2image', '')
+    expect(get).toHaveBeenCalledWith('session/v1/image-image2image', null)
   })
 })
-

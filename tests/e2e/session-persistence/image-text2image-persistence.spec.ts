@@ -10,9 +10,9 @@ import { test, expect } from '../fixtures'
 test.describe('Image Text2Image - Session Persistence', () => {
   test('切换文本模型后刷新页面，选择应该保留', async ({ page }) => {
     // 1. 导航到 image/text2image
-    await page.goto('http://localhost:18181')
+    await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await page.goto('http://localhost:18181/#/image/text2image')
+    await page.goto('/#/image/text2image')
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(2000) // 等待数据加载
 
@@ -113,9 +113,9 @@ test.describe('Image Text2Image - Session Persistence', () => {
 
   test('切换模板后刷新页面，选择应该保留', async ({ page }) => {
     // 1. 导航到 image/text2image
-    await page.goto('http://localhost:18181')
+    await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await page.goto('http://localhost:18181/#/image/text2image')
+    await page.goto('/#/image/text2image')
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(2000)
 

@@ -186,58 +186,6 @@
 
                     <!-- 控制面板 - 使用网格布局 -->
                     <NGrid :cols="24" :x-gap="8" responsive="screen">
-                        <!-- 优化模板选择 -->
-                        <NGridItem :span="11" :xs="24" :sm="11">
-                            <NSpace vertical :size="8">
-                                <NText
-                                    :depth="2"
-                                    style="font-size: 14px; font-weight: 500"
-                                    >{{
-                                        t(
-                                            "imageWorkspace.input.optimizeTemplate",
-                                        )
-                                    }}</NText
-                                >
-                                <template
-                                    v-if="services && services.templateManager"
-                                >
-                                    <SelectWithConfig
-                                        v-model="selectedTemplateIdForSelect"
-                                        :options="templateOptions"
-                                        :getPrimary="OptionAccessors.getPrimary"
-                                        :getSecondary="
-                                            OptionAccessors.getSecondary
-                                        "
-                                        :getValue="OptionAccessors.getValue"
-                                        :placeholder="
-                                            t(
-                                                'imageWorkspace.input.templatePlaceholder',
-                                            )
-                                        "
-                                        size="medium"
-                                        :disabled="isOptimizing"
-                                        filterable
-                                        :show-config-action="true"
-                                        :show-empty-config-c-t-a="true"
-                                        @focus="handleTemplateSelectFocus"
-                                        @config="
-                                            () =>
-                                                onOpenTemplateManager(
-                                                    templateType,
-                                                )
-                                        "
-                                    />
-                                </template>
-                                <NText
-                                    v-else
-                                    depth="3"
-                                    style="padding: 0; font-size: 14px"
-                                >
-                                    {{ t("common.loading") }}
-                                </NText>
-                            </NSpace>
-                        </NGridItem>
-
                         <!-- 文本模型选择 -->
                         <NGridItem :span="7" :xs="24" :sm="7">
                             <NSpace vertical :size="8">
@@ -295,6 +243,58 @@
                                         @focus="handleTextModelSelectFocus"
                                     />
                                 </template>
+                            </NSpace>
+                        </NGridItem>
+
+                        <!-- 优化模板选择 -->
+                        <NGridItem :span="11" :xs="24" :sm="11">
+                            <NSpace vertical :size="8">
+                                <NText
+                                    :depth="2"
+                                    style="font-size: 14px; font-weight: 500"
+                                    >{{
+                                        t(
+                                            "imageWorkspace.input.optimizeTemplate",
+                                        )
+                                    }}</NText
+                                >
+                                <template
+                                    v-if="services && services.templateManager"
+                                >
+                                    <SelectWithConfig
+                                        v-model="selectedTemplateIdForSelect"
+                                        :options="templateOptions"
+                                        :getPrimary="OptionAccessors.getPrimary"
+                                        :getSecondary="
+                                            OptionAccessors.getSecondary
+                                        "
+                                        :getValue="OptionAccessors.getValue"
+                                        :placeholder="
+                                            t(
+                                                'imageWorkspace.input.templatePlaceholder',
+                                            )
+                                        "
+                                        size="medium"
+                                        :disabled="isOptimizing"
+                                        filterable
+                                        :show-config-action="true"
+                                        :show-empty-config-c-t-a="true"
+                                        @focus="handleTemplateSelectFocus"
+                                        @config="
+                                            () =>
+                                                onOpenTemplateManager(
+                                                    templateType,
+                                                )
+                                        "
+                                    />
+                                </template>
+                                <NText
+                                    v-else
+                                    depth="3"
+                                    style="padding: 0; font-size: 14px"
+                                >
+                                    {{ t("common.loading") }}
+                                </NText>
                             </NSpace>
                         </NGridItem>
 
@@ -1122,15 +1122,16 @@ import PromptPanelUI from "../PromptPanel.vue";
 import TestResultSection from "../TestResultSection.vue";
 import SelectWithConfig from "../SelectWithConfig.vue";
 import { provideEvaluation, useEvaluationContextOptional } from '../../composables/prompt/useEvaluationContext';
-import { DataTransformer, OptionAccessors } from "../../utils/data-transformer";
+import { OptionAccessors } from "../../utils/data-transformer";
 import type { AppServices } from "../../types/services";
 import { useFullscreen } from "../../composables/ui/useFullscreen";
 import FullscreenDialog from "../FullscreenDialog.vue";
-import type { ModelSelectOption, SelectOption, TemplateSelectOption } from "../../types/select-options";
+import type { ModelSelectOption, SelectOption } from "../../types/select-options";
 import { useToast } from "../../composables/ui/useToast";
 import { useImageImage2ImageSession } from '../../stores/session/useImageImage2ImageSession'
 import { useImageGeneration } from '../../composables/image/useImageGeneration'
 import { useEvaluationHandler } from '../../composables/prompt/useEvaluationHandler'
+import { useWorkspaceTemplateSelection } from '../../composables/workspaces/useWorkspaceTemplateSelection'
 import {
     type ImageModelConfig,
     type ImageRequest,
@@ -1225,15 +1226,15 @@ const selectedImageModelKey = computed<string>({
     set: (value) => session.updateImageModel(value || ''),
 })
 
-const selectedTemplateId = computed<string>({
-    get: () => session.selectedTemplateId || '',
-    set: (value) => session.updateTemplate(value || null),
-})
+const templateSelection = useWorkspaceTemplateSelection(
+    services,
+    session,
+    'image2imageOptimize',
+    'imageIterate',
+)
 
-const selectedIterateTemplateId = computed<string>({
-    get: () => session.selectedIterateTemplateId || '',
-    set: (value) => session.updateIterateTemplate(value || null),
-})
+const selectedTemplateId = templateSelection.selectedTemplateId
+const templateOptions = templateSelection.templateOptions
 
 const isCompareMode = computed<boolean>({
     get: () => !!session.isCompareMode,
@@ -1281,70 +1282,14 @@ const templateType = computed<Template['metadata']['templateType']>(() => 'image
 const optimizationMode = 'user' as OptimizationMode
 const advancedModeEnabled = false
 
-// ========== 模板对象派生（防竞态） ==========
-const selectedTemplateRef = ref<Template | null>(null)
-const selectedIterateTemplateRef = ref<Template | null>(null)
+const selectedTemplate = templateSelection.selectedTemplate
 
-let templateResolveToken = 0
-watch(
-    [selectedTemplateId, templateManager],
-    async ([templateId, manager]) => {
-        const token = ++templateResolveToken
-        if (!manager) {
-            selectedTemplateRef.value = null
-            return
-        }
-
-        try {
-            const templates = await manager.listTemplatesByType('image2imageOptimize')
-            if (token !== templateResolveToken) return
-
-            const selected = templateId ? templates.find(t => t.id === templateId) || null : null
-            selectedTemplateRef.value = selected
-        } catch (e) {
-            if (token !== templateResolveToken) return
-            console.warn('[ImageImage2ImageWorkspace] Failed to resolve optimize template:', e)
-            selectedTemplateRef.value = null
-        }
-    },
-    { immediate: true },
-)
-
-let iterateResolveToken = 0
-watch(
-    [selectedIterateTemplateId, templateManager],
-    async ([iterateId, manager]) => {
-        const token = ++iterateResolveToken
-        if (!manager) {
-            selectedIterateTemplateRef.value = null
-            return
-        }
-
-        try {
-            const templates = await manager.listTemplatesByType('imageIterate')
-            if (token !== iterateResolveToken) return
-            const selected = iterateId ? templates.find(t => t.id === iterateId) || null : null
-            selectedIterateTemplateRef.value = selected
-        } catch (e) {
-            if (token !== iterateResolveToken) return
-            console.warn('[ImageImage2ImageWorkspace] Failed to resolve iterate template:', e)
-            selectedIterateTemplateRef.value = null
-        }
-    },
-    { immediate: true },
-)
-
-const selectedTemplate = computed<Template | null>({
-    get: () => selectedTemplateRef.value,
-    set: (template) => {
-        selectedTemplateId.value = template?.id || ''
-    },
-})
-
+// PromptPanel 需要 Template 对象的 v-model；用 wrapper 同步写回 iterateTemplateId
 const selectedIterateTemplate = computed<Template | null>({
-    get: () => selectedIterateTemplateRef.value,
+    get: () => templateSelection.selectedIterateTemplate.value,
     set: (template) => {
-        selectedIterateTemplateId.value = template?.id || ''
+        templateSelection.selectedIterateTemplateId.value = template?.id ?? ''
+        templateSelection.selectedIterateTemplate.value = template ?? null
     },
 })
 
@@ -1473,41 +1418,6 @@ const onOpenTemplateManager = (type: TemplateEntryType) => {
         type === "iterate" ? "imageIterate" : type;
     appOpenTemplateManager?.(target);
 };
-
-// 模板列表
-const templateOptions = ref<TemplateSelectOption[]>([]);
-
-const loadTemplateList = async () => {
-    try {
-        if (services?.value?.templateManager) {
-            const list =
-                await services.value.templateManager.listTemplatesByType(
-                    'image2imageOptimize',
-                );
-            templateOptions.value = DataTransformer.templatesToSelectOptions(
-                list || [],
-            );
-        } else {
-            templateOptions.value = [];
-        }
-    } catch (e) {
-        console.warn("[ImageImage2ImageWorkspace] Failed to load template list:", e);
-        templateOptions.value = [];
-    }
-};
-
-watch(templateType, async () => {
-    await loadTemplateList();
-    await nextTick();
-    try {
-        await restoreTemplateSelection();
-    } catch (e) {
-        console.warn(
-            "[ImageImage2ImageWorkspace] Failed to restore template after list load:",
-            e,
-        );
-    }
-});
 
 // 全屏编辑：复用 useFullscreen 模式，编辑 originalPrompt
 const { isFullscreen, fullscreenValue, openFullscreen } = useFullscreen(
@@ -1737,65 +1647,6 @@ const refreshImageModels = async () => {
         }
     } catch (e) {
         console.error('[ImageImage2ImageWorkspace] Failed to refresh image models:', e)
-    }
-}
-
-const restoreTemplateSelection = async () => {
-    const manager = templateManager.value
-    if (!manager) return
-
-    try {
-        const templates = await manager.listTemplatesByType('image2imageOptimize')
-        if (!templates.length) {
-            selectedTemplateRef.value = null
-            selectedTemplateId.value = ''
-            return
-        }
-
-        const currentId = selectedTemplateId.value
-        const found = currentId ? templates.find(t => t.id === currentId) || null : null
-        if (found) {
-            selectedTemplateRef.value = found
-            return
-        }
-
-        // 无选择或已失效：设置默认模板
-        const fallback = templates.find(t => t.id === 'image2image-general-optimize') || templates[0]
-
-        if (fallback) {
-            selectedTemplateId.value = fallback.id
-            selectedTemplateRef.value = fallback
-        }
-    } catch (e) {
-        console.error('[ImageImage2ImageWorkspace] Failed to restore template selection:', e)
-        selectedTemplateRef.value = null
-    }
-}
-
-const restoreImageIterateTemplateSelection = async () => {
-    const manager = templateManager.value
-    if (!manager) return
-
-    try {
-        const templates = await manager.listTemplatesByType('imageIterate')
-        if (!templates.length) {
-            selectedIterateTemplateRef.value = null
-            selectedIterateTemplateId.value = ''
-            return
-        }
-
-        const currentId = selectedIterateTemplateId.value
-        const found = currentId ? templates.find(t => t.id === currentId) || null : null
-        if (found) {
-            selectedIterateTemplateRef.value = found
-            return
-        }
-
-        const fallback = templates[0]
-        selectedIterateTemplateId.value = fallback?.id || ''
-        selectedIterateTemplateRef.value = fallback || null
-    } catch (e) {
-        console.error('[ImageImage2ImageWorkspace] Failed to restore iterate template selection:', e)
     }
 }
 
@@ -2067,15 +1918,16 @@ const initialize = async () => {
     try {
         await refreshTextModels()
         await refreshImageModels()
-        await restoreTemplateSelection()
-        await restoreImageIterateTemplateSelection()
+        await templateSelection.refreshOptimizeTemplates()
+        await templateSelection.refreshIterateTemplates()
     } catch (e) {
         console.error('[ImageImage2ImageWorkspace] Failed to initialize:', e)
     }
 }
 
 // 初始化和语言切换事件处理器
-const refreshIterateHandler = () => {
+const refreshIterateHandler = async () => {
+    await templateSelection.refreshIterateTemplates()
     promptPanelRef.value?.refreshIterateTemplateSelect?.();
 };
 
@@ -2106,9 +1958,10 @@ const refreshImageModelsHandler = async () => {
 // 模板管理器关闭后刷新当前模板列表（并尽量保持当前选择）
 const refreshTemplatesHandler = async () => {
     try {
-        await loadTemplateList();
+        await templateSelection.refreshOptimizeTemplates()
+        await templateSelection.refreshIterateTemplates()
         await nextTick();
-        await restoreTemplateSelection();
+        promptPanelRef.value?.refreshIterateTemplateSelect?.();
     } catch (e) {
         console.warn(
             "[ImageImage2ImageWorkspace] Failed to refresh template list after manager close:",
@@ -2157,8 +2010,8 @@ onMounted(async () => {
         );
     }
 
-    // 加载模板列表
-    await loadTemplateList();
+    await templateSelection.refreshOptimizeTemplates()
+    await templateSelection.refreshIterateTemplates()
 });
 
 // 清理

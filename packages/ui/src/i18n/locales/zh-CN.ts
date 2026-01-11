@@ -852,6 +852,8 @@ export default {
     title: "功能提示词管理",
     optimizeTemplates: "系统提示词优化模板",
     iterateTemplates: "迭代优化模板",
+    iterateTemplatesSystem: "迭代优化模板（System）",
+    iterateTemplatesUser: "迭代优化模板（User）",
     optimizeTemplatesContext: "系统提示词优化模板（上下文）",
     iterateTemplatesContext: "迭代优化模板（上下文）",
     optimizeTemplateList: "系统提示词优化模板列表",

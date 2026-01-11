@@ -848,6 +848,8 @@ export default {
     title: "功能提示詞管理",
     optimizeTemplates: "系統提示詞優化範本",
     iterateTemplates: "迭代優化範本",
+    iterateTemplatesSystem: "迭代優化範本（System）",
+    iterateTemplatesUser: "迭代優化範本（User）",
     optimizeTemplatesContext: "系統提示詞優化範本（情境）",
     iterateTemplatesContext: "迭代優化範本（情境）",
     optimizeTemplateList: "系統提示詞優化範本清單",

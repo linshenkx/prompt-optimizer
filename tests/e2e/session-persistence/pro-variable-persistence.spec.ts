@@ -10,9 +10,9 @@ import { test, expect } from '../fixtures'
 test.describe('Pro Variable - Session Persistence', () => {
   test('切换优化模型后刷新页面，选择应该保留', async ({ page }) => {
     // 1. 导航到 pro/variable
-    await page.goto('http://localhost:18181')
+    await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await page.goto('http://localhost:18181/#/pro/variable')
+    await page.goto('/#/pro/variable')
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(2000) // 等待数据加载
 
@@ -104,9 +104,9 @@ test.describe('Pro Variable - Session Persistence', () => {
 
   test('切换模板后刷新页面，选择应该保留', async ({ page }) => {
     // 1. 导航到 pro/variable
-    await page.goto('http://localhost:18181')
+    await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await page.goto('http://localhost:18181/#/pro/variable')
+    await page.goto('/#/pro/variable')
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(2000)
 

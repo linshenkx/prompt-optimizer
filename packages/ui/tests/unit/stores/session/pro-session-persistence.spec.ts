@@ -33,10 +33,13 @@ describe('Session stores (pro) persistence', () => {
 
     await store.saveSession()
 
-    expect(set).toHaveBeenCalledTimes(1)
-    expect(set.mock.calls[0]?.[0]).toBe('session/v1/pro-multi')
+    expect(set).toHaveBeenCalled()
+    const lastCall = set.mock.calls.at(-1)
+    expect(lastCall?.[0]).toBe('session/v1/pro-multi')
 
-    const saved = JSON.parse(String(set.mock.calls[0]?.[1] || '{}'))
+    const raw = lastCall?.[1]
+    const saved =
+      typeof raw === 'string' ? JSON.parse(raw || '{}') : (raw as Record<string, unknown> | undefined) || {}
     expect(saved).toMatchObject({
       selectedMessageId: 'm1',
       optimizedPrompt: 'o',
@@ -51,7 +54,7 @@ describe('Session stores (pro) persistence', () => {
 
   it('pro-variable restoreSession migrates legacy optimize/iterate templates when missing', async () => {
     const get = vi.fn(async (key: string, defaultValue: any) => {
-      if (key === 'session/v1/pro-variable') return ''
+      if (key === 'session/v1/pro-variable') return null
       if (key === TEMPLATE_SELECTION_KEYS.CONTEXT_USER_OPTIMIZE_TEMPLATE) return 'legacy-opt'
       if (key === TEMPLATE_SELECTION_KEYS.CONTEXT_ITERATE_TEMPLATE) return 'legacy-iter'
       return defaultValue
@@ -83,7 +86,6 @@ describe('Session stores (pro) persistence', () => {
     // 2. app:selected-context-user-optimize-template (迁移)
     // 3. app:selected-context-iterate-template (迁移)
     expect(get).toHaveBeenCalledTimes(3)
-    expect(get).toHaveBeenCalledWith('session/v1/pro-variable', '')
+    expect(get).toHaveBeenCalledWith('session/v1/pro-variable', null)
   })
 })
-

@@ -39,6 +39,10 @@ export function useWorkspaceTemplateSelection<T extends WorkspaceTemplateSession
   const selectedTemplate = ref<Template | null>(null)
   const selectedIterateTemplate = ref<Template | null>(null)
 
+  // 避免在 refresh 内部“兜底写回”触发 watch(selectedId) 再次刷新
+  let skipNextOptimizeRefresh = false
+  let skipNextIterateRefresh = false
+
   // 优化模板 ID（双向绑定）
   const selectedTemplateId = computed<string>({
     get: () => sessionStore.selectedTemplateId ?? '',
@@ -72,11 +76,28 @@ export function useWorkspaceTemplateSelection<T extends WorkspaceTemplateSession
 
       templateOptions.value = DataTransformer.templatesToSelectOptions(list || [])
 
-      // 根据 selectedTemplateId 解析模板对象
-      selectedTemplate.value =
-        selectedTemplateId.value
-          ? (list || []).find(t => t.id === selectedTemplateId.value) || null
-          : null
+      const templates = list || []
+      if (!templates.length) {
+        selectedTemplate.value = null
+        return
+      }
+
+      const currentId = selectedTemplateId.value
+      const found = currentId ? templates.find(t => t.id === currentId) || null : null
+      if (found) {
+        selectedTemplate.value = found
+        return
+      }
+
+      // 无选择或已失效：统一兜底为第一个模板
+      const fallback = templates[0] || null
+      if (fallback) {
+        skipNextOptimizeRefresh = true
+        sessionStore.updateTemplate(fallback.id)
+        selectedTemplate.value = fallback
+      } else {
+        selectedTemplate.value = null
+      }
     } catch (error) {
       if (token !== optimizeTemplateResolveToken) return
       console.error('[useWorkspaceTemplateSelection] refreshOptimizeTemplates failed:', error instanceof Error ? error.message : String(error), error)
@@ -102,11 +123,28 @@ export function useWorkspaceTemplateSelection<T extends WorkspaceTemplateSession
 
       iterateTemplateOptions.value = DataTransformer.templatesToSelectOptions(list || [])
 
-      // 根据 selectedIterateTemplateId 解析模板对象
-      selectedIterateTemplate.value =
-        selectedIterateTemplateId.value
-          ? (list || []).find(t => t.id === selectedIterateTemplateId.value) || null
-          : null
+      const templates = list || []
+      if (!templates.length) {
+        selectedIterateTemplate.value = null
+        return
+      }
+
+      const currentId = selectedIterateTemplateId.value
+      const found = currentId ? templates.find(t => t.id === currentId) || null : null
+      if (found) {
+        selectedIterateTemplate.value = found
+        return
+      }
+
+      // 无选择或已失效：统一兜底为第一个模板
+      const fallback = templates[0] || null
+      if (fallback) {
+        skipNextIterateRefresh = true
+        sessionStore.updateIterateTemplate(fallback.id)
+        selectedIterateTemplate.value = fallback
+      } else {
+        selectedIterateTemplate.value = null
+      }
     } catch (error) {
       if (token !== iterateTemplateResolveToken) return
       console.error('[useWorkspaceTemplateSelection] refreshIterateTemplates failed:', error instanceof Error ? error.message : String(error), error)
@@ -129,6 +167,10 @@ export function useWorkspaceTemplateSelection<T extends WorkspaceTemplateSession
   watch(
     () => selectedTemplateId.value,
     () => {
+      if (skipNextOptimizeRefresh) {
+        skipNextOptimizeRefresh = false
+        return
+      }
       void refreshOptimizeTemplates()
     }
   )
@@ -137,6 +179,10 @@ export function useWorkspaceTemplateSelection<T extends WorkspaceTemplateSession
   watch(
     () => selectedIterateTemplateId.value,
     () => {
+      if (skipNextIterateRefresh) {
+        skipNextIterateRefresh = false
+        return
+      }
       void refreshIterateTemplates()
     }
   )
