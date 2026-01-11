@@ -31,6 +31,7 @@ export class SiliconflowAdapter extends OpenAIAdapter {
       requiresApiKey: true,
       defaultBaseURL: 'https://api.siliconflow.cn/v1',
       supportsDynamicModels: true,
+      apiKeyUrl: 'https://cloud.siliconflow.cn/account/ak',
       connectionSchema: {
         required: ['apiKey'],
         optional: ['baseURL'],

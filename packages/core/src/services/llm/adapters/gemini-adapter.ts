@@ -91,6 +91,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
       requiresApiKey: true,
       defaultBaseURL: 'https://generativelanguage.googleapis.com',
       supportsDynamicModels: true, // 新版 SDK 支持动态模型获取
+      apiKeyUrl: 'https://aistudio.google.com/apikey',
       connectionSchema: {
         required: ['apiKey'],
         optional: ['baseURL'],

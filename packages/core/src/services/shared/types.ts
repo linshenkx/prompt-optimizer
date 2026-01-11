@@ -35,6 +35,8 @@ export interface BaseProvider {
   readonly supportsDynamicModels: boolean;
   /** 连接参数结构定义 */
   readonly connectionSchema?: ConnectionSchema;
+  /** API Key 获取页面 URL（可选）*/
+  readonly apiKeyUrl?: string;
 }
 
 /**

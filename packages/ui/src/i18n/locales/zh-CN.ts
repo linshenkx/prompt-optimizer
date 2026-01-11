@@ -731,6 +731,7 @@ export default {
     selectModel: "选择模型",
     clickToFetchModels: "点击箭头获取模型列表",
     apiKey: "API密钥",
+    getApiKey: "获取API密钥",
     addModel: "添加",
     addImageModel: "添加图像模型",
 

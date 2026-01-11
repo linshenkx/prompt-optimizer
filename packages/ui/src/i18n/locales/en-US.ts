@@ -750,6 +750,7 @@ export default {
     defaultModel: "Default Model",
     clickToFetchModels: "Click arrow to fetch model list",
     apiKey: "API Key",
+    getApiKey: "Get API Key",
     addModel: "Add",
     addImageModel: "Add Image Model",
 
