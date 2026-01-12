@@ -138,8 +138,8 @@ export function useUpdater() {
   let updateNotAvailableListener: ((info: { version?: string; reason?: string }) => void) | null = null
   let downloadProgressListener: ((progress: DownloadProgress) => void) | null = null
   let updateDownloadedListener: ((info: UpdateInfo) => void) | null = null
-  let updateErrorListener: ((error: { message?: string; code?: string }) => void) | null = null
-  let downloadStartedListener: ((info: { total?: number; transferred?: number }) => void) | null = null
+  let updateErrorListener: ((error: { message?: string; code?: string; error?: string }) => void) | null = null
+  let downloadStartedListener: ((info: { versionType?: 'stable' | 'prerelease'; version?: string }) => void) | null = null
 
   // 检查两种版本的内部函数
   const checkBothVersions = async () => {
@@ -867,7 +867,7 @@ export function useUpdater() {
     window.electronAPI.on('update-downloaded', updateDownloadedListener)
 
     // 更新错误（包括下载错误）
-    updateErrorListener = (error: { message?: string; code?: string }) => {
+    updateErrorListener = (error: { message?: string; code?: string; error?: string }) => {
       console.error('[useUpdater] Update error:', error)
 
       // 简单处理：重置下载状态，保持更新信息让用户重试
@@ -896,7 +896,7 @@ export function useUpdater() {
     window.electronAPI.on('update-error', updateErrorListener)
 
     // 下载开始事件 - 立即同步UI状态
-    downloadStartedListener = (info: { versionType?: string; version?: string }) => {
+    downloadStartedListener = (info: { versionType?: 'stable' | 'prerelease'; version?: string }) => {
       console.log('[useUpdater] Download started:', info)
       // 立即设置下载状态，确保UI响应
       state.isDownloading = true

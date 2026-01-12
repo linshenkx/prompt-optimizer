@@ -79,9 +79,23 @@ interface ShellAPI {
 
 // 事件监听API
 interface EventAPI {
-  on(channel: string, listener: (...args: unknown[]) => void): void
-  off(channel: string, listener: (...args: unknown[]) => void): void
-  once(channel: string, listener: (...args: unknown[]) => void): void
+  on<K extends keyof ElectronEventMap>(channel: K, listener: (...args: ElectronEventMap[K]) => void): void
+  on(channel: string, listener: (...args: any[]) => void): void
+
+  off<K extends keyof ElectronEventMap>(channel: K, listener: (...args: ElectronEventMap[K]) => void): void
+  off(channel: string, listener: (...args: any[]) => void): void
+
+  once<K extends keyof ElectronEventMap>(channel: K, listener: (...args: ElectronEventMap[K]) => void): void
+  once(channel: string, listener: (...args: any[]) => void): void
+}
+
+interface ElectronEventMap {
+  'update-available-info': [UpdateInfo]
+  'update-not-available': [{ version?: string; reason?: string }]
+  'update-download-progress': [DownloadProgress]
+  'update-downloaded': [UpdateInfo]
+  'update-error': [{ message?: string; code?: string; error?: string }]
+  'updater-download-started': [{ versionType?: 'stable' | 'prerelease'; version?: string }]
 }
 
 // 图像生成API

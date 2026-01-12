@@ -18,3 +18,12 @@ if (-not (Test-Path "pnpm-lock.yaml")) {
   Write-Host "警告: 未检测到pnpm-lock.yaml文件。" -ForegroundColor Yellow
   Write-Host "请确保使用pnpm install安装依赖。" -ForegroundColor Yellow
 } 
+
+# 测试门禁（可用 SKIP_TEST_GATE=1 跳过，仅用于紧急情况）
+if ($env:SKIP_TEST_GATE -eq "1") {
+  Write-Host "跳过测试门禁：检测到 SKIP_TEST_GATE=1" -ForegroundColor Yellow
+  exit 0
+}
+
+Write-Host "运行测试门禁（fast）：pnpm test:gate" -ForegroundColor Cyan
+pnpm test:gate

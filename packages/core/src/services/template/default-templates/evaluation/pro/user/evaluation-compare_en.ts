@@ -7,7 +7,7 @@
 import type { Template, MessageTemplate } from '../../../../types';
 
 export const template: Template = {
-  id: 'evaluation-pro-user-compare',
+  id: 'evaluation-pro-variable-compare',
   name: 'Variable Mode Comparison Evaluation',
   content: [
     {

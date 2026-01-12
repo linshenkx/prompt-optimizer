@@ -76,6 +76,7 @@ export type {
   ImageModel,
   ImageRequest,
   ImageResult,
+  ImageResultItem,
   ImageProgressHandlers,
   ImageModelConfig,
   IImageModelManager,
@@ -83,8 +84,16 @@ export type {
   IImageAdapterRegistry,
   IImageService,
   ConnectionSchema as ImageConnectionSchema,
-  ImageParameterDefinition
+  ImageParameterDefinition,
+  ImageMetadata,
+  ImageRef,
+  FullImageData,
+  ImageStorageConfig,
+  IImageStorageService
 } from './services/image/types'
+// 导出图像存储相关函数和类型
+export { isImageRef, createImageRef } from './services/image/types'
+export { ImageStorageService, createImageStorageService } from './services/image/storage'
 
 // 导出存储相关
 export * from './services/storage/types'
@@ -144,7 +153,6 @@ export type { ApplyPatchResult, ApplyPatchReportItem, ApplyPatchStatus } from '.
 export {
   CORE_SERVICE_KEYS,
   UI_SETTINGS_KEYS,
-  MODEL_SELECTION_KEYS,
   TEMPLATE_SELECTION_KEYS,
   IMAGE_MODE_KEYS,
   FUNCTION_MODEL_KEYS,
@@ -155,7 +163,6 @@ export {
 export type {
   CoreServiceKey,
   UISettingsKey,
-  ModelSelectionKey,
   TemplateSelectionKey,
   ImageModeKey,
   FunctionModelKey,
@@ -182,3 +189,13 @@ export * from './types/advanced'
 export * from './services/evaluation/types'
 export * from './services/evaluation/errors'
 export { EvaluationService, createEvaluationService } from './services/evaluation/service'
+
+// 🆕 导出变量提取服务相关
+export * from './services/variable-extraction/types'
+export * from './services/variable-extraction/errors'
+export { VariableExtractionService, createVariableExtractionService } from './services/variable-extraction/service'
+
+// 🆕 导出变量值生成服务相关
+export * from './services/variable-value-generation/types'
+export * from './services/variable-value-generation/errors'
+export { VariableValueGenerationService, createVariableValueGenerationService } from './services/variable-value-generation/service'

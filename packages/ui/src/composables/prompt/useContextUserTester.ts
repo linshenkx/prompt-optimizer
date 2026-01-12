@@ -76,8 +76,17 @@ export function useContextUserTester(
   const toast = useToast()
   const { t } = useI18n()
 
+  type InternalTesterState = UseContextUserTester & {
+    testPromptWithType: (
+      type: 'original' | 'optimized',
+      prompt: string,
+      optimizedPrompt: string,
+      testVars?: Record<string, string>
+    ) => Promise<void>
+  }
+
   // 创建响应式状态对象
-  const state = reactive<UseContextUserTester>({
+  const state = reactive<InternalTesterState>({
     // 测试结果状态
     testResults: {
       // 原始提示词结果
@@ -236,7 +245,7 @@ export function useContextUserTester(
         }
       }
     },
-  } as UseContextUserTester)
+  })
 
-  return state
+  return state as UseContextUserTester
 }

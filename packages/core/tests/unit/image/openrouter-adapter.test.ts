@@ -33,9 +33,9 @@ describe('OpenRouterImageAdapter', () => {
     it('should provide static models list', () => {
       const models = adapter.getModels()
 
-      expect(models).toHaveLength(1)
-      expect(models[0].id).toBe('google/gemini-2.5-flash-image-preview')
-      expect(models[0].name).toBe('Gemini 2.5 Flash Image (Nano Banana)')
+      expect(models.length).toBeGreaterThan(0)
+      expect(models[0].id).toBe('openai/gpt-5-image-mini')
+      expect(models[0].name).toBe('GPT-5 Image Mini')
       expect(models[0].providerId).toBe('openrouter')
     })
 
@@ -99,11 +99,12 @@ describe('OpenRouterImageAdapter', () => {
     let mockConfig: ImageModelConfig
 
     beforeEach(() => {
+      const modelId = adapter.getModels()[0].id
       mockConfig = {
         id: 'test-config',
         name: 'Test Config',
         providerId: 'openrouter',
-        modelId: 'google/gemini-2.5-flash-image-preview',
+        modelId,
         enabled: true,
         connectionConfig: {
           apiKey: 'test-api-key'

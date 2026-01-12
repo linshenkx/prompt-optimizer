@@ -24,7 +24,6 @@ interface TextModelForm {
   name: string
   enabled: boolean
   providerId: string
-  providerMeta?: TextProvider
   modelId: string
   connectionConfig: TextConnectionConfig
   paramOverrides: Record<string, unknown>
@@ -43,17 +42,16 @@ export function useTextModelManager() {
   const { t } = useI18n()
   const toast = useToast()
 
-  const services = inject<Ref<AppServices>>('services')
-  if (!services) {
+  const services = inject<Ref<AppServices | null>>('services', ref(null))
+  if (!services.value) {
     throw new Error('Services not provided!')
   }
 
   const modelManager = services.value.modelManager
   const llmService = services.value.llmService
   const textAdapterRegistry = services.value.textAdapterRegistry
-  
-  if (!modelManager || !llmService || !textAdapterRegistry) {
-    throw new Error('Required services not available!')
+  if (!textAdapterRegistry) {
+    throw new Error('textAdapterRegistry not provided!')
   }
 
   const models = ref<TextModelConfig[]>([])
@@ -285,10 +283,10 @@ export function useTextModelManager() {
       await modelManager.enableModel(id)
       await loadModels()
       toast.success(t('modelManager.enableSuccess'))
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('启用模型失败:', error)
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      toast.error(t('modelManager.enableFailed', { error: errorMessage }))
+      const message = error instanceof Error ? error.message : String(error)
+      toast.error(t('modelManager.enableFailed', { error: message }))
     }
   }
 
@@ -299,10 +297,10 @@ export function useTextModelManager() {
       await modelManager.disableModel(id)
       await loadModels()
       toast.success(t('modelManager.disableSuccess'))
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('禁用模型失败:', error)
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      toast.error(t('modelManager.disableFailed', { error: errorMessage }))
+      const message = error instanceof Error ? error.message : String(error)
+      toast.error(t('modelManager.disableFailed', { error: message }))
     }
   }
 
@@ -311,10 +309,10 @@ export function useTextModelManager() {
       await modelManager.deleteModel(id)
       await loadModels()
       toast.success(t('modelManager.deleteSuccess'))
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('删除模型失败:', error)
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      toast.error(t('modelManager.deleteFailed', { error: errorMessage }))
+      const message = error instanceof Error ? error.message : String(error)
+      toast.error(t('modelManager.deleteFailed', { error: message }))
     }
   }
 
@@ -351,7 +349,6 @@ export function useTextModelManager() {
 
     // 使用共享函数处理连接配置
     const providerMeta = providers.value.find(p => p.id === providerId)
-    form.value.providerMeta = providerMeta
     form.value.connectionConfig = computeConnectionConfig(
       form.value.connectionConfig,
       providerMeta,
@@ -506,10 +503,10 @@ export function useTextModelManager() {
       if (fetchedModels.length > 0 && !fetchedModels.some((m: { value: string }) => m.value === form.value.modelId)) {
         form.value.modelId = fetchedModels[0].value
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('获取模型列表失败:', error)
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      toast.error(errorMessage || t('modelManager.loadFailed'))
+      const message = error instanceof Error ? error.message : t('modelManager.loadFailed')
+      toast.error(message)
       modelOptions.value = []
     } finally {
       isLoadingModelOptions.value = false

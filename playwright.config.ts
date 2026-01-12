@@ -14,18 +14,19 @@ export default defineConfig({
   testDir: './tests/e2e',
 
   // 完全并行运行测试
+  // 每个测试使用独立的 BrowserContext 和数据库名称，完全隔离
   fullyParallel: true,
 
   // CI 环境下失败时不重试,本地开发时重试一次
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
 
-  // CI 环境下使用更少的 worker
+  // CI 环境下使用更少的 worker，本地使用所有可用核心
   workers: process.env.CI ? 1 : undefined,
 
   // 测试报告配置
   reporter: [
-    ['html'],
+    ['html', { open: 'never' }],
     ['list']
   ],
 
@@ -65,9 +66,12 @@ export default defineConfig({
 
   // 自动启动 E2E 测试专用开发服务器
   webServer: {
-    command: `pnpm -F @prompt-optimizer/web dev --port ${E2E_PORT}`,
+    // E2E 依赖 workspace 包的 dist 产物（@prompt-optimizer/core/@prompt-optimizer/ui），
+    // 先构建再启动 web dev server，避免跑到过期 dist 导致交互/事件异常。
+    command: `pnpm -F @prompt-optimizer/core build && pnpm -F @prompt-optimizer/ui build && pnpm -F @prompt-optimizer/web dev --port ${E2E_PORT}`,
     url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
+    // 为了保证每次测试都使用最新构建产物，默认不复用已有 server。
+    reuseExistingServer: false,
     timeout: 120 * 1000,
   },
 });

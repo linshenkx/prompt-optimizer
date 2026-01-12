@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { createI18n } from 'vue-i18n'
 import { nextTick } from 'vue'
 import LanguageSwitchDropdown from '../../../src/components/LanguageSwitchDropdown.vue'
 
@@ -18,17 +17,6 @@ vi.mock('naive-ui', () => ({
   }
 }))
 
-// 简单的测试i18n实例
-const createTestI18n = () => createI18n({
-  legacy: false,
-  locale: 'zh-CN',
-  messages: {
-    'zh-CN': {},
-    'zh-TW': {},
-    'en-US': {}
-  }
-})
-
 // Mock服务注入
 const mockServices = {
   value: {
@@ -41,17 +29,14 @@ const mockServices = {
 
 describe('LanguageSwitchDropdown', () => {
   let wrapper
-  let i18n
 
   beforeEach(() => {
-    i18n = createTestI18n()
     vi.clearAllMocks()
   })
 
   const createWrapper = (props = {}) => {
     return mount(LanguageSwitchDropdown, {
       global: {
-        plugins: [i18n],
         provide: {
           services: mockServices
         }

@@ -47,7 +47,14 @@ export function usePromptOptimizer(
   optimizationMode: OptimizationModeSource,    // 必需参数，接受 computed
   selectedOptimizeModel?: Ref<string>,                 // 优化模型选择
   selectedTestModel?: Ref<string>,                     // 测试模型选择
-  contextMode?: Ref<import('@prompt-optimizer/core').ContextMode>  // 上下文模式
+  contextMode?: Ref<import('@prompt-optimizer/core').ContextMode>,  // 上下文模式
+  bindings?: {
+    prompt?: Ref<string>
+    optimizedPrompt?: Ref<string>
+    optimizedReasoning?: Ref<string>
+    currentChainId?: Ref<string>
+    currentVersionId?: Ref<string>
+  }
 ) {
   const optimizeModel = selectedOptimizeModel || ref('')
   const testModel = selectedTestModel || ref('')
@@ -61,20 +68,26 @@ export function usePromptOptimizer(
   const promptService = computed(() => services.value?.promptService)
   const { functionMode } = useFunctionMode(services)
   
+  const boundPrompt = bindings?.prompt ?? ref('')
+  const boundOptimizedPrompt = bindings?.optimizedPrompt ?? ref('')
+  const boundOptimizedReasoning = bindings?.optimizedReasoning ?? ref('')
+  const boundCurrentChainId = bindings?.currentChainId ?? ref('')
+  const boundCurrentVersionId = bindings?.currentVersionId ?? ref('')
+
   // 使用 reactive 创建一个响应式状态对象，而不是单独的 ref
-  const state = reactive({
+  const state = reactive<any>({
     // 状态
-    prompt: '',
-    optimizedPrompt: '',
-    optimizedReasoning: '', // 优化推理内容
+    prompt: boundPrompt,
+    optimizedPrompt: boundOptimizedPrompt,
+    optimizedReasoning: boundOptimizedReasoning, // 优化推理内容
     isOptimizing: false,
     isIterating: false,
     selectedOptimizeTemplate: null as Template | null,  // 系统提示词优化模板
     selectedUserOptimizeTemplate: null as Template | null,  // 用户提示词优化模板
     selectedIterateTemplate: null as Template | null,
-    currentChainId: '',
+    currentChainId: boundCurrentChainId,
     currentVersions: [] as PromptChain['versions'],
-  currentVersionId: '',
+    currentVersionId: boundCurrentVersionId,
   
   // 方法 (将在下面定义并绑定到 state)
   handleOptimizePrompt: async () => {},
@@ -294,13 +307,13 @@ export function usePromptOptimizer(
                   variableCount: Object.keys(advancedContext.variables).length,
                   messageCount: advancedContext.messages?.length || 0,
                   conversationSnapshot: advancedContext.messages?.map(msg => ({
-                    id: msg.id,
+                    id: msg.id || '',
                     role: msg.role,
                     content: msg.content,
                     originalContent: msg.originalContent,
                     // 运行时属性：消息被优化后动态添加的元数据
-                    chainId: (msg as Record<string, unknown>).chainId as string | undefined,
-                    appliedVersion: (msg as Record<string, unknown>).appliedVersion as number | undefined
+                    chainId: (msg as unknown as Record<string, unknown>).chainId as string | undefined,
+                    appliedVersion: (msg as unknown as Record<string, unknown>).appliedVersion as number | undefined
                   }))
                 }
               };
@@ -420,7 +433,7 @@ export function usePromptOptimizer(
       if (!historyManager.value) throw new Error('History service unavailable')
       if (!optimizedPrompt) return
 
-      const currentRecord = state.currentVersions.find(v => v.id === state.currentVersionId)
+      const currentRecord = state.currentVersions.find((v: { id: string; modelKey?: string; templateId?: string }) => v.id === state.currentVersionId)
       const modelKey = currentRecord?.modelKey || optimizeModel.value || 'local-edit'
       const templateId =
         currentRecord?.templateId ||

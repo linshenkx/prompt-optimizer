@@ -8,7 +8,7 @@
 import type { Template, MessageTemplate } from '../../../../types';
 
 export const template: Template = {
-  id: 'evaluation-pro-system-prompt-iterate',
+  id: 'evaluation-pro-multi-prompt-iterate',
   name: '多消息迭代评估',
   content: [
     {

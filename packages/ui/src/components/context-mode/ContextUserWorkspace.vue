@@ -12,6 +12,8 @@
         - 包含工具管理按钮 (系统模式不包含)
     -->
     <NFlex
+        data-testid="workspace"
+        data-mode="pro-variable"
         justify="space-between"
         :wrap="false"
         :size="16"
@@ -64,6 +66,7 @@
                 <!-- 展开态：完整输入面板 -->
                 <InputPanelUI
                     v-else
+                    test-id-prefix="pro-variable"
                     v-model="contextUserOptimization.prompt"
                     :label="t('promptOptimizer.originalPrompt')"
                     :placeholder="t('promptOptimizer.userPromptPlaceholder')"
@@ -82,23 +85,40 @@
                     @configModel="emit('config-model')"
                     @open-preview="emit('open-input-preview')"
                     :enable-variable-extraction="true"
+                    :show-extract-button="true"
+                    :extracting="props.isExtracting"
                     :existing-global-variables="existingGlobalVariableNames"
                     :existing-temporary-variables="existingTemporaryVariableNames"
                     :predefined-variables="predefinedVariableNames"
                     :global-variable-values="globalVariableValues"
                     :temporary-variable-values="temporaryVariableValues"
                     :predefined-variable-values="predefinedVariableValues"
+                    @extract-variables="handleExtractVariables"
                     @variable-extracted="handleVariableExtracted"
                     @add-missing-variable="handleAddMissingVariable"
                 >
                     <!-- 模型选择插槽 -->
                     <template #model-select>
-                        <slot name="optimize-model-select"></slot>
+                        <SelectWithConfig
+                            v-model="selectedOptimizeModelKeyModel"
+                            :options="modelSelection.textModelOptions.value"
+                            :getPrimary="OptionAccessors.getPrimary"
+                            :getSecondary="OptionAccessors.getSecondary"
+                            :getValue="OptionAccessors.getValue"
+                            @config="emit('config-model')"
+                        />
                     </template>
 
                     <!-- 模板选择插槽 -->
                     <template #template-select>
-                        <slot name="template-select"></slot>
+                        <SelectWithConfig
+                            v-model="selectedTemplateIdModel"
+                            :options="templateSelection.templateOptions.value"
+                            :getPrimary="OptionAccessors.getPrimary"
+                            :getSecondary="OptionAccessors.getSecondary"
+                            :getValue="OptionAccessors.getValue"
+                            @config="emit('open-template-manager')"
+                        />
                     </template>
 
                     <!-- 标题栏折叠按钮 -->
@@ -178,11 +198,14 @@
                 height: '100%',
                 minHeight: 0,
             }"
+            :prompt="contextUserOptimization.prompt"
             :optimized-prompt="contextUserOptimization.optimizedPrompt"
             :is-test-running="contextUserTester.testResults.isTestingOriginal || contextUserTester.testResults.isTestingOptimized"
             :is-compare-mode="isCompareMode"
             @update:isCompareMode="emit('update:isCompareMode', $event)"
             :model-name="props.testModelName"
+            :evaluation-model-key="props.evaluationModelKey"
+            :services="services"
             :global-variables="globalVariables"
             :predefined-variables="predefinedVariables"
             :temporary-variables="temporaryVariables"
@@ -209,7 +232,14 @@
         >
             <!-- 模型选择插槽 -->
             <template #model-select>
-                <slot name="test-model-select"></slot>
+                <SelectWithConfig
+                    v-model="selectedTestModelKeyModel"
+                    :options="modelSelection.textModelOptions.value"
+                    :getPrimary="OptionAccessors.getPrimary"
+                    :getSecondary="OptionAccessors.getSecondary"
+                    :getValue="OptionAccessors.getValue"
+                    @config="emit('config-model')"
+                />
             </template>
 
             <!-- 🆕 对比模式结果插槽：直接绑定测试结果 -->
@@ -281,7 +311,7 @@
  * />
  * ```
  */
-import { ref, computed, inject, nextTick, type Ref } from 'vue'
+import { ref, computed, inject, nextTick, watch, onMounted, type Ref } from 'vue'
 
 import { useI18n } from "vue-i18n";
 import { NCard, NFlex, NText, NIcon, NButton } from "naive-ui";
@@ -289,6 +319,7 @@ import InputPanelUI from "../InputPanel.vue";
 import PromptPanelUI from "../PromptPanel.vue";
 import ContextUserTestPanel from "./ContextUserTestPanel.vue";
 import OutputDisplay from "../OutputDisplay.vue";
+import SelectWithConfig from "../SelectWithConfig.vue";
 import type { OptimizationMode } from "../../types";
 import {
     applyPatchOperationsToText,
@@ -306,37 +337,35 @@ import { useTemporaryVariables } from "../../composables/variable/useTemporaryVa
 import { useContextUserOptimization } from '../../composables/prompt/useContextUserOptimization';
 import { useContextUserTester } from '../../composables/prompt/useContextUserTester';
 import { useEvaluationHandler, provideProContext, useEvaluationContext } from '../../composables/prompt';
+import { useProVariableSession, type TestResults as ProVariableTestResults } from '../../stores/session/useProVariableSession';
+import { useWorkspaceModelSelection } from '../../composables/workspaces/useWorkspaceModelSelection';
+import { useWorkspaceTemplateSelection } from '../../composables/workspaces/useWorkspaceTemplateSelection';
+import { OptionAccessors } from '../../utils/data-transformer';
 
 // ========================
 // Props 定义
 // ========================
 interface Props {
-    // --- 核心状态 ---
-    /** 优化模式 */
-    optimizationMode: OptimizationMode;
+    // --- ✅ 已移除：模型和模板配置（现在从 session store 直接读取）---
+    // ✅ 已移除：optimizationMode - 改为内部常量
 
-    // --- 🆕 模型和模板配置（用于初始化 composables）---
-    /** 优化模型 */
-    selectedOptimizeModel: string;
-    /** 测试模型 */
-    selectedTestModel: string;
     /** 测试模型名称（用于显示标签） */
     testModelName?: string;
-    /** 优化模板 */
-    selectedTemplate: Template | null;
-    /** 选中的迭代模板 */
-    selectedIterateTemplate: Template | null;
+    /** 🆕 评估模型（用于变量提取和变量值生成） */
+    evaluationModelKey?: string;
 
     // --- 测试数据 ---
     /** 是否启用对比模式 */
     isCompareMode: boolean;
     /** 是否正在执行测试（兼容性保留，实际由内部管理）*/
     isTestRunning?: boolean;
+    /** 🆕 是否正在执行AI变量提取 */
+    isExtracting?: boolean;
 
     // --- 变量数据 ---
-    /** 全局变量 (持久化存储) */
+    /** 全局变量 (持久化存储) - 保留，用于变量检测 */
     globalVariables: Record<string, string>;
-    /** 预定义变量 (系统内置) */
+    /** 预定义变量 (系统内置) - 保留，用于变量检测 */
     predefinedVariables: Record<string, string>;
 
     // --- 响应式布局配置 ---
@@ -355,7 +384,12 @@ interface ContextUserHistoryPayload {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+    testModelName: undefined,
+    evaluationModelKey: undefined,
     isTestRunning: false,
+    isExtracting: false,
+    globalVariables: () => ({}),
+    predefinedVariables: () => ({}),
     buttonSize: "medium",
     conversationMaxHeight: 300,
     resultVerticalLayout: false,
@@ -396,6 +430,8 @@ const emit = defineEmits<{
     "variable-change": [name: string, value: string];
     /** 保存测试变量到全局 */
     "save-to-global": [name: string, value: string];
+    /** 🆕 AI变量提取事件 */
+    "extract-variables": [];
     /** 🆕 变量提取事件 (用于处理文本选择提取的变量) */
     "variable-extracted": [
         data: {
@@ -407,6 +443,12 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+
+// ========================
+// 内部常量
+// ========================
+/** 优化模式：固定为 'user'（此组件专门用于用户提示词优化） */
+const optimizationMode: OptimizationMode = 'user';
 
 // ========================
 // 注入服务和变量管理器
@@ -431,12 +473,99 @@ const isAnalyzing = ref(false);
 const tempVarsManager = useTemporaryVariables();
 const temporaryVariables = tempVarsManager.temporaryVariables;
 
+// Pro-user（变量模式）以 session store 为唯一真源（可持久化字段）
+const proVariableSession = useProVariableSession();
+
+// ✨ 新增：直接使用 session store 管理模型和模板选择
+const modelSelection = useWorkspaceModelSelection(services || ref(null), proVariableSession)
+const templateSelection = useWorkspaceTemplateSelection(
+    services || ref(null),
+    proVariableSession,
+    'contextUserOptimize',
+    'contextIterate'
+)
+
+const patchSessionOptimizedResult = (
+    partial: Partial<{
+        optimizedPrompt: string;
+        reasoning: string;
+        chainId: string;
+        versionId: string;
+    }>,
+) => {
+    proVariableSession.updateOptimizedResult({
+        optimizedPrompt:
+            partial.optimizedPrompt ??
+            proVariableSession.optimizedPrompt ??
+            "",
+        reasoning: partial.reasoning ?? proVariableSession.reasoning ?? "",
+        chainId: partial.chainId ?? proVariableSession.chainId ?? "",
+        versionId: partial.versionId ?? proVariableSession.versionId ?? "",
+    });
+};
+
+const sessionPrompt = computed<string>({
+    get: () => proVariableSession.prompt ?? "",
+    set: (value) => proVariableSession.updatePrompt(value || ""),
+});
+
+const sessionOptimizedPrompt = computed<string>({
+    get: () => proVariableSession.optimizedPrompt ?? "",
+    set: (value) => patchSessionOptimizedResult({ optimizedPrompt: value || "" }),
+});
+
+const sessionOptimizedReasoning = computed<string>({
+    get: () => proVariableSession.reasoning ?? "",
+    set: (value) => patchSessionOptimizedResult({ reasoning: value || "" }),
+});
+
+const sessionChainId = computed<string>({
+    get: () => proVariableSession.chainId ?? "",
+    set: (value) => patchSessionOptimizedResult({ chainId: value || "" }),
+});
+
+const sessionVersionId = computed<string>({
+    get: () => proVariableSession.versionId ?? "",
+    set: (value) => patchSessionOptimizedResult({ versionId: value || "" }),
+});
+
+// 🔧 为 SelectWithConfig 的 v-model 创建解包的 computed（避免 Vue prop 类型警告）
+const selectedOptimizeModelKeyModel = computed({
+    get: () => modelSelection.selectedOptimizeModelKey.value,
+    set: (value) => { modelSelection.selectedOptimizeModelKey.value = value }
+})
+
+const selectedTemplateIdModel = computed({
+    get: () => templateSelection.selectedTemplateId.value,
+    set: (value) => { templateSelection.selectedTemplateId.value = value }
+})
+
+const selectedTestModelKeyModel = computed({
+    get: () => modelSelection.selectedTestModelKey.value,
+    set: (value) => { modelSelection.selectedTestModelKey.value = value }
+})
+
+const selectedIterateTemplate = computed<Template | null>({
+    get: () => templateSelection.selectedIterateTemplate.value,
+    set: (value) => {
+        templateSelection.selectedIterateTemplateId.value = value?.id ?? ''
+        templateSelection.selectedIterateTemplate.value = value ?? null
+    }
+})
+
 // 🆕 初始化 ContextUser 专属优化器
 const contextUserOptimization = useContextUserOptimization(
     services || ref(null),
-    computed(() => props.selectedOptimizeModel),
-    computed(() => props.selectedTemplate),
-    computed(() => props.selectedIterateTemplate)
+    modelSelection.selectedOptimizeModelKey,
+    templateSelection.selectedTemplate,
+    templateSelection.selectedIterateTemplate,
+    {
+        prompt: sessionPrompt as unknown as Ref<string>,
+        optimizedPrompt: sessionOptimizedPrompt as unknown as Ref<string>,
+        optimizedReasoning: sessionOptimizedReasoning as unknown as Ref<string>,
+        currentChainId: sessionChainId as unknown as Ref<string>,
+        currentVersionId: sessionVersionId as unknown as Ref<string>,
+    },
 );
 
 // 提示词摘要（折叠态显示）
@@ -451,11 +580,63 @@ const promptSummary = computed(() => {
 // 🆕 初始化 ContextUser 专属测试器
 const contextUserTester = useContextUserTester(
     services || ref(null),
-    computed(() => props.selectedTestModel),
+    modelSelection.selectedTestModelKey,
     variableManager
 );
 
 // 🆕 构建 Pro-User 评估上下文
+// ========================
+// Pro-user 测试结果持久化（session store 唯一真源）
+// ========================
+onMounted(() => {
+    // ✅ 刷新模型列表
+    modelSelection.refreshTextModels()
+
+    const saved = proVariableSession.testResults;
+    if (!saved) {
+        return;
+    }
+
+    // 只恢复稳定字段，不恢复 isTesting* 过程态
+    contextUserTester.testResults.originalResult = saved.originalResult || "";
+    contextUserTester.testResults.originalReasoning =
+        saved.originalReasoning || "";
+    contextUserTester.testResults.optimizedResult = saved.optimizedResult || "";
+    contextUserTester.testResults.optimizedReasoning =
+        saved.optimizedReasoning || "";
+    contextUserTester.testResults.isTestingOriginal = false;
+    contextUserTester.testResults.isTestingOptimized = false;
+});
+
+watch(
+    () => ({
+        originalResult: contextUserTester.testResults.originalResult,
+        originalReasoning: contextUserTester.testResults.originalReasoning,
+        optimizedResult: contextUserTester.testResults.optimizedResult,
+        optimizedReasoning: contextUserTester.testResults.optimizedReasoning,
+    }),
+    (stable) => {
+        const hasAny =
+            !!stable.originalResult ||
+            !!stable.originalReasoning ||
+            !!stable.optimizedResult ||
+            !!stable.optimizedReasoning;
+
+        if (!hasAny) {
+            proVariableSession.updateTestResults(null);
+            return;
+        }
+
+        const snapshot: ProVariableTestResults = {
+            originalResult: stable.originalResult || "",
+            originalReasoning: stable.originalReasoning || "",
+            optimizedResult: stable.optimizedResult || "",
+            optimizedReasoning: stable.optimizedReasoning || "",
+        };
+        proVariableSession.updateTestResults(snapshot);
+    },
+);
+
 const proContext = computed<ProUserEvaluationContext | undefined>(() => {
     const tempVars = temporaryVariables.value;
     const globalVars = props.globalVariables;
@@ -556,7 +737,7 @@ const evaluationHandler = useEvaluationHandler({
     optimizedPrompt: computed(() => contextUserOptimization.optimizedPrompt),
     testContent: computed(() => ''), // 变量模式不需要单独的测试内容，通过变量系统管理
     testResults: testResultsData,
-    evaluationModelKey: computed(() => props.selectedOptimizeModel),
+    evaluationModelKey: computed(() => props.evaluationModelKey || props.selectedOptimizeModel),
     functionMode: computed(() => 'pro'),
     subMode: computed(() => 'user'),
     proContext,
@@ -661,6 +842,22 @@ const handleAddMissingVariable = (varName: string) => {
     // window.$message?.success(
     //     t("variableDetection.addSuccess", { name: varName })
     // );
+};
+
+/**
+ * 🆕 处理AI变量提取事件
+ *
+ * 当用户点击"AI提取变量"按钮时触发
+ *
+ * 工作流程:
+ * 1. 验证提示词内容和模型选择
+ * 2. 收集已存在的变量名（全局+临时）
+ * 3. 触发父组件的extract-variables事件
+ * 4. 父组件调用AI服务并显示结果对话框
+ */
+const handleExtractVariables = () => {
+    // 触发父组件事件，由App层处理AI提取逻辑
+    emit('extract-variables');
 };
 
 /**
@@ -838,6 +1035,15 @@ const handleSaveLocalEdit = async (payload: { note?: string }) => {
 defineExpose({
     testAreaPanelRef,
     restoreFromHistory,
+    contextUserOptimization,  // 🆕 暴露优化器状态，供父组件访问（如AI变量提取）
+    temporaryVariables,        // 🆕 暴露临时变量，供父组件访问
+    // 🆕 提供最小可用的公开 API，避免父组件依赖内部实现细节（不再需要 as any 访问内部状态）
+    setPrompt: (prompt: string) => {
+        contextUserOptimization.prompt = prompt;
+    },
+    getPrompt: () => contextUserOptimization.prompt || '',
+    getOptimizedPrompt: () => contextUserOptimization.optimizedPrompt || '',
+    getTemporaryVariableNames: () => Object.keys(temporaryVariables.value || {}),
     openIterateDialog: (initialContent?: string) => {
         promptPanelRef.value?.openIterateDialog?.(initialContent);
     },

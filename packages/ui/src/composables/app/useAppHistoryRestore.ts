@@ -13,12 +13,12 @@ import { useToast } from '../ui/useToast'
 import type { ConversationMessage } from '../../types'
 import type {
     BasicSubMode,
-    ProSubMode,
     ContextMode,
     PromptRecord,
     PromptRecordChain,
     IHistoryManager,
     OptimizationMode,
+    ImageSubMode,
 } from '@prompt-optimizer/core'
 
 /**
@@ -44,18 +44,8 @@ interface WorkspaceRef {
 export interface AppHistoryRestoreOptions {
     /** 服务实例 */
     services: Ref<{ historyManager: IHistoryManager } | null>
-    /** 当前功能模式 */
-    functionMode: Ref<'basic' | 'pro' | 'image'>
-    /** 设置功能模式 */
-    setFunctionMode: (mode: 'basic' | 'pro' | 'image') => Promise<void>
-    /** 基础子模式 */
-    basicSubMode: Ref<BasicSubMode>
-    /** 设置基础子模式 */
-    setBasicSubMode: (mode: BasicSubMode) => Promise<void>
-    /** 专业子模式 */
-    proSubMode: Ref<ProSubMode>
-    /** 设置专业子模式 */
-    setProSubMode: (mode: ProSubMode) => Promise<void>
+    /** 🔧 Step D: 路由导航函数（替代 setFunctionMode/set*SubMode） */
+    navigateToSubModeKey: (toKey: string, opts?: { replace?: boolean }) => void
     /** 处理上下文模式变更 */
     handleContextModeChange: (mode: ContextMode) => Promise<void>
     /** 处理历史记录选择 */
@@ -68,6 +58,8 @@ export interface AppHistoryRestoreOptions {
     userWorkspaceRef: Ref<WorkspaceRef | null>
     /** i18n 翻译函数 */
     t: (key: string, params?: Record<string, any>) => string
+    /** 外部数据加载中标志（防止模式切换的自动 restore 覆盖外部数据） */
+    isLoadingExternalData: Ref<boolean>
 }
 
 /**
@@ -84,18 +76,14 @@ export interface AppHistoryRestoreReturn {
 export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHistoryRestoreReturn {
     const {
         services,
-        functionMode,
-        setFunctionMode,
-        basicSubMode,
-        setBasicSubMode,
-        proSubMode,
-        setProSubMode,
+        navigateToSubModeKey,
         handleContextModeChange,
         handleSelectHistory,
         optimizationContext,
         systemWorkspaceRef,
         userWorkspaceRef,
         t,
+        isLoadingExternalData,
     } = options
 
     const toast = useToast()
@@ -116,17 +104,7 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
             rt === 'text2imageOptimize' ||
             rt === 'image2imageOptimize'
         ) {
-            // 图像模式:只在不是图像模式时才切换
-            const needsSwitch = functionMode.value !== 'image'
-            if (needsSwitch) {
-                await setFunctionMode('image')
-                toast.info(t('toast.info.switchedToImageMode'))
-            }
-
-            // 🆕 图像模式专用数据回填逻辑
-            // 等待模式切换完成后再回填数据
-            await nextTick()
-
+            // 图像模式：使用 navigateToSubModeKey 导航
             // 根据记录类型设置正确的图像子模式
             const imageMode =
                 rt === 'text2imageOptimize'
@@ -135,8 +113,15 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
                       ? 'image2image'
                       : 'text2image' // 默认为文生图模式
 
-            // 通过全局事件或直接访问ImageWorkspace的数据来回填
-            // 由于ImageWorkspace是独立组件，我们需要通过provide/inject或事件系统来传递数据
+            // 🔧 Step D: 使用 navigateToSubModeKey 替代 setImageSubMode
+            navigateToSubModeKey(`image-${imageMode}`)
+            toast.info(t('toast.info.switchedToImageMode'))
+
+            // 🆕 图像模式专用数据回填逻辑
+            // 等待路由切换完成后再回填数据
+            await nextTick()
+
+            // 🆕 图像模式专用数据回填逻辑
             const imageHistoryData = {
                 originalPrompt: record.originalPrompt || chain.rootRecord.originalPrompt,
                 optimizedPrompt: record.optimizedPrompt,
@@ -160,7 +145,15 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
             toast.success(t('toast.success.imageHistoryRestored'))
             return // 图像模式不需要调用原有的历史记录处理逻辑
         } else {
-            // 根据链条的根记录类型确定应该切换到的优化模式
+            // 根据链条的根记录类型自动切换功能模式（支持新旧类型名）
+            const isContext =
+                rt === 'conversationMessageOptimize' ||
+                rt === 'contextSystemOptimize' || // 旧类型名（向后兼容）
+                rt === 'contextUserOptimize' ||
+                rt === 'contextIterate'
+            const targetFunctionMode: 'basic' | 'pro' = isContext ? 'pro' : 'basic'
+
+            // 根据根记录类型确定应该切换到的优化模式
             let targetMode: OptimizationMode
             if (rt === 'optimize' || rt === 'conversationMessageOptimize') {
                 targetMode = 'system'
@@ -171,42 +164,23 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
                 targetMode = chain.rootRecord.metadata?.optimizationMode || 'system'
             }
 
-            // 根据根记录类型自动切换功能模式（支持新旧类型名）
-            const isContext =
-                rt === 'conversationMessageOptimize' ||
-                rt === 'contextSystemOptimize' || // 旧类型名（向后兼容）
-                rt === 'contextUserOptimize' ||
-                rt === 'contextIterate'
-            const targetFunctionMode: 'basic' | 'pro' = isContext ? 'pro' : 'basic'
+            // 🔧 Step D: 使用 navigateToSubModeKey 一次性导航到目标路由
+            // 不再分两步（先切 functionMode 再切 subMode）
+            const targetKey =
+                targetFunctionMode === 'pro'
+                    ? `pro-${targetMode === 'system' ? 'multi' : 'variable'}`
+                    : `basic-${targetMode}`
+            navigateToSubModeKey(targetKey)
 
-            // 先切换功能模式,再设置子模式
-            const needsFunctionModeSwitch = functionMode.value !== targetFunctionMode
-            if (needsFunctionModeSwitch) {
-                await setFunctionMode(targetFunctionMode)
-                await nextTick() // 等待功能模式切换完成
-            }
+            // 等待路由切换完成
+            await nextTick()
 
-            // 获取目标功能模式的当前子模式
-            const currentSubMode = (
-                targetFunctionMode === 'pro' ? proSubMode.value : basicSubMode.value
-            ) as OptimizationMode
-
-            // 如果目标子模式与当前子模式不同,自动切换
-            if (targetMode !== currentSubMode) {
-                // 根据目标功能模式分别处理子模式的持久化
-                if (targetFunctionMode === 'basic') {
-                    await setBasicSubMode(targetMode as BasicSubMode)
-                } else {
-                    await setProSubMode(targetMode as ProSubMode)
-                    await handleContextModeChange(targetMode as ContextMode)
-                }
-
-                toast.info(
-                    t('toast.info.optimizationModeAutoSwitched', {
-                        mode: targetMode === 'system' ? t('common.system') : t('common.user'),
-                    }),
-                )
-            }
+            // 更新 toast 提示（如果需要）
+            toast.info(
+                t('toast.info.optimizationModeAutoSwitched', {
+                    mode: targetMode === 'system' ? t('common.system') : t('common.user'),
+                }),
+            )
 
             // ❶ 调用原有的历史记录处理逻辑（更新全局 optimizer 状态）
             await handleSelectHistory(context)
@@ -350,12 +324,18 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
      */
     const handleHistoryReuse = async (context: HistoryContext) => {
         try {
+            // 🔧 设置外部数据加载标志，防止模式切换的自动 restore 覆盖外部数据
+            isLoadingExternalData.value = true
+
             await handleHistoryReuseImpl(context)
         } catch (error) {
             // 捕获历史记录恢复过程中的所有错误
             console.error('[App] 历史记录恢复失败:', error)
             const errorMessage = error instanceof Error ? error.message : String(error)
             toast.error(t('toast.error.historyRestoreFailed', { error: errorMessage }))
+        } finally {
+            // 🔧 恢复完成，重置标志，允许正常的模式切换 restore
+            isLoadingExternalData.value = false
         }
     }
 

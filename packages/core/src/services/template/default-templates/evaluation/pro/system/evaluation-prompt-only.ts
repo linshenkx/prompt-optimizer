@@ -7,7 +7,7 @@
 import type { Template, MessageTemplate } from '../../../../types';
 
 export const template: Template = {
-  id: 'evaluation-pro-system-prompt-only',
+  id: 'evaluation-pro-multi-prompt-only',
   name: '多消息直接评估',
   content: [
     {

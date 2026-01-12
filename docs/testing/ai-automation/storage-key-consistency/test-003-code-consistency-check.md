@@ -143,7 +143,6 @@ grep -r "'prompt_history'" packages/ --exclude-dir=node_modules
 # 验证常量导入
 grep -r "UI_SETTINGS_KEYS" packages/ui/src/
 grep -r "CORE_SERVICE_KEYS" packages/core/src/
-grep -r "MODEL_SELECTION_KEYS" packages/ui/src/
 grep -r "TEMPLATE_SELECTION_KEYS" packages/ui/src/
 ```
 

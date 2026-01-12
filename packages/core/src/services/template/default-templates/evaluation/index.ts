@@ -57,3 +57,15 @@ export {
   evaluationProUserPromptIterate,
   evaluationProUserPromptIterateEn,
 } from './pro/user';
+
+// 图像模式 - 文生图评估
+export {
+  evaluationImageText2ImagePromptOnly,
+  evaluationImageText2ImagePromptOnlyEn,
+} from './image/text2image';
+
+// 图像模式 - 图生图评估
+export {
+  evaluationImageImage2ImagePromptOnly,
+  evaluationImageImage2ImagePromptOnlyEn,
+} from './image/image2image';

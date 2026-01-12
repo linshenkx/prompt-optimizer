@@ -8,7 +8,7 @@
 import type { Template, MessageTemplate } from '../../../../types';
 
 export const template: Template = {
-  id: 'evaluation-pro-user-prompt-iterate',
+  id: 'evaluation-pro-variable-prompt-iterate',
   name: 'Variable Mode Iteration Evaluation',
   content: [
     {

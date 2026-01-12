@@ -1,0 +1,90 @@
+{
+  "request": {
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "messages": [
+      {
+        "role": "system",
+        "content": "你是一个专业的提示词优化助手。"
+      },
+      {
+        "role": "user",
+        "content": "帮我写一封邮件"
+      }
+    ],
+    "stream": true,
+    "temperature": 0.7,
+    "max_tokens": 2000
+  },
+  "response": {
+    "type": "streaming",
+    "chunks": [
+      { "content": "当", "timestamp": 0 },
+      { "content": "然", "timestamp": 50 },
+      { "content": "，", "timestamp": 100 },
+      { "content": "我", "timestamp": 150 },
+      { "content": "可", "timestamp": 200 },
+      { "content": "以", "timestamp": 250 },
+      { "content": "帮", "timestamp": 300 },
+      { "content": "您", "timestamp": 350 },
+      { "content": "写", "timestamp": 400 },
+      { "content": "一", "timestamp": 450 },
+      { "content": "封", "timestamp": 500 },
+      { "content": "邮", "timestamp": 550 },
+      { "content": "件", "timestamp": 600 },
+      { "content": "。", "timestamp": 650 },
+      { "content": "请", "timestamp": 700 },
+      { "content": "告", "timestamp": 750 },
+      { "content": "诉", "timestamp": 800 },
+      { "content": "我", "timestamp": 850 },
+      { "content": "具", "timestamp": 900 },
+      { "content": "体", "timestamp": 950 },
+      { "content": "的", "timestamp": 1000 },
+      { "content": "收", "timestamp": 1050 },
+      { "content": "件", "timestamp": 1100 },
+      { "content": "人", "timestamp": 1150 },
+      { "content": "、", "timestamp": 1200 },
+      { "content": "邮", "timestamp": 1250 },
+      { "content": "件", "timestamp": 1300 },
+      { "content": "主", "timestamp": 1350 },
+      { "content": "题", "timestamp": 1400 },
+      { "content": "和", "timestamp": 1450 },
+      { "content": "主", "timestamp": 1500 },
+      { "content": "要", "timestamp": 1550 },
+      { "content": "内", "timestamp": 1600 },
+      { "content": "容", "timestamp": 1650 },
+      { "content": "，", "timestamp": 1700 },
+      { "content": "我", "timestamp": 1750 },
+      { "content": "会", "timestamp": 1800 },
+      { "content": "根", "timestamp": 1850 },
+      { "content": "据", "timestamp": 1900 },
+      { "content": "这", "timestamp": 1950 },
+      { "content": "些", "timestamp": 2000 },
+      { "content": "信", "timestamp": 2050 },
+      { "content": "息", "timestamp": 2100 },
+      { "content": "为", "timestamp": 2150 },
+      { "content": "您", "timestamp": 2200 },
+      { "content": "撰", "timestamp": 2250 },
+      { "content": "写", "timestamp": 2300 },
+      { "content": "。", "timestamp": 2350 }
+    ],
+    "finalResult": {
+      "content": "当然，我可以帮您写一封邮件。请告诉我具体的收件人、邮件主题和主要内容，我会根据这些信息为您撰写。",
+      "model": "deepseek-chat",
+      "usage": {
+        "prompt_tokens": 35,
+        "completion_tokens": 48,
+        "total_tokens": 83
+      },
+      "finish_reason": "stop"
+    }
+  },
+  "metadata": {
+    "recordedAt": "2026-01-09T10:30:00Z",
+    "scenarioName": "optimize-simple-prompt",
+    "description": "简单的提示词优化场景：用户请求帮助写邮件",
+    "duration": 2350,
+    "recordedBy": "manual",
+    "tags": ["basic", "simple", "email"]
+  }
+}

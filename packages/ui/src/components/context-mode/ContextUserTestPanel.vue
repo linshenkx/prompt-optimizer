@@ -15,6 +15,18 @@
                     <NButton
                         size="small"
                         quaternary
+                        :loading="isGenerating"
+                        :disabled="displayVariables.length === 0 || isGenerating"
+                        @click="handleGenerateValues"
+                    >
+                        {{ isGenerating
+                            ? t('test.variableValueGeneration.generating')
+                            : t('test.variableValueGeneration.generateButton')
+                        }}
+                    </NButton>
+                    <NButton
+                        size="small"
+                        quaternary
                         @click="handleClearAllVariables"
                     >
                         {{ t("test.variables.clearAll") }}
@@ -213,6 +225,13 @@
                 <slot name="single-result"></slot>
             </template>
         </TestResultSection>
+
+        <!-- 变量值预览对话框 -->
+        <VariableValuePreviewDialog
+            v-model:show="showPreviewDialog"
+            :result="generationResult"
+            @confirm="confirmBatchApply"
+        />
     </NFlex>
 </template>
 
@@ -235,12 +254,17 @@ import { useResponsive } from '../../composables/ui/useResponsive';
 import { usePerformanceMonitor } from "../../composables/performance/usePerformanceMonitor";
 import { useDebounceThrottle } from "../../composables/performance/useDebounceThrottle";
 import { useTestVariableManager } from "../../composables/variable/useTestVariableManager";
+import { useVariableValueGeneration } from "../../composables/variable/useVariableValueGeneration";
+import { useToast } from "../../composables/ui/useToast";
 import TestControlBar from "../TestControlBar.vue";
 import TestResultSection from "../TestResultSection.vue";
-import type { EvaluationResponse, EvaluationType } from '@prompt-optimizer/core';
+import VariableValuePreviewDialog from "../variable/VariableValuePreviewDialog.vue";
+import type { EvaluationResponse, EvaluationType, VariableToGenerate } from '@prompt-optimizer/core';
 import type { ScoreLevel } from '../../composables/prompt/useEvaluation';
+import type { AppServices } from '../../types/services';
 
 const { t } = useI18n();
+const toast = useToast();
 
 // 性能监控
 const { recordUpdate, getPerformanceReport } = usePerformanceMonitor("ContextUserTestPanel");
@@ -255,7 +279,9 @@ const {
 } = useResponsive();
 
 interface Props {
-    // 优化后的提示词（用于检测变量）
+    // 原始提示词（fallback，当optimizedPrompt为空时使用）
+    prompt?: string;
+    // 优化后的提示词（优先使用）
     optimizedPrompt?: string;
 
     // 测试状态
@@ -265,11 +291,16 @@ interface Props {
 
     // 模型信息（用于显示标签）
     modelName?: string;
+    // 🆕 评估模型（用于变量提取和变量值生成）
+    evaluationModelKey?: string;
 
     // 变量管理（三层）
     globalVariables?: Record<string, string>;
     predefinedVariables?: Record<string, string>;
     temporaryVariables?: Record<string, string>;
+
+    // 🆕 应用服务
+    services?: AppServices | null;
 
     // 布局配置
     buttonSize?: "small" | "medium" | "large";
@@ -300,6 +331,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+    prompt: "",
     optimizedPrompt: "",
     isTestRunning: false,
     isCompareMode: false,
@@ -307,9 +339,11 @@ const props = withDefaults(defineProps<Props>(), {
     buttonSize: "medium",
     resultVerticalLayout: false,
     singleResultTitle: "",
+    evaluationModelKey: "",
     globalVariables: () => ({}),
     predefinedVariables: () => ({}),
     temporaryVariables: () => ({}),
+    services: null,
     // 评估默认值
     showEvaluation: false,
     hasOriginalResult: false,
@@ -428,6 +462,55 @@ const {
     getVariableValues,
     setVariableValues,
 } = variableManager;
+
+// ========== 变量值生成 ==========
+
+const {
+    isGenerating,
+    generationResult,
+    showPreviewDialog,
+    generateValues,
+    confirmBatchApply,
+} = useVariableValueGeneration(
+    toRef(props, 'services'),
+    (name: string, value: string) => {
+        handleVariableValueChange(name, value);
+    }
+);
+
+/**
+ * 处理智能填充变量值
+ */
+const handleGenerateValues = async () => {
+    // 优先使用优化后的提示词，如果没有则使用原始提示词
+    const promptContent = props.optimizedPrompt || props.prompt;
+
+    if (!promptContent) {
+        toast.warning(t('test.variableValueGeneration.noPrompt'));
+        return;
+    }
+
+    // 筛选出缺失变量（值为空的变量）
+    const missingVariables: VariableToGenerate[] = displayVariables.value
+        .filter(name => {
+            const value = getVariableDisplayValue(name);
+            return !value || value.trim() === '';
+        })
+        .map(name => ({
+            name,
+            source: getVariableSource(name),
+        }));
+
+    if (missingVariables.length === 0) {
+        toast.info(t('test.variableValueGeneration.noMissingVariables'));
+        return;
+    }
+
+    // 🔧 使用评估模型进行生成（与变量提取功能保持一致）
+    const generationModelKey = props.evaluationModelKey || '';
+
+    await generateValues(promptContent, missingVariables, generationModelKey);
+};
 
 // 开发环境下的性能调试
 if (import.meta.env.DEV) {

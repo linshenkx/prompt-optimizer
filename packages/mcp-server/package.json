@@ -6,7 +6,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "prompt-optimizer-mcp": "./dist/index.js"
+    "prompt-optimizer-mcp": "./dist/start.cjs"
   },
   "scripts": {
     "build": "tsup src/index.ts src/start.ts --format cjs,esm --dts --clean",

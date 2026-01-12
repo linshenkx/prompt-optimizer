@@ -8,7 +8,6 @@ import { ref, computed, watch, type Ref, type ComputedRef } from 'vue'
 import { useToast } from "../ui/useToast";
 import type {
   ConversationMessage,
-  OptimizationMode,
   ToolDefinition,
   ContextEditorState as CoreContextEditorState,
 } from "@prompt-optimizer/core";
@@ -17,8 +16,7 @@ import type { VariableManagerHooks } from "../prompt/useVariableManager";
 
 export interface ContextManagementOptions {
   services: Ref<AppServices | null>;
-  /** @deprecated 建议传入 computed 值（从 basicSubMode/proSubMode 动态计算），不应直接管理此状态 */
-  selectedOptimizationMode: Ref<OptimizationMode> | ComputedRef<OptimizationMode>;
+  // ✅ 已移除 selectedOptimizationMode - 函数内部未使用，可从 route-computed 动态计算
   advancedModeEnabled: Ref<boolean>;
   showContextEditor: Ref<boolean>;
   contextEditorDefaultTab: Ref<"messages" | "variables" | "tools">;
@@ -30,7 +28,6 @@ export interface ContextManagementOptions {
 export function useContextManagement(options: ContextManagementOptions) {
   const {
     services,
-    selectedOptimizationMode,
     advancedModeEnabled,
     showContextEditor,
     contextEditorDefaultTab,

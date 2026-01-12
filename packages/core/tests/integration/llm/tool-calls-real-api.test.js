@@ -1,5 +1,5 @@
 import { createLLMService, ModelManager, LocalStorageProvider } from '../../../src/index.js';
-import { expect, describe, it, beforeEach, beforeAll } from 'vitest';
+import { expect, describe, it, beforeAll } from 'vitest';
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -11,29 +11,35 @@ beforeAll(() => {
 const RUN_REAL_API = process.env.RUN_REAL_API === '1'
 
 describe.skipIf(!RUN_REAL_API)('Tool Calls Real API Integration Tests', () => {
-  // 检查OpenAI兼容的环境变量（任何一个存在就可以运行测试）
-  const openaiCompatibleKeys = [
-    'OPENAI_API_KEY', 'VITE_OPENAI_API_KEY',
-    'DEEPSEEK_API_KEY', 'VITE_DEEPSEEK_API_KEY', 
-    'SILICONFLOW_API_KEY', 'VITE_SILICONFLOW_API_KEY',
-    'ZHIPU_API_KEY', 'VITE_ZHIPU_API_KEY',
-    'CUSTOM_API_KEY', 'VITE_CUSTOM_API_KEY'
-  ];
+  const OPENAI_COMPATIBLE_PROVIDERS = new Set([
+    'openai',
+    'deepseek',
+    'siliconflow',
+    'zhipu',
+    'openrouter',
+    'dashscope',
+    'modelscope'
+  ])
 
-  const geminiKeys = ['GEMINI_API_KEY', 'VITE_GEMINI_API_KEY'];
+  const createServices = async () => {
+    const storage = new LocalStorageProvider()
+    const modelManager = new ModelManager(storage)
+    const llmService = createLLMService(modelManager)
 
-  const availableOpenAIKeys = openaiCompatibleKeys.filter(key => 
-    process.env[key] && process.env[key].trim()
-  );
-  
-  const availableGeminiKeys = geminiKeys.filter(key => 
-    process.env[key] && process.env[key].trim()
-  );
+    await storage.clearAll()
 
-  console.log('工具调用真实API测试环境检查:', {
-    openaiCompatible: availableOpenAIKeys.length > 0,
-    gemini: availableGeminiKeys.length > 0
-  });
+    return { storage, modelManager, llmService }
+  }
+
+  const pickEnabledModelId = async (modelManager, predicate) => {
+    const models = await modelManager.getAllModels()
+    const candidate = models.find((m) => {
+      if (!m.enabled) return false
+      if (!m.modelMeta?.capabilities?.supportsTools) return false
+      return predicate(m)
+    })
+    return candidate?.id
+  }
 
   // 测试用工具定义
   const weatherTool = {
@@ -78,70 +84,15 @@ describe.skipIf(!RUN_REAL_API)('Tool Calls Real API Integration Tests', () => {
     }
   };
 
-  // 获取OpenAI兼容模型配置
-  const getOpenAIModelConfig = () => {
-    if (process.env.SILICONFLOW_API_KEY || process.env.VITE_SILICONFLOW_API_KEY) {
-      return {
-        key: 'siliconflow',
-        apiKey: process.env.SILICONFLOW_API_KEY || process.env.VITE_SILICONFLOW_API_KEY,
-        baseURL: 'https://api.siliconflow.cn/v1',
-        defaultModel: 'Qwen/Qwen3-32B'
-      };
-    }
-    if (process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY) {
-      return {
-        key: 'openai',
-        apiKey: process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY,
-        baseURL: 'https://api.openai.com/v1',
-        defaultModel: 'gpt-3.5-turbo'
-      };
-    }
-    if (process.env.DEEPSEEK_API_KEY || process.env.VITE_DEEPSEEK_API_KEY) {
-      return {
-        key: 'deepseek',
-        apiKey: process.env.DEEPSEEK_API_KEY || process.env.VITE_DEEPSEEK_API_KEY,
-        baseURL: 'https://api.deepseek.com/v1',
-        defaultModel: 'deepseek-chat'
-      };
-    }
-    return null;
-  };
-
-  // 获取Gemini模型配置
-  const getGeminiModelConfig = () => {
-    const apiKey = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-    if (!apiKey) return null;
-    
-    return {
-      key: 'gemini',
-      apiKey: apiKey,
-      baseURL: 'https://generativelanguage.googleapis.com/v1beta',
-      defaultModel: 'gemini-2.0-flash'
-    };
-  };
-
   describe('OpenAI Compatible API Tool Calls', () => {
-    const modelConfig = getOpenAIModelConfig();
-    const runTests = !!modelConfig;
+    it('should handle tool calls with OpenAI compatible API', async () => {
+      const { modelManager, llmService } = await createServices()
+      const modelId = await pickEnabledModelId(
+        modelManager,
+        (m) => OPENAI_COMPATIBLE_PROVIDERS.has(m.providerMeta?.id)
+      )
 
-    it.runIf(runTests)('should handle tool calls with OpenAI compatible API', async () => {
-      const storage = new LocalStorageProvider();
-      const modelManager = new ModelManager(storage);
-      const llmService = createLLMService(modelManager);
-
-      // 清理存储，确保测试独立
-      await storage.clearAll();
-
-      // 添加模型配置
-      await modelManager.addModel(`${modelConfig.key}_tool_test`, {
-        name: `${modelConfig.key} Tool Test`,
-        baseURL: modelConfig.baseURL,
-        apiKey: modelConfig.apiKey,
-        models: [modelConfig.defaultModel],
-        defaultModel: modelConfig.defaultModel,
-        enabled: true,
-        provider: 'openai'
-      });
+      if (!modelId) return
 
       const messages = [
         { role: 'system', content: 'You are a helpful assistant that can get weather information and perform calculations. When users ask about weather or math, use the appropriate tools.' },
@@ -155,7 +106,7 @@ describe.skipIf(!RUN_REAL_API)('Tool Calls Real API Integration Tests', () => {
       const result = await new Promise((resolve, reject) => {
         llmService.sendMessageStreamWithTools(
           messages,
-          `${modelConfig.key}_tool_test`,
+          modelId,
           tools,
           {
             onToken: (token) => {
@@ -163,7 +114,6 @@ describe.skipIf(!RUN_REAL_API)('Tool Calls Real API Integration Tests', () => {
             },
             onToolCall: (toolCall) => {
               toolCallsReceived.push(toolCall);
-              console.log('OpenAI Tool Call received:', toolCall);
             },
             onComplete: (response) => {
               resolve({ content: responseContent, toolCalls: toolCallsReceived, response });
@@ -176,8 +126,6 @@ describe.skipIf(!RUN_REAL_API)('Tool Calls Real API Integration Tests', () => {
       // 验证响应
       expect(result).toBeDefined();
       expect(typeof result.content).toBe('string');
-      console.log('OpenAI Response content:', result.content);
-      console.log('OpenAI Tool calls received:', result.toolCalls.length);
 
       // 验证工具调用（如果有的话）
       if (result.toolCalls.length > 0) {
@@ -194,41 +142,13 @@ describe.skipIf(!RUN_REAL_API)('Tool Calls Real API Integration Tests', () => {
       }
 
     }, 30000);
-
-    it.skipIf(!runTests)(`跳过OpenAI兼容API工具调用测试 - 未设置API密钥`, () => {
-      expect(true).toBe(true);
-    });
   });
 
   describe('Gemini API Tool Calls', () => {
-    const modelConfig = getGeminiModelConfig();
-    const runTests = !!modelConfig;
-
-    // Gemini API可能有频率限制，在测试间添加延迟
-    beforeEach(async () => {
-      if (runTests) {
-        await new Promise(resolve => setTimeout(resolve, 2000)); // 等待2秒
-      }
-    });
-
-    it.runIf(runTests)('should handle tool calls with Gemini API', async () => {
-      const storage = new LocalStorageProvider();
-      const modelManager = new ModelManager(storage);
-      const llmService = createLLMService(modelManager);
-
-      // 清理存储，确保测试独立
-      await storage.clearAll();
-
-      // 添加Gemini模型配置
-      await modelManager.addModel(`${modelConfig.key}_tool_test`, {
-        name: 'Gemini Tool Test',
-        baseURL: modelConfig.baseURL,
-        apiKey: modelConfig.apiKey,
-        models: [modelConfig.defaultModel],
-        defaultModel: modelConfig.defaultModel,
-        enabled: true,
-        provider: 'gemini'
-      });
+    it('should handle tool calls with Gemini API', async () => {
+      const { modelManager, llmService } = await createServices()
+      const modelId = await pickEnabledModelId(modelManager, (m) => m.providerMeta?.id === 'gemini')
+      if (!modelId) return
 
       const messages = [
         { role: 'system', content: 'You are a helpful assistant that can get weather information and perform calculations. When users ask about weather or math, use the appropriate tools.' },
@@ -242,7 +162,7 @@ describe.skipIf(!RUN_REAL_API)('Tool Calls Real API Integration Tests', () => {
       const result = await new Promise((resolve, reject) => {
         llmService.sendMessageStreamWithTools(
           messages,
-          `${modelConfig.key}_tool_test`,
+          modelId,
           tools,
           {
             onToken: (token) => {
@@ -250,7 +170,6 @@ describe.skipIf(!RUN_REAL_API)('Tool Calls Real API Integration Tests', () => {
             },
             onToolCall: (toolCall) => {
               toolCallsReceived.push(toolCall);
-              console.log('Gemini Tool Call received:', toolCall);
             },
             onComplete: (response) => {
               resolve({ content: responseContent, toolCalls: toolCallsReceived, response });
@@ -263,8 +182,6 @@ describe.skipIf(!RUN_REAL_API)('Tool Calls Real API Integration Tests', () => {
       // 验证响应
       expect(result).toBeDefined();
       expect(typeof result.content).toBe('string');
-      console.log('Gemini Response content:', result.content);
-      console.log('Gemini Tool calls received:', result.toolCalls.length);
 
       // 验证工具调用（如果有的话）
       if (result.toolCalls.length > 0) {
@@ -281,36 +198,18 @@ describe.skipIf(!RUN_REAL_API)('Tool Calls Real API Integration Tests', () => {
       }
 
     }, 30000);
-
-    it.skipIf(!runTests)(`跳过Gemini API工具调用测试 - 未设置API密钥`, () => {
-      expect(true).toBe(true);
-    });
   });
 
   describe('Tool Call Format Validation', () => {
-    const openaiConfig = getOpenAIModelConfig();
-    const geminiConfig = getGeminiModelConfig();
-    const runTests = !!(openaiConfig || geminiConfig);
+    it('should generate valid tool call IDs and formats', async () => {
+      const { modelManager, llmService } = await createServices()
+      const modelId =
+        (await pickEnabledModelId(
+          modelManager,
+          (m) => OPENAI_COMPATIBLE_PROVIDERS.has(m.providerMeta?.id)
+        )) ?? (await pickEnabledModelId(modelManager, (m) => m.providerMeta?.id === 'gemini'))
 
-    it.runIf(runTests)('should generate valid tool call IDs and formats', async () => {
-      const config = openaiConfig || geminiConfig;
-      const storage = new LocalStorageProvider();
-      const modelManager = new ModelManager(storage);
-      const llmService = createLLMService(modelManager);
-
-      // 清理存储，确保测试独立
-      await storage.clearAll();
-
-      // 添加模型配置
-      await modelManager.addModel(`${config.key}_format_test`, {
-        name: `${config.key} Format Test`,
-        baseURL: config.baseURL,
-        apiKey: config.apiKey,
-        models: [config.defaultModel],
-        defaultModel: config.defaultModel,
-        enabled: true,
-        provider: config.key === 'gemini' ? 'gemini' : 'openai'
-      });
+      if (!modelId) return
 
       const messages = [
         { role: 'user', content: 'What is the weather in Tokyo?' }
@@ -322,7 +221,7 @@ describe.skipIf(!RUN_REAL_API)('Tool Calls Real API Integration Tests', () => {
       await new Promise((resolve, reject) => {
         llmService.sendMessageStreamWithTools(
           messages,
-          `${config.key}_format_test`,
+          modelId,
           tools,
           {
             onToken: () => {}, // 忽略token
@@ -345,37 +244,18 @@ describe.skipIf(!RUN_REAL_API)('Tool Calls Real API Integration Tests', () => {
         );
       });
 
-      console.log(`${config.key} format validation - Tool calls received:`, toolCallsReceived.length);
-
     }, 30000);
-
-    it.skipIf(!runTests)(`跳过工具调用格式验证测试 - 未设置API密钥`, () => {
-      expect(true).toBe(true);
-    });
   });
 
   describe('Complex Tool Scenarios', () => {
-    const openaiConfig = getOpenAIModelConfig();
-    const runTests = !!openaiConfig; // 只在OpenAI兼容API上测试复杂场景
+    it('should handle multiple tools in single request', async () => {
+      const { modelManager, llmService } = await createServices()
+      const modelId = await pickEnabledModelId(
+        modelManager,
+        (m) => OPENAI_COMPATIBLE_PROVIDERS.has(m.providerMeta?.id)
+      )
 
-    it.runIf(runTests)('should handle multiple tools in single request', async () => {
-      const storage = new LocalStorageProvider();
-      const modelManager = new ModelManager(storage);
-      const llmService = createLLMService(modelManager);
-
-      // 清理存储，确保测试独立
-      await storage.clearAll();
-
-      // 添加模型配置
-      await modelManager.addModel(`${openaiConfig.key}_multi_tool_test`, {
-        name: `${openaiConfig.key} Multi Tool Test`,
-        baseURL: openaiConfig.baseURL,
-        apiKey: openaiConfig.apiKey,
-        models: [openaiConfig.defaultModel],
-        defaultModel: openaiConfig.defaultModel,
-        enabled: true,
-        provider: 'openai'
-      });
+      if (!modelId) return
 
       const complexTool = {
         type: 'function',
@@ -416,7 +296,7 @@ describe.skipIf(!RUN_REAL_API)('Tool Calls Real API Integration Tests', () => {
       const result = await new Promise((resolve, reject) => {
         llmService.sendMessageStreamWithTools(
           messages,
-          `${openaiConfig.key}_multi_tool_test`,
+          modelId,
           tools,
           {
             onToken: (token) => {
@@ -424,7 +304,6 @@ describe.skipIf(!RUN_REAL_API)('Tool Calls Real API Integration Tests', () => {
             },
             onToolCall: (toolCall) => {
               toolCallsReceived.push(toolCall);
-              console.log('Complex scenario tool call:', toolCall);
             },
             onComplete: (response) => {
               resolve({ content: responseContent, toolCalls: toolCallsReceived });
@@ -435,16 +314,11 @@ describe.skipIf(!RUN_REAL_API)('Tool Calls Real API Integration Tests', () => {
       });
 
       expect(result).toBeDefined();
-      console.log('Complex scenario results:', {
-        contentLength: result.content.length,
-        toolCallsCount: result.toolCalls.length
-      });
 
       // 验证工具调用的多样性
       if (result.toolCalls.length > 0) {
         const toolNames = result.toolCalls.map(tc => tc.function.name);
         const uniqueTools = [...new Set(toolNames)];
-        console.log('Unique tools called:', uniqueTools);
         
         result.toolCalls.forEach(toolCall => {
           expect(['get_weather', 'calculate', 'search_database']).toContain(toolCall.function.name);
@@ -454,9 +328,5 @@ describe.skipIf(!RUN_REAL_API)('Tool Calls Real API Integration Tests', () => {
       }
 
     }, 45000);
-
-    it.skipIf(!runTests)(`跳过复杂工具场景测试 - 未设置OpenAI兼容API密钥`, () => {
-      expect(true).toBe(true);
-    });
   });
 });

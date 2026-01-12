@@ -17,7 +17,10 @@ import type {
   ITextAdapterRegistry,
   IFavoriteManager,
   ContextMode,
-  IEvaluationService
+  IEvaluationService,
+  IVariableExtractionService,
+  IVariableValueGenerationService,
+  IImageStorageService
 } from '@prompt-optimizer/core'
 
 /**
@@ -43,6 +46,12 @@ export interface AppServices {
   imageModelManager?: IImageModelManager;
   imageService?: IImageService;
   imageAdapterRegistry?: IImageAdapterRegistry;
+  // 🆕 图像存储服务（可选）
+  imageStorageService?: IImageStorageService;
   // 🆕 评估服务（可选）
   evaluationService?: IEvaluationService;
+  // 🆕 变量提取服务（可选）
+  variableExtractionService?: IVariableExtractionService;
+  // 🆕 变量值生成服务（可选）
+  variableValueGenerationService?: IVariableValueGenerationService;
 }

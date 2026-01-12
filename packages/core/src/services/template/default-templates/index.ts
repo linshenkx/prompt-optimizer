@@ -49,11 +49,15 @@ import { template as image_photography_optimize } from './image-optimize/text2im
 import { template as image_photography_optimize_en } from './image-optimize/text2image/photography-optimize_en';
 import { template as image_creative_text2image } from './image-optimize/text2image/creative-text2image';
 import { template as image_creative_text2image_en } from './image-optimize/text2image/creative-text2image_en';
+import { template as image_json_structured_optimize } from './image-optimize/text2image/json-structured-optimize';
+import { template as image_json_structured_optimize_en } from './image-optimize/text2image/json-structured-optimize_en';
 // 图生图
 import { template as image2image_optimize } from './image-optimize/image2image/image2image-optimize';
 import { template as image2image_optimize_en } from './image-optimize/image2image/image2image-optimize_en';
 import { template as image2image_design_text_edit_optimize } from './image-optimize/image2image/design-text-edit-optimize';
 import { template as image2image_design_text_edit_optimize_en } from './image-optimize/image2image/design-text-edit-optimize_en';
+import { template as image2image_json_structured_optimize } from './image-optimize/image2image/json-structured-optimize';
+import { template as image2image_json_structured_optimize_en } from './image-optimize/image2image/json-structured-optimize_en';
 // 图像迭代
 import { template as image_iterate_general } from './image-optimize/iterate/image-iterate-general';
 import { template as image_iterate_general_en } from './image-optimize/iterate/image-iterate-general_en';
@@ -103,6 +107,20 @@ import { template as evaluation_pro_user_prompt_only } from './evaluation/pro/us
 import { template as evaluation_pro_user_prompt_only_en } from './evaluation/pro/user/evaluation-prompt-only_en';
 import { template as evaluation_pro_user_prompt_iterate } from './evaluation/pro/user/evaluation-prompt-iterate';
 import { template as evaluation_pro_user_prompt_iterate_en } from './evaluation/pro/user/evaluation-prompt-iterate_en';
+// 评估模板 - 图像模式/文生图
+import { template as evaluation_image_text2image_prompt_only } from './evaluation/image/text2image/evaluation-prompt-only';
+import { template as evaluation_image_text2image_prompt_only_en } from './evaluation/image/text2image/evaluation-prompt-only_en';
+// 评估模板 - 图像模式/图生图
+import { template as evaluation_image_image2image_prompt_only } from './evaluation/image/image2image/evaluation-prompt-only';
+import { template as evaluation_image_image2image_prompt_only_en } from './evaluation/image/image2image/evaluation-prompt-only_en';
+
+// 变量提取模板
+import { variableExtractionTemplate } from './variable-extraction';
+import { variableExtractionTemplateEn } from './variable-extraction';
+
+// 变量值生成模板
+import { variableValueGenerationTemplate } from './variable-value-generation';
+import { variableValueGenerationTemplateEn } from './variable-value-generation';
 
 // 简单的模板集合 - 模板自身已包含完整信息（id、name、language、type等）
 export const ALL_TEMPLATES = {
@@ -143,11 +161,15 @@ export const ALL_TEMPLATES = {
   image_photography_optimize_en,
   image_creative_text2image,
   image_creative_text2image_en,
+  image_json_structured_optimize,
+  image_json_structured_optimize_en,
   // 图生图模板
   image2image_optimize,
   image2image_optimize_en,
   image2image_design_text_edit_optimize,
   image2image_design_text_edit_optimize_en,
+  image2image_json_structured_optimize,
+  image2image_json_structured_optimize_en,
   // 图像迭代模板
   image_iterate_general,
   image_iterate_general_en,
@@ -196,4 +218,16 @@ export const ALL_TEMPLATES = {
   evaluation_pro_user_prompt_only_en,
   evaluation_pro_user_prompt_iterate,
   evaluation_pro_user_prompt_iterate_en,
+  // 评估模板 - 图像模式/文生图
+  evaluation_image_text2image_prompt_only,
+  evaluation_image_text2image_prompt_only_en,
+  // 评估模板 - 图像模式/图生图
+  evaluation_image_image2image_prompt_only,
+  evaluation_image_image2image_prompt_only_en,
+  // 变量提取模板
+  variableExtractionTemplate,
+  variableExtractionTemplateEn,
+  // 变量值生成模板
+  variableValueGenerationTemplate,
+  variableValueGenerationTemplateEn,
 };

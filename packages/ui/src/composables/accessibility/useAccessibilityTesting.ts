@@ -295,7 +295,8 @@ export function useAccessibilityTesting() {
     
     elements.forEach(element => {
       try {
-        const result = rule.test(element, context)
+        const testFn = rule.test as (el: HTMLElement, ctx: Record<string, unknown>) => TestRuleResult
+        const result = testFn(element, context)
         if (!result.passed) {
           const ruleResult = result as TestRuleResult
           issues.push({

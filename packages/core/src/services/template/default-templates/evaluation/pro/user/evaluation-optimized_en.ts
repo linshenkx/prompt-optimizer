@@ -7,7 +7,7 @@
 import type { Template, MessageTemplate } from '../../../../types';
 
 export const template: Template = {
-  id: 'evaluation-pro-user-optimized',
+  id: 'evaluation-pro-variable-optimized',
   name: 'Variable Mode Optimized Evaluation',
   content: [
     {

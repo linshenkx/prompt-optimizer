@@ -527,7 +527,9 @@ const handleImportSubmit = async () => {
             importError.value = result?.error || t("contextEditor.importFailed");
         }
     } catch (err) {
-        console.error("Import error:", err);
+        if (import.meta.env.DEV) {
+            console.debug("[ImportExportDialog] import failed", err);
+        }
         const errorMsg = err instanceof Error ? err.message : t("contextEditor.invalidJsonFormat");
         importError.value = errorMsg;
     } finally {
@@ -542,7 +544,9 @@ const notifyExportError = (key: string, err?: unknown) => {
     const composed = details ? `${baseMessage}: ${details}` : baseMessage;
     exportError.value = composed;
     emit('export-error', composed);
-    console.error(composed);
+    if (import.meta.env.DEV) {
+        console.debug("[ImportExportDialog] export failed", composed, err);
+    }
 };
 
 const handleExportToFile = () => {

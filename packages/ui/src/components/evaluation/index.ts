@@ -8,4 +8,4 @@ export { default as EvaluationScoreBadge } from './EvaluationScoreBadge.vue'
 export { default as EvaluationHoverCard } from './EvaluationHoverCard.vue'
 
 // 类型导出
-export type { ScoreLevel } from './EvaluationScoreBadge.vue'
+export type { ScoreLevel } from './types'

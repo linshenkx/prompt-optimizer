@@ -34,24 +34,16 @@ export interface FavoriteItem {
  * useAppFavorite 的配置选项
  */
 export interface AppFavoriteOptions {
-    /** 当前功能模式 */
-    functionMode: Ref<'basic' | 'pro' | 'image'>
-    /** 设置功能模式 */
-    setFunctionMode: (mode: 'basic' | 'pro' | 'image') => Promise<void>
-    /** 基础子模式 */
-    basicSubMode: Ref<BasicSubMode>
-    /** 设置基础子模式 */
-    setBasicSubMode: (mode: BasicSubMode) => Promise<void>
-    /** 专业子模式 */
-    proSubMode: Ref<ProSubMode>
-    /** 设置专业子模式 */
-    setProSubMode: (mode: ProSubMode) => Promise<void>
+    /** 🔧 Step D: 路由导航函数（替代 setFunctionMode/set*SubMode） */
+    navigateToSubModeKey: (toKey: string, opts?: { replace?: boolean }) => void
     /** 处理上下文模式变更 */
     handleContextModeChange: (mode: ContextMode) => Promise<void>
     /** 优化器提示词（用于设置收藏内容） */
     optimizerPrompt: Ref<string>
     /** i18n 翻译函数 */
     t: (key: string, params?: Record<string, any>) => string
+    /** 外部数据加载中标志（防止模式切换的自动 restore 覆盖外部数据） */
+    isLoadingExternalData: Ref<boolean>
 }
 
 /**
@@ -79,15 +71,11 @@ export interface AppFavoriteReturn {
  */
 export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
     const {
-        functionMode,
-        setFunctionMode,
-        basicSubMode,
-        setBasicSubMode,
-        proSubMode,
-        setProSubMode,
+        navigateToSubModeKey,
         handleContextModeChange,
         optimizerPrompt,
         t,
+        isLoadingExternalData,
     } = options
 
     const toast = useToast()
@@ -132,28 +120,29 @@ export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
     }
 
     /**
-     * 处理使用收藏 - 智能模式切换
+     * 处理使用收藏 - 智能模式切换（内部实现）
      */
-    const handleUseFavorite = async (favorite: FavoriteItem) => {
+    const handleUseFavoriteImpl = async (favorite: FavoriteItem) => {
         const {
             functionMode: favFunctionMode,
             optimizationMode: favOptimizationMode,
             imageSubMode: favImageSubMode,
         } = favorite
 
-        // 1. 切换功能模式
-        if (favFunctionMode === 'image') {
-            // 图像模式:只在不是图像模式时才切换
-            const needsSwitch = functionMode.value !== 'image'
-            if (needsSwitch) {
-                await setFunctionMode('image')
-                toast.info(t('toast.info.switchedToImageMode'))
-            }
+        // 🔧 Step D: 使用 navigateToSubModeKey 一次性导航到目标路由
+        // 不再分两步（先切 functionMode 再切 subMode）
 
-            // 图像模式的数据回填逻辑
+        if (favFunctionMode === 'image') {
+            // 图像模式：根据 favImageSubMode 确定目标子模式（默认 text2image）
+            const targetSubMode = favImageSubMode || 'text2image'
+            const targetKey = `image-${targetSubMode}`
+
+            navigateToSubModeKey(targetKey)
+            toast.info(t('toast.info.switchedToImageMode'))
+
             await nextTick()
 
-            // 触发图像工作区数据回填事件
+            // 图像模式的数据回填逻辑
             if (typeof window !== 'undefined') {
                 window.dispatchEvent(
                     new CustomEvent('image-workspace-restore-favorite', {
@@ -167,40 +156,42 @@ export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
             }
 
             toast.success(t('toast.success.imageFavoriteLoaded'))
-        } else {
+        } else if (favFunctionMode === 'basic' || favFunctionMode === 'context' || favFunctionMode === 'pro') {
             // 基础模式或上下文模式
 
-            // 2. 确定目标功能模式并先切换
-            // 'pro' 和 'context' 都映射到上下文模式（兼容历史数据）
+            // 1. 确定目标功能模式
+            // 'pro' 和 'context' 都映射到 pro（兼容历史数据）
             const targetFunctionMode = (favFunctionMode === 'context' || favFunctionMode === 'pro') ? 'pro' : 'basic'
 
-            // 3. 先切换功能模式
-            if (targetFunctionMode !== functionMode.value) {
-                await setFunctionMode(targetFunctionMode)
-                await nextTick() // 等待功能模式切换完成
-                toast.info(
-                    t('toast.info.switchedToFunctionMode', {
-                        mode: targetFunctionMode === 'pro' ? t('common.context') : t('common.basic'),
-                    }),
-                )
+            // 2. 确定目标子模式（如果收藏指定了优化模式）
+            // - basic: system/user
+            // - pro: multi/variable（兼容旧 optimizationMode: system->multi, user->variable）
+            let targetSubMode: BasicSubMode | ProSubMode
+            if (targetFunctionMode === 'pro') {
+                const mode = favOptimizationMode ?? 'user'
+                targetSubMode = mode === 'system' ? 'multi' : 'variable'
+            } else {
+                targetSubMode = (favOptimizationMode ?? 'system') as BasicSubMode
             }
 
-            // 4. 获取目标功能模式的当前子模式
-            const currentSubMode = (
-                targetFunctionMode === 'pro' ? proSubMode.value : basicSubMode.value
-            ) as OptimizationMode
+            // 3. 一次性导航到目标路由
+            const targetKey = `${targetFunctionMode}-${targetSubMode}`
+            navigateToSubModeKey(targetKey)
 
-            // 5. 如果目标模式与目标功能模式的子模式不同，切换子模式
-            if (favOptimizationMode && favOptimizationMode !== currentSubMode) {
-                if (targetFunctionMode === 'basic') {
-                    // 基础模式：持久化子模式选择
-                    await setBasicSubMode(favOptimizationMode as BasicSubMode)
-                } else {
-                    // 上下文模式：持久化子模式并同步 contextMode
-                    await setProSubMode(favOptimizationMode as ProSubMode)
-                    await handleContextModeChange(favOptimizationMode as ContextMode)
-                }
+            await nextTick()
 
+            // 4. 如果是 pro 模式，需要同步 contextMode（兼容旧逻辑）
+            if (targetFunctionMode === 'pro' && favOptimizationMode) {
+                await handleContextModeChange(favOptimizationMode as ContextMode)
+            }
+
+            toast.info(
+                t('toast.info.switchedToFunctionMode', {
+                    mode: targetFunctionMode === 'pro' ? t('common.context') : t('common.basic'),
+                }),
+            )
+
+            if (favOptimizationMode) {
                 toast.info(
                     t('toast.info.optimizationModeAutoSwitched', {
                         mode:
@@ -213,6 +204,9 @@ export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
 
             // 5. 将收藏的提示词内容设置到输入框
             optimizerPrompt.value = favorite.content
+        } else {
+            // 其他情况：直接设置内容，不切换模式
+            optimizerPrompt.value = favorite.content
         }
 
         // 关闭收藏管理对话框
@@ -220,6 +214,26 @@ export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
 
         // 显示成功提示
         toast.success(t('toast.success.favoriteLoaded'))
+    }
+
+    /**
+     * 收藏加载的错误处理包装器
+     */
+    const handleUseFavorite = async (favorite: FavoriteItem) => {
+        try {
+            // 🔧 设置外部数据加载标志，防止模式切换的自动 restore 覆盖外部数据
+            isLoadingExternalData.value = true
+
+            await handleUseFavoriteImpl(favorite)
+        } catch (error) {
+            // 捕获收藏加载过程中的所有错误
+            console.error('[App] 收藏加载失败:', error)
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            toast.error(t('toast.error.favoriteLoadFailed', { error: errorMessage }))
+        } finally {
+            // 🔧 恢复完成，重置标志，允许正常的模式切换 restore
+            isLoadingExternalData.value = false
+        }
     }
 
     return {

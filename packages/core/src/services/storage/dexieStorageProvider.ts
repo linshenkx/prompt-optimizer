@@ -11,14 +11,34 @@ interface StorageRecord {
 }
 
 /**
+ * 获取数据库名称
+ *
+ * 优先级：
+ * 1. 测试环境：使用注入的唯一数据库名称 (window.__TEST_DB_NAME__)
+ * 2. 生产环境：使用固定名称 'PromptOptimizerDB'
+ */
+function getDatabaseName(): string {
+  // 测试环境：从 window 对象读取测试数据库名称
+  if (typeof window !== 'undefined') {
+    const testDbName = (window as any).__TEST_DB_NAME__;
+    if (testDbName) {
+      return testDbName;
+    }
+  }
+
+  // 生产环境：使用固定名称
+  return 'PromptOptimizerDB';
+}
+
+/**
  * Dexie 数据库类
  */
 class PromptOptimizerDB extends Dexie {
   storage!: Table<StorageRecord, string>;
 
   constructor() {
-    super('PromptOptimizerDB');
-    
+    super(getDatabaseName());
+
     // 定义数据库结构
     this.version(1).stores({
       storage: 'key, value, timestamp'

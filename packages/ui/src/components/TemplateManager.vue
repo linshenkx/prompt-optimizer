@@ -40,7 +40,11 @@
         </NButton>
       </NGridItem>
       <NGridItem>
-        <NButton block :type="currentCategory==='iterate' ? 'primary' : 'default'" @click="currentCategory='iterate'">
+        <NButton
+          block
+          :type="(currentCategory==='basic-system-iterate' || currentCategory==='basic-user-iterate') ? 'primary' : 'default'"
+          @click="currentCategory = props.basicSubMode === 'system' ? 'basic-system-iterate' : 'basic-user-iterate'"
+        >
           {{ `🔄 ${t('templateManager.iterateTemplates')}` }}
         </NButton>
       </NGridItem>
@@ -644,6 +648,12 @@ import MarkdownRenderer from './MarkdownRenderer.vue'
 import BuiltinTemplateLanguageSwitch from './BuiltinTemplateLanguageSwitch.vue'
 import { syntaxGuideContent } from '../docs/syntax-guide'
 import { i18n } from '../plugins/i18n'
+import { useBasicSystemSession } from '../stores/session/useBasicSystemSession'
+import { useBasicUserSession } from '../stores/session/useBasicUserSession'
+import { useProMultiMessageSession } from '../stores/session/useProMultiMessageSession'
+import { useProVariableSession } from '../stores/session/useProVariableSession'
+import { useImageText2ImageSession } from '../stores/session/useImageText2ImageSession'
+import { useImageImage2ImageSession } from '../stores/session/useImageImage2ImageSession'
 
 const { t } = useI18n()
 
@@ -662,9 +672,6 @@ const getTemplateManager = computed(() => services.value!.templateManager)
 // const getTemplateLanguageService = computed(() => services.value!.templateLanguageService)  // 保留用于未来扩展
 
 const props = defineProps<{
-  selectedSystemOptimizeTemplate?: Template,
-  selectedUserOptimizeTemplate?: Template,
-  selectedIterateTemplate?: Template,
   templateType:
     | 'optimize'
     | 'userOptimize'
@@ -674,12 +681,23 @@ const props = defineProps<{
     | 'imageIterate'
     | 'conversationMessageOptimize'
     | 'contextUserOptimize'
-    | 'contextIterate',
+   | 'contextIterate',
   show: boolean
+  basicSubMode?: 'system' | 'user'
+  proSubMode?: 'multi' | 'variable'
+  imageSubMode?: 'text2image' | 'image2image'
 }>()
 
 const emit = defineEmits(['close', 'select', 'update:show', 'languageChanged'])
 const toast = useToast()
+
+// Session Stores（单一真源：持久化选择存储在各子模式 session store 中）
+const basicSystemSession = useBasicSystemSession()
+const basicUserSession = useBasicUserSession()
+const proMultiMessageSession = useProMultiMessageSession()
+const proVariableSession = useProVariableSession()
+const imageText2ImageSession = useImageText2ImageSession()
+const imageImage2ImageSession = useImageImage2ImageSession()
 
 const templates = ref<Template[]>([])
 const currentCategory = ref(getCategoryFromProps())
@@ -727,23 +745,6 @@ const fullscreenEditor = ref<{
   content: ''
 })
 
-// 添加计算属性
-const selectedTemplate = computed(() => {
-  switch (props.templateType) {
-    case 'optimize':
-    case 'conversationMessageOptimize':
-      return props.selectedSystemOptimizeTemplate
-    case 'userOptimize':
-    case 'contextUserOptimize':
-      return props.selectedUserOptimizeTemplate
-    case 'iterate':
-    case 'contextIterate':
-      return props.selectedIterateTemplate
-    default:
-      return null
-  }
-})
-
 // 根据props确定初始分类
 function getCategoryFromProps() {
   switch (props.templateType) {
@@ -752,7 +753,9 @@ function getCategoryFromProps() {
     case 'userOptimize':
       return 'user-optimize'
     case 'iterate':
-      return 'iterate'
+      if (props.basicSubMode === 'system') return 'basic-system-iterate'
+      if (props.basicSubMode === 'user') return 'basic-user-iterate'
+      return 'basic-user-iterate'
     case 'text2imageOptimize':
       return 'image-text2image-optimize'
     case 'image2imageOptimize':
@@ -777,7 +780,8 @@ function getCurrentTemplateType(): 'optimize' | 'userOptimize' | 'iterate' | 'te
       return 'optimize'
     case 'user-optimize':
       return 'userOptimize'
-    case 'iterate':
+    case 'basic-system-iterate':
+    case 'basic-user-iterate':
       return 'iterate'
     case 'image-text2image-optimize':
       return 'text2imageOptimize'
@@ -797,8 +801,39 @@ function getCurrentTemplateType(): 'optimize' | 'userOptimize' | 'iterate' | 'te
 }
 
 // 获取当前选中的模板ID
-function getSelectedTemplateId() {
-  return selectedTemplate.value?.id
+function getSelectedTemplateIdForCategory(category: string): string | undefined {
+  switch (category) {
+    case 'system-optimize':
+      return basicSystemSession.selectedTemplateId || undefined
+    case 'user-optimize':
+      return basicUserSession.selectedTemplateId || undefined
+    case 'basic-system-iterate':
+      return basicSystemSession.selectedIterateTemplateId || undefined
+    case 'basic-user-iterate':
+      return basicUserSession.selectedIterateTemplateId || undefined
+    case 'context-system-optimize':
+      return proMultiMessageSession.selectedTemplateId || undefined
+    case 'context-user-optimize':
+      return proVariableSession.selectedTemplateId || undefined
+    case 'context-iterate':
+      return props.proSubMode === 'multi'
+        ? (proMultiMessageSession.selectedIterateTemplateId || undefined)
+        : (proVariableSession.selectedIterateTemplateId || undefined)
+    case 'image-text2image-optimize':
+      return imageText2ImageSession.selectedTemplateId || undefined
+    case 'image-image2image-optimize':
+      return imageImage2ImageSession.selectedTemplateId || undefined
+    case 'image-iterate':
+      return props.imageSubMode === 'image2image'
+        ? (imageImage2ImageSession.selectedIterateTemplateId || undefined)
+        : (imageText2ImageSession.selectedIterateTemplateId || undefined)
+    default:
+      return undefined
+  }
+}
+
+function getSelectedTemplateId(): string | undefined {
+  return getSelectedTemplateIdForCategory(currentCategory.value)
 }
 
 // 获取当前分类标签
@@ -808,8 +843,10 @@ function getCurrentCategoryLabel() {
       return t('templateManager.optimizeTemplateList')
     case 'user-optimize':
       return t('templateManager.userOptimizeTemplateList')
-    case 'iterate':
-      return t('templateManager.iterateTemplateList')
+    case 'basic-system-iterate':
+      return t('templateManager.iterateTemplatesSystem')
+    case 'basic-user-iterate':
+      return t('templateManager.iterateTemplatesUser')
     case 'image-text2image-optimize':
       return t('templateManager.imageText2ImageTemplates')
     case 'image-image2image-optimize':
@@ -1048,21 +1085,6 @@ const applyMigration = async () => {
     await getTemplateManager.value.saveTemplate(updatedTemplate)
     await loadTemplates()
 
-    // 如果当前选中的模板被更新，重新选择
-    const isCurrentSelected = getSelectedTemplateId() === template.id
-
-    if (isCurrentSelected) {
-      try {
-        const updated = getTemplateManager.value.getTemplate(template.id)
-        if (updated) {
-          const templateType = currentCategory.value === 'iterate' ? 'iterate' : 'optimize'
-          emit('select', updated, templateType)
-        }
-      } catch (error) {
-        console.error('Failed to get updated template:', error)
-      }
-    }
-
     migrationDialog.value.show = false
     toast.success(t('templateManager.migrationSuccess'))
   } catch (error) {
@@ -1142,20 +1164,6 @@ const handleSubmit = async () => {
     await getTemplateManager.value.saveTemplate(templateData)
     await loadTemplates()
 
-    const isCurrentSelected = getSelectedTemplateId() === templateData.id
-
-    if (editingTemplate.value && isCurrentSelected) {
-      try {
-        // 统一使用异步方法
-        const updatedTemplate = await getTemplateManager.value.getTemplate(templateData.id)
-        if (updatedTemplate) {
-          emit('select', updatedTemplate, getCurrentTemplateType());
-        }
-      } catch (error) {
-        console.error('Failed to get updated template after save:', error)
-      }
-    }
-
     toast.success(editingTemplate.value ? t('template.success.updated') : t('template.success.added'))
     cancelEdit()
   } catch (error) {
@@ -1171,13 +1179,6 @@ const confirmDelete = async (templateId: string) => {
       await getTemplateManager.value.deleteTemplate(templateId)
       await loadTemplates()
 
-      // 获取当前分类的剩余模板
-      const remainingTemplates = filteredTemplates.value
-
-      if (getSelectedTemplateId() === templateId) {
-        emit('select', remainingTemplates[0] || null, getCurrentTemplateType())
-      }
-      
       toast.success(t('template.success.deleted'))
     } catch (error) {
       console.error('删除提示词失败:', error)
@@ -1231,7 +1232,7 @@ const copyTemplate = (template: Template) => {
 
 // 选择提示词
 const selectTemplate = (template: Template) => {
-  emit('select', template, getCurrentTemplateType());
+  emit('select', template, getCurrentTemplateType(), currentCategory.value);
 }
 
 // 按分类过滤提示词
@@ -1248,8 +1249,9 @@ const filteredTemplates = computed(() => {
         // 用户提示词优化模板：userOptimize类型
         return templateType === 'userOptimize'
 
-      case 'iterate':
-        // 迭代优化模板：iterate类型
+      case 'basic-system-iterate':
+      case 'basic-user-iterate':
+        // 迭代优化模板：iterate类型（Basic 模式下按子模式隔离选中态）
         return templateType === 'iterate'
 
       // 图像类模板
@@ -1284,43 +1286,26 @@ const syntaxGuideMarkdown = computed(() => {
   return syntaxGuideContent[lang] || syntaxGuideContent['zh-CN']
 })
 
-  // 处理内置模板语言变化
-  const handleLanguageChanged = async (newLanguage: string) => {
-    // 重新加载模板列表以反映新的语言
-    await loadTemplates()
-
-    // 如果当前选中的模板是内置模板，需要重新选择以获取新语言版本
-    const currentSelected = selectedTemplate.value
-
-    if (currentSelected && currentSelected.isBuiltin) {
-      try {
-        // 获取新语言版本的同一模板
-        const updatedTemplate = await getTemplateManager.value.getTemplate(currentSelected.id)
-        if (updatedTemplate) {
-          emit('select', updatedTemplate, getCurrentTemplateType());
-        }
-      } catch (error) {
-        console.error('Failed to update selected template after language change:', error)
-        // 如果获取失败，选择第一个可用的模板
-        try {
-          const availableTemplates = filteredTemplates.value
-          if (availableTemplates.length > 0) {
-            emit('select', availableTemplates[0], getCurrentTemplateType());
-          }
-        } catch (listError) {
-          console.error('Failed to list templates after language change:', listError)
-        }
-      }
-    }
-
-    // 发出语言变化事件，通知父组件
-    emit('languageChanged', newLanguage)
-  }
+// 处理内置模板语言变化（仅刷新列表，不隐式修改选择）
+const handleLanguageChanged = async (newLanguage: string) => {
+  await loadTemplates()
+  emit('languageChanged', newLanguage)
+}
 
 // 监听 props.templateType 变化，更新当前分类
 watch(() => props.templateType, () => {
   currentCategory.value = getCategoryFromProps()
 }, { immediate: true })
+
+// 处理“同一种 templateType 反复打开”场景：templateType 可能不变，但 show 会变化
+// 这里在打开时重新对齐当前分类，避免因路由/子模式变化导致展示与选择不一致
+watch(
+  () => props.show,
+  (isShown) => {
+    if (!isShown) return
+    currentCategory.value = getCategoryFromProps()
+  }
+)
 
 // 生命周期钩子
 onMounted(async () => {

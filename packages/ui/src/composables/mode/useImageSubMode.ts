@@ -1,8 +1,8 @@
-import { ref, readonly, type Ref } from 'vue'
+import { computed, type Ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import type { AppServices } from '../../types/services'
-import { usePreferences } from '../storage/usePreferenceManager'
-import { UI_SETTINGS_KEYS, type ImageSubMode } from '@prompt-optimizer/core'
+import type { ImageSubMode } from '@prompt-optimizer/core'
 
 interface UseImageSubModeApi {
   imageSubMode: Ref<ImageSubMode>
@@ -12,82 +12,48 @@ interface UseImageSubModeApi {
   ensureInitialized: () => Promise<void>
 }
 
-let singleton: {
-  mode: Ref<ImageSubMode>
-  initialized: boolean
-  initializing: Promise<void> | null
-} | null = null
-
 /**
- * 图像模式的子模式单例
- * - 默认值为 'text2image'（文生图）
- * - 自动持久化
- * - 独立于基础模式和上下文模式
+ * 图像模式的子模式管理（基于 Vue Router）
+ *
+ * ✅ 重构说明：
+ * - 路由是唯一的真源（/image/text2image 或 /image/image2image）
+ * - 不再使用 preference 存储，避免双写不一致
+ * - setImageSubMode 通过路由导航更新子模式
  */
 export function useImageSubMode(services: Ref<AppServices | null>): UseImageSubModeApi {
-  if (!singleton) {
-    singleton = {
-      mode: ref<ImageSubMode>('text2image'),
-      initialized: false,
-      initializing: null
-    }
-  }
+  // services 参数保留用于调用方兼容；该 composable 不再持久化任何偏好
+  void services
 
-  const { getPreference, setPreference } = usePreferences(services)
+  const route = useRoute()
+  const router = useRouter()
+
+  // 从路由参数读取子模式（text2image 或 image2image）
+  const imageSubMode = computed<ImageSubMode>(() => {
+    // 路由架构（重构后）：/image/text2image | /image/image2image（无 params）
+    if (route.path.startsWith('/image/image2image')) return 'image2image'
+    if (route.path.startsWith('/image/text2image')) return 'text2image'
+    return 'text2image'
+  })
 
   const ensureInitialized = async () => {
-    if (singleton!.initialized) return
-    if (singleton!.initializing) {
-      await singleton!.initializing
-      return
-    }
-
-    singleton!.initializing = (async () => {
-      try {
-        const saved = await getPreference<ImageSubMode>(
-          UI_SETTINGS_KEYS.IMAGE_SUB_MODE,
-          'text2image'
-        )
-        singleton!.mode.value = (saved === 'text2image' || saved === 'image2image')
-          ? saved
-          : 'text2image'
-
-        console.log(`[useImageSubMode] 初始化完成，当前值: ${singleton!.mode.value}`)
-
-        // 持久化默认值（如果未设置过）
-        if (saved !== 'text2image' && saved !== 'image2image') {
-          await setPreference(UI_SETTINGS_KEYS.IMAGE_SUB_MODE, 'text2image')
-          console.log('[useImageSubMode] 首次初始化，已持久化默认值: text2image')
-        }
-      } catch (e) {
-        console.error('[useImageSubMode] 初始化失败，使用默认值 text2image:', e)
-        // 读取失败则保持默认 'text2image'，并尝试持久化
-        try {
-          await setPreference(UI_SETTINGS_KEYS.IMAGE_SUB_MODE, 'text2image')
-        } catch {
-          // 忽略设置失败错误
-        }
-      } finally {
-        singleton!.initialized = true
-        singleton!.initializing = null
-      }
-    })()
-
-    await singleton!.initializing
+    // 路由已初始化，无需额外操作
+    console.log(`[useImageSubMode] 当前子模式（来自路由）: ${imageSubMode.value}`)
   }
 
   const setImageSubMode = async (mode: ImageSubMode) => {
-    await ensureInitialized()
-    singleton!.mode.value = mode
-    await setPreference(UI_SETTINGS_KEYS.IMAGE_SUB_MODE, mode)
-    console.log(`[useImageSubMode] 子模式已切换并持久化: ${mode}`)
+    // 通过路由导航更新子模式
+    const targetPath = `/image/${mode}`
+    if (route.path !== targetPath) {
+      await router.push(targetPath)
+      console.log(`[useImageSubMode] 子模式已切换（路由导航）: ${mode}`)
+    }
   }
 
   const switchToText2Image = () => setImageSubMode('text2image')
   const switchToImage2Image = () => setImageSubMode('image2image')
 
   return {
-    imageSubMode: readonly(singleton.mode) as Ref<ImageSubMode>,
+    imageSubMode: imageSubMode as Ref<ImageSubMode>,
     setImageSubMode,
     switchToText2Image,
     switchToImage2Image,

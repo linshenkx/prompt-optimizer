@@ -1,4 +1,4 @@
-import { ITemplateManager, Template } from './types';
+import { ITemplateManager, Template, TemplateType } from './types';
 import { IStorageProvider } from '../storage/types';
 import { StaticLoader } from './static-loader';
 import { TemplateError, TemplateValidationError } from './errors';
@@ -274,7 +274,7 @@ export class TemplateManager implements ITemplateManager {
   /**
    * List templates by type
    */
-  async listTemplatesByType(type: 'optimize' | 'userOptimize' | 'text2imageOptimize' | 'image2imageOptimize' | 'imageIterate' | 'iterate' | 'contextUserOptimize' | 'contextIterate' | 'conversationMessageOptimize'): Promise<Template[]> {
+  async listTemplatesByType(type: TemplateType): Promise<Template[]> {
     try {
       const templates = await this.listTemplates();
       return templates.filter(

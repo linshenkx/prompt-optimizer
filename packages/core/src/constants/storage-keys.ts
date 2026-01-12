@@ -22,17 +22,11 @@ export const UI_SETTINGS_KEYS = {
 
   // 子模式持久化（三种功能模式独立存储）
   BASIC_SUB_MODE: "app:settings:ui:basic-sub-mode", // 基础模式的子模式（system/user）
-  PRO_SUB_MODE: "app:settings:ui:pro-sub-mode", // 上下文模式的子模式（system/user）
+  PRO_SUB_MODE: "app:settings:ui:pro-sub-mode", // Pro 模式的子模式（multi/variable）
   IMAGE_SUB_MODE: "app:settings:ui:image-sub-mode", // 图像模式的子模式（text2image/image2image）
 } as const;
 
 // 模型选择相关
-export const MODEL_SELECTION_KEYS = {
-  OPTIMIZE_MODEL: "app:selected-optimize-model",
-  TEST_MODEL: "app:selected-test-model",
-} as const;
-
-// 模板选择相关
 export const TEMPLATE_SELECTION_KEYS = {
   SYSTEM_OPTIMIZE_TEMPLATE: "app:selected-optimize-template", // 系统优化模板（兼容旧版本）
   USER_OPTIMIZE_TEMPLATE: "app:selected-user-optimize-template", // 用户优化模板
@@ -64,13 +58,13 @@ export const FUNCTION_MODEL_KEYS = {
  * 生成模式覆盖的存储键
  * @param type 模型类型：'optimize' 或 'test'
  * @param functionMode 功能模式：'basic' | 'pro' | 'image'
- * @param subMode 子模式：'system' | 'user' | 'text2image' | 'image2image'
+ * @param subMode 子模式：'system' | 'user' | 'multi' | 'variable' | 'text2image' | 'image2image'
  * @returns 存储键，格式如 "app:function-model:optimize:basic:system"
  */
 export function getModeModelKey(
   type: "optimize" | "test",
   functionMode: "basic" | "pro" | "image",
-  subMode: "system" | "user" | "text2image" | "image2image"
+  subMode: "system" | "user" | "multi" | "variable" | "text2image" | "image2image"
 ): string {
   return `app:function-model:${type}:${functionMode}:${subMode}`;
 }
@@ -79,7 +73,6 @@ export function getModeModelKey(
 export const ALL_STORAGE_KEYS = {
   ...CORE_SERVICE_KEYS,
   ...UI_SETTINGS_KEYS,
-  ...MODEL_SELECTION_KEYS,
   ...TEMPLATE_SELECTION_KEYS,
   ...IMAGE_MODE_KEYS,
   ...FUNCTION_MODEL_KEYS,
@@ -93,8 +86,6 @@ export type CoreServiceKey =
   (typeof CORE_SERVICE_KEYS)[keyof typeof CORE_SERVICE_KEYS];
 export type UISettingsKey =
   (typeof UI_SETTINGS_KEYS)[keyof typeof UI_SETTINGS_KEYS];
-export type ModelSelectionKey =
-  (typeof MODEL_SELECTION_KEYS)[keyof typeof MODEL_SELECTION_KEYS];
 export type TemplateSelectionKey =
   (typeof TEMPLATE_SELECTION_KEYS)[keyof typeof TEMPLATE_SELECTION_KEYS];
 export type ImageModeKey =

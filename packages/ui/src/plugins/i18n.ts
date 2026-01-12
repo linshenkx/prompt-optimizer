@@ -1,4 +1,4 @@
-import { ref, type App } from "vue";
+import { shallowRef, type App } from "vue";
 import { createI18n } from "vue-i18n";
 
 import zhCN from "../i18n/locales/zh-CN";
@@ -16,7 +16,7 @@ type SupportedLocale = "zh-CN" | "zh-TW" | "en-US";
 const SUPPORTED_LOCALES: SupportedLocale[] = ["zh-CN", "zh-TW", "en-US"];
 
 // 服务引用
-const servicesRef = ref<AppServices | null>(null);
+const servicesRef = shallowRef<AppServices | null>(null);
 
 // 设置服务引用的函数
 export function setI18nServices(services: AppServices) {

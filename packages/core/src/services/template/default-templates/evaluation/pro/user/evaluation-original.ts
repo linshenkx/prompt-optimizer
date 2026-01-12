@@ -7,7 +7,7 @@
 import type { Template, MessageTemplate } from '../../../../types';
 
 export const template: Template = {
-  id: 'evaluation-pro-user-original',
+  id: 'evaluation-pro-variable-original',
   name: '变量模式原始评估',
   content: [
     {

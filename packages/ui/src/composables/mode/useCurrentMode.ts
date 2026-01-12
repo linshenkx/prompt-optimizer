@@ -18,10 +18,10 @@ export interface UseCurrentModeReturn {
   isProMode: ComputedRef<boolean>
   /** 是否为图像模式 */
   isImageMode: ComputedRef<boolean>
-  /** 是否为系统提示词模式（Pro 模式 + system 子模式） */
-  isSystemMode: ComputedRef<boolean>
-  /** 是否为用户提示词模式（Pro 模式 + user 子模式） */
-  isUserMode: ComputedRef<boolean>
+  /** 是否为多消息模式（Pro 模式 + multi 子模式） */
+  isMultiMode: ComputedRef<boolean>
+  /** 是否为变量模式（Pro 模式 + variable 子模式） */
+  isVariableMode: ComputedRef<boolean>
 }
 
 /**
@@ -98,11 +98,11 @@ export function useCurrentMode(): UseCurrentModeReturn {
     isImageMode: computed(() => _functionMode.value === 'image'),
 
     // 便捷布尔判断（二级模式，仅 Pro 模式有效）
-    isSystemMode: computed(() =>
-      _functionMode.value === 'pro' && _proSubMode.value === 'system'
+    isMultiMode: computed(() =>
+      _functionMode.value === 'pro' && _proSubMode.value === 'multi'
     ),
-    isUserMode: computed(() =>
-      _functionMode.value === 'pro' && _proSubMode.value === 'user'
+    isVariableMode: computed(() =>
+      _functionMode.value === 'pro' && _proSubMode.value === 'variable'
     ),
   }
 }

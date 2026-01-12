@@ -152,24 +152,5 @@ export function useModelAdvancedParameters(
   }
 }
 
-/**
- * @deprecated 此函数已废弃，不再需要复杂的 resolver 逻辑
- * 请直接使用 useModelAdvancedParameters 并传入简化后的参数
- */
-export function createTextModelMetaResolver(
-  options: unknown
-) {
-  console.warn('[useModelAdvancedParameters] createTextModelMetaResolver is deprecated, use simplified interface')
-  return () => undefined
-}
-
-/**
- * @deprecated 此函数已废弃，不再需要复杂的 resolver 逻辑
- * 请直接使用 useModelAdvancedParameters 并传入简化后的参数
- */
-export function createImageModelMetaResolver(
-  options: unknown
-) {
-  console.warn('[useModelAdvancedParameters] createImageModelMetaResolver is deprecated, use simplified interface')
-  return () => undefined
-}
+// ✅ 已移除废弃函数：createTextModelMetaResolver, createImageModelMetaResolver
+// 请直接使用 useModelAdvancedParameters 并传入简化后的参数

@@ -1,4 +1,4 @@
-import { ref, onMounted, type Ref } from 'vue'
+import { ref, shallowRef, onMounted, type Ref } from 'vue'
 
 import {
   StorageFactory,
@@ -12,6 +12,8 @@ import {
   createCompareService,
   createContextRepo,
   createEvaluationService,
+  createVariableExtractionService,
+  createVariableValueGenerationService,
   ElectronContextRepoProxy,
   ElectronModelManagerProxy,
   ElectronTemplateManagerProxy,
@@ -25,13 +27,12 @@ import {
   ElectronPreferenceServiceProxy,
   createPreferenceService,
   FavoriteManager,
-} from '../../'; // 从UI包的index导出所有核心模块
-import type { AppServices } from '../../types/services';
-import {
   createImageModelManager,
   createImageService,
   createImageAdapterRegistry,
   createTextAdapterRegistry,
+  createImageStorageService,
+  // migrateLegacySessions - 已移除，session 是本次重构新引入
   type IImageModelManager,
   type IImageService,
   type ITextAdapterRegistry,
@@ -44,9 +45,13 @@ import {
   type IPreferenceService,
   type IFavoriteManager,
   type IEvaluationService,
+  type IVariableExtractionService,
+  type IVariableValueGenerationService,
+  type IImageStorageService,
   type ContextMode,
   DEFAULT_CONTEXT_MODE
 } from '@prompt-optimizer/core';
+import type { AppServices } from '../../types/services';
 
 /**
  * 应用服务统一初始化器。
@@ -58,7 +63,7 @@ export function useAppInitializer(): {
   isInitializing: Ref<boolean>;
   error: Ref<Error | null>;
 } {
-  const services = ref<AppServices | null>(null);
+  const services = shallowRef<AppServices | null>(null);
   const isInitializing = ref(true);
   const error = ref<Error | null>(null);
 
@@ -76,9 +81,12 @@ export function useAppInitializer(): {
       let preferenceService: IPreferenceService;
       let favoriteManager: IFavoriteManager;
       let evaluationService: IEvaluationService | undefined;
+      let variableExtractionService: IVariableExtractionService | undefined;
+      let variableValueGenerationService: IVariableValueGenerationService | undefined;
       let imageModelManager: IImageModelManager | undefined;
       let imageService: IImageService | undefined;
       let imageAdapterRegistryInstance: ReturnType<typeof createImageAdapterRegistry> | undefined;
+      let imageStorageService: IImageStorageService | undefined;
       let textAdapterRegistryInstance: ITextAdapterRegistry | undefined;
 
       if (isRunningInElectron()) {
@@ -131,6 +139,12 @@ export function useAppInitializer(): {
         // 🆕 创建评估服务（使用代理的 llmService, modelManager, templateManager）
         evaluationService = createEvaluationService(llmService, modelManager, templateManager);
 
+        // 🆕 创建变量提取服务（使用代理的 llmService, modelManager, templateManager）
+        variableExtractionService = createVariableExtractionService(llmService, modelManager, templateManager);
+
+        // 🆕 创建变量值生成服务（使用代理的 llmService, modelManager, templateManager）
+        variableValueGenerationService = createVariableValueGenerationService(llmService, modelManager, templateManager);
+
         // 🆕 读取当前上下文的模式
         console.log('[AppInitializer] 读取当前上下文模式...');
         const contextMode = ref<ContextMode>(DEFAULT_CONTEXT_MODE);
@@ -160,7 +174,10 @@ export function useAppInitializer(): {
           imageModelManager,
           imageService,
           imageAdapterRegistry: imageAdapterRegistryInstance,
+          imageStorageService, // 🆕 图像存储服务（Electron环境暂不启用）
           evaluationService, // 🆕 评估服务
+          variableExtractionService, // 🆕 变量提取服务
+          variableValueGenerationService, // 🆕 变量值生成服务
         };
         console.log('[AppInitializer] Electron代理服务初始化完成');
 
@@ -184,7 +201,19 @@ export function useAppInitializer(): {
         const imageAdapterRegistry = await import('@prompt-optimizer/core').then(m => m.createImageAdapterRegistry())
         imageAdapterRegistryInstance = imageAdapterRegistry
         const imageModelManagerInstance = createImageModelManager(storageProvider, imageAdapterRegistry);
-        
+
+        // 🆕 创建图像存储服务（独立 IndexedDB 数据库）
+        console.log('[AppInitializer] 初始化图像存储服务...');
+        imageStorageService = createImageStorageService({
+          maxCacheSize: 50 * 1024 * 1024,  // 50 MB
+          maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 天
+          maxCount: 100,                     // 最多 100 张
+          autoCleanupThreshold: 0.8         // 达到 80% 时触发清理
+        });
+
+        // 📝 图像数据迁移已移除（session 是本次重构新引入，无历史数据需要迁移）
+        // 如果将来需要迁移，可以使用 migrateLegacySessions() 函数
+
         // Initialize language service first, as template manager depends on it
         console.log('[AppInitializer] 初始化语言服务...');
         await languageService.initialize();
@@ -291,6 +320,12 @@ export function useAppInitializer(): {
         // 🆕 创建评估服务
         evaluationService = createEvaluationService(llmService, modelManagerAdapter, templateManagerAdapter);
 
+        // 🆕 创建变量提取服务
+        variableExtractionService = createVariableExtractionService(llmService, modelManagerAdapter, templateManagerAdapter);
+
+        // 🆕 创建变量值生成服务
+        variableValueGenerationService = createVariableValueGenerationService(llmService, modelManagerAdapter, templateManagerAdapter);
+
         // 🆕 读取当前上下文的模式
         console.log('[AppInitializer] 读取当前上下文模式...');
         const contextMode = ref<ContextMode>(DEFAULT_CONTEXT_MODE);
@@ -321,7 +356,10 @@ export function useAppInitializer(): {
           imageModelManager: imageModelManagerInstance,
           imageService,
           imageAdapterRegistry: imageAdapterRegistryInstance,
+          imageStorageService, // 🆕 图像存储服务
           evaluationService, // 🆕 评估服务
+          variableExtractionService, // 🆕 变量提取服务
+          variableValueGenerationService, // 🆕 变量值生成服务
         };
 
         console.log('[AppInitializer] 所有服务初始化完成');

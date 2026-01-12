@@ -76,6 +76,19 @@
   - 为UI框架迁移建立了完整的方法论和最佳实践
 
 ### 状态管理系统
+- **[117-pinia-refactoring](./117-pinia-refactoring/)** - Pinia 状态管理重构 🔄
+  - 引入 Pinia 状态管理库，构建 6+1 session store 架构
+  - 解决 session 存储竞态条件
+  - 移除废弃的 `$services` 插件机制，统一服务访问方式
+  - Claude Code + Codex AI 联合审查确保代码质量
+
+- **[129-session-store-single-source-refactor](./129-session-store-single-source-refactor/)** - Session Store 单一真源架构重构 ⭐
+  - 实现单一真源（Single Source of Truth）原则
+  - 解决跨模式状态污染问题，修复 P0 Bug（测试结果不显示）
+  - 新增图像存储服务（ImageStorageService）使用独立 IndexedDB
+  - 优化代码分割，主 bundle 减少 57KB
+  - 拆分单体组件为细粒度工作区（Basic/Image 模式）
+
 - **[126-submode-persistence](./126-submode-persistence/)** - 子模式持久化功能 💾
   - 实现三大功能模式(基础/上下文/图像)的独立子模式状态持久化
   - 解决状态隔离、跨页面同步和双层状态一致性问题

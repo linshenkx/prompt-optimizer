@@ -1,5 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { ImageService } from '../../../src/services/image/service'
+import { SeedreamImageAdapter } from '../../../src/services/image/adapters/seedream'
 import type {
   IImageModelManager,
   ImageModelConfig,
@@ -9,6 +10,8 @@ import type {
   ImageResult
 } from '../../../src/services/image/types'
 import { RequestConfigError } from '../../../src/services/llm/errors'
+
+const seedreamModelId = new SeedreamImageAdapter().getModels()[0].id
 
 // Mock 图像模型管理器
 class MockImageModelManager implements IImageModelManager {
@@ -89,7 +92,7 @@ class MockImageModelManager implements IImageModelManager {
       id: 'test-image2image-config',
       name: 'Test Image2Image Config',
       providerId: 'seedream',
-      modelId: 'doubao-seedream-4-0-250828',
+      modelId: seedreamModelId,
       enabled: true,
       connectionConfig: {
         apiKey: 'test-api-key'
@@ -105,7 +108,7 @@ class MockImageModelManager implements IImageModelManager {
         supportsDynamicModels: false
       },
       model: {
-        id: 'doubao-seedream-4-0-250828',
+        id: seedreamModelId,
         name: 'Doubao SeedreamAI',
         description: 'SeedreamAI model',
         providerId: 'seedream',

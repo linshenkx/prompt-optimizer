@@ -16,14 +16,17 @@
  */
 
 import { createApp, watch } from 'vue'
-import { installI18nOnly, i18n } from '@prompt-optimizer/ui'
-import App from './App.vue'
-
+import { installI18nOnly, installPinia, i18n, router } from '@prompt-optimizer/ui'
 import '@prompt-optimizer/ui/dist/style.css'
+import App from './App.vue'
 
 const app = createApp(App)
 // 只安装i18n插件，语言初始化将在App.vue中服务准备好后进行
 installI18nOnly(app)
+installPinia(app)
+
+// 第1步：安装 router 插件
+app.use(router)
 
 // 同步文档标题和语言属性
 if (typeof document !== 'undefined') {
@@ -38,7 +41,10 @@ if (typeof document !== 'undefined') {
   watch(i18n.global.locale, syncDocumentTitle)
 }
 
-app.mount('#app')
+// 等待 router 完成首航解析（Hash URL -> route），避免初始化逻辑在短暂的 "/" 状态下误重定向
+void router.isReady().then(() => {
+  app.mount('#app')
+})
 
 // 只在Vercel环境中加载Analytics
 // 当环境变量VITE_VERCEL_DEPLOYMENT为true时才尝试加载

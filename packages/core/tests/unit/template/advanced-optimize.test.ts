@@ -20,7 +20,6 @@ describe.skipIf(!RUN_REAL_API)('Advanced Optimize Template Real API Test', () =>
                      process.env.VITE_OPENAI_API_KEY || process.env.VITE_CUSTOM_API_KEY;
 
     if (!hasApiKey) {
-      console.log('跳过真实API测试 - 未设置API密钥');
       return;
     }
 
@@ -50,27 +49,17 @@ describe.skipIf(!RUN_REAL_API)('Advanced Optimize Template Real API Test', () =>
     const availableModel = models.find(m => m.enabled);
 
     if (!availableModel) {
-      console.log('跳过真实API测试 - 没有可用的模型');
       return;
     }
 
-    console.log(`\n使用模型: ${availableModel.name} (${availableModel.provider})`);
-    console.log('='.repeat(50));
-    console.log('原始输入: "你是一个诗人"');
-    console.log('='.repeat(50));
 
     const result = await promptService.optimizePrompt({
       optimizationMode: 'system',
       targetPrompt: '你是一个诗人',
       templateId: 'analytical-optimize',
-      modelKey: availableModel.key
+      modelKey: availableModel.id
     });
 
-    console.log('优化结果:');
-    console.log('-'.repeat(50));
-    console.log(result);
-    console.log('-'.repeat(50));
-    console.log('✅ 优化成功完成');
 
     expect(result).toBeDefined();
     expect(result.length).toBeGreaterThan(0);
