@@ -21,6 +21,7 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
       requiresApiKey: true,
       defaultBaseURL: 'https://api.openai.com/v1',
       supportsDynamicModels: false,
+      apiKeyUrl: 'https://platform.openai.com/api-keys',
       connectionSchema: {
         required: ['apiKey'],
         optional: ['baseURL'],
@@ -260,19 +261,22 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
     // 移除data URL前缀（如果存在）
     const cleanBase64 = base64.includes(',') ? base64.split(',')[1] : base64
     // 兼容浏览器与 Node/Electron：优先使用 atob；否则使用 Node 的 Buffer
-    let bytes: Uint8Array
     if (typeof atob === 'function') {
       const bin = atob(cleanBase64)
       const arr = new Uint8Array(bin.length)
       for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i)
-      bytes = arr
+      return new Blob([arr], { type: mimeType })
     } else if (typeof (globalThis as any).Buffer !== 'undefined') {
       const buf = (globalThis as any).Buffer.from(cleanBase64, 'base64')
-      bytes = new Uint8Array(buf)
+      // 创建新的 Uint8Array 并复制数据，确保使用普通 ArrayBuffer
+      const arr = new Uint8Array(buf.length)
+      for (let i = 0; i < buf.length; i++) {
+        arr[i] = buf[i]
+      }
+      return new Blob([arr], { type: mimeType })
     } else {
       throw new Error('Base64 decoding is not supported in this environment')
     }
-    return new Blob([bytes], { type: mimeType })
   }
 
   private async apiCall(config: ImageModelConfig, endpoint: string, options: any) {

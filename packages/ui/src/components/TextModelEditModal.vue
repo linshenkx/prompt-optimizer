@@ -3,7 +3,7 @@
     :show="show"
     preset="card"
     :style="{ width: '90vw', maxWidth: '1000px' }"
-    :title="modalTitle.value"
+    :title="modalTitle"
     size="large"
     :bordered="false"
     :segmented="true"
@@ -57,9 +57,31 @@
               </NSpace>
             </template>
 
+            <template v-if="field.name === 'apiKey'" #label>
+              <NSpace align="center" :size="4">
+                <span>{{ t('modelManager.apiKey') }}</span>
+                <NButton
+                  v-if="currentProviderApiKeyUrl"
+                  text
+                  size="tiny"
+                  type="primary"
+                  tag="a"
+                  :href="currentProviderApiKeyUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style="padding: 0 4px;"
+                  :title="t('modelManager.getApiKey')"
+                >
+                  <template #icon>
+                    <ExternalLinkIcon />
+                  </template>
+                </NButton>
+              </NSpace>
+            </template>
+
             <template v-if="field.type === 'string'">
               <NInput
-                v-model:value="form.connectionConfig[field.name]"
+                v-model:value="form.connectionConfig[field.name] as string"
                 :type="field.name.toLowerCase().includes('key') ? 'password' : 'text'"
                 :placeholder="field.placeholder"
                 :required="field.required"
@@ -68,13 +90,13 @@
             </template>
             <template v-else-if="field.type === 'number'">
               <NInputNumber
-                v-model:value="form.connectionConfig[field.name]"
+                v-model:value="form.connectionConfig[field.name] as number"
                 :placeholder="field.placeholder"
                 :required="field.required"
               />
             </template>
             <template v-else-if="field.type === 'boolean'">
-              <NCheckbox v-model:checked="form.connectionConfig[field.name]">
+              <NCheckbox v-model:checked="form.connectionConfig[field.name] as boolean">
                 {{ field.name }}
               </NCheckbox>
             </template>
@@ -202,6 +224,7 @@ import {
   NSpin
 } from 'naive-ui'
 import ModelAdvancedSection from './ModelAdvancedSection.vue'
+import ExternalLinkIcon from './icons/ExternalLinkIcon.vue'
 import type { TextModelManager } from '../composables/model/useTextModelManager'
 
 const { show } = defineProps({
@@ -240,6 +263,17 @@ const canTestFormConnection = manager.canTestFormConnection
 const isSaving = manager.isSaving
 
 const isEditing = computed(() => !!manager.editingModelId.value)
+
+// 获取当前选择的 Provider 的 API Key URL
+const currentProviderApiKeyUrl = computed(() => {
+  if (!form.value?.providerId) {
+    return null
+  }
+  
+  // 从 form 的 providerMeta 中获取 apiKeyUrl
+  const providerMeta = form.value?.providerMeta
+  return providerMeta?.apiKeyUrl || null
+})
 
 const handleUpdateShow = async (value: boolean) => {
   emit('update:show', value)

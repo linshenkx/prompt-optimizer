@@ -38,6 +38,28 @@
 
           <!-- 动态连接配置字段 -->
           <NFormItem v-for="field in connectionFields" :key="field.name" :label="t(field.labelKey)">
+            <template v-if="field.name === 'apiKey'" #label>
+              <NSpace align="center" :size="4">
+                <span>{{ t(field.labelKey) }}</span>
+                <NButton
+                  v-if="currentProviderApiKeyUrl"
+                  text
+                  size="tiny"
+                  type="primary"
+                  tag="a"
+                  :href="currentProviderApiKeyUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style="padding: 0 4px;"
+                  :title="t('modelManager.getApiKey')"
+                >
+                  <template #icon>
+                    <ExternalLinkIcon />
+                  </template>
+                </NButton>
+              </NSpace>
+            </template>
+
             <template v-if="field.type === 'string'">
               <NInput
                 v-model:value="configForm.connectionConfig![field.name]"
@@ -222,6 +244,7 @@ import { useImageModelManager } from '../composables/model/useImageModelManager'
 import { useToast } from '../composables/ui/useToast'
 import type { ImageModelConfig } from '@prompt-optimizer/core'
 import ModelAdvancedSection from './ModelAdvancedSection.vue'
+import ExternalLinkIcon from './icons/ExternalLinkIcon.vue'
 
 
 const { t } = useI18n()
@@ -280,6 +303,11 @@ const {
 
 // 计算属性
 const isEditing = computed(() => !!props.configId)
+
+// 获取当前选择的 Provider 的 API Key URL
+const currentProviderApiKeyUrl = computed(() => {
+  return selectedProvider.value?.apiKeyUrl || null
+})
 
 const providerOptions = computed(() =>
   providers.value.map(p => ({
@@ -426,7 +454,7 @@ const save = async () => {
     emit('saved')
     close()
   } catch (_error) {
-    console.error('保存配置失败:', error)
+    console.error('保存配置失败:', _error)
     toast.error(t('image.config.saveFailed'))
   }
 }

@@ -41,6 +41,7 @@ export class ZhipuAdapter extends OpenAIAdapter {
       requiresApiKey: true,
       defaultBaseURL: 'https://open.bigmodel.cn/api/paas/v4',
       supportsDynamicModels: true,
+      apiKeyUrl: 'https://open.bigmodel.cn/usercenter/apikeys',
       connectionSchema: {
         required: ['apiKey'],
         optional: ['baseURL'],

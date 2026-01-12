@@ -730,6 +730,7 @@ export default {
     defaultModel: "預設模型",
     clickToFetchModels: "點選箭頭取得模型清單",
     apiKey: "API金鑰",
+    getApiKey: "獲取API金鑰",
     addModel: "新增",
     addImageModel: "新增圖像模型",
 

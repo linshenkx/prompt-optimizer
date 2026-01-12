@@ -47,6 +47,7 @@ export class ModelScopeAdapter extends OpenAIAdapter {
       requiresApiKey: true,
       defaultBaseURL: 'https://api-inference.modelscope.cn/v1',
       supportsDynamicModels: true,
+      apiKeyUrl: 'https://modelscope.cn/my/myaccesstoken',
       connectionSchema: {
         required: ['apiKey'],
         optional: ['baseURL'],

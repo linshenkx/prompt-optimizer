@@ -1,4 +1,4 @@
-import { ref, computed, inject, watch } from 'vue'
+import { ref, computed, inject, watch, type Ref } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import { useToast } from '../ui/useToast'
@@ -24,6 +24,7 @@ interface TextModelForm {
   name: string
   enabled: boolean
   providerId: string
+  providerMeta?: TextProvider
   modelId: string
   connectionConfig: TextConnectionConfig
   paramOverrides: Record<string, unknown>
@@ -42,7 +43,7 @@ export function useTextModelManager() {
   const { t } = useI18n()
   const toast = useToast()
 
-  const services = inject<AppServices>('services')
+  const services = inject<Ref<AppServices>>('services')
   if (!services) {
     throw new Error('Services not provided!')
   }
@@ -50,6 +51,10 @@ export function useTextModelManager() {
   const modelManager = services.value.modelManager
   const llmService = services.value.llmService
   const textAdapterRegistry = services.value.textAdapterRegistry
+  
+  if (!modelManager || !llmService || !textAdapterRegistry) {
+    throw new Error('Required services not available!')
+  }
 
   const models = ref<TextModelConfig[]>([])
   const loadingModels = ref(false)
@@ -282,7 +287,8 @@ export function useTextModelManager() {
       toast.success(t('modelManager.enableSuccess'))
     } catch (error) {
       console.error('启用模型失败:', error)
-      toast.error(t('modelManager.enableFailed', { error: error.message }))
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      toast.error(t('modelManager.enableFailed', { error: errorMessage }))
     }
   }
 
@@ -295,7 +301,8 @@ export function useTextModelManager() {
       toast.success(t('modelManager.disableSuccess'))
     } catch (error) {
       console.error('禁用模型失败:', error)
-      toast.error(t('modelManager.disableFailed', { error: error.message }))
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      toast.error(t('modelManager.disableFailed', { error: errorMessage }))
     }
   }
 
@@ -306,7 +313,8 @@ export function useTextModelManager() {
       toast.success(t('modelManager.deleteSuccess'))
     } catch (error) {
       console.error('删除模型失败:', error)
-      toast.error(t('modelManager.deleteFailed', { error: error.message }))
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      toast.error(t('modelManager.deleteFailed', { error: errorMessage }))
     }
   }
 
@@ -343,6 +351,7 @@ export function useTextModelManager() {
 
     // 使用共享函数处理连接配置
     const providerMeta = providers.value.find(p => p.id === providerId)
+    form.value.providerMeta = providerMeta
     form.value.connectionConfig = computeConnectionConfig(
       form.value.connectionConfig,
       providerMeta,
@@ -499,7 +508,8 @@ export function useTextModelManager() {
       }
     } catch (error) {
       console.error('获取模型列表失败:', error)
-      toast.error(error instanceof Error ? error.message : 'Unknown error' || t('modelManager.loadFailed'))
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      toast.error(errorMessage || t('modelManager.loadFailed'))
       modelOptions.value = []
     } finally {
       isLoadingModelOptions.value = false

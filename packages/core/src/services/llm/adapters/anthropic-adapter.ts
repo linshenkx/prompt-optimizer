@@ -42,6 +42,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
       requiresApiKey: true,
       defaultBaseURL: 'https://api.anthropic.com',
       supportsDynamicModels: false, // Anthropic不支持动态模型获取
+      apiKeyUrl: 'https://console.anthropic.com/settings/keys',
       connectionSchema: {
         required: ['apiKey'],
         optional: ['baseURL'],
