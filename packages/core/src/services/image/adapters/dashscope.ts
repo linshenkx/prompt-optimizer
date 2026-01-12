@@ -37,7 +37,7 @@ export class DashScopeImageAdapter extends AbstractImageProviderAdapter {
       requiresApiKey: true,
       defaultBaseURL: 'https://dashscope.aliyuncs.com',
       supportsDynamicModels: false,
-      apiKeyUrl: 'https://bailian.console.aliyun.com/?apiKey=1#/api-key',
+      apiKeyUrl: 'https://bailian.console.aliyun.com/#/api-key',
       connectionSchema: {
         required: ['apiKey'],
         optional: ['baseURL'],

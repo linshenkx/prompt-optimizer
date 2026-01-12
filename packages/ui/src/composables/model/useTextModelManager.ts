@@ -1,4 +1,4 @@
-import { ref, computed, inject, watch } from 'vue'
+import { ref, computed, inject, watch, type Ref } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import { useToast } from '../ui/useToast'
@@ -43,14 +43,14 @@ export function useTextModelManager() {
   const { t } = useI18n()
   const toast = useToast()
 
-  const services = inject<AppServices>('services')
+  const services = inject<Ref<AppServices>>('services')
   if (!services) {
     throw new Error('Services not provided!')
   }
 
-  const modelManager = services.modelManager
-  const llmService = services.llmService
-  const textAdapterRegistry = services.textAdapterRegistry
+  const modelManager = services.value.modelManager
+  const llmService = services.value.llmService
+  const textAdapterRegistry = services.value.textAdapterRegistry
   
   if (!modelManager || !llmService || !textAdapterRegistry) {
     throw new Error('Required services not available!')
