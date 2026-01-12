@@ -5,12 +5,13 @@
  * - 从 session store 读取/写入 selectedOptimizeModelKey 和 selectedTestModelKey
  * - 刷新文本模型选项列表
  * - 提供 selectedTestModelInfo（用于测试区域显示）
- * - 自动设置默认值（fallback）
+ * - 自动设置默认值（fallback，单一真源：写回 session store）
+ * - 竞态保护（避免快速切换/刷新导致的旧请求覆盖新请求）
  *
  * @param services - AppServices 实例
  * @param sessionStore - Session store 实例（ProMultiMessageSession 或 ProVariableSession）
  */
-import { computed, ref, type Ref } from 'vue'
+import { computed, ref, watch, type Ref } from 'vue'
 import type { AppServices } from '../../types/services'
 import type { ModelSelectOption } from '../../types/select-options'
 import { DataTransformer } from '../../utils/data-transformer'
@@ -44,6 +45,16 @@ export function useWorkspaceModelSelection<T extends WorkspaceModelSessionStore>
     }
   })
 
+  // 优化模型信息（派生）
+  const selectedOptimizeModelInfo = computed(() => {
+    const key = selectedOptimizeModelKey.value
+    const option = textModelOptions.value.find(opt => opt.value === key)
+    return {
+      provider: option?.raw?.providerMeta?.name || null,
+      model: option?.raw?.modelMeta?.name || null
+    }
+  })
+
   // 测试模型信息（派生）
   const selectedTestModelInfo = computed(() => {
     const key = selectedTestModelKey.value
@@ -65,6 +76,10 @@ export function useWorkspaceModelSelection<T extends WorkspaceModelSessionStore>
 
     const token = ++refreshModelToken
     try {
+      if (typeof (mgr as any).ensureInitialized === 'function') {
+        await (mgr as any).ensureInitialized()
+      }
+
       const enabledModels = await mgr.getEnabledModels()
       if (token !== refreshModelToken) return
 
@@ -72,14 +87,14 @@ export function useWorkspaceModelSelection<T extends WorkspaceModelSessionStore>
 
       // 自动 fallback：如果当前选中模型不在列表中，使用第一个
       const fallback = textModelOptions.value[0]?.value || ''
-      const modelKeys = textModelOptions.value.map(opt => opt.value)
+      const modelKeys = new Set(textModelOptions.value.map(opt => opt.value))
 
       // 优化模型
-      if (selectedOptimizeModelKey.value && !modelKeys.includes(selectedOptimizeModelKey.value)) {
+      if (selectedOptimizeModelKey.value && !modelKeys.has(selectedOptimizeModelKey.value)) {
         selectedOptimizeModelKey.value = fallback
       }
       // 测试模型
-      if (selectedTestModelKey.value && !modelKeys.includes(selectedTestModelKey.value)) {
+      if (selectedTestModelKey.value && !modelKeys.has(selectedTestModelKey.value)) {
         selectedTestModelKey.value = fallback
       }
 
@@ -96,14 +111,20 @@ export function useWorkspaceModelSelection<T extends WorkspaceModelSessionStore>
     }
   }
 
-  // 监听 modelManager 变化
-  // 注意：不使用 immediate: true，避免在 session 恢复前执行
-  // 由组件在合适的时机调用 refreshTextModels
+  // 监听 modelManager 变化：与模板选择对齐（组件 ready 后自动刷新）
+  watch(
+    () => services.value?.modelManager,
+    () => {
+      void refreshTextModels()
+    },
+    { immediate: true }
+  )
 
   return {
     textModelOptions,
     selectedOptimizeModelKey,
     selectedTestModelKey,
+    selectedOptimizeModelInfo,
     selectedTestModelInfo,
     refreshTextModels
   }

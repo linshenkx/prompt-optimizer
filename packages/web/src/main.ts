@@ -41,7 +41,10 @@ if (typeof document !== 'undefined') {
   watch(i18n.global.locale, syncDocumentTitle)
 }
 
-app.mount('#app')
+// 等待 router 完成首航解析（Hash URL -> route），避免初始化逻辑在短暂的 "/" 状态下误重定向
+void router.isReady().then(() => {
+  app.mount('#app')
+})
 
 // 只在Vercel环境中加载Analytics
 // 当环境变量VITE_VERCEL_DEPLOYMENT为true时才尝试加载

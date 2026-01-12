@@ -1,24 +1,25 @@
 <template>
-    <NFlex
-        justify="space-between"
-        :style="{
-            display: 'flex',
-            flexDirection: 'row',
-            width: '100%',
-            height: '100%',
-            'max-height': '100%',
-            gap: '16px',
-        }"
-    >
-        <!-- 左侧：优化区域 -->
+    <div data-testid="workspace" data-mode="pro-multi" style="width: 100%; height: 100%">
         <NFlex
-            vertical
+            justify="space-between"
             :style="{
-                flex: 1,
-                overflow: 'auto',
+                display: 'flex',
+                flexDirection: 'row',
+                width: '100%',
                 height: '100%',
+                'max-height': '100%',
+                gap: '16px',
             }"
         >
+            <!-- 左侧：优化区域 -->
+            <NFlex
+                vertical
+                :style="{
+                    flex: 1,
+                    overflow: 'auto',
+                    height: '100%',
+                }"
+            >
             <!-- 会话管理器 (系统模式专属，也是消息输入界面) -->
             <NCard
                 :style="{ flexShrink: 0, overflow: 'auto' }"
@@ -147,42 +148,42 @@
             </NCard>
         </NFlex>
 
-        <!-- 右侧：测试区域 -->
-        <ConversationTestPanel
-            ref="testAreaPanelRef"
-            :style="{
-                flex: 1,
-                overflow: 'auto',
-                height: '100%',
-                minHeight: 0,
-            }"
-            :optimization-mode="optimizationMode"
-            :is-test-running="conversationTester.testResults.isTestingOriginal || conversationTester.testResults.isTestingOptimized"
-            :is-compare-mode="isCompareMode"
-            :enable-compare-mode="true"
-            @update:isCompareMode="emit('update:isCompareMode', $event)"
-            @compare-toggle="emit('compare-toggle')"
-            :model-name="props.testModelName"
-            :global-variables="globalVariables"
-            :predefined-variables="predefinedVariables"
-            :temporary-variables="tempVars.temporaryVariables.value"
-            :input-mode="inputMode"
-            :button-size="buttonSize"
-            :result-vertical-layout="resultVerticalLayout"
-            @test="handleTestWithVariables"
-            @open-variable-manager="emit('open-variable-manager')"
-            @open-global-variables="emit('open-global-variables')"
-            @variable-change="handleVariableChange"
-            @save-to-global="(name: string, value: string) => emit('save-to-global', name, value)"
-            @temporary-variable-remove="handleVariableRemove"
-            @temporary-variables-clear="handleVariablesClear"
-            v-bind="evaluationHandler.testAreaEvaluationProps.value"
-            @evaluate-original="evaluationHandler.handlers.onEvaluateOriginal"
-            @evaluate-optimized="evaluationHandler.handlers.onEvaluateOptimized"
-            @show-original-detail="evaluationHandler.handlers.onShowOriginalDetail"
-            @show-optimized-detail="evaluationHandler.handlers.onShowOptimizedDetail"
-            @apply-improvement="handleApplyImprovement"
-        >
+            <!-- 右侧：测试区域 -->
+            <ConversationTestPanel
+                ref="testAreaPanelRef"
+                :style="{
+                    flex: 1,
+                    overflow: 'auto',
+                    height: '100%',
+                    minHeight: 0,
+                }"
+                :optimization-mode="optimizationMode"
+                :is-test-running="conversationTester.testResults.isTestingOriginal || conversationTester.testResults.isTestingOptimized"
+                :is-compare-mode="isCompareMode"
+                :enable-compare-mode="true"
+                @update:isCompareMode="emit('update:isCompareMode', $event)"
+                @compare-toggle="emit('compare-toggle')"
+                :model-name="props.testModelName"
+                :global-variables="globalVariables"
+                :predefined-variables="predefinedVariables"
+                :temporary-variables="tempVars.temporaryVariables.value"
+                :input-mode="inputMode"
+                :button-size="buttonSize"
+                :result-vertical-layout="resultVerticalLayout"
+                @test="handleTestWithVariables"
+                @open-variable-manager="emit('open-variable-manager')"
+                @open-global-variables="emit('open-global-variables')"
+                @variable-change="handleVariableChange"
+                @save-to-global="(name: string, value: string) => emit('save-to-global', name, value)"
+                @temporary-variable-remove="handleVariableRemove"
+                @temporary-variables-clear="handleVariablesClear"
+                v-bind="evaluationHandler.testAreaEvaluationProps.value"
+                @evaluate-original="evaluationHandler.handlers.onEvaluateOriginal"
+                @evaluate-optimized="evaluationHandler.handlers.onEvaluateOptimized"
+                @show-original-detail="evaluationHandler.handlers.onShowOriginalDetail"
+                @show-optimized-detail="evaluationHandler.handlers.onShowOptimizedDetail"
+                @apply-improvement="handleApplyImprovement"
+            >
             <!-- 模型选择插槽 -->
             <template #model-select>
                 <SelectWithConfig
@@ -229,10 +230,11 @@
                     :style="{ height: '100%', minHeight: '0' }"
                 />
             </template>
-        </ConversationTestPanel>
+            </ConversationTestPanel>
 
-        <!-- 评估详情面板已移至 App 顶层统一管理，避免双套 evaluation 实例导致行为不一致 -->
-    </NFlex>
+            <!-- 评估详情面板已移至 App 顶层统一管理，避免双套 evaluation 实例导致行为不一致 -->
+        </NFlex>
+    </div>
 </template>
 
 <script setup lang="ts">

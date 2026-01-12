@@ -319,6 +319,7 @@ import { useImageText2ImageSession } from '../../stores/session/useImageText2Ima
 import { useImageImage2ImageSession } from '../../stores/session/useImageImage2ImageSession'
 import { useGlobalSettings, type GlobalSettingsApi } from '../../stores/settings/useGlobalSettings'
 
+
 // Data Transformation
 import { DataTransformer } from '../../utils/data-transformer'
 
@@ -427,12 +428,18 @@ const routeBasicSubMode = computed<BasicSubMode>(() => parseRouteInfo().basicSub
 const routeProSubMode = computed<ProSubMode>(() => parseRouteInfo().proSubMode)
 const routeImageSubMode = computed<ImageSubMode>(() => parseRouteInfo().imageSubMode)
 
-// 🔧 路由纠错 watch：已禁用
-// 路由验证和重定向已移至路由守卫（beforeRouteSwitch），避免双重验证导致冲突
+// ========== GlobalSettings 初始化 Gate（避免 restore 前渲染/纠错） ==========
+// 目的：确保 PreferenceService 注入后先 restoreGlobalSettings，再允许 UI 渲染/执行部分 watch
+let _routeInitInFlight: Promise<void> | null = null
+const routeInitialized = ref(false)  // 🔧 标记路由初始化完成，防止过早渲染
+
+// 🔧 路由纠错 watch：不再负责重定向（仅用于解析/同步路由信息）
+// - 非根路径的“纠错/兼容重定向”由路由守卫（beforeRouteSwitch）处理
+// - 根路径（/）的初始工作区跳转由 RootBootstrapRoute 处理
 watch(
   () => routerInstance.currentRoute.value.path,
   (currentPath) => {
-    // 根路径由 useGlobalSettings 驱动初始化路由，不在此处强制纠错
+    // 根路径（/）由 RootBootstrapRoute 负责等待 globalSettings 初始化后跳转，不在此处纠错
     if (currentPath === '/' || currentPath === '') return
 
     // ✅ 路由初始化完成前不进行纠错，避免干扰初始化过程
@@ -442,56 +449,6 @@ watch(
   },
   { immediate: true }  // 立即检查一次
 )
-
-// ========== GlobalSettings ⇢ 初始路由（仅在根路径时生效） ==========
-let _routeInitInFlight: Promise<void> | null = null
-const routeInitialized = ref(false)  // 🔧 标记路由初始化完成，防止过早渲染
-
-const initializeRouteFromGlobalSettings = async (globalSettings: GlobalSettingsApi) => {
-  const currentPath = routerInstance.currentRoute.value.path
-
-  // ✅ 等待 globalSettings 恢复完成（双保险：调用方通常已 await restore）
-  if (!globalSettings.isInitialized) {
-    await new Promise<void>((resolve) => {
-      const unwatch = watch(
-        () => globalSettings.isInitialized,
-        (initialized) => {
-          if (initialized) {
-            unwatch()
-            resolve()
-          }
-        },
-        { immediate: true }
-      )
-    })
-  }
-
-  // ✅ 只在根路径时根据 globalSettings 初始化路由
-  if (currentPath === '/' || currentPath === '') {
-    const { functionMode, basicSubMode, proSubMode, imageSubMode } = globalSettings.state
-
-    let initialRoute = '/basic/system'
-    switch (functionMode) {
-      case 'basic':
-        initialRoute = `/basic/${basicSubMode}`
-        break
-      case 'pro':
-        initialRoute = `/pro/${proSubMode}`
-        break
-      case 'image':
-        initialRoute = `/image/${imageSubMode}`
-        break
-    }
-
-    if (routerInstance.currentRoute.value.path !== initialRoute) {
-      console.log(`[PromptOptimizerApp] 初始化路由: ${initialRoute}`)
-      await routerInstance.replace(initialRoute)
-    }
-  }
-
-  // 🔧 标记路由初始化完成（任何路径访问时都设置）
-  routeInitialized.value = true
-}
 
 // ========== 路由 ⇢ GlobalSettings（仅记录，不反向驱动路由） ==========
 watch(
@@ -538,12 +495,16 @@ watch(
                 setI18nServices(newServices);
                 setPiniaServices(newServices);
                 // Phase 1：恢复全局配置 Store（global-settings/v1），并从旧 UI_SETTINGS_KEYS 迁移（若为空）
-              // 同时基于 globalSettings 决定初始路由（仅根路径时生效）
+              // 根路径（/）的初始工作区跳转由 RootBootstrapRoute 处理：
+              // - 等待 globalSettings 恢复完成
+              // - 仅当仍停留在 / 时才 redirect，避免覆盖显式导航（E2E/用户点击）
               if (!_routeInitInFlight) {
                 _routeInitInFlight = (async () => {
                   const globalSettings = useGlobalSettings()
                   await globalSettings.restoreGlobalSettings()
-                  await initializeRouteFromGlobalSettings(globalSettings)
+
+                  // 标记路由初始化完成（允许 UI 渲染）
+                  routeInitialized.value = true
                 })()
               }
               await _routeInitInFlight
@@ -1468,7 +1429,7 @@ watch(
 // 🔧 已清理：optimizationContext 现在由 ProWorkspaceContainer 直接管理
 // 避免在 App 层写入导致双写或污染（刷新后易写入空值）
 
-// 同步 contextManagement 中的 contextMode
+// 同步 contextManagement 中的 contextMode 到 App 层（不驱动路由）
 watch(
     contextManagement.contextMode,
     async (newMode) => {
@@ -1477,13 +1438,21 @@ watch(
         evaluation.clearAllResults();
 
         contextMode.value = newMode;
+    },
+    { immediate: true },
+);
 
-        // 🔧 Step D 修复：使用 router.push 而非 setProSubMode
-        // 只有在 Pro 模式下才导航（避免其他模式触发不必要的路由变化）
-        if (routeFunctionMode.value === "pro") {
-            // newMode 已经是合法的 'system' | 'user'
-            const targetSubMode = newMode === 'system' ? 'multi' : 'variable';
-            navigateToSubModeKey(`pro-${targetSubMode}` as SubModeKey);
+// Pro 模式下：以路由为真源，同步 services/contextManagement 的 contextMode
+// 目的：避免“持久化/默认 contextMode”反向覆盖显式路由（E2E 会直接 goto /#/pro/variable）
+watch(
+    [services, () => routeFunctionMode.value, () => routeProSubMode.value],
+    async ([newServices, functionMode, proSubMode]) => {
+        if (!newServices) return;
+        if (functionMode !== "pro") return;
+
+        const desiredContextMode = proSubMode === "multi" ? "system" : "user";
+        if (contextManagement.contextMode.value !== desiredContextMode) {
+            await handleContextModeChange(desiredContextMode);
         }
     },
     { immediate: true },
@@ -1646,14 +1615,6 @@ const refreshTextModels = async () => {
         textModelOptions.value = [];
     }
 };
-
-watch(
-    () => services.value?.templateManager,
-    async (manager) => {
-        void manager
-    },
-    { immediate: true },
-);
 
 watch(
     () => services.value?.modelManager,

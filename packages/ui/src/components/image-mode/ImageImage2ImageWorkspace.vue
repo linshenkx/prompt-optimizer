@@ -1126,12 +1126,13 @@ import { OptionAccessors } from "../../utils/data-transformer";
 import type { AppServices } from "../../types/services";
 import { useFullscreen } from "../../composables/ui/useFullscreen";
 import FullscreenDialog from "../FullscreenDialog.vue";
-import type { ModelSelectOption, SelectOption } from "../../types/select-options";
+import type { SelectOption } from "../../types/select-options";
 import { useToast } from "../../composables/ui/useToast";
 import { useImageImage2ImageSession } from '../../stores/session/useImageImage2ImageSession'
 import { useImageGeneration } from '../../composables/image/useImageGeneration'
 import { useEvaluationHandler } from '../../composables/prompt/useEvaluationHandler'
 import { useWorkspaceTemplateSelection } from '../../composables/workspaces/useWorkspaceTemplateSelection'
+import { useWorkspaceTextModelSelection } from '../../composables/workspaces/useWorkspaceTextModelSelection'
 import {
     type ImageModelConfig,
     type ImageRequest,
@@ -1216,10 +1217,9 @@ const optimizedReasoning = computed<string>({
     },
 })
 
-const selectedTextModelKey = computed<string>({
-    get: () => session.selectedTextModelKey || '',
-    set: (value) => session.updateTextModel(value || ''),
-})
+// Text 模型选择（与模板选择对齐：自动刷新 + 兜底写回 session store）
+const modelSelection = useWorkspaceTextModelSelection(services, session)
+const selectedTextModelKey = modelSelection.selectedTextModelKey
 
 const selectedImageModelKey = computed<string>({
     get: () => session.selectedImageModelKey || '',
@@ -1294,7 +1294,7 @@ const selectedIterateTemplate = computed<Template | null>({
 })
 
 // 模型选项
-const textModelOptions = ref<ModelSelectOption[]>([])
+const textModelOptions = modelSelection.textModelOptions
 const imageModelOptions = ref<SelectOption<ImageModelConfig>[]>([])
 
 // 选中图像模型的Provider/Model信息
@@ -1588,43 +1588,6 @@ if (typeof window !== "undefined") {
     );
 }
 
-const refreshTextModels = async () => {
-    if (!modelManager.value) {
-        textModelOptions.value = []
-        return
-    }
-
-    try {
-        const manager = modelManager.value
-        await manager.ensureInitialized()
-
-        const textModels = await manager.getEnabledModels()
-        textModelOptions.value = textModels.map(m => ({
-            label: `${m.name} (${m.providerMeta.name})`,
-            primary: m.name,
-            secondary: m.providerMeta.name ?? 'Unknown',
-            value: m.id,
-            raw: m,
-        }))
-
-        if (!textModels.length) {
-            return
-        }
-
-        const currentKey = selectedTextModelKey.value
-        const keys = new Set(textModels.map(m => m.id))
-        const fallback = textModels[0]?.id || ''
-
-        const needsFallback = (!currentKey && fallback) || (currentKey && !keys.has(currentKey))
-        if (needsFallback) {
-            selectedTextModelKey.value = fallback
-        }
-    } catch (error) {
-        console.error('[ImageImage2ImageWorkspace] Failed to refresh text models:', error)
-        textModelOptions.value = []
-    }
-}
-
 const refreshImageModels = async () => {
     try {
         await loadImageModels()
@@ -1916,7 +1879,7 @@ const downloadImageFromResult = async (imageItem: ImageResultItem | null | undef
 // 初始化
 const initialize = async () => {
     try {
-        await refreshTextModels()
+        await modelSelection.refreshTextModels()
         await refreshImageModels()
         await templateSelection.refreshOptimizeTemplates()
         await templateSelection.refreshIterateTemplates()
@@ -1934,7 +1897,7 @@ const refreshIterateHandler = async () => {
 // 文本模型刷新事件处理器（模型管理器关闭后同步刷新）
 const refreshTextModelsHandler = async () => {
     try {
-        await refreshTextModels();
+        await modelSelection.refreshTextModels();
     } catch (e) {
         console.warn(
             "[ImageImage2ImageWorkspace] Failed to refresh text models after manager close:",

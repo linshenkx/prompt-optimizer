@@ -3,51 +3,54 @@ import { test, expect } from '../fixtures'
 type ModeCase = {
   name: string
   route: string
-  templateLabel: RegExp
+  modelLabel: RegExp
   switchTo: string
   workspaceMode: string
 }
+
+const LABEL_OPTIMIZATION_MODEL = /优化模型|Optimization Model/i
+const LABEL_TEXT_MODEL = /Text Model|文本模型/i
 
 const MODE_CASES: ModeCase[] = [
   {
     name: 'basic-system',
     route: '/#/basic/system',
-    templateLabel: /优化提示词模板|Optimization Template/i,
+    modelLabel: LABEL_OPTIMIZATION_MODEL,
     switchTo: '/#/pro/variable',
     workspaceMode: 'basic-system',
   },
   {
     name: 'basic-user',
     route: '/#/basic/user',
-    templateLabel: /优化提示词模板|Optimization Template/i,
+    modelLabel: LABEL_OPTIMIZATION_MODEL,
     switchTo: '/#/pro/variable',
     workspaceMode: 'basic-user',
   },
   {
     name: 'pro-multi',
     route: '/#/pro/multi',
-    templateLabel: /优化提示词模板|Optimization Template/i,
+    modelLabel: LABEL_OPTIMIZATION_MODEL,
     switchTo: '/#/image/text2image',
     workspaceMode: 'pro-multi',
   },
   {
     name: 'pro-variable',
     route: '/#/pro/variable',
-    templateLabel: /优化提示词模板|Optimization Template/i,
+    modelLabel: LABEL_OPTIMIZATION_MODEL,
     switchTo: '/#/image/text2image',
     workspaceMode: 'pro-variable',
   },
   {
     name: 'image-text2image',
     route: '/#/image/text2image',
-    templateLabel: /优化模板|Optimization Template/i,
+    modelLabel: LABEL_TEXT_MODEL,
     switchTo: '/#/basic/user',
     workspaceMode: 'image-text2image',
   },
   {
     name: 'image-image2image',
     route: '/#/image/image2image',
-    templateLabel: /优化模板|Optimization Template/i,
+    modelLabel: LABEL_TEXT_MODEL,
     switchTo: '/#/basic/user',
     workspaceMode: 'image-image2image',
   },
@@ -55,13 +58,6 @@ const MODE_CASES: ModeCase[] = [
 
 function normalizeText(text: string | null | undefined): string {
   return String(text || '').replace(/\s+/g, ' ').trim()
-}
-
-async function gotoMode(page: any, route: string) {
-  await page.goto('/')
-  await page.waitForLoadState('networkidle')
-  await page.goto(route)
-  await page.waitForLoadState('networkidle')
 }
 
 function workspaceModeFromRoute(route: string): string {
@@ -72,6 +68,13 @@ function workspaceModeFromRoute(route: string): string {
   if (route.includes('/#/image/text2image')) return 'image-text2image'
   if (route.includes('/#/image/image2image')) return 'image-image2image'
   return ''
+}
+
+async function gotoMode(page: any, route: string) {
+  await page.goto('/')
+  await page.waitForLoadState('networkidle')
+  await page.goto(route)
+  await page.waitForLoadState('networkidle')
 }
 
 async function waitForWorkspace(page: any, mode: string) {
@@ -96,8 +99,6 @@ async function openSelectAndWaitForOptions(page: any, select: any) {
 
   await select.click()
 
-  // Naive UI Select options are rendered in a portal and may appear after async options load.
-  // Retry once to reduce flakiness when the first click happens before options are ready.
   const ensureOptionsVisible = async () => {
     await expect
       .poll(async () => await optionLocator.count(), { timeout: 20000 })
@@ -128,44 +129,42 @@ async function expectSelectionEquals(page: any, select: any, expected: string) {
     .toBe(normalizeText(expected))
 }
 
-test.describe('Template default selection + cross-mode persistence', () => {
+test.describe('Model default selection + cross-mode persistence', () => {
   for (const c of MODE_CASES) {
-    test(`${c.name}: first open selects first template by default`, async ({ page }) => {
+    test(`${c.name}: first open selects first model by default`, async ({ page }) => {
       await gotoMode(page, c.route)
       await waitForWorkspace(page, c.workspaceMode)
 
-      const templateSelect = await getSelectByLabel(page, c.templateLabel)
-      const options = await openSelectAndGetOptions(page, templateSelect)
+      const modelSelect = await getSelectByLabel(page, c.modelLabel)
+      const options = await openSelectAndGetOptions(page, modelSelect)
 
       expect(options.length).toBeGreaterThan(0)
       const first = options[0]
 
-      await expectSelectionEquals(page, templateSelect, first)
+      await expectSelectionEquals(page, modelSelect, first)
     })
   }
 
   for (const c of MODE_CASES) {
-    test(`${c.name}: selecting last template persists across mode switch + reload + back`, async ({ page }) => {
+    test(`${c.name}: selecting last model persists across mode switch + reload + back`, async ({ page }) => {
       await gotoMode(page, c.route)
       await waitForWorkspace(page, c.workspaceMode)
 
-      const templateSelect = await getSelectByLabel(page, c.templateLabel)
-      // Open and select the last option (avoid relying on a cached index across opens)
-      const optionLocator = await openSelectAndWaitForOptions(page, templateSelect)
+      const modelSelect = await getSelectByLabel(page, c.modelLabel)
+      const optionLocator = await openSelectAndWaitForOptions(page, modelSelect)
 
       const count = await optionLocator.count()
       expect(count).toBeGreaterThan(0)
       if (count < 2) {
-        test.skip(true, `${c.name} has only one template option`)
+        test.skip(true, `${c.name} has only one model option`)
       }
 
       const lastOption = optionLocator.nth(count - 1)
       const last = normalizeText(await lastOption.textContent())
       await lastOption.click()
 
-      await expectSelectionEquals(page, templateSelect, last)
+      await expectSelectionEquals(page, modelSelect, last)
 
-      // Switch to another mode, reload, then switch back
       await page.goto(c.switchTo)
       await page.waitForLoadState('networkidle')
       await waitForWorkspace(page, workspaceModeFromRoute(c.switchTo))
@@ -178,8 +177,8 @@ test.describe('Template default selection + cross-mode persistence', () => {
       await page.waitForLoadState('networkidle')
       await waitForWorkspace(page, c.workspaceMode)
 
-      const templateSelectAfter = await getSelectByLabel(page, c.templateLabel)
-      await expectSelectionEquals(page, templateSelectAfter, last)
+      const modelSelectAfter = await getSelectByLabel(page, c.modelLabel)
+      await expectSelectionEquals(page, modelSelectAfter, last)
     })
   }
 })

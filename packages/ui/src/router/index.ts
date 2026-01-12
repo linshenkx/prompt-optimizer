@@ -1,6 +1,6 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
-import { defineComponent, h } from 'vue'
 import { beforeRouteSwitch } from './guards'
+import RootBootstrapRoute from './RootBootstrapRoute'
 
 /**
  * Vue Router 配置
@@ -14,12 +14,9 @@ import { beforeRouteSwitch } from './guards'
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    // 根路径不再强制 redirect：由 PromptOptimizerApp 基于 useGlobalSettings 决定初始路由
+    // 根路径重定向由 RootBootstrapRoute 处理：等待 globalSettings 恢复完成后决定初始工作区
     name: 'root',
-    component: defineComponent({
-      name: 'RootBootstrapRoute',
-      render: () => h('div')
-    })
+    component: RootBootstrapRoute
   },
   // ✨ Basic 模式重构：2 个独立路由
   {

@@ -24,4 +24,8 @@ if (typeof document !== 'undefined') {
   watch(i18n.global.locale, syncDocumentTitle)
 }
 
-app.mount('#app')
+// 等待 router 完成首航解析（Hash URL -> route），避免初始化逻辑在短暂的 "/" 状态下误重定向
+// ⚠️ Extension 环境也可能通过 hash 直接进入工作区路由（例如 E2E/开发调试）
+void router.isReady().then(() => {
+  app.mount('#app')
+})

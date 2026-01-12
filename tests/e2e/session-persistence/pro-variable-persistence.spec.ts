@@ -3,173 +3,91 @@ import { test, expect } from '../fixtures'
 /**
  * Pro Variable 模式 - Session 持久化测试
  *
- * 测试场景：
- * 1. 切换优化模型后刷新，验证选择是否保留
- * 2. 切换模板后刷新，验证选择是否保留
+ * 注意：当前 session 使用 PreferenceService（IndexedDB 等）持久化，
+ * 不再依赖 localStorage，因此测试应以 UI 状态为准。
  */
 test.describe('Pro Variable - Session Persistence', () => {
-  test('切换优化模型后刷新页面，选择应该保留', async ({ page }) => {
-    // 1. 导航到 pro/variable
+  const normalizeText = (text: string | null | undefined) =>
+    String(text || '').replace(/\s+/g, ' ').trim()
+
+  const gotoMode = async (page: any, route: string) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await page.goto('/#/pro/variable')
+    await page.goto(route)
     await page.waitForLoadState('networkidle')
-    await page.waitForTimeout(2000) // 等待数据加载
+    await page.waitForTimeout(1500)
+  }
 
-    // 2. 获取初始的优化模型选择
-    const initialModel = await page.evaluate(() => {
-      const data = localStorage.getItem('session/v1/pro-variable')
-      if (data) {
-        const parsed = JSON.parse(data)
-        return parsed.selectedOptimizeModelKey || ''
-      }
-      return ''
-    })
-    console.log(`初始优化模型: ${initialModel || '(未设置)'}`)
+  const getSelectByLabel = async (page: any, label: RegExp) => {
+    const labelEl = page.getByText(label).first()
+    await expect(labelEl).toBeVisible({ timeout: 20000 })
 
-    // 3. 找到优化模型下拉框并切换
-    const modelLabel = page.getByText(/优化模型|Optimization Model/i).first()
-    await expect(modelLabel).toBeVisible({ timeout: 15000 })
-
-    const container = modelLabel.locator('xpath=ancestor::*[.//div[contains(@class,"n-base-selection")]][1]')
+    const container = labelEl.locator(
+      'xpath=ancestor::*[.//div[contains(@class,"n-base-selection")]][1]'
+    )
     const select = container.locator('.n-base-selection').first()
+    await expect(select).toBeVisible({ timeout: 20000 })
+    return select
+  }
+
+  test('切换优化模型后刷新页面，选择应该保留', async ({ page }) => {
+    await gotoMode(page, '/#/pro/variable')
+
+    const select = await getSelectByLabel(page, /优化模型|Optimization Model/i)
     await select.click()
-    await page.waitForTimeout(500)
 
-    // 获取所有选项
-    const options = await page.locator('.n-base-select-option').allTextContents()
-    console.log(`可用模型选项: ${options.length} 个`)
-    expect(options.length).toBeGreaterThan(0)
+    const optionLocator = page.locator('.n-base-select-option')
+    await expect(optionLocator.first()).toBeVisible({ timeout: 20000 })
 
-    // 记录要切换到的模型（选择第二个选项，如果存在）
-    const targetModelIndex = options.length > 1 ? 1 : 0
-    const targetModel = options[targetModelIndex]
+    const count = await optionLocator.count()
+    expect(count).toBeGreaterThan(0)
+    if (count < 2) test.skip(true, 'only one model option')
 
-    if (targetModelIndex === 0) {
-      console.log('⚠️ 只有一个模型选项，跳过切换测试')
-      return
-    }
+    const target = normalizeText(await optionLocator.nth(1).textContent())
+    await optionLocator.nth(1).click()
 
-    // 点击第二个选项
-    await page.locator('.n-base-select-option').nth(targetModelIndex).click()
-    console.log(`切换到模型: ${targetModel}`)
-    await page.waitForTimeout(1000)
+    await expect
+      .poll(async () => normalizeText(await select.textContent()), { timeout: 20000 })
+      .toBe(target)
 
-    // 4. 验证内存中的选择已更新
-    const currentModel = await page.evaluate(() => {
-      const data = localStorage.getItem('session/v1/pro-variable')
-      if (data) {
-        const parsed = JSON.parse(data)
-        return {
-          model: parsed.selectedOptimizeModelKey || '',
-          lastActive: parsed.lastActiveAt || 0
-        }
-      }
-      return { model: '', lastActive: 0 }
-    })
-
-    // 注意：由于没有立即保存，这里可能还是旧值
-    console.log(`切换后的存储状态: ${currentModel.model || '(未保存)'}`)
-
-    // 5. 刷新页面
     await page.reload()
     await page.waitForLoadState('networkidle')
-    await page.waitForTimeout(2000) // 等待恢复完成
+    await page.waitForTimeout(1500)
 
-    // 6. 验证刷新后的选择
-    const restoredModel = await page.evaluate(() => {
-      const data = localStorage.getItem('session/v1/pro-variable')
-      if (data) {
-        const parsed = JSON.parse(data)
-        return parsed.selectedOptimizeModelKey || ''
-      }
-      return ''
-    })
-    console.log(`刷新后的优化模型: ${restoredModel || '(未设置)'}`)
-
-    // 通过 UI 验证当前选中的模型
-    const restoredLabel = await page.evaluate(() => {
-      const selection = document.querySelector('.n-base-selection')
-      return selection ? selection.textContent : ''
-    })
-    console.log(`UI 显示的模型: ${restoredLabel}`)
-
-    // 判断是否持久化成功
-    if (restoredModel && restoredModel !== initialModel) {
-      console.log('✅ 持久化成功：模型选择已保留')
-    } else if (!restoredModel || restoredModel === initialModel) {
-      console.log('❌ 持久化失败：模型选择未保留')
-    }
+    const selectAfter = await getSelectByLabel(page, /优化模型|Optimization Model/i)
+    await expect
+      .poll(async () => normalizeText(await selectAfter.textContent()), { timeout: 20000 })
+      .toBe(target)
   })
 
   test('切换模板后刷新页面，选择应该保留', async ({ page }) => {
-    // 1. 导航到 pro/variable
-    await page.goto('/')
-    await page.waitForLoadState('networkidle')
-    await page.goto('/#/pro/variable')
-    await page.waitForLoadState('networkidle')
-    await page.waitForTimeout(2000)
+    await gotoMode(page, '/#/pro/variable')
 
-    // 2. 获取初始的模板选择
-    const initialTemplate = await page.evaluate(() => {
-      const data = localStorage.getItem('session/v1/pro-variable')
-      if (data) {
-        const parsed = JSON.parse(data)
-        return parsed.selectedTemplateId || ''
-      }
-      return ''
-    })
-    console.log(`初始模板: ${initialTemplate || '(未设置)'}`)
-
-    // 3. 找到模板下拉框并切换
-    const templateLabel = page.getByText(/优化提示词模板|Optimization Template/i).first()
-    await expect(templateLabel).toBeVisible({ timeout: 15000 })
-
-    const container = templateLabel.locator('xpath=ancestor::*[.//div[contains(@class,"n-base-selection")]][1]')
-    const select = container.locator('.n-base-selection').first()
+    const select = await getSelectByLabel(page, /优化提示词模板|Optimization Template/i)
     await select.click()
-    await page.waitForTimeout(500)
 
-    // 获取所有选项
-    const options = await page.locator('.n-base-select-option').allTextContents()
-    console.log(`可用模板选项: ${options.length} 个`)
-    expect(options.length).toBeGreaterThan(0)
+    const optionLocator = page.locator('.n-base-select-option')
+    await expect(optionLocator.first()).toBeVisible({ timeout: 20000 })
 
-    // 记录要切换到的模板（选择第二个选项，如果存在）
-    const targetIndex = options.length > 1 ? 1 : 0
-    const targetTemplate = options[targetIndex]
+    const count = await optionLocator.count()
+    expect(count).toBeGreaterThan(0)
+    if (count < 2) test.skip(true, 'only one template option')
 
-    if (targetIndex === 0) {
-      console.log('⚠️ 只有一个模板选项，跳过切换测试')
-      return
-    }
+    const target = normalizeText(await optionLocator.nth(1).textContent())
+    await optionLocator.nth(1).click()
 
-    // 点击第二个选项
-    await page.locator('.n-base-select-option').nth(targetIndex).click()
-    console.log(`切换到模板: ${targetTemplate}`)
-    await page.waitForTimeout(1000)
+    await expect
+      .poll(async () => normalizeText(await select.textContent()), { timeout: 20000 })
+      .toBe(target)
 
-    // 4. 刷新页面
     await page.reload()
     await page.waitForLoadState('networkidle')
-    await page.waitForTimeout(2000)
+    await page.waitForTimeout(1500)
 
-    // 5. 验证刷新后的选择
-    const restoredTemplate = await page.evaluate(() => {
-      const data = localStorage.getItem('session/v1/pro-variable')
-      if (data) {
-        const parsed = JSON.parse(data)
-        return parsed.selectedTemplateId || ''
-      }
-      return ''
-    })
-    console.log(`刷新后的模板: ${restoredTemplate || '(未设置)'}`)
-
-    // 判断是否持久化成功
-    if (restoredTemplate && restoredTemplate !== initialTemplate) {
-      console.log('✅ 持久化成功：模板选择已保留')
-    } else if (!restoredTemplate || restoredTemplate === initialTemplate) {
-      console.log('❌ 持久化失败：模板选择未保留')
-    }
+    const selectAfter = await getSelectByLabel(page, /优化提示词模板|Optimization Template/i)
+    await expect
+      .poll(async () => normalizeText(await selectAfter.textContent()), { timeout: 20000 })
+      .toBe(target)
   })
 })
+
