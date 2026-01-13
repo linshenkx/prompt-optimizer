@@ -55,59 +55,41 @@ test.describe('分类管理完整流程', () => {
     await waitForModalClose(page);
 
     // 1. 打开收藏管理器
-    const favoriteButton = page.getByRole('button', { name: /收藏|favorite/i });
-    if (await favoriteButton.count() === 0) {
-      return null;
-    }
-    await favoriteButton.first().click();
+    const favoriteButton = page.getByRole('button', { name: /收藏|favorite/i }).first();
+    await expect(favoriteButton).toBeVisible();
+    await favoriteButton.click();
     await page.waitForTimeout(500);
 
     const managerDialog = page.locator('[role="dialog"]').filter({ hasText: /收藏|Favorites/i }).first();
     await expect(managerDialog).toBeVisible();
 
     // 2. 打开更多菜单
-    const moreButton = managerDialog.getByRole('button').filter({
-      has: page.locator('svg, .n-icon')
-    }).first();
-
-    if (await moreButton.count() === 0) {
-      return null;
-    }
-
+    const moreButton = managerDialog.getByTestId('favorites-manager-actions');
+    await expect(moreButton).toBeVisible();
     await moreButton.click();
     await page.waitForTimeout(300);
 
     // 3. 点击分类管理选项
-    const categoryManagerOption = page.locator('text=/分类管理|Category Management/i');
-    if (await categoryManagerOption.count() === 0) {
-      return null;
-    }
-
+    const categoryManagerOption = page.getByTestId('favorites-manager-action-manage-categories');
+    await expect(categoryManagerOption).toBeVisible();
     await categoryManagerOption.click();
     await page.waitForTimeout(500);
 
     // 4. 返回分类管理器对话框
-    const categoryDialog = page.locator('[role="dialog"]').filter({ hasText: /分类|Category/i }).last();
-    if (await categoryDialog.isVisible().catch(() => false)) {
-      return categoryDialog;
-    }
-
-    return null;
+    const categoryDialog = page
+      .locator('[role="dialog"]')
+      .filter({ hasText: /分类管理|Category Manager|Category Management/i })
+      .last();
+    await expect(categoryDialog).toBeVisible();
+    return categoryDialog;
   }
 
   test('分类创建功能（含颜色选择）', async ({ page }) => {
     const categoryDialog = await openCategoryManager(page);
-    if (!categoryDialog) {
-      test.skip();
-      return;
-    }
 
     // 查找添加分类按钮
-    const addButton = categoryDialog.getByRole('button', { name: /添加|新建|创建|add|create/i });
-    if (await addButton.count() === 0) {
-      test.skip();
-      return;
-    }
+    const addButton = categoryDialog.getByRole('button', { name: /添加|新建|创建|add|create/i }).first();
+    await expect(addButton).toBeVisible();
 
     await addButton.click();
     await page.waitForTimeout(300);
@@ -167,10 +149,6 @@ test.describe('分类管理完整流程', () => {
 
   test('分类编辑功能', async ({ page }) => {
     const categoryDialog = await openCategoryManager(page);
-    if (!categoryDialog) {
-      test.skip();
-      return;
-    }
 
     // 先创建一个分类
     const addButton = categoryDialog.getByRole('button', { name: /添加|新建|创建|add|create/i });
@@ -240,10 +218,6 @@ test.describe('分类管理完整流程', () => {
 
   test('分类排序功能（上移/下移）', async ({ page }) => {
     const categoryDialog = await openCategoryManager(page);
-    if (!categoryDialog) {
-      test.skip();
-      return;
-    }
 
     // 创建两个分类用于排序测试
     const categoriesToCreate = ['排序测试A', '排序测试B'];
@@ -297,10 +271,6 @@ test.describe('分类管理完整流程', () => {
 
   test('分类删除功能（空分类）', async ({ page }) => {
     const categoryDialog = await openCategoryManager(page);
-    if (!categoryDialog) {
-      test.skip();
-      return;
-    }
 
     // 创建一个空分类用于删除
     const addButton = categoryDialog.getByRole('button', { name: /添加|新建|创建|add|create/i });
@@ -359,10 +329,6 @@ test.describe('分类管理完整流程', () => {
 
     // 1. 打开分类管理器并创建分类
     const categoryDialog = await openCategoryManager(page);
-    if (!categoryDialog) {
-      test.skip();
-      return;
-    }
 
     // 获取收藏管理器引用（openCategoryManager已经打开了）
     const managerDialog = page.locator('[role="dialog"]').filter({ hasText: /收藏|Favorites/i }).first();
@@ -473,10 +439,6 @@ test.describe('分类管理完整流程', () => {
 
   test('分类颜色显示正确', async ({ page }) => {
     const categoryDialog = await openCategoryManager(page);
-    if (!categoryDialog) {
-      test.skip();
-      return;
-    }
 
     // 验证分类列表表格/列表存在
     const table = categoryDialog.locator('table, .n-list, .n-data-table');
@@ -494,10 +456,6 @@ test.describe('分类管理完整流程', () => {
 
   test('分类搜索过滤功能', async ({ page }) => {
     const categoryDialog = await openCategoryManager(page);
-    if (!categoryDialog) {
-      test.skip();
-      return;
-    }
 
     // 查找搜索框
     const searchInput = categoryDialog.getByPlaceholder(/搜索|search|过滤|filter/i);

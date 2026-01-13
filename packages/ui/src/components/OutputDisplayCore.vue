@@ -3,6 +3,7 @@
     :bordered="false"
     class="output-display-core h-full  max-height: 100% "
     content-style="padding: 0; height: 100%; max-height: 100%; display: flex; flex-direction: column; overflow: hidden;"
+    :data-testid="testId"
   >
     <NFlex vertical style="height: 100%; min-height: 0; overflow: hidden;">
       <!-- 统一顶层工具栏 -->
@@ -221,6 +222,9 @@ interface Props {
   content?: string
   originalContent?: string
   reasoning?: string
+
+  /** E2E/测试定位用的 data-testid（挂在组件根节点） */
+  testId?: string
   
   // 显示模式
   mode: 'readonly' | 'editable'
@@ -245,12 +249,15 @@ const props = withDefaults(defineProps<Props>(), {
   content: '',
   originalContent: '',
   reasoning: '',
+  testId: undefined,
   mode: 'readonly',
   reasoningMode: 'auto',
   enabledActions: () => ['fullscreen', 'diff', 'copy', 'edit', 'reasoning', 'favorite'],
   height: '100%',
   placeholder: ''
 })
+
+const testId = computed(() => props.testId || undefined)
 
 // 事件定义
 const emit = defineEmits<{

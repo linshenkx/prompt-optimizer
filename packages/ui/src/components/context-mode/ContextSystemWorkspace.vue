@@ -25,31 +25,37 @@
                 :style="{ flexShrink: 0, overflow: 'auto' }"
                 content-style="padding: 0;"
             >
-                <ConversationManager
-                    :messages="optimizationContext"
-                    @update:messages="
-                        emit('update:optimizationContext', $event)
-                    "
-                    :available-variables="availableVariables"
-                    :temporary-variables="tempVars.temporaryVariables.value"
-                    :scan-variables="scanVariables"
-                    :optimization-mode="optimizationMode"
-                    :tool-count="toolCount"
-                    @open-variable-manager="emit('open-variable-manager')"
-                    @open-context-editor="emit('open-context-editor')"
-                    @open-tool-manager="emit('open-tool-manager')"
-                    :enable-tool-management="true"
-                    :collapsible="true"
-                    :max-height="300"
-                    :selected-message-id="selectedMessageId"
-                    :enable-message-optimization="enableMessageOptimization"
-                    :is-message-optimizing="conversationOptimization.isOptimizing.value"
-                    @message-select="conversationOptimization.selectMessage"
-                    @optimize-message="handleOptimizeClick"
-                    @message-change="(index, message, action) => emit('message-change', index, message, action)"
-                    @variable-extracted="handleVariableExtracted"
-                    @add-missing-variable="handleAddMissingVariable"
-                />
+<ConversationManager
+                     :messages="optimizationContext"
+                     @update:messages="
+                         emit('update:optimizationContext', $event)
+                     "
+                     @message-change="(index, message, action) => {
+                         // Pro Multi：新增/更新消息后自动选中最新消息，确保“优化”按钮可用
+                         if ((action === 'add' || action === 'update') && (message.role === 'system' || message.role === 'user') && message.id) {
+                             void conversationOptimization.selectMessage(message)
+                         }
+                         emit('message-change', index, message, action)
+                     }"
+                     :available-variables="availableVariables"
+                     :temporary-variables="tempVars.temporaryVariables.value"
+                     :scan-variables="scanVariables"
+                     :optimization-mode="optimizationMode"
+                     :tool-count="toolCount"
+                     @open-variable-manager="emit('open-variable-manager')"
+                     @open-context-editor="emit('open-context-editor')"
+                     @open-tool-manager="emit('open-tool-manager')"
+                     :enable-tool-management="true"
+                     :collapsible="true"
+                     :max-height="300"
+                     :selected-message-id="selectedMessageId"
+                     :enable-message-optimization="enableMessageOptimization"
+                     :is-message-optimizing="conversationOptimization.isOptimizing.value"
+                     @message-select="conversationOptimization.selectMessage"
+                     @optimize-message="handleOptimizeClick"
+                     @variable-extracted="handleVariableExtracted"
+                     @add-missing-variable="handleAddMissingVariable"
+                 />
             </NCard>
 
             <!-- 优化控制区 -->
@@ -95,6 +101,7 @@
                         :disabled="displayAdapter.displayedIsOptimizing.value || !selectedMessageId"
                         @click="handleOptimizeClick"
                         block
+                        data-testid="pro-multi-optimize-button"
                     >
                         {{ displayAdapter.displayedIsOptimizing.value ? $t('common.loading') : $t('promptOptimizer.optimize') }}
                     </NButton>
@@ -112,6 +119,7 @@
             >
                 <template v-if="displayAdapter.isInMessageOptimizationMode.value">
                     <PromptPanelUI
+                         test-id="pro-multi"
                         ref="promptPanelRef"
                         :original-prompt="displayAdapter.displayedOriginalPrompt.value"
                         :optimized-prompt="displayAdapter.displayedOptimizedPrompt.value"
@@ -141,6 +149,7 @@
                 </template>
                 <template v-else>
                     <NEmpty
+                        data-testid="pro-multi-empty-select-message"
                         :description="t('contextMode.system.selectMessageHint')"
                         size="large"
                     />
@@ -409,8 +418,9 @@ const toolCount = computed(() => {
 })
 
 const enableMessageOptimization = computed(() => {
-    // 固定为 false（消息优化功能已移除）
-    return false
+    // Pro Multi：自动选中最新消息进行优化（不需要显式“选择”按钮）
+    // 这里仍需启用“消息优化模式”，以便 PromptPanel 展示优化结果区。
+    return optimizationMode === 'system'
 })
 
 // 🆕 初始化临时变量管理器（与 ContextEditor 共享）
@@ -497,6 +507,22 @@ const selectedIterateTemplate = computed<Template | null>({
 onMounted(() => {
     // ✅ 刷新模型列表
     modelSelection.refreshTextModels()
+
+    // Pro Multi：自动选中最新一条可优化消息（system/user），以便直接启用“优化”
+    const latestSelectable = [...(optimizationContext.value || [])]
+        .reverse()
+        .find((msg) => msg && (msg.role === 'system' || msg.role === 'user') && !!msg.id)
+    if (latestSelectable) {
+        void conversationOptimization.selectMessage(latestSelectable)
+    }
+
+    // 兜底：如果还没有消息可选，但 session store 已有选中消息（刷新/恢复场景），尝试同步一次
+    if (!latestSelectable && proMultiSession.selectedMessageId) {
+        const restored = (optimizationContext.value || []).find((m) => m.id === proMultiSession.selectedMessageId)
+        if (restored) {
+            void conversationOptimization.selectMessage(restored)
+        }
+    }
 
     const saved = proMultiSession.testResults
     if (!saved) {

@@ -89,22 +89,23 @@ export function useWorkspaceModelSelection<T extends WorkspaceModelSessionStore>
       const fallback = textModelOptions.value[0]?.value || ''
       const modelKeys = new Set(textModelOptions.value.map(opt => opt.value))
 
-      // 优化模型
-      if (selectedOptimizeModelKey.value && !modelKeys.has(selectedOptimizeModelKey.value)) {
+       // 优化模型
+       if (selectedOptimizeModelKey.value && !modelKeys.has(selectedOptimizeModelKey.value)) {
         selectedOptimizeModelKey.value = fallback
-      }
-      // 测试模型
-      if (selectedTestModelKey.value && !modelKeys.has(selectedTestModelKey.value)) {
+       }
+       // 测试模型
+       if (selectedTestModelKey.value && !modelKeys.has(selectedTestModelKey.value)) {
         selectedTestModelKey.value = fallback
-      }
-
-      // 只在完全没有选中模型时设置默认值
+       }
+ 
+       // 只在完全没有选中模型时设置默认值
       if (!selectedOptimizeModelKey.value && fallback) {
         selectedOptimizeModelKey.value = fallback
-      }
+       }
       if (!selectedTestModelKey.value && fallback) {
         selectedTestModelKey.value = fallback
-      }
+       }
+
     } catch (error) {
       console.error('[useWorkspaceModelSelection] refreshTextModels failed:', error instanceof Error ? error.message : String(error), error)
       textModelOptions.value = []

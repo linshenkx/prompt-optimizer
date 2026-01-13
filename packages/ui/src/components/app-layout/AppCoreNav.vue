@@ -10,7 +10,7 @@
         - 从路由参数计算当前模式
         - 导航操作直接调用 router.push
     -->
-    <NSpace :size="12" align="center">
+    <NSpace :size="12" align="center" data-testid="core-nav">
         <!-- 功能模式选择器 -->
         <FunctionModeSelector
             :modelValue="functionMode"

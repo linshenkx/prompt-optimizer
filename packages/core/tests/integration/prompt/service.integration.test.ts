@@ -18,8 +18,9 @@ import { TextAdapterRegistry } from '../../../src/services/llm/adapters/registry
  */
 describe('PromptService Integration Tests', () => {
   const hasGeminiKey = !!process.env.VITE_GEMINI_API_KEY;
-  const DELAY_BETWEEN_TESTS = 6000; // 1分钟延迟避免速率限制
+  const DELAY_BETWEEN_TESTS = 60000; // 1分钟延迟避免速率限制
   const TEST_TIMEOUT = 120000; // 2分钟超时
+
 
   let promptService: PromptService;
   let modelManager: ModelManager;

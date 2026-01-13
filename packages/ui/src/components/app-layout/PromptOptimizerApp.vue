@@ -317,7 +317,7 @@ import { useProVariableSession } from '../../stores/session/useProVariableSessio
 import { useSessionRestoreCoordinator } from '../../composables/session/useSessionRestoreCoordinator'
 import { useImageText2ImageSession } from '../../stores/session/useImageText2ImageSession'
 import { useImageImage2ImageSession } from '../../stores/session/useImageImage2ImageSession'
-import { useGlobalSettings, type GlobalSettingsApi } from '../../stores/settings/useGlobalSettings'
+import { useGlobalSettings } from '../../stores/settings/useGlobalSettings'
 
 
 // Data Transformation

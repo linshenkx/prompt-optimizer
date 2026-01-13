@@ -58,10 +58,24 @@ function normalizeText(text: string | null | undefined): string {
 }
 
 async function gotoMode(page: any, route: string) {
-  await page.goto('/')
-  await page.waitForLoadState('networkidle')
-  await page.goto(route)
-  await page.waitForLoadState('networkidle')
+  // 统一走“用户路径”：从 / 进入，再通过顶部导航切换到目标工作区
+  const mode = route.includes('/#/basic') ? 'basic' : route.includes('/#/pro') ? 'pro' : 'image'
+  const parts = route.replace('/#/', '').split('/')
+  const sub = parts[1] || ''
+
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
+  await expect(page.locator('[data-testid="workspace"]').first()).toBeVisible({ timeout: 20000 })
+
+  await page.getByTestId('function-mode-selector').getByTestId(`function-mode-${mode}`).click()
+
+  if (mode === 'image') {
+    const imageId = sub === 'text2image' ? 'image-sub-mode-text2image' : 'image-sub-mode-image2image'
+    await page.getByTestId('core-nav').getByTestId(imageId).click()
+  } else {
+    await page.getByTestId('optimization-mode-selector').getByTestId(`sub-mode-${sub}`).click()
+  }
+
+  await waitForWorkspace(page, workspaceModeFromRoute(route))
 }
 
 function workspaceModeFromRoute(route: string): string {
@@ -165,17 +179,14 @@ test.describe('Template default selection + cross-mode persistence', () => {
 
       await expectSelectionEquals(page, templateSelect, last)
 
-      // Switch to another mode, reload, then switch back
-      await page.goto(c.switchTo)
-      await page.waitForLoadState('networkidle')
+      // Switch to another mode, reload, then switch back (all via UI)
+      await gotoMode(page, c.switchTo)
       await waitForWorkspace(page, workspaceModeFromRoute(c.switchTo))
 
-      await page.reload()
-      await page.waitForLoadState('networkidle')
+      await page.reload({ waitUntil: 'domcontentloaded' })
       await waitForWorkspace(page, workspaceModeFromRoute(c.switchTo))
 
-      await page.goto(c.route)
-      await page.waitForLoadState('networkidle')
+      await gotoMode(page, c.route)
       await waitForWorkspace(page, c.workspaceMode)
 
       const templateSelectAfter = await getSelectByLabel(page, c.templateLabel)

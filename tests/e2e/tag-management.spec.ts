@@ -55,44 +55,33 @@ test.describe('标签管理完整流程', () => {
     await waitForModalClose(page);
 
     // 1. 打开收藏管理器
-    const favoriteButton = page.getByRole('button', { name: /收藏|favorite/i });
-    if (await favoriteButton.count() === 0) {
-      return null;
-    }
-    await favoriteButton.first().click();
+    const favoriteButton = page.getByRole('button', { name: /收藏|favorite/i }).first();
+    await expect(favoriteButton).toBeVisible();
+    await favoriteButton.click();
     await page.waitForTimeout(500);
 
     const managerDialog = page.locator('[role="dialog"]').filter({ hasText: /收藏|Favorites/i }).first();
     await expect(managerDialog).toBeVisible();
 
     // 2. 打开更多菜单
-    const moreButton = managerDialog.getByRole('button').filter({
-      has: page.locator('svg, .n-icon')
-    }).first();
-
-    if (await moreButton.count() === 0) {
-      return null;
-    }
-
+    const moreButton = managerDialog.getByTestId('favorites-manager-actions');
+    await expect(moreButton).toBeVisible();
     await moreButton.click();
     await page.waitForTimeout(300);
 
     // 3. 点击标签管理选项
-    const tagManagerOption = page.locator('text=/标签管理|Tag Management/i');
-    if (await tagManagerOption.count() === 0) {
-      return null;
-    }
-
+    const tagManagerOption = page.getByTestId('favorites-manager-action-manage-tags');
+    await expect(tagManagerOption).toBeVisible();
     await tagManagerOption.click();
     await page.waitForTimeout(500);
 
     // 4. 返回标签管理器对话框
-    const tagDialog = page.locator('[role="dialog"]').filter({ hasText: /标签|Tag/i }).last();
-    if (await tagDialog.isVisible().catch(() => false)) {
-      return tagDialog;
-    }
-
-    return null;
+    const tagDialog = page
+      .locator('[role="dialog"]')
+      .filter({ hasText: /标签管理|Tag Manager|Tag Management/i })
+      .last();
+    await expect(tagDialog).toBeVisible();
+    return tagDialog;
   }
 
   test('标签重命名功能', async ({ page }) => {
@@ -100,13 +89,9 @@ test.describe('标签管理完整流程', () => {
     await page.waitForSelector('.n-modal-mask', { state: 'hidden', timeout: 2000 }).catch(() => {});
 
     // 先创建一个带标签的收藏
-    const favoriteButton = page.getByRole('button', { name: /收藏|favorite/i });
-    if (await favoriteButton.count() === 0) {
-      test.skip();
-      return;
-    }
-
-    await favoriteButton.first().click();
+    const favoriteButton = page.getByRole('button', { name: /收藏|favorite/i }).first();
+    await expect(favoriteButton).toBeVisible();
+    await favoriteButton.click();
     const managerDialog = page.locator('[role="dialog"]').filter({ hasText: /收藏|Favorites/i }).first();
     await expect(managerDialog).toBeVisible();
 
@@ -235,29 +220,19 @@ test.describe('标签管理完整流程', () => {
 
   test('标签统计显示正确', async ({ page }) => {
     const tagDialog = await openTagManager(page);
-    if (!tagDialog) {
-      test.skip();
-      return;
-    }
 
     // 验证标签列表表格存在
-    const table = tagDialog.locator('table, .n-data-table');
-    if (await table.count() > 0) {
-      await expect(table).toBeVisible();
+    const table = tagDialog.getByRole('table').first();
+    await expect(table).toBeVisible();
 
-      // 验证表头包含统计列（使用次数/count）
-      const headers = table.locator('th');
-      const headerCount = await headers.count();
-      expect(headerCount).toBeGreaterThan(0);
-    }
+    // 验证表头存在
+    const headers = table.locator('th');
+    const headerCount = await headers.count();
+    expect(headerCount).toBeGreaterThan(0);
   });
 
   test('标签搜索过滤功能', async ({ page }) => {
     const tagDialog = await openTagManager(page);
-    if (!tagDialog) {
-      test.skip();
-      return;
-    }
 
     // 查找搜索框
     const searchInput = tagDialog.getByPlaceholder(/搜索|search|过滤|filter/i);

@@ -1,24 +1,27 @@
 <!-- 功能模式选择器组件 - 使用 Naive UI RadioGroup -->
 <template>
-  <NRadioGroup
+  <NRadioGroup data-testid="function-mode-selector"
     :value="modelValue"
     @update:value="updateFunctionMode"
     size="small"
     class="function-mode-selector"
   >
     <NRadioButton
+      data-testid="function-mode-basic"
       value="basic"
       :title="t('nav.basicMode')"
     >
       {{ t('nav.basicMode') }}
     </NRadioButton>
     <NRadioButton
+      data-testid="function-mode-pro"
       value="pro"
       :title="t('nav.contextMode')"
     >
       {{ t('nav.contextMode') }}
     </NRadioButton>
     <NRadioButton
+      data-testid="function-mode-image"
       value="image"
       :title="t('nav.imageMode')"
     >

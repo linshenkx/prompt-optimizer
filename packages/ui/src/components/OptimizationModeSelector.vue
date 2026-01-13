@@ -1,6 +1,6 @@
 <!-- 优化模式选择器组件 - 使用 Naive UI RadioGroup -->
 <template>
-  <NRadioGroup
+  <NRadioGroup data-testid="optimization-mode-selector"
     :value="modelValue"
     @update:value="updateOptimizationMode"
     size="small"
@@ -10,12 +10,14 @@
     <template v-if="functionMode !== 'pro'">
       <NRadioButton
         v-if="!hideSystemOption"
+        data-testid="sub-mode-system"
         value="system"
         :title="systemHelp"
       >
         {{ systemLabel }}
       </NRadioButton>
       <NRadioButton
+        data-testid="sub-mode-user"
         value="user"
         :title="userHelp"
       >
@@ -25,6 +27,7 @@
     <!-- Pro 模式：变量 | 多对话 -->
     <template v-else>
       <NRadioButton
+        data-testid="sub-mode-variable"
         value="variable"
         :title="userHelp"
       >
@@ -32,6 +35,7 @@
       </NRadioButton>
       <NRadioButton
         v-if="!hideSystemOption"
+        data-testid="sub-mode-multi"
         value="multi"
         :title="systemHelp"
       >

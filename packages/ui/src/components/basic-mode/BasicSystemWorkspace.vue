@@ -135,6 +135,7 @@
                     content-style="height: 100%; max-height: 100%; overflow: hidden;"
                 >
                     <PromptPanelUI
+                        test-id="basic-system"
                         ref="promptPanelRef"
                         v-model:optimized-prompt="optimizedPromptModel"
                         :reasoning="unwrappedLogicProps.optimizedReasoning"

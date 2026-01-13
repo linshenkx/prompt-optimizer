@@ -13,6 +13,7 @@
     :loading="loading"
     :streaming="streaming"
     :compareService="compareService"
+    :test-id="testId"
     :style="{ height: '100%', maxHeight: '100%', flex: 1, minHeight: 0, overflow: 'hidden' }"
     @update:content="emit('update:content', $event)"
     @update:reasoning="emit('update:reasoning', $event)"
@@ -71,6 +72,9 @@ interface Props {
   placeholder?: string
   loading?: boolean
   streaming?: boolean
+
+  /** 透传给 OutputDisplayCore 的 data-testid（挂在根节点） */
+  testId?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -79,6 +83,7 @@ const props = withDefaults(defineProps<Props>(), {
     enableEdit: true,
     enableDiff: true,
     enableFavorite: true,
+    testId: undefined,
 });
 
 // Emits
@@ -96,6 +101,8 @@ const emit = defineEmits<{
 }>()
 
 const isShowingFullscreen = ref(false);
+
+const testId = computed(() => props.testId || undefined)
 
 // 注入服务并获取 CompareService
 const services = inject<Ref<AppServices | null>>('services');

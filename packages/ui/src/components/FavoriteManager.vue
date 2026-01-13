@@ -58,7 +58,7 @@
               :options="actionMenuOptions"
               @select="handleActionMenuSelect"
             >
-              <NButton secondary>
+              <NButton secondary data-testid="favorites-manager-actions">
                 <template #icon>
                   <NIcon><DotsVertical /></NIcon>
                 </template>
@@ -475,12 +475,14 @@ const actionMenuOptions = computed(() => [
   {
     label: t('favorites.manager.actions.manageTags'),
     key: 'manageTags',
-    icon: () => h(NIcon, null, { default: () => h(Tags) })
+    icon: () => h(NIcon, null, { default: () => h(Tags) }),
+    props: { 'data-testid': 'favorites-manager-action-manage-tags' }
   },
   {
     label: t('favorites.manager.actions.manageCategories'),
     key: 'manageCategories',
-    icon: () => h(NIcon, null, { default: () => h(Folder) })
+    icon: () => h(NIcon, null, { default: () => h(Folder) }),
+    props: { 'data-testid': 'favorites-manager-action-manage-categories' }
   },
   {
     type: 'divider'
@@ -488,7 +490,8 @@ const actionMenuOptions = computed(() => [
   {
     label: t('favorites.manager.actions.export'),
     key: 'export',
-    icon: () => h(NIcon, null, { default: () => h(Download) })
+    icon: () => h(NIcon, null, { default: () => h(Download) }),
+    props: { 'data-testid': 'favorites-manager-action-export' }
   },
   {
     type: 'divider'
@@ -496,7 +499,8 @@ const actionMenuOptions = computed(() => [
   {
     label: t('favorites.manager.actions.clear'),
     key: 'clear',
-    icon: () => h(NIcon, null, { default: () => h(Trash) })
+    icon: () => h(NIcon, null, { default: () => h(Trash) }),
+    props: { 'data-testid': 'favorites-manager-action-clear' }
   }
 ]);
 

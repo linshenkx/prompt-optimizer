@@ -1,4 +1,4 @@
-import { ref, computed, nextTick, watch, type Ref } from 'vue'
+import { ref, computed, nextTick, watch, type Ref, type ComputedRef } from 'vue'
 import { useToast } from '../ui/useToast'
 import { useI18n } from 'vue-i18n'
 import { getErrorMessage } from '../../utils/error'
@@ -22,6 +22,8 @@ import { useProMultiMessageSession } from '../../stores/session/useProMultiMessa
 export interface UseConversationOptimization {
   // 状态
   selectedMessageId: Ref<string>
+  /** 当前选中的消息（用于 Pro Multi 自动选择/评估上下文） */
+  selectedMessage: ComputedRef<ConversationMessage | undefined>
   currentChainId: Ref<string>
   currentRecordId: Ref<string>
   currentVersions: Ref<PromptRecordChain['versions']>
@@ -148,6 +150,12 @@ export function useConversationOptimization(
         localSelectedMessageId.value = id
       }
     },
+  })
+
+  const selectedMessage = computed<ConversationMessage | undefined>(() => {
+    const id = selectedMessageId.value
+    if (!id) return undefined
+    return conversationMessages.value.find(m => m.id === id)
   })
 
   const currentChainId = computed<string>({
@@ -870,6 +878,7 @@ export function useConversationOptimization(
   return {
     // 状态
     selectedMessageId,
+    selectedMessage,
     currentChainId,
     currentRecordId,
     currentVersions,

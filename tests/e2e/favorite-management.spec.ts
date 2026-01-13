@@ -277,7 +277,9 @@ test.describe('搜索和过滤功能', () => {
 test.describe('标签管理功能', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    // 避免 networkidle 被后台请求/轮询拖慢，这里只等页面主体渲染完成
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('[data-testid="workspace"]')).toBeVisible({ timeout: 10000 });
   });
 
   test('能够打开标签管理器', async ({ page }) => {
@@ -291,26 +293,21 @@ test.describe('标签管理功能', () => {
     const managerDialog = page.locator('[role="dialog"]').filter({ hasText: /收藏|Favorites/i }).first();
     await expect(managerDialog).toBeVisible();
 
-    // 查找更多操作菜单按钮
-    const moreButton = managerDialog.getByRole('button').filter({
-      has: page.locator('svg, .n-icon')
-    }).first();
+    // 打开更多操作下拉菜单（NDropdown 的菜单渲染在 portal 中，不在 dialog DOM 内）
+    // 用 data-testid 精确定位触发按钮，避免误点输入框的 clear icon 等。
+    const moreButton = managerDialog.getByTestId('favorites-manager-actions');
+    await expect(moreButton).toBeVisible({ timeout: 5000 });
+    await moreButton.click();
 
-    if (await moreButton.count() > 0) {
-      await moreButton.click();
-      await page.waitForTimeout(300);
+    // 下拉项文案是“管理标签”(zh) / “Manage Tags”(en)
+    const dropdownMenu = page.locator('.n-dropdown-menu').filter({ hasText: /管理标签|Manage Tags/i }).first();
+    await expect(dropdownMenu).toBeVisible({ timeout: 3000 });
 
-      // 查找标签管理选项
-      const tagManagerOption = page.locator('text=/标签管理|Tag/i');
-      if (await tagManagerOption.count() > 0) {
-        await tagManagerOption.click();
-        await page.waitForTimeout(500);
+    await dropdownMenu.getByText(/管理标签|Manage Tags/i).first().click();
 
-        // 验证标签管理器对话框出现
-        const tagDialog = page.locator('[role="dialog"]').filter({ hasText: /标签|Tag/i });
-        await expect(tagDialog).toBeVisible({ timeout: 3000 });
-      }
-    }
+    // 验证标签管理器对话框出现（标题是“标签管理”/“Tag Manager”）
+    const tagDialog = page.locator('[role="dialog"]').filter({ hasText: /标签管理|Tag Manager/i }).last();
+    await expect(tagDialog).toBeVisible({ timeout: 5000 });
   });
 });
 
@@ -320,7 +317,9 @@ test.describe('标签管理功能', () => {
 test.describe('分类管理功能', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    // 避免 networkidle 被后台请求/轮询拖慢，这里只等页面主体渲染完成
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('[data-testid="workspace"]')).toBeVisible({ timeout: 10000 });
   });
 
   test('能够打开分类管理器', async ({ page }) => {
@@ -334,26 +333,20 @@ test.describe('分类管理功能', () => {
     const managerDialog = page.locator('[role="dialog"]').filter({ hasText: /收藏|Favorites/i }).first();
     await expect(managerDialog).toBeVisible();
 
-    // 查找更多操作菜单按钮
-    const moreButton = managerDialog.getByRole('button').filter({
-      has: page.locator('svg, .n-icon')
-    }).first();
+    // 打开更多操作下拉菜单（NDropdown 的菜单渲染在 portal 中，不在 dialog DOM 内）
+    const moreButton = managerDialog.getByTestId('favorites-manager-actions');
+    await expect(moreButton).toBeVisible({ timeout: 5000 });
+    await moreButton.click();
 
-    if (await moreButton.count() > 0) {
-      await moreButton.click();
-      await page.waitForTimeout(300);
+    // 下拉项文案是“管理分类”(zh) / “Manage Categories”(en)
+    const dropdownMenu = page.locator('.n-dropdown-menu').filter({ hasText: /管理分类|Manage Categories/i }).first();
+    await expect(dropdownMenu).toBeVisible({ timeout: 3000 });
 
-      // 查找分类管理选项
-      const categoryManagerOption = page.locator('text=/分类管理|Category/i');
-      if (await categoryManagerOption.count() > 0) {
-        await categoryManagerOption.click();
-        await page.waitForTimeout(500);
+    await dropdownMenu.getByText(/管理分类|Manage Categories/i).first().click();
 
-        // 验证分类管理器对话框出现
-        const categoryDialog = page.locator('[role="dialog"]').filter({ hasText: /分类|Category/i });
-        await expect(categoryDialog).toBeVisible({ timeout: 3000 });
-      }
-    }
+    // 验证分类管理器对话框出现（标题是“分类管理”/“Category Manager”）
+    const categoryDialog = page.locator('[role="dialog"]').filter({ hasText: /分类管理|Category Manager/i }).last();
+    await expect(categoryDialog).toBeVisible({ timeout: 5000 });
   });
 });
 

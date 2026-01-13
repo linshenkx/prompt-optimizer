@@ -213,6 +213,7 @@
 
         <!-- 内容区域：使用 OutputDisplay 组件 -->
         <OutputDisplay
+            :test-id="testId ? testId + '-output' : undefined"
             ref="outputDisplayRef"
             :content="optimizedPrompt"
             :original-content="previousVersionText"
@@ -316,6 +317,11 @@ interface IteratePayload {
 }
 
 const props = defineProps({
+    /** E2E/测试定位用的 testId（用于 OutputDisplay 根节点 data-testid） */
+    testId: {
+        type: String,
+        default: undefined,
+    },
     optimizedPrompt: {
         type: String,
         default: "",

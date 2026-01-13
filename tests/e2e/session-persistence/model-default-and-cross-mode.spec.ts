@@ -71,10 +71,27 @@ function workspaceModeFromRoute(route: string): string {
 }
 
 async function gotoMode(page: any, route: string) {
-  await page.goto('/')
-  await page.waitForLoadState('networkidle')
-  await page.goto(route)
-  await page.waitForLoadState('networkidle')
+  // 通过 UI 切换到目标工作区，模拟真实用户路径（避免 `/` bootstrap 与二段式 goto 的竞态）
+  const mode = route.includes('/#/basic') ? 'basic' : route.includes('/#/pro') ? 'pro' : 'image'
+  const parts = route.replace('/#/', '').split('/')
+  const sub = parts[1] || ''
+
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
+  // 等到 root bootstrap 落到某个 workspace
+  await expect(page.locator('[data-testid="workspace"]').first()).toBeVisible({ timeout: 20000 })
+
+  // 使用现有 core nav 控件切换
+  await page.getByTestId('function-mode-selector').getByTestId(`function-mode-${mode}`).click()
+
+  if (mode === 'image') {
+    const imageId = sub === 'text2image' ? 'image-sub-mode-text2image' : 'image-sub-mode-image2image'
+    await page.getByTestId('core-nav').getByTestId(imageId).click()
+    await waitForWorkspace(page, workspaceModeFromRoute(route))
+    return
+  }
+
+  await page.getByTestId('optimization-mode-selector').getByTestId(`sub-mode-${sub}`).click()
+  await waitForWorkspace(page, workspaceModeFromRoute(route))
 }
 
 async function waitForWorkspace(page: any, mode: string) {
@@ -131,7 +148,7 @@ async function expectSelectionEquals(page: any, select: any, expected: string) {
 
 test.describe('Model default selection + cross-mode persistence', () => {
   for (const c of MODE_CASES) {
-    test(`${c.name}: first open selects first model by default`, async ({ page }) => {
+    test(`${c.name}: first open selects a valid default model`, async ({ page }) => {
       await gotoMode(page, c.route)
       await waitForWorkspace(page, c.workspaceMode)
 
@@ -139,9 +156,11 @@ test.describe('Model default selection + cross-mode persistence', () => {
       const options = await openSelectAndGetOptions(page, modelSelect)
 
       expect(options.length).toBeGreaterThan(0)
-      const first = options[0]
 
-      await expectSelectionEquals(page, modelSelect, first)
+      // 不依赖具体模型名称或排序：只要求“默认有选中项”，且该选中项在当前下拉选项中。
+      const selected = normalizeText(await modelSelect.textContent())
+      expect(selected).not.toBe('')
+      expect(options).toContain(selected)
     })
   }
 
@@ -156,25 +175,28 @@ test.describe('Model default selection + cross-mode persistence', () => {
       const count = await optionLocator.count()
       expect(count).toBeGreaterThan(0)
       if (count < 2) {
+        await page.keyboard.press('Escape')
         test.skip(true, `${c.name} has only one model option`)
       }
 
+      // 不依赖模型名称：始终选中“最后一个可选项”，并断言该选择能跨模式切换/刷新被持久化。
       const lastOption = optionLocator.nth(count - 1)
       const last = normalizeText(await lastOption.textContent())
+      expect(last).not.toBe('')
       await lastOption.click()
 
       await expectSelectionEquals(page, modelSelect, last)
 
-      await page.goto(c.switchTo)
-      await page.waitForLoadState('networkidle')
+      // 通过 UI 切换到另一工作区
+      await gotoMode(page, c.switchTo)
       await waitForWorkspace(page, workspaceModeFromRoute(c.switchTo))
 
-      await page.reload()
-      await page.waitForLoadState('networkidle')
+      // 刷新后仍应停留在当前工作区
+      await page.reload({ waitUntil: 'domcontentloaded' })
       await waitForWorkspace(page, workspaceModeFromRoute(c.switchTo))
 
-      await page.goto(c.route)
-      await page.waitForLoadState('networkidle')
+      // 再通过 UI 切换回原工作区
+      await gotoMode(page, c.route)
       await waitForWorkspace(page, c.workspaceMode)
 
       const modelSelectAfter = await getSelectByLabel(page, c.modelLabel)

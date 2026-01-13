@@ -97,15 +97,16 @@
                     </svg>
                 </template>
                 <template #extra>
-                    <NButton
-                        v-if="canEditMessages"
-                        @click="handleAddMessage"
-                        :size="buttonSize"
-                        type="primary"
-                        dashed
-                    >
-                        {{ t("conversation.addFirst") }}
-                    </NButton>
+                        <NButton
+                            v-if="canEditMessages"
+                            @click="handleAddMessage"
+                            :size="buttonSize"
+                            type="primary"
+                            dashed
+                            data-testid="pro-multi-add-first-message"
+                        >
+                            {{ t("conversation.addFirst") }}
+                        </NButton>
                 </template>
             </NEmpty>
 
@@ -117,16 +118,18 @@
                         :key="`message-${index}`"
                         style="padding: 0"
                     >
-                        <NCard
-                            :size="cardSize"
-                            embedded
-                            :bordered="false"
-                            content-style="padding: 0;"
-                            :class="{
-                                'message-card': true,
-                                'message-card-selected': enableMessageOptimization && message.id === selectedMessageId,
-                            }"
-                        >
+                            <NCard
+                                :size="cardSize"
+                                embedded
+                                :bordered="false"
+                                content-style="padding: 0;"
+                                :data-testid="`pro-multi-message-card-${index}`"
+                                :data-message-id="message.id"
+                                :class="{
+                                    'message-card': true,
+                                    'message-card-selected': enableMessageOptimization && message.id === selectedMessageId,
+                                }"
+                            >
                             <div class="cm-row">
                                 <!-- 角色标签（小号，单行布局） -->
                                 <NSpace align="center" :size="4" class="left">
@@ -195,6 +198,7 @@
                                         quaternary
                                         circle
                                         :title="message.id === selectedMessageId ? t('conversation.selected') : t('conversation.selectForOptimization')"
+                                        :data-testid="`pro-multi-select-message-${index}`"
                                     >
                                         <template #icon>
                                             <svg
@@ -317,6 +321,7 @@
                                 dashed
                                 type="primary"
                                 block
+                                data-testid="pro-multi-add-message"
                             >
                                 <template #icon>
                                     <svg

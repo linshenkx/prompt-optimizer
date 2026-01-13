@@ -161,6 +161,7 @@
                 content-style="height: 100%; max-height: 100%; overflow: hidden;"
             >
                 <PromptPanelUI
+                    test-id="pro-variable"
                     ref="promptPanelRef"
                     :optimized-prompt="contextUserOptimization.optimizedPrompt"
                     @update:optimized-prompt="contextUserOptimization.optimizedPrompt = $event"

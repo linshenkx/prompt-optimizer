@@ -21,33 +21,6 @@ function formatConsoleMessage(msg: ConsoleMessage): string {
   return `[console.${type}] ${msg.text()}${loc}`
 }
 
-/**
- * 清理旧的测试数据库
- *
- * 在测试开始前删除所有 test-db- 开头的 IndexedDB 数据库
- * 确保每次测试运行都有干净的环境
- */
-async function cleanOldTestDatabases(page: Page): Promise<void> {
-  try {
-    await page.evaluate(async () => {
-      const databases = await (indexedDB as any).databases()
-      await Promise.all(
-        databases
-          .filter((db: any) => db.name.startsWith('test-db-'))
-          .map((db: any) => {
-            return new Promise<void>((resolve) => {
-              const req = indexedDB.deleteDatabase(db.name)
-              req.onsuccess = () => resolve()
-              req.onerror = () => resolve() // 失败也继续，不阻塞测试
-            })
-          })
-      )
-    })
-  } catch (err) {
-    // indexedDB.databases() 可能在某些浏览器不支持，忽略错误
-    console.warn('Failed to clean old test databases (non-critical):', err)
-  }
-}
 
 /**
  * 自定义测试 fixture，扩展页面功能
@@ -76,14 +49,11 @@ export const test = base.extend<{ context: BrowserContext; page: Page }>({
     const page = await context.newPage()
     const problems: string[] = []
 
-    // ✅ Step 1: 清理旧的测试数据库（确保磁盘空间不会累积）
-    await cleanOldTestDatabases(page)
-
-    // ✅ Step 2: 为本次测试生成唯一数据库名称
+    // ✅ Step 1: 为本次测试生成唯一数据库名称
     // 使用 workerIndex + timestamp + random 确保唯一性
     const testDbName = `test-db-${testInfo.workerIndex}-${Date.now()}-${Math.random().toString(36).substring(7)}`
 
-    // ✅ Step 3: 注入测试配置到页面（合并为一次 addInitScript 调用）
+    // ✅ Step 2: 注入测试配置到页面（合并为一次 addInitScript 调用）
     await page.addInitScript((dbName) => {
       // 清理 localStorage 和 sessionStorage（避免测试间状态泄漏）
       localStorage.clear()
@@ -123,8 +93,8 @@ export const test = base.extend<{ context: BrowserContext; page: Page }>({
       page.off('console', onConsole)
       page.off('pageerror', onPageError)
       await page.close()
-      // ✅ Step 4: 不需要显式清理当前测试的数据库
-      // 下次测试会自动清理所有 test-db-* 数据库
+      // 不需要显式清理当前测试的数据库
+      // 每个测试都会使用独立的 BrowserContext，测试结束后会释放对应的存储（IndexedDB/localStorage 等）
     }
 
     if (testInfo.status === 'skipped') return

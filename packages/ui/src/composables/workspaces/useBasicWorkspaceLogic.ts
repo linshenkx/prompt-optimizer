@@ -454,14 +454,14 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
           {
             onToken: (token: string) => {
               testResults.value = {
-                ...testResults.value,
-                originalResult: (testResults.value?.originalResult || '') + token
+                ...(testResults.value || { originalResult: '', originalReasoning: '', optimizedResult: '', optimizedReasoning: '' }),
+                originalResult: ((testResults.value?.originalResult) || '') + token
               }
             },
             onReasoningToken: (token: string) => {
               testResults.value = {
-                ...testResults.value,
-                originalReasoning: (testResults.value?.originalReasoning || '') + token
+                ...(testResults.value || { originalResult: '', originalReasoning: '', optimizedResult: '', optimizedReasoning: '' }),
+                originalReasoning: ((testResults.value?.originalReasoning) || '') + token
               }
             },
             onComplete: () => {
@@ -484,16 +484,16 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
         modelKey,
         {
           onToken: (token: string) => {
-            testResults.value = {
-              ...testResults.value,
-              optimizedResult: (testResults.value?.optimizedResult || '') + token
-            }
+              testResults.value = {
+                ...(testResults.value || { originalResult: '', originalReasoning: '', optimizedResult: '', optimizedReasoning: '' }),
+                optimizedResult: ((testResults.value?.optimizedResult) || '') + token
+              }
           },
           onReasoningToken: (token: string) => {
-            testResults.value = {
-              ...testResults.value,
-              optimizedReasoning: (testResults.value?.optimizedReasoning || '') + token
-            }
+              testResults.value = {
+                ...(testResults.value || { originalResult: '', originalReasoning: '', optimizedResult: '', optimizedReasoning: '' }),
+                optimizedReasoning: ((testResults.value?.optimizedReasoning) || '') + token
+              }
           },
           onComplete: () => {
             toast.success(t('toast.success.testComplete'))

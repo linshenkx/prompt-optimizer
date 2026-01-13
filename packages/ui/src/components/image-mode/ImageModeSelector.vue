@@ -1,6 +1,7 @@
 <template>
   <NButtonGroup>
     <NButton
+      data-testid="image-sub-mode-text2image"
       :type="modelValue === 'text2image' ? 'primary' : 'default'"
       size="small"
       @click="handleModeChange('text2image')"
@@ -9,6 +10,7 @@
       {{ t('imageMode.text2image') }}
     </NButton>
     <NButton
+      data-testid="image-sub-mode-image2image"
       :type="modelValue === 'image2image' ? 'primary' : 'default'"
       size="small"
       @click="handleModeChange('image2image')"

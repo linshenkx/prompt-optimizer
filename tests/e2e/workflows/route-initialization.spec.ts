@@ -103,7 +103,7 @@ async function expectSelectHasOptions(page: Parameters<typeof test>[0]['page'], 
 test.describe('Route Initialization: 模型/模板下拉框有值', () => {
   for (const route of ROUTES) {
     test(route.name, async ({ page }) => {
-      // ✅ 使用 navigateToMode 导航（内部先访问根路径等待初始化）
+      // ✅ 使用 navigateToMode 导航（从 / 进入，再通过 UI 切换到目标工作区）
       await navigateToMode(page, route.mode, route.subMode)
 
       // ✅ 验证模型和模板下拉框都加载了选项

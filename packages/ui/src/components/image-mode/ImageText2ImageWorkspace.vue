@@ -982,7 +982,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, inject, ref, computed, watch, nextTick, type Ref } from 'vue'
+import { onMounted, onUnmounted, inject, ref, computed, nextTick, type Ref } from 'vue'
 
 import {
     NCard,
@@ -1055,8 +1055,6 @@ const {
 } = useImageGeneration()
 
 // 服务引用
-const modelManager = computed(() => services.value?.modelManager)
-const templateManager = computed(() => services.value?.templateManager)
 const historyManager = computed(() => services.value?.historyManager)
 const promptService = computed(() => services.value?.promptService)
 

@@ -127,7 +127,11 @@ class E2EVCR {
    * 清理文件名（保留中文、字母、数字）
    */
   private sanitizeFilename(name: string): string {
+    // Windows 路径会包含反斜杠，正则字符类里会把 "\\" 当作普通字符保留
+    // 这会导致 fixture 目录名与预期不一致（例如 optimize\pro-multi.spec.ts）。
+    // 先统一将路径分隔符替换为 '-' 再进行过滤。
     return name
+      .replace(/\\/g, '-')
       .replace(/[^\u4e00-\u9fa5a-z0-9]/gi, '-') // 保留中文、字母、数字
       .replace(/-+/g, '-') // 合并多个连字符
       .replace(/^-|-$/g, '') // 移除首尾连字符
@@ -253,40 +257,132 @@ class E2EVCR {
 
             const responseBody = await response.text()
 
-            // LLM API 必须返回流式响应（SSE 格式）
-            if (!responseBody.includes('data: ')) {
-              throw new Error('[VCR] LLM API 返回非流式响应，不支持录制')
+            // 录制时如果返回 4xx/5xx，直接跳过保存 fixture，避免把错误响应录进去
+            if (response.status() >= 400) {
+              const headers = { ...response.headers() }
+              // route.fetch() 已经解码了 body；若保留 content-encoding/content-length 等头会导致浏览器二次解码/长度不匹配
+              delete (headers as any)['content-encoding']
+              delete (headers as any)['content-length']
+              delete (headers as any)['transfer-encoding']
+
+              await route.fulfill({
+                status: response.status(),
+                headers: {
+                  ...headers,
+                  'access-control-allow-origin': '*',
+                  'access-control-allow-headers': '*',
+                },
+                body: responseBody
+              })
+              return
             }
 
-            // 解析 SSE 响应，提取完整内容
-            const lines = responseBody.split('\n').filter(line => line.trim().startsWith('data: '))
-            let fullContent = ''
+            const hasSSE = /(^|\n)\s*data:\s*/.test(responseBody)
 
-            for (const line of lines) {
-              const jsonStr = line.replace(/^data:\s*/, '').trim()
-              if (jsonStr === '[DONE]') continue
+            let rawSSE = responseBody
+            let responseJson: any = null
 
-              try {
-                const chunk = JSON.parse(jsonStr)
-                if (chunk.choices && chunk.choices[0] && chunk.choices[0].delta) {
-                  fullContent += chunk.choices[0].delta.content || ''
+            if (hasSSE) {
+              // 解析 SSE 响应，提取完整内容（OpenAI 兼容格式）
+              const lines = responseBody
+                .split('\n')
+                .map(line => line.trim())
+                .filter(line => line.startsWith('data:'))
+
+              let fullContent = ''
+              let lastChunk: any = null
+
+              for (const line of lines) {
+                const jsonStr = line.replace(/^data:\s*/, '').trim()
+                if (!jsonStr || jsonStr === '[DONE]') continue
+
+                try {
+                  const chunk = JSON.parse(jsonStr)
+                  lastChunk = chunk
+                  if (chunk.choices && chunk.choices[0] && chunk.choices[0].delta) {
+                    fullContent += chunk.choices[0].delta.content || ''
+                  }
+                } catch {
+                  // 忽略解析错误
                 }
-              } catch {
-                // 忽略解析错误
               }
-            }
 
-            // 构造解析后的响应对象（用于调试）
-            const lastChunk = JSON.parse(lines[lines.length - 2].replace(/^data:\s*/, '').trim())
-            const responseJson = {
-              ...lastChunk,
-              choices: [{
-                ...lastChunk.choices[0],
-                message: {
-                  role: 'assistant',
-                  content: fullContent
+              if (lastChunk) {
+                responseJson = {
+                  ...lastChunk,
+                  choices: [{
+                    ...lastChunk.choices?.[0],
+                    message: {
+                      role: 'assistant',
+                      content: fullContent
+                    }
+                  }]
                 }
-              }]
+              }
+            } else {
+              // 非 SSE 响应：尝试解析为 JSON，并合成一份可回放的 SSE
+              // 目的：让回放模式不依赖真实 API 的流式实现细节
+              try {
+                const parsed = JSON.parse(responseBody)
+                responseJson = parsed
+
+                const content =
+                  parsed?.choices?.[0]?.message?.content ??
+                  parsed?.choices?.[0]?.delta?.content ??
+                  parsed?.content ??
+                  ''
+
+                const created = parsed?.created ?? Math.floor(Date.now() / 1000)
+                const id = parsed?.id ?? `vcr_${created}`
+                const model = parsed?.model ?? 'unknown'
+
+                const baseChunk = {
+                  id,
+                  object: 'chat.completion.chunk',
+                  created,
+                  model,
+                  choices: [{
+                    index: 0,
+                    delta: { role: 'assistant', content: '' },
+                    logprobs: null,
+                    finish_reason: null,
+                  }]
+                }
+
+                const contentChunk = {
+                  id,
+                  object: 'chat.completion.chunk',
+                  created,
+                  model,
+                  choices: [{
+                    index: 0,
+                    delta: { content: String(content) },
+                    logprobs: null,
+                    finish_reason: null,
+                  }]
+                }
+
+                const endChunk = {
+                  id,
+                  object: 'chat.completion.chunk',
+                  created,
+                  model,
+                  choices: [{
+                    index: 0,
+                    delta: {},
+                    logprobs: null,
+                    finish_reason: 'stop',
+                  }]
+                }
+
+                rawSSE =
+                  `data: ${JSON.stringify(baseChunk)}\n\n` +
+                  `data: ${JSON.stringify(contentChunk)}\n\n` +
+                  `data: ${JSON.stringify(endChunk)}\n\n` +
+                  `data: [DONE]\n\n`
+              } catch {
+                throw new Error('[VCR] LLM API 返回非流式响应，且无法解析为 JSON')
+              }
             }
 
             await this.saveFixture(
@@ -295,13 +391,28 @@ class E2EVCR {
               JSON.parse(requestBody || '{}'),
               responseJson,
               endTime - startTime,
-              responseBody
+              rawSSE
             )
 
-            // 返回真实响应
+            // 返回真实响应（补齐 CORS，避免浏览器端 fetch 被拦）
+            const headers = { ...response.headers() }
+            // route.fetch() 已经解码了 body；若保留 content-encoding/content-length 等头会导致浏览器二次解码/长度不匹配
+            delete (headers as any)['content-encoding']
+            delete (headers as any)['content-length']
+            delete (headers as any)['transfer-encoding']
+
+            // 对于 stream=true 的请求，确保 content-type 为 SSE
+            if (hasSSE) {
+              headers['content-type'] = 'text/event-stream'
+            }
+
             await route.fulfill({
               status: response.status(),
-              headers: response.headers(),
+              headers: {
+                ...headers,
+                'access-control-allow-origin': '*',
+                'access-control-allow-headers': '*',
+              },
               body: responseBody
             })
           } else {
@@ -316,8 +427,11 @@ class E2EVCR {
                   'content-type': 'text/event-stream',
                   'cache-control': 'no-cache',
                   'connection': 'keep-alive',
+                  // 关键：避免浏览器端 fetch 因 CORS 直接失败
+                  'access-control-allow-origin': '*',
+                  'access-control-allow-headers': '*',
                 },
-                body: fixture.rawSSE
+                body: fixture.rawSSE || ''
               })
             } else {
               if (mode === 'replay') {

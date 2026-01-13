@@ -300,19 +300,25 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
           typeof saved === 'string'
             ? (JSON.parse(saved) as Record<string, unknown>)
             : (saved as Record<string, unknown>)
-        conversationMessagesSnapshot.value = parsed.conversationMessagesSnapshot || []
-        selectedMessageId.value = parsed.selectedMessageId || ''
-        optimizedPrompt.value = parsed.optimizedPrompt || ''
-        reasoning.value = parsed.reasoning || ''
-        chainId.value = parsed.chainId || ''
-        versionId.value = parsed.versionId || ''
-        messageChainMap.value = parsed.messageChainMap || {}
-        testResults.value = parsed.testResults || null
-        selectedOptimizeModelKey.value = parsed.selectedOptimizeModelKey || ''
-        selectedTestModelKey.value = parsed.selectedTestModelKey || ''
-        selectedTemplateId.value = parsed.selectedTemplateId || null
-        selectedIterateTemplateId.value = parsed.selectedIterateTemplateId || null
-        isCompareMode.value = parsed.isCompareMode ?? true
+        conversationMessagesSnapshot.value = Array.isArray(parsed.conversationMessagesSnapshot)
+          ? (parsed.conversationMessagesSnapshot as ConversationMessage[])
+          : []
+        selectedMessageId.value = typeof parsed.selectedMessageId === 'string' ? parsed.selectedMessageId : ''
+        optimizedPrompt.value = typeof parsed.optimizedPrompt === 'string' ? parsed.optimizedPrompt : ''
+        reasoning.value = typeof parsed.reasoning === 'string' ? parsed.reasoning : ''
+        chainId.value = typeof parsed.chainId === 'string' ? parsed.chainId : ''
+        versionId.value = typeof parsed.versionId === 'string' ? parsed.versionId : ''
+        messageChainMap.value = (parsed.messageChainMap && typeof parsed.messageChainMap === 'object')
+          ? (parsed.messageChainMap as Record<string, string>)
+          : {}
+        testResults.value = (parsed.testResults && typeof parsed.testResults === 'object')
+          ? (parsed.testResults as TestResults)
+          : null
+        selectedOptimizeModelKey.value = typeof parsed.selectedOptimizeModelKey === 'string' ? parsed.selectedOptimizeModelKey : ''
+        selectedTestModelKey.value = typeof parsed.selectedTestModelKey === 'string' ? parsed.selectedTestModelKey : ''
+        selectedTemplateId.value = typeof parsed.selectedTemplateId === 'string' ? parsed.selectedTemplateId : null
+        selectedIterateTemplateId.value = typeof parsed.selectedIterateTemplateId === 'string' ? parsed.selectedIterateTemplateId : null
+        isCompareMode.value = typeof parsed.isCompareMode === 'boolean' ? parsed.isCompareMode : true
         lastActiveAt.value = Date.now()
       }
       // else: 没有保存的会话，使用默认状态
