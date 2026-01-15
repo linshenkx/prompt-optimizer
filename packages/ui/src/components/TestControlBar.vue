@@ -28,6 +28,7 @@
           :value="isCompareMode"
           @update:value="handleCompareToggle"
           :size="buttonSize === 'large' ? 'medium' : 'small'"
+          :data-testid="compareToggleTestId"
         />
         <NText :depth="3" tag="span" class="tcb-compare-label">
           {{ t('test.compareMode') }}
@@ -42,6 +43,7 @@
         :loading="primaryActionLoading"
         type="primary"
         :size="buttonSize"
+        :data-testid="primaryActionTestId"
       >
         {{ primaryActionText }}
       </NButton>
@@ -73,6 +75,12 @@ interface Props {
 
   // 布局配置
   buttonSize?: 'small' | 'medium' | 'large'
+
+  /** E2E: stable selector for compare toggle */
+  compareToggleTestId?: string
+
+  /** E2E: stable selector for primary action button */
+  primaryActionTestId?: string
 }
 
 withDefaults(defineProps<Props>(), {
@@ -80,7 +88,9 @@ withDefaults(defineProps<Props>(), {
   isCompareMode: false,
   primaryActionDisabled: false,
   primaryActionLoading: false,
-  buttonSize: 'medium'
+  buttonSize: 'medium',
+  compareToggleTestId: undefined,
+  primaryActionTestId: undefined
 })
 
 const emit = defineEmits<{

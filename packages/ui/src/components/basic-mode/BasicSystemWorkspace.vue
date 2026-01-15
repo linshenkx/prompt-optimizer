@@ -164,6 +164,7 @@
             <TestAreaPanel
                 ref="testAreaPanelRef"
                 :style="{ flex: 1, overflow: 'auto', height: '100%', minHeight: 0 }"
+                test-id-prefix="basic-system"
                 optimization-mode="system"
                 :model-provider="selectedTestModelInfo.provider"
                 :model-name="selectedTestModelInfo.model"
@@ -216,6 +217,7 @@
 
                 <template #original-result>
                     <OutputDisplay
+                        :test-id="'basic-system-test-original-output'"
                         :content="unwrappedLogicProps.testResultsOriginalResult"
                         :reasoning="unwrappedLogicProps.testResultsOriginalReasoning"
                         :streaming="unwrappedLogicProps.isTestingOriginal"
@@ -227,6 +229,7 @@
 
                 <template #optimized-result>
                     <OutputDisplay
+                        :test-id="'basic-system-test-optimized-output'"
                         :content="unwrappedLogicProps.testResultsOptimizedResult"
                         :reasoning="unwrappedLogicProps.testResultsOptimizedReasoning"
                         :streaming="unwrappedLogicProps.isTestingOptimized"

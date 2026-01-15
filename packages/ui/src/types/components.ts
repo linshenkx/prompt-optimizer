@@ -219,6 +219,10 @@ export interface TestAreaPanelProps extends BaseComponentProps {
   advancedModeEnabled?: boolean
   /** 测试内容 */
   testContent?: string
+
+  /** E2E: stable selector prefix, e.g. "basic-system" */
+  testIdPrefix?: string
+
   /** 主要操作按钮文字 */
   primaryActionText?: string
   /** 主要操作是否禁用 */

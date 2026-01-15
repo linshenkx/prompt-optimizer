@@ -40,49 +40,62 @@ export async function clickOptimizeButton(page: Page, mode: OptimizeWorkspaceMod
   await button.click()
 }
 
+async function ensureOutputSourceView(output: import('@playwright/test').Locator) {
+  // OutputDisplay 头部有 Render / Source / Compare 三个 tab（Naive UI 的 n-button）。
+  // 并发/渲染抖动时直接读 output.innerText 会把 tab 文案也读进来，导致误判。
+  // 这里用 i18n 文案会受语言影响，改用“中间那个按钮”（Render/Source/Compare）更稳定。
+  const leftGroupButtons = output.locator('.n-button-group').first().locator('.n-button')
+  if ((await leftGroupButtons.count()) >= 2) {
+    const source = leftGroupButtons.nth(1)
+    // 如果已经处于 Source（disabled），直接返回
+    if (!(await source.isDisabled().catch(() => false))) {
+      await source.click({ timeout: 20000 })
+    }
+  }
+}
+
+async function readOutputSourceText(output: import('@playwright/test').Locator) {
+  if ((await output.count()) === 0) return { kind: 'missing', text: '' }
+
+  // Source 视图下优先读取编辑器/textarea 的“值”，避免拿到整张卡片的 innerText
+  const cmContent = output.locator('.cm-content')
+  if ((await cmContent.count()) > 0) {
+    return { kind: 'cm', text: (await cmContent.first().innerText()).trim() }
+  }
+
+  const textarea = output.locator('textarea')
+  if ((await textarea.count()) > 0) {
+    return { kind: 'textarea', text: (await textarea.first().inputValue()).trim() }
+  }
+
+  return { kind: 'text', text: (await output.innerText()).trim() }
+}
+
+export async function expectOutputByTestIdNotEmpty(page: Page, testId: string, opts?: { timeoutMs?: number }) {
+  const output = page.locator(`[data-testid="${testId}"]`)
+  const timeoutMs = opts?.timeoutMs ?? 120000
+
+  await ensureOutputSourceView(output)
+
+  await expect
+    .poll(async () => {
+      const { text } = await readOutputSourceText(output).catch(() => ({ text: '' }))
+      return text
+    }, { timeout: timeoutMs })
+    .toMatch(/\S/)
+}
+
 export async function expectOptimizedResultNotEmpty(page: Page, mode: OptimizeWorkspaceMode) {
   const workspace = getWorkspace(page, mode)
 
   const output = workspace.locator(`[data-testid="${mode}-output"]`)
 
-  const ensureSourceView = async () => {
-    // OutputDisplay 头部有 Render / Source / Compare 三个 tab（Naive UI 的 n-button）。
-    // 并发/渲染抖动时直接读 output.innerText 会把 tab 文案也读进来，导致误判。
-    // 这里用 i18n 文案会受语言影响，改用“中间那个按钮”（Render/Source/Compare）更稳定。
-    // 只点左侧“视图控制按钮组”（OutputDisplayCore 的第一个 NButtonGroup）
-    const leftGroupButtons = output.locator('.n-button-group').first().locator('.n-button')
-    if ((await leftGroupButtons.count()) >= 2) {
-      const source = leftGroupButtons.nth(1)
-      // 如果已经处于 Source（disabled），直接返回
-      if (!(await source.isDisabled().catch(() => false))) {
-        await source.click({ timeout: 20000 })
-      }
-    }
-  }
-
-  const readSourceText = async () => {
-    if ((await output.count()) === 0) return { kind: 'missing', text: '' }
-
-    // Source 视图下优先读取编辑器/textarea 的“值”，避免拿到整张卡片的 innerText
-    const cmContent = output.locator('.cm-content')
-    if ((await cmContent.count()) > 0) {
-      return { kind: 'cm', text: (await cmContent.first().innerText()).trim() }
-    }
-
-    const textarea = output.locator('textarea')
-    if ((await textarea.count()) > 0) {
-      return { kind: 'textarea', text: (await textarea.first().inputValue()).trim() }
-    }
-
-    return { kind: 'text', text: (await output.innerText()).trim() }
-  }
-
   try {
-    await ensureSourceView()
+    await ensureOutputSourceView(output)
 
     await expect
       .poll(async () => {
-        const { text } = await readSourceText().catch(() => ({ text: '' }))
+        const { text } = await readOutputSourceText(output).catch(() => ({ text: '' }))
         return text
       }, { timeout: 120000 })
       .toMatch(/\S/)
@@ -101,7 +114,7 @@ export async function expectOptimizedResultNotEmpty(page: Page, mode: OptimizeWo
 
     const outputInfo = await (async () => {
       try {
-        const out = await readSourceText()
+        const out = await readOutputSourceText(output)
         const readonly =
           out.kind === 'textarea' ? await output.locator('textarea').first().isDisabled().catch(() => false) : false
         return { ...out, readonly }

@@ -14,6 +14,7 @@
 import { type Page, type Route } from '@playwright/test'
 import * as fs from 'fs/promises'
 import * as path from 'path'
+import * as crypto from 'crypto'
 
 /**
  * LLM API 提供商
@@ -36,15 +37,35 @@ interface VCRConfig {
 /**
  * VCR Fixture
  */
-interface VCRFixture {
-  testName: string
-  testCase: string
+interface VCRInteraction {
   provider: LLMProvider
   url: string
+  method: string
   requestBody: any
+  requestHash: string
   responseBody: any // 解析后的响应（用于调试，实际回放时使用 rawSSE）
   rawSSE: string // 原始 SSE 响应文本（回放时使用）
   duration: number
+  status: number
+}
+
+interface VCRFixture {
+  testName: string
+  testCase: string
+
+  /**
+   * 支持同一个测试用例内的多次 LLM 请求。
+   * 录制时追加 interactions，回放时基于 requestHash 匹配并消费对应条目。
+   */
+  interactions: VCRInteraction[]
+
+  // --- legacy fields for backward compatibility (single interaction) ---
+  provider?: LLMProvider
+  url?: string
+  requestBody?: any
+  responseBody?: any
+  rawSSE?: string
+  duration?: number
 }
 
 /**
@@ -55,6 +76,9 @@ class E2EVCR {
   private currentTestName: string = ''
   private currentTestCase: string = ''
   private recordingEnabled: boolean = false
+
+  // Replay-only: per testCase, track how many interactions have been consumed per requestHash.
+  private replayConsumedByHash: Map<string, number> = new Map()
 
   constructor(config: VCRConfig) {
     this.config = config
@@ -67,6 +91,7 @@ class E2EVCR {
     this.currentTestName = testName
     this.currentTestCase = testCase
     this.recordingEnabled = await this.shouldRecord()
+    this.replayConsumedByHash = new Map()
 
     const modeSymbol = this.getModeSymbol()
     console.log(`[VCR] ${modeSymbol} Test: ${testName} - ${testCase}`)
@@ -154,35 +179,108 @@ class E2EVCR {
   /**
    * 保存 fixture
    */
+  private stableStringify(value: any): string {
+    if (value === null || value === undefined) return String(value)
+
+    if (Array.isArray(value)) {
+      return `[${value.map((v) => this.stableStringify(v)).join(',')}]`
+    }
+
+    if (typeof value === 'object') {
+      const keys = Object.keys(value).sort()
+      const entries = keys.map((k) => `${JSON.stringify(k)}:${this.stableStringify((value as any)[k])}`)
+      return `{${entries.join(',')}}`
+    }
+
+    return JSON.stringify(value)
+  }
+
+  private computeRequestHash(provider: LLMProvider, url: string, method: string, requestBody: any): string {
+    const payload = `${provider}|${method}|${url}|${this.stableStringify(requestBody)}`
+    return crypto.createHash('sha256').update(payload).digest('hex')
+  }
+
+  private normalizeFixture(fixture: VCRFixture | null): VCRFixture {
+    if (fixture && Array.isArray((fixture as any).interactions)) return fixture
+
+    if (fixture && (fixture as any).rawSSE) {
+      const legacyProvider = (fixture as any).provider as LLMProvider
+      const legacyUrl = (fixture as any).url as string
+      const legacyRequestBody = (fixture as any).requestBody
+      const legacyMethod = 'POST'
+      const legacyRequestHash = this.computeRequestHash(legacyProvider, legacyUrl, legacyMethod, legacyRequestBody)
+
+      return {
+        testName: fixture.testName,
+        testCase: fixture.testCase,
+        interactions: [
+          {
+            provider: legacyProvider,
+            url: legacyUrl,
+            method: legacyMethod,
+            requestBody: legacyRequestBody,
+            requestHash: legacyRequestHash,
+            responseBody: (fixture as any).responseBody,
+            rawSSE: (fixture as any).rawSSE,
+            duration: Number((fixture as any).duration ?? 0),
+            status: 200,
+          },
+        ],
+      }
+    }
+
+    return {
+      testName: this.currentTestName,
+      testCase: this.currentTestCase,
+      interactions: [],
+    }
+  }
+
+  private async writeFixture(fixture: VCRFixture): Promise<void> {
+    const fixturePath = this.getFixturePath()
+
+    await fs.mkdir(path.dirname(fixturePath), { recursive: true })
+    await fs.writeFile(fixturePath, JSON.stringify(fixture, null, 2), 'utf-8')
+
+    const relativePath = path.relative(process.cwd(), fixturePath)
+    console.log(`[VCR] ✅ Fixture saved: ${relativePath}`)
+  }
+
   async saveFixture(
     provider: LLMProvider,
     url: string,
     requestBody: any,
     responseBody: any,
     duration: number,
-    rawSSE: string
+    rawSSE: string,
+    method: string,
+    status: number
   ): Promise<void> {
     if (!this.recordingEnabled) return
 
+    const requestHash = this.computeRequestHash(provider, url, method, requestBody)
+
+    const existing = this.normalizeFixture(await this.loadFixture())
     const fixture: VCRFixture = {
-      testName: this.currentTestName,
-      testCase: this.currentTestCase,
-      provider,
-      url,
-      requestBody,
-      responseBody,
-      duration,
-      rawSSE
+      testName: existing.testName || this.currentTestName,
+      testCase: existing.testCase || this.currentTestCase,
+      interactions: [...existing.interactions],
     }
 
-    const fixturePath = this.getFixturePath()
+    fixture.interactions.push({
+      provider,
+      url,
+      method,
+      requestBody,
+      requestHash,
+      responseBody,
+      duration,
+      rawSSE,
+      status,
+    })
 
     try {
-      await fs.mkdir(path.dirname(fixturePath), { recursive: true })
-      await fs.writeFile(fixturePath, JSON.stringify(fixture, null, 2), 'utf-8')
-
-      const relativePath = path.relative(process.cwd(), fixturePath)
-      console.log(`[VCR] ✅ Fixture saved (${provider}): ${relativePath}`)
+      await this.writeFixture(fixture)
     } catch (error) {
       console.error(`[VCR] ❌ Failed to save fixture:`, error)
     }
@@ -199,12 +297,28 @@ class E2EVCR {
       const fixture: VCRFixture = JSON.parse(content)
 
       const relativePath = path.relative(process.cwd(), fixturePath)
-      console.log(`[VCR] ♻️  Replaying fixture (${fixture.provider}): ${relativePath}`)
+      const count = Array.isArray((fixture as any).interactions) ? (fixture as any).interactions.length : 1
+      console.log(`[VCR] ♻️  Replaying fixture (${count} interaction(s)): ${relativePath}`)
 
       return fixture
-    } catch (error) {
+    } catch {
       return null
     }
+  }
+
+  private async loadFixtureNormalized(): Promise<VCRFixture> {
+    const raw = await this.loadFixture()
+    return this.normalizeFixture(raw)
+  }
+
+  private findReplayInteraction(fixture: VCRFixture, requestHash: string): VCRInteraction | null {
+    const consumedCount = this.replayConsumedByHash.get(requestHash) ?? 0
+    const candidates = fixture.interactions.filter((it) => it.requestHash === requestHash)
+    const matched = candidates[consumedCount] ?? null
+    if (!matched) return null
+
+    this.replayConsumedByHash.set(requestHash, consumedCount + 1)
+    return matched
   }
 
   /**
@@ -391,7 +505,9 @@ class E2EVCR {
               JSON.parse(requestBody || '{}'),
               responseJson,
               endTime - startTime,
-              rawSSE
+              rawSSE,
+              method,
+              response.status()
             )
 
             // 返回真实响应（补齐 CORS，避免浏览器端 fetch 被拦）
@@ -416,13 +532,16 @@ class E2EVCR {
               body: responseBody
             })
           } else {
-            // replay 模式：使用 fixture
-            const fixture = await this.loadFixture()
+            // replay 模式：使用 fixture（支持同一个测试内多次请求，通过 requestHash 精准匹配）
+            const fixture = await this.loadFixtureNormalized()
+            const parsedRequestBody = JSON.parse(requestBody || '{}')
+            const requestHash = this.computeRequestHash(provider, url, method, parsedRequestBody)
+            const interaction = this.findReplayInteraction(fixture, requestHash)
 
-            if (fixture) {
+            if (interaction) {
               // 直接返回原始 SSE 文本（格式完全一致）
               await route.fulfill({
-                status: 200,
+                status: interaction.status || 200,
                 headers: {
                   'content-type': 'text/event-stream',
                   'cache-control': 'no-cache',
@@ -431,7 +550,7 @@ class E2EVCR {
                   'access-control-allow-origin': '*',
                   'access-control-allow-headers': '*',
                 },
-                body: fixture.rawSSE || ''
+                body: interaction.rawSSE || ''
               })
             } else {
               if (mode === 'replay') {

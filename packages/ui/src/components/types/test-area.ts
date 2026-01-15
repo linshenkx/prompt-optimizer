@@ -19,6 +19,9 @@ export interface TestInputSectionProps {
   enableFullscreen?: boolean
   minRows?: number
   maxRows?: number
+
+  /** E2E: stable selector for the textarea input */
+  testId?: string
 }
 
 export interface TestInputSectionEmits {
@@ -38,6 +41,12 @@ export interface TestControlBarProps {
   primaryActionText: string
   primaryActionDisabled?: boolean
   primaryActionLoading?: boolean
+
+  /** E2E: stable selector for compare toggle */
+  compareToggleTestId?: string
+
+  /** E2E: stable selector for primary action button */
+  primaryActionTestId?: string
   
   // 布局配置
   layout?: 'default' | 'compact' | 'minimal'
@@ -86,6 +95,9 @@ export interface TestAreaPanelProps {
   // 功能开关
   enableCompareMode?: boolean
   enableFullscreen?: boolean
+
+  /** E2E: stable selector prefix, e.g. "basic-system" */
+  testIdPrefix?: string
   
   // 布局配置
   inputMode?: 'compact' | 'normal'
