@@ -299,6 +299,7 @@
             >
                 <PromptPanelUI
                     v-if="services && services.templateManager"
+                    test-id="image-text2image"
                     ref="promptPanelRef"
                     v-model:optimized-prompt="optimizedPrompt"
                     :reasoning="optimizedReasoning"
@@ -338,6 +339,7 @@
                             <n-space align="center" :size="12">
                                 <template v-if="appOpenModelManager">
                                     <SelectWithConfig
+                                        data-testid="image-text2image-image-model-select"
                                         v-model="selectedImageModelKey"
                                         :options="imageModelOptions"
                                         :getPrimary="OptionAccessors.getPrimary"
@@ -367,6 +369,7 @@
                                 </template>
                                 <template v-else>
                                     <SelectWithConfig
+                                        data-testid="image-text2image-image-model-select"
                                         v-model="selectedImageModelKey"
                                         :options="imageModelOptions"
                                         :getPrimary="OptionAccessors.getPrimary"
@@ -401,6 +404,7 @@
                         <n-form-item>
                             <n-space align="center" wrap>
                                 <n-switch
+                                    data-testid="image-text2image-generate-compare-toggle"
                                     v-model:value="isCompareMode"
                                     :disabled="isGenerating"
                                 />
@@ -408,6 +412,7 @@
                                     t("imageWorkspace.generation.compareMode")
                                 }}</n-text>
                                 <n-button
+                                    data-testid="image-text2image-generate-button"
                                     type="primary"
                                     :loading="isGenerating"
                                     @click="handleGenerateImage"
@@ -456,6 +461,7 @@
                             <NSpace vertical :size="12">
                                 <!-- 图像显示 -->
                                 <NImage
+                                    data-testid="image-text2image-original-image"
                                     :src="
                                         getImageSrc(
                                             originalImageResult.images[0],
@@ -585,6 +591,7 @@
                             <NSpace vertical :size="12">
                                 <!-- 图像显示 -->
                                 <NImage
+                                    data-testid="image-text2image-optimized-image"
                                     :src="
                                         getImageSrc(
                                             optimizedImageResult.images[0],
@@ -716,6 +723,7 @@
                             <NSpace vertical :size="12">
                                 <!-- 图像显示 -->
                                 <NImage
+                                    data-testid="image-text2image-single-image"
                                     :src="
                                         getImageSrc(
                                             optimizedImageResult.images[0],
@@ -824,31 +832,32 @@
                                 </NSpace>
                             </NSpace>
                         </template>
-                        <template v-else>
-                            <template
-                                v-if="
-                                    originalImageResult &&
-                                    originalImageResult.images.length > 0
-                                "
-                            >
-                                <!-- 多模态结果显示：图像 + 文本（使用Naive UI组件） -->
-                                <NSpace vertical :size="12">
-                                    <!-- 图像显示 -->
-                                    <NImage
-                                        :src="
-                                            getImageSrc(
-                                                originalImageResult.images[0],
-                                            )
+                                <template v-else>
+                                    <template
+                                        v-if="
+                                            optimizedImageResult &&
+                                            optimizedImageResult.images.length > 0
                                         "
-                                        object-fit="contain"
-                                        :img-props="{
-                                            style: {
-                                                width: '100%',
-                                                height: 'auto',
-                                                display: 'block',
-                                            },
-                                        }"
-                                    />
+                                    >
+                                        <!-- 多模态结果显示：图像 + 文本（使用Naive UI组件） -->
+                                        <NSpace vertical :size="12">
+                                            <!-- 图像显示 -->
+                                            <NImage
+                                                data-testid="image-text2image-optimized-image"
+                                                :src="
+                                                    getImageSrc(
+                                                        optimizedImageResult.images[0],
+                                                    )
+                                                "
+                                                object-fit="contain"
+                                                :img-props="{
+                                                    style: {
+                                                        width: '100%',
+                                                        height: 'auto',
+                                                        display: 'block',
+                                                    },
+                                                }"
+                                            />
 
                                     <!-- 文本输出显示（如果存在） -->
                                     <template v-if="originalImageResult.text">

@@ -3,6 +3,8 @@ import { expect, type Page } from '@playwright/test'
 export type OptimizeWorkspaceMode =
   | 'basic-system'
   | 'basic-user'
+  | 'image-text2image'
+  | 'image-image2image'
   | 'pro-variable'
   | 'pro-multi'
 

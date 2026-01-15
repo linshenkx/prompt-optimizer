@@ -19,7 +19,7 @@ import * as crypto from 'crypto'
 /**
  * LLM API 提供商
  */
-type LLMProvider = 'openai' | 'deepseek' | 'anthropic' | 'gemini' | 'zhipu' | 'modelscope'
+type LLMProvider = 'openai' | 'deepseek' | 'anthropic' | 'gemini' | 'zhipu' | 'modelscope' | 'siliconflow'
 
 /**
  * VCR 模式
@@ -43,8 +43,19 @@ interface VCRInteraction {
   method: string
   requestBody: any
   requestHash: string
-  responseBody: any // 解析后的响应（用于调试，实际回放时使用 rawSSE）
-  rawSSE: string // 原始 SSE 响应文本（回放时使用）
+
+  /** Raw response body as UTF-8 text (SSE or JSON). */
+  rawBody: string
+
+  /** Response headers captured at record time (subset). */
+  responseHeaders: Record<string, string>
+
+  /**
+   * Parsed response body (for debugging only).
+   * For SSE responses this is the reconstructed final JSON.
+   */
+  responseBody: any
+
   duration: number
   status: number
 }
@@ -64,7 +75,7 @@ interface VCRFixture {
   url?: string
   requestBody?: any
   responseBody?: any
-  rawSSE?: string
+  rawSSE?: string // legacy only
   duration?: number
 }
 
@@ -92,6 +103,15 @@ class E2EVCR {
     this.currentTestCase = testCase
     this.recordingEnabled = await this.shouldRecord()
     this.replayConsumedByHash = new Map()
+
+    // In explicit record mode, always start from a clean fixture file to avoid mixing old interactions.
+    if (this.config.mode === 'record') {
+      try {
+        await fs.rm(this.getFixturePath(), { force: true })
+      } catch {
+        // ignore
+      }
+    }
 
     const modeSymbol = this.getModeSymbol()
     console.log(`[VCR] ${modeSymbol} Test: ${testName} - ${testCase}`)
@@ -173,6 +193,7 @@ class E2EVCR {
     if (url.includes('generativelanguage.googleapis.com')) return 'gemini'
     if (url.includes('open.bigmodel.cn')) return 'zhipu'
     if (url.includes('modelscope.cn')) return 'modelscope'
+    if (url.includes('api.siliconflow.cn')) return 'siliconflow'
     return null
   }
 
@@ -196,19 +217,48 @@ class E2EVCR {
   }
 
   private computeRequestHash(provider: LLMProvider, url: string, method: string, requestBody: any): string {
-    const payload = `${provider}|${method}|${url}|${this.stableStringify(requestBody)}`
+    // Normalize url: for some providers, query params (e.g. cache busters) should not affect matching.
+    const normalizedUrl = url.split('?')[0]
+
+    // Image2Image requests can embed huge base64 strings; avoid hashing raw bytes.
+    // The hash only needs to distinguish interactions within a test run.
+    const normalizedBody = (() => {
+      if (!requestBody || typeof requestBody !== 'object') return requestBody
+      const cloned = JSON.parse(JSON.stringify(requestBody))
+      const b64 = cloned?.inputImage?.b64
+      if (typeof b64 === 'string' && b64.length > 0) {
+        cloned.inputImage.b64 = `__b64_len_${b64.length}__`
+      }
+      return cloned
+    })()
+
+    const payload = `${provider}|${method}|${normalizedUrl}|${this.stableStringify(normalizedBody)}`
     return crypto.createHash('sha256').update(payload).digest('hex')
   }
 
   private normalizeFixture(fixture: VCRFixture | null): VCRFixture {
-    if (fixture && Array.isArray((fixture as any).interactions)) return fixture
+    if (fixture && Array.isArray((fixture as any).interactions)) {
+      // Backward compat: older multi-interaction fixtures stored rawSSE.
+      const interactions = (fixture as any).interactions as any[]
+      for (const it of interactions) {
+        if (typeof it.rawBody === 'undefined' && typeof it.rawSSE !== 'undefined') {
+          it.rawBody = it.rawSSE
+          it.responseHeaders = it.responseHeaders || { 'content-type': 'text/event-stream' }
+          delete it.rawSSE
+        }
+      }
+      return fixture
+    }
 
+    // Legacy single-interaction fixtures: normalize into interactions[].
     if (fixture && (fixture as any).rawSSE) {
       const legacyProvider = (fixture as any).provider as LLMProvider
       const legacyUrl = (fixture as any).url as string
       const legacyRequestBody = (fixture as any).requestBody
       const legacyMethod = 'POST'
       const legacyRequestHash = this.computeRequestHash(legacyProvider, legacyUrl, legacyMethod, legacyRequestBody)
+
+      const rawBody = String((fixture as any).rawSSE || '')
 
       return {
         testName: fixture.testName,
@@ -220,8 +270,9 @@ class E2EVCR {
             method: legacyMethod,
             requestBody: legacyRequestBody,
             requestHash: legacyRequestHash,
+            rawBody,
+            responseHeaders: { 'content-type': 'text/event-stream' },
             responseBody: (fixture as any).responseBody,
-            rawSSE: (fixture as any).rawSSE,
             duration: Number((fixture as any).duration ?? 0),
             status: 200,
           },
@@ -252,7 +303,8 @@ class E2EVCR {
     requestBody: any,
     responseBody: any,
     duration: number,
-    rawSSE: string,
+    rawBody: string,
+    responseHeaders: Record<string, string>,
     method: string,
     status: number
   ): Promise<void> {
@@ -267,15 +319,33 @@ class E2EVCR {
       interactions: [...existing.interactions],
     }
 
+    const sanitizedBody = (() => {
+      try {
+        // Keep the fixture small: drop huge base64 payloads.
+        if (requestBody && typeof requestBody === 'object') {
+          const cloned = JSON.parse(JSON.stringify(requestBody))
+          const b64 = cloned?.inputImage?.b64
+          if (typeof b64 === 'string' && b64.length > 0) {
+            cloned.inputImage.b64 = `__b64_len_${b64.length}__`
+          }
+          return cloned
+        }
+      } catch {
+        // ignore
+      }
+      return requestBody
+    })()
+
     fixture.interactions.push({
       provider,
       url,
       method,
-      requestBody,
+      requestBody: sanitizedBody,
       requestHash,
+      rawBody,
+      responseHeaders,
       responseBody,
       duration,
-      rawSSE,
       status,
     })
 
@@ -340,6 +410,7 @@ class E2EVCR {
       /https:\/\/generativelanguage\.googleapis\.com\/.*/,
       /https:\/\/open\.bigmodel\.cn\/.*/,
       /https:\/\/.*\.modelscope\.cn\/.*/,
+      /https:\/\/api\.siliconflow\.cn\/.*/,
     ]
 
     for (const pattern of apiPatterns) {
@@ -375,6 +446,41 @@ class E2EVCR {
             if (response.status() >= 400) {
               const headers = { ...response.headers() }
               // route.fetch() 已经解码了 body；若保留 content-encoding/content-length 等头会导致浏览器二次解码/长度不匹配
+              delete (headers as any)['content-encoding']
+              delete (headers as any)['content-length']
+              delete (headers as any)['transfer-encoding']
+
+              await route.fulfill({
+                status: response.status(),
+                headers: {
+                  ...headers,
+                  'access-control-allow-origin': '*',
+                  'access-control-allow-headers': '*',
+                },
+                body: responseBody
+              })
+              return
+            }
+
+            // 图像生成等非 SSE：直接按原始响应回放（避免强行合成 SSE 破坏语义）
+            const contentType = response.headers()['content-type'] || ''
+            const isImageResponse = /\bimage\//i.test(contentType)
+            const isSSE = /\btext\/event-stream\b/i.test(contentType)
+
+            if (!isSSE && (isImageResponse || /\/images\//i.test(url))) {
+              await this.saveFixture(
+                provider,
+                url,
+                JSON.parse(requestBody || '{}'),
+                null,
+                endTime - startTime,
+                responseBody,
+                { 'content-type': contentType || 'application/octet-stream' },
+                method,
+                response.status()
+              )
+
+              const headers = { ...response.headers() }
               delete (headers as any)['content-encoding']
               delete (headers as any)['content-length']
               delete (headers as any)['transfer-encoding']
@@ -506,6 +612,9 @@ class E2EVCR {
               responseJson,
               endTime - startTime,
               rawSSE,
+              {
+                'content-type': hasSSE ? 'text/event-stream' : (response.headers()['content-type'] || 'application/json'),
+              },
               method,
               response.status()
             )
@@ -540,17 +649,24 @@ class E2EVCR {
 
             if (interaction) {
               // 直接返回原始 SSE 文本（格式完全一致）
+              const contentType = interaction.responseHeaders?.['content-type'] || 'application/json'
+              const isSSE = /text\/event-stream/i.test(contentType)
+
               await route.fulfill({
                 status: interaction.status || 200,
                 headers: {
-                  'content-type': 'text/event-stream',
-                  'cache-control': 'no-cache',
-                  'connection': 'keep-alive',
+                  'content-type': contentType,
+                  ...(isSSE
+                    ? {
+                        'cache-control': 'no-cache',
+                        'connection': 'keep-alive',
+                      }
+                    : {}),
                   // 关键：避免浏览器端 fetch 因 CORS 直接失败
                   'access-control-allow-origin': '*',
                   'access-control-allow-headers': '*',
                 },
-                body: interaction.rawSSE || ''
+                body: interaction.rawBody || ''
               })
             } else {
               if (mode === 'replay') {

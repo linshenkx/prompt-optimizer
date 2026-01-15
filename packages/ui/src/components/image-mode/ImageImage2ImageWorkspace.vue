@@ -145,6 +145,7 @@
                             :style="{ flex: 1, gap: '8px' }"
                         >
                             <NButton
+                                data-testid="image-image2image-open-upload"
                                 :disabled="isOptimizing"
                                 @click="openUploadModal"
                                 size="medium"
@@ -158,6 +159,7 @@
                                 class="thumbnail-container"
                             >
                                 <NImage
+                                    data-testid="image-image2image-input-preview"
                                     :src="previewImageUrl"
                                     :style="{
                                         width: '60px',
@@ -198,6 +200,7 @@
                                 >
                                 <template v-if="appOpenModelManager">
                                     <SelectWithConfig
+                                        data-testid="image-image2image-text-model-select"
                                         v-model="selectedTextModelKey"
                                         :options="textModelOptions"
                                         :getPrimary="OptionAccessors.getPrimary"
@@ -225,6 +228,7 @@
                                 </template>
                                 <template v-else>
                                     <SelectWithConfig
+                                        data-testid="image-image2image-text-model-select"
                                         v-model="selectedTextModelKey"
                                         :options="textModelOptions"
                                         :getPrimary="OptionAccessors.getPrimary"
@@ -262,6 +266,7 @@
                                     v-if="services && services.templateManager"
                                 >
                                     <SelectWithConfig
+                                        data-testid="image-image2image-template-select"
                                         v-model="selectedTemplateIdForSelect"
                                         :options="templateOptions"
                                         :getPrimary="OptionAccessors.getPrimary"
@@ -354,6 +359,7 @@
             >
                 <PromptPanelUI
                     v-if="services && services.templateManager"
+                    test-id="image-image2image"
                     ref="promptPanelRef"
                     v-model:optimized-prompt="optimizedPrompt"
                     :reasoning="optimizedReasoning"
@@ -393,6 +399,7 @@
                             <n-space align="center" :size="12">
                                 <template v-if="appOpenModelManager">
                                     <SelectWithConfig
+                                        data-testid="image-image2image-image-model-select"
                                         v-model="selectedImageModelKey"
                                         :options="imageModelOptions"
                                         :getPrimary="OptionAccessors.getPrimary"
@@ -422,6 +429,7 @@
                                 </template>
                                 <template v-else>
                                     <SelectWithConfig
+                                        data-testid="image-image2image-image-model-select"
                                         v-model="selectedImageModelKey"
                                         :options="imageModelOptions"
                                         :getPrimary="OptionAccessors.getPrimary"
@@ -456,6 +464,7 @@
                         <n-form-item>
                             <n-space align="center" wrap>
                                 <n-switch
+                                    data-testid="image-image2image-generate-compare-toggle"
                                     v-model:value="isCompareMode"
                                     :disabled="isGenerating"
                                 />
@@ -463,6 +472,7 @@
                                     t("imageWorkspace.generation.compareMode")
                                 }}</n-text>
                                 <n-button
+                                    data-testid="image-image2image-generate-button"
                                     type="primary"
                                     :loading="isGenerating"
                                     @click="handleGenerateImage"
@@ -511,6 +521,7 @@
                             <NSpace vertical :size="12">
                                 <!-- 图像显示 -->
                                 <NImage
+                                    data-testid="image-image2image-original-image"
                                     :src="
                                         getImageSrc(
                                             originalImageResult.images[0],
@@ -640,6 +651,7 @@
                             <NSpace vertical :size="12">
                                 <!-- 图像显示 -->
                                 <NImage
+                                    data-testid="image-image2image-optimized-image"
                                     :src="
                                         getImageSrc(
                                             optimizedImageResult.images[0],
@@ -771,6 +783,7 @@
                             <NSpace vertical :size="12">
                                 <!-- 图像显示 -->
                                 <NImage
+                                    data-testid="image-image2image-single-image"
                                     :src="
                                         getImageSrc(
                                             optimizedImageResult.images[0],
@@ -880,136 +893,8 @@
                             </NSpace>
                         </template>
                         <template v-else>
-                            <template
-                                v-if="
-                                    originalImageResult &&
-                                    originalImageResult.images.length > 0
-                                "
-                            >
-                                <!-- 多模态结果显示：图像 + 文本（使用Naive UI组件） -->
-                                <NSpace vertical :size="12">
-                                    <!-- 图像显示 -->
-                                    <NImage
-                                        :src="
-                                            getImageSrc(
-                                                originalImageResult.images[0],
-                                            )
-                                        "
-                                        object-fit="contain"
-                                        :img-props="{
-                                            style: {
-                                                width: '100%',
-                                                height: 'auto',
-                                                display: 'block',
-                                            },
-                                        }"
-                                    />
-
-                                    <!-- 文本输出显示（如果存在） -->
-                                    <template v-if="originalImageResult.text">
-                                        <NCard
-                                            size="small"
-                                            :title="
-                                                t(
-                                                    'imageWorkspace.results.textOutput',
-                                                )
-                                            "
-                                            style="margin-top: 8px"
-                                        >
-                                            <NText
-                                                :depth="2"
-                                                style="
-                                                    white-space: pre-wrap;
-                                                    line-height: 1.5;
-                                                "
-                                            >
-                                                {{ originalImageResult.text }}
-                                            </NText>
-                                        </NCard>
-                                    </template>
-
-                                    <!-- 操作按钮 -->
-                                    <NSpace justify="center" :size="8">
-                                        <NButton
-                                            @click="
-                                                downloadImageFromResult(
-                                                    originalImageResult
-                                                        .images[0],
-                                                    'original',
-                                                )
-                                            "
-                                        >
-                                            <template #icon>
-                                                <NIcon>
-                                                    <svg
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        viewBox="0 0 24 24"
-                                                        fill="none"
-                                                        stroke="currentColor"
-                                                        stroke-width="2"
-                                                    >
-                                                        <path
-                                                            d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"
-                                                        />
-                                                    </svg>
-                                                </NIcon>
-                                            </template>
-                                            {{
-                                                t(
-                                                    "imageWorkspace.results.download",
-                                                )
-                                            }}
-                                        </NButton>
-
-                                        <NButton
-                                            v-if="originalImageResult.text"
-                                            size="small"
-                                            secondary
-                                            @click="
-                                                copyImageText(
-                                                    originalImageResult.text,
-                                                )
-                                            "
-                                        >
-                                            <template #icon>
-                                                <NIcon>
-                                                    <svg
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        viewBox="0 0 24 24"
-                                                        fill="none"
-                                                        stroke="currentColor"
-                                                        stroke-width="2"
-                                                    >
-                                                        <rect
-                                                            x="9"
-                                                            y="9"
-                                                            width="13"
-                                                            height="13"
-                                                            rx="2"
-                                                            ry="2"
-                                                        />
-                                                        <path
-                                                            d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"
-                                                        />
-                                                    </svg>
-                                                </NIcon>
-                                            </template>
-                                            {{
-                                                t(
-                                                    "imageWorkspace.results.copyText",
-                                                )
-                                            }}
-                                        </NButton>
-                                    </NSpace>
-                                </NSpace>
-                            </template>
                             <NEmpty
-                                v-else
-                                :description="
-                                    t(
-                                        'imageWorkspace.results.noGenerationResult',
-                                    )
-                                "
+                                :description="t('imageWorkspace.results.noGenerationResult')"
                             />
                         </template>
                     </template>
@@ -1035,6 +920,7 @@
 
     <!-- 图片上传弹窗 -->
     <n-modal
+        data-testid="image-image2image-upload-modal"
         v-model:show="showUploadModal"
         preset="card"
         :title="t('imageWorkspace.upload.title')"
@@ -1042,6 +928,7 @@
     >
         <div style="padding: 16px">
             <n-upload
+                data-testid="image-image2image-upload"
                 :max="1"
                 accept="image/png,image/jpeg"
                 :show-file-list="true"
