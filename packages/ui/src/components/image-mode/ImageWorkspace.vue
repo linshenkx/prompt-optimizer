@@ -126,6 +126,7 @@
                         :maxlength="30000"
                         clearable
                         show-count
+                        :count="(value: string) => `${value?.length || 0} / 30000`"
                         :disabled="isOptimizing"
                     />
 
@@ -1032,8 +1033,10 @@
             type="textarea"
             :placeholder="t('imageWorkspace.input.originalPromptPlaceholder')"
             :autosize="{ minRows: 20 }"
+            :maxlength="30000"
             clearable
             show-count
+            :count="(value: string) => `${value?.length || 0} / 30000`"
             :disabled="isOptimizing"
         />
     </FullscreenDialog>
