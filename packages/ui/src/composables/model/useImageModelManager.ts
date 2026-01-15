@@ -181,7 +181,16 @@ export function useImageModelManager() {
 
   const loadConfigs = async () => {
     try {
-      configs.value = await imageModelManager.getAllConfigs()
+      const allConfigs = await imageModelManager.getAllConfigs()
+      // 排序：启用的模型在前，然后按显示名称排序
+      configs.value = allConfigs.sort((a: ImageModelConfig, b: ImageModelConfig) => {
+        // 第一级：按启用状态排序（启用的在前）
+        if (a.enabled !== b.enabled) {
+          return a.enabled ? -1 : 1
+        }
+        // 第二级：按名称字母顺序排序
+        return a.name.localeCompare(b.name)
+      })
     } catch (error) {
       console.error('Failed to load configs:', error)
       toast.error(t('image.config.loadFailed'))
