@@ -33,7 +33,8 @@ const errorColor = computed(() => themeOverrides.value?.common?.errorColor || '#
 const textColor3 = computed(() => themeOverrides.value?.common?.textColor3 || '#6b7280')
 
 // 长度阈值：超过此值降级显示
-const MAX_LENGTH = 2000
+// Set to 60000 to support comparing two 30000-char prompts
+const MAX_LENGTH = 60000
 
 // 本地 fallback service（仅在全局不可用时创建）
 let localService: ICompareService | null = null
