@@ -123,7 +123,7 @@
                         "
                         :rows="4"
                         :autosize="{ minRows: 4, maxRows: 12 }"
-                        :maxlength="2000"
+                        :maxlength="30000"
                         clearable
                         show-count
                         :disabled="isOptimizing"
