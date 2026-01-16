@@ -126,9 +126,12 @@
                         :maxlength="30000"
                         clearable
                         show-count
-                        :count="(value: string) => `${value?.length || 0} / 30000`"
                         :disabled="isOptimizing"
-                    />
+                    >
+                        <template #count>
+                            {{ originalPrompt?.length || 0 }} / 30000
+                        </template>
+                    </NInput>
 
                     <!-- 图片上传区域 - 仅在图生图模式显示 -->
                     <NSpace
@@ -1036,9 +1039,12 @@
             :maxlength="30000"
             clearable
             show-count
-            :count="(value: string) => `${value?.length || 0} / 30000`"
             :disabled="isOptimizing"
-        />
+        >
+            <template #count>
+                {{ fullscreenValue?.length || 0 }} / 30000
+            </template>
+        </NInput>
     </FullscreenDialog>
 
     <!-- 图片上传弹窗 -->
