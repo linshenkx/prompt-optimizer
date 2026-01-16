@@ -1,34 +1,44 @@
 /**
+ * History base error
  * 历史记录基础错误
  */
+
+import { HISTORY_ERROR_CODES } from '../../constants/error-codes';
+
 export class HistoryError extends Error {
-  constructor(message: string) {
-    super(message);
+  public readonly code: string;
+
+  constructor(code: string, public readonly context?: string, message?: string) {
+    super(message ? `[${code}] ${message}` : `[${code}] context=${context || 'none'}`);
     this.name = 'HistoryError';
+    this.code = code;
   }
 }
 
 /**
+ * History not found error
  * 历史记录未找到错误
  */
 export class HistoryNotFoundError extends HistoryError {
   constructor(id: string) {
-    super(`未找到ID为${id}的历史记录`);
+    super(HISTORY_ERROR_CODES.NOT_FOUND, id);
     this.name = 'HistoryNotFoundError';
   }
 }
 
 /**
+ * History chain error
  * 历史记录链错误
  */
 export class HistoryChainError extends HistoryError {
   constructor(message: string) {
-    super(message);
+    super(HISTORY_ERROR_CODES.CHAIN_ERROR, undefined, message);
     this.name = 'HistoryChainError';
   }
 }
 
 /**
+ * Record not found error
  * 记录不存在错误
  */
 export class RecordNotFoundError extends HistoryError {
@@ -36,13 +46,17 @@ export class RecordNotFoundError extends HistoryError {
     message: string,
     public recordId: string
   ) {
-    super(message);
+    super(HISTORY_ERROR_CODES.RECORD_NOT_FOUND, recordId, message);
     this.name = 'RecordNotFoundError';
   }
 }
 
 /**
+ * History storage error
  * 历史记录存储错误
+ *
+ * Note: This class is different from StorageError in storage/errors.ts,
+ * specifically for storage operation errors in the history module
  * 注意：此类与 storage/errors.ts 中的 StorageError 不同，
  * 专用于历史记录模块的存储操作错误
  */
@@ -51,12 +65,13 @@ export class HistoryStorageError extends HistoryError {
     message: string,
     public operation: 'read' | 'write' | 'delete' | 'init' | 'storage'
   ) {
-    super(message);
+    super(HISTORY_ERROR_CODES.STORAGE_ERROR, operation, message);
     this.name = 'HistoryStorageError';
   }
 }
 
 /**
+ * Record validation error
  * 记录验证错误
  */
 export class RecordValidationError extends HistoryError {
@@ -64,7 +79,7 @@ export class RecordValidationError extends HistoryError {
     message: string,
     public errors: string[]
   ) {
-    super(message);
+    super(HISTORY_ERROR_CODES.VALIDATION_ERROR, undefined, message);
     this.name = 'RecordValidationError';
   }
 } 
