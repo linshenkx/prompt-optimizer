@@ -169,6 +169,21 @@ export type {
   StorageKey
 } from './constants/storage-keys'
 
+// Export error codes for internationalization | 导出错误代码用于国际化
+export {
+  ERROR_CODES,
+  EVALUATION_ERROR_CODES,
+  LLM_ERROR_CODES,
+  HISTORY_ERROR_CODES,
+  COMPARE_ERROR_CODES,
+  STORAGE_ERROR_CODES,
+  MODEL_ERROR_CODES,
+  TEMPLATE_ERROR_CODES,
+  PROMPT_ERROR_CODES,
+  FAVORITE_ERROR_CODES,
+} from './constants/error-codes'
+export type { ErrorCode } from './constants/error-codes'
+
 // 导出上下文相关
 export * from './services/context/types'
 export { createContextRepo } from './services/context/repo'
