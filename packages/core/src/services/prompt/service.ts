@@ -17,7 +17,6 @@ import {
   TestError,
   ServiceDependencyError,
 } from "./errors";
-import { ERROR_MESSAGES } from "../llm/errors";
 import { TemplateProcessor, TemplateContext } from "../template/processor";
 
 /**
@@ -47,21 +46,21 @@ export class PromptService implements IPromptService {
    */
   private checkDependencies() {
     if (!this.modelManager) {
-      throw new ServiceDependencyError("Model manager not initialized", "ModelManager");
+      throw new ServiceDependencyError("ModelManager", "Model manager not initialized");
     }
     if (!this.llmService) {
-      throw new ServiceDependencyError("LLM service not initialized", "LLMService");
+      throw new ServiceDependencyError("LLMService", "LLM service not initialized");
     }
     if (!this.templateManager) {
       throw new ServiceDependencyError(
-        "Template manager not initialized",
         "TemplateManager",
+        "Template manager not initialized",
       );
     }
     if (!this.historyManager) {
       throw new ServiceDependencyError(
-        "History manager not initialized",
         "HistoryManager",
+        "History manager not initialized",
       );
     }
   }
@@ -71,17 +70,11 @@ export class PromptService implements IPromptService {
    */
   private validateInput(prompt: string, modelKey: string) {
     if (!prompt?.trim()) {
-      throw new OptimizationError(
-        `${ERROR_MESSAGES.OPTIMIZATION_FAILED}: ${ERROR_MESSAGES.EMPTY_INPUT}`,
-        prompt,
-      );
+      throw new OptimizationError(prompt, 'Prompt cannot be empty');
     }
 
     if (!modelKey?.trim()) {
-      throw new OptimizationError(
-        `${ERROR_MESSAGES.OPTIMIZATION_FAILED}: ${ERROR_MESSAGES.MODEL_KEY_REQUIRED}`,
-        prompt,
-      );
+      throw new OptimizationError(prompt, 'Model key is required');
     }
   }
 
@@ -90,10 +83,7 @@ export class PromptService implements IPromptService {
    */
   private validateResponse(response: string, prompt: string) {
     if (!response?.trim()) {
-      throw new OptimizationError(
-        "Optimization failed: LLM service returned empty result",
-        prompt,
-      );
+      throw new OptimizationError(prompt, 'LLM service returned empty result');
     }
   }
 
@@ -101,37 +91,37 @@ export class PromptService implements IPromptService {
    * 验证消息优化请求参数
    */
   private validateMessageOptimizationRequest(request: MessageOptimizationRequest) {
-    if (!request.selectedMessageId?.trim()) {
-      throw new OptimizationError("Selected message ID is required", "");
-    }
+      if (!request.selectedMessageId?.trim()) {
+        throw new OptimizationError("", "Selected message ID is required");
+      }
 
-    if (!request.messages || request.messages.length === 0) {
-      throw new OptimizationError("Messages array is required and cannot be empty", "");
-    }
+      if (!request.messages || request.messages.length === 0) {
+        throw new OptimizationError("", "Messages array is required and cannot be empty");
+      }
 
-    if (!request.modelKey?.trim()) {
-      throw new OptimizationError("Model key is required", "");
-    }
+      if (!request.modelKey?.trim()) {
+        throw new OptimizationError("", "Model key is required");
+      }
 
-    // 验证选中的消息是否存在
-    const selectedMessage = request.messages.find(
-      msg => msg.id === request.selectedMessageId
-    );
-
-    if (!selectedMessage) {
-      throw new OptimizationError(
-        `Message with ID ${request.selectedMessageId} not found in messages array`,
-        ""
+      // 验证选中的消息是否存在
+      const selectedMessage = request.messages.find(
+        msg => msg.id === request.selectedMessageId
       );
-    }
 
-    // 验证消息内容不为空
-    if (!selectedMessage.content?.trim()) {
-      throw new OptimizationError(
-        "Selected message content cannot be empty",
-        ""
-      );
-    }
+      if (!selectedMessage) {
+        throw new OptimizationError(
+          "",
+          `Message with ID ${request.selectedMessageId} not found in messages array`,
+        );
+      }
+
+      // 验证消息内容不为空
+      if (!selectedMessage.content?.trim()) {
+        throw new OptimizationError(
+          "",
+          "Selected message content cannot be empty",
+        );
+      }
   }
 
   /**
@@ -143,7 +133,7 @@ export class PromptService implements IPromptService {
 
       const modelConfig = await this.modelManager.getModel(request.modelKey);
       if (!modelConfig) {
-        throw new OptimizationError("Model not found", request.targetPrompt);
+        throw new OptimizationError(request.targetPrompt, "Model not found");
       }
 
       const template = await this.templateManager.getTemplate(
@@ -155,8 +145,8 @@ export class PromptService implements IPromptService {
 
       if (!template?.content) {
         throw new OptimizationError(
-          "Template not found or invalid",
           request.targetPrompt,
+          "Template not found or invalid",
         );
       }
 
@@ -207,8 +197,8 @@ export class PromptService implements IPromptService {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       throw new OptimizationError(
-        `Optimization failed: ${errorMessage}`,
         request.targetPrompt,
+        `Optimization failed: ${errorMessage}`,
       );
     }
   }
@@ -224,7 +214,7 @@ export class PromptService implements IPromptService {
       // 获取模型配置
       const modelConfig = await this.modelManager.getModel(request.modelKey);
       if (!modelConfig) {
-        throw new OptimizationError("Model not found", "");
+        throw new OptimizationError("", "Model not found");
       }
 
       // 从消息数组中找到选中的消息
@@ -244,8 +234,8 @@ export class PromptService implements IPromptService {
 
       if (!template?.content) {
         throw new OptimizationError(
-          "Template not found or invalid",
           selectedMessage.content,
+          "Template not found or invalid",
         );
       }
 
@@ -303,8 +293,8 @@ export class PromptService implements IPromptService {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       throw new OptimizationError(
-        `Message optimization failed: ${errorMessage}`,
         "",
+        `Message optimization failed: ${errorMessage}`,
       );
     }
   }
@@ -334,7 +324,7 @@ export class PromptService implements IPromptService {
       // 获取模型配置
       const modelConfig = await this.modelManager.getModel(modelKey);
       if (!modelConfig) {
-        throw new ServiceDependencyError("Model not found", "ModelManager");
+        throw new ServiceDependencyError("ModelManager", "Model not found");
       }
 
       // 获取迭代提示词
@@ -347,29 +337,29 @@ export class PromptService implements IPromptService {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         throw new IterationError(
-          `Iteration failed: ${errorMessage}`,
           originalPrompt,
           iterateInput,
+          `Iteration failed: ${errorMessage}`,
         );
       }
 
       if (!template?.content) {
         throw new IterationError(
-          "Iteration failed: Template not found or invalid",
           originalPrompt,
           iterateInput,
+          "Iteration failed: Template not found or invalid",
         );
       }
 
       // 🔧 迭代功能必须使用高级模板（message array 格式）以支持变量替换
       if (typeof template.content === "string") {
         throw new IterationError(
+          originalPrompt,
+          iterateInput,
           `Iteration requires advanced template (message array format) for variable substitution.\n` +
             `Template ID: ${template.id}\n` +
             `Current template type: Simple template (string format)\n` +
             `Suggestion: Please use message array format template that supports {{lastOptimizedPrompt}} and {{iterateInput}} variables`,
-          originalPrompt,
-          iterateInput,
         );
       }
 
@@ -411,9 +401,9 @@ export class PromptService implements IPromptService {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       throw new IterationError(
-        `Iteration failed: ${errorMessage}`,
         originalPrompt,
         iterateInput,
+        `Iteration failed: ${errorMessage}`,
       );
     }
   }
@@ -429,19 +419,15 @@ export class PromptService implements IPromptService {
     try {
       // 对于用户提示词优化，systemPrompt 可以为空
       if (!userPrompt?.trim()) {
-        throw new TestError(
-          "User prompt is required",
-          systemPrompt,
-          userPrompt,
-        );
+        throw new TestError(systemPrompt, userPrompt, "User prompt is required");
       }
       if (!modelKey?.trim()) {
-        throw new TestError("Model key is required", systemPrompt, userPrompt);
+        throw new TestError(systemPrompt, userPrompt, "Model key is required");
       }
 
       const modelConfig = await this.modelManager.getModel(modelKey);
       if (!modelConfig) {
-        throw new TestError("Model not found", systemPrompt, userPrompt);
+        throw new TestError(systemPrompt, userPrompt, "Model not found");
       }
 
       const messages: Message[] = [];
@@ -463,9 +449,9 @@ export class PromptService implements IPromptService {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       throw new TestError(
-        `Test failed: ${errorMessage}`,
         systemPrompt,
         userPrompt,
+        `Test failed: ${errorMessage}`,
       );
     }
   }
@@ -496,19 +482,15 @@ export class PromptService implements IPromptService {
     try {
       // 对于用户提示词优化，systemPrompt 可以为空
       if (!userPrompt?.trim()) {
-        throw new TestError(
-          "User prompt is required",
-          systemPrompt,
-          userPrompt,
-        );
+        throw new TestError(systemPrompt, userPrompt, "User prompt is required");
       }
       if (!modelKey?.trim()) {
-        throw new TestError("Model key is required", systemPrompt, userPrompt);
+        throw new TestError(systemPrompt, userPrompt, "Model key is required");
       }
 
       const modelConfig = await this.modelManager.getModel(modelKey);
       if (!modelConfig) {
-        throw new TestError("Model not found", systemPrompt, userPrompt);
+        throw new TestError(systemPrompt, userPrompt, "Model not found");
       }
 
       const messages: Message[] = [];
@@ -531,9 +513,9 @@ export class PromptService implements IPromptService {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       throw new TestError(
-        `Test failed: ${errorMessage}`,
         systemPrompt,
         userPrompt,
+        `Test failed: ${errorMessage}`,
       );
     }
   }
@@ -550,7 +532,7 @@ export class PromptService implements IPromptService {
 
       const modelConfig = await this.modelManager.getModel(request.modelKey);
       if (!modelConfig) {
-        throw new OptimizationError("Model not found", request.targetPrompt);
+        throw new OptimizationError(request.targetPrompt, "Model not found");
       }
 
       const template = await this.templateManager.getTemplate(
@@ -562,8 +544,8 @@ export class PromptService implements IPromptService {
 
       if (!template?.content) {
         throw new OptimizationError(
-          "Template not found or invalid",
           request.targetPrompt,
+          "Template not found or invalid",
         );
       }
 
@@ -636,8 +618,8 @@ export class PromptService implements IPromptService {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       throw new OptimizationError(
-        `Optimization failed: ${errorMessage}`,
         request.targetPrompt,
+        `Optimization failed: ${errorMessage}`,
       );
     }
   }
@@ -656,7 +638,7 @@ export class PromptService implements IPromptService {
       // 获取模型配置
       const modelConfig = await this.modelManager.getModel(request.modelKey);
       if (!modelConfig) {
-        throw new OptimizationError("Model not found", "");
+        throw new OptimizationError("", "Model not found");
       }
 
       // 从消息数组中找到选中的消息
@@ -676,8 +658,8 @@ export class PromptService implements IPromptService {
 
       if (!template?.content) {
         throw new OptimizationError(
-          "Template not found or invalid",
           selectedMessage.content,
+          "Template not found or invalid",
         );
       }
 
@@ -749,8 +731,8 @@ export class PromptService implements IPromptService {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       throw new OptimizationError(
-        `Message optimization failed: ${errorMessage}`,
         "",
+        `Message optimization failed: ${errorMessage}`,
       );
     }
   }
@@ -781,7 +763,7 @@ export class PromptService implements IPromptService {
       // 获取模型配置
       const modelConfig = await this.modelManager.getModel(modelKey);
       if (!modelConfig) {
-        throw new ServiceDependencyError("Model not found", "ModelManager");
+        throw new ServiceDependencyError("ModelManager", "Model not found");
       }
 
       // 获取迭代提示词
@@ -792,29 +774,29 @@ export class PromptService implements IPromptService {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         throw new IterationError(
-          `Iteration failed: ${errorMessage}`,
           originalPrompt,
           iterateInput,
+          `Iteration failed: ${errorMessage}`,
         );
       }
 
       if (!template?.content) {
         throw new IterationError(
-          "Iteration failed: Template not found or invalid",
           originalPrompt,
           iterateInput,
+          "Iteration failed: Template not found or invalid",
         );
       }
 
       // 🔧 迭代功能必须使用高级模板（message array 格式）以支持变量替换
       if (typeof template.content === "string") {
         throw new IterationError(
+          originalPrompt,
+          iterateInput,
           `Iteration requires advanced template (message array format) for variable substitution.\n` +
             `Template ID: ${template.id}\n` +
             `Current template type: Simple template (string format)\n` +
             `Suggestion: Please use message array format template that supports {{lastOptimizedPrompt}} and {{iterateInput}} variables`,
-          originalPrompt,
-          iterateInput,
         );
       }
 
@@ -872,9 +854,9 @@ export class PromptService implements IPromptService {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       throw new IterationError(
-        `Iteration failed: ${errorMessage}`,
         originalPrompt,
         iterateInput,
+        `Iteration failed: ${errorMessage}`,
       );
     }
   }
@@ -886,13 +868,10 @@ export class PromptService implements IPromptService {
    */
   private validateOptimizationRequest(request: OptimizationRequest) {
     if (!request.targetPrompt?.trim()) {
-      throw new OptimizationError("Target prompt is required", "");
+      throw new OptimizationError("", "Target prompt is required");
     }
     if (!request.modelKey?.trim()) {
-      throw new OptimizationError(
-        "Model key is required",
-        request.targetPrompt,
-      );
+      throw new OptimizationError(request.targetPrompt, "Model key is required");
     }
   }
 
@@ -1011,16 +990,16 @@ export class PromptService implements IPromptService {
     try {
       // 验证请求
       if (!request.modelKey?.trim()) {
-        throw new TestError("Model key is required", "", "");
+        throw new TestError("", "", "Model key is required");
       }
       if (!request.messages || request.messages.length === 0) {
-        throw new TestError("At least one message is required", "", "");
+        throw new TestError("", "", "At least one message is required");
       }
 
       // 验证模型存在
       const modelConfig = await this.modelManager.getModel(request.modelKey);
       if (!modelConfig) {
-        throw new TestError("Model not found", "", "");
+        throw new TestError("", "", "Model not found");
       }
 
       // 处理会话消息：替换变量
@@ -1030,7 +1009,7 @@ export class PromptService implements IPromptService {
       );
 
       if (processedMessages.length === 0) {
-        throw new TestError("No valid messages after processing", "", "");
+        throw new TestError("", "", "No valid messages after processing");
       }
 
       // 使用流式发送，根据是否有工具选择不同的方法
@@ -1100,13 +1079,13 @@ export class PromptService implements IPromptService {
         callbacks.onError(
           new Error(`Custom conversation test failed: ${errorMessage}`),
         );
-      } else {
-        throw new TestError(
-          `Custom conversation test failed: ${errorMessage}`,
-          "",
-          "",
-        );
-      }
+        } else {
+          throw new TestError(
+            "",
+            "",
+            `Custom conversation test failed: ${errorMessage}`,
+          );
+        }
     }
   }
 }

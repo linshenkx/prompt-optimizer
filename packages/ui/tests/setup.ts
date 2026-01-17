@@ -141,6 +141,28 @@ Object.assign(Element.prototype, {
   scrollIntoView: vi.fn(),
 })
 
+// CodeMirror relies on Range geometry methods which are incomplete in jsdom.
+// Provide a minimal polyfill to avoid noisy test stderr.
+if (typeof Range !== 'undefined') {
+  const proto = Range.prototype as any
+  if (typeof proto.getClientRects !== 'function') {
+    proto.getClientRects = () => []
+  }
+  if (typeof proto.getBoundingClientRect !== 'function') {
+    proto.getBoundingClientRect = () => ({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      bottom: 0,
+      right: 0,
+      width: 0,
+      height: 0,
+      toJSON: () => ({})
+    })
+  }
+}
+
 console.log('[Test Setup] Global browser API mocks initialized')
 
 // ========== Pinia 服务清理（防止测试污染）==========

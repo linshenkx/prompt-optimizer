@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { ref } from 'vue'
+import { ref, type Ref } from 'vue'
 
 const toast = {
   success: vi.fn(),
@@ -9,11 +9,15 @@ const toast = {
   loading: vi.fn()
 }
 
-vi.mock('vue-i18n', () => ({
-  useI18n: () => ({
-    t: (key: string) => key
-  })
-}))
+vi.mock('vue-i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue-i18n')>()
+  return {
+    ...actual,
+    useI18n: () => ({
+      t: (key: string) => key
+    })
+  }
+})
 
 vi.mock('../../src/composables/ui/useToast', () => ({
   useToast: () => toast
@@ -46,10 +50,12 @@ describe('ContextUser optimization (integration)', () => {
       addIteration: vi.fn()
     }
 
-    const services = ref({
+    const services: Ref<AppServices | null> = ref({
       promptService,
-      historyManager
-    } as unknown as AppServices)
+      historyManager,
+      // Unused by this test but required by the AppServices type
+      contextMode: ref('user' as any)
+    } as any)
 
     const selectedOptimizeModel = ref('text-model-1')
     const selectedTemplate = ref<Template | null>({ id: 'tpl-1' } as any)
@@ -97,10 +103,12 @@ describe('ContextUser optimization (integration)', () => {
       }))
     }
 
-    const services = ref({
+    const services: Ref<AppServices | null> = ref({
       promptService,
-      historyManager
-    } as unknown as AppServices)
+      historyManager,
+      // Unused by this test but required by the AppServices type
+      contextMode: ref('user' as any)
+    } as any)
 
     const selectedOptimizeModel = ref('text-model-1')
     const selectedTemplate = ref<Template | null>({ id: 'tpl-1' } as any)

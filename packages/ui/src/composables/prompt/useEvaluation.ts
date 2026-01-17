@@ -12,7 +12,7 @@
 import { reactive, ref, computed, type Ref, type ComputedRef } from 'vue'
 import { useToast } from '../ui/useToast'
 import { useI18n } from 'vue-i18n'
-import { getErrorMessage } from '../../utils/error'
+import { getI18nErrorMessage } from '../../utils/error'
 import { useFunctionModelManager } from '../model/useFunctionModelManager'
 import type { AppServices } from '../../types/services'
 import type {
@@ -414,13 +414,13 @@ export function useEvaluation(
         onError: (error: Error) => {
           // 守卫：如果评估已被清理/取消，忽略错误
           if (!targetState.isEvaluating) return
-          targetState.error = getErrorMessage(error)
+          targetState.error = getI18nErrorMessage(error)
           targetState.isEvaluating = false
           toast.error(t('evaluation.error.failed', { error: targetState.error }))
         },
       })
     } catch (error) {
-      targetState.error = getErrorMessage(error)
+      targetState.error = getI18nErrorMessage(error)
       targetState.isEvaluating = false
       toast.error(t('evaluation.error.failed', { error: targetState.error }))
     }

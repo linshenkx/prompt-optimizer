@@ -5,6 +5,7 @@ import { RecordNotFoundError, RecordValidationError, HistoryStorageError, Histor
 import { v4 as uuidv4 } from 'uuid';
 import { IModelManager } from '../model/types';
 import { CORE_SERVICE_KEYS } from '../../constants/storage-keys';
+import { HISTORY_ERROR_CODES } from '../../constants/error-codes';
 import { ImportExportError } from '../../interfaces/import-export';
 
 /**
@@ -59,7 +60,11 @@ export class HistoryManager implements IHistoryManager {
           
           // Ensure record ID is unique
           if (records.some((r: PromptRecord) => r.id === record.id)) {
-            throw new HistoryError(`Record with ID ${record.id} already exists`);
+            throw new HistoryError(
+              HISTORY_ERROR_CODES.VALIDATION_ERROR,
+              { details: `Record with ID ${record.id} already exists` },
+              `Record with ID ${record.id} already exists`
+            );
           }
           
           // Add record to existing records (at the beginning)
@@ -287,7 +292,11 @@ export class HistoryManager implements IHistoryManager {
       // Get root record (version 1)
       const rootRecord = sortedRecords.find(r => r.version === 1);
       if (!rootRecord) {
-        throw new HistoryError(`Chain ${chainId} has no root record (version 1)`);
+        throw new HistoryError(
+          HISTORY_ERROR_CODES.CHAIN_ERROR,
+          { details: `Chain ${chainId} has no root record (version 1)` },
+          `Chain ${chainId} has no root record (version 1)`
+        );
       }
       
       // Get current record (highest version)

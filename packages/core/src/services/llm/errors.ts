@@ -3,15 +3,18 @@
  * 基础错误类
  */
 
-import { LLM_ERROR_CODES } from '../../constants/error-codes';
+import { LLM_ERROR_CODES, type ErrorParams } from '../../constants/error-codes';
 
 export class BaseError extends Error {
   public readonly code: string;
+  public readonly params?: ErrorParams;
 
-  constructor(code: string, message?: string) {
+  constructor(code: string, message?: string, params?: ErrorParams) {
     super(message ? `[${code}] ${message}` : `[${code}]`);
     this.name = this.constructor.name;
     this.code = code;
+    // Prefer structured params for UI translation; fall back to message as {details}.
+    this.params = params ?? (message ? { details: message } : undefined);
     Object.setPrototypeOf(this, new.target.prototype); // Ensure correct prototype chain | 确保原型链正确
   }
 }
@@ -62,11 +65,14 @@ export class InitializationError extends BaseError {
  */
 export class LLMError extends Error {
   public readonly code: string;
+  public readonly params?: ErrorParams;
 
-  constructor(code: string, message?: string) {
+  constructor(code: string, message?: string, params?: ErrorParams) {
     super(message ? `[${code}] ${message}` : `[${code}]`);
     this.name = 'LLMError';
     this.code = code;
+    // Prefer structured params for UI translation; fall back to message as {details}.
+    this.params = params ?? (message ? { details: message } : undefined);
   }
 }
 

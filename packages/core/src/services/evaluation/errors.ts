@@ -3,7 +3,7 @@
  * 评估服务错误类
  */
 
-import { EVALUATION_ERROR_CODES } from '../../constants/error-codes';
+import { EVALUATION_ERROR_CODES, type ErrorParams } from '../../constants/error-codes';
 
 /**
  * Base error class for evaluation service
@@ -11,16 +11,18 @@ import { EVALUATION_ERROR_CODES } from '../../constants/error-codes';
  */
 export class EvaluationError extends Error {
   public readonly code: string;
+  public readonly params?: ErrorParams;
 
   constructor(
     code: string,
-    public readonly context?: string,
+    params?: ErrorParams,
     message?: string
   ) {
     // Fallback message includes code for debugging when not translated
-    super(message ? `[${code}] ${message}` : `[${code}] context=${context || 'none'}`);
+    super(message ? `[${code}] ${message}` : `[${code}]`);
     this.name = 'EvaluationError';
     this.code = code;
+    this.params = params ?? (message ? { details: message } : undefined);
   }
 }
 
@@ -41,7 +43,7 @@ export class EvaluationValidationError extends EvaluationError {
  */
 export class EvaluationModelError extends EvaluationError {
   constructor(modelKey: string) {
-    super(EVALUATION_ERROR_CODES.MODEL_NOT_FOUND, modelKey);
+    super(EVALUATION_ERROR_CODES.MODEL_NOT_FOUND, { context: modelKey });
     this.name = 'EvaluationModelError';
   }
 }
@@ -52,7 +54,7 @@ export class EvaluationModelError extends EvaluationError {
  */
 export class EvaluationTemplateError extends EvaluationError {
   constructor(templateId: string) {
-    super(EVALUATION_ERROR_CODES.TEMPLATE_NOT_FOUND, templateId);
+    super(EVALUATION_ERROR_CODES.TEMPLATE_NOT_FOUND, { context: templateId });
     this.name = 'EvaluationTemplateError';
   }
 }

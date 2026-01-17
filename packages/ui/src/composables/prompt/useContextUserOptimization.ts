@@ -1,7 +1,7 @@
 import { ref, nextTick, computed, reactive, type Ref } from 'vue'
 import { useToast } from '../ui/useToast'
 import { useI18n } from 'vue-i18n'
-import { getErrorMessage } from '../../utils/error'
+import { getI18nErrorMessage } from '../../utils/error'
 import { v4 as uuidv4 } from 'uuid'
 import type {
   Template,
@@ -178,21 +178,21 @@ export function useContextUserOptimization(
                 toast.success(t('toast.success.optimizeSuccess'))
               } catch (error: unknown) {
                 console.error('创建历史记录失败:', error)
-                toast.error('创建历史记录失败: ' + getErrorMessage(error))
+                toast.error('创建历史记录失败: ' + getI18nErrorMessage(error, t('toast.error.optimizeFailed')))
               } finally {
                 state.isOptimizing = false
               }
             },
             onError: (error: Error) => {
               console.error(t('toast.error.optimizeProcessFailed'), error)
-              toast.error(error.message || t('toast.error.optimizeFailed'))
+              toast.error(getI18nErrorMessage(error, t('toast.error.optimizeFailed')))
               state.isOptimizing = false
             }
           }
         )
       } catch (error: unknown) {
         console.error(t('toast.error.optimizeFailed'), error)
-        toast.error(getErrorMessage(error) || t('toast.error.optimizeFailed'))
+        toast.error(getI18nErrorMessage(error, t('toast.error.optimizeFailed')))
       } finally {
         state.isOptimizing = false
       }

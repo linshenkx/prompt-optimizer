@@ -22,11 +22,15 @@ vi.mock('../../../src/composables/ui/useToast', () => ({
   })
 }))
 
-vi.mock('vue-i18n', () => ({
-  useI18n: () => ({
-    t: (key: string) => key
-  })
-}))
+vi.mock('vue-i18n', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    useI18n: () => ({
+      t: (key: string) => key
+    })
+  }
+})
 
 describe('messageChainMap 迁移逻辑测试', () => {
   let mockSession: any

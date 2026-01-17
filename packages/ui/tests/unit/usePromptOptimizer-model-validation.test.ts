@@ -12,11 +12,15 @@ vi.mock('../../src/composables/useToast', () => ({
 
 // useStorage已被移除，不再需要mock
 
-vi.mock('vue-i18n', () => ({
-  useI18n: () => ({
-    t: (key: string) => key
-  })
-}))
+vi.mock('vue-i18n', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    useI18n: () => ({
+      t: (key: string) => key
+    })
+  }
+})
 
 describe('usePromptOptimizer Model Validation', () => {
   let mockModelManager: any

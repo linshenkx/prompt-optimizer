@@ -115,3 +115,12 @@ export type ErrorCode =
   | typeof TEMPLATE_ERROR_CODES[keyof typeof TEMPLATE_ERROR_CODES]
   | typeof PROMPT_ERROR_CODES[keyof typeof PROMPT_ERROR_CODES]
   | typeof FAVORITE_ERROR_CODES[keyof typeof FAVORITE_ERROR_CODES];
+
+/**
+ * i18n interpolation params for error messages.
+ */
+export type ErrorParams = Record<
+  string,
+  string | number | boolean | null | undefined
+>;
+

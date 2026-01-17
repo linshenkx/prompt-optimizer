@@ -3,15 +3,17 @@
  * 历史记录基础错误
  */
 
-import { HISTORY_ERROR_CODES } from '../../constants/error-codes';
+import { HISTORY_ERROR_CODES, type ErrorParams } from '../../constants/error-codes';
 
 export class HistoryError extends Error {
   public readonly code: string;
+  public readonly params?: ErrorParams;
 
-  constructor(code: string, public readonly context?: string, message?: string) {
-    super(message ? `[${code}] ${message}` : `[${code}] context=${context || 'none'}`);
+  constructor(code: string, params?: ErrorParams, message?: string) {
+    super(message ? `[${code}] ${message}` : `[${code}]`);
     this.name = 'HistoryError';
     this.code = code;
+    this.params = params ?? (message ? { details: message } : undefined);
   }
 }
 
@@ -21,7 +23,7 @@ export class HistoryError extends Error {
  */
 export class HistoryNotFoundError extends HistoryError {
   constructor(id: string) {
-    super(HISTORY_ERROR_CODES.NOT_FOUND, id);
+    super(HISTORY_ERROR_CODES.NOT_FOUND, { context: id });
     this.name = 'HistoryNotFoundError';
   }
 }
@@ -46,7 +48,8 @@ export class RecordNotFoundError extends HistoryError {
     message: string,
     public recordId: string
   ) {
-    super(HISTORY_ERROR_CODES.RECORD_NOT_FOUND, recordId, message);
+    // i18n expects {details} for record_not_found
+    super(HISTORY_ERROR_CODES.RECORD_NOT_FOUND, { details: message }, message);
     this.name = 'RecordNotFoundError';
   }
 }
@@ -65,7 +68,8 @@ export class HistoryStorageError extends HistoryError {
     message: string,
     public operation: 'read' | 'write' | 'delete' | 'init' | 'storage'
   ) {
-    super(HISTORY_ERROR_CODES.STORAGE_ERROR, operation, message);
+    // i18n expects {details} for storage
+    super(HISTORY_ERROR_CODES.STORAGE_ERROR, { details: message }, message);
     this.name = 'HistoryStorageError';
   }
 }

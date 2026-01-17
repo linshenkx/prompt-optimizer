@@ -1,7 +1,7 @@
 import { reactive, type Ref, type ComputedRef } from 'vue'
 import { useToast } from '../ui/useToast'
 import { useI18n } from 'vue-i18n'
-import { getErrorMessage } from '../../utils/error'
+import { getI18nErrorMessage } from '../../utils/error'
 import type { OptimizationMode, ToolDefinition, ToolCall, ToolCallResult, ConversationMessage } from '@prompt-optimizer/core'
 import type { AppServices } from '../../types/services'
 import type { VariableManagerHooks } from './useVariableManager'
@@ -183,7 +183,7 @@ export function useConversationTester(
         )
       } catch (error: unknown) {
         console.error(`[useConversationTester] ${type} test error:`, error)
-        const errorMessage = getErrorMessage(error) || t('test.error.failed')
+        const errorMessage = getI18nErrorMessage(error, t('test.error.failed'))
         const testTypeKey = type === 'original' ? 'originalTestFailed' : 'optimizedTestFailed'
         toast.error(`${t(`test.error.${testTypeKey}`)}: ${errorMessage}`)
       } finally {

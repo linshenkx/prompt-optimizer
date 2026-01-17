@@ -1,7 +1,7 @@
 import { ref, computed, nextTick, watch, type Ref, type ComputedRef } from 'vue'
 import { useToast } from '../ui/useToast'
 import { useI18n } from 'vue-i18n'
-import { getErrorMessage } from '../../utils/error'
+import { getI18nErrorMessage } from '../../utils/error'
 import { v4 as uuidv4 } from 'uuid'
 import type {
   IHistoryManager,
@@ -528,14 +528,14 @@ export function useConversationOptimization(
           },
           onError: (error: Error) => {
             console.error('[ConversationOptimization] 优化失败:', error)
-            toast.error(error.message || t('toast.error.optimizeFailed'))
+            toast.error(getI18nErrorMessage(error, t('toast.error.optimizeFailed')))
             isOptimizing.value = false
           }
         }
       )
     } catch (error) {
       console.error('[ConversationOptimization] 优化失败:', error)
-      toast.error(getErrorMessage(error) || t('toast.error.optimizeFailed'))
+      toast.error(getI18nErrorMessage(error, t('toast.error.optimizeFailed')))
       isOptimizing.value = false
     }
   }
@@ -673,7 +673,7 @@ export function useConversationOptimization(
           },
           onError: (error: Error) => {
             console.error('[ConversationOptimization] 迭代失败:', error)
-            toast.error(error.message || t('toast.error.iterateFailed'))
+            toast.error(getI18nErrorMessage(error, t('toast.error.iterateFailed')))
             isOptimizing.value = false
           }
         },
@@ -687,7 +687,7 @@ export function useConversationOptimization(
       )
     } catch (error) {
       console.error('[ConversationOptimization] 迭代失败:', error)
-      toast.error(getErrorMessage(error) || t('toast.error.iterateFailed'))
+      toast.error(getI18nErrorMessage(error, t('toast.error.iterateFailed')))
       isOptimizing.value = false
     }
   }
