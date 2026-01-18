@@ -1,7 +1,14 @@
 import { computed, ref, inject, type Ref } from 'vue'
 
 import type { AppServices } from '../../types/services'
-import type { ImageRequest, ImageResult, ImageModelConfig } from '@prompt-optimizer/core'
+import type {
+  ImageRequest,
+  ImageResult,
+  ImageModelConfig,
+  Text2ImageRequest,
+  Image2ImageRequest
+} from '@prompt-optimizer/core'
+import { getI18nErrorMessage } from '../../utils/error'
 
 export function useImageGeneration() {
   const services = inject<Ref<AppServices | null>>('services')
@@ -27,24 +34,52 @@ export function useImageGeneration() {
     }
   }
 
-  const generate = async (req: ImageRequest) => {
-    if (!services?.value?.imageService) throw new Error('Image service not available')
+  const callGenerate = async (call: () => Promise<ImageResult>) => {
     error.value = ''
     result.value = null
     generating.value = true
     progress.value = 'queued'
     try {
-      const res = await services.value.imageService.generate(req)
+      const res = await call()
       result.value = res
       progress.value = 'done'
+      return res
     } catch (e) {
-      const err = e instanceof Error ? e : new Error(String(e))
-      error.value = err.message
+      // Preserve structured errors ({ code, params }) coming from core / Electron preload.
+      // Do not wrap non-Error objects into Error, otherwise code/params get lost.
+      error.value = getI18nErrorMessage(e, 'Image generation failed')
       progress.value = 'error'
-      throw err
+      throw e
     } finally {
       generating.value = false
     }
+  }
+
+  // 兼容入口：保留原 generate（内部可能仍会按 inputImage 推断模式）
+  const generate = async (req: ImageRequest) => {
+    if (!services?.value?.imageService) throw new Error('Image service not available')
+    return await callGenerate(() => services.value!.imageService!.generate(req))
+  }
+
+  // 显式入口：由 UI 明确决定模式
+  const generateText2Image = async (req: Text2ImageRequest) => {
+    if (!services?.value?.imageService) throw new Error('Image service not available')
+    return await callGenerate(() => services.value!.imageService!.generateText2Image(req))
+  }
+
+  const generateImage2Image = async (req: Image2ImageRequest) => {
+    if (!services?.value?.imageService) throw new Error('Image service not available')
+    return await callGenerate(() => services.value!.imageService!.generateImage2Image(req))
+  }
+
+  const validateText2ImageRequest = async (req: Text2ImageRequest) => {
+    if (!services?.value?.imageService) throw new Error('Image service not available')
+    await services.value.imageService.validateText2ImageRequest(req)
+  }
+
+  const validateImage2ImageRequest = async (req: Image2ImageRequest) => {
+    if (!services?.value?.imageService) throw new Error('Image service not available')
+    await services.value.imageService.validateImage2ImageRequest(req)
   }
 
   return {
@@ -55,7 +90,10 @@ export function useImageGeneration() {
     error,
     result,
     generate,
+    generateText2Image,
+    generateImage2Image,
+    validateText2ImageRequest,
+    validateImage2ImageRequest,
     loadImageModels
   }
 }
-

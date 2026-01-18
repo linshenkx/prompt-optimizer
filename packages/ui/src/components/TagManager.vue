@@ -128,7 +128,7 @@ import { Search, Edit, Trash, GitMerge } from '@vicons/tabler';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '../composables/ui/useToast';
 import type { AppServices } from '../types/services';
-import type { TagStatistics, TagTypeConverter } from '@prompt-optimizer/core';
+import { TagTypeConverter, type TagStatistics } from '@prompt-optimizer/core';
 
 const { t } = useI18n();
 

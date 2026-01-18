@@ -21,6 +21,9 @@ import type {
     ImageSubMode,
 } from '@prompt-optimizer/core'
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+    !!value && typeof value === 'object'
+
 /**
  * 历史记录上下文
  */
@@ -35,7 +38,7 @@ export interface HistoryContext {
  * 工作区组件引用类型
  */
 interface WorkspaceRef {
-    restoreFromHistory?: (payload: any) => void
+    restoreFromHistory?: (payload: unknown) => void
 }
 
 /**
@@ -57,9 +60,18 @@ export interface AppHistoryRestoreOptions {
     /** 用户工作区组件引用 */
     userWorkspaceRef: Ref<WorkspaceRef | null>
     /** i18n 翻译函数 */
-    t: (key: string, params?: Record<string, any>) => string
+    t: (key: string, params?: Record<string, unknown>) => string
     /** 外部数据加载中标志（防止模式切换的自动 restore 覆盖外部数据） */
     isLoadingExternalData: Ref<boolean>
+}
+
+type ConversationSnapshotMessage = {
+    id: string
+    role: ConversationMessage['role']
+    content: string
+    originalContent?: string
+    chainId?: string
+    appliedVersion?: number
 }
 
 /**
@@ -106,12 +118,17 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
         ) {
             // 图像模式：使用 navigateToSubModeKey 导航
             // 根据记录类型设置正确的图像子模式
+            const meta = (isRecord(record.metadata) ? record.metadata : null) ??
+                (isRecord(chain.rootRecord.metadata) ? chain.rootRecord.metadata : null)
+            const hasInputImage = isRecord(meta) && meta.hasInputImage === true
             const imageMode =
                 rt === 'text2imageOptimize'
                     ? 'text2image'
                     : rt === 'image2imageOptimize'
                       ? 'image2image'
-                      : 'text2image' // 默认为文生图模式
+                      : hasInputImage
+                        ? 'image2image'
+                        : 'text2image' // 默认为文生图模式
 
             // 🔧 Step D: 使用 navigateToSubModeKey 替代 setImageSubMode
             navigateToSubModeKey(`image-${imageMode}`)
@@ -205,8 +222,14 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
                 await nextTick() // 等待基础状态恢复完成
 
                 // 🆕 优先使用会话快照恢复完整会话（支持精确版本恢复）
-                const conversationSnapshot = record.metadata?.conversationSnapshot
-                if (conversationSnapshot && Array.isArray(conversationSnapshot)) {
+                let conversationSnapshot:
+                    | ConversationSnapshotMessage[]
+                    | undefined
+                const conversationSnapshotRaw: unknown =
+                    record.metadata?.conversationSnapshot
+                if (conversationSnapshotRaw && Array.isArray(conversationSnapshotRaw)) {
+                    conversationSnapshot =
+                        conversationSnapshotRaw as ConversationSnapshotMessage[]
                     console.log(
                         '[App] 从历史记录恢复会话快照，消息数:',
                         conversationSnapshot.length,
@@ -214,7 +237,7 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
 
                     // 🆕 精确版本恢复：为每条消息加载其指定的版本
                     const restoredMessages = await Promise.all(
-                        conversationSnapshot.map(async (snapshotMsg: any) => {
+                        conversationSnapshot.map(async (snapshotMsg) => {
                             // 如果快照包含 chainId 和 appliedVersion，尝试精确恢复
                             if (
                                 snapshotMsg.chainId &&
@@ -229,8 +252,10 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
                                     // 1. V0 (Original) handling
                                     if (snapshotMsg.appliedVersion === 0) {
                                         const original =
-                                            msgChain.versions[0]?.originalPrompt ||
-                                            snapshotMsg.originalContent
+                                            msgChain.versions[0]?.originalPrompt ??
+                                            snapshotMsg.originalContent ??
+                                            snapshotMsg.content ??
+                                            ''
                                         return {
                                             id: snapshotMsg.id,
                                             role: snapshotMsg.role,
@@ -242,7 +267,7 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
                                     // 2. V1+ (Optimized) handling
                                     // appliedVersion is persistent version number
                                     const targetVersion = msgChain.versions.find(
-                                        (v: any) => v.version === snapshotMsg.appliedVersion,
+                                        (v) => v.version === snapshotMsg.appliedVersion,
                                     )
 
                                     if (targetVersion) {
@@ -260,7 +285,7 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
                                         )
                                         console.warn(
                                             `[App] 可用版本:`,
-                                            msgChain.versions.map((v: any) => v.version),
+                                            msgChain.versions.map((v) => v.version),
                                         )
                                     }
                                 } catch (error) {

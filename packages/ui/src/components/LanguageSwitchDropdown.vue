@@ -68,10 +68,12 @@ const services = inject<Ref<AppServices | null>>('services')!
 const { setPreference } = usePreferences(services)
 
 // 语言选项配置 - 为未来扩展预留接口
+type SupportedLocale = 'zh-CN' | 'zh-TW' | 'en-US'
+
 interface LanguageOption {
-  key: string
+  key: SupportedLocale
   label: string
-  locale: string
+  locale: SupportedLocale
 }
 
 const availableLanguages: LanguageOption[] = [
@@ -108,8 +110,12 @@ const dropdownOptions = computed<DropdownOption[]>(() => {
   }))
 })
 
+const isSupportedLocale = (value: unknown): value is SupportedLocale =>
+  value === 'zh-CN' || value === 'zh-TW' || value === 'en-US'
+
 // 处理语言选择
 const handleLanguageSelect = async (key: string) => {
+  if (!isSupportedLocale(key)) return
   const selectedLanguage = availableLanguages.find(lang => lang.key === key)
   if (!selectedLanguage) return
 

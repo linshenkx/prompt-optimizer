@@ -172,7 +172,7 @@
                                         :autosize="{ minRows: 1, maxRows: 10 }"
                                         :existing-global-variables="Object.keys(props.availableVariables || {})"
                                         :existing-temporary-variables="Object.keys(props.temporaryVariables || {})"
-                                        :predefined-variables="PREDEFINED_VARIABLES"
+                                        :predefined-variables="[...PREDEFINED_VARIABLES]"
                                         :global-variable-values="props.availableVariables || {}"
                                         :temporary-variable-values="props.temporaryVariables || {}"
                                         :predefined-variable-values="{}"
@@ -373,7 +373,6 @@ import { VariableAwareInput } from "../variable-extraction";
 import { PREDEFINED_VARIABLES } from "../../types/variable";
 import type {
     ConversationManagerProps,
-    ConversationManagerEvents,
 } from "../../types/components";
 import type { ConversationMessage } from "@prompt-optimizer/core";
 
@@ -410,7 +409,17 @@ const props = withDefaults(defineProps<ConversationManagerProps>(), {
     enableToolManagement: true,
 });
 
-const emit = defineEmits<ConversationManagerEvents>();
+const emit = defineEmits<{
+    (e: "update:messages", messages: ConversationMessage[]): void;
+    (e: "messageChange", index: number, message: ConversationMessage, action: "add" | "update" | "delete"): void;
+    (e: "messageReorder", fromIndex: number, toIndex: number): void;
+    (e: "openContextEditor", messages: ConversationMessage[], variables: Record<string, string>): void;
+    (e: "open-tool-manager"): void;
+    (e: "variable-extracted", data: { variableName: string; variableValue: string; variableType: "global" | "temporary" }): void;
+    (e: "add-missing-variable", name: string): void;
+    (e: "messageSelect", message: ConversationMessage): void;
+    (e: "ready"): void;
+}>();
 
 // 状态管理 - 使用 shallowRef 优化大数据渲染
 const loading = ref(false);

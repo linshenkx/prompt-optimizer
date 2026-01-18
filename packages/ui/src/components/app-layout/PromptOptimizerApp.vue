@@ -62,7 +62,7 @@
                         <component
                             :is="Component"
                             :key="viewRoute.fullPath"
-                            :ref="(instance) => setWorkspaceRef(instance, viewRoute.name)"
+                            :ref="(instance: unknown) => setWorkspaceRef(instance, viewRoute.name)"
                         />
                     </RouterView>
                 </template>
@@ -173,11 +173,17 @@
                             vars,
                         ) || content
                 "
+                :isPredefinedVariable="
+                    (name) =>
+                        variableManager?.variableManager.value?.isPredefinedVariable(
+                            name,
+                        ) || false
+                "
                 :defaultTab="contextEditorDefaultTab"
                 :only-show-tab="contextEditorOnlyShowTab"
                 :title="contextEditorTitle"
-                @update:state="handleContextEditorStateUpdate"
-                @save="handleContextEditorSave"
+                @update:state="handleContextEditorStateUpdateSafe"
+                @save="handleContextEditorSaveSafe"
                 @cancel="handleContextEditorCancel"
                 @open-variable-manager="handleOpenVariableManager"
             />
@@ -231,11 +237,9 @@ import {
     provide,
     computed,
     shallowRef,
-    toRef,
     onMounted,
     onBeforeUnmount,
     nextTick,
-    type Ref,
 } from "vue";
 import { RouterView } from "vue-router";
 import { router as routerInstance } from '../../router';
@@ -292,12 +296,11 @@ import {
     // UI 相关
     useToast,
     useNaiveTheme,
-    // 系统相关
-    useAppInitializer,
-    useHistoryManager,
-    useTemplateManager,
-    useEvaluationHandler,
-    provideEvaluation,
+     // 系统相关
+     useAppInitializer,
+     useTemplateManager,
+     useEvaluationHandler,
+     provideEvaluation,
     // App 级别
     useAppHistoryRestore,
     useAppFavorite,
@@ -319,13 +322,14 @@ import { useImageText2ImageSession } from '../../stores/session/useImageText2Ima
 import { useImageImage2ImageSession } from '../../stores/session/useImageImage2ImageSession'
 import { useGlobalSettings } from '../../stores/settings/useGlobalSettings'
 
+import type { TemplateManagerTemplateType } from '../../composables/prompt/useTemplateManager'
 
 // Data Transformation
 import { DataTransformer } from '../../utils/data-transformer'
 
 // Types
-import type { OptimizationMode, ConversationMessage, ModelSelectOption, TestAreaPanelInstance } from '../../types'
-import { applyPatchOperationsToText, type IPromptService, type PromptRecordChain, type PromptRecord, type PatchOperation, type Template, type FunctionMode, type BasicSubMode, type ProSubMode, type ImageSubMode } from "@prompt-optimizer/core";
+import type { ModelSelectOption, TestAreaPanelInstance } from '../../types'
+import { applyPatchOperationsToText, type IPromptService, type PromptRecordChain, type PatchOperation, type Template, type TemplateType, type FunctionMode, type BasicSubMode, type ProSubMode, type ImageSubMode, type OptimizationMode, type ConversationMessage, type ToolDefinition, type ContextEditorState, type ContextMode, type EvaluationType } from "@prompt-optimizer/core";
 
 // 1. 基础 composables
 const hljsInstance = hljs;
@@ -333,6 +337,63 @@ const i18n = useI18n();
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const t = i18n.t;  // 在模板中使用
 const toast = useToast();
+
+// ========= Chunk-load failure recovery =========
+// A long-lived tab can keep running an old main bundle after a new deployment.
+// Its dynamic-import chunk URLs (hashed) may no longer exist and get rewritten to index.html,
+// which fails strict MIME checks and breaks route-based lazy loading.
+// We prompt users to refresh (one-time) instead of auto-reloading.
+const CHUNK_LOAD_REFRESH_GUARD_KEY = 'prompt-optimizer:chunk-load-refresh-prompted';
+
+const getUnknownErrorMessage = (err: unknown): string => {
+  if (err instanceof Error) return err.message;
+  return String(err);
+};
+
+const isChunkLoadFailure = (err: unknown): boolean => {
+  const msg = getUnknownErrorMessage(err).toLowerCase();
+  return (
+    msg.includes('failed to fetch dynamically imported module') ||
+    msg.includes('chunkloaderror') ||
+    msg.includes('loading chunk') ||
+    msg.includes('strict mime type') ||
+    msg.includes('expected a javascript-or-wasm module script')
+  );
+};
+
+let removeRouterErrorHandler: (() => void) | null = null;
+
+const promptRefreshForNewDeploy = async (reason: unknown) => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    if (window.sessionStorage.getItem(CHUNK_LOAD_REFRESH_GUARD_KEY)) {
+      return;
+    }
+    window.sessionStorage.setItem(CHUNK_LOAD_REFRESH_GUARD_KEY, '1');
+
+    const ok = window.confirm(t('toast.warning.chunkLoadRefreshConfirm'));
+    if (!ok) {
+      toast.warning(t('toast.warning.chunkLoadRefreshDeclined'), 8000);
+      return;
+    }
+
+    try {
+      await sessionManager.saveAllSessions();
+    } catch (e) {
+      console.warn('[PromptOptimizerApp] saveAllSessions failed before refresh:', e);
+    }
+
+    window.location.reload();
+  } catch (e) {
+    console.error('[PromptOptimizerApp] refresh prompt failed:', e, reason);
+  }
+};
+
+const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+  if (!isChunkLoadFailure(event.reason)) return;
+  void promptRefreshForNewDeploy(event.reason);
+};
 
 // 2. 初始化应用服务
 const { services, isInitializing } = useAppInitializer();
@@ -353,13 +414,13 @@ const { services, isInitializing } = useAppInitializer();
 // ⚠️ 注意：这些 composable 的调用会触发初始化副作用，但返回的 state 不得作为业务逻辑的状态来源
 // 🔧 修复：保存 composable 返回值，避免在 watch 回调中重复调用（导致 inject() 错误）
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const functionModeApi = useFunctionMode(services as any);
+const functionModeApi = useFunctionMode(services);
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const basicSubModeApi = useBasicSubMode(services as any);
+const basicSubModeApi = useBasicSubMode(services);
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const proSubModeApi = useProSubMode(services as any);
+const proSubModeApi = useProSubMode(services);
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const imageSubModeApi = useImageSubMode(services as any);
+const imageSubModeApi = useImageSubMode(services);
 
 // 3.5. 🔧 Step A: 建立路由驱动的单一真源（优先于 state，避免双真源）
 //
@@ -544,15 +605,10 @@ const servicesForContextEditor = computed(() => services?.value || null);
 const promptService = shallowRef<IPromptService | null>(null);
 const showDataManager = ref(false);
 
-type ContextUserHistoryPayload = {
-    record: PromptRecord;
-    chain: PromptRecordChain;
-    rootPrompt: string;
-};
-
 type ContextWorkspaceExpose = {
-    testAreaPanelRef?: Ref<TestAreaPanelInstance | null>;
-    restoreFromHistory?: (payload: ContextUserHistoryPayload) => void;
+    // Vue ComponentPublicInstance 会自动 unwrap expose 里的 Ref，因此这里使用已解包的类型
+    testAreaPanelRef?: TestAreaPanelInstance | null;
+    restoreFromHistory?: (payload: unknown) => void;
     openIterateDialog?: (input?: string) => void;
     applyLocalPatch?: (operation: PatchOperation) => void;
     reEvaluateActive?: () => Promise<void>;
@@ -581,24 +637,27 @@ const basicModeWorkspaceRef = ref<{
 // 🔧 Step E: 使用 route-computed 代替旧 state
 type WorkspaceRouteName = string | symbol | null | undefined;
 const setWorkspaceRef = (instance: unknown, routeName: WorkspaceRouteName) => {
-    const resolvedInstance = (instance as any) ?? null;
+    const resolvedInstance = instance ?? null;
 
     switch (routeName) {
         case "basic-system":
         case "basic-user":
-            basicModeWorkspaceRef.value = resolvedInstance;
+            basicModeWorkspaceRef.value =
+                resolvedInstance as typeof basicModeWorkspaceRef.value;
             break;
         case "pro-multi":
-            systemWorkspaceRef.value = resolvedInstance;
+            systemWorkspaceRef.value =
+                resolvedInstance as typeof systemWorkspaceRef.value;
             break;
         case "pro-variable":
-            userWorkspaceRef.value = resolvedInstance;
+            userWorkspaceRef.value =
+                resolvedInstance as typeof userWorkspaceRef.value;
             break;
     }
 };
 
 const selectedOptimizationMode = computed<OptimizationMode>(() => {
-    if (routeFunctionMode.value === 'basic') return routeBasicSubMode.value as OptimizationMode;
+    if (routeFunctionMode.value === 'basic') return routeBasicSubMode.value;
     if (routeFunctionMode.value === 'pro') return routeProSubMode.value === 'multi' ? 'system' : 'user';
     return 'system';
 });
@@ -629,7 +688,7 @@ const focusVariableName = ref<string | undefined>(undefined);
 const showToolManager = ref(false);
 
 // 上下文模式
-const contextMode = ref<import("@prompt-optimizer/core").ContextMode>("system");
+const contextMode = ref<ContextMode>("system");
 
 // 上下文编辑器状态
 const showContextEditor = ref(false);
@@ -644,7 +703,7 @@ const {
 
 const contextEditorState = ref({
     messages: [] as ConversationMessage[],
-    tools: [] as any[],
+    tools: [] as ToolDefinition[],
     showVariablePreview: true,
     showToolManager: false,
     mode: "edit" as "edit" | "preview",
@@ -654,7 +713,7 @@ const contextEditorState = ref({
 const showPreviewPanel = ref(false);
 
 // 变量管理器实例
-const variableManager = useVariableManager(services as any);
+const variableManager = useVariableManager(services);
 
 // 🆕 临时变量管理器（全局单例，用于AI提取的变量）
 const tempVarsManager = useTemporaryVariables();
@@ -686,7 +745,6 @@ const promptPreview = usePromptPreview(
     promptPreviewContent,
     promptPreviewVariables,
     contextMode,
-    renderPhase,
 );
 
 // 变量管理处理函数
@@ -715,15 +773,15 @@ const handleExtractVariables = async (
 };
 
 // 工具管理器处理函数
-const handleToolManagerConfirm = (tools: any[]) => {
-    optimizationContextTools.value = tools;
+const handleToolManagerConfirm = (tools?: ToolDefinition[]) => {
+    optimizationContextTools.value = tools ?? [];
     showToolManager.value = false;
 };
 
 // 6. 在顶层调用所有 Composables
 const modelSelectRefs = useModelSelectRefs();
-const modelManager = useModelManager(services as any, modelSelectRefs);
-const functionModelManager = useFunctionModelManager(services as any);
+const modelManager = useModelManager(services, modelSelectRefs);
+const functionModelManager = useFunctionModelManager(services);
 
 // ========== Session Store（单一真源：可持久化字段） ==========
 // 注意：这里需要在 optimizer 创建之前初始化，以便把基础模式字段直绑到 session store
@@ -817,7 +875,7 @@ const selectedTestModelKey = computed<string>({
 });
 
 // 更新 functionModelManager 的“全局优化模型 key”引用（singleton 内部会替换 ref）
-useFunctionModelManager(services as any, selectedOptimizeModelKey);
+useFunctionModelManager(services, selectedOptimizeModelKey);
 
 const patchActiveBasicOptimizedResult = (
     partial: Partial<{
@@ -865,17 +923,17 @@ const basicSessionVersionId = computed<string>({
 
 // 提示词优化器
 const optimizer = usePromptOptimizer(
-    services as any,
+    services,
     selectedOptimizationMode,
-    selectedOptimizeModelKey as any,
-    selectedTestModelKey as any,
+    selectedOptimizeModelKey,
+    selectedTestModelKey,
     contextMode,
     {
-        prompt: basicSessionPrompt as any,
-        optimizedPrompt: basicSessionOptimizedPrompt as any,
-        optimizedReasoning: basicSessionOptimizedReasoning as any,
-        currentChainId: basicSessionChainId as any,
-        currentVersionId: basicSessionVersionId as any,
+        prompt: basicSessionPrompt,
+        optimizedPrompt: basicSessionOptimizedPrompt,
+        optimizedReasoning: basicSessionOptimizedReasoning,
+        currentChainId: basicSessionChainId,
+        currentVersionId: basicSessionVersionId,
     },
 );
 
@@ -896,6 +954,20 @@ const optimizationContextTools = contextManagement.optimizationContextTools;
 const initializeContextPersistence = contextManagement.initializeContextPersistence;
 const handleContextEditorSave = contextManagement.handleContextEditorSave;
 const handleContextEditorStateUpdate = contextManagement.handleContextEditorStateUpdate;
+
+const handleContextEditorStateUpdateSafe = (state?: ContextEditorState) => {
+    if (!state) return;
+    void handleContextEditorStateUpdate(state);
+};
+
+const handleContextEditorSaveSafe = (context?: {
+    messages: ConversationMessage[];
+    variables: Record<string, string>;
+    tools: ToolDefinition[];
+}) => {
+    if (!context) return;
+    void handleContextEditorSave(context);
+};
 const handleContextModeChange = contextManagement.handleContextModeChange;
 
 // 提供依赖给子组件
@@ -905,8 +977,8 @@ provide("optimizationContextTools", optimizationContextTools);
 
 // 基础模式提示词测试
 const promptTester = usePromptTester(
-    services as any,
-    selectedTestModelKey as any,
+    services,
+    selectedTestModelKey,
     selectedOptimizationMode,
     variableManager
 );
@@ -927,20 +999,22 @@ const currentIterateRequirement = computed(() => {
     const versions = optimizer.currentVersions;
     const versionId = optimizer.currentVersionId;
     if (!versions || versions.length === 0 || !versionId) return '';
-    const currentVersion = versions.find((v) => v.id === versionId);
+    const currentVersion = versions.find(
+        (v: { id: string; iterationNote?: string }) => v.id === versionId,
+    );
     return currentVersion?.iterationNote || '';
 });
 
 const evaluationHandler = useEvaluationHandler({
-    services: services as any,
-    originalPrompt: toRef(optimizer, "prompt") as any,
-    optimizedPrompt: toRef(optimizer, "optimizedPrompt") as any,
+    services,
+    originalPrompt: basicSessionPrompt,
+    optimizedPrompt: basicSessionOptimizedPrompt,
     testContent,
-    testResults: testResults as any,
+    testResults,
     evaluationModelKey: computed(() => functionModelManager.effectiveEvaluationModel.value),
     // 🔧 Step E: 使用 route-computed 代替旧 state
-    functionMode: routeFunctionMode as any,
-    subMode: currentSubMode as any,
+    functionMode: routeFunctionMode,
+    subMode: currentSubMode,
     currentIterateRequirement,
 });
 
@@ -960,8 +1034,16 @@ const getCurrentSession = () => {
     } else if (routeFunctionMode.value === 'image') {
         return routeImageSubMode.value === 'text2image' ? imageText2ImageSession : imageImage2ImageSession;
     }
-    return null;
+    return basicSystemSession;
 };
+
+const getCurrentBasicSession = () =>
+    routeBasicSubMode.value === 'system' ? basicSystemSession : basicUserSession;
+
+const getCurrentImageSession = () =>
+    routeImageSubMode.value === 'text2image'
+        ? imageText2ImageSession
+        : imageImage2ImageSession;
 
 /**
  * 🔧 方案 A 修复：恢复 Basic 模式的 session 状态（移除冗余赋值）
@@ -976,8 +1058,8 @@ const getCurrentSession = () => {
  * - 导致模式切换时，旧模式的 UI 状态可能通过 watch 污染新模式的 session store
  */
 const restoreBasicOrProVariableSession = () => {
-    const session = getCurrentSession();
-    if (!session) return;
+    if (routeFunctionMode.value !== 'basic') return;
+    const session = getCurrentBasicSession();
 
     // ✅ 核心状态（prompt/optimizedPrompt/reasoning/chainId/versionId）
     // 已通过 basicSessionPrompt 等 computed 绑定，自动从 session store 读取，无需手动赋值
@@ -990,25 +1072,26 @@ const restoreBasicOrProVariableSession = () => {
 
     // 🔧 恢复测试结果（仅 Basic 模式使用 promptTester）
     // 只恢复稳定字段，不恢复 isTesting* 临时状态
-    // 🔧 Step E: 使用 route-computed 代替旧 state
-    if (routeFunctionMode.value === 'basic') {
-        if (session.testResults) {
-            promptTester.testResults.originalResult = session.testResults.originalResult || '';
-            promptTester.testResults.originalReasoning = session.testResults.originalReasoning || '';
-            promptTester.testResults.optimizedResult = session.testResults.optimizedResult || '';
-            promptTester.testResults.optimizedReasoning = session.testResults.optimizedReasoning || '';
-            // 重置测试中状态
-            promptTester.testResults.isTestingOriginal = false;
-            promptTester.testResults.isTestingOptimized = false;
-        } else {
-            // 如果 session 中没有测试结果，清空当前测试结果
-            promptTester.testResults.originalResult = '';
-            promptTester.testResults.originalReasoning = '';
-            promptTester.testResults.optimizedResult = '';
-            promptTester.testResults.optimizedReasoning = '';
-            promptTester.testResults.isTestingOriginal = false;
-            promptTester.testResults.isTestingOptimized = false;
-        }
+    if (session.testResults) {
+        promptTester.testResults.originalResult =
+            session.testResults.originalResult || '';
+        promptTester.testResults.originalReasoning =
+            session.testResults.originalReasoning || '';
+        promptTester.testResults.optimizedResult =
+            session.testResults.optimizedResult || '';
+        promptTester.testResults.optimizedReasoning =
+            session.testResults.optimizedReasoning || '';
+        // 重置测试中状态
+        promptTester.testResults.isTestingOriginal = false;
+        promptTester.testResults.isTestingOptimized = false;
+    } else {
+        // 如果 session 中没有测试结果，清空当前测试结果
+        promptTester.testResults.originalResult = '';
+        promptTester.testResults.originalReasoning = '';
+        promptTester.testResults.optimizedResult = '';
+        promptTester.testResults.optimizedReasoning = '';
+        promptTester.testResults.isTestingOriginal = false;
+        promptTester.testResults.isTestingOptimized = false;
     }
 };
 
@@ -1081,9 +1164,7 @@ const restoreProVariableSessionToUserWorkspace = async () => {
  */
 const restoreProMultiMessageSession = async () => {
     const session = proMultiMessageSession;
-    if (!session || !session.state) return;
-
-    const savedState = session.state;
+    const savedState = session.$state;
 
     // ✅ 核心状态（optimizedPrompt/reasoning/chainId/versionId/selectedMessageId）
     // 已通过 useConversationOptimization 的 computed 绑定到 session.state，无需手动赋值
@@ -1199,10 +1280,7 @@ watch(
         }
 
         // ✅ 只有 Basic 模式才同步到 session
-        const session = getCurrentSession();
-        if (session && typeof (session as any).updatePrompt === 'function') {
-            (session as any).updatePrompt(newPrompt);
-        }
+        getCurrentBasicSession().updatePrompt(newPrompt || '');
     }
 );
 
@@ -1257,18 +1335,17 @@ watch(
         // 仅 Basic 模式使用 promptTester（其他模式有各自的测试器/工作区）
         if (routeFunctionMode.value !== 'basic') return;
 
-        const session = getCurrentSession();
-        if (session && typeof (session as any).updateTestResults === 'function') {
-            // 只保存稳定字段，不保存 isTesting* 临时状态
-            const stableResults = newTestResults ? {
-                originalResult: newTestResults.originalResult || '',
-                originalReasoning: newTestResults.originalReasoning || '',
-                optimizedResult: newTestResults.optimizedResult || '',
-                optimizedReasoning: newTestResults.optimizedReasoning || '',
-            } : null;
-            // 🔧 直接调用，让 session store 的 updateTestResults 方法自己处理 same value 检查
-            (session as any).updateTestResults(stableResults);
-        }
+        // 只保存稳定字段，不保存 isTesting* 临时状态
+        const stableResults = newTestResults
+            ? {
+                  originalResult: newTestResults.originalResult || '',
+                  originalReasoning: newTestResults.originalReasoning || '',
+                  optimizedResult: newTestResults.optimizedResult || '',
+                  optimizedReasoning: newTestResults.optimizedReasoning || '',
+              }
+            : null;
+        // 🔧 直接调用，让 session store 的 updateTestResults 方法自己处理 same value 检查
+        getCurrentBasicSession().updateTestResults(stableResults);
     },
     { deep: true }  // 🔧 启用深层监听，捕获 streaming 写入等深层变化
 );
@@ -1295,13 +1372,13 @@ watch(
             if (!modelManager.isModelSelectionReady || !newModel) {
                 return;
             }
-            if (typeof (session as any).updateTextModel === 'function') {
-                (session as any).updateTextModel(newModel || '');
+            if (typeof (session as { updateTextModel?: unknown }).updateTextModel === 'function') {
+                (session as { updateTextModel: (model: string) => void }).updateTextModel(newModel || '');
             }
         } else {
             // Basic 模式使用 updateOptimizeModel
-            if (typeof (session as any).updateOptimizeModel === 'function') {
-                (session as any).updateOptimizeModel(newModel || '');
+            if (typeof (session as { updateOptimizeModel?: unknown }).updateOptimizeModel === 'function') {
+                (session as { updateOptimizeModel: (model: string) => void }).updateOptimizeModel(newModel || '');
             }
         }
     }
@@ -1321,8 +1398,8 @@ watch(
         if (routeFunctionMode.value === 'pro') return;
 
         const session = getCurrentSession();
-        if (session && typeof (session as any).updateTestModel === 'function') {
-            (session as any).updateTestModel(newModel || '');
+        if (session && typeof (session as { updateTestModel?: unknown }).updateTestModel === 'function') {
+            (session as { updateTestModel: (model: string) => void }).updateTestModel(newModel || '');
         }
     }
 );
@@ -1359,10 +1436,7 @@ watch(
         if (routeFunctionMode.value === 'image') return;
         if (routeFunctionMode.value === 'pro') return;
 
-        const session = getCurrentSession();
-        if (session && !sessionManager.isSwitching) {
-            session.updateTemplate(newTemplate?.id || null);
-        }
+        getCurrentBasicSession().updateTemplate(newTemplate?.id || null);
     }
 );
 
@@ -1382,10 +1456,7 @@ watch(
         if (routeFunctionMode.value === 'image') return;
         if (routeFunctionMode.value === 'pro') return;
 
-        const session = getCurrentSession();
-        if (session && typeof (session as any).updateIterateTemplate === 'function') {
-            (session as any).updateIterateTemplate(newTemplate?.id || null);
-        }
+        getCurrentBasicSession().updateIterateTemplate(newTemplate?.id || null);
     }
 );
 
@@ -1402,10 +1473,7 @@ watch(
         if (routeFunctionMode.value === 'image') return;
         if (routeFunctionMode.value === 'pro') return;
 
-        const session = getCurrentSession();
-        if (session && typeof (session as any).updateTestContent === 'function') {
-            (session as any).updateTestContent(newContent || '');
-        }
+        getCurrentBasicSession().updateTestContent(newContent || '');
     },
     { flush: 'sync' }
 );
@@ -1418,9 +1486,12 @@ watch(
         // 🔧 Pro 模式的对比模式已由 workspace/controller 持久化到 session store
         if (routeFunctionMode.value === 'pro') return;
 
-        const session = getCurrentSession();
-        if (session && !sessionManager.isSwitching) {
-            session.toggleCompareMode(newMode);
+        if (routeFunctionMode.value === 'basic') {
+            getCurrentBasicSession().toggleCompareMode(newMode);
+            return;
+        }
+        if (routeFunctionMode.value === 'image') {
+            getCurrentImageSession().toggleCompareMode(newMode);
         }
     }
 );
@@ -1458,35 +1529,59 @@ watch(
     { immediate: true },
 );
 
+const optimizerCurrentVersions = computed<PromptRecordChain["versions"]>({
+    get: () => optimizer.currentVersions || [],
+    set: (value) => {
+        optimizer.currentVersions = value;
+    },
+});
+
 // 提示词历史
 const promptHistory = usePromptHistory(
-    services as any,
-    toRef(optimizer, "prompt") as any,
-    toRef(optimizer, "optimizedPrompt") as any,
-    toRef(optimizer, "currentChainId") as any,
-    toRef(optimizer, "currentVersions") as any,
-    toRef(optimizer, "currentVersionId") as any,
+    services,
+    basicSessionPrompt,
+    basicSessionOptimizedPrompt,
+    basicSessionChainId,
+    optimizerCurrentVersions,
+    basicSessionVersionId,
 );
 
 provide("promptHistory", promptHistory);
 
-// 历史管理器
-const historyManager = useHistoryManager(
-    services as any,
-    optimizer.prompt as any,
-    optimizer.optimizedPrompt as any,
-    optimizer.currentChainId as any,
-    optimizer.currentVersions as any,
-    optimizer.currentVersionId as any,
-    promptHistory.handleSelectHistory,
-    promptHistory.handleClearHistory,
-    promptHistory.handleDeleteChain as any,
+const historyManager = promptHistory;
+
+const servicesForHistoryRestore = computed(() =>
+    services.value ? { historyManager: services.value.historyManager } : null,
 );
+
+const SUB_MODE_KEYS: ReadonlyArray<SubModeKey> = [
+    "basic-system",
+    "basic-user",
+    "pro-multi",
+    "pro-variable",
+    "image-text2image",
+    "image-image2image",
+];
+
+const navigateToSubModeKeyCompat = (
+    toKey: string,
+    opts?: { replace?: boolean },
+) => {
+    if (!SUB_MODE_KEYS.includes(toKey as SubModeKey)) return;
+    navigateToSubModeKey(toKey as SubModeKey, opts);
+};
+
+const optimizerPrompt = computed<string>({
+    get: () => (typeof optimizer.prompt === "string" ? optimizer.prompt : ""),
+    set: (value) => {
+        optimizer.prompt = value;
+    },
+});
 
 // App 级别历史记录恢复
 const { handleHistoryReuse } = useAppHistoryRestore({
-    services: services as any,
-    navigateToSubModeKey,  // 🔧 Step D: 替代旧的 setFunctionMode/set*SubMode
+    services: servicesForHistoryRestore,
+    navigateToSubModeKey: navigateToSubModeKeyCompat,  // 🔧 Step D: 替代旧的 setFunctionMode/set*SubMode
     handleContextModeChange,
     handleSelectHistory: promptHistory.handleSelectHistory,
     optimizationContext,
@@ -1506,9 +1601,9 @@ const {
     handleFavoriteOptimizePrompt,
     handleUseFavorite,
 } = useAppFavorite({
-    navigateToSubModeKey,  // 🔧 Step D: 替代旧的 setFunctionMode/set*SubMode
+    navigateToSubModeKey: navigateToSubModeKeyCompat,  // 🔧 Step D: 替代旧的 setFunctionMode/set*SubMode
     handleContextModeChange,
-    optimizerPrompt: toRef(optimizer, "prompt") as any,
+    optimizerPrompt,
     t,
     isLoadingExternalData,
 });
@@ -1516,7 +1611,7 @@ const {
 provide("handleSaveFavorite", handleSaveFavorite);
 
 // 模板管理器
-const templateManagerState = useTemplateManager(services as any);
+const templateManagerState = useTemplateManager(services);
 
 // TemplateManager 选择回调：写入 Session Store（单一真源），避免写入旧 TEMPLATE_SELECTION_KEYS
 const handleTemplateSelected = (
@@ -1556,8 +1651,13 @@ const handleTemplateSelected = (
         }
     })();
 
-    const targetSession = (sessionByCategory || session) as any;
+    const targetSession = sessionByCategory || session;
     if (!targetSession) return;
+
+    const templateSession = targetSession as unknown as {
+        updateTemplate?: (templateId: string | null) => void;
+        updateIterateTemplate?: (templateId: string | null) => void;
+    };
 
     const templateType = String(type || "");
     const isIterate =
@@ -1567,12 +1667,12 @@ const handleTemplateSelected = (
 
     const templateId = template?.id || null;
 
-    if (isIterate && typeof targetSession.updateIterateTemplate === "function") {
-        targetSession.updateIterateTemplate(templateId);
+    if (isIterate && typeof templateSession.updateIterateTemplate === "function") {
+        templateSession.updateIterateTemplate(templateId);
         return;
     }
-    if (typeof targetSession.updateTemplate === "function") {
-        targetSession.updateTemplate(templateId);
+    if (typeof templateSession.updateTemplate === "function") {
+        templateSession.updateTemplate(templateId);
     }
 };
 const textModelOptions = ref<ModelSelectOption[]>([]);
@@ -1585,8 +1685,9 @@ const refreshTextModels = async () => {
 
     try {
         const manager = services.value.modelManager;
-        if (typeof (manager as any).ensureInitialized === "function") {
-            await (manager as any).ensureInitialized();
+        const m = manager as unknown as { ensureInitialized?: () => Promise<void> };
+        if (typeof m.ensureInitialized === 'function') {
+            await m.ensureInitialized();
         }
         const enabledModels = await manager.getEnabledModels();
         textModelOptions.value = DataTransformer.modelsToSelectOptions(enabledModels);
@@ -1677,7 +1778,7 @@ const getActiveContextWorkspace = (): ContextWorkspaceExpose | null => {
     return null;
 };
 
-const handleApplyImprovement = (payload: { improvement: string; type: any }) => {
+const handleApplyImprovement = (payload: { improvement: string; type: EvaluationType }) => {
     // 关闭评估面板
     evaluation.closePanel();
 
@@ -1701,11 +1802,11 @@ const handleApplyLocalPatch = async (payload: { operation: PatchOperation }) => 
 
     if (routeFunctionMode.value === 'pro') {
         const workspace = getActiveContextWorkspace();
-        if (!workspace || typeof (workspace as any).applyLocalPatch !== 'function') {
+        if (!workspace?.applyLocalPatch) {
             toast.error(t('toast.error.optimizeProcessFailed'));
             return;
         }
-        (workspace as any).applyLocalPatch(payload.operation);
+        workspace.applyLocalPatch(payload.operation);
         return;
     }
 
@@ -1775,9 +1876,9 @@ watch(
 const openGithubRepo = async () => {
     const url = "https://github.com/linshenkx/prompt-optimizer";
 
-    if (typeof window !== "undefined" && (window as any).electronAPI) {
+    if (typeof window !== "undefined" && window.electronAPI?.shell) {
         try {
-            await (window as any).electronAPI.shell.openExternal(url);
+            await window.electronAPI.shell.openExternal(url);
         } catch (error) {
             console.error("Failed to open external URL in Electron:", error);
             window.open(url, "_blank");
@@ -1787,21 +1888,33 @@ const openGithubRepo = async () => {
     }
 };
 
-// 打开模板管理器
-const openTemplateManager = (
-    templateType?:
-        | "optimize"
-        | "userOptimize"
-        | "iterate"
-        | "text2imageOptimize"
-        | "image2imageOptimize"
-        | "imageIterate",
-) => {
-    templateManagerState.currentType =
-        (templateType as any) ||
-        (selectedOptimizationMode.value === "system"
+const normalizeTemplateTypeForManager = (
+    templateType: TemplateType | undefined,
+): TemplateManagerTemplateType => {
+    if (!templateType) {
+        return selectedOptimizationMode.value === "system"
             ? "optimize"
-            : "userOptimize");
+            : "userOptimize";
+    }
+
+    // 兼容旧值：contextSystemOptimize -> conversationMessageOptimize（上下文系统/消息优化）
+    if (templateType === "contextSystemOptimize") {
+        return "conversationMessageOptimize";
+    }
+
+    // TemplateManager 目前不支持 evaluation 分类，回退到基础的系统/用户优化模板管理
+    if (templateType === "evaluation") {
+        return selectedOptimizationMode.value === "system"
+            ? "optimize"
+            : "userOptimize";
+    }
+
+    return templateType;
+};
+
+// 打开模板管理器
+const openTemplateManager = (templateType?: TemplateType) => {
+    templateManagerState.currentType = normalizeTemplateTypeForManager(templateType);
     templateManagerState.showTemplates = true;
 };
 
@@ -2046,6 +2159,16 @@ const handleVisibilityChange = () => {
 }
 
 onMounted(() => {
+  // Route-level lazy loading can break after a new deployment when this tab is still running an old main bundle.
+  // Prompt user to refresh instead of auto-reloading.
+  if (typeof window !== 'undefined') {
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+  }
+  removeRouterErrorHandler = routerInstance.onError((error) => {
+    if (!isChunkLoadFailure(error)) return;
+    void promptRefreshForNewDeploy(error);
+  });
+
   // ⚠️ 使用 watchEffect + 独立超时定时器（Codex 建议）
   const TIMEOUT = 10000 // 10秒超时
 
@@ -2144,8 +2267,12 @@ onBeforeUnmount(async () => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('pagehide', handlePagehide)
     document.removeEventListener('visibilitychange', handleVisibilityChange)
+    window.removeEventListener('unhandledrejection', handleUnhandledRejection)
   }
 
+  removeRouterErrorHandler?.()
+  removeRouterErrorHandler = null
+ 
   await sessionManager.saveAllSessions()
 })
 </script>

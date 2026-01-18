@@ -143,11 +143,12 @@ import type {
     OptimizationMode,
     AdvancedTestResult,
     ToolCallResult,
+    ConversationMessage,
     EvaluationResponse,
     EvaluationType,
     PatchOperation,
 } from "@prompt-optimizer/core";
-import type { ScoreLevel } from './evaluation/EvaluationScoreBadge.vue';
+import type { ScoreLevel } from './evaluation/types';
 import { useResponsive } from '../composables/ui/useResponsive';
 import { usePerformanceMonitor } from "../composables/performance/usePerformanceMonitor";
 import { useDebounceThrottle } from "../composables/performance/useDebounceThrottle";
@@ -349,8 +350,8 @@ const adaptiveInputMode = computed(() => {
     return props.inputMode || "normal";
 });
 
-const adaptiveButtonSize = computed(() => {
-    return buttonSize.value;
+const adaptiveButtonSize = computed<"small" | "medium" | "large">(() => {
+    return props.buttonSize || buttonSize.value;
 });
 
 const adaptiveResultVerticalLayout = computed(() => {

@@ -38,13 +38,22 @@ export function useToast() {
     options?: ToastOptions
   ): MessageReactive | undefined => {
     const message = getMessageApi()
-    if (!message) return undefined
 
     const normalizedOptions: MessageOptions = {
       duration: 3000,
       closable: true,
       keepAliveOnHover: true,
       ...(typeof options === 'number' ? { duration: options } : options || {})
+    }
+
+    if (!message) {
+      if (typeof window !== 'undefined') {
+        const fallback = window.$message?.[type]
+        if (typeof fallback === 'function') {
+          fallback(content)
+        }
+      }
+      return undefined
     }
     
     switch (type) {

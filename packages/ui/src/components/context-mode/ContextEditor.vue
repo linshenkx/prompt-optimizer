@@ -110,7 +110,7 @@
                     :size="cardSize"
                     embedded
                     :class="{ 'focused-card': focusedIndex === index }"
-                    :ref="(el: HTMLElement | null) => setMessageRef(index, el)"
+                    :ref="messageCardRef(index)"
                 >
                     <template #header>
                         <NSpace justify="space-between" align="center">
@@ -373,7 +373,7 @@
                 <NText
                     depth="3"
                     class="text-xs mt-1"
-                    v-if="PREDEFINED_VARIABLES.includes(variableEditState.name)"
+                    v-if="isPredefinedVariable(variableEditState.name)"
                 >
                     <span class="text-red-500">{{
                         t("contextEditor.predefinedVariableWarning")
@@ -435,7 +435,7 @@
                     :size="buttonSize"
                     :disabled="
                         !variableEditState.name.trim() ||
-                        PREDEFINED_VARIABLES.includes(variableEditState.name)
+                        isPredefinedVariable(variableEditState.name)
                     "
                 >
                     {{
@@ -472,7 +472,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, shallowRef, nextTick } from 'vue'
+import {
+    ref,
+    computed,
+    watch,
+    shallowRef,
+    nextTick,
+    type ComponentPublicInstance,
+    type VNodeRef,
+} from 'vue'
 
 import { useI18n } from "vue-i18n";
 import {
@@ -493,13 +501,13 @@ import { useResponsive } from "../../composables/ui/useResponsive";
 import { usePerformanceMonitor } from "../../composables/performance/usePerformanceMonitor";
 import { useDebounceThrottle } from '../../composables/performance/useDebounceThrottle';
 import { useAccessibility } from "../../composables/accessibility/useAccessibility";
+import { useToast } from "../../composables/ui/useToast";
 import { useTemporaryVariables } from '../../composables/variable/useTemporaryVariables';
 import { VariableAwareInput } from "../variable-extraction";
 import ImportExportDialog from './ImportExportDialog.vue';
 import { useAggregatedVariables } from '../../composables/variable/useAggregatedVariables';
 import type {
     ContextEditorProps,
-    ContextEditorEvents,
 } from "../../types/components";
 import type {
     ContextEditorState,
@@ -512,6 +520,7 @@ import {
 } from "../../types/variable";
 
 const { t } = useI18n();
+const toast = useToast();
 
 // 性能监控
 const { recordUpdate } = usePerformanceMonitor("ContextEditor");
@@ -547,7 +556,25 @@ const props = withDefaults(
     },
 );
 
-const emit = defineEmits<ContextEditorEvents>();
+const emit = defineEmits({
+    "update:visible": (visible: boolean) => typeof visible === "boolean",
+    "update:state": (state: ContextEditorState) => !!state,
+    "update:tools": (tools: ToolDefinition[]) => Array.isArray(tools),
+    contextChange: (messages: ConversationMessage[], variables: Record<string, string>) =>
+        Array.isArray(messages) && !!variables,
+    toolChange: (tools: ToolDefinition[], action: "add" | "update" | "delete", index?: number) =>
+        Array.isArray(tools) &&
+        (action === "add" || action === "update" || action === "delete") &&
+        (index === undefined || typeof index === "number"),
+    save: (context: { messages: ConversationMessage[]; variables: Record<string, string>; tools: ToolDefinition[] }) =>
+        !!context,
+    cancel: () => true,
+    previewToggle: (enabled: boolean) => typeof enabled === "boolean",
+    openVariableManager: (focusVariable?: string) =>
+        focusVariable === undefined || typeof focusVariable === "string",
+    createVariable: (name: string, defaultValue?: string) =>
+        typeof name === "string" && (defaultValue === undefined || typeof defaultValue === "string"),
+});
 
 // 临时变量管理
 const tempVars = useTemporaryVariables();
@@ -580,7 +607,12 @@ const showImportDialog = ref(false);
 const showExportDialog = ref(false);
 
 // 变量值输入框引用（用于自动聚焦）
-const variableValueInputRef = ref(null);
+type FocusableInput = { focus: () => void };
+const variableValueInputRef = ref<FocusableInput | null>(null);
+
+const isPredefinedVariable = (name: string): name is PredefinedVariable => {
+    return (PREDEFINED_VARIABLES as readonly string[]).includes(name);
+};
 
 // 使用shallowRef优化深度对象
 // 注意：variables 已迁移到 useTemporaryVariables() 和 useVariableManager() 管理
@@ -790,13 +822,13 @@ const handleVariableExtracted = (data: {
 }) => {
     if (data.variableType === "global") {
         props.variableManager.addVariable(data.variableName, data.variableValue);
-        window.$message?.success(
-            t("variableExtraction.savedToGlobal", { name: data.variableName })
+        toast.success(
+            t("variableExtraction.savedToGlobal", { name: data.variableName }),
         );
     } else {
         tempVars.setVariable(data.variableName, data.variableValue);
-        window.$message?.success(
-            t("variableExtraction.savedToTemporary", { name: data.variableName })
+        toast.success(
+            t("variableExtraction.savedToTemporary", { name: data.variableName }),
         );
     }
 };
@@ -877,7 +909,7 @@ const saveVariable = () => {
     }
 
     // 检查是否是预定义变量名
-    if (PREDEFINED_VARIABLES.includes(name as PredefinedVariable)) {
+    if (isPredefinedVariable(name)) {
         announce(t("contextEditor.predefinedVariableError"), "assertive");
         return;
     }
@@ -945,20 +977,37 @@ const handleCreateVariableAndOpenManager = (name: string) => {
     };
     // 等待弹窗打开后自动聚焦到变量值输入框
     nextTick(() => {
-        variableValueInputRef.value?.focus?.();
+        variableValueInputRef.value?.focus();
     });
 };
 
 // 消息聚焦（滚动并高亮）
 const focusedIndex = ref<number | null>(null);
 const messageRefs = new Map<number, HTMLElement>();
+
+const resolveHtmlElementFromVNodeRef = (
+    refEl: Element | ComponentPublicInstance | null,
+): HTMLElement | null => {
+    if (!refEl) return null;
+    if (refEl instanceof HTMLElement) return refEl;
+    if (refEl instanceof Element) return null;
+    if (typeof refEl === "object" && "$el" in refEl) {
+        const maybeEl = (refEl as { $el?: unknown }).$el;
+        return maybeEl instanceof HTMLElement ? maybeEl : null;
+    }
+    return null;
+};
+
 const setMessageRef = (
     index: number,
-    el: HTMLElement | { $el: HTMLElement } | null,
+    refEl: Element | ComponentPublicInstance | null,
 ) => {
-    if (!el) return;
-    const element = el && "$el" in el ? el.$el : el;
+    const element = resolveHtmlElementFromVNodeRef(refEl);
     if (element) messageRefs.set(index, element);
+};
+
+const messageCardRef = (index: number): VNodeRef => {
+    return (refEl) => setMessageRef(index, refEl);
 };
 // 生命周期
 watch(

@@ -64,7 +64,7 @@
         text=""
         @click="emit('open-github')"
         size="small"
-        type="quaternary"
+        type="default"
         :ghost="true"
     >
         <template #icon>

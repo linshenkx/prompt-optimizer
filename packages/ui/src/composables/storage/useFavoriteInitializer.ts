@@ -1,11 +1,11 @@
 import { useI18n } from 'vue-i18n';
-import type { FavoriteManager } from '@prompt-optimizer/core';
+import type { IFavoriteManager } from '@prompt-optimizer/core';
 
 /**
  * 收藏功能初始化器
  * 负责创建国际化的默认分类
  */
-export function useFavoriteInitializer(manager: FavoriteManager) {
+export function useFavoriteInitializer(manager: IFavoriteManager) {
   const { t } = useI18n();
 
   /**

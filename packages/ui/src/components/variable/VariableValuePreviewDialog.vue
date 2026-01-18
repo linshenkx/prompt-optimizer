@@ -63,6 +63,8 @@ import {
 import { useI18n } from 'vue-i18n'
 import type { VariableValueGenerationResponse, GeneratedVariableValue } from '@prompt-optimizer/core'
 
+type RowKey = string | number
+
 /**
  * 可编辑的变量值（添加了编辑状态）
  */
@@ -174,8 +176,8 @@ const columns = computed<DataTableColumns<EditableVariableValue>>(() => [
 ])
 
 // 处理选择变化
-const handleSelectionChange = (keys: string[]) => {
-  selectedKeys.value = keys
+const handleSelectionChange = (keys: RowKey[]) => {
+  selectedKeys.value = keys.map((key) => String(key))
 }
 
 // 处理确认

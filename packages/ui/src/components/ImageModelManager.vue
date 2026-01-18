@@ -46,9 +46,6 @@
                 <NTag v-if="config.model?.capabilities?.image2image" size="small" type="info" :bordered="false">
                   {{ t('image.capability.image2image') }}
                 </NTag>
-                <NTag v-if="config.model?.capabilities?.highResolution" size="small" type="primary" :bordered="false">
-                  {{ t('image.capability.highResolution') }}
-                </NTag>
               </NSpace>
             </NSpace>
           </NSpace>
@@ -75,7 +72,7 @@
             <!-- 测试结果缩略图 -->
             <NImage
               v-if="testResults[config.id]?.success && testResults[config.id]?.image"
-              :src="testResults[config.id].image.url || (testResults[config.id].image.b64?.startsWith('data:') ? testResults[config.id].image.b64 : `data:image/png;base64,${testResults[config.id].image.b64}`)"
+              :src="getPreviewImageSrc(config.id) || ''"
               width="24"
               height="24"
               object-fit="cover"
@@ -147,7 +144,7 @@ import {
 } from 'naive-ui'
 import { useImageModelManager } from '../composables/model/useImageModelManager'
 import { useToast } from '../composables/ui/useToast'
-import type { IImageService } from '@prompt-optimizer/core'
+import type { IImageService, ImageModel } from '@prompt-optimizer/core'
 
 const { t } = useI18n()
 const toast = useToast()
@@ -165,7 +162,10 @@ const {
 } = useImageModelManager()
 
 // 注入依赖
-const imageService = inject<IImageService>('imageService') as unknown as IImageService
+const imageService = inject<IImageService>('imageService')
+if (!imageService) {
+  throw new Error('[ImageModelManager] Missing required dependency: imageService')
+}
 
 // 状态管理
 const testingConnections = ref<Record<string, boolean>>({})
@@ -182,8 +182,8 @@ const testResults = ref<Record<string, {
 const isTestingConnectionFor = (configId: string) => !!testingConnections.value[configId]
 
 // 辅助函数：根据模型能力选择测试类型
-const selectTestType = (model: { capabilities?: string[] }): 'text2image' | 'image2image' => {
-  const { text2image, image2image } = model.capabilities || {}
+const selectTestType = (model: ImageModel): 'text2image' | 'image2image' => {
+  const { text2image, image2image } = model.capabilities
 
   if (text2image && !image2image) {
     return 'text2image'  // 只支持文生图
@@ -198,6 +198,16 @@ const selectTestType = (model: { capabilities?: string[] }): 'text2image' | 'ima
   }
 
   throw new Error('模型不支持任何图像生成功能')
+}
+
+const getPreviewImageSrc = (configId: string): string | null => {
+  const img = testResults.value[configId]?.image
+  if (!img) return null
+  if (img.url) return img.url
+  const b64 = img.b64
+  if (!b64) return null
+  if (b64.startsWith('data:')) return b64
+  return `data:image/png;base64,${b64}`
 }
 
 // 操作方法
@@ -230,7 +240,7 @@ const testConnection = async (configId: string) => {
     const testType = selectTestType(config.model)
 
     // 通过统一服务执行测试（Electron 下经 IPC 走主进程；Web 下本地执行）
-    const result = await imageService.testConnection(config as unknown)
+    const result = await imageService.testConnection(config)
 
     // 测试成功
     testResults.value[configId] = {
@@ -258,7 +268,7 @@ const testConnection = async (configId: string) => {
 
 const toggleConfig = async (config: { id: string; enabled: boolean }) => {
   try {
-    await updateConfig(config.id, { enabled: !config.enabled } as { enabled: boolean })
+    await updateConfig(config.id, { enabled: !config.enabled })
     await loadConfigs()
     toast.success(config.enabled ? t('modelManager.disableSuccess') : t('modelManager.enableSuccess'))
   } catch (error) {

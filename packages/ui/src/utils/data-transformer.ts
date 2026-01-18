@@ -75,16 +75,16 @@ export const OptionAccessors = {
   /**
    * 获取主要显示文本
    */
-  getPrimary: <T>(opt: SelectOption<T>): string => opt.primary,
+  getPrimary: (opt: SelectOption): string => opt.primary,
 
   /**
    * 获取次要显示文本
    */
-  getSecondary: <T>(opt: SelectOption<T>): string => opt.secondary,
+  getSecondary: (opt: SelectOption): string => opt.secondary,
 
   /**
    * 获取选择值
    */
-  getValue: <T>(opt: SelectOption<T>): string => opt.value
+  getValue: (opt: SelectOption): string => opt.value
 }
 

@@ -66,6 +66,8 @@ import OptimizationModeSelectorUI from '../OptimizationModeSelector.vue'
 import ImageModeSelector from '../image-mode/ImageModeSelector.vue'
 import type { FunctionMode, BasicSubMode, ProSubMode, ImageSubMode } from '@prompt-optimizer/core'
 
+type SubMode = BasicSubMode | ProSubMode
+
 // ========================
 // Router（使用 router 单例，避免注入失败/多实例）
 // ========================
@@ -132,12 +134,16 @@ const handleFunctionModeChange = (mode: FunctionMode) => {
     routerInstance.push(`/${mode}/${defaultSubMode}`)
 }
 
-const handleBasicSubModeChange = (mode: BasicSubMode) => {
-    routerInstance.push(`/basic/${mode}`)
+const handleBasicSubModeChange = (mode: SubMode) => {
+    if (mode === 'system' || mode === 'user') {
+        routerInstance.push(`/basic/${mode}`)
+    }
 }
 
-const handleProSubModeChange = (mode: ProSubMode) => {
-    routerInstance.push(`/pro/${mode}`)
+const handleProSubModeChange = (mode: SubMode) => {
+    if (mode === 'multi' || mode === 'variable') {
+        routerInstance.push(`/pro/${mode}`)
+    }
 }
 
 const handleImageSubModeChange = (mode: ImageSubMode) => {

@@ -350,9 +350,7 @@ const handleAddMissingVariable = (varName: string) => {
     emit("add-missing-variable", varName);
 
     // 显示成功提示
-    window.$message?.success(
-        t("variableDetection.addSuccess", { name: varName }),
-    );
+    message.success(t("variableDetection.addSuccess", { name: varName }));
 };
 
 // 计算编辑器高度
@@ -397,7 +395,7 @@ const checkSelection = () => {
             validation.reason &&
             validation.reason !== "未选中任何文本"
         ) {
-            window.$message?.warning(validation.reason);
+            message.warning(validation.reason);
         }
         return;
     }
@@ -496,14 +494,14 @@ const handleExtractionConfirm = (data: {
 
     // 显示成功消息
     if (data.replaceAll && occurrenceCount.value > 1) {
-        window.$message?.success(
+        message.success(
             t("variableExtraction.extractSuccessAll", {
                 count: occurrenceCount.value,
                 variableName: data.variableName,
             }),
         );
     } else {
-        window.$message?.success(
+        message.success(
             t("variableExtraction.extractSuccess", {
                 variableName: data.variableName,
             }),

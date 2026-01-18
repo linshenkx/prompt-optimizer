@@ -67,6 +67,7 @@
                         v-else
                         v-model="promptModel"
                         test-id-prefix="basic-user"
+                        :selected-model="selectedOptimizeModelKeyModel"
                         :label="t('promptOptimizer.originalPrompt')"
                         :placeholder="t('promptOptimizer.placeholder')"
                         :model-label="t('promptOptimizer.optimizeModel')"
@@ -167,7 +168,7 @@
                 test-id-prefix="basic-user"
                 optimization-mode="user"
                 :model-provider="selectedTestModelInfo.provider"
-                :model-name="selectedTestModelInfo.model"
+                :model-name="selectedTestModelInfo.model ?? undefined"
                 :optimized-prompt="optimizedPromptModel"
                 :is-test-running="unwrappedLogicProps.isTestingOriginal || unwrappedLogicProps.isTestingOptimized"
                 :global-variables="globalVariables"
@@ -322,7 +323,7 @@ const { t } = useI18n()
 const toast = useToast()
 
 // 服务注入
-const injectedServices = inject<Ref<AppServices | null> | null>('services', null)
+const injectedServices = inject<Ref<AppServices | null>>('services')
 const services = injectedServices ?? ref<AppServices | null>(null)
 const appOpenModelManager = inject<((tab?: 'text' | 'image' | 'function') => void) | null>('openModelManager', null)
 const appOpenTemplateManager = inject<((type?: string) => void) | null>('openTemplateManager', null)
@@ -511,15 +512,17 @@ const optimizedScoreLevel = computed(() => testAreaProps.value.optimizedScoreLev
 const isEvaluatingCompare = evaluationHandler.compareEvaluation.isEvaluatingCompare
 const compareScore = computed(() => evaluationHandler.compareEvaluation.compareScore.value ?? 0)
 const hasCompareEvaluation = evaluationHandler.compareEvaluation.hasCompareResult
-const compareEvaluationResult = computed(() => evaluation.state['compare'])
-const compareScoreLevel = computed(() => evaluation.getScoreLevel('compare'))
+const compareEvaluationResult = computed(() => evaluation.state['compare'].result)
+const compareScoreLevel = computed(() =>
+  evaluation.getScoreLevel(evaluationHandler.compareEvaluation.compareScore.value ?? null)
+)
 
 // 占位状态
 const globalVariables = ref({})
 const predefinedVariables = ref({})
-const inputMode = ref('normal')
-const controlBarLayout = ref('horizontal')
-const buttonSize = ref('medium')
+const inputMode = ref<'normal' | 'compact'>('normal')
+const controlBarLayout = ref<'horizontal' | 'vertical'>('horizontal')
+const buttonSize = ref<'small' | 'medium' | 'large'>('medium')
 const conversationMaxHeight = ref(600)
 const resultVerticalLayout = ref(false)
 const analyzing = ref(false)
@@ -568,7 +571,7 @@ const handleApplyPatch = (payload: { operation: PatchOperation }) => {
 }
 
 // 保存本地编辑
-const handleSaveLocalEdit = (payload: any) => {
+const handleSaveLocalEdit = (payload: { note?: string }) => {
   console.log('[BasicUserWorkspace] saveLocalEdit', payload)
   toast.info('保存编辑功能开发中')
 }

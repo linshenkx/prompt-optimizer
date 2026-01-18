@@ -43,18 +43,21 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, useAttrs, toValue } from 'vue'
+import { computed, h, useAttrs, toValue, type ComputedRef, type Ref } from 'vue'
 
 import { useI18n } from 'vue-i18n'
-import { NSelect, NSpace, NButton, NText } from 'naive-ui'
+import { NSelect, NSpace, NButton, NText, type SelectOption as NaiveSelectOption, type SelectFilter } from 'naive-ui'
 
-interface SelectOption {
-  [key: string]: unknown
-}
+import type { SelectOption as StandardSelectOption } from '../types/select-options'
+
+type SelectOption = StandardSelectOption<unknown>
+
+type OptionsSource = SelectOption[] | Ref<SelectOption[]> | ComputedRef<SelectOption[]>
 
 interface Props {
-  modelValue: string | number | Array<string | number>
-  options: SelectOption[]
+  // Allow null so callers can intentionally clear selection.
+  modelValue: string | number | Array<string | number> | null
+  options: OptionsSource
   getPrimary: (opt: SelectOption) => string
   getSecondary?: (opt: SelectOption) => string
   getValue: (opt: SelectOption) => string | number
@@ -79,7 +82,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string | number | Array<string | number>]
+  'update:modelValue': [value: string | number | Array<string | number> | null]
   'config': [payload?: Record<string, unknown>]
 }>()
 
@@ -121,7 +124,12 @@ const renderOptionLabel = (option: { primary: string; secondary: string; raw: Se
 }
 
 // 多选 tag 渲染
-const renderSelectedTag = ({ option }: { option: { primary: string; secondary: string } }) => {
+const renderSelectedTag = ({
+  option
+}: {
+  option: NaiveSelectOption & { primary?: string; secondary?: string }
+  handleClose: () => void
+}) => {
   const title = props.selectedTooltip && option?.secondary ? `${option.primary} · ${option.secondary}` : undefined
   return h('span', { title }, option?.primary || '')
 }
@@ -139,26 +147,38 @@ const forwardedAttrs = computed(() => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { ['onUpdate:value']: _, multiple: attrsMultiple, class: rootClass, ['menu-props']: menuPropsKebab, menuProps, style: rootStyle, ...rest } = attrs as Record<string, unknown>
 
+  const normalizedMultiple =
+    typeof attrsMultiple === 'boolean'
+      ? attrsMultiple
+      : attrsMultiple != null
+        ? true
+        : props.multiple
+
   // 规范：通过 class & menu-props.class 注入样式作用域，避免使用 :deep
   const mergedRootClass = [rootClass, 'swc-select'].filter(Boolean).join(' ')
   const mp = (menuPropsKebab || menuProps || {}) as Record<string, unknown>
   const mergedMenuClass = [mp.class, 'swc-select-menu'].filter(Boolean).join(' ')
   const normalizedMenuProps = { ...mp, class: mergedMenuClass }
 
+  const customFilter = (attrs as Record<string, unknown>).filter
+  const resolvedFilter: SelectFilter = hasCustomFilter && typeof customFilter === 'function'
+    ? (customFilter as SelectFilter)
+    : (internalFilter as unknown as SelectFilter)
+ 
   return {
     filterable: true,
-    multiple: attrsMultiple ?? props.multiple,
+    multiple: normalizedMultiple,
     class: mergedRootClass,
     style: { minWidth: '160px', ...(rootStyle as Record<string, unknown> || {}) },
     menuProps: normalizedMenuProps,
     ...rest,
-    filter: hasCustomFilter ? (attrs as Record<string, unknown>).filter : internalFilter
+    filter: resolvedFilter
   }
 })
 
 const normalizedValue = computed(() => props.modelValue)
 
-const onUpdateValue = (val: string | number | Array<string | number>) => {
+const onUpdateValue = (val: string | number | Array<string | number> | null) => {
   emit('update:modelValue', val)
   const cb = (attrs as Record<string, unknown>)['onUpdate:value']
   if (typeof cb === 'function') cb(val)

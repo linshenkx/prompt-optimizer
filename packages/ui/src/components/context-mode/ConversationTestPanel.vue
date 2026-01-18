@@ -209,7 +209,7 @@
                         v-if="originalToolCalls.length > 0"
                         :tool-calls="originalToolCalls"
                         :size="
-                            adaptiveButtonSize === 'large' ? 'medium' : 'small'
+                            adaptiveButtonSize === 'small' ? 'small' : 'medium'
                         "
                         class="tool-calls-section"
                     />
@@ -228,7 +228,7 @@
                         v-if="optimizedToolCalls.length > 0"
                         :tool-calls="optimizedToolCalls"
                         :size="
-                            adaptiveButtonSize === 'large' ? 'medium' : 'small'
+                            adaptiveButtonSize === 'small' ? 'small' : 'medium'
                         "
                         class="tool-calls-section"
                     />
@@ -247,7 +247,7 @@
                         v-if="toolCalls.length > 0"
                         :tool-calls="toolCalls"
                         :size="
-                            adaptiveButtonSize === 'large' ? 'medium' : 'small'
+                            adaptiveButtonSize === 'small' ? 'small' : 'medium'
                         "
                         class="tool-calls-section"
                     />
@@ -304,7 +304,7 @@ const { debounce, throttle } = useDebounceThrottle();
 // 响应式配置
 const {
     shouldUseVerticalLayout,
-    buttonSize,
+    buttonSize: responsiveButtonSize,
 } = useResponsive();
 
 interface Props {
@@ -451,7 +451,7 @@ const clearToolCalls = (testType?: 'original' | 'optimized' | 'both') => {
 
 // 响应式布局配置
 const adaptiveButtonSize = computed(() => {
-    return buttonSize.value;
+    return props.buttonSize ?? responsiveButtonSize.value;
 });
 
 const adaptiveResultVerticalLayout = computed(() => {
@@ -725,12 +725,8 @@ defineExpose({
     getVariableValues,
     setVariableValues,
     // 预览功能占位符（兼容接口）
-    showPreview: () => {
-        console.warn('[ConversationTestPanel] showPreview not implemented');
-    },
-    hidePreview: () => {
-        console.warn('[ConversationTestPanel] hidePreview not implemented');
-    },
+    showPreview: () => {},
+    hidePreview: () => {},
 });
 </script>
 

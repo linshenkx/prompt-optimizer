@@ -35,25 +35,21 @@ export {
 
 export {
   useProMultiMessageSession,
-  type ProMultiMessageSessionState,
   type ProMultiMessageSessionApi,
 } from './session/useProMultiMessageSession'
 
 export {
   useProVariableSession,
-  type ProVariableSessionState,
   type ProVariableSessionApi,
 } from './session/useProVariableSession'
 
 export {
   useImageText2ImageSession,
-  type ImageText2ImageSessionState,
   type ImageText2ImageSessionApi,
 } from './session/useImageText2ImageSession'
 
 export {
   useImageImage2ImageSession,
-  type ImageImage2ImageSessionState,
   type ImageImage2ImageSessionApi,
 } from './session/useImageImage2ImageSession'
 

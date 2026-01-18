@@ -184,7 +184,7 @@ interface Props {
   /** 原始内容(用于从优化器保存时) */
   originalContent?: string
   /** 当前功能模式(用于从优化器保存时预填充) */
-  currentFunctionMode?: 'basic' | 'context' | 'image'
+  currentFunctionMode?: 'basic' | 'context' | 'pro' | 'image'
   /** 当前优化模式(用于从优化器保存时预填充) */
   currentOptimizationMode?: 'system' | 'user'
   /** 要编辑的收藏(仅用于 edit 模式) */
@@ -456,7 +456,7 @@ watch(() => props.show, async (newShow) => {
         formData.functionMode = 'image';
         formData.imageSubMode = 'text2image';  // 默认文生图
         formData.optimizationMode = undefined;
-      } else if (props.currentFunctionMode === 'context') {
+      } else if (props.currentFunctionMode === 'context' || props.currentFunctionMode === 'pro') {
         formData.functionMode = 'context';
         formData.optimizationMode = props.currentOptimizationMode;
         formData.imageSubMode = undefined;

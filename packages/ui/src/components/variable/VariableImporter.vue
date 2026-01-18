@@ -353,7 +353,7 @@ const handleFile = (file: File) => {
       const variables = parseVariables(content, textFormat.value)
       previewVariables.value = variables
     } catch (_err) {
-      error.value = err instanceof Error ? err.message : t('variables.importer.errors.parseError')
+      error.value = _err instanceof Error ? _err.message : t('variables.importer.errors.parseError')
       previewVariables.value = {}
     }
   }

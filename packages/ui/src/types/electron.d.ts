@@ -15,10 +15,16 @@ import type {
 } from '@prompt-optimizer/core'
 
 // 基础响应类型
+interface ElectronErrorPayload {
+  message: string
+  code?: string
+  params?: Record<string, unknown>
+}
+
 interface ElectronResponse<T = unknown> {
   success: boolean
   data?: T
-  error?: string
+  error?: string | ElectronErrorPayload
 }
 
 // 应用相关API
@@ -80,13 +86,13 @@ interface ShellAPI {
 // 事件监听API
 interface EventAPI {
   on<K extends keyof ElectronEventMap>(channel: K, listener: (...args: ElectronEventMap[K]) => void): void
-  on(channel: string, listener: (...args: any[]) => void): void
+  on(channel: string, listener: (...args: unknown[]) => void): void
 
   off<K extends keyof ElectronEventMap>(channel: K, listener: (...args: ElectronEventMap[K]) => void): void
-  off(channel: string, listener: (...args: any[]) => void): void
+  off(channel: string, listener: (...args: unknown[]) => void): void
 
   once<K extends keyof ElectronEventMap>(channel: K, listener: (...args: ElectronEventMap[K]) => void): void
-  once(channel: string, listener: (...args: any[]) => void): void
+  once(channel: string, listener: (...args: unknown[]) => void): void
 }
 
 interface ElectronEventMap {
@@ -98,10 +104,33 @@ interface ElectronEventMap {
   'updater-download-started': [{ versionType?: 'stable' | 'prerelease'; version?: string }]
 }
 
+type LlmStreamCallbacks = {
+  onContent?: (content: string) => void
+  onThinking?: (thinking: string) => void
+  onToolCall?: (toolCall: unknown) => void
+  onFinish?: () => void
+  onError?: (error: Error) => void
+}
+
+interface LlmAPI {
+  testConnection(provider: string): Promise<void>
+  sendMessage(messages: unknown[], provider: string): Promise<string>
+  sendMessageStructured(messages: unknown[], provider: string): Promise<unknown>
+  sendMessageStream(messages: unknown[], provider: string, callbacks: LlmStreamCallbacks): Promise<void>
+  sendMessageStreamWithTools(messages: unknown[], provider: string, tools: unknown[], callbacks: LlmStreamCallbacks): Promise<void>
+  fetchModelList(provider: string, customConfig?: unknown): Promise<Array<{ value: string; label: string }>>
+}
+
 // 图像生成API
 interface ImageAPI {
   generate(request: unknown): Promise<unknown>
+  generateText2Image(request: unknown): Promise<unknown>
+  generateImage2Image(request: unknown): Promise<unknown>
+
   validateRequest(request: unknown): Promise<unknown>
+  validateText2ImageRequest(request: unknown): Promise<unknown>
+  validateImage2ImageRequest(request: unknown): Promise<unknown>
+
   testConnection(config: unknown): Promise<unknown>
   getDynamicModels(providerId: string, connectionConfig: unknown): Promise<unknown[]>
 }
@@ -147,6 +176,7 @@ interface ElectronAPI {
   app: AppAPI
   updater: UpdaterAPI
   shell: ShellAPI
+  llm: LlmAPI
   image: ImageAPI
   imageModel: ImageModelAPI
   context: ContextAPI
@@ -166,6 +196,7 @@ declare global {
     detailedMessage?: string
     originalError?: unknown
     code?: string
+    params?: Record<string, unknown>
   }
 }
 

@@ -258,12 +258,12 @@
 import { computed, type PropType } from 'vue'
 
 import { useI18n } from 'vue-i18n'
-import { useMessage, createDiscreteApi, NAlert, NButton, NCheckbox, NForm, NFormItem, NInput, NInputNumber, NSelect, NSpace, NTag, NText, type MessageApiInjection } from 'naive-ui'
+import { useMessage, createDiscreteApi, NAlert, NButton, NCheckbox, NForm, NFormItem, NInput, NInputNumber, NSelect, NSpace, NTag, NText } from 'naive-ui'
 import { parseCustomValue, type UnifiedParameterDefinition } from '@prompt-optimizer/core'
 
 const props = defineProps({
   schema: {
-    type: Array as PropType<UnifiedParameterDefinition[]>,
+    type: Array as PropType<readonly UnifiedParameterDefinition[]>,
     default: () => []
   },
   paramOverrides: {
@@ -503,14 +503,14 @@ function cloneDefaultValue(definition: UnifiedParameterDefinition): unknown {
   }
 }
 
-function resolveMessageApi(): MessageApiInjection {
+function resolveMessageApi(): ReturnType<typeof useMessage> {
   try {
     return useMessage()
   } catch (error) {
     console.warn('[ModelParameterEditor] useMessage fallback: message provider missing.', error)
     if (typeof window !== 'undefined') {
       const { message } = createDiscreteApi(['message'])
-      return message as unknown as MessageApiInjection
+      return message as ReturnType<typeof useMessage>
     }
     const stub = () => ({
       destroy: () => {}
@@ -541,7 +541,7 @@ function resolveMessageApi(): MessageApiInjection {
         return stub()
       },
       destroyAll: () => {}
-    } as MessageApiInjection
+    } as ReturnType<typeof useMessage>
   }
 }
 

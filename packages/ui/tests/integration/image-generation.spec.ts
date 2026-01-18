@@ -10,11 +10,22 @@ const toast = {
   loading: vi.fn()
 }
 
-vi.mock('vue-i18n', () => ({
-  useI18n: () => ({
-    t: (key: string) => key
-  })
-}))
+vi.mock('vue-i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue-i18n')>()
+  const t = (key: string) => key
+
+  return {
+    ...actual,
+    useI18n: () => ({ t }),
+    createI18n: (_opts: unknown) => ({
+      global: {
+        t,
+        te: (_key: string) => true,
+        locale: { value: 'zh-CN' },
+      },
+    }),
+  }
+})
 
 vi.mock('../../src/composables/ui/useToast', () => ({
   useToast: () => toast
@@ -66,4 +77,3 @@ describe('Image generation (integration)', () => {
     expect(apiRef.value.result).toMatchObject({ requestId: 'r1' })
   })
 })
-

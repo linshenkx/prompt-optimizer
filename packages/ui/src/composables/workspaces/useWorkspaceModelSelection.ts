@@ -67,6 +67,14 @@ export function useWorkspaceModelSelection<T extends WorkspaceModelSessionStore>
 
   // 刷新模型列表
   let refreshModelToken = 0
+  const ensureInitializedIfSupported = async (manager: unknown) => {
+    if (!manager || typeof manager !== 'object') return
+    const m = manager as { ensureInitialized?: () => Promise<void> }
+    if (typeof m.ensureInitialized === 'function') {
+      await m.ensureInitialized()
+    }
+  }
+
   const refreshTextModels = async () => {
     const mgr = services.value?.modelManager
     if (!mgr) {
@@ -76,9 +84,7 @@ export function useWorkspaceModelSelection<T extends WorkspaceModelSessionStore>
 
     const token = ++refreshModelToken
     try {
-      if (typeof (mgr as any).ensureInitialized === 'function') {
-        await (mgr as any).ensureInitialized()
-      }
+      await ensureInitializedIfSupported(mgr)
 
       const enabledModels = await mgr.getEnabledModels()
       if (token !== refreshModelToken) return

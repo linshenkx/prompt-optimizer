@@ -13,6 +13,9 @@ export * from './data-converter'
 // 高级模块组件类型
 export * from './components'
 
+// 选择器选项类型
+export * from './select-options'
+
 // 测试区域组件类型
 export type {
   ComponentSize,

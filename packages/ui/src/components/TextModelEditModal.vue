@@ -266,13 +266,7 @@ const isEditing = computed(() => !!manager.editingModelId.value)
 
 // 获取当前选择的 Provider 的 API Key URL
 const currentProviderApiKeyUrl = computed(() => {
-  if (!form.value?.providerId) {
-    return null
-  }
-  
-  // 从 form 的 providerMeta 中获取 apiKeyUrl
-  const providerMeta = form.value?.providerMeta
-  return providerMeta?.apiKeyUrl || null
+  return manager.selectedProvider.value?.apiKeyUrl || null
 })
 
 const handleUpdateShow = async (value: boolean) => {

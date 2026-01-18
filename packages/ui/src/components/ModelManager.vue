@@ -92,7 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import { inject, onMounted, onUnmounted, provide, ref } from 'vue'
+import { inject, onMounted, onUnmounted, provide, ref, type Ref } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import { NButton, NModal, NScrollbar, NTabs, NTabPane } from 'naive-ui'
@@ -121,8 +121,8 @@ const functionManagerRef = ref<InstanceType<typeof FunctionModelManager> | null>
 const showImageModelEdit = ref(false)
 const editingImageModelId = ref<string | undefined>(undefined)
 
-const services = inject<AppServices>('services')
-if (!services) {
+const services = inject<Ref<AppServices | null>>('services')
+if (!services?.value) {
   throw new Error('Services not provided!')
 }
 

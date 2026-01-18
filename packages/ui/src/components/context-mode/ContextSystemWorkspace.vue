@@ -131,7 +131,7 @@
                             emit('update:selectedIterateTemplate', $event)
                         "
                         :versions="displayAdapter.displayedVersions.value"
-                        :current-version-id="displayAdapter.displayedCurrentVersionId.value"
+                        :current-version-id="displayAdapter.displayedCurrentVersionId.value ?? undefined"
                         :show-apply-button="displayAdapter.isInMessageOptimizationMode.value"
                         :optimization-mode="optimizationMode"
                         :advanced-mode-enabled="true"
@@ -265,10 +265,12 @@ import { useEvaluationHandler, provideProContext, useEvaluationContext } from '.
 import { useWorkspaceModelSelection } from '../../composables/workspaces/useWorkspaceModelSelection'
 import { useWorkspaceTemplateSelection } from '../../composables/workspaces/useWorkspaceTemplateSelection'
 import { OptionAccessors } from '../../utils/data-transformer'
-import type { OptimizationMode, ConversationMessage } from "../../types";
+import { useToast } from "../../composables/ui/useToast";
 import {
     applyPatchOperationsToText,
     PREDEFINED_VARIABLES,
+    type ConversationMessage,
+    type OptimizationMode,
     type PromptRecord,
     type PromptRecordChain,
     type Template,
@@ -350,41 +352,42 @@ const props = withDefaults(defineProps<Props>(), {
 // Emits 定义
 const emit = defineEmits<{
     // 数据更新
-    "update:selectedIterateTemplate": [value: Template | null];
-    "update:optimizationContext": [value: ConversationMessage[]];
+    (e: "update:selectedIterateTemplate", value: Template | null): void;
+    (e: "update:optimizationContext", value: ConversationMessage[]): void;
 
     // 操作事件（用于历史记录查看场景）
-    test: [testVariables: Record<string, string>];
-    "switch-version": [version: PromptRecord];
-    "switch-to-v0": [version: PromptRecord];
-    "save-favorite": [data: SaveFavoritePayload];
-    "message-change": [index: number, message: ConversationMessage, action: "add" | "update" | "delete"];
+    (e: "test", testVariables: Record<string, string>): void;
+    (e: "switch-version", version: PromptRecord): void;
+    (e: "switch-to-v0", version: PromptRecord): void;
+    (e: "save-favorite", data: SaveFavoritePayload): void;
+    (e: "message-change", index: number, message: ConversationMessage, action: "add" | "update" | "delete"): void;
 
     // 打开面板/管理器
-    "open-global-variables": [];
-    "open-variable-manager": [];
-    "open-context-editor": [tab?: string];
-    "open-template-manager": [type?: string];
-    "open-tool-manager": [];
-    "config-model": [];
+    (e: "open-global-variables"): void;
+    (e: "open-variable-manager"): void;
+    (e: "open-context-editor", tab?: string): void;
+    (e: "open-template-manager", type?: string): void;
+    (e: "open-tool-manager"): void;
+    (e: "config-model"): void;
 
     // 预览相关
-    "open-prompt-preview": [];
+    (e: "open-prompt-preview"): void;
 
     // 变量管理
-    "variable-change": [name: string, value: string];
-    "save-to-global": [name: string, value: string];
+    (e: "variable-change", name: string, value: string): void;
+    (e: "save-to-global", name: string, value: string): void;
 
     // 🆕 对比模式
-    "update:isCompareMode": [value: boolean];
-    "compare-toggle": [];
+    (e: "update:isCompareMode", value: boolean): void;
+    (e: "compare-toggle"): void;
 }>();
 
 const { t } = useI18n();
+const toast = useToast();
 
 // 注入服务和变量管理器
 const services = inject<Ref<AppServices | null>>('services')
-const variableManager = inject<VariableManagerHooks | null>('variableManager')
+const variableManager = inject<VariableManagerHooks | null>('variableManager', null)
 
 // 🆕 注入优化上下文（多轮对话消息）
 const optimizationContext = inject<Ref<ConversationMessage[]>>('optimizationContext', ref([]))
@@ -641,12 +644,53 @@ const testAreaPanelRef = ref<TestAreaPanelInstance | null>(null);
 /** PromptPanel 组件引用,用于打开迭代弹窗 */
 const promptPanelRef = ref<InstanceType<typeof PromptPanelUI> | null>(null);
 
-const restoreFromHistory = async ({
-    chain,
-    record,
-    conversationSnapshot,
-    message,
-}: ContextSystemHistoryPayload) => {
+const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
+    typeof value === "object" && value !== null;
+
+const isConversationMessage = (value: unknown): value is ConversationMessage => {
+    if (!isObjectRecord(value)) return false;
+    return (
+        typeof value.id === "string" &&
+        typeof value.role === "string" &&
+        typeof value.content === "string"
+    );
+};
+
+const isContextSystemHistoryPayload = (
+    value: unknown,
+): value is ContextSystemHistoryPayload => {
+    if (!isObjectRecord(value)) return false;
+
+    const chain = value.chain;
+    const record = value.record;
+    const conversationSnapshot = value.conversationSnapshot;
+    const message = value.message;
+
+    if (
+        !isObjectRecord(chain) ||
+        typeof chain.chainId !== "string" ||
+        !Array.isArray(chain.versions)
+    ) {
+        return false;
+    }
+    if (!isObjectRecord(record) || typeof record.id !== "string") return false;
+    if (conversationSnapshot !== undefined && !Array.isArray(conversationSnapshot))
+        return false;
+    if (message !== undefined && !isConversationMessage(message)) return false;
+
+    return true;
+};
+
+const restoreFromHistory = async (payload: unknown) => {
+    if (!isContextSystemHistoryPayload(payload)) {
+        console.warn(
+            "[ContextSystemWorkspace] Invalid history payload, ignored:",
+            payload,
+        );
+        return;
+    }
+
+    const { chain, record, conversationSnapshot, message } = payload;
     try {
         if (conversationSnapshot?.length) {
             let mappingCount = 0;
@@ -784,9 +828,9 @@ defineExpose({
         const result = applyPatchOperationsToText(current, operation);
         conversationOptimization.optimizedPrompt.value = result.text;
         if (!result.ok) {
-            window.$message?.warning(t('toast.warning.patchApplyFailed'));
+            toast.warning(t('toast.warning.patchApplyFailed'));
         } else {
-            window.$message?.success(t('evaluation.diagnose.applyFix'));
+            toast.success(t('evaluation.diagnose.applyFix'));
         }
     },
     reEvaluateActive: async () => {

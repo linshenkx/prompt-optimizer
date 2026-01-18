@@ -38,8 +38,8 @@ export interface AppServices {
   compareService: ICompareService;
   contextRepo: ContextRepo;
   favoriteManager: IFavoriteManager;
-  // 🆕 上下文模式（响应式，用于 UI 行为决策）
-  contextMode: Ref<ContextMode>;
+  // 🆕 上下文模式（兼容：早期实现可能传 string，当前推荐传 Ref）
+  contextMode: Ref<ContextMode> | ContextMode;
   // 文本模型适配器注册表（本地实例）
   textAdapterRegistry?: ITextAdapterRegistry;
   // 图像相关（Web 优先，可选）

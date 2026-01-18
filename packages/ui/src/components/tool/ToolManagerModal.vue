@@ -115,10 +115,7 @@
                         <div class="mt-2">
                             <NTag size="small">{{
                                 t('contextEditor.parametersCount', {
-                                    count: Object.keys(
-                                        tool.function.parameters?.properties ||
-                                            {}
-                                    ).length,
+                                    count: getParametersCount(tool),
                                 })
                             }}</NTag>
                         </div>
@@ -279,7 +276,6 @@ import {
 import type { ToolDefinition } from '@prompt-optimizer/core'
 import type {
     ToolManagerModalProps,
-    ToolManagerModalEvents,
 } from '../../types/components'
 
 const { t } = useI18n()
@@ -292,7 +288,27 @@ const props = withDefaults(defineProps<ToolManagerModalProps>(), {
     width: '800px',
 })
 
-const emit = defineEmits<ToolManagerModalEvents>()
+const emit = defineEmits<{
+    'update:visible': [visible: boolean]
+    'update:tools': [tools: ToolDefinition[]]
+    toolChange: [
+        tools: ToolDefinition[],
+        action: 'add' | 'update' | 'delete',
+        index: number,
+    ]
+    confirm: [tools: ToolDefinition[]]
+    cancel: []
+}>()
+
+const getParametersCount = (tool: ToolDefinition): number => {
+    const params = tool.function.parameters
+    if (!params || typeof params !== 'object') return 0
+
+    const properties = (params as { properties?: unknown }).properties
+    if (!properties || typeof properties !== 'object') return 0
+
+    return Object.keys(properties as Record<string, unknown>).length
+}
 
 // 本地状态
 const localVisible = ref(props.visible)

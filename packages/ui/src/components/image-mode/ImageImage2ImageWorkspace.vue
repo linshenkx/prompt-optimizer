@@ -1015,14 +1015,15 @@ import { useFullscreen } from "../../composables/ui/useFullscreen";
 import FullscreenDialog from "../FullscreenDialog.vue";
 import type { SelectOption } from "../../types/select-options";
 import { useToast } from "../../composables/ui/useToast";
+import { getI18nErrorMessage } from '../../utils/error'
 import { useImageImage2ImageSession } from '../../stores/session/useImageImage2ImageSession'
 import { useImageGeneration } from '../../composables/image/useImageGeneration'
-import { useEvaluationHandler } from '../../composables/prompt/useEvaluationHandler'
+import { useEvaluationHandler, type TestResultsData } from '../../composables/prompt/useEvaluationHandler'
 import { useWorkspaceTemplateSelection } from '../../composables/workspaces/useWorkspaceTemplateSelection'
 import { useWorkspaceTextModelSelection } from '../../composables/workspaces/useWorkspaceTextModelSelection'
 import {
     type ImageModelConfig,
-    type ImageRequest,
+    type Image2ImageRequest,
     type ImageResult,
     type ImageResultItem,
     type OptimizationMode,
@@ -1053,7 +1054,8 @@ const {
     imageModels,
     generating: isGenerating,
     result: imageResult,
-    generate: generateImage,
+    generateImage2Image,
+    validateImage2ImageRequest,
     loadImageModels,
 } = useImageGeneration()
 
@@ -1161,7 +1163,7 @@ const previewImageUrl = computed(() => {
 const currentPrompt = computed(() => optimizedPrompt.value || originalPrompt.value)
 
 // 固定模板类型
-const templateType = computed<Template['metadata']['templateType']>(() => 'image2imageOptimize')
+const templateType = computed(() => "image2imageOptimize" as const)
 
 // 图像模式统一使用 user 模式
 const optimizationMode = 'user' as OptimizationMode
@@ -1197,11 +1199,11 @@ const selectedImageModelInfo = computed(() => {
 // 评估处理器（图像模式专用：testResults 不参与）
 const evaluationHandler = useEvaluationHandler({
     services,
-    originalPrompt: originalPrompt as any,
-    optimizedPrompt: optimizedPrompt as any,
+    originalPrompt,
+    optimizedPrompt,
     testContent: computed(() => ''),
-    testResults: ref(null),
-    evaluationModelKey: selectedTextModelKey as any,
+    testResults: ref<TestResultsData | null>(null),
+    evaluationModelKey: selectedTextModelKey,
     functionMode: computed(() => 'image'),
     subMode: computed(() => 'image2image'),
     externalEvaluation: globalEvaluation || undefined,
@@ -1283,6 +1285,7 @@ type TemplateEntryType =
     | "optimize"
     | "userOptimize"
     | "iterate"
+    | "contextIterate"
     | "text2imageOptimize"
     | "image2imageOptimize"
     | "imageIterate";
@@ -1300,7 +1303,7 @@ const appHandleSaveFavorite = inject<
 // 将迭代类型映射为图像迭代，并调用 App 入口
 const onOpenTemplateManager = (type: TemplateEntryType) => {
     const target: TemplateEntryType =
-        type === "iterate" ? "imageIterate" : type;
+        type === "iterate" || type === "contextIterate" ? "imageIterate" : type;
     appOpenTemplateManager?.(target);
 };
 
@@ -1355,14 +1358,14 @@ const handleUploadChange = async (data: ImageUploadChangePayload) => {
 
     // 验证文件类型
     if (!/image\/(png|jpeg)/.test(file.type)) {
-        toast.error('仅支持 PNG/JPEG 格式')
+        toast.error(t('imageWorkspace.upload.fileTypeNotSupported'))
         uploadStatus.value = 'error'
         return
     }
 
     // 验证文件大小
     if (file.size > 10 * 1024 * 1024) {
-        toast.error('文件大小不能超过 10MB')
+        toast.error(t('imageWorkspace.upload.fileTooLarge'))
         uploadStatus.value = 'error'
         return
     }
@@ -1378,11 +1381,11 @@ const handleUploadChange = async (data: ImageUploadChangePayload) => {
         session.updateInputImage(base64, file.type)
         uploadStatus.value = 'success'
         uploadProgress.value = 100
-        toast.success('图片上传成功')
+        toast.success(t('imageWorkspace.upload.uploadSuccess'))
     }
 
     reader.onerror = () => {
-        toast.error('文件读取失败，请重试')
+        toast.error(t('imageWorkspace.upload.readFailed'))
         uploadStatus.value = 'error'
     }
 
@@ -1462,11 +1465,94 @@ const handleRestoreFavorite = async (event: Event) => {
     console.log("[ImageImage2ImageWorkspace] Favorite restored successfully");
 };
 
+type ImageWorkspaceRestoreDetail = {
+    originalPrompt?: unknown;
+    optimizedPrompt?: unknown;
+    metadata?: unknown;
+    chainId?: unknown;
+    versions?: unknown;
+    currentVersionId?: unknown;
+    imageMode?: unknown;
+    templateId?: unknown;
+};
+
+const handleRestoreHistory = async (event: Event) => {
+    if (!(event instanceof CustomEvent)) {
+        return;
+    }
+
+    const detail = event.detail as ImageWorkspaceRestoreDetail;
+    if (detail?.imageMode !== "image2image") return;
+
+    const versions = Array.isArray(detail.versions)
+        ? (detail.versions as PromptRecordChain["versions"])
+        : [];
+
+    const requestedVersionId =
+        typeof detail.currentVersionId === "string" ? detail.currentVersionId : "";
+    const record =
+        (requestedVersionId &&
+            versions.find((v) => v.id === requestedVersionId)) ||
+        versions[versions.length - 1] ||
+        null;
+
+    const original =
+        (record?.originalPrompt && record.originalPrompt) ||
+        (typeof detail.originalPrompt === "string" ? detail.originalPrompt : "");
+    const optimized =
+        (record?.optimizedPrompt && record.optimizedPrompt) ||
+        (typeof detail.optimizedPrompt === "string" ? detail.optimizedPrompt : "");
+
+    // 1) Restore local history refs (PromptPanel versions list)
+    currentChainId.value = typeof detail.chainId === "string" ? detail.chainId : "";
+    currentVersions.value = versions;
+    currentVersionId.value = record?.id || requestedVersionId || "";
+
+    // 2) Restore session store (single source of truth for fields)
+    originalPrompt.value = original;
+    session.updateOptimizedResult({
+        optimizedPrompt: optimized,
+        reasoning: "",
+        chainId: currentChainId.value || session.chainId || "",
+        versionId: currentVersionId.value || session.versionId || "",
+    });
+
+    if (record?.modelKey) {
+        session.updateTextModel(record.modelKey);
+    }
+
+    if (record?.templateId) {
+        session.updateTemplate(record.templateId);
+    } else if (typeof detail.templateId === "string") {
+        session.updateTemplate(detail.templateId);
+    }
+
+    const meta =
+        (record?.metadata as unknown as Record<string, unknown> | undefined) ||
+        (typeof detail.metadata === "object" && detail.metadata
+            ? (detail.metadata as Record<string, unknown>)
+            : undefined);
+
+    const imageModelKey = meta?.imageModelKey;
+    if (typeof imageModelKey === "string") {
+        session.updateImageModel(imageModelKey);
+    }
+
+    const compareMode = meta?.compareMode;
+    if (typeof compareMode === "boolean") {
+        session.toggleCompareMode(compareMode);
+    }
+};
+
 // 在组件创建时立即注册收藏回填事件监听器
 if (typeof window !== "undefined") {
     window.addEventListener(
         "image-workspace-restore-favorite",
         handleRestoreFavorite as EventListener,
+    );
+    window.addEventListener(
+        "image-workspace-restore",
+        handleRestoreHistory as EventListener,
     );
     console.log(
         "[ImageImage2ImageWorkspace] Favorite restore event listener registered immediately on component creation",
@@ -1535,7 +1621,7 @@ const createHistoryRecord = async () => {
         window.dispatchEvent(new CustomEvent('prompt-optimizer:history-refresh'))
     } catch (e) {
         console.error('[ImageImage2ImageWorkspace] Failed to create history record:', e)
-        toast.warning('历史记录保存失败，但优化结果已生成')
+        toast.warning(t('toast.error.optimizeCompleteButHistoryFailed'))
     }
 }
 
@@ -1543,11 +1629,11 @@ const createHistoryRecord = async () => {
 const handleOptimizePrompt = async () => {
     if (!originalPrompt.value.trim() || isOptimizing.value) return
     if (!selectedTemplate.value) {
-        toast.error('请选择优化模板')
+        toast.error(t('toast.error.noOptimizeTemplate'))
         return
     }
     if (!selectedTextModelKey.value) {
-        toast.error('请选择文本模型')
+        toast.error(t('toast.error.noOptimizeModel'))
         return
     }
     if (!promptService.value) {
@@ -1578,15 +1664,14 @@ const handleOptimizePrompt = async () => {
             },
             onComplete: async () => {
                 await createHistoryRecord()
-                toast.success('提示词优化完成')
+                 toast.success(t('toast.success.optimizeSuccess'))
             },
             onError: (error: Error) => {
                 throw error
             },
         })
     } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error))
-        toast.error('优化失败：' + err.message)
+        toast.error(getI18nErrorMessage(error, t('toast.error.optimizeFailed')))
     } finally {
         isOptimizing.value = false
     }
@@ -1645,10 +1730,10 @@ const handleIteratePrompt = async (payload: {
                         } else {
                             await createHistoryRecord()
                         }
-                        toast.success('提示词迭代优化完成')
+                        toast.success(t('toast.success.iterateComplete'))
                     } catch (e) {
                         console.error('[ImageImage2ImageWorkspace] Failed to persist iteration:', e)
-                        toast.warning('迭代结果已生成，但历史记录保存失败')
+                        toast.warning(t('toast.error.iterateCompleteButHistoryFailed'))
                     }
                 },
                 onError: (error: Error) => {
@@ -1658,8 +1743,7 @@ const handleIteratePrompt = async (payload: {
             selectedIterateTemplate.value.id,
         )
     } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error))
-        toast.error('迭代优化失败：' + err.message)
+        toast.error(getI18nErrorMessage(error, t('toast.error.iterateFailed')))
         optimizedPrompt.value = previousOptimizedPrompt
     } finally {
         isIterating.value = false
@@ -1669,42 +1753,52 @@ const handleIteratePrompt = async (payload: {
 // 生成图像（结果写入 session store）
 const handleGenerateImage = async () => {
     if (!selectedImageModelKey.value || !currentPrompt.value.trim()) {
-        toast.error('请选择图像模型并确保有有效的提示词')
+        toast.error(t('imageWorkspace.generation.missingRequiredFields'))
         return
     }
 
-    const imageRequest: ImageRequest = {
+    // UI 层防呆：图生图必须先有输入图，并且模型必须支持 image2image
+    if (!inputImageB64.value) {
+        toast.error(t('imageWorkspace.generation.inputImageRequired'))
+        return
+    }
+
+    const imageRequest: Image2ImageRequest = {
         prompt: currentPrompt.value,
         configId: selectedImageModelKey.value,
         count: 1,
-        inputImage: inputImageB64.value
-            ? { b64: inputImageB64.value, mimeType: inputImageMime.value || 'image/png' }
-            : undefined,
+        inputImage: { b64: inputImageB64.value, mimeType: inputImageMime.value || 'image/png' },
         paramOverrides: { outputMimeType: 'image/png' },
+    }
+
+    try {
+        await validateImage2ImageRequest(imageRequest)
+    } catch (e) {
+        toast.error(getI18nErrorMessage(e, t('imageWorkspace.generation.validationFailed')))
+        return
     }
 
     try {
         if (isCompareMode.value) {
             if (originalPrompt.value.trim()) {
-                await generateImage({ ...imageRequest, prompt: originalPrompt.value })
+                await generateImage2Image({ ...imageRequest, prompt: originalPrompt.value })
                 originalImageResult.value = imageResult.value
             }
             if (optimizedPrompt.value.trim()) {
-                await generateImage({ ...imageRequest, prompt: optimizedPrompt.value })
+                await generateImage2Image({ ...imageRequest, prompt: optimizedPrompt.value })
                 optimizedImageResult.value = imageResult.value
             }
         } else {
-            await generateImage(imageRequest)
+            await generateImage2Image(imageRequest)
             if (optimizedPrompt.value.trim()) {
                 optimizedImageResult.value = imageResult.value
             } else if (originalPrompt.value.trim()) {
                 originalImageResult.value = imageResult.value
             }
         }
-        toast.success('图像生成完成')
+        toast.success(t('imageWorkspace.generation.generationCompleted'))
     } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error))
-        toast.error('生成失败：' + err.message)
+        toast.error(getI18nErrorMessage(error, t('imageWorkspace.generation.generateFailed')))
     }
 }
 
@@ -1747,7 +1841,7 @@ const downloadImageFromResult = async (imageItem: ImageResultItem | null | undef
             a.click()
             window.URL.revokeObjectURL(url)
         } catch {
-            toast.error('下载失败')
+            toast.error(t('imageWorkspace.results.downloadFailed'))
         }
         return
     }
@@ -1885,6 +1979,10 @@ onUnmounted(() => {
         window.removeEventListener(
             "image-workspace-restore-favorite",
             handleRestoreFavorite as EventListener,
+        );
+        window.removeEventListener(
+            "image-workspace-restore",
+            handleRestoreHistory as EventListener,
         );
     }
 });

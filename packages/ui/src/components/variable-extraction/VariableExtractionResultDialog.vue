@@ -141,9 +141,9 @@ const columns = computed<DataTableColumns<ExtractedVariable>>(() => [
   },
 ])
 
-// 处理选择变化
-const handleSelectionChange = (keys: string[]) => {
-  selectedKeys.value = keys
+// 处理选择变化（Naive UI RowKey = string | number）
+const handleSelectionChange = (keys: Array<string | number>) => {
+  selectedKeys.value = keys.map(String)
 }
 
 // 处理确认

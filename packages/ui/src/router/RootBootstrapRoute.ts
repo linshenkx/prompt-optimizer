@@ -40,6 +40,14 @@ export const RootBootstrapRoute = defineComponent({
       if (redirected) return
       if (!globalSettings.isInitialized) return
       if (router.currentRoute.value.path !== '/') return
+      // In hash mode, when a non-root hash is present (e.g. #/image/text2image),
+      // Vue Router may briefly report path === '/' during initial hydration.
+      // Do not override explicit navigation in that case.
+      if (typeof window !== 'undefined') {
+        const hash = window.location.hash || ''
+        const hasExplicitHashRoute = hash.startsWith('#/') && hash !== '#/' && hash !== '#'
+        if (hasExplicitHashRoute) return
+      }
 
       const initialRoute = getInitialRouteFromGlobalSettings(globalSettings)
       if (initialRoute === '/' || !initialRoute) return

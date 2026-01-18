@@ -395,7 +395,7 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
 
         // 从存储加载输入图像
         let inputImageB64Loaded = null
-        if ($services?.imageStorageService && parsed.inputImageId) {
+        if ($services?.imageStorageService && typeof parsed.inputImageId === 'string' && parsed.inputImageId) {
           try {
             const fullImageData = await $services.imageStorageService.getImage(parsed.inputImageId)
             if (fullImageData) {
@@ -406,40 +406,42 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
           }
         } else {
           // 向后兼容：如果有 base64 数据，直接使用
-          inputImageB64Loaded = parsed.inputImageB64
+          inputImageB64Loaded = typeof parsed.inputImageB64 === 'string' ? parsed.inputImageB64 : null
         }
 
-        // 从引用加载图像结果
-        let originalResultLoaded = parsed.originalImageResult
-        let optimizedResultLoaded = parsed.optimizedImageResult
+         // 从引用加载图像结果
+         // restore data is untrusted; cast to expected shape and validate defensively.
+         let originalResultLoaded: ImageResult | null = (parsed.originalImageResult as ImageResult | null) ?? null
+         let optimizedResultLoaded: ImageResult | null = (parsed.optimizedImageResult as ImageResult | null) ?? null
 
-        if ($services?.imageStorageService) {
-          originalResultLoaded = await loadFromRef(
-            parsed.originalImageResult,
-            $services.imageStorageService
-          )
-          optimizedResultLoaded = await loadFromRef(
-            parsed.optimizedImageResult,
-            $services.imageStorageService
-          )
-        }
+         if ($services?.imageStorageService) {
+           originalResultLoaded = await loadFromRef(
+             originalResultLoaded,
+             $services.imageStorageService
+           )
+           optimizedResultLoaded = await loadFromRef(
+             optimizedResultLoaded,
+             $services.imageStorageService
+           )
+         }
 
-        originalPrompt.value = parsed.originalPrompt || ''
-        optimizedPrompt.value = parsed.optimizedPrompt || ''
-        reasoning.value = parsed.reasoning || ''
-        chainId.value = parsed.chainId || ''
-        versionId.value = parsed.versionId || ''
-        inputImageB64.value = inputImageB64Loaded
-        inputImageId.value = parsed.inputImageId || null
-        inputImageMime.value = parsed.inputImageMime || ''
-        originalImageResult.value = originalResultLoaded
-        optimizedImageResult.value = optimizedResultLoaded
-        isCompareMode.value = parsed.isCompareMode ?? true
-        selectedTextModelKey.value = parsed.selectedTextModelKey || ''
-        selectedImageModelKey.value = parsed.selectedImageModelKey || ''
-        selectedTemplateId.value = parsed.selectedTemplateId || null
-        selectedIterateTemplateId.value = parsed.selectedIterateTemplateId || null
-        lastActiveAt.value = Date.now()
+         originalPrompt.value = typeof parsed.originalPrompt === 'string' ? parsed.originalPrompt : ''
+         optimizedPrompt.value = typeof parsed.optimizedPrompt === 'string' ? parsed.optimizedPrompt : ''
+         reasoning.value = typeof parsed.reasoning === 'string' ? parsed.reasoning : ''
+         chainId.value = typeof parsed.chainId === 'string' ? parsed.chainId : ''
+         versionId.value = typeof parsed.versionId === 'string' ? parsed.versionId : ''
+         inputImageB64.value = typeof inputImageB64Loaded === 'string' ? inputImageB64Loaded : null
+         inputImageId.value = typeof parsed.inputImageId === 'string' ? parsed.inputImageId : null
+         inputImageMime.value = typeof parsed.inputImageMime === 'string' ? parsed.inputImageMime : ''
+         originalImageResult.value = originalResultLoaded
+         optimizedImageResult.value = optimizedResultLoaded
+         isCompareMode.value = typeof parsed.isCompareMode === 'boolean' ? parsed.isCompareMode : true
+         selectedTextModelKey.value = typeof parsed.selectedTextModelKey === 'string' ? parsed.selectedTextModelKey : ''
+         selectedImageModelKey.value = typeof parsed.selectedImageModelKey === 'string' ? parsed.selectedImageModelKey : ''
+         selectedTemplateId.value = typeof parsed.selectedTemplateId === 'string' ? parsed.selectedTemplateId : null
+         selectedIterateTemplateId.value = typeof parsed.selectedIterateTemplateId === 'string' ? parsed.selectedIterateTemplateId : null
+         lastActiveAt.value = Date.now()
+
       }
       // else: 没有保存的会话，使用默认状态
     } catch (error) {

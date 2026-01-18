@@ -88,6 +88,14 @@ const selectedModelInfo = computed(() => {
   }
 })
 
+const ensureInitializedIfSupported = async (manager: unknown) => {
+  if (!manager || typeof manager !== 'object') return
+  const m = manager as { ensureInitialized?: () => Promise<void> }
+  if (typeof m.ensureInitialized === 'function') {
+    await m.ensureInitialized()
+  }
+}
+
 // 刷新模型列表
 const refreshModels = async () => {
   if (!servicesRef.value?.modelManager) {
@@ -97,9 +105,7 @@ const refreshModels = async () => {
 
   try {
     const manager = servicesRef.value.modelManager
-    if (typeof (manager as any).ensureInitialized === 'function') {
-      await (manager as any).ensureInitialized()
-    }
+    await ensureInitializedIfSupported(manager)
     const enabledModels = await manager.getEnabledModels()
     modelOptions.value = DataTransformer.modelsToSelectOptions(enabledModels)
   } catch (error) {
@@ -109,8 +115,18 @@ const refreshModels = async () => {
 }
 
 // 处理模型变化
-const handleModelChange = async (newValue: string) => {
-  await setEvaluationModel(newValue)
+const handleModelChange = async (
+  newValue: string | number | (string | number)[] | null
+) => {
+  const nextValue = typeof newValue === 'string'
+    ? newValue
+    : Array.isArray(newValue)
+      ? String(newValue[0] ?? '')
+      : newValue === null
+        ? ''
+        : String(newValue)
+
+  await setEvaluationModel(nextValue)
 }
 
 // 初始化

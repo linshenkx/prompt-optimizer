@@ -1,9 +1,15 @@
 import { reactive } from 'vue'
+import type { TemplateMetadata } from '@prompt-optimizer/core'
+
+export type TemplateManagerTemplateType = Exclude<
+  TemplateMetadata['templateType'],
+  'contextSystemOptimize' | 'evaluation'
+>
 
 export interface TemplateManagerHooks {
   showTemplates: boolean
-  currentType: string
-  openTemplateManager: (type: string) => void
+  currentType: TemplateManagerTemplateType
+  openTemplateManager: (type: TemplateManagerTemplateType) => void
   handleTemplateManagerClose: (refreshCallback?: () => void) => void
 }
 
@@ -26,8 +32,8 @@ export function useTemplateManager(
 
   const state = reactive<TemplateManagerHooks>({
     showTemplates: false,
-    currentType: '',
-    openTemplateManager: (type: string) => {
+    currentType: 'optimize',
+    openTemplateManager: (type: TemplateManagerTemplateType) => {
       state.currentType = type
       state.showTemplates = true
     },

@@ -80,6 +80,7 @@ import {
   NText
 } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
+import { useToast } from '../../composables/ui/useToast'
 
 /**
  * 变量提取对话框组件
@@ -132,6 +133,7 @@ interface Emits {
 const emit = defineEmits<Emits>()
 
 const { t } = useI18n()
+const message = useToast()
 
 // 内部状态
 const isVisible = computed({
@@ -226,12 +228,12 @@ const handleVariableNameInput = () => {
 const handleConfirm = () => {
   // 验证变量名
   if (!variableName.value) {
-    window.$message?.warning(t('variableExtraction.validation.required'))
+    message.warning(t('variableExtraction.validation.required'))
     return false
   }
 
   if (validationStatus.value === 'error') {
-    window.$message?.error(validationMessage.value)
+    message.error(validationMessage.value)
     return false
   }
 

@@ -88,7 +88,7 @@
 
                 <!-- 自定义变量表格或空状态 -->
                 <div v-if="customVariables.length === 0">
-                    <NEmpty>
+                    <NEmpty :description="t('variables.addFirstVariable')">
                         <template #icon>
                             <NIcon size="48">
                                 <svg
@@ -108,11 +108,6 @@
                         <template #default>
                             <NText>{{
                                 t("variables.noCustomVariables")
-                            }}</NText>
-                        </template>
-                        <template #description>
-                            <NText depth="3">{{
-                                t("variables.addFirstVariable")
                             }}</NText>
                         </template>
                     </NEmpty>
@@ -330,15 +325,21 @@ import { useResponsive } from "../../composables/ui/useResponsive";
 import { useClipboard } from "../../composables/ui/useClipboard";
 import type {
     VariableManagerModalProps,
-    VariableManagerModalEvents,
 } from "../../types/components";
-import type { Variable } from "../../types/variable";
+import type { VariableSource } from "../../types/variable";
 import type { VariableManagerHooks } from '../../composables/prompt/useVariableManager';
+import type { VariableExportData, VariableImportOptions } from '@prompt-optimizer/core';
 import VariableEditor from "./VariableEditor.vue";
 import VariableImporter from "./VariableImporter.vue";
 
 const { t } = useI18n();
 const { copyText } = useClipboard();
+
+interface VariableRow {
+    name: string;
+    value: string;
+    source: VariableSource;
+}
 
 // 响应式配置
 const {
@@ -365,12 +366,23 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 // 使用标准化的 Events 接口
-const emit = defineEmits<
-    VariableManagerModalEvents & {
-        "update:visible": (visible: boolean) => void;
-        close: () => void;
-    }
->();
+const emit = defineEmits<{
+    (event: "update:visible", visible: boolean): void;
+    (event: "update:variables", variables: Record<string, string>): void;
+    (
+        event: "variableChange",
+        name: string,
+        value: string,
+        action: "add" | "update" | "delete",
+    ): void;
+    (event: "import", data: VariableExportData, options?: VariableImportOptions): void;
+    (event: "export"): void;
+    (event: "confirm", variables: Record<string, string>): void;
+    (event: "cancel"): void;
+    (event: "close"): void;
+    (event: "ready"): void;
+    (event: "error", error: Error): void;
+}>();
 
 // 双向绑定本地可见状态
 const localVisible = computed({
@@ -383,7 +395,7 @@ const loading = ref(false);
 const showEditor = ref(false);
 const showImporter = ref(false);
 const showExportModal = ref(false);
-const editingVariable = ref<Variable | null>(null);
+const editingVariable = ref<VariableRow | null>(null);
 const exportFormat = ref<"csv" | "txt">("csv");
 
 // 内联编辑状态
@@ -406,21 +418,19 @@ const buttonSize = computed(() => {
         : responsiveButtonSize.value;
 });
 
-const allVariables = computed(() => {
-    if (!props.variableManager?.variableManager.value) return [];
+const allVariables = computed<VariableRow[]>(() => {
+    const manager = props.variableManager?.variableManager.value;
+    if (!manager) return [];
 
     // 获取所有变量并构建Variable对象
     try {
-        const variables =
-            props.variableManager.variableManager.value.resolveAllVariables();
+        const variables = manager.resolveAllVariables();
         return Object.entries(variables).map(([name, value]) => ({
             name,
             value,
-            source: props.variableManager.variableManager.value!.getVariableSource(
-                name,
-            ),
+            source: manager.getVariableSource(name),
         }));
-    } catch (error) {
+    } catch (error: unknown) {
         console.error(
             "[VariableManagerModal] Failed to resolve variables:",
             error,
@@ -443,12 +453,12 @@ const customVariables = computed(() => {
 });
 
 // 预定义变量表格列配置（只读）
-const predefinedTableColumns = computed<DataTableColumns<Variable>>(() => [
+const predefinedTableColumns = computed<DataTableColumns<VariableRow>>(() => [
     {
         title: t("variables.management.variableName"),
         key: "name",
         width: 200,
-        render: (row: Variable) => {
+        render: (row: VariableRow) => {
             return h(
                 NTag,
                 { size: "small", type: "info" },
@@ -462,7 +472,7 @@ const predefinedTableColumns = computed<DataTableColumns<Variable>>(() => [
         ellipsis: {
             tooltip: true,
         },
-        render: (row: Variable) => {
+        render: (row: VariableRow) => {
             const descriptionKey = `variables.predefinedDescriptions.${row.name}`;
             const description = t(descriptionKey);
             return h(
@@ -481,7 +491,7 @@ const predefinedTableColumns = computed<DataTableColumns<Variable>>(() => [
         title: t("common.actions"),
         key: "actions",
         width: 80,
-        render: (row: Variable) => {
+        render: (row: VariableRow) => {
             return h(
                 NButton,
                 {
@@ -519,12 +529,12 @@ const predefinedTableColumns = computed<DataTableColumns<Variable>>(() => [
 ]);
 
 // 自定义变量表格列配置（支持内联编辑）
-const customTableColumns = computed<DataTableColumns<Variable>>(() => [
+const customTableColumns = computed<DataTableColumns<VariableRow>>(() => [
     {
         title: t("variables.management.variableName"),
         key: "name",
         width: 200,
-        render: (row: Variable) => {
+        render: (row: VariableRow) => {
             return h(
                 NTag,
                 { size: "small", type: "success" },
@@ -538,7 +548,7 @@ const customTableColumns = computed<DataTableColumns<Variable>>(() => [
         ellipsis: {
             tooltip: true,
         },
-        render: (row: Variable) => {
+        render: (row: VariableRow) => {
             // 如果当前行正在编辑
             if (editingRowKey.value === row.name) {
                 return h(NInput, {
@@ -572,7 +582,7 @@ const customTableColumns = computed<DataTableColumns<Variable>>(() => [
         title: t("common.actions"),
         key: "actions",
         width: 160,
-        render: (row: Variable) => {
+        render: (row: VariableRow) => {
             return h(
                 NSpace,
                 { size: "small" },
@@ -707,7 +717,7 @@ const showAddVariable = () => {
     showEditor.value = true;
 };
 
-const editVariable = (variable: Variable) => {
+const editVariable = (variable: VariableRow) => {
     editingVariable.value = variable;
     showEditor.value = true;
 };
@@ -745,7 +755,7 @@ const saveInlineEdit = async (rowKey: string) => {
             "[VariableManagerModal] Failed to save inline edit:",
             error,
         );
-        emit("error", error as Error);
+        emit("error", error instanceof Error ? error : new Error(String(error)));
     } finally {
         loading.value = false;
     }
@@ -780,7 +790,7 @@ const quickAddVariable = async () => {
             "[VariableManagerModal] Failed to quick add variable:",
             error,
         );
-        emit("error", error as Error);
+        emit("error", error instanceof Error ? error : new Error(String(error)));
     } finally {
         loading.value = false;
     }
@@ -824,7 +834,7 @@ const deleteVariable = async (name: string) => {
                 "[VariableManagerModal] Failed to delete variable:",
                 error,
             );
-            emit("error", error as Error);
+            emit("error", error instanceof Error ? error : new Error(String(error)));
         } finally {
             loading.value = false;
         }
@@ -852,7 +862,7 @@ const onVariableSave = async (variable: { name: string; value: string }) => {
         );
     } catch (error: unknown) {
         console.error("[VariableManagerModal] Failed to save variable:", error);
-        emit("error", error as Error);
+        emit("error", error instanceof Error ? error : new Error(String(error)));
     } finally {
         loading.value = false;
     }
@@ -893,7 +903,7 @@ const onVariablesImport = (variables: Record<string, string>) => {
             "[VariableManagerModal] Failed to import variables:",
             error,
         );
-        emit("error", error as Error);
+        emit("error", error instanceof Error ? error : new Error(String(error)));
     } finally {
         loading.value = false;
     }
@@ -1052,7 +1062,7 @@ const executeExport = () => {
             "[VariableManagerModal] Failed to export variables:",
             error,
         );
-        emit("error", error as Error);
+        emit("error", error instanceof Error ? error : new Error(String(error)));
     } finally {
         loading.value = false;
     }

@@ -42,7 +42,7 @@ export interface UseContextUserOptimization {
   iterate: (payload: { originalPrompt: string, optimizedPrompt: string, iterateInput: string }) => Promise<void>
   switchVersion: (version: PromptChain['versions'][number]) => Promise<void>
   switchToV0: (version: PromptChain['versions'][number]) => Promise<void>  // 🆕 V0 切换
-  loadFromHistory: (payload: { rootPrompt: string, chain: PromptChain, record: PromptRecord }) => void
+  loadFromHistory: (payload: { rootPrompt?: string, chain: PromptChain, record: PromptRecord }) => void
   saveLocalEdit: (payload: { optimizedPrompt: string; note?: string; source?: 'patch' | 'manual' }) => Promise<void>
   handleAnalyze: () => void  // 🆕 分析功能
 }
@@ -96,17 +96,17 @@ export function useContextUserOptimization(
   const boundCurrentVersionId = bindings?.currentVersionId ?? ref('')
 
   // 使用 reactive 创建响应式状态对象
-  const state = reactive<any>({
+  const state = reactive({
     // 状态
     prompt: boundPrompt,
     optimizedPrompt: boundOptimizedPrompt,
     optimizedReasoning: boundOptimizedReasoning,
     isOptimizing: false,
     isIterating: false,
-    selectedTemplate: null,
-    selectedIterateTemplate: null,
+    selectedTemplate: null as Template | null,
+    selectedIterateTemplate: null as Template | null,
     currentChainId: boundCurrentChainId,
-    currentVersions: [],
+    currentVersions: [] as PromptChain['versions'],
     currentVersionId: boundCurrentVersionId,
 
     // 方法
@@ -345,15 +345,7 @@ export function useContextUserOptimization(
      * @param payload.chain - 提示链数据（包含所有版本）
      * @param payload.record - 当前选中的提示记录
      */
-    loadFromHistory: ({
-      rootPrompt,
-      chain,
-      record
-    }: {
-      rootPrompt?: string
-      chain: { chainId: string; versions: Array<{ id: string; modelKey?: string; templateId?: string }> }
-      record: { id: string; originalPrompt?: string; optimizedPrompt?: string }
-    }) => {
+    loadFromHistory: ({ rootPrompt, chain, record }: { rootPrompt?: string; chain: PromptChain; record: PromptRecord }) => {
       state.prompt = rootPrompt || record.originalPrompt || ''
       state.optimizedPrompt = record.optimizedPrompt || ''
       state.optimizedReasoning = ''
@@ -371,7 +363,7 @@ export function useContextUserOptimization(
         if (!historyManager.value) throw new Error('History service unavailable')
         if (!optimizedPrompt) return
 
-        const currentRecord = state.currentVersions.find((v: { id: string; modelKey?: string; templateId?: string }) => v.id === state.currentVersionId)
+        const currentRecord = state.currentVersions.find((v) => v.id === state.currentVersionId)
         const modelKey = currentRecord?.modelKey || selectedOptimizeModel.value || 'local-edit'
         const templateId =
           currentRecord?.templateId ||

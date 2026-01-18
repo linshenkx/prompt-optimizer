@@ -334,32 +334,33 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
             : (saved as Record<string, unknown>)
 
         // 从引用加载完整图像数据
-        let originalResultLoaded = parsed.originalImageResult
-        let optimizedResultLoaded = parsed.optimizedImageResult
+        // restore data is untrusted; cast to expected shape and validate defensively.
+        let originalResultLoaded: ImageResult | null = (parsed.originalImageResult as ImageResult | null) ?? null
+        let optimizedResultLoaded: ImageResult | null = (parsed.optimizedImageResult as ImageResult | null) ?? null
 
         if ($services?.imageStorageService) {
           originalResultLoaded = await loadFromRef(
-            parsed.originalImageResult,
+            originalResultLoaded,
             $services.imageStorageService
           )
           optimizedResultLoaded = await loadFromRef(
-            parsed.optimizedImageResult,
+            optimizedResultLoaded,
             $services.imageStorageService
           )
         }
 
-        originalPrompt.value = parsed.originalPrompt || ''
-        optimizedPrompt.value = parsed.optimizedPrompt || ''
-        reasoning.value = parsed.reasoning || ''
-        chainId.value = parsed.chainId || ''
-        versionId.value = parsed.versionId || ''
+        originalPrompt.value = typeof parsed.originalPrompt === 'string' ? parsed.originalPrompt : ''
+        optimizedPrompt.value = typeof parsed.optimizedPrompt === 'string' ? parsed.optimizedPrompt : ''
+        reasoning.value = typeof parsed.reasoning === 'string' ? parsed.reasoning : ''
+        chainId.value = typeof parsed.chainId === 'string' ? parsed.chainId : ''
+        versionId.value = typeof parsed.versionId === 'string' ? parsed.versionId : ''
         originalImageResult.value = originalResultLoaded
         optimizedImageResult.value = optimizedResultLoaded
-        isCompareMode.value = parsed.isCompareMode ?? true
-        selectedTextModelKey.value = parsed.selectedTextModelKey || ''
-        selectedImageModelKey.value = parsed.selectedImageModelKey || ''
-        selectedTemplateId.value = parsed.selectedTemplateId || null
-        selectedIterateTemplateId.value = parsed.selectedIterateTemplateId || null
+        isCompareMode.value = typeof parsed.isCompareMode === 'boolean' ? parsed.isCompareMode : true
+        selectedTextModelKey.value = typeof parsed.selectedTextModelKey === 'string' ? parsed.selectedTextModelKey : ''
+        selectedImageModelKey.value = typeof parsed.selectedImageModelKey === 'string' ? parsed.selectedImageModelKey : ''
+        selectedTemplateId.value = typeof parsed.selectedTemplateId === 'string' ? parsed.selectedTemplateId : null
+        selectedIterateTemplateId.value = typeof parsed.selectedIterateTemplateId === 'string' ? parsed.selectedIterateTemplateId : null
         lastActiveAt.value = Date.now()
       }
       // else: 没有保存的会话，使用默认状态

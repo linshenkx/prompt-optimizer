@@ -32,7 +32,7 @@ interface Props {
   text: string
   loading?: boolean
   loadingText?: string
-  type?: 'default' | 'tertiary' | 'primary' | 'success' | 'info' | 'warning' | 'error' | 'quaternary'
+  type?: 'default' | 'tertiary' | 'primary' | 'success' | 'info' | 'warning' | 'error'
   size?: 'tiny' | 'small' | 'medium' | 'large'
   ghost?: boolean
   round?: boolean

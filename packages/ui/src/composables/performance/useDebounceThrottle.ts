@@ -14,32 +14,32 @@ export function useDebounceThrottle() {
    * @param immediate 是否立即执行
    * @param key 唯一标识符
    */
-  const debounce = <T extends (...args: unknown[]) => unknown>(
-    fn: T,
+  const debounce = <Args extends unknown[]>(
+    fn: (...args: Args) => unknown,
     delay: number = 300,
     immediate: boolean = false,
     key: string = 'default'
   ) => {
-    return ((...args: Parameters<T>) => {
+    return (...args: Args): void => {
       const timerId = timers.value.get(key)
-      
+
       if (timerId) {
         clearTimeout(timerId)
       }
 
       if (immediate && !timerId) {
-        fn.apply(null, args)
+        fn(...args)
       }
 
       const newTimerId = window.setTimeout(() => {
         timers.value.delete(key)
         if (!immediate) {
-          fn.apply(null, args)
+          fn(...args)
         }
       }, delay)
 
       timers.value.set(key, newTimerId)
-    }) as T
+    }
   }
 
   /**
@@ -48,43 +48,43 @@ export function useDebounceThrottle() {
    * @param delay 节流间隔（毫秒）
    * @param key 唯一标识符
    */
-  const throttle = <T extends (...args: unknown[]) => unknown>(
-    fn: T,
+  const throttle = <Args extends unknown[]>(
+    fn: (...args: Args) => unknown,
     delay: number = 100,
     key: string = 'default'
   ) => {
     let lastExecTime = 0
-    
-    return ((...args: Parameters<T>) => {
+
+    return (...args: Args): void => {
       const now = Date.now()
-      
+
       if (now - lastExecTime >= delay) {
         lastExecTime = now
-        fn.apply(null, args)
+        fn(...args)
       }
-    }) as T
+    }
   }
 
   /**
    * requestAnimationFrame 节流
    * 适用于动画和频繁的DOM更新
    */
-  const rafThrottle = <T extends (...args: unknown[]) => unknown>(
-    fn: T,
+  const rafThrottle = <Args extends unknown[]>(
+    fn: (...args: Args) => unknown,
     key: string = 'default'
   ) => {
     let rafId: number | null = null
-    
-    return ((...args: Parameters<T>) => {
+
+    return (...args: Args): void => {
       if (rafId !== null) {
         return
       }
-      
+
       rafId = requestAnimationFrame(() => {
         rafId = null
-        fn.apply(null, args)
+        fn(...args)
       })
-    }) as T
+    }
   }
 
   /**
@@ -135,19 +135,19 @@ export function useDebounceThrottle() {
   /**
    * 智能防抖 - 根据输入频率自动调整延迟时间
    */
-  const smartDebounce = <T extends (...args: unknown[]) => unknown>(
-    fn: T,
+  const smartDebounce = <Args extends unknown[]>(
+    fn: (...args: Args) => unknown,
     minDelay: number = 100,
     maxDelay: number = 1000,
     key: string = 'default'
   ) => {
     let callCount = 0
     let lastCallTime = 0
-    
-    return ((...args: Parameters<T>) => {
+
+    return (...args: Args): void => {
       const now = Date.now()
       const timeSinceLastCall = now - lastCallTime
-      
+
       callCount++
       lastCallTime = now
       
@@ -167,15 +167,15 @@ export function useDebounceThrottle() {
       if (timeSinceLastCall > 10000) {
         callCount = 0
       }
-      
-      return debounce(fn, adaptiveDelay, false, key)(...args)
-    }) as T
+
+      debounce(fn, adaptiveDelay, false, key)(...args)
+    }
   }
 
   /**
    * 批处理执行 - 收集一段时间内的所有调用，然后批量执行
    */
-  const batchExecute = <T extends unknown[]>(
+  const batchExecute = <T>(
     fn: (batch: T[]) => void,
     delay: number = 100,
     key: string = 'default'

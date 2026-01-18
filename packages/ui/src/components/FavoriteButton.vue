@@ -7,10 +7,10 @@
     :title="isFavorited ? '取消收藏' : '添加到收藏'"
     class="favorite-button"
   >
-    <template #icon>
+      <template #icon>
       <n-icon>
-        <StarFilled v-if="isFavorited" />
-        <StarOutline v-else />
+        <Stars v-if="isFavorited" />
+        <Star v-else />
       </n-icon>
     </template>
     {{ isFavorited ? '已收藏' : '收藏' }}
@@ -106,7 +106,7 @@ import {
   type FormRules
 } from 'naive-ui';
 import { useToast } from '../composables/ui/useToast';
-import { StarFilled, StarOutline } from '@vicons/tabler';
+import { Star, Stars } from '@vicons/tabler';
 import type { FavoriteCategory } from '@prompt-optimizer/core';
 import type { AppServices } from '../types/services';
 

@@ -70,7 +70,7 @@
                 </NTag>
                 <!-- 上下文模式优化标签 -->
                 <NTag
-                  v-if="chain.rootRecord.type === 'conversationMessageOptimize' || chain.rootRecord.type === 'contextSystemOptimize'"
+                  v-if="isMessageOptimizationType(chain.rootRecord.type)"
                   type="warning"
                   size="small"
                 >
@@ -123,7 +123,7 @@
               v-for="record in chain.versions.slice().reverse()"
               :key="record.id"
               :default-expanded-names="expandedVersions[record.id] ? [record.id] : []"
-              @update:expanded-names="(names) => expandedVersions[record.id] = names.includes(record.id)"
+              @update:expanded-names="(names: Array<string | number> | null) => expandedVersions[record.id] = Array.isArray(names) && names.includes(record.id)"
             >
               <NCollapseItem
                 :name="record.id"
@@ -317,6 +317,10 @@ const reuse = (record: PromptRecord, chain: PromptRecordChain) => {
 const truncateText = (text: string, maxLength: number) => {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength) + '...'
+}
+
+const isMessageOptimizationType = (recordType: string) => {
+  return recordType === 'conversationMessageOptimize' || recordType === 'contextSystemOptimize'
 }
 
 // 获取功能模式标签类型

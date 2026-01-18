@@ -196,7 +196,7 @@ import { Star } from '@vicons/tabler'
 import { useClipboard } from '../composables/ui/useClipboard'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 import TextDiffUI from './TextDiff.vue'
-import type { CompareResult } from '@prompt-optimizer/core'
+import type { CompareResult, ICompareService } from '@prompt-optimizer/core'
 import { VariableAwareInput } from './variable-extraction'
 import { useFunctionMode } from '../composables/mode/useFunctionMode'
 import { useTemporaryVariables } from '../composables/variable/useTemporaryVariables'
@@ -212,7 +212,7 @@ const { copyText } = useClipboard()
 const message = useToast()
 
 // 🆕 注入 services（用于变量管理）
-const services = inject<Ref<AppServices | null>>('services', ref(null))
+const services = inject<Ref<AppServices | null>>('services') ?? ref<AppServices | null>(null)
 
 // 移除收藏状态管理(改由父组件处理)
 
@@ -242,7 +242,7 @@ interface Props {
   streaming?: boolean
   
   // 服务
-  compareService: ICompareService
+  compareService?: ICompareService
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -401,12 +401,20 @@ const handleAddMissingVariable = (varName: string) => {
 }
 
 // 内部状态
-const reasoningContentRef = ref<HTMLDivElement | null>(null)
+type ScrollbarLike = {
+  scrollTo: (options: { top: number; behavior?: ScrollBehavior }) => void
+}
+
+const reasoningContentRef = ref<ScrollbarLike | null>(null)
 const userHasManuallyToggledReasoning = ref(false)
 
 // 新的视图状态机
 const internalViewMode = ref<'render' | 'source' | 'diff'>('render')
-const compareResult = ref<CompareResult | undefined>()
+const EMPTY_COMPARE_RESULT: CompareResult = {
+  fragments: [],
+  summary: { additions: 0, deletions: 0, unchanged: 0 },
+}
+const compareResult = ref<CompareResult>(EMPTY_COMPARE_RESULT)
 
 // 推理折叠面板状态
 const reasoningExpandedNames = ref<string[]>([])
@@ -488,20 +496,10 @@ const scrollReasoningToBottom = () => {
   if (reasoningContentRef.value) {
     nextTick(() => {
       if (reasoningContentRef.value) {
-        // 使用 Naive UI NScrollbar 的正确 API
-        const scrollContainer = reasoningContentRef.value.$el || reasoningContentRef.value
-        if (scrollContainer && scrollContainer.scrollTo) {
-          scrollContainer.scrollTo({
-            top: scrollContainer.scrollHeight,
-            behavior: 'smooth'
-          })
-        } else if (reasoningContentRef.value.scrollTo) {
-          // 直接调用 NScrollbar 实例的 scrollTo 方法
-          reasoningContentRef.value.scrollTo({
-            top: 999999,  // 滚动到底部
-            behavior: 'smooth'
-          })
-        }
+        reasoningContentRef.value.scrollTo({
+          top: 999999, // 滚动到底部
+          behavior: 'smooth'
+        })
       }
     })
   }
@@ -511,19 +509,20 @@ const scrollReasoningToBottom = () => {
 const updateCompareResult = async () => {
   if (internalViewMode.value === 'diff' && props.originalContent && props.content) {
     try {
-      if (!props.compareService) {
-        throw new Error('CompareService is required but not provided')
-      }
-      compareResult.value = await props.compareService.compareTexts(
+      const compareService = props.compareService ?? services.value?.compareService
+      if (!compareService) throw new Error('CompareService not available')
+
+      compareResult.value = await compareService.compareTexts(
         props.originalContent,
         props.content
       )
     } catch (error) {
-      console.error('Error calculating diff:', error)
-      throw error
+      console.error('[OutputDisplayCore] Error calculating diff:', error)
+      message.warning(t('toast.warning.compareFailed'))
+      compareResult.value = EMPTY_COMPARE_RESULT
     }
   } else {
-    compareResult.value = undefined
+    compareResult.value = EMPTY_COMPARE_RESULT
   }
 }
 
@@ -644,4 +643,3 @@ watch(() => props.mode, (newMode) => {
 
 defineExpose({ resetReasoningState, forceRefreshContent, forceExitEditing })
 </script>
-

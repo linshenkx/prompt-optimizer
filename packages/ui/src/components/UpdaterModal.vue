@@ -400,12 +400,7 @@ const openStableReleaseUrl = async () => {
   if (!state.stableReleaseUrl || !isRunningInElectron() || !window.electronAPI?.shell) return
 
   try {
-    const result = await window.electronAPI.shell.openExternal(state.stableReleaseUrl)
-    // 检查结果格式，有些版本可能直接返回boolean或其他格式
-    if (result && typeof result === 'object' && result.success === false) {
-      console.error('[UpdaterModal] Open stable release URL failed:', result.error)
-    }
-    // 如果成功打开或者返回格式不同，不记录错误
+    await window.electronAPI.shell.openExternal(state.stableReleaseUrl)
   } catch (error) {
     console.error('[UpdaterModal] Open stable release URL error:', error)
   }
@@ -415,12 +410,7 @@ const openPrereleaseReleaseUrl = async () => {
   if (!state.prereleaseReleaseUrl || !isRunningInElectron() || !window.electronAPI?.shell) return
 
   try {
-    const result = await window.electronAPI.shell.openExternal(state.prereleaseReleaseUrl)
-    // 检查结果格式，有些版本可能直接返回boolean或其他格式
-    if (result && typeof result === 'object' && result.success === false) {
-      console.error('[UpdaterModal] Open prerelease release URL failed:', result.error)
-    }
-    // 如果成功打开或者返回格式不同，不记录错误
+    await window.electronAPI.shell.openExternal(state.prereleaseReleaseUrl)
   } catch (error) {
     console.error('[UpdaterModal] Open prerelease release URL error:', error)
   }

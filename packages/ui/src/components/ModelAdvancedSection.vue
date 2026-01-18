@@ -113,7 +113,7 @@ import {
   useMessage,
   createDiscreteApi
 } from 'naive-ui'
-import { isSafeCustomKey, parseCustomValue, type MessageApiInjection, type UnifiedParameterDefinition } from '@prompt-optimizer/core'
+import { isSafeCustomKey, parseCustomValue, type UnifiedParameterDefinition } from '@prompt-optimizer/core'
 import ModelParameterEditor from './ModelParameterEditor.vue'
 
 const props = defineProps({
@@ -277,13 +277,15 @@ function cloneDefaultValue(definition: UnifiedParameterDefinition): unknown {
   }
 }
 
-function resolveMessageApi(): MessageApiInjection {
+type MessageApi = ReturnType<typeof useMessage>
+
+function resolveMessageApi(): MessageApi {
   try {
     return useMessage()
   } catch (error) {
     console.warn('[ModelAdvancedSection] useMessage fallback: message provider missing.', error)
     const { message } = createDiscreteApi(['message'])
-    return message as unknown as MessageApiInjection
+    return message
   }
 }
 </script>

@@ -120,6 +120,15 @@ export function useAppInitializer(): {
         imageModelManager = new ElectronImageModelManagerProxy();
         imageService = new ElectronImageServiceProxy();
 
+        // 🆕 图像存储服务：Electron 渲染进程同样使用 IndexedDB（与 Web 行为一致）
+        console.log('[AppInitializer] 初始化图像存储服务（Electron）...');
+        imageStorageService = createImageStorageService({
+          maxCacheSize: 50 * 1024 * 1024,  // 50 MB
+          maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 天
+          maxCount: 100,                     // 最多 100 张
+          autoCleanupThreshold: 0.8         // 达到 80% 时触发清理
+        });
+
         // DataManager在Electron环境下使用代理模式
         dataManager = new ElectronDataManagerProxy();
 
@@ -174,7 +183,7 @@ export function useAppInitializer(): {
           imageModelManager,
           imageService,
           imageAdapterRegistry: imageAdapterRegistryInstance,
-          imageStorageService, // 🆕 图像存储服务（Electron环境暂不启用）
+          imageStorageService, // 🆕 图像存储服务
           evaluationService, // 🆕 评估服务
           variableExtractionService, // 🆕 变量提取服务
           variableValueGenerationService, // 🆕 变量值生成服务

@@ -542,12 +542,8 @@ defineExpose({
     setVariableValues,
 
     // 预览功能占位符（兼容接口）
-    showPreview: () => {
-        console.warn('[ContextUserTestPanel] showPreview not implemented');
-    },
-    hidePreview: () => {
-        console.warn('[ContextUserTestPanel] hidePreview not implemented');
-    },
+    showPreview: () => {},
+    hidePreview: () => {},
 });
 </script>
 

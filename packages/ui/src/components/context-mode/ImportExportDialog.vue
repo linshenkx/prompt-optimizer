@@ -354,7 +354,7 @@ const IMPORT_JSON_SNIPPETS: Record<string, string> = {
 };
 
 // 导出预览数据
-const buildExportPayload = () => ({
+const buildExportPayload = (): StandardPromptData => ({
     messages: props.messages.map((msg) => ({
         role: msg.role,
         content: msg.content,

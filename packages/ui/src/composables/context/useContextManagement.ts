@@ -72,7 +72,11 @@ export function useContextManagement(options: ContextManagementOptions) {
 
   // 监听 services 中的 contextMode 变化并同步到本地 ref
   watch(
-    () => services.value?.contextMode.value,
+    () => {
+      const cm = services.value?.contextMode
+      if (!cm) return undefined
+      return typeof cm === 'string' ? cm : cm.value
+    },
     (newMode) => {
       if (newMode !== undefined) {
         contextMode.value = newMode;

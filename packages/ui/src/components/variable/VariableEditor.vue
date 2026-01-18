@@ -29,7 +29,6 @@
                     v-model:value="formData.name"
                     :placeholder="t('variables.editor.variableNamePlaceholder')"
                     :disabled="isEditing || loading"
-                    @input="validateName"
                     clearable
                 />
                 <template #feedback>
@@ -57,7 +56,6 @@
                     "
                     :disabled="loading"
                     :autosize="{ minRows: 4, maxRows: 8 }"
-                    @input="validateValue"
                     clearable
                 />
                 <template #feedback>
@@ -104,12 +102,16 @@ import {
     type FormInst,
     type FormRules,
 } from "naive-ui";
-import type { Variable } from "../../types/variable";
 
 const { t } = useI18n();
 
+interface VariableItem {
+    name: string;
+    value: string;
+}
+
 interface Props {
-    variable?: Variable | null;
+    variable?: VariableItem | null;
     existingNames: string[];
     show?: boolean;
 }
@@ -214,15 +216,6 @@ const formRules: FormRules = {
             trigger: ["input", "blur"],
         },
     ],
-};
-
-// 验证函数（保持兼容性）
-const validateName = () => {
-    formRef.value?.validateField?.("name");
-};
-
-const validateValue = () => {
-    formRef.value?.validateField?.("value");
 };
 
 // 事件处理

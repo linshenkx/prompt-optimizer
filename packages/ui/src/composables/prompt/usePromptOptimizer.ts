@@ -75,7 +75,7 @@ export function usePromptOptimizer(
   const boundCurrentVersionId = bindings?.currentVersionId ?? ref('')
 
   // 使用 reactive 创建一个响应式状态对象，而不是单独的 ref
-  const state = reactive<any>({
+  const state = reactive({
     // 状态
     prompt: boundPrompt,
     optimizedPrompt: boundOptimizedPrompt,

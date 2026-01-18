@@ -68,6 +68,7 @@
                     v-else
                     test-id-prefix="pro-variable"
                     v-model="contextUserOptimization.prompt"
+                    :selected-model="selectedOptimizeModelKeyModel"
                     :label="t('promptOptimizer.originalPrompt')"
                     :placeholder="t('promptOptimizer.userPromptPlaceholder')"
                     :help-text="variableGuideInlineHint"
@@ -316,14 +317,15 @@ import { ref, computed, inject, nextTick, watch, onMounted, type Ref } from 'vue
 
 import { useI18n } from "vue-i18n";
 import { NCard, NFlex, NText, NIcon, NButton } from "naive-ui";
+import { useToast } from "../../composables/ui/useToast";
 import InputPanelUI from "../InputPanel.vue";
 import PromptPanelUI from "../PromptPanel.vue";
 import ContextUserTestPanel from "./ContextUserTestPanel.vue";
 import OutputDisplay from "../OutputDisplay.vue";
 import SelectWithConfig from "../SelectWithConfig.vue";
-import type { OptimizationMode } from "../../types";
 import {
     applyPatchOperationsToText,
+    type OptimizationMode,
     type PatchOperation,
     type PromptRecord,
     type PromptRecordChain,
@@ -381,7 +383,7 @@ interface Props {
 interface ContextUserHistoryPayload {
     record: PromptRecord;
     chain: PromptRecordChain;
-    rootPrompt: string;
+    rootPrompt?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -444,6 +446,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const toast = useToast();
 
 // ========================
 // 内部常量
@@ -455,7 +458,7 @@ const optimizationMode: OptimizationMode = 'user';
 // 注入服务和变量管理器
 // ========================
 const services = inject<Ref<AppServices | null>>('services');
-const variableManager = inject<VariableManagerHooks | null>('variableManager');
+const variableManager = inject<VariableManagerHooks | null>('variableManager', null);
 
 // ========================
 // 内部状态管理
@@ -738,7 +741,11 @@ const evaluationHandler = useEvaluationHandler({
     optimizedPrompt: computed(() => contextUserOptimization.optimizedPrompt),
     testContent: computed(() => ''), // 变量模式不需要单独的测试内容，通过变量系统管理
     testResults: testResultsData,
-    evaluationModelKey: computed(() => props.evaluationModelKey || props.selectedOptimizeModel),
+    evaluationModelKey: computed(() => {
+        const key =
+            props.evaluationModelKey || modelSelection.selectedOptimizeModelKey.value;
+        return key || "";
+    }),
     functionMode: computed(() => 'pro'),
     subMode: computed(() => 'user'),
     proContext,
@@ -805,7 +812,7 @@ const handleVariableExtracted = (data: {
     if (data.variableType === "global") {
         // 全局变量: 触发事件,由父组件保存
         emit("save-to-global", data.variableName, data.variableValue);
-        window.$message?.success(
+        toast.success(
             t("variableExtraction.savedToGlobal", {
                 name: data.variableName,
             }),
@@ -813,7 +820,7 @@ const handleVariableExtracted = (data: {
     } else {
         // 🆕 临时变量: 使用 composable 方法保存
         tempVarsManager.setVariable(data.variableName, data.variableValue);
-        window.$message?.success(
+        toast.success(
             t("variableExtraction.savedToTemporary", {
                 name: data.variableName,
             }),
@@ -958,7 +965,39 @@ const handleSwitchToV0 = (version: PromptRecord) => {
     contextUserOptimization.switchToV0(version);
 };
 
-const restoreFromHistory = (payload: ContextUserHistoryPayload) => {
+const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
+    typeof value === "object" && value !== null;
+
+const isContextUserHistoryPayload = (
+    value: unknown,
+): value is ContextUserHistoryPayload => {
+    if (!isObjectRecord(value)) return false;
+
+    const rootPrompt = value.rootPrompt;
+    const record = value.record;
+    const chain = value.chain;
+
+    if (typeof rootPrompt !== "undefined" && typeof rootPrompt !== "string") return false;
+    if (!isObjectRecord(record) || typeof record.id !== "string") return false;
+    if (
+        !isObjectRecord(chain) ||
+        typeof chain.chainId !== "string" ||
+        !Array.isArray(chain.versions)
+    ) {
+        return false;
+    }
+
+    return true;
+};
+
+const restoreFromHistory = (payload: unknown) => {
+    if (!isContextUserHistoryPayload(payload)) {
+        console.warn(
+            "[ContextUserWorkspace] Invalid history payload, ignored:",
+            payload,
+        );
+        return;
+    }
     contextUserOptimization.loadFromHistory(payload);
 };
 
@@ -997,7 +1036,7 @@ const handleTestWithVariables = async () => {
                 "[ContextUserWorkspace] Invalid test variables type:",
                 typeof testVariables,
             );
-            window.$message?.error(t("test.invalidVariables"));
+            toast.error(t("test.invalidVariables"));
             return;
         }
 
@@ -1016,7 +1055,7 @@ const handleTestWithVariables = async () => {
             "[ContextUserWorkspace] Failed to execute test:",
             error,
         );
-        window.$message?.error(t("test.getVariablesFailed"));
+        toast.error(t("test.getVariablesFailed"));
     }
 };
 
@@ -1038,7 +1077,7 @@ defineExpose({
     restoreFromHistory,
     contextUserOptimization,  // 🆕 暴露优化器状态，供父组件访问（如AI变量提取）
     temporaryVariables,        // 🆕 暴露临时变量，供父组件访问
-    // 🆕 提供最小可用的公开 API，避免父组件依赖内部实现细节（不再需要 as any 访问内部状态）
+    // 🆕 提供最小可用的公开 API，避免父组件依赖内部实现细节（不再需要不安全的类型强转访问内部状态）
     setPrompt: (prompt: string) => {
         contextUserOptimization.prompt = prompt;
     },
@@ -1055,9 +1094,9 @@ defineExpose({
         const result = applyPatchOperationsToText(current, operation);
         contextUserOptimization.optimizedPrompt = result.text;
         if (!result.ok) {
-            window.$message?.warning(t('toast.warning.patchApplyFailed'));
+            toast.warning(t('toast.warning.patchApplyFailed'));
         } else {
-            window.$message?.success(t('evaluation.diagnose.applyFix'));
+            toast.success(t('evaluation.diagnose.applyFix'));
         }
     },
     reEvaluateActive: async () => {

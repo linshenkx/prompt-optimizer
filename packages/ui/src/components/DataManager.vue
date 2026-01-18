@@ -68,7 +68,7 @@
                 {{ selectedFile.name }}
               </NText>
               <NText :depth="3" style="display: block; margin-bottom: 12px;">
-                {{ formatFileSize(selectedFile.size) }}
+                {{ formatFileSize(selectedFile.file?.size ?? 0) }}
               </NText>
               <NSpace>
                 <NButton text @click.stop="clearSelectedFile">
@@ -183,11 +183,12 @@
 import { ref, computed, inject, onMounted, onUnmounted, type Ref } from 'vue'
 
 import { useI18n } from 'vue-i18n'
-import { 
-  NModal, NSpace, NText, NButton, NUpload, NUploadDragger, 
-  NIcon, NAlert, type UploadFileInfo 
+import {
+  NModal, NSpace, NText, NButton, NUpload, NUploadDragger,
+  NIcon, NAlert, type UploadFileInfo
 } from 'naive-ui'
 import { useToast } from '../composables/ui/useToast'
+import type { ContextBundle } from '@prompt-optimizer/core'
 import type { AppServices } from '../types/services'
 
 interface Props {
@@ -229,7 +230,23 @@ const getDataManager = computed(() => {
 
 const isExporting = ref(false)
 const isImporting = ref(false)
-const selectedFile = ref<File | null>(null)
+const selectedFile = ref<UploadFileInfo | null>(null)
+
+const isContextBundle = (data: unknown): data is ContextBundle => {
+  if (!data || typeof data !== 'object') return false
+  const bundle = data as {
+    type?: unknown
+    version?: unknown
+    currentId?: unknown
+    contexts?: unknown
+  }
+  return (
+    bundle.type === 'context-bundle' &&
+    bundle.version === '1.0.0' &&
+    typeof bundle.currentId === 'string' &&
+    Array.isArray(bundle.contexts)
+  )
+}
 
 // 上下文导入导出状态
 const isContextExporting = ref(false)
@@ -238,9 +255,7 @@ const isContextImportingFromFile = ref(false) // 区分文件和剪贴板导入
 
 // 处理文件变化
 const handleFileChange = (options: { fileList: UploadFileInfo[] }) => {
-  if (options.fileList.length > 0 && options.fileList[0].file) {
-    selectedFile.value = options.fileList[0].file as File
-  }
+  selectedFile.value = options.fileList[0] ?? null
 }
 
 // --- Close Logic ---
@@ -306,11 +321,17 @@ const clearSelectedFile = () => {
 // 处理导入
 const handleImport = async () => {
   if (!selectedFile.value) return
-  
+
   try {
     isImporting.value = true
-    
-    const content = await selectedFile.value.text()
+
+    const file = selectedFile.value.file ?? null
+    if (!file) {
+      toast.error(t('dataManager.import.failed'))
+      return
+    }
+
+    const content = await file.text()
     const dataManager = getDataManager.value
     if (!dataManager) {
       toast.error(t('toast.error.dataManagerNotAvailable'))
@@ -428,8 +449,9 @@ const handleContextExportToClipboard = async () => {
 // 处理上下文文件选择和导入
 const handleContextFileChange = async (options: { fileList: UploadFileInfo[] }) => {
   if (options.fileList.length === 0 || !options.fileList[0].file) return
-  
-  const file = options.fileList[0].file as File
+
+  const file = options.fileList[0].file
+  if (!file) return
   await handleContextImportFromFile(file)
 }
 
@@ -464,6 +486,11 @@ const handleContextImportFromFile = async (file: File) => {
     }
     
     // 使用 importAll 并获取详细统计
+    if (!isContextBundle(importData)) {
+      toast.error(t('dataManager.context.invalidContextBundle'))
+      return
+    }
+
     const result = await contextRepo.importAll(importData, 'replace')
     
     // 显示详细的导入统计
@@ -526,6 +553,11 @@ const handleContextImportFromClipboard = async () => {
     }
     
     // 使用 importAll 并获取详细统计
+    if (!isContextBundle(importData)) {
+      toast.error(t('dataManager.context.invalidContextBundle'))
+      return
+    }
+
     const result = await contextRepo.importAll(importData, 'replace')
     
     // 显示详细的导入统计

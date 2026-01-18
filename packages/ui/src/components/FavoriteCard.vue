@@ -72,12 +72,12 @@
         trigger="hover"
         :show-arrow="false"
         :overlay-style="tooltipOverlayStyle"
-        :content-style="[
-          tooltipContentStyle,
-          contentTooltipMaxHeight
+        :content-style="{
+          ...tooltipContentStyle,
+          ...(contentTooltipMaxHeight
             ? { maxHeight: `${contentTooltipMaxHeight}px` }
-            : null
-        ]"
+            : {})
+        }"
         :theme-overrides="tooltipThemeOverrides"
         :placement="contentTooltipPlacement"
         :width="contentTooltipWidth"
@@ -108,12 +108,12 @@
         trigger="hover"
         :show-arrow="false"
         :overlay-style="tooltipOverlayStyle"
-        :content-style="[
-          tooltipContentStyle,
-          descriptionTooltipMaxHeight
+        :content-style="{
+          ...tooltipContentStyle,
+          ...(descriptionTooltipMaxHeight
             ? { maxHeight: `${descriptionTooltipMaxHeight}px` }
-            : null
-        ]"
+            : {})
+        }"
         :theme-overrides="tooltipThemeOverrides"
         :placement="descriptionTooltipPlacement"
         :width="descriptionTooltipWidth"

@@ -192,7 +192,7 @@ import { NFlex, NCard, NText, NButton } from 'naive-ui'
 import ToolCallDisplay from './ToolCallDisplay.vue'
 import { EvaluationScoreBadge } from './evaluation'
 import type { AdvancedTestResult, EvaluationResponse, EvaluationType, PatchOperation } from '@prompt-optimizer/core'
-import type { ScoreLevel } from './evaluation/EvaluationScoreBadge.vue'
+import type { ScoreLevel } from './evaluation/types'
 
 const { t } = useI18n()
 

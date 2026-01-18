@@ -32,6 +32,14 @@ export function useWorkspaceTextModelSelection<T extends WorkspaceTextModelSessi
   })
 
   let refreshToken = 0
+  const ensureInitializedIfSupported = async (manager: unknown) => {
+    if (!manager || typeof manager !== 'object') return
+    const m = manager as { ensureInitialized?: () => Promise<void> }
+    if (typeof m.ensureInitialized === 'function') {
+      await m.ensureInitialized()
+    }
+  }
+
   const refreshTextModels = async () => {
     const mgr = services.value?.modelManager
     if (!mgr) {
@@ -41,9 +49,7 @@ export function useWorkspaceTextModelSelection<T extends WorkspaceTextModelSessi
 
     const token = ++refreshToken
     try {
-      if (typeof (mgr as any).ensureInitialized === 'function') {
-        await (mgr as any).ensureInitialized()
-      }
+      await ensureInitializedIfSupported(mgr)
 
       const enabledModels = await mgr.getEnabledModels()
       if (token !== refreshToken) return
@@ -79,4 +85,3 @@ export function useWorkspaceTextModelSelection<T extends WorkspaceTextModelSessi
     refreshTextModels,
   }
 }
-

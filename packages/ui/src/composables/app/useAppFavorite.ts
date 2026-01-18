@@ -27,7 +27,7 @@ export interface FavoriteItem {
     functionMode?: 'basic' | 'pro' | 'image' | 'context'
     optimizationMode?: OptimizationMode
     imageSubMode?: 'text2image' | 'image2image'
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
 }
 
 /**
@@ -41,7 +41,7 @@ export interface AppFavoriteOptions {
     /** 优化器提示词（用于设置收藏内容） */
     optimizerPrompt: Ref<string>
     /** i18n 翻译函数 */
-    t: (key: string, params?: Record<string, any>) => string
+    t: (key: string, params?: Record<string, unknown>) => string
     /** 外部数据加载中标志（防止模式切换的自动 restore 覆盖外部数据） */
     isLoadingExternalData: Ref<boolean>
 }
