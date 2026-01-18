@@ -153,6 +153,64 @@ contextBridge.exposeInMainWorld('electronAPI', {
         cleanup();
         throw error;
       }
+    },
+
+    // Send streaming message with tools (supports tool-call events)
+    sendMessageStreamWithTools: async (messages, provider, tools, callbacks) => {
+      const streamId = generateStreamId();
+
+      // Set up event listeners for streaming responses
+      const contentListener = (event, content) => {
+        if (callbacks.onContent) callbacks.onContent(content);
+      };
+      const thinkingListener = (event, thinking) => {
+        if (callbacks.onThinking) callbacks.onThinking(thinking);
+      };
+      const toolCallListener = (event, toolCall) => {
+        if (callbacks.onToolCall) callbacks.onToolCall(toolCall);
+      };
+      const finishListener = (event) => {
+        cleanup();
+        if (callbacks.onFinish) callbacks.onFinish();
+      };
+      const errorListener = (event, error) => {
+        cleanup();
+        if (callbacks.onError) callbacks.onError(new Error(error));
+      };
+
+      // Clean up listeners
+      const cleanup = () => {
+        ipcRenderer.removeListener(`stream-content-${streamId}`, contentListener);
+        ipcRenderer.removeListener(`stream-thinking-${streamId}`, thinkingListener);
+        ipcRenderer.removeListener(`stream-tool-call-${streamId}`, toolCallListener);
+        ipcRenderer.removeListener(`stream-finish-${streamId}`, finishListener);
+        ipcRenderer.removeListener(`stream-error-${streamId}`, errorListener);
+      };
+
+      // Register listeners
+      ipcRenderer.on(`stream-content-${streamId}`, contentListener);
+      ipcRenderer.on(`stream-thinking-${streamId}`, thinkingListener);
+      ipcRenderer.on(`stream-tool-call-${streamId}`, toolCallListener);
+      ipcRenderer.on(`stream-finish-${streamId}`, finishListener);
+      ipcRenderer.on(`stream-error-${streamId}`, errorListener);
+
+      // Send the streaming request
+      try {
+        const result = await ipcRenderer.invoke(
+          'llm-sendMessageStreamWithTools',
+          messages,
+          provider,
+          tools,
+          streamId
+        );
+        if (!result.success) {
+          cleanup();
+          throw new Error(result.error);
+        }
+      } catch (error) {
+        cleanup();
+        throw error;
+      }
     }
   },
 
@@ -318,29 +376,69 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Image Service interface
   image: {
-    generate: async (request) => {
-      const result = await ipcRenderer.invoke('image-generate', request);
-      if (!result.success) throw new Error(result.error);
-      return result.data;
-    },
-    validateRequest: async (request) => {
-      const result = await ipcRenderer.invoke('image-validateRequest', request);
-      if (!result.success) throw new Error(result.error);
-      return result.data;
-    },
-    // 新增：连接测试在主进程执行
-    testConnection: async (config) => {
-      const result = await ipcRenderer.invoke('image-testConnection', config);
-      if (!result.success) throw new Error(result.error);
-      return result.data;
-    },
-    // 新增：动态模型列表在主进程获取
-    getDynamicModels: async (providerId, connectionConfig) => {
-      const result = await ipcRenderer.invoke('image-getDynamicModels', providerId, connectionConfig);
-      if (!result.success) throw new Error(result.error);
-      return result.data;
-    }
-  },
+     generate: async (request) => {
+       const result = await ipcRenderer.invoke('image-generate', request);
+       if (!result.success) {
+         throw createIpcError(result.error);
+       }
+       return result.data;
+     },
+ 
+     // 显式模式：避免根据 inputImage 是否存在隐式推断
+     generateText2Image: async (request) => {
+       const result = await ipcRenderer.invoke('image-generateText2Image', request);
+       if (!result.success) {
+         throw createIpcError(result.error);
+       }
+       return result.data;
+     },
+     generateImage2Image: async (request) => {
+       const result = await ipcRenderer.invoke('image-generateImage2Image', request);
+       if (!result.success) {
+         throw createIpcError(result.error);
+       }
+       return result.data;
+     },
+ 
+     validateRequest: async (request) => {
+       const result = await ipcRenderer.invoke('image-validateRequest', request);
+       if (!result.success) {
+         throw createIpcError(result.error);
+       }
+       return result.data;
+     },
+     validateText2ImageRequest: async (request) => {
+       const result = await ipcRenderer.invoke('image-validateText2ImageRequest', request);
+       if (!result.success) {
+         throw createIpcError(result.error);
+       }
+       return result.data;
+     },
+     validateImage2ImageRequest: async (request) => {
+       const result = await ipcRenderer.invoke('image-validateImage2ImageRequest', request);
+       if (!result.success) {
+         throw createIpcError(result.error);
+       }
+       return result.data;
+     },
+ 
+     // 新增：连接测试在主进程执行
+     testConnection: async (config) => {
+       const result = await ipcRenderer.invoke('image-testConnection', config);
+       if (!result.success) {
+         throw createIpcError(result.error);
+       }
+       return result.data;
+     },
+     // 新增：动态模型列表在主进程获取
+     getDynamicModels: async (providerId, connectionConfig) => {
+       const result = await ipcRenderer.invoke('image-getDynamicModels', providerId, connectionConfig);
+       if (!result.success) {
+         throw createIpcError(result.error);
+       }
+       return result.data;
+     }
+   },
 
   // Template Manager interface
   template: {

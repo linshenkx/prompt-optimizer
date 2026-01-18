@@ -553,6 +553,34 @@ function createErrorResponse(error) {
   return { success: false, error: errorMessage };
 }
 
+// Structured error payload for renderer-side i18n (code + params).
+function normalizeIpcError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  const payload = { message };
+
+  if (error && typeof error === 'object') {
+    if (typeof error.code === 'string') {
+      payload.code = error.code;
+    }
+
+    if (error.params && typeof error.params === 'object') {
+      try {
+        payload.params = safeSerialize(error.params);
+      } catch (_) {
+        // Best-effort only; omit params if serialization fails.
+      }
+    }
+  }
+
+  return payload;
+}
+
+function createStructuredErrorResponse(error) {
+  console.error('[Main Process IPC Error]', error);
+  return { success: false, error: normalizeIpcError(error) };
+}
+
 // 创建详细的错误响应，确保100%信息保真
 function createDetailedErrorResponse(error) {
   const timestamp = new Date().toISOString();
@@ -720,6 +748,44 @@ function setupIPC() {
       };
 
       await llmService.sendMessageStream(messages, provider, callbacks);
+      return createSuccessResponse(null);
+    } catch (error) {
+      return createErrorResponse(error);
+    }
+  });
+
+  // Streaming handler with tools - supports tool-call events
+  ipcMain.handle('llm-sendMessageStreamWithTools', async (event, messages, provider, tools, streamId) => {
+    try {
+      const callbacks = {
+        onToken: (token) => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            event.sender.send(`stream-content-${streamId}`, token);
+          }
+        },
+        onReasoningToken: (thinking) => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            event.sender.send(`stream-thinking-${streamId}`, thinking);
+          }
+        },
+        onToolCall: (toolCall) => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            event.sender.send(`stream-tool-call-${streamId}`, toolCall);
+          }
+        },
+        onComplete: () => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            event.sender.send(`stream-finish-${streamId}`);
+          }
+        },
+        onError: (error) => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            event.sender.send(`stream-error-${streamId}`, error.message);
+          }
+        }
+      };
+
+      await llmService.sendMessageStreamWithTools(messages, provider, tools, callbacks);
       return createSuccessResponse(null);
     } catch (error) {
       return createErrorResponse(error);
@@ -1012,16 +1078,58 @@ function setupIPC() {
       const res = await imageService.generate(safeReq)
       return createSuccessResponse(res)
     } catch (error) {
-      return createErrorResponse(error)
+      return createStructuredErrorResponse(error)
     }
   })
+
+  // 显式模式：避免根据 inputImage 是否存在隐式推断
+  ipcMain.handle('image-generateText2Image', async (e, request) => {
+    try {
+      const safeReq = safeSerialize(request)
+      const res = await imageService.generateText2Image(safeReq)
+      return createSuccessResponse(res)
+    } catch (error) {
+      return createStructuredErrorResponse(error)
+    }
+  })
+
+  ipcMain.handle('image-generateImage2Image', async (e, request) => {
+    try {
+      const safeReq = safeSerialize(request)
+      const res = await imageService.generateImage2Image(safeReq)
+      return createSuccessResponse(res)
+    } catch (error) {
+      return createStructuredErrorResponse(error)
+    }
+  })
+
   ipcMain.handle('image-validateRequest', async (e, request) => {
     try {
       const safeReq = safeSerialize(request)
       const res = await imageService.validateRequest(safeReq)
       return createSuccessResponse(res)
     } catch (error) {
-      return createErrorResponse(error)
+      return createStructuredErrorResponse(error)
+    }
+  })
+
+  ipcMain.handle('image-validateText2ImageRequest', async (e, request) => {
+    try {
+      const safeReq = safeSerialize(request)
+      const res = await imageService.validateText2ImageRequest(safeReq)
+      return createSuccessResponse(res)
+    } catch (error) {
+      return createStructuredErrorResponse(error)
+    }
+  })
+
+  ipcMain.handle('image-validateImage2ImageRequest', async (e, request) => {
+    try {
+      const safeReq = safeSerialize(request)
+      const res = await imageService.validateImage2ImageRequest(safeReq)
+      return createSuccessResponse(res)
+    } catch (error) {
+      return createStructuredErrorResponse(error)
     }
   })
 
@@ -1029,21 +1137,13 @@ function setupIPC() {
   ipcMain.handle('image-testConnection', async (e, config) => {
     try {
       const safeCfg = safeSerialize(config)
-      const adapter = imageAdapterRegistry.getAdapter(safeCfg.providerId)
-      const model = safeCfg.model
-      // 选择测试类型
-      let testType = 'text2image'
-      const caps = model?.capabilities || {}
-      if (caps.text2image && !caps.image2image) testType = 'text2image'
-      else if (!caps.text2image && caps.image2image) testType = 'image2image'
-      else if (caps.text2image && caps.image2image) testType = 'text2image'
-      // 构建测试请求（适配器提供）
-      const baseReq = (adapter).getTestImageRequest ? (adapter).getTestImageRequest(testType) : { prompt: 'hello', count: 1 }
-      const request = { ...baseReq, configId: safeCfg.id || 'test' }
-      const result = await adapter.generate(request, safeCfg)
+      // Reuse ImageService.testConnection to keep behavior consistent with Web:
+      // - merges param overrides
+      // - enforces base64-only input for image2image tests
+      const result = await imageService.testConnection(safeCfg)
       return createSuccessResponse(result)
     } catch (error) {
-      return createErrorResponse(error)
+      return createStructuredErrorResponse(error)
     }
   })
 
@@ -1054,7 +1154,7 @@ function setupIPC() {
       const models = await imageAdapterRegistry.getDynamicModels(providerId, safeConn)
       return createSuccessResponse(models)
     } catch (error) {
-      return createErrorResponse(error)
+      return createStructuredErrorResponse(error)
     }
   })
 
