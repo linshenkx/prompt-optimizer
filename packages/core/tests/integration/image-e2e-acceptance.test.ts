@@ -11,7 +11,7 @@ import type {
   ImageRequest,
   ImageResult
 } from '../../src/services/image/types'
-import { RequestConfigError } from '../../src/services/llm/errors'
+import { IMAGE_ERROR_CODES } from '../../src/constants/error-codes'
 
 // Build a shared stub registry + adapter for end-to-end acceptance without hitting network
 const stubProvider: ImageProvider = {
@@ -37,7 +37,9 @@ const fakeAdapter: IImageProviderAdapter = {
   getProvider: () => stubProvider,
   getModels: () => [stubModel],
   async getModelsAsync() { return [stubModel] },
-  async validateConnection() { return true },
+  buildDefaultModel(modelId: string) {
+    return { ...stubModel, id: modelId, name: modelId }
+  },
   async generate(request: ImageRequest, config: ImageModelConfig): Promise<ImageResult> {
     return {
       images: [{ b64: 'ZHVtbXk=', mimeType: 'image/png' }],
@@ -65,7 +67,6 @@ const stubRegistry: IImageAdapterRegistry = {
   async getModels(providerId: string) { return this.getStaticModels(providerId) },
   getAllStaticModels() { return [{ provider: stubProvider, model: stubModel }] },
   supportsDynamicModels() { return false },
-  async validateProviderConnection() { return true },
   validateProviderModel(providerId: string, modelId: string) {
     return providerId.toLowerCase() === 'test' && modelId === 'test-model'
   }
@@ -244,6 +245,9 @@ describe('Acceptance - Image Service E2E', () => {
       inputImage: { b64: 'ZHVtbXk=', mimeType: 'image/png' }
     }
 
-    await expect(imageService.generate(request)).rejects.toBeInstanceOf(RequestConfigError)
+    await expect(imageService.generate(request)).rejects.toMatchObject({
+      code: IMAGE_ERROR_CODES.MODEL_NOT_SUPPORT_IMAGE2IMAGE,
+      params: { modelName: 'Test Model' }
+    })
   })
 })

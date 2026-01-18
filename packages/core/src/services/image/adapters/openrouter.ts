@@ -165,9 +165,7 @@ export class OpenRouterImageAdapter extends AbstractImageProviderAdapter {
 
     // 如果有输入图像，添加到消息中
     if (request.inputImage) {
-      const imageContent = request.inputImage.b64
-        ? `data:${request.inputImage.mimeType || 'image/png'};base64,${request.inputImage.b64}`
-        : request.inputImage.url
+      const imageContent = `data:${request.inputImage.mimeType || 'image/png'};base64,${request.inputImage.b64}`
 
       messages[0].content = [
         { type: 'text', text: request.prompt },

@@ -8,6 +8,8 @@ export default defineConfig(({ mode }) => {
   
   return {
     test: {
+      // Avoid Windows OOM with forked workers on large suites
+      pool: 'threads',
       globals: true,
       environment: 'node',
       setupFiles: ['./tests/setup.js'],

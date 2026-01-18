@@ -71,8 +71,7 @@ export interface ImageModelConfig {
 // === 基础类型（请求/结果/进度） ===
 
 export interface ImageInputRef {
-  b64?: string
-  url?: string
+  b64: string
   mimeType?: string
 }
 
@@ -83,6 +82,18 @@ export interface ImageRequest {
   count?: number                           // 生成数量，默认 1
   paramOverrides?: Record<string, unknown> // 临时参数覆盖，不影响保存的配置
 }
+
+// === 显式模式请求类型（避免用 inputImage 的存在与否隐式推断） ===
+
+/**
+ * 文生图请求：不允许携带 inputImage。
+ */
+export type Text2ImageRequest = Omit<ImageRequest, 'inputImage'> & { inputImage?: never }
+
+/**
+ * 图生图请求：必须提供 inputImage。
+ */
+export type Image2ImageRequest = Omit<ImageRequest, 'inputImage'> & { inputImage: ImageInputRef }
 
 export interface ImageResultItem {
   b64?: string
@@ -174,16 +185,26 @@ export interface IImageAdapterRegistry {
 // === 服务接口 ===
 
 export interface IImageService {
-  // 核心生成功能
+  // 核心生成功能（兼容入口：内部仍可能根据 inputImage 判定模式）
   generate(request: ImageRequest): Promise<ImageResult>
 
-  // 辅助功能
+  // 显式模式入口：避免模式误判与错误信息混淆
+  generateText2Image(request: Text2ImageRequest): Promise<ImageResult>
+  generateImage2Image(request: Image2ImageRequest): Promise<ImageResult>
+
+  // 辅助功能（兼容入口）
   validateRequest(request: ImageRequest): Promise<void>
+
+  // 显式校验：用于 UI/调用方提前发现配置与输入不匹配
+  validateText2ImageRequest(request: Text2ImageRequest): Promise<void>
+  validateImage2ImageRequest(request: Image2ImageRequest): Promise<void>
+
   // 新增：连接测试（直接使用临时配置，不依赖已保存的配置）
   testConnection(config: ImageModelConfig): Promise<ImageResult>
   // 新增：获取动态模型列表（如支持）
   getDynamicModels(providerId: string, connectionConfig: Record<string, any>): Promise<ImageModel[]>
 }
+
 
 // === 图像存储类型（分离存储支持）===
 

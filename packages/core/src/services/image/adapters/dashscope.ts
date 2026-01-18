@@ -324,7 +324,8 @@ export class DashScopeImageAdapter extends AbstractImageProviderAdapter {
 
     // 添加输入图像
     if (request.inputImage) {
-      content.push({ image: request.inputImage.url || request.inputImage.b64 })
+      // Input image: base64 only
+      content.push({ image: request.inputImage.b64 })
     }
 
     // 添加文本提示词

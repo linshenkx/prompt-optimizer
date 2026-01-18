@@ -54,12 +54,12 @@ export class ElectronLLMProxy implements ILLMService {
   async sendMessageStreamWithTools(
     messages: Message[],
     provider: string,
-    _tools: ToolDefinition[], // 使用下划线前缀表示暂时未使用
+    tools: ToolDefinition[],
     callbacks: StreamHandlers
   ): Promise<void> {
     // 自动序列化，防止Vue响应式对象IPC传递错误
     const safeMessages = safeSerializeForIPC(messages);
-    // const safeTools = safeSerializeForIPC(tools); // 暂时不使用，等实现时再启用
+    const safeTools = safeSerializeForIPC(tools);
 
     // 适配回调接口：StreamHandlers 使用 onToken/onToolCall，而 preload 期望相应的回调
     const adaptedCallbacks = {
@@ -70,9 +70,14 @@ export class ElectronLLMProxy implements ILLMService {
       onError: callbacks.onError
     };
 
-    // TODO: 需要在主进程和preload中实现 sendMessageStreamWithTools 方法
-    // 暂时回退到普通流式方法
-    console.warn('[ElectronLLMProxy] sendMessageStreamWithTools not yet implemented in main process, falling back to regular stream');
+    // Prefer the dedicated tools-capable streaming channel when available.
+    const maybe = this.electronAPI.llm.sendMessageStreamWithTools;
+    if (typeof maybe === 'function') {
+      await maybe(safeMessages, provider, safeTools, adaptedCallbacks);
+      return;
+    }
+
+    // Back-compat fallback (older preload/main): stream without tool-call events.
     await this.electronAPI.llm.sendMessageStream(safeMessages, provider, adaptedCallbacks);
   }
 

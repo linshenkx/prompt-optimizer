@@ -21,6 +21,19 @@ interface Window {
         callbacks: {
           onContent?: (content: string) => void;
           onThinking?: (thinking: string) => void;
+          onToolCall?: (toolCall: any) => void;
+          onFinish?: () => void;
+          onError?: (error: Error) => void;
+        }
+      ) => Promise<void>;
+      sendMessageStreamWithTools?: (
+        messages: any[],
+        provider: string,
+        tools: any[],
+        callbacks: {
+          onContent?: (content: string) => void;
+          onThinking?: (thinking: string) => void;
+          onToolCall?: (toolCall: any) => void;
           onFinish?: () => void;
           onError?: (error: Error) => void;
         }

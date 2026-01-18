@@ -75,6 +75,8 @@ export type {
   ImageProvider,
   ImageModel,
   ImageRequest,
+  Text2ImageRequest,
+  Image2ImageRequest,
   ImageResult,
   ImageResultItem,
   ImageProgressHandlers,
@@ -169,6 +171,9 @@ export type {
   StorageKey
 } from './constants/storage-keys'
 
+// UI function-mode types are defined alongside prompt service types.
+export type { FunctionMode } from './services/prompt/types'
+
 // Export error codes for internationalization | 导出错误代码用于国际化
 export {
   ERROR_CODES,
@@ -181,6 +186,7 @@ export {
   TEMPLATE_ERROR_CODES,
   PROMPT_ERROR_CODES,
   FAVORITE_ERROR_CODES,
+  IMAGE_ERROR_CODES,
 } from './constants/error-codes'
 export type { ErrorCode } from './constants/error-codes'
 

@@ -184,8 +184,6 @@ export class SeedreamImageAdapter extends AbstractImageProviderAdapter {
     if (request.inputImage?.b64) {
       const mime = request.inputImage.mimeType || 'image/png'
       payload.image = `data:${mime};base64,${request.inputImage.b64}`
-    } else if (request.inputImage?.url) {
-      payload.image = request.inputImage.url
     }
 
     // 生成数量固定为1（当前不支持多图）

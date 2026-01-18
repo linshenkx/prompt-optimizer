@@ -92,6 +92,27 @@ export const FAVORITE_ERROR_CODES = {
   IMPORT_EXPORT_ERROR: 'error.favorite.import_export',
 } as const;
 
+// Image errors | 图像错误
+export const IMAGE_ERROR_CODES = {
+  PROMPT_EMPTY: 'error.image.prompt_empty',
+  CONFIG_ID_EMPTY: 'error.image.config_id_empty',
+  CONFIG_NOT_FOUND: 'error.image.config_not_found',
+  CONFIG_NOT_ENABLED: 'error.image.config_not_enabled',
+  PROVIDER_NOT_FOUND: 'error.image.provider_not_found',
+  ONLY_SINGLE_IMAGE_SUPPORTED: 'error.image.only_single_image_supported',
+  TEXT2IMAGE_INPUT_IMAGE_NOT_ALLOWED: 'error.image.text2image_input_image_not_allowed',
+  IMAGE2IMAGE_INPUT_IMAGE_REQUIRED: 'error.image.image2image_input_image_required',
+  INPUT_IMAGE_B64_REQUIRED: 'error.image.input_image_b64_required',
+  INPUT_IMAGE_URL_NOT_SUPPORTED: 'error.image.input_image_url_not_supported',
+  INPUT_IMAGE_INVALID_FORMAT: 'error.image.input_image_invalid_format',
+  INPUT_IMAGE_UNSUPPORTED_MIME: 'error.image.input_image_unsupported_mime',
+  INPUT_IMAGE_TOO_LARGE: 'error.image.input_image_too_large',
+  MODEL_NOT_SUPPORT_TEXT2IMAGE: 'error.image.model_not_support_text2image',
+  MODEL_NOT_SUPPORT_IMAGE2IMAGE: 'error.image.model_not_support_image2image',
+  MODEL_ONLY_SUPPORTS_IMAGE2IMAGE_NEED_INPUT: 'error.image.model_only_supports_image2image_need_input',
+  GENERATION_FAILED: 'error.image.generation_failed',
+} as const;
+
 // Export all error codes | 导出所有错误代码
 export const ERROR_CODES = {
   EVALUATION: EVALUATION_ERROR_CODES,
@@ -103,6 +124,7 @@ export const ERROR_CODES = {
   TEMPLATE: TEMPLATE_ERROR_CODES,
   PROMPT: PROMPT_ERROR_CODES,
   FAVORITE: FAVORITE_ERROR_CODES,
+  IMAGE: IMAGE_ERROR_CODES,
 } as const;
 
 export type ErrorCode =
@@ -114,7 +136,8 @@ export type ErrorCode =
   | typeof MODEL_ERROR_CODES[keyof typeof MODEL_ERROR_CODES]
   | typeof TEMPLATE_ERROR_CODES[keyof typeof TEMPLATE_ERROR_CODES]
   | typeof PROMPT_ERROR_CODES[keyof typeof PROMPT_ERROR_CODES]
-  | typeof FAVORITE_ERROR_CODES[keyof typeof FAVORITE_ERROR_CODES];
+  | typeof FAVORITE_ERROR_CODES[keyof typeof FAVORITE_ERROR_CODES]
+  | typeof IMAGE_ERROR_CODES[keyof typeof IMAGE_ERROR_CODES];
 
 /**
  * i18n interpolation params for error messages.

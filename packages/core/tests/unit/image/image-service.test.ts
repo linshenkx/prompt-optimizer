@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { ImageService } from '../../../src/services/image/service'
 import { SeedreamImageAdapter } from '../../../src/services/image/adapters/seedream'
+import { DashScopeImageAdapter } from '../../../src/services/image/adapters/dashscope'
 import type {
   IImageModelManager,
   ImageModelConfig,
@@ -9,9 +10,16 @@ import type {
   ImageModel,
   ImageResult
 } from '../../../src/services/image/types'
-import { RequestConfigError } from '../../../src/services/llm/errors'
+import { IMAGE_ERROR_CODES } from '../../../src/constants/error-codes'
 
 const seedreamModelId = new SeedreamImageAdapter().getModels()[0].id
+
+const dashscopeEditModel = new DashScopeImageAdapter().getModels().find(m => m.id === 'qwen-image-edit')
+if (!dashscopeEditModel) {
+  throw new Error('Missing dashscope qwen-image-edit model')
+}
+const dashscopeEditModelId = dashscopeEditModel.id
+const dashscopeEditModelName = dashscopeEditModel.name
 
 // Mock 图像模型管理器
 class MockImageModelManager implements IImageModelManager {
@@ -187,8 +195,9 @@ describe('ImageService', () => {
         configId: 'test-openai-config'
       }
 
-      await expect(imageService.validateRequest(request))
-        .rejects.toThrow()
+      await expect(imageService.validateRequest(request)).rejects.toMatchObject({
+        code: IMAGE_ERROR_CODES.PROMPT_EMPTY
+      })
     })
 
     test('should reject whitespace-only prompt', async () => {
@@ -197,8 +206,9 @@ describe('ImageService', () => {
         configId: 'test-openai-config'
       }
 
-      await expect(imageService.validateRequest(request))
-        .rejects.toThrow()
+      await expect(imageService.validateRequest(request)).rejects.toMatchObject({
+        code: IMAGE_ERROR_CODES.PROMPT_EMPTY
+      })
     })
 
     test('should reject missing configId', async () => {
@@ -207,8 +217,9 @@ describe('ImageService', () => {
         configId: ''
       }
 
-      await expect(imageService.validateRequest(request))
-        .rejects.toThrow()
+      await expect(imageService.validateRequest(request)).rejects.toMatchObject({
+        code: IMAGE_ERROR_CODES.CONFIG_ID_EMPTY
+      })
     })
 
     test('should reject non-existent config', async () => {
@@ -217,8 +228,10 @@ describe('ImageService', () => {
         configId: 'non-existent-config'
       }
 
-      await expect(imageService.validateRequest(request))
-        .rejects.toThrow()
+      await expect(imageService.validateRequest(request)).rejects.toMatchObject({
+        code: IMAGE_ERROR_CODES.CONFIG_NOT_FOUND,
+        params: { configId: 'non-existent-config' }
+      })
     })
 
     test('should reject disabled config', async () => {
@@ -227,8 +240,10 @@ describe('ImageService', () => {
         configId: 'test-disabled-config'
       }
 
-      await expect(imageService.validateRequest(request))
-        .rejects.toThrow()
+      await expect(imageService.validateRequest(request)).rejects.toMatchObject({
+        code: IMAGE_ERROR_CODES.CONFIG_NOT_ENABLED,
+        params: { configName: 'Test Disabled Config' }
+      })
     })
 
     test('should reject non-single count', async () => {
@@ -238,8 +253,9 @@ describe('ImageService', () => {
         count: 2
       }
 
-      await expect(imageService.validateRequest(request))
-        .rejects.toThrow()
+      await expect(imageService.validateRequest(request)).rejects.toMatchObject({
+        code: IMAGE_ERROR_CODES.ONLY_SINGLE_IMAGE_SUPPORTED
+      })
 
       const request2: ImageRequest = {
         prompt: 'test prompt',
@@ -247,8 +263,9 @@ describe('ImageService', () => {
         count: 0
       }
 
-      await expect(imageService.validateRequest(request2))
-        .rejects.toThrow()
+      await expect(imageService.validateRequest(request2)).rejects.toMatchObject({
+        code: IMAGE_ERROR_CODES.ONLY_SINGLE_IMAGE_SUPPORTED
+      })
     })
 
     test('should reject unsupported image formats', async () => {
@@ -261,8 +278,10 @@ describe('ImageService', () => {
         }
       }
 
-      await expect(imageService.validateRequest(request))
-        .rejects.toThrow()
+      await expect(imageService.validateRequest(request)).rejects.toMatchObject({
+        code: IMAGE_ERROR_CODES.INPUT_IMAGE_UNSUPPORTED_MIME,
+        params: { mimeType: 'image/webp' }
+      })
     })
 
     test('should reject oversized base64 images', async () => {
@@ -278,8 +297,10 @@ describe('ImageService', () => {
         }
       }
 
-      await expect(imageService.validateRequest(request))
-        .rejects.toThrow()
+      await expect(imageService.validateRequest(request)).rejects.toMatchObject({
+        code: IMAGE_ERROR_CODES.INPUT_IMAGE_TOO_LARGE,
+        params: { maxSizeMB: 10 }
+      })
     })
 
     test('should accept valid PNG input image', async () => {
@@ -308,51 +329,130 @@ describe('ImageService', () => {
       await expect(imageService.validateRequest(request)).resolves.not.toThrow()
     })
 
-    test('should validate model capabilities for image2image (skip when model not in static list)', async () => {
-      // 添加一个不支持image2image的配置
-      await mockModelManager.addConfig({
-        id: 'text-only-config',
-        name: 'Text Only Config',
-        providerId: 'openai',
-        modelId: 'dall-e-2', // dall-e-2 不支持 image2image
-        enabled: true,
-        connectionConfig: { apiKey: 'test' },
-        paramOverrides: {},
-        // 自包含字段
-        provider: {
-          id: 'openai',
-          name: 'OpenAI',
-          description: 'OpenAI provider',
-          requiresApiKey: true,
-          defaultBaseURL: 'https://api.openai.com/v1',
-          supportsDynamicModels: false
-        },
-        model: {
-          id: 'dall-e-2',
-          name: 'DALL-E 2',
-          description: 'OpenAI DALL-E 2 model (text-only)',
-          providerId: 'openai',
-          capabilities: {
-            text2image: true,
-            image2image: false,
-            multiImage: false
-          },
-          parameterDefinitions: [],
-          defaultParameterValues: {}
-        }
+      test('should validate model capabilities for image2image using config.model capabilities', async () => {
+       // 添加一个不支持image2image的配置
+       await mockModelManager.addConfig({
+         id: 'text-only-config',
+         name: 'Text Only Config',
+         providerId: 'openai',
+         modelId: 'dall-e-2', // dall-e-2 不支持 image2image
+         enabled: true,
+         connectionConfig: { apiKey: 'test' },
+         paramOverrides: {},
+         // 自包含字段
+         provider: {
+           id: 'openai',
+           name: 'OpenAI',
+           description: 'OpenAI provider',
+           requiresApiKey: true,
+           defaultBaseURL: 'https://api.openai.com/v1',
+           supportsDynamicModels: false
+         },
+         model: {
+           id: 'dall-e-2',
+           name: 'DALL-E 2',
+           description: 'OpenAI DALL-E 2 model (text-only)',
+           providerId: 'openai',
+           capabilities: {
+             text2image: true,
+             image2image: false,
+             multiImage: false
+           },
+           parameterDefinitions: [],
+           defaultParameterValues: {}
+         }
+       })
+
+       const request: ImageRequest = {
+         prompt: 'test prompt',
+         configId: 'text-only-config',
+         inputImage: {
+           b64: 'test-base64',
+           mimeType: 'image/png'
+         }
+       }
+
+        // 即使静态列表缺失，也应使用 config.model.capabilities 做能力校验
+        await expect(imageService.validateRequest(request)).rejects.toMatchObject({
+          code: IMAGE_ERROR_CODES.MODEL_NOT_SUPPORT_IMAGE2IMAGE,
+        })
       })
 
-      const request: ImageRequest = {
-        prompt: 'test prompt',
-        configId: 'text-only-config',
-        inputImage: {
-          b64: 'test-base64',
-          mimeType: 'image/png'
-        }
-      }
+     test('should reject image2image input image url', async () => {
+       const request: ImageRequest = {
+         prompt: 'test prompt',
+         configId: 'test-image2image-config',
+         inputImage: {
+           // @ts-expect-error url input is not supported
+           url: 'https://example.com/image.png',
+           b64: 'abc',
+           mimeType: 'image/png'
+         }
+       }
 
-      await expect(imageService.validateRequest(request)).resolves.not.toThrow()
-    })
+       await expect(imageService.validateRequest(request)).rejects.toMatchObject({
+         code: IMAGE_ERROR_CODES.INPUT_IMAGE_URL_NOT_SUPPORTED
+       })
+     })
+
+     test('should reject image2image missing b64', async () => {
+       const request: ImageRequest = {
+         prompt: 'test prompt',
+         configId: 'test-image2image-config',
+         // @ts-expect-error b64 is required for inputImage
+         inputImage: { mimeType: 'image/png' }
+       }
+
+       await expect(imageService.validateRequest(request)).rejects.toMatchObject({
+         code: IMAGE_ERROR_CODES.INPUT_IMAGE_B64_REQUIRED
+       })
+     })
+
+     test('should reject text2image when inputImage is provided', async () => {
+       const request = {
+         prompt: 'test prompt',
+         configId: 'test-openai-config',
+         inputImage: { b64: 'abc', mimeType: 'image/png' }
+       } as unknown as Text2ImageRequest
+
+       await expect(imageService.validateText2ImageRequest(request)).rejects.toMatchObject({
+         code: IMAGE_ERROR_CODES.TEXT2IMAGE_INPUT_IMAGE_NOT_ALLOWED
+       })
+     })
+
+     test('should provide clear error when using image2image-only model without input image', async () => {
+       // dashscope 的 qwen-image-edit 是 image2image-only
+       await mockModelManager.addConfig({
+         id: 'dashscope-edit-config',
+         name: 'DashScope Edit Config',
+         providerId: 'dashscope',
+         modelId: dashscopeEditModelId,
+         enabled: true,
+         connectionConfig: { apiKey: 'test' },
+         paramOverrides: {},
+         provider: {
+           id: 'dashscope',
+           name: 'DashScope',
+           description: 'DashScope provider',
+           requiresApiKey: true,
+           defaultBaseURL: 'https://dashscope.aliyuncs.com',
+           supportsDynamicModels: false
+         },
+         model: dashscopeEditModel
+       })
+
+       const request: ImageRequest = {
+         prompt: 'edit this image',
+         configId: 'dashscope-edit-config'
+         // inputImage intentionally omitted
+       }
+
+       const { inputImage: _inputImage, ...text2image } = request
+       await expect(imageService.validateText2ImageRequest(text2image)).rejects.toMatchObject({
+         code: IMAGE_ERROR_CODES.MODEL_ONLY_SUPPORTS_IMAGE2IMAGE_NEED_INPUT,
+         params: { modelName: dashscopeEditModelName }
+       })
+     })
   })
 
   describe('Image Generation', () => {
@@ -420,8 +520,10 @@ describe('ImageService', () => {
         })
       })
 
-      await expect(imageService.generate(request))
-        .rejects.toThrow()
+      await expect(imageService.generate(request)).rejects.toMatchObject({
+        code: IMAGE_ERROR_CODES.GENERATION_FAILED,
+        params: { details: expect.stringContaining('Invalid request') }
+      })
     })
 
     test('should add metadata to result if missing', async () => {
@@ -452,21 +554,20 @@ describe('ImageService', () => {
   })
 
   describe('Error Handling', () => {
-    test('should wrap adapter errors in RequestConfigError', async () => {
+    test('should wrap adapter errors with image error code', async () => {
       const request: ImageRequest = {
         prompt: 'test prompt',
         configId: 'test-openai-config'
       }
 
-      // Mock 网络错误
-      global.fetch = vi.fn().mockRejectedValue(new Error('Network error'))
+       // Mock 网络错误
+       global.fetch = vi.fn().mockRejectedValue(new Error('Network error'))
 
-      await expect(imageService.generate(request))
-        .rejects.toThrow()
-
-      await expect(imageService.generate(request))
-        .rejects.toThrow()
-    })
+       await expect(imageService.generate(request)).rejects.toMatchObject({
+         code: IMAGE_ERROR_CODES.GENERATION_FAILED,
+         params: { details: expect.stringContaining('Network error') }
+       })
+     })
 
     test('should handle non-Error objects gracefully', async () => {
       const request: ImageRequest = {
@@ -477,8 +578,10 @@ describe('ImageService', () => {
       // Mock 抛出非Error对象
       global.fetch = vi.fn().mockRejectedValue('String error')
 
-      await expect(imageService.generate(request))
-        .rejects.toThrow()
+      await expect(imageService.generate(request)).rejects.toMatchObject({
+        code: IMAGE_ERROR_CODES.GENERATION_FAILED,
+        params: { details: expect.stringContaining('String error') }
+      })
     })
   })
 
@@ -496,8 +599,10 @@ describe('ImageService', () => {
       // Mock getConfig 返回 null
       mockModelManager.getConfig = vi.fn().mockResolvedValue(null)
 
-      await expect(imageService.generate(request))
-        .rejects.toThrow()
+      await expect(imageService.generate(request)).rejects.toMatchObject({
+        code: IMAGE_ERROR_CODES.CONFIG_NOT_FOUND,
+        params: { configId: 'test-openai-config' }
+      })
     })
 
     test('should handle count default value', async () => {

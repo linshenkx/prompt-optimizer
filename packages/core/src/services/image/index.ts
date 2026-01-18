@@ -7,6 +7,8 @@ export type {
   ImageModelConfig,
   ImageInputRef,
   ImageRequest,
+  Text2ImageRequest,
+  Image2ImageRequest,
   ImageResultItem,
   ImageResult,
   ImageProgressHandlers,
