@@ -33,7 +33,7 @@ test.describe('Image Text2Image - Session Persistence', () => {
   test('切换文本模型后刷新页面，选择应该保留', async ({ page }) => {
     await gotoMode(page, '/#/image/text2image')
 
-    const select = await getSelectByLabel(page, /Text Model|文本模型/i)
+    const select = await getSelectByLabel(page, /Text Model|文本模型|文字模型/i)
     await select.click()
 
     const optionLocator = page.locator('.n-base-select-option')
@@ -54,7 +54,7 @@ test.describe('Image Text2Image - Session Persistence', () => {
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(1500)
 
-    const selectAfter = await getSelectByLabel(page, /Text Model|文本模型/i)
+    const selectAfter = await getSelectByLabel(page, /Text Model|文本模型|文字模型/i)
     await expect
       .poll(async () => normalizeText(await selectAfter.textContent()), { timeout: 20000 })
       .toBe(target)
@@ -63,7 +63,7 @@ test.describe('Image Text2Image - Session Persistence', () => {
   test('切换模板后刷新页面，选择应该保留', async ({ page }) => {
     await gotoMode(page, '/#/image/text2image')
 
-    const select = await getSelectByLabel(page, /Optimization Template|优化.*模板/i)
+    const select = await getSelectByLabel(page, /Optimization Template|优化.*模板|優化.*模板/i)
     await select.click()
 
     const optionLocator = page.locator('.n-base-select-option')
@@ -84,10 +84,9 @@ test.describe('Image Text2Image - Session Persistence', () => {
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(1500)
 
-    const selectAfter = await getSelectByLabel(page, /Optimization Template|优化.*模板/i)
+    const selectAfter = await getSelectByLabel(page, /Optimization Template|优化.*模板|優化.*模板/i)
     await expect
       .poll(async () => normalizeText(await selectAfter.textContent()), { timeout: 20000 })
       .toBe(target)
   })
 })
-

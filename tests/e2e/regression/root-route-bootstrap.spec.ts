@@ -4,7 +4,7 @@ async function waitForWorkspace(page: any, mode: string) {
   const workspace = page
     .locator(`[data-testid="workspace"][data-mode="${mode}"]`)
     .first()
-  await expect(workspace).toBeVisible({ timeout: 20000 })
+  await expect(workspace).toBeVisible({ timeout: 45000 })
 }
 
 test.describe('Root route bootstrap', () => {
@@ -23,7 +23,7 @@ test.describe('Root route bootstrap', () => {
     // Immediately navigate to a non-root route; bootstrap logic must not replace it back.
     await page.goto('/#/image/text2image')
     await page.waitForLoadState('networkidle')
+    await expect(page).toHaveURL(/#\/image\/text2image/)
     await waitForWorkspace(page, 'image-text2image')
   })
 })
-

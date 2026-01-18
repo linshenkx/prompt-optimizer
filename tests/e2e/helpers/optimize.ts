@@ -57,24 +57,49 @@ async function ensureOutputSourceView(output: import('@playwright/test').Locator
 }
 
 async function readOutputSourceText(output: import('@playwright/test').Locator) {
-  if ((await output.count()) === 0) return { kind: 'missing', text: '' }
+  // Avoid Playwright strict-mode flakiness when the same testId is transiently duplicated in the DOM.
+  // Always read from the first matched node.
+  const root = output.first()
+  if ((await root.count()) === 0) return { kind: 'missing', text: '' }
 
   // Source 视图下优先读取编辑器/textarea 的“值”，避免拿到整张卡片的 innerText
-  const cmContent = output.locator('.cm-content')
-  if ((await cmContent.count()) > 0) {
-    return { kind: 'cm', text: (await cmContent.first().innerText()).trim() }
+  try {
+    const cmContent = root.locator('.cm-content')
+    if ((await cmContent.count()) > 0) {
+      return { kind: 'cm', text: (await cmContent.first().innerText()).trim() }
+    }
+  } catch {
+    // ignore and fallback
   }
 
-  const textarea = output.locator('textarea')
-  if ((await textarea.count()) > 0) {
-    return { kind: 'textarea', text: (await textarea.first().inputValue()).trim() }
+  try {
+    const textarea = root.locator('textarea')
+    if ((await textarea.count()) > 0) {
+      return { kind: 'textarea', text: (await textarea.first().inputValue()).trim() }
+    }
+  } catch {
+    // ignore and fallback
   }
 
-  return { kind: 'text', text: (await output.innerText()).trim() }
+  // Render 视图：MarkdownRenderer 会渲染到 .markdown-content 容器中
+  try {
+    const markdown = root.locator('.markdown-content')
+    if ((await markdown.count()) > 0) {
+      return { kind: 'markdown', text: (await markdown.first().innerText()).trim() }
+    }
+  } catch {
+    // ignore and fallback
+  }
+
+  try {
+    return { kind: 'text', text: (await root.innerText()).trim() }
+  } catch {
+    return { kind: 'missing', text: '' }
+  }
 }
 
 export async function expectOutputByTestIdNotEmpty(page: Page, testId: string, opts?: { timeoutMs?: number }) {
-  const output = page.locator(`[data-testid="${testId}"]`)
+  const output = page.locator(`[data-testid="${testId}"]:visible`)
   const timeoutMs = opts?.timeoutMs ?? 120000
 
   await ensureOutputSourceView(output)
@@ -90,7 +115,7 @@ export async function expectOutputByTestIdNotEmpty(page: Page, testId: string, o
 export async function expectOptimizedResultNotEmpty(page: Page, mode: OptimizeWorkspaceMode) {
   const workspace = getWorkspace(page, mode)
 
-  const output = workspace.locator(`[data-testid="${mode}-output"]`)
+  const output = workspace.locator(`[data-testid="${mode}-output"]:visible`)
 
   try {
     await ensureOutputSourceView(output)

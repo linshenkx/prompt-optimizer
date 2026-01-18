@@ -15,7 +15,10 @@ test.describe('P0 route smoke', () => {
       await page.goto('/')
       await page.waitForLoadState('networkidle')
 
-      // 应用初始化完成后再跳转到目标路由，避免 services/watch 初始化阶段把深链接当成根路径覆盖
+      // 应用初始化完成后再跳转到目标路由，避免 RootBootstrapRoute/globalSettings 初始化的竞态
+      // 触发一次“默认路由跳转”后再进入目标路由，更稳定。
+      await expect(page.locator('.loading-container')).toHaveCount(0, { timeout: 15000 })
+
       await page.goto(route.hashPath)
       await page.waitForLoadState('networkidle')
 
