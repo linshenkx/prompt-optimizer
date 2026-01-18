@@ -26,6 +26,7 @@
     "build": "vite build",
     "build:win": "vite build",
     "test": "vitest run",
+    "typecheck": "vue-tsc --noEmit",
     "lint": "eslint src --ext .ts,.vue --no-eslintrc --config .eslintrc.json",
     "lint:fix": "eslint src --ext .ts,.vue --no-eslintrc --config .eslintrc.json --fix"
   },
@@ -56,6 +57,7 @@
     "@vue/test-utils": "^2.4.5",
     "@vue/tsconfig": "^0.5.1",
     "eslint": "^8.57.0",
+    "vue-tsc": "^2.2.12",
     "eslint-plugin-vue": "^10.4.0",
     "jsdom": "^26.0.0",
     "typescript": "^5.8.2",
