@@ -324,8 +324,12 @@ export class DashScopeImageAdapter extends AbstractImageProviderAdapter {
 
     // 添加输入图像
     if (request.inputImage) {
-      // Input image: base64 only
-      content.push({ image: request.inputImage.b64 })
+      // DashScope 的 image 字段要求：公网 URL 或 data:{mime};base64,{data}。
+      // 本项目只支持本地 base64，因此这里统一拼成 data URL。
+      const mimeType = request.inputImage.mimeType || 'image/png'
+      const b64 = request.inputImage.b64 || ''
+      const dataUrl = b64.startsWith('data:') ? b64 : `data:${mimeType};base64,${b64}`
+      content.push({ image: dataUrl })
     }
 
     // 添加文本提示词
