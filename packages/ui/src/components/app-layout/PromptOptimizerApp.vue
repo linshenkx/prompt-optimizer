@@ -1800,6 +1800,7 @@ const handleApplyImprovement = (payload: { improvement: string; type: Evaluation
 const handleApplyLocalPatch = async (payload: { operation: PatchOperation }) => {
     if (!payload.operation) return;
 
+    // Pro 模式：由当前 Context workspace 自己处理
     if (routeFunctionMode.value === 'pro') {
         const workspace = getActiveContextWorkspace();
         if (!workspace?.applyLocalPatch) {
@@ -1810,7 +1811,33 @@ const handleApplyLocalPatch = async (payload: { operation: PatchOperation }) => 
         return;
     }
 
-    // basic 模式：直接覆盖当前 optimizedPrompt（不自动创建新版本）
+    // Image 模式：直接写回当前 Image session 的 optimizedPrompt
+    // 之前错误地写入了 basic 的 optimizer，导致 oldText 目标不一致。
+    if (routeFunctionMode.value === 'image') {
+        const session =
+            routeImageSubMode.value === 'text2image'
+                ? imageText2ImageSession
+                : imageImage2ImageSession;
+
+        const current = session.optimizedPrompt || '';
+        const result = applyPatchOperationsToText(current, payload.operation);
+        if (!result.ok) {
+            toast.warning(t('toast.warning.patchApplyFailed'));
+            console.warn('[PromptOptimizerApp] Local patch apply failed:', result.report);
+            return;
+        }
+
+        session.updateOptimizedResult({
+            optimizedPrompt: result.text,
+            reasoning: session.reasoning || '',
+            chainId: session.chainId || '',
+            versionId: session.versionId || '',
+        });
+        toast.success(t('evaluation.diagnose.applyFix'));
+        return;
+    }
+
+    // Basic 模式：直接覆盖当前 optimizedPrompt（不自动创建新版本）
     // 用户可通过"保存修改"按钮显式保存为新版本
     const current = optimizer.optimizedPrompt || '';
     const result = applyPatchOperationsToText(current, payload.operation);
