@@ -10,6 +10,47 @@
     @update:show="(value: boolean) => !value && close()"
   >
     <NSpace vertical :size="24">
+      <!-- Desktop Storage Info -->
+      <div v-if="isRunningInElectron() && storageInfo">
+        <NText tag="h3" :depth="1" strong style="font-size: 18px; margin-bottom: 12px;">
+          {{ $t('dataManager.storage.title') }}
+        </NText>
+        <NCard size="small" :bordered="true">
+          <NSpace vertical :size="12">
+            <div>
+              <NText depth="3" style="font-size: 12px">{{ $t('dataManager.storage.path') }}</NText>
+              <div style="word-break: break-all; font-family: monospace; font-size: 12px; margin-top: 4px;">
+                {{ storageInfo.userDataPath }}
+              </div>
+            </div>
+            
+            <NGrid :cols="3" :x-gap="12">
+              <NGridItem>
+                <NStatistic :label="$t('dataManager.storage.mainData')" :value="formatFileSize(storageInfo.mainSizeBytes)">
+                </NStatistic>
+              </NGridItem>
+              <NGridItem>
+                <NStatistic :label="$t('dataManager.storage.backup')" :value="formatFileSize(storageInfo.backupSizeBytes)">
+                </NStatistic>
+              </NGridItem>
+              <NGridItem>
+                <NStatistic :label="$t('dataManager.storage.total')" :value="formatFileSize(storageInfo.totalBytes)">
+                </NStatistic>
+              </NGridItem>
+            </NGrid>
+
+            <NSpace>
+              <NButton size="small" @click="openStorageDir">
+                {{ $t('dataManager.storage.openDir') }}
+              </NButton>
+              <NButton size="small" @click="refreshStorageInfo" :loading="isRefreshingStorage">
+                {{ $t('dataManager.storage.refresh') }}
+              </NButton>
+            </NSpace>
+          </NSpace>
+        </NCard>
+      </div>
+
       <!-- 导出功能 -->
       <div>
         <NText tag="h3" :depth="1" strong style="font-size: 18px; margin-bottom: 12px;">
@@ -135,12 +176,14 @@
           <!-- 上下文导入 -->
           <!-- 文件导入 -->
           <NUpload
+            class="context-upload"
             :file-list="[]"
             accept=".json"
             :show-file-list="false"
             @change="handleContextFileChange"
             :custom-request="() => {}"
             :disabled="isContextImporting"
+            style="width: 100%;"
           >
             <NButton
               :disabled="isContextImporting"
@@ -185,8 +228,9 @@ import { ref, computed, inject, onMounted, onUnmounted, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   NModal, NSpace, NText, NButton, NUpload, NUploadDragger,
-  NIcon, NAlert, type UploadFileInfo
+  NIcon, NAlert, NCard, NStatistic, NGrid, NGridItem, type UploadFileInfo
 } from 'naive-ui'
+import { isRunningInElectron } from '@prompt-optimizer/core'
 import { useToast } from '../composables/ui/useToast'
 import type { ContextBundle } from '@prompt-optimizer/core'
 import type { AppServices } from '../types/services'
@@ -253,6 +297,33 @@ const isContextExporting = ref(false)
 const isContextImporting = ref(false)
 const isContextImportingFromFile = ref(false) // 区分文件和剪贴板导入
 
+// Storage Info State
+const storageInfo = ref<{
+  userDataPath: string
+  mainSizeBytes: number
+  backupSizeBytes: number
+  totalBytes: number
+} | null>(null)
+const isRefreshingStorage = ref(false)
+
+const refreshStorageInfo = async () => {
+  if (!isRunningInElectron() || !window.electronAPI?.data) return
+  try {
+    isRefreshingStorage.value = true
+    storageInfo.value = await window.electronAPI.data.getStorageInfo()
+  } catch (error) {
+    console.error('Failed to get storage info:', error)
+    toast.error(t('dataManager.storage.refreshFailed'))
+  } finally {
+    isRefreshingStorage.value = false
+  }
+}
+
+const openStorageDir = () => {
+  if (!isRunningInElectron() || !window.electronAPI?.data) return
+  window.electronAPI.data.openStorageDirectory()
+}
+
 // 处理文件变化
 const handleFileChange = (options: { fileList: UploadFileInfo[] }) => {
   selectedFile.value = options.fileList[0] ?? null
@@ -272,6 +343,9 @@ const handleKeyDown = (event: KeyboardEvent) => {
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeyDown)
+  if (isRunningInElectron()) {
+    refreshStorageInfo()
+  }
 })
 
 onUnmounted(() => {
@@ -577,4 +651,11 @@ const handleContextImportFromClipboard = async () => {
     isContextImportingFromFile.value = false
   }
 }
-</script> 
+</script>
+
+<style scoped>
+:deep(.context-upload .n-upload-trigger) {
+  width: 100%;
+  display: block;
+}
+</style>

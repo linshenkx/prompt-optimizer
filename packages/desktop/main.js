@@ -1879,6 +1879,48 @@ function setupIPC() {
     }
   });
 
+  // Desktop: storage helpers for Data Manager UI
+  ipcMain.handle('data-getStorageInfo', async () => {
+    try {
+      const userDataPath = app.getPath('userData');
+      const mainFilePath = path.join(userDataPath, 'prompt-optimizer-data.json');
+      const backupFilePath = path.join(userDataPath, 'prompt-optimizer-data.json.backup');
+
+      const statSafe = async (p) => {
+        try {
+          const s = await require('fs').promises.stat(p);
+          return typeof s?.size === 'number' ? s.size : 0;
+        } catch {
+          return 0;
+        }
+      };
+
+      const mainSizeBytes = await statSafe(mainFilePath);
+      const backupSizeBytes = await statSafe(backupFilePath);
+
+      return createSuccessResponse({
+        userDataPath,
+        mainFilePath,
+        mainSizeBytes,
+        backupFilePath,
+        backupSizeBytes,
+        totalBytes: mainSizeBytes + backupSizeBytes,
+      });
+    } catch (error) {
+      return createErrorResponse(error);
+    }
+  });
+
+  ipcMain.handle('data-openStorageDirectory', async () => {
+    try {
+      const userDataPath = app.getPath('userData');
+      await shell.openPath(userDataPath);
+      return createSuccessResponse(true);
+    } catch (error) {
+      return createErrorResponse(error);
+    }
+  });
+
 
 
   // 环境配置同步 - 主进程作为唯一配置源

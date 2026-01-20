@@ -171,6 +171,26 @@ interface ContextAPI {
   validateData(data: unknown): Promise<boolean>
 }
 
+// 数据管理API
+interface DataStorageInfo {
+  userDataPath: string
+  mainFilePath: string
+  mainSizeBytes: number
+  backupFilePath: string
+  backupSizeBytes: number
+  totalBytes: number
+}
+
+interface DataAPI {
+  // Export/import all app data as JSON string
+  exportAllData(): Promise<string>
+  importAllData(dataString: string): Promise<void>
+
+  // Desktop-only helpers
+  getStorageInfo(): Promise<DataStorageInfo>
+  openStorageDirectory(): Promise<boolean>
+}
+
 // 完整的ElectronAPI接口
 interface ElectronAPI {
   app: AppAPI
@@ -180,6 +200,7 @@ interface ElectronAPI {
   image: ImageAPI
   imageModel: ImageModelAPI
   context: ContextAPI
+  data: DataAPI
   on: EventAPI['on']
   off: EventAPI['off']
   once: EventAPI['once']
@@ -242,6 +263,8 @@ export type {
   ImageAPI,
   ImageModelAPI,
   ContextAPI,
+  DataAPI,
+  DataStorageInfo,
   ElectronAPI,
   DownloadProgress,
   UpdateInfo,

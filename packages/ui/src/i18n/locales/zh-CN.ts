@@ -1359,6 +1359,16 @@ export default {
       invalidContextBundle: "无效的上下文集合格式",
       importModeRequired: "请选择导入模式",
     },
+    storage: {
+      title: "本地存储（桌面端）",
+      path: "数据目录路径",
+      mainData: "主数据",
+      backup: "备份",
+      total: "总占用",
+      openDir: "打开数据目录",
+      refresh: "刷新",
+      refreshFailed: "获取存储信息失败",
+    },
     warning:
       "导入数据将覆盖现有的历史记录、模型配置、自定义提示词和所有用户设置（包括主题、语言偏好等），请确保已备份重要数据。",
   },

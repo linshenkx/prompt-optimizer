@@ -1349,6 +1349,16 @@ export default {
       invalidContextBundle: "無效的情境集合格式",
       importModeRequired: "請選擇匯入模式",
     },
+    storage: {
+      title: "本機儲存（桌面端）",
+      path: "資料目錄路徑",
+      mainData: "主資料",
+      backup: "備份",
+      total: "總占用",
+      openDir: "開啟資料目錄",
+      refresh: "重新整理",
+      refreshFailed: "取得儲存資訊失敗",
+    },
     warning:
       "匯入資料將覆蓋現有的歷史紀錄、模型配置、自訂提示詞和所有使用者設定（包括主題、語言偏好等），請確保已備份重要資料。",
   },

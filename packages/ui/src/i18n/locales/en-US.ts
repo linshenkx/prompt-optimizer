@@ -1405,6 +1405,16 @@ export default {
       invalidContextBundle: "Invalid context bundle format",
       importModeRequired: "Please select import mode",
     },
+    storage: {
+      title: "Local Storage (Desktop)",
+      path: "Data directory",
+      mainData: "Main",
+      backup: "Backup",
+      total: "Total",
+      openDir: "Open data directory",
+      refresh: "Refresh",
+      refreshFailed: "Failed to get storage info",
+    },
     warning:
       "Importing data will overwrite existing history records, model configurations, custom templates and all user settings (including theme, language preferences, etc.). Please ensure you have backed up important data.",
   },

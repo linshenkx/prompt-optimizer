@@ -977,6 +977,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
       if (!result.success) {
         throw new Error(result.error);
       }
+    },
+
+    // Get local storage info (desktop only)
+    getStorageInfo: async () => {
+      const result = await ipcRenderer.invoke('data-getStorageInfo');
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+
+    // Open the userData directory (desktop only)
+    openStorageDirectory: async () => {
+      const result = await ipcRenderer.invoke('data-openStorageDirectory');
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
     }
   },
 
