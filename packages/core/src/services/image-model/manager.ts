@@ -7,7 +7,15 @@ import { IStorageProvider } from '../storage/types'
 import { StorageAdapter } from '../storage/adapter'
 import { CORE_SERVICE_KEYS } from '../../constants/storage-keys'
 import { ImportExportError } from '../../interfaces/import-export'
+import { IMAGE_ERROR_CODES, IMPORT_EXPORT_ERROR_CODES, type ErrorParams } from '../../constants/error-codes'
+import { BaseError } from '../llm/errors'
 import { getDefaultImageModels, getBuiltinImageConfigIds } from './defaults'
+
+class ImageModelManagerError extends BaseError {
+  constructor(code: string, message?: string, params?: ErrorParams) {
+    super(code, message, params)
+  }
+}
 
 /**
  * 图像模型管理器：专注于配置管理，遵循新的三层架构
@@ -119,7 +127,11 @@ export class ImageModelManager implements IImageModelManager {
       (current) => {
         const data = current || {}
         if (data[toStore.id]) {
-          throw new Error(`Configuration with id '${toStore.id}' already exists`)
+          throw new ImageModelManagerError(
+            IMAGE_ERROR_CODES.CONFIG_ALREADY_EXISTS,
+            undefined,
+            { configId: toStore.id },
+          )
         }
         return { ...data, [toStore.id]: toStore }
       }
@@ -132,7 +144,11 @@ export class ImageModelManager implements IImageModelManager {
       (current) => {
         const data = current || {}
         if (!data[id]) {
-          throw new Error(`Configuration with id '${id}' does not exist`)
+          throw new ImageModelManagerError(
+            IMAGE_ERROR_CODES.CONFIG_DOES_NOT_EXIST,
+            undefined,
+            { configId: id },
+          )
         }
 
         const updated: ImageModelConfig = {
@@ -247,7 +263,8 @@ export class ImageModelManager implements IImageModelManager {
       throw new ImportExportError(
         'Failed to export image model configurations',
         await this.getDataType(),
-        error as Error
+        error as Error,
+        IMPORT_EXPORT_ERROR_CODES.EXPORT_FAILED,
       )
     }
   }
@@ -256,7 +273,9 @@ export class ImageModelManager implements IImageModelManager {
     if (!Array.isArray(data)) {
       throw new ImportExportError(
         'Invalid data format: expected array of ImageModelConfig',
-        await this.getDataType()
+        await this.getDataType(),
+        undefined,
+        IMPORT_EXPORT_ERROR_CODES.VALIDATION_ERROR,
       )
     }
 
@@ -486,7 +505,11 @@ export class ImageModelManager implements IImageModelManager {
     // 因此不需要在此验证模型是否存在
 
     if (errors.length > 0) {
-      throw new Error(`Invalid configuration: ${errors.join(', ')}`)
+      throw new ImageModelManagerError(
+        IMAGE_ERROR_CODES.CONFIG_INVALID,
+        errors.join(', '),
+        { details: errors.join(', ') },
+      )
     }
   }
 }

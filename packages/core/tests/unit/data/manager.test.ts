@@ -6,6 +6,7 @@ import { ITemplateManager, Template } from '../../../src/services/template/types
 import { IPreferenceService } from '../../../src/services/preference/types';
 import { ContextRepo } from '../../../src/services/context/types';
 import { MemoryStorageProvider } from '../../../src/services/storage/memoryStorageProvider';
+import { DATA_ERROR_CODES } from '../../../src/constants/error-codes';
 
 describe('DataManager', () => {
   let dataManager: DataManager;
@@ -186,11 +187,13 @@ describe('DataManager', () => {
     });
 
     it('should throw an error for invalid JSON string', async () => {
-      await expect(dataManager.importAllData('invalid-json')).rejects.toThrow('Invalid data format: failed to parse JSON');
+      await expect(dataManager.importAllData('invalid-json'))
+        .rejects.toMatchObject({ code: DATA_ERROR_CODES.INVALID_JSON });
     });
 
     it('should throw an error for data without a "data" property in new format', async () => {
-      await expect(dataManager.importAllData(JSON.stringify({ version: 1 }))).rejects.toThrow('Invalid data format: "data" property is missing or not an object');
+      await expect(dataManager.importAllData(JSON.stringify({ version: 1 })))
+        .rejects.toMatchObject({ code: DATA_ERROR_CODES.INVALID_FORMAT });
     });
 
     it('should support old format for backward compatibility', async () => {

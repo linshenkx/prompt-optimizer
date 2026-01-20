@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { ModelScopeImageAdapter } from '../../../src/services/image/adapters/modelscope'
 import type { ImageRequest, ImageModelConfig } from '../../../src/services/image/types'
+import { IMAGE_ERROR_CODES } from '../../../src/constants/error-codes'
 
 describe('ModelScopeImageAdapter', () => {
   let adapter: ModelScopeImageAdapter
@@ -87,7 +88,8 @@ describe('ModelScopeImageAdapter', () => {
         count: 1
       }
 
-      await expect(adapter.generate(request, invalidConfig)).rejects.toThrow('requires API key')
+      await expect(adapter.generate(request, invalidConfig))
+        .rejects.toMatchObject({ code: IMAGE_ERROR_CODES.API_KEY_REQUIRED })
     })
 
     test('should validate prompt is required', async () => {
@@ -110,7 +112,8 @@ describe('ModelScopeImageAdapter', () => {
         count: 1
       }
 
-      await expect(adapter.generate(invalidRequest, config)).rejects.toThrow('Prompt is required')
+      await expect(adapter.generate(invalidRequest, config))
+        .rejects.toMatchObject({ code: IMAGE_ERROR_CODES.PROMPT_EMPTY })
     })
 
     test('should reject requests with input images', async () => {
@@ -137,7 +140,8 @@ describe('ModelScopeImageAdapter', () => {
         count: 1
       }
 
-      await expect(adapter.generate(request, config)).rejects.toThrow('only supports text-to-image')
+      await expect(adapter.generate(request, config))
+        .rejects.toMatchObject({ code: IMAGE_ERROR_CODES.MODEL_NOT_SUPPORT_IMAGE2IMAGE })
     })
   })
 

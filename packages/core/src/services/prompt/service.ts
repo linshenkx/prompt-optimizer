@@ -961,7 +961,7 @@ export class PromptService implements IPromptService {
     }
 
     // 如果所有方法都失败，抛出错误
-    throw new Error(`No templates available for type: ${templateType}`);
+    throw new ServiceDependencyError('TemplateManager', `No templates available for type: ${templateType}`);
   }
 
   // saveOptimizationHistory 方法已移除

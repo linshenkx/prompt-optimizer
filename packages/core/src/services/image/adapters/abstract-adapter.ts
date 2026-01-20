@@ -7,6 +7,8 @@ import type {
   ImageModelConfig,
   ImageParameterDefinition
 } from '../types'
+import { ImageError } from '../errors'
+import { IMAGE_ERROR_CODES } from '../../../constants/error-codes'
 
 /**
  * 抽象图像提供商适配器基类
@@ -105,7 +107,7 @@ export abstract class AbstractImageProviderAdapter implements IImageProviderAdap
   public async getModelsAsync(_connectionConfig: Record<string, any>): Promise<ImageModel[]> {
     const provider = this.getProvider()
     if (!provider.supportsDynamicModels) {
-      throw new Error(`Provider ${provider.name} does not support dynamic models`)
+      throw new ImageError(IMAGE_ERROR_CODES.DYNAMIC_MODELS_NOT_SUPPORTED, undefined, { providerName: provider.name })
     }
     // 子类应该覆盖此方法
     return this.getModels()
@@ -115,11 +117,11 @@ export abstract class AbstractImageProviderAdapter implements IImageProviderAdap
   protected validateRequest(request: ImageRequest, config: ImageModelConfig): void {
     // 基础验证：检查必需字段
     if (!request.prompt || !request.prompt.trim()) {
-      throw new Error('Prompt is required')
+      throw new ImageError(IMAGE_ERROR_CODES.PROMPT_EMPTY)
     }
 
     if (!config.modelId) {
-      throw new Error('Model ID is required')
+      throw new ImageError(IMAGE_ERROR_CODES.MODEL_ID_REQUIRED)
     }
 
     // 对于具体模型能力的验证，交给具体的适配器实现
@@ -129,11 +131,14 @@ export abstract class AbstractImageProviderAdapter implements IImageProviderAdap
     const provider = this.getProvider()
 
     if (provider.requiresApiKey && !config.connectionConfig?.apiKey) {
-      throw new Error(`${provider.name} requires API key`)
+      throw new ImageError(IMAGE_ERROR_CODES.API_KEY_REQUIRED, undefined, { providerName: provider.name })
     }
 
     if (config.providerId !== provider.id) {
-      throw new Error(`Configuration provider mismatch: config.providerId=${config.providerId}, adapter.providerId=${provider.id}`)
+      throw new ImageError(IMAGE_ERROR_CODES.CONFIG_PROVIDER_MISMATCH, undefined, {
+        configProviderId: config.providerId,
+        adapterProviderId: provider.id
+      })
     }
   }
 
@@ -147,7 +152,7 @@ export abstract class AbstractImageProviderAdapter implements IImageProviderAdap
     // 验证必需字段
     for (const field of schema.required) {
       if (!(field in connectionConfig)) {
-        throw new Error(`Missing required field: ${field}`)
+        throw new ImageError(IMAGE_ERROR_CODES.CONNECTION_CONFIG_MISSING_FIELD, undefined, { field })
       }
     }
 
@@ -156,7 +161,11 @@ export abstract class AbstractImageProviderAdapter implements IImageProviderAdap
       if (field in connectionConfig) {
         const actualType = typeof connectionConfig[field]
         if (actualType !== expectedType) {
-          throw new Error(`Field ${field} should be ${expectedType}, got ${actualType}`)
+          throw new ImageError(IMAGE_ERROR_CODES.CONNECTION_CONFIG_INVALID_FIELD_TYPE, undefined, {
+            field,
+            expectedType,
+            actualType
+          })
         }
       }
     }

@@ -4,6 +4,8 @@
  * 这个文件定义了导入导出相关的接口，避免循环依赖
  */
 
+import { IMPORT_EXPORT_ERROR_CODES } from '../constants/error-codes'
+
 /**
  * 可导入导出的服务接口
  * 所有需要参与数据导入导出的服务都应该实现此接口
@@ -39,12 +41,20 @@ export interface IImportExportable {
  * 导入导出错误类型
  */
 export class ImportExportError extends Error {
+  public readonly code: string
+  public readonly params?: Record<string, unknown>
+
   constructor(
     message: string,
     public readonly dataType?: string,
-    public readonly originalError?: Error
+    public readonly originalError?: Error,
+    code: string = IMPORT_EXPORT_ERROR_CODES.IMPORT_FAILED,
   ) {
-    super(message);
-    this.name = 'ImportExportError';
+    // Keep message for debugging; user-facing text should come from `code + params`.
+    super(message)
+    this.name = 'ImportExportError'
+
+    this.code = code
+    this.params = { details: message, dataType }
   }
 }

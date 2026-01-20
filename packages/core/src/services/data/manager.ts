@@ -3,6 +3,13 @@ import { IModelManager } from '../model/types';
 import { ITemplateManager } from '../template/types';
 import { IPreferenceService } from '../preference/types';
 import { ContextRepo } from '../context/types';
+import {
+  DataExportFailedError,
+  DataImportPartialFailedError,
+  DataInvalidFormatError,
+  DataInvalidJsonError,
+} from './errors';
+import { toErrorWithCode } from '../../utils/error';
 
 /**
  * 数据导入导出管理器
@@ -65,7 +72,10 @@ export class DataManager implements IDataManager {
       data['contexts'] = await this.contextRepo.exportData();
     } catch (error) {
       console.error('导出数据失败:', error);
-      throw error;
+      if (typeof (error as any)?.code === 'string') {
+        throw toErrorWithCode(error)
+      }
+      throw new DataExportFailedError(error instanceof Error ? error.message : String(error))
     }
 
     const exportFormat = {
@@ -82,11 +92,11 @@ export class DataManager implements IDataManager {
     try {
       exportData = JSON.parse(dataString);
     } catch (error) {
-      throw new Error('Invalid data format: failed to parse JSON');
+      throw new DataInvalidJsonError(error instanceof Error ? error.message : String(error))
     }
 
     if (!exportData || typeof exportData !== 'object' || Array.isArray(exportData)) {
-      throw new Error('Invalid data format: data must be an object');
+      throw new DataInvalidFormatError('Data must be an object')
     }
 
     // Support both old and new format for backward compatibility
@@ -95,7 +105,7 @@ export class DataManager implements IDataManager {
     // New format: { version: 1, data: { ... } }
     if (exportData.version) {
       if (!exportData.data || typeof exportData.data !== 'object' || Array.isArray(exportData.data)) {
-        throw new Error('Invalid data format: "data" property is missing or not an object');
+        throw new DataInvalidFormatError('"data" property is missing or not an object')
       }
       dataToImport = exportData.data;
     }
@@ -104,7 +114,7 @@ export class DataManager implements IDataManager {
       dataToImport = exportData;
     }
     else {
-      throw new Error('Invalid data format: unrecognized data structure');
+      throw new DataInvalidFormatError('Unrecognized data structure')
     }
 
     const errors: string[] = [];
@@ -132,7 +142,7 @@ export class DataManager implements IDataManager {
     }
 
     if (errors.length > 0) {
-      throw new Error(`Import completed with ${errors.length} errors: ${errors.join('; ')}`);
+      throw new DataImportPartialFailedError(errors.length, errors.join('; '))
     }
   }
 }

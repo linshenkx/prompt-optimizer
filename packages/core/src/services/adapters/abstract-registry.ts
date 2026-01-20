@@ -51,6 +51,20 @@ export abstract class AbstractAdapterRegistry<
   }
 
   /**
+   * 子类可覆盖：生成“未知 Provider”错误（用于 i18n 对齐）
+   */
+  protected createUnknownProviderError(providerId: string): Error {
+    return new Error(`Unknown ${this.getProviderTypeDescription()}: ${providerId}`);
+  }
+
+  /**
+   * 子类可覆盖：生成“不支持动态模型”错误（用于 i18n 对齐）
+   */
+  protected createDynamicModelUnsupportedError(provider: TProvider): Error {
+    return new Error(`${provider.name} does not support dynamic model fetching`);
+  }
+
+  /**
    * 预加载所有 Provider 的静态模型到缓存
    */
   protected preloadStaticModels(): void {
@@ -73,7 +87,7 @@ export abstract class AbstractAdapterRegistry<
   public getAdapter(providerId: string): TAdapter {
     const adapter = this.adapters.get(providerId.toLowerCase());
     if (!adapter) {
-      throw new Error(`Unknown ${this.getProviderTypeDescription()}: ${providerId}`);
+      throw this.createUnknownProviderError(providerId);
     }
     return adapter;
   }
@@ -138,7 +152,7 @@ export abstract class AbstractAdapterRegistry<
     const provider = this.getProviderFromAdapter(adapter);
 
     if (!provider.supportsDynamicModels) {
-      throw new Error(`${provider.name} does not support dynamic model fetching`);
+      throw this.createDynamicModelUnsupportedError(provider);
     }
 
     try {

@@ -139,7 +139,7 @@ export class ContextRepoImpl implements ContextRepo {
 
       // 基础验证
       if (!doc.currentId || !doc.contexts || typeof doc.contexts !== 'object') {
-        throw new Error('Invalid document structure');
+        throw new ContextError(CONTEXT_ERROR_CODES.INVALID_STORE, 'Invalid document structure');
       }
 
       // 迁移逻辑：为旧文档的上下文补写 mode 字段
@@ -166,15 +166,17 @@ export class ContextRepoImpl implements ContextRepo {
         if (availableIds.length > 0) {
           doc.currentId = availableIds[0];
         } else {
-          throw new Error('No contexts available');
+          throw new ContextError(CONTEXT_ERROR_CODES.INVALID_STORE, 'No contexts available');
         }
       }
 
       return doc;
     } catch (error) {
+      const details = error instanceof Error ? error.message : String(error)
       throw new ContextError(
-        `Failed to parse context store: ${error}`,
-        CONTEXT_ERROR_CODES.STORAGE_ERROR
+        CONTEXT_ERROR_CODES.STORAGE_ERROR,
+        `Failed to parse context store: ${details}`,
+        { details },
       );
     }
   }
@@ -247,11 +249,7 @@ export class ContextRepoImpl implements ContextRepo {
   async setCurrentId(id: string): Promise<void> {
     await this.updateStoreDoc(doc => {
       if (!doc.contexts[id]) {
-        throw new ContextError(
-          `Context with ID ${id} not found`,
-          CONTEXT_ERROR_CODES.NOT_FOUND,
-          id
-        );
+        throw new ContextError(CONTEXT_ERROR_CODES.NOT_FOUND, undefined, { context: id });
       }
       doc.currentId = id;
       return doc;
@@ -263,11 +261,7 @@ export class ContextRepoImpl implements ContextRepo {
     const context = doc.contexts[id];
     
     if (!context) {
-      throw new ContextError(
-        `Context with ID ${id} not found`,
-        CONTEXT_ERROR_CODES.NOT_FOUND,
-        id
-      );
+      throw new ContextError(CONTEXT_ERROR_CODES.NOT_FOUND, undefined, { context: id });
     }
 
     return { ...context };
@@ -330,11 +324,7 @@ export class ContextRepoImpl implements ContextRepo {
     await this.updateStoreDoc(doc => {
       const context = doc.contexts[id];
       if (!context) {
-        throw new ContextError(
-          `Context with ID ${id} not found`,
-          CONTEXT_ERROR_CODES.NOT_FOUND,
-          id
-        );
+        throw new ContextError(CONTEXT_ERROR_CODES.NOT_FOUND, undefined, { context: id });
       }
 
       context.title = title;
@@ -368,11 +358,7 @@ export class ContextRepoImpl implements ContextRepo {
     await this.updateStoreDoc(doc => {
       const context = doc.contexts[id];
       if (!context) {
-        throw new ContextError(
-          `Context with ID ${id} not found`,
-          CONTEXT_ERROR_CODES.NOT_FOUND,
-          id
-        );
+        throw new ContextError(CONTEXT_ERROR_CODES.NOT_FOUND, undefined, { context: id });
       }
 
       // 处理变量更新时的预定义变量剔除
@@ -412,22 +398,14 @@ export class ContextRepoImpl implements ContextRepo {
     await this.updateStoreDoc(doc => {
       // 先检查上下文是否存在
       if (!doc.contexts[id]) {
-        throw new ContextError(
-          `Context with ID ${id} not found`,
-          CONTEXT_ERROR_CODES.NOT_FOUND,
-          id
-        );
+        throw new ContextError(CONTEXT_ERROR_CODES.NOT_FOUND, undefined, { context: id });
       }
 
       const contextIds = Object.keys(doc.contexts);
       
       // 再检查是否为最后一个上下文
       if (contextIds.length <= 1) {
-        throw new ContextError(
-          'Cannot remove the last context',
-          CONTEXT_ERROR_CODES.MINIMUM_VIOLATION,
-          id
-        );
+        throw new ContextError(CONTEXT_ERROR_CODES.MINIMUM_VIOLATION);
       }
 
       // 删除上下文
@@ -460,17 +438,11 @@ export class ContextRepoImpl implements ContextRepo {
   async importAll(bundle: ContextBundle, mode: ImportMode): Promise<ImportResult> {
     // 验证bundle格式
     if (!bundle || bundle.type !== 'context-bundle' || !Array.isArray(bundle.contexts)) {
-      throw new ContextError(
-        'Invalid context bundle format',
-        CONTEXT_ERROR_CODES.IMPORT_FORMAT_ERROR
-      );
+      throw new ContextError(CONTEXT_ERROR_CODES.IMPORT_FORMAT_ERROR, 'Invalid context bundle format');
     }
 
     if (bundle.contexts.length === 0) {
-      throw new ContextError(
-        'Context bundle must contain at least one context',
-        CONTEXT_ERROR_CODES.IMPORT_FORMAT_ERROR
-      );
+      throw new ContextError(CONTEXT_ERROR_CODES.IMPORT_FORMAT_ERROR, 'Context bundle must contain at least one context');
     }
 
     let imported = 0;
@@ -584,10 +556,7 @@ export class ContextRepoImpl implements ContextRepo {
 
       // 确保至少有一个上下文存在
       if (Object.keys(doc.contexts).length === 0) {
-        throw new ContextError(
-          'Import failed: No valid contexts found',
-          CONTEXT_ERROR_CODES.IMPORT_FORMAT_ERROR
-        );
+        throw new ContextError(CONTEXT_ERROR_CODES.IMPORT_FORMAT_ERROR, 'Import failed: No valid contexts found');
       }
 
       // 确保currentId有效
@@ -619,10 +588,7 @@ export class ContextRepoImpl implements ContextRepo {
 
   async importData(data: any): Promise<void> {
     if (!(await this.validateData(data))) {
-      throw new ContextError(
-        'Invalid import data format',
-        CONTEXT_ERROR_CODES.IMPORT_FORMAT_ERROR
-      );
+      throw new ContextError(CONTEXT_ERROR_CODES.IMPORT_FORMAT_ERROR, 'Invalid import data format');
     }
     
     await this.importAll(data as ContextBundle, 'replace');

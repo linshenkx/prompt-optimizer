@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { SiliconFlowImageAdapter } from '../../../src/services/image/adapters/siliconflow'
 import type { ImageRequest, ImageModelConfig } from '../../../src/services/image/types'
+import { IMAGE_ERROR_CODES } from '../../../src/constants/error-codes'
 
 describe('SiliconFlowImageAdapter', () => {
   let adapter: SiliconFlowImageAdapter
@@ -211,7 +212,7 @@ describe('SiliconFlowImageAdapter', () => {
       }
 
       await expect(adapter.generate(request, config))
-        .rejects.toThrow(/Missing required parameter|API key/)
+        .rejects.toMatchObject({ code: IMAGE_ERROR_CODES.API_KEY_REQUIRED })
     })
   })
 

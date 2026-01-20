@@ -1,5 +1,6 @@
 import { Template } from './types';
 import { ALL_TEMPLATES } from './default-templates';
+import { TemplateLoadError, TemplateValidationError } from './errors';
 
 /**
  * 静态模板加载器 - 简化版
@@ -89,7 +90,9 @@ export class StaticLoader {
         // 验证内置模板必须包含language字段
         if (template.isBuiltin && !language) {
           console.error(`❌ 内置模板缺少language字段: ${id}`);
-          throw new Error(`Built-in template '${id}' is missing required 'language' field in metadata`);
+          throw new TemplateValidationError(
+            `Built-in template '${id}' is missing required 'language' field in metadata`,
+          );
         }
         
         // 规范化模板类型（直接使用 metadata.templateType）
@@ -160,7 +163,10 @@ export class StaticLoader {
 
     } catch (error) {
       console.error('❌ 静态导入加载模板失败:', error);
-      throw new Error(`Failed to load static templates: ${error}`);
+      throw new TemplateLoadError(
+        'static-loader',
+        `Failed to load static templates: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 

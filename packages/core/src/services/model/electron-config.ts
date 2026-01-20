@@ -1,5 +1,7 @@
 import { TextModelConfig } from './types';
 import { getAllModels } from './defaults';
+import { ModelError } from './errors';
+import { MODEL_ERROR_CODES } from '../../constants/error-codes';
 
 /**
  * Electron环境下的配置管理器
@@ -24,7 +26,10 @@ export class ElectronConfigManager {
    */
   async syncFromMainProcess(): Promise<void> {
     if (typeof window === 'undefined' || !window.electronAPI) {
-      throw new Error('ElectronConfigManager can only be used in Electron renderer process');
+      throw new ModelError(
+        MODEL_ERROR_CODES.CONFIG_ERROR,
+        'ElectronConfigManager can only be used in Electron renderer process',
+      );
     }
 
     try {

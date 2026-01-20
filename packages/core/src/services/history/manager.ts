@@ -5,7 +5,7 @@ import { RecordNotFoundError, RecordValidationError, HistoryStorageError, Histor
 import { v4 as uuidv4 } from 'uuid';
 import { IModelManager } from '../model/types';
 import { CORE_SERVICE_KEYS } from '../../constants/storage-keys';
-import { HISTORY_ERROR_CODES } from '../../constants/error-codes';
+import { HISTORY_ERROR_CODES, IMPORT_EXPORT_ERROR_CODES } from '../../constants/error-codes';
 import { ImportExportError } from '../../interfaces/import-export';
 
 /**
@@ -388,7 +388,8 @@ export class HistoryManager implements IHistoryManager {
       throw new ImportExportError(
         'Failed to export history data',
         await this.getDataType(),
-        error as Error
+        error as Error,
+        IMPORT_EXPORT_ERROR_CODES.EXPORT_FAILED,
       );
     }
   }
@@ -398,7 +399,10 @@ export class HistoryManager implements IHistoryManager {
    */
   async importData(data: any): Promise<void> {
     if (!(await this.validateData(data))) {
-      throw new Error('Invalid history data format: data must be an array of prompt records');
+      throw new RecordValidationError(
+        'Invalid history data format: data must be an array of prompt records',
+        [],
+      );
     }
 
     const records = data as PromptRecord[];

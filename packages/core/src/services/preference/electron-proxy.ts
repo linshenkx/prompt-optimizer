@@ -1,5 +1,6 @@
 import type { IPreferenceService } from './types';
 import { safeSerializeForIPC } from '../../utils/ipc-serialization';
+import { StorageError } from '../storage/errors';
 
 declare const window: {
   electronAPI: {
@@ -11,7 +12,10 @@ export class ElectronPreferenceServiceProxy implements IPreferenceService {
   private ensureApiAvailable() {
     const windowAny = window as any;
     if (!windowAny?.electronAPI?.preference) {
-      throw new Error('Electron API not available. Please ensure preload script is loaded and window.electronAPI.preference is accessible.');
+      throw new StorageError(
+        'Electron API not available. Please ensure preload script is loaded and window.electronAPI.preference is accessible.',
+        'read',
+      );
     }
   }
 

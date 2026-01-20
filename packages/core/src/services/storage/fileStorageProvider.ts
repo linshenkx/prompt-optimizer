@@ -275,7 +275,7 @@ export class FileStorageProvider implements IStorageProvider {
       
       // 2. 验证文件格式
       if (!this.validateJSON(data)) {
-        throw new Error('Invalid JSON format');
+        throw new StorageError('Invalid JSON format', 'write');
       }
       
       // 3. 原子性重命名
@@ -351,7 +351,7 @@ export class FileStorageProvider implements IStorageProvider {
       console.error('[FileStorage] Max flush attempts reached, forcing isDirty to false');
       this.isDirty = false;
       this.flushAttempts = 0;
-      throw new Error('Max flush attempts exceeded');
+      throw new StorageError('Max flush attempts exceeded', 'write');
     }
 
     this.flushAttempts++;
@@ -366,7 +366,7 @@ export class FileStorageProvider implements IStorageProvider {
           console.log('[FileStorage] Data saved successfully');
         }),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Flush timeout')), this.MAX_FLUSH_TIME)
+          setTimeout(() => reject(new StorageError('Flush timeout', 'write')), this.MAX_FLUSH_TIME)
         )
       ]);
     } catch (error) {
@@ -374,7 +374,7 @@ export class FileStorageProvider implements IStorageProvider {
 
       // 如果达到最大重试次数或者是超时错误，强制重置状态
       if (this.flushAttempts >= this.MAX_FLUSH_ATTEMPTS ||
-          (error instanceof Error && error.message === 'Flush timeout')) {
+          (error instanceof StorageError && error.operation === 'write' && error.params?.details === 'Flush timeout')) {
         console.warn('[FileStorage] Forcing isDirty to false to prevent infinite loop');
         this.isDirty = false;
         this.flushAttempts = 0;

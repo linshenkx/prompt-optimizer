@@ -1,11 +1,12 @@
 import { ITemplateManager, Template, TemplateType } from './types';
 import { IStorageProvider } from '../storage/types';
 import { StaticLoader } from './static-loader';
-import { TemplateError, TemplateValidationError } from './errors';
+import { TemplateError, TemplateValidationError, TemplateStorageError } from './errors';
 import { templateSchema } from './types';
 import { BuiltinTemplateLanguage, ITemplateLanguageService } from './languageService';
 import { CORE_SERVICE_KEYS } from '../../constants/storage-keys';
 import { ImportExportError } from '../../interfaces/import-export';
+import { IMPORT_EXPORT_ERROR_CODES, TEMPLATE_ERROR_CODES } from '../../constants/error-codes';
 
 
 
@@ -28,9 +29,7 @@ export class TemplateManager implements ITemplateManager {
       const errorDetails = result.error.issues.map(issue => 
         `${issue.path.join('.')}: ${issue.message}`
       ).join(', ');
-      throw new TemplateValidationError(
-        'Template validation failed: ' + errorDetails
-      );
+      throw new TemplateValidationError('Template validation failed: ' + errorDetails);
     }
   }
 
@@ -40,7 +39,7 @@ export class TemplateManager implements ITemplateManager {
    */
   private validateTemplateId(id: string | null | undefined): void {
     if (!id) {
-      throw new TemplateError('Invalid template ID');
+      throw new TemplateValidationError('Invalid template ID');
     }
     
     // Minimum 3 characters, only letters, numbers, and hyphens
@@ -72,7 +71,7 @@ export class TemplateManager implements ITemplateManager {
       return userTemplate;
     }
     
-    throw new TemplateError(`Template ${id} not found`);
+    throw new TemplateError(TEMPLATE_ERROR_CODES.NOT_FOUND, undefined, { context: id! });
   }
 
   /**
@@ -85,13 +84,13 @@ export class TemplateManager implements ITemplateManager {
 
     // Don't allow saving built-in templates
     if (template.isBuiltin) {
-      throw new TemplateError('Cannot save built-in template');
+      throw new TemplateValidationError('Cannot save built-in template');
     }
 
     // Check if template ID conflicts with built-in templates
     const builtinTemplates = await this.getBuiltinTemplates();
     if (builtinTemplates[template.id]) {
-      throw new TemplateError(`Cannot overwrite built-in template: ${template.id}`);
+      throw new TemplateValidationError(`Cannot overwrite built-in template: ${template.id}`);
     }
 
     // Set template as non-built-in
@@ -125,7 +124,7 @@ export class TemplateManager implements ITemplateManager {
     // Check if template is built-in
     const builtinTemplates = await this.getBuiltinTemplates();
     if (builtinTemplates[id]) {
-      throw new TemplateError(`Cannot delete built-in template: ${id}`);
+      throw new TemplateValidationError(`Cannot delete built-in template: ${id}`);
     }
     
     // Get current user templates
@@ -198,7 +197,9 @@ export class TemplateManager implements ITemplateManager {
       if (error instanceof TemplateError || error instanceof TemplateValidationError) {
         throw error;
       }
-      throw new TemplateError(`Failed to import template: ${error instanceof Error ? error.message : String(error)}`);
+      throw new TemplateStorageError(
+        `Failed to import template: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -237,7 +238,9 @@ export class TemplateManager implements ITemplateManager {
         isBuiltin: false
       }));
     } catch (error) {
-      throw new TemplateError(`Failed to load user templates: ${error instanceof Error ? error.message : String(error)}`);
+      throw new TemplateStorageError(
+        `Failed to load user templates: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -251,7 +254,9 @@ export class TemplateManager implements ITemplateManager {
         JSON.stringify(templates)
       );
     } catch (error) {
-      throw new TemplateError(`Failed to save user templates: ${error instanceof Error ? error.message : String(error)}`);
+      throw new TemplateStorageError(
+        `Failed to save user templates: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -321,7 +326,8 @@ export class TemplateManager implements ITemplateManager {
       throw new ImportExportError(
         'Failed to export template data',
         await this.getDataType(),
-        error as Error
+        error as Error,
+        IMPORT_EXPORT_ERROR_CODES.EXPORT_FAILED,
       );
     }
   }
@@ -332,7 +338,12 @@ export class TemplateManager implements ITemplateManager {
   async importData(data: any): Promise<void> {
     // 基本格式验证：必须是数组
     if (!Array.isArray(data)) {
-      throw new Error('Invalid template data format: data must be an array of template objects');
+      throw new ImportExportError(
+        'Invalid template data format: data must be an array of template objects',
+        await this.getDataType(),
+        undefined,
+        IMPORT_EXPORT_ERROR_CODES.VALIDATION_ERROR,
+      );
     }
 
     const templates = data as Template[];

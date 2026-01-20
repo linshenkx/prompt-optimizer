@@ -18,8 +18,11 @@ import {
   VariableExtractionValidationError,
   VariableExtractionModelError,
   VariableExtractionParseError,
+  VariableExtractionExecutionError,
+  VariableExtractionError,
 } from './errors';
 import { jsonrepair } from 'jsonrepair';
+import { toErrorWithCode } from '../../utils/error';
 
 /**
  * 变量提取服务实现类
@@ -58,9 +61,10 @@ export class VariableExtractionService implements IVariableExtractionService {
       const parsed = this.parseExtractionResult(result);
       return this.filterResponse(parsed, request.existingVariableNames);
     } catch (error) {
-      throw new VariableExtractionParseError(
-        error instanceof Error ? error.message : String(error)
-      );
+      if (error instanceof VariableExtractionError) {
+        throw error
+      }
+      throw new VariableExtractionExecutionError(error instanceof Error ? error.message : String(error))
     }
   }
 
@@ -119,13 +123,20 @@ export class VariableExtractionService implements IVariableExtractionService {
     try {
       const template = await this.templateManager.getTemplate(templateId);
       if (!template?.content) {
-        throw new VariableExtractionParseError(`Template "${templateId}" not found or empty.`);
+        throw new VariableExtractionExecutionError(`Template "${templateId}" not found or empty.`);
       }
       return template;
     } catch (error) {
-      throw new VariableExtractionParseError(
-        `Failed to get template "${templateId}": ${error instanceof Error ? error.message : String(error)}`
-      );
+      if (error instanceof VariableExtractionError) {
+        throw error
+      }
+      // Preserve structured template errors if possible (code/params).
+      if (typeof (error as any)?.code === 'string') {
+        throw toErrorWithCode(error)
+      }
+      throw new VariableExtractionExecutionError(
+        `Failed to get template "${templateId}": ${error instanceof Error ? error.message : String(error)}`,
+      )
     }
   }
 

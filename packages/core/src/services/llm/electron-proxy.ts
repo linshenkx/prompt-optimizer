@@ -1,5 +1,6 @@
 import { ILLMService, Message, StreamHandlers, LLMResponse, ModelOption, ToolDefinition } from './types';
 import { safeSerializeForIPC } from '../../utils/ipc-serialization';
+import { InitializationError } from './errors';
 
 /**
  * Electron环境下的LLM服务代理
@@ -11,7 +12,7 @@ export class ElectronLLMProxy implements ILLMService {
   constructor() {
     // 验证Electron环境
     if (typeof window === 'undefined' || !window.electronAPI) {
-      throw new Error('ElectronLLMProxy can only be used in Electron renderer process');
+      throw new InitializationError('ElectronLLMProxy can only be used in Electron renderer process');
     }
     this.electronAPI = window.electronAPI;
   }

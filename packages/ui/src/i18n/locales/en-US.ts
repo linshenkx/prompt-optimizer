@@ -2281,6 +2281,7 @@ export default {
       write: "Storage write error: {details}",
       delete: "Storage delete error: {details}",
       clear: "Storage clear error: {details}",
+      config: "Storage configuration error: {details}",
     },
     model: {
       validation: "Model validation error: {details}",
@@ -2288,6 +2289,7 @@ export default {
     },
     template: {
       load: "Template load error: {details}",
+      not_found: "Template not found: {context}",
       validation: "Template validation error: {details}",
       cache: "Template cache error: {details}",
       storage: "Template storage error: {details}",
@@ -2315,7 +2317,19 @@ export default {
       config_id_empty: "Image model config ID cannot be empty",
       config_not_found: "Image model config not found: {configId}",
       config_not_enabled: "Image model config is not enabled: {configName}",
+      config_already_exists: "Image model config already exists: {configId}",
+      config_does_not_exist: "Image model config does not exist: {configId}",
+      config_invalid: "Invalid image model config: {details}",
+      api_key_required: "API key is required for {providerName}",
+      model_id_required: "Model ID is required",
+      config_provider_mismatch: "Image config provider mismatch: config={configProviderId}, adapter={adapterProviderId}",
+      connection_config_missing_field: "Missing required connection field: {field}",
+      connection_config_invalid_field_type: "Connection field {field} must be {expectedType}, got {actualType}",
       provider_not_found: "Image provider not found: {providerId}",
+      dynamic_models_not_supported: "{providerName} does not support dynamic model fetching",
+      unsupported_test_type: "Unsupported test type: {testType}",
+      invalid_response_format: "Invalid API response format",
+      base64_decoding_not_supported: "Base64 decoding is not supported in this environment",
       only_single_image_supported: "Only single image generation is supported",
       text2image_input_image_not_allowed: "Input image is not allowed for text-to-image",
       image2image_input_image_required: "Input image is required for image-to-image",
@@ -2328,6 +2342,48 @@ export default {
       model_not_support_image2image: "Model does not support image-to-image: {modelName}",
       model_only_supports_image2image_need_input: "Model only supports image-to-image. Please provide an input image: {modelName}",
       generation_failed: "Image generation failed: {details}",
+    },
+
+    context: {
+      not_found: "Context not found: {context}",
+      minimum_violation: "Cannot remove the last context",
+      invalid_id: "Invalid context ID: {context}",
+      import_format: "Invalid context import format: {details}",
+      invalid_store: "Invalid context store: {details}",
+      storage: "Context storage error: {details}",
+      electron_api_unavailable: "Context service is not available in this environment",
+    },
+
+    variable_extraction: {
+      validation: "Variable extraction validation error: {details}",
+      model_not_found: "Variable extraction model not found: {context}",
+      parse: "Variable extraction parse error: {details}",
+      execution: "Variable extraction execution error: {details}",
+    },
+
+    variable_value_generation: {
+      validation: "Variable value generation validation error: {details}",
+      model_not_found: "Variable value generation model not found: {context}",
+      parse: "Variable value generation parse error: {details}",
+      execution: "Variable value generation execution error: {details}",
+    },
+
+    import_export: {
+      export_failed: "Export failed: {details}",
+      import_failed: "Import failed: {details}",
+      validation: "Import/export validation error: {details}",
+    },
+
+    data: {
+      invalid_json: "Invalid JSON: {details}",
+      invalid_format: "Invalid data format: {details}",
+      import_partial_failed: "Import completed with {count} errors: {details}",
+      export_failed: "Data export failed: {details}",
+      electron_api_unavailable: "Data service is not available in this environment",
+    },
+
+    core: {
+      ipc_serialization_failed: "IPC serialization failed: {details}",
     },
   },
 };

@@ -5,7 +5,7 @@
  * 遵循项目现有的三层架构模式：Renderer代理 → Preload桥接 → 主进程IPC处理
  */
 
-import type { ContextRepo, ContextPackage, ContextBundle, ImportMode, ContextListItem, ImportResult, ContextMode } from './types';
+import { ContextError, CONTEXT_ERROR_CODES, type ContextRepo, type ContextPackage, type ContextBundle, type ImportMode, type ContextListItem, type ImportResult, type ContextMode } from './types';
 import { safeSerializeForIPC } from '../../utils/ipc-serialization';
 
 // 为window.electronAPI提供完整的类型定义，以确保类型安全
@@ -39,7 +39,7 @@ declare const window: {
 export class ElectronContextRepoProxy implements ContextRepo {
   private get api() {
     if (!window.electronAPI?.context) {
-      throw new Error('Electron API for ContextRepo not available');
+      throw new ContextError(CONTEXT_ERROR_CODES.ELECTRON_API_UNAVAILABLE);
     }
     return window.electronAPI.context;
   }
@@ -102,7 +102,7 @@ export class ElectronContextRepoProxy implements ContextRepo {
 
   async importData(data: any): Promise<void> {
     if (!(await this.validateData(data))) {
-      throw new Error('Invalid context bundle data');
+      throw new ContextError(CONTEXT_ERROR_CODES.IMPORT_FORMAT_ERROR, 'Invalid context bundle data');
     }
     await this.importAll(data as ContextBundle, 'replace');
   }

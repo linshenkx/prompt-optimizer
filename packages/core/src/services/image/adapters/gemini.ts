@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai'
 import { AbstractImageProviderAdapter } from './abstract-adapter'
+import { ImageError } from '../errors'
 import type {
   ImageProvider,
   ImageModel,
@@ -7,6 +8,7 @@ import type {
   ImageResult,
   ImageModelConfig
 } from '../types'
+import { IMAGE_ERROR_CODES } from '../../../constants/error-codes'
 
 export class GeminiImageAdapter extends AbstractImageProviderAdapter {
   getProvider(): ImageProvider {
@@ -83,7 +85,7 @@ export class GeminiImageAdapter extends AbstractImageProviderAdapter {
       }
     }
 
-    throw new Error(`Unsupported test type: ${testType}`)
+    throw new ImageError(IMAGE_ERROR_CODES.UNSUPPORTED_TEST_TYPE, undefined, { testType })
   }
 
   protected getParameterDefinitions(_modelId: string): readonly any[] {
@@ -138,7 +140,7 @@ export class GeminiImageAdapter extends AbstractImageProviderAdapter {
       // 解析响应
       const candidate = response.candidates?.[0]
       if (!candidate) {
-        throw new Error('No response candidate received from Gemini')
+        throw new ImageError(IMAGE_ERROR_CODES.INVALID_RESPONSE_FORMAT)
       }
 
       const parts = candidate.content?.parts || []
@@ -165,7 +167,7 @@ export class GeminiImageAdapter extends AbstractImageProviderAdapter {
       }
 
       if (resultImages.length === 0) {
-        throw new Error('No image data received from Gemini')
+        throw new ImageError(IMAGE_ERROR_CODES.INVALID_RESPONSE_FORMAT)
       }
 
       return {
@@ -180,11 +182,12 @@ export class GeminiImageAdapter extends AbstractImageProviderAdapter {
         }
       }
     } catch (error) {
-      // 直接穿透错误，保持与其他适配器一致的错误处理
-      if (error instanceof Error) {
-        throw new Error(`Gemini API error: ${error.message}`)
+      if (error instanceof ImageError) {
+        throw error
       }
-      throw new Error(`Gemini API error: ${String(error)}`)
+
+      const details = error instanceof Error ? error.message : String(error)
+      throw new ImageError(IMAGE_ERROR_CODES.GENERATION_FAILED, `Gemini API error: ${details}`)
     }
   }
 }

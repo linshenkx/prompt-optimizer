@@ -1,4 +1,5 @@
 import { AbstractImageProviderAdapter } from './abstract-adapter'
+import { ImageError } from '../errors'
 import type {
   ImageProvider,
   ImageModel,
@@ -7,6 +8,7 @@ import type {
   ImageModelConfig,
   ImageParameterDefinition
 } from '../types'
+import { IMAGE_ERROR_CODES } from '../../../constants/error-codes'
 
 export class OpenRouterImageAdapter extends AbstractImageProviderAdapter {
   protected normalizeBaseUrl(base: string): string {
@@ -141,7 +143,7 @@ export class OpenRouterImageAdapter extends AbstractImageProviderAdapter {
       }
     }
 
-    throw new Error(`Unsupported test type: ${testType}`)
+    throw new ImageError(IMAGE_ERROR_CODES.UNSUPPORTED_TEST_TYPE, undefined, { testType })
   }
 
   protected getParameterDefinitions(_modelId: string): readonly ImageParameterDefinition[] {
@@ -193,7 +195,7 @@ export class OpenRouterImageAdapter extends AbstractImageProviderAdapter {
     // 解析响应
     const choice = response.choices?.[0]
     if (!choice) {
-      throw new Error('No response choice received from OpenRouter')
+      throw new ImageError(IMAGE_ERROR_CODES.INVALID_RESPONSE_FORMAT)
     }
 
     const message = choice.message
@@ -203,7 +205,7 @@ export class OpenRouterImageAdapter extends AbstractImageProviderAdapter {
     const resultImages = images.map((img: any) => {
       const dataUrl = img.image_url?.url
       if (!dataUrl || !dataUrl.startsWith('data:')) {
-        throw new Error('Invalid image URL format received from OpenRouter')
+        throw new ImageError(IMAGE_ERROR_CODES.INVALID_RESPONSE_FORMAT)
       }
 
       // 解析 data URL: data:image/png;base64,iVBORw0KGgo...
@@ -238,7 +240,10 @@ export class OpenRouterImageAdapter extends AbstractImageProviderAdapter {
     if (!response.ok) {
       // 直接穿透错误，不做特殊处理
       const errorText = await response.text()
-      throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}${errorText ? ': ' + errorText : ''}`)
+      throw new ImageError(
+        IMAGE_ERROR_CODES.GENERATION_FAILED,
+        `OpenRouter API error: ${response.status} ${response.statusText}${errorText ? ': ' + errorText : ''}`
+      )
     }
 
     return await response.json()

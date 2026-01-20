@@ -8,6 +8,8 @@ import type {
   Text2ImageRequest,
   Image2ImageRequest
 } from './types'
+import { BaseError } from '../llm/errors'
+import { IMAGE_ERROR_CODES } from '../../constants/error-codes'
 
 type ElectronAPI = {
   image: {
@@ -41,9 +43,7 @@ export class ElectronImageServiceProxy implements IImageService {
 
   constructor() {
     if (typeof window === 'undefined' || !window.electronAPI) {
-      throw new Error(
-        'ElectronImageServiceProxy can only be used in Electron renderer process'
-      )
+      throw new BaseError(IMAGE_ERROR_CODES.GENERATION_FAILED, 'ElectronImageServiceProxy can only be used in Electron renderer process')
     }
     this.electronAPI = (window as unknown as { electronAPI: ElectronAPI }).electronAPI
   }
@@ -94,9 +94,7 @@ export class ElectronImageModelManagerProxy implements IImageModelManager {
 
   constructor() {
     if (typeof window === 'undefined' || !window.electronAPI) {
-      throw new Error(
-        'ElectronImageModelManagerProxy can only be used in Electron renderer process'
-      )
+      throw new BaseError(IMAGE_ERROR_CODES.CONFIG_INVALID, 'ElectronImageModelManagerProxy can only be used in Electron renderer process')
     }
     this.electronAPI = (window as unknown as { electronAPI: ElectronAPI }).electronAPI
   }

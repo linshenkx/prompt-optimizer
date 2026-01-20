@@ -1,4 +1,5 @@
 import { AbstractImageProviderAdapter } from './abstract-adapter'
+import { ImageError } from '../errors'
 import type {
   ImageProvider,
   ImageModel,
@@ -6,6 +7,7 @@ import type {
   ImageResult,
   ImageModelConfig
 } from '../types'
+import { IMAGE_ERROR_CODES } from '../../../constants/error-codes'
 
 export class SeedreamImageAdapter extends AbstractImageProviderAdapter {
   protected normalizeBaseUrl(base: string): string {
@@ -164,7 +166,7 @@ export class SeedreamImageAdapter extends AbstractImageProviderAdapter {
       }
     }
 
-    throw new Error(`Unsupported test type: ${testType}`)
+    throw new ImageError(IMAGE_ERROR_CODES.UNSUPPORTED_TEST_TYPE, undefined, { testType })
   }
 
   protected async doGenerate(request: ImageRequest, config: ImageModelConfig): Promise<ImageResult> {
@@ -207,7 +209,7 @@ export class SeedreamImageAdapter extends AbstractImageProviderAdapter {
     })) || []
 
     if (images.length === 0) {
-      throw new Error('No image data returned')
+      throw new ImageError(IMAGE_ERROR_CODES.INVALID_RESPONSE_FORMAT)
     }
 
       return {
@@ -232,7 +234,7 @@ export class SeedreamImageAdapter extends AbstractImageProviderAdapter {
       } catch {
         errorMessage = response.statusText
       }
-      throw new Error(`Seedream API error: ${response.status} ${errorMessage}`)
+      throw new ImageError(IMAGE_ERROR_CODES.GENERATION_FAILED, `Seedream API error: ${response.status} ${errorMessage}`)
     }
     return await response.json()
   }

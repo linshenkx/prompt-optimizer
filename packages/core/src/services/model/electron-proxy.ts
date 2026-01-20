@@ -1,5 +1,7 @@
 import { IModelManager, TextModelConfig } from './types';
 import { safeSerializeForIPC } from '../../utils/ipc-serialization';
+import { ModelError } from './errors';
+import { MODEL_ERROR_CODES } from '../../constants/error-codes';
 
 /**
  * Electron环境下的ModelManager代理
@@ -11,7 +13,10 @@ export class ElectronModelManagerProxy implements IModelManager {
   constructor() {
     // 验证Electron环境
     if (typeof window === 'undefined' || !(window as any).electronAPI) {
-      throw new Error('ElectronModelManagerProxy can only be used in Electron renderer process');
+      throw new ModelError(
+        MODEL_ERROR_CODES.CONFIG_ERROR,
+        'ElectronModelManagerProxy can only be used in Electron renderer process',
+      );
     }
     this.electronAPI = (window as any).electronAPI;
   }

@@ -2,45 +2,62 @@
  * 收藏服务相关错误类型
  */
 
+import { FAVORITE_ERROR_CODES, type ErrorParams } from '../../constants/error-codes'
+
 export class FavoriteError extends Error {
-  constructor(message: string, public code?: string) {
-    super(message);
-    this.name = 'FavoriteError';
+  public readonly code: string
+  public readonly params?: ErrorParams
+
+  constructor(code: string, message?: string, params?: ErrorParams) {
+    super(message ? `[${code}] ${message}` : `[${code}]`)
+    this.name = 'FavoriteError'
+    this.code = code
+    this.params = params ?? (message ? { details: message } : undefined)
   }
 }
 
 export class FavoriteNotFoundError extends FavoriteError {
   constructor(id: string) {
-    super(`Favorite not found: ${id}`, 'FAVORITE_NOT_FOUND');
-    this.name = 'FavoriteNotFoundError';
+    super(FAVORITE_ERROR_CODES.NOT_FOUND, undefined, { context: id })
+    this.name = 'FavoriteNotFoundError'
   }
 }
 
 export class FavoriteAlreadyExistsError extends FavoriteError {
-  constructor(content: string) {
-    super(`Favorite already exists: ${content.slice(0, 50)}...`, 'FAVORITE_ALREADY_EXISTS');
-    this.name = 'FavoriteAlreadyExistsError';
+  constructor(content?: string) {
+    const raw = typeof content === 'string' ? content : ''
+    const trimmed = raw.trim()
+    const maxLen = 200
+    const preview =
+      trimmed.length > maxLen ? `${trimmed.slice(0, maxLen)}…` : trimmed
+
+    super(
+      FAVORITE_ERROR_CODES.ALREADY_EXISTS,
+      undefined,
+      preview ? { preview, length: trimmed.length } : undefined,
+    )
+    this.name = 'FavoriteAlreadyExistsError'
   }
 }
 
 export class FavoriteCategoryNotFoundError extends FavoriteError {
   constructor(id: string) {
-    super(`Category not found: ${id}`, 'CATEGORY_NOT_FOUND');
-    this.name = 'FavoriteCategoryNotFoundError';
+    super(FAVORITE_ERROR_CODES.CATEGORY_NOT_FOUND, undefined, { context: id })
+    this.name = 'FavoriteCategoryNotFoundError'
   }
 }
 
 export class FavoriteValidationError extends FavoriteError {
-  constructor(message: string) {
-    super(`Validation error: ${message}`, 'VALIDATION_ERROR');
-    this.name = 'FavoriteValidationError';
+  constructor(details: string) {
+    super(FAVORITE_ERROR_CODES.VALIDATION_ERROR, details, { details })
+    this.name = 'FavoriteValidationError'
   }
 }
 
 export class FavoriteStorageError extends FavoriteError {
-  constructor(message: string, public cause?: Error) {
-    super(`Storage error: ${message}`, 'STORAGE_ERROR');
-    this.name = 'FavoriteStorageError';
+  constructor(details: string, public cause?: Error) {
+    super(FAVORITE_ERROR_CODES.STORAGE_ERROR, details, { details })
+    this.name = 'FavoriteStorageError'
   }
 }
 
@@ -48,9 +65,9 @@ export class FavoriteStorageError extends FavoriteError {
  * 标签相关错误
  */
 export class FavoriteTagError extends FavoriteError {
-  constructor(message: string, code: string = 'TAG_ERROR') {
-    super(message, code);
-    this.name = 'FavoriteTagError';
+  constructor(code: string, details?: string, params?: ErrorParams) {
+    super(code, details, params ?? (details ? { details } : undefined))
+    this.name = 'FavoriteTagError'
   }
 }
 
@@ -59,8 +76,8 @@ export class FavoriteTagError extends FavoriteError {
  */
 export class FavoriteTagAlreadyExistsError extends FavoriteTagError {
   constructor(tag: string) {
-    super(`Tag already exists: ${tag}`, 'TAG_ALREADY_EXISTS');
-    this.name = 'FavoriteTagAlreadyExistsError';
+    super(FAVORITE_ERROR_CODES.TAG_ALREADY_EXISTS, undefined, { context: tag })
+    this.name = 'FavoriteTagAlreadyExistsError'
   }
 }
 
@@ -69,8 +86,8 @@ export class FavoriteTagAlreadyExistsError extends FavoriteTagError {
  */
 export class FavoriteTagNotFoundError extends FavoriteTagError {
   constructor(tag: string) {
-    super(`Tag not found: ${tag}`, 'TAG_NOT_FOUND');
-    this.name = 'FavoriteTagNotFoundError';
+    super(FAVORITE_ERROR_CODES.TAG_NOT_FOUND, undefined, { context: tag })
+    this.name = 'FavoriteTagNotFoundError'
   }
 }
 
@@ -79,8 +96,8 @@ export class FavoriteTagNotFoundError extends FavoriteTagError {
  */
 export class FavoriteMigrationError extends FavoriteError {
   constructor(message: string, public cause?: Error) {
-    super(`Migration error: ${message}`, 'MIGRATION_ERROR');
-    this.name = 'FavoriteMigrationError';
+    super(FAVORITE_ERROR_CODES.MIGRATION_ERROR, message, { details: message })
+    this.name = 'FavoriteMigrationError'
   }
 }
 
@@ -89,7 +106,7 @@ export class FavoriteMigrationError extends FavoriteError {
  */
 export class FavoriteImportExportError extends FavoriteError {
   constructor(message: string, public cause?: Error, public details?: string[]) {
-    super(message, 'IMPORT_EXPORT_ERROR');
-    this.name = 'FavoriteImportExportError';
+    super(FAVORITE_ERROR_CODES.IMPORT_EXPORT_ERROR, message, { details: message })
+    this.name = 'FavoriteImportExportError'
   }
 }

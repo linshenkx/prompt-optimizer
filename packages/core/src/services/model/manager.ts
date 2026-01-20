@@ -7,6 +7,7 @@ import { validateOverrides } from './parameter-utils';
 import { ElectronConfigManager, isElectronRenderer } from './electron-config';
 import { CORE_SERVICE_KEYS } from '../../constants/storage-keys';
 import { ImportExportError } from '../../interfaces/import-export';
+import { IMPORT_EXPORT_ERROR_CODES } from '../../constants/error-codes';
 import {
   convertLegacyToTextModelConfig,
   convertLegacyToTextModelConfigWithRegistry,
@@ -636,7 +637,8 @@ export class ModelManager implements IModelManager {
       throw new ImportExportError(
         'Failed to export model data',
         await this.getDataType(),
-        error as Error
+        error as Error,
+        IMPORT_EXPORT_ERROR_CODES.EXPORT_FAILED,
       );
     }
   }
@@ -647,7 +649,12 @@ export class ModelManager implements IModelManager {
   async importData(data: any): Promise<void> {
     // 基本格式验证：必须是数组
     if (!Array.isArray(data)) {
-      throw new Error('Invalid model data format: data must be an array of model configurations');
+      throw new ImportExportError(
+        'Invalid model data format: data must be an array of model configurations',
+        await this.getDataType(),
+        undefined,
+        IMPORT_EXPORT_ERROR_CODES.VALIDATION_ERROR,
+      );
     }
 
     const models = data as Array<TextModelConfig | (ModelConfig & { key: string })>;

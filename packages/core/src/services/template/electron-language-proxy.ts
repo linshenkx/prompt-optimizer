@@ -1,4 +1,5 @@
 import type { BuiltinTemplateLanguage, ITemplateLanguageService } from './languageService';
+import { TemplateStorageError } from './errors';
 
 /**
  * Electron环境下的TemplateLanguageService代理
@@ -10,7 +11,7 @@ export class ElectronTemplateLanguageServiceProxy implements ITemplateLanguageSe
   constructor() {
     const windowAny = window as any;
     if (!windowAny?.electronAPI?.template) {
-      throw new Error('Electron API not available. Please ensure preload script is loaded.');
+      throw new TemplateStorageError('Electron API not available. Please ensure preload script is loaded.');
     }
     this.electronAPI = windowAny.electronAPI;
   }

@@ -1,6 +1,8 @@
 import type { ModelConfig, TextModelConfig, TextProvider, TextModel } from './types';
 import type { ITextAdapterRegistry } from '../llm/types';
 import { splitOverridesBySchema } from './parameter-utils';
+import { ModelError } from './errors';
+import { MODEL_ERROR_CODES } from '../../constants/error-codes';
 
 /**
  * 将传统 ModelConfig 转换为 TextModelConfig（使用 Registry 获取元数据）
@@ -102,7 +104,8 @@ export async function convertLegacyToTextModelConfigWithRegistry(
       };
     } catch (fallbackError) {
       console.error(`[Converter] Fallback to OpenAI also failed for ${key}:`, fallbackError);
-      throw new Error(`Failed to convert config ${key}: ${error}`);
+      const details = error instanceof Error ? error.message : String(error)
+      throw new ModelError(MODEL_ERROR_CODES.CONFIG_ERROR, `Failed to convert config ${key}: ${details}`);
     }
   }
 }

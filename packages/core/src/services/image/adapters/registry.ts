@@ -5,6 +5,8 @@ import {
   ImageModel
 } from '../types'
 import { AbstractAdapterRegistry } from '../../adapters/abstract-registry'
+import { ImageError } from '../errors'
+import { IMAGE_ERROR_CODES } from '../../../constants/error-codes'
 import { GeminiImageAdapter } from './gemini'
 import { SeedreamImageAdapter } from './seedream'
 import { OpenAIImageAdapter } from './openai'
@@ -26,6 +28,14 @@ export class ImageAdapterRegistry
   >
   implements IImageAdapterRegistry
 {
+  protected createUnknownProviderError(providerId: string): Error {
+    return new ImageError(IMAGE_ERROR_CODES.PROVIDER_NOT_FOUND, undefined, { providerId })
+  }
+
+  protected createDynamicModelUnsupportedError(provider: ImageProvider): Error {
+    return new ImageError(IMAGE_ERROR_CODES.DYNAMIC_MODELS_NOT_SUPPORTED, undefined, { providerName: provider.name })
+  }
+
   /**
    * 初始化并注册所有适配器
    */

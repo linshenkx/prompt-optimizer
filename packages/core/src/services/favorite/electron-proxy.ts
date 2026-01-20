@@ -12,6 +12,8 @@ import {
   FavoriteMigrationError,
   FavoriteImportExportError
 } from './errors';
+import { FAVORITE_ERROR_CODES } from '../../constants/error-codes'
+import { toErrorWithCode } from '../../utils/error'
 
 declare const window: {
   electronAPI: {
@@ -28,7 +30,9 @@ export class FavoriteManagerElectronProxy implements IFavoriteManager {
   private ensureApiAvailable() {
     const windowAny = window as any;
     if (!windowAny?.electronAPI?.favoriteManager) {
-      throw new Error('Electron API not available. Please ensure preload script is loaded and window.electronAPI.favoriteManager is accessible.');
+      throw new FavoriteStorageError(
+        'Electron API not available. Please ensure preload script is loaded and window.electronAPI.favoriteManager is accessible.',
+      );
     }
   }
 
@@ -37,6 +41,11 @@ export class FavoriteManagerElectronProxy implements IFavoriteManager {
     try {
       return await (window.electronAPI.favoriteManager as any)[method](...args);
     } catch (error: any) {
+      // New i18n-style structured errors: pass through as-is so UI can translate via `code + params`.
+      if (typeof error?.code === 'string' && error.code.startsWith('error.')) {
+        throw toErrorWithCode(error)
+      }
+
       // 将IPC错误转换为具体的错误类型
       if (error.code === 'FAVORITE_NOT_FOUND') {
         throw new FavoriteNotFoundError(error.id || '');
@@ -53,6 +62,10 @@ export class FavoriteManagerElectronProxy implements IFavoriteManager {
       if (error.code === 'STORAGE_ERROR') {
         throw new FavoriteStorageError(error.message || '');
       }
+      // Legacy: category already exists
+      if (error.code === 'CATEGORY_ALREADY_EXISTS') {
+        throw new FavoriteValidationError(error.message || 'Category already exists')
+      }
       // 标签相关错误
       if (error.code === 'TAG_ALREADY_EXISTS') {
         throw new FavoriteTagAlreadyExistsError(error.tag || '');
@@ -61,7 +74,7 @@ export class FavoriteManagerElectronProxy implements IFavoriteManager {
         throw new FavoriteTagNotFoundError(error.tag || '');
       }
       if (error.code === 'TAG_ERROR') {
-        throw new FavoriteTagError(error.message || '', error.code);
+        throw new FavoriteTagError(FAVORITE_ERROR_CODES.TAG_ERROR, error.message || '', { details: error.message || '' });
       }
       // 数据迁移和导入导出错误
       if (error.code === 'MIGRATION_ERROR') {
@@ -70,7 +83,10 @@ export class FavoriteManagerElectronProxy implements IFavoriteManager {
       if (error.code === 'IMPORT_EXPORT_ERROR') {
         throw new FavoriteImportExportError(error.message || '', error.cause, error.details);
       }
-      throw new FavoriteError(error.message || 'Unknown error');
+      // Fallback: preserve message as details for i18n-friendly error
+      throw new FavoriteError(FAVORITE_ERROR_CODES.STORAGE_ERROR, error.message || 'Unknown error', {
+        details: error.message || 'Unknown error',
+      });
     }
   }
 

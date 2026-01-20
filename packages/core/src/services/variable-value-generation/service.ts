@@ -20,8 +20,10 @@ import {
   VariableValueGenerationValidationError,
   VariableValueGenerationModelError,
   VariableValueGenerationParseError,
+  VariableValueGenerationExecutionError,
 } from './errors';
 import { jsonrepair } from 'jsonrepair';
+import { toErrorWithCode } from '../../utils/error';
 
 /**
  * 变量值生成服务实现类
@@ -63,9 +65,7 @@ export class VariableValueGenerationService implements IVariableValueGenerationS
       if (error instanceof VariableValueGenerationError) {
         throw error;
       }
-      throw new VariableValueGenerationParseError(
-        error instanceof Error ? error.message : String(error)
-      );
+      throw new VariableValueGenerationExecutionError(error instanceof Error ? error.message : String(error))
     }
   }
 
@@ -113,13 +113,19 @@ export class VariableValueGenerationService implements IVariableValueGenerationS
     try {
       const template = await this.templateManager.getTemplate(templateId);
       if (!template?.content) {
-        throw new VariableValueGenerationParseError(`Template "${templateId}" not found or empty.`);
+        throw new VariableValueGenerationExecutionError(`Template "${templateId}" not found or empty.`);
       }
       return template;
     } catch (error) {
-      throw new VariableValueGenerationParseError(
-        `Failed to get template "${templateId}": ${error instanceof Error ? error.message : String(error)}`
-      );
+      if (error instanceof VariableValueGenerationError) {
+        throw error
+      }
+      if (typeof (error as any)?.code === 'string') {
+        throw toErrorWithCode(error)
+      }
+      throw new VariableValueGenerationExecutionError(
+        `Failed to get template "${templateId}": ${error instanceof Error ? error.message : String(error)}`,
+      )
     }
   }
 

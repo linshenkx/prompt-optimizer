@@ -2206,6 +2206,7 @@ export default {
       write: "存储写入错误: {details}",
       delete: "存储删除错误: {details}",
       clear: "存储清空错误: {details}",
+      config: "存储配置错误: {details}",
     },
     model: {
       validation: "模型验证错误: {details}",
@@ -2213,6 +2214,7 @@ export default {
     },
     template: {
       load: "模板加载错误: {details}",
+      not_found: "模板不存在: {context}",
       validation: "模板验证错误: {details}",
       cache: "模板缓存错误: {details}",
       storage: "模板存储错误: {details}",
@@ -2240,7 +2242,19 @@ export default {
       config_id_empty: "图像模型配置ID不能为空",
       config_not_found: "未找到图像模型配置: {configId}",
       config_not_enabled: "图像模型配置未启用: {configName}",
+      config_already_exists: "图像模型配置已存在: {configId}",
+      config_does_not_exist: "图像模型配置不存在: {configId}",
+      config_invalid: "图像模型配置无效: {details}",
+      api_key_required: "{providerName} 需要 API Key",
+      model_id_required: "模型ID不能为空",
+      config_provider_mismatch: "配置提供商不匹配: config={configProviderId}, adapter={adapterProviderId}",
+      connection_config_missing_field: "连接配置缺少必填字段: {field}",
+      connection_config_invalid_field_type: "连接配置字段类型错误: {field} 需要 {expectedType}，实际 {actualType}",
       provider_not_found: "未找到图像提供商: {providerId}",
+      dynamic_models_not_supported: "{providerName} 不支持动态模型获取",
+      unsupported_test_type: "不支持的测试类型: {testType}",
+      invalid_response_format: "API 返回格式无效",
+      base64_decoding_not_supported: "当前环境不支持 Base64 解码",
       only_single_image_supported: "当前仅支持生成1张图片",
       text2image_input_image_not_allowed: "文生图不支持输入图像",
       image2image_input_image_required: "图生图需要提供输入图像",
@@ -2253,6 +2267,48 @@ export default {
       model_not_support_image2image: "当前模型不支持图生图: {modelName}",
       model_only_supports_image2image_need_input: "当前模型仅支持图生图，请提供输入图像: {modelName}",
       generation_failed: "图像生成失败: {details}",
+    },
+
+    context: {
+      not_found: "上下文不存在: {context}",
+      minimum_violation: "无法删除最后一个上下文",
+      invalid_id: "无效的上下文ID: {context}",
+      import_format: "上下文导入格式错误: {details}",
+      invalid_store: "上下文存储数据无效: {details}",
+      storage: "上下文存储错误: {details}",
+      electron_api_unavailable: "当前环境不支持上下文服务",
+    },
+
+    variable_extraction: {
+      validation: "变量提取请求验证错误: {details}",
+      model_not_found: "变量提取模型不存在或未启用: {context}",
+      parse: "变量提取结果解析错误: {details}",
+      execution: "变量提取执行错误: {details}",
+    },
+
+    variable_value_generation: {
+      validation: "变量值生成请求验证错误: {details}",
+      model_not_found: "变量值生成模型不存在或未启用: {context}",
+      parse: "变量值生成结果解析错误: {details}",
+      execution: "变量值生成执行错误: {details}",
+    },
+
+    import_export: {
+      export_failed: "导出失败: {details}",
+      import_failed: "导入失败: {details}",
+      validation: "导入导出验证错误: {details}",
+    },
+
+    data: {
+      invalid_json: "JSON 无效: {details}",
+      invalid_format: "数据格式无效: {details}",
+      import_partial_failed: "导入完成但有 {count} 个错误: {details}",
+      export_failed: "数据导出失败: {details}",
+      electron_api_unavailable: "当前环境不支持数据服务",
+    },
+
+    core: {
+      ipc_serialization_failed: "IPC 序列化失败: {details}",
     },
   },
 };

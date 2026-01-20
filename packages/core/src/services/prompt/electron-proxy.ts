@@ -7,6 +7,7 @@ import {
 } from './types';
 import { PromptRecord } from '../history/types';
 import { safeSerializeForIPC } from '../../utils/ipc-serialization';
+import { ServiceDependencyError } from './errors';
 
 // Helper function to check if running in Electron renderer process
 function isRunningInElectron(): boolean {
@@ -22,7 +23,7 @@ export class ElectronPromptServiceProxy implements IPromptService {
     if (!isRunningInElectron() || !(window as any).electronAPI?.prompt) {
       // The `prompt` property will be added to the electronAPI in the desktop package's preload script.
       // This error indicates a potential mismatch between frontend expectations and the preload script's exposure.
-      throw new Error('Electron Prompt API is not available in this environment.');
+      throw new ServiceDependencyError('ElectronPromptAPI', 'Electron Prompt API is not available in this environment.');
     }
     return (window as any).electronAPI.prompt;
   }

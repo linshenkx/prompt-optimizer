@@ -1,10 +1,17 @@
 /**
  * 提示词错误基类
  */
+import { TEMPLATE_ERROR_CODES, type ErrorParams } from '../../constants/error-codes'
+
 export class TemplateError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'TemplateError';
+  public readonly code: string
+  public readonly params?: ErrorParams
+
+  constructor(code: string, message?: string, params?: ErrorParams) {
+    super(message ? `[${code}] ${message}` : `[${code}]`)
+    this.name = 'TemplateError'
+    this.code = code
+    this.params = params ?? (message ? { details: message } : undefined)
   }
 }
 
@@ -13,21 +20,24 @@ export class TemplateError extends Error {
  */
 export class TemplateLoadError extends TemplateError {
   constructor(
-    message: string,
-    public templateId: string
+    templateId: string,
+    details?: string,
   ) {
-    super(message);
-    this.name = 'TemplateLoadError';
+    super(TEMPLATE_ERROR_CODES.LOAD_ERROR, details, { ...(details ? { details } : {}), templateId })
+    this.name = 'TemplateLoadError'
+    this.templateId = templateId
   }
+
+  public templateId: string
 }
 
 /**
  * 提示词验证错误
  */
 export class TemplateValidationError extends TemplateError {
-  constructor(message: string) {
-    super(message);
-    this.name = 'TemplateValidationError';
+  constructor(details?: string) {
+    super(TEMPLATE_ERROR_CODES.VALIDATION_ERROR, details, details ? { details } : undefined)
+    this.name = 'TemplateValidationError'
   }
 }
 
@@ -35,9 +45,9 @@ export class TemplateValidationError extends TemplateError {
  * 提示词缓存错误
  */
 export class TemplateCacheError extends TemplateError {
-  constructor(message: string) {
-    super(message);
-    this.name = 'TemplateCacheError';
+  constructor(details?: string) {
+    super(TEMPLATE_ERROR_CODES.CACHE_ERROR, details, details ? { details } : undefined)
+    this.name = 'TemplateCacheError'
   }
 }
 
@@ -45,8 +55,8 @@ export class TemplateCacheError extends TemplateError {
  * 提示词存储错误
  */
 export class TemplateStorageError extends TemplateError {
-  constructor(message: string) {
-    super(message);
-    this.name = 'TemplateStorageError';
+  constructor(details?: string) {
+    super(TEMPLATE_ERROR_CODES.STORAGE_ERROR, details, details ? { details } : undefined)
+    this.name = 'TemplateStorageError'
   }
 } 

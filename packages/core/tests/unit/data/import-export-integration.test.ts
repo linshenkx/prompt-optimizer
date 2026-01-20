@@ -11,6 +11,7 @@ import { TextAdapterRegistry } from '../../../src/services/llm/adapters/registry
 import { Template } from '../../../src/services/template/types';
 import { PromptRecord } from '../../../src/services/history/types';
 import { ContextRepo } from '../../../src/services/context/types';
+import { DATA_ERROR_CODES } from '../../../src/constants/error-codes';
 
 describe('DataManager Import/Export Integration', () => {
   let dataManager: DataManager;
@@ -345,13 +346,15 @@ describe('DataManager Import/Export Integration', () => {
     it('should handle invalid JSON format', async () => {
       const invalidJson = 'invalid json string';
 
-      await expect(dataManager.importAllData(invalidJson)).rejects.toThrow('Invalid data format: failed to parse JSON');
+      await expect(dataManager.importAllData(invalidJson))
+        .rejects.toMatchObject({ code: DATA_ERROR_CODES.INVALID_JSON });
     });
 
     it('should handle invalid data structure', async () => {
       const invalidData = JSON.stringify('string instead of object');
 
-      await expect(dataManager.importAllData(invalidData)).rejects.toThrow('Invalid data format: data must be an object');
+      await expect(dataManager.importAllData(invalidData))
+        .rejects.toMatchObject({ code: DATA_ERROR_CODES.INVALID_FORMAT });
     });
   });
 

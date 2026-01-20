@@ -1,6 +1,7 @@
 import type { Template, ITemplateManager, TemplateType } from './types';
 import type { BuiltinTemplateLanguage } from './languageService';
 import { safeSerializeForIPC } from '../../utils/ipc-serialization';
+import { TemplateStorageError } from './errors';
 
 // 为window.electronAPI提供完整的类型定义，以确保类型安全
 interface ElectronAPI {
@@ -39,7 +40,9 @@ export class ElectronTemplateManagerProxy implements ITemplateManager {
 
   constructor() {
     if (!window.electronAPI?.template) {
-      throw new Error('Electron API for TemplateManager not available. Please ensure preload script is loaded.');
+      throw new TemplateStorageError(
+        'Electron API for TemplateManager not available. Please ensure preload script is loaded.',
+      );
     }
     this.electronAPI = window.electronAPI.template;
   }

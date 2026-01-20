@@ -1,6 +1,7 @@
 
 import { IPreferenceService } from '../preference/types';
 import { UI_SETTINGS_KEYS } from '../../constants/storage-keys';
+import { TemplateValidationError } from './errors';
 
 /**
  * Supported built-in template languages
@@ -82,7 +83,7 @@ export class TemplateLanguageService implements ITemplateLanguageService {
    */
   async setLanguage(language: BuiltinTemplateLanguage): Promise<void> {
     if (!(await this.isValidLanguage(language))) {
-      throw new Error(`Unsupported language: ${language}`);
+      throw new TemplateValidationError(`Unsupported language: ${language}`);
     }
 
     this.currentLanguage = language;

@@ -11,14 +11,10 @@ import {
 } from './types'
 import { createImageAdapterRegistry } from './adapters/registry'
 import { BaseError } from '../llm/errors'
-import { IMAGE_ERROR_CODES, type ErrorParams } from '../../constants/error-codes'
+import { IMAGE_ERROR_CODES } from '../../constants/error-codes'
 import { mergeOverrides } from '../model/parameter-utils'
-
-class ImageError extends BaseError {
-  constructor(code: string, message?: string, params?: ErrorParams) {
-    super(code, message, params)
-  }
-}
+import { ImageError } from './errors'
+import { toErrorWithCode } from '../../utils/error'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -225,7 +221,7 @@ export class ImageService implements IImageService {
         throw error
       }
       if (isRecord(error) && typeof error.code === 'string') {
-        throw error
+        throw toErrorWithCode(error)
       }
       // 注意：不要把底层 message 拼给用户，交给 UI 用 code+params 翻译。
       const details = error instanceof Error ? error.message : String(error)
@@ -272,7 +268,18 @@ export class ImageService implements IImageService {
 
     const runtimeRequest = this.prepareRuntimeRequest(request, runtimeConfig)
     // 直接调用适配器，绕过 imageModelManager 的存储查找
-    return await adapter.generate(runtimeRequest, runtimeConfig)
+    try {
+      return await adapter.generate(runtimeRequest, runtimeConfig)
+    } catch (error) {
+      if (error instanceof BaseError) {
+        throw error
+      }
+      if (isRecord(error) && typeof error.code === 'string') {
+        throw toErrorWithCode(error)
+      }
+      const details = error instanceof Error ? error.message : String(error)
+      throw new ImageError(IMAGE_ERROR_CODES.GENERATION_FAILED, details, { details })
+    }
   }
 
   // 新增：获取动态模型

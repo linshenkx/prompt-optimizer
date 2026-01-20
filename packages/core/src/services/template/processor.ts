@@ -1,6 +1,7 @@
 import { Template } from "./types";
 import { Message } from "../llm/types";
 import { Mustache } from "./minimal";
+import { TemplateValidationError } from "./errors";
 import type {
   OptimizationMode,
   ConversationMessage,
@@ -55,14 +56,14 @@ export class TemplateProcessor {
    */
   private static validateTemplate(template: Template): void {
     if (!template?.content) {
-      throw new Error(
+      throw new TemplateValidationError(
         `Template content is missing or invalid for template: ${template?.id || "unknown"}`,
       );
     }
 
     // Check for empty array content
     if (Array.isArray(template.content) && template.content.length === 0) {
-      throw new Error(
+      throw new TemplateValidationError(
         `Template content cannot be empty for template: ${template.id}`,
       );
     }
@@ -110,7 +111,7 @@ export class TemplateProcessor {
       });
     }
 
-    throw new Error(
+    throw new TemplateValidationError(
       `Invalid template content format for template: ${template.id}`,
     );
   }

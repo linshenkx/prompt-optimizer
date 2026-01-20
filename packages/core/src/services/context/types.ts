@@ -10,6 +10,7 @@
 
 import type { IImportExportable } from '../../interfaces/import-export';
 import type { ConversationMessage, ToolDefinition } from '../prompt/types';
+import { CONTEXT_ERROR_CODES, type ErrorParams } from '../../constants/error-codes';
 
 /**
  * 上下文模式
@@ -208,28 +209,15 @@ export interface ContextRepo extends IImportExportable {
  * 上下文服务错误类
  */
 export class ContextError extends Error {
-  constructor(
-    message: string,
-    public readonly code?: string,
-    public readonly contextId?: string
-  ) {
-    super(message);
-    this.name = 'ContextError';
+  public readonly code: string
+  public readonly params?: ErrorParams
+
+  constructor(code: string, message?: string, params?: ErrorParams) {
+    super(message ? `[${code}] ${message}` : `[${code}]`)
+    this.name = 'ContextError'
+    this.code = code
+    this.params = params ?? (message ? { details: message } : undefined)
   }
 }
 
-/**
- * 预定义的错误代码
- */
-export const CONTEXT_ERROR_CODES = {
-  /** 上下文不存在 */
-  NOT_FOUND: 'CONTEXT_NOT_FOUND',
-  /** 试图删除最后一个上下文 */
-  MINIMUM_VIOLATION: 'CONTEXT_MINIMUM_VIOLATION',
-  /** 无效的上下文ID */
-  INVALID_ID: 'INVALID_CONTEXT_ID',
-  /** 导入数据格式错误 */
-  IMPORT_FORMAT_ERROR: 'IMPORT_FORMAT_ERROR',
-  /** 存储操作失败 */
-  STORAGE_ERROR: 'STORAGE_ERROR',
-} as const;
+export { CONTEXT_ERROR_CODES }

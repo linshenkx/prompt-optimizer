@@ -1,4 +1,6 @@
 import { IDataManager } from './types';
+import { DataError } from './errors';
+import { DATA_ERROR_CODES } from '../../constants/error-codes';
 
 /**
  * Electron环境下的DataManager代理
@@ -10,7 +12,10 @@ export class ElectronDataManagerProxy implements IDataManager {
   constructor() {
     // 验证Electron环境
     if (typeof window === 'undefined' || !(window as any).electronAPI) {
-      throw new Error('ElectronDataManagerProxy can only be used in Electron renderer process');
+      throw new DataError(
+        DATA_ERROR_CODES.ELECTRON_API_UNAVAILABLE,
+        'ElectronDataManagerProxy can only be used in Electron renderer process',
+      );
     }
     this.electronAPI = (window as any).electronAPI;
   }

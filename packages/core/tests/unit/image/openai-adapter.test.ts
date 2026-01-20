@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { OpenAIImageAdapter } from '../../../src/services/image/adapters/openai'
 import type { ImageRequest, ImageModelConfig } from '../../../src/services/image/types'
+import { IMAGE_ERROR_CODES } from '../../../src/constants/error-codes'
 
 const RUN_REAL_API = process.env.RUN_REAL_API === '1'
 
@@ -212,7 +213,7 @@ describe('OpenAIImageAdapter', () => {
       }
 
       await expect(adapter.generate(request, config))
-        .rejects.toThrow(/requires API key/i)
+        .rejects.toMatchObject({ code: IMAGE_ERROR_CODES.API_KEY_REQUIRED })
     })
   })
 

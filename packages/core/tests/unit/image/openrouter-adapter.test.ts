@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { OpenRouterImageAdapter } from '../../../src/services/image/adapters/openrouter'
 import type { ImageModelConfig } from '../../../src/services/image/types'
+import { IMAGE_ERROR_CODES } from '../../../src/constants/error-codes'
 
 describe('OpenRouterImageAdapter', () => {
   let adapter: OpenRouterImageAdapter
@@ -131,9 +132,12 @@ describe('OpenRouterImageAdapter', () => {
         configId: 'test-config'
       }
 
-      expect(() => {
+      try {
         adapter['validateRequest'](request, mockConfig)
-      }).toThrow('Prompt is required')
+        throw new Error('Expected validateRequest to throw')
+      } catch (error) {
+        expect(error).toMatchObject({ code: IMAGE_ERROR_CODES.PROMPT_EMPTY })
+      }
     })
 
     it('should validate config without errors', () => {
@@ -148,9 +152,12 @@ describe('OpenRouterImageAdapter', () => {
         connectionConfig: {}
       }
 
-      expect(() => {
+      try {
         adapter['validateConfig'](configWithoutKey)
-      }).toThrow('OpenRouter requires API key')
+        throw new Error('Expected validateConfig to throw')
+      } catch (error) {
+        expect(error).toMatchObject({ code: IMAGE_ERROR_CODES.API_KEY_REQUIRED })
+      }
     })
   })
 

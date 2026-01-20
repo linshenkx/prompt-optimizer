@@ -2,6 +2,7 @@ import { IStorageProvider } from './types';
 import { LocalStorageProvider } from './localStorageProvider';
 import { DexieStorageProvider } from './dexieStorageProvider';
 import { MemoryStorageProvider } from './memoryStorageProvider';
+import { StorageError } from './errors';
 
 export type StorageType = 'localStorage' | 'dexie' | 'memory' | 'file';
 
@@ -35,10 +36,16 @@ export class StorageFactory {
         instance = new MemoryStorageProvider();
         break;
       case 'file':
-        throw new Error('File storage must be created directly with FileStorageProvider constructor');
+        throw new StorageError(
+          'File storage must be created directly with FileStorageProvider constructor',
+          'config',
+        );
         break;
       default:
-        throw new Error(`Unsupported storage type: ${type}`);
+        throw new StorageError(`Unsupported storage type: ${type}`, 'config', {
+          details: `Unsupported storage type: ${type}`,
+          storageType: type
+        });
     }
 
     // 缓存实例

@@ -1,4 +1,5 @@
 import { IStorageProvider } from './types';
+import { StorageError } from './errors';
 
 /**
  * 存储适配器 - 为不支持高级方法的存储提供者提供兼容性
@@ -128,7 +129,7 @@ export class StorageAdapter implements IStorageProvider {
         if (!released) {
           released = true;
           this.locks.delete(key);
-          reject(new Error(`Lock timeout for key: ${key}`));
+          reject(new StorageError(`Lock timeout for key: ${key}`, 'write'));
         }
       }, 30000); // 30秒超时
     });

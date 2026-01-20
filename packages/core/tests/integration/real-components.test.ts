@@ -11,6 +11,7 @@ import { Template } from '../../src/services/template/types'
 import { ContextRepo } from '../../src/services/context/types'
 import { TextModelConfig } from '../../src/services/model/types'
 import { TextAdapterRegistry } from '../../src/services/llm/adapters/registry'
+import { TEMPLATE_ERROR_CODES } from '../../src/constants/error-codes'
 
 /**
  * 真实组件集成测试
@@ -182,7 +183,7 @@ describe('Real Components Integration Tests', () => {
       
       // 验证已删除
       await expect(templateManager.getTemplate('user-test-template'))
-        .rejects.toThrow('Template user-test-template not found')
+        .rejects.toMatchObject({ code: TEMPLATE_ERROR_CODES.NOT_FOUND })
     })
   })
 

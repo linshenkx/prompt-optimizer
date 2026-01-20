@@ -5,6 +5,20 @@
  * 这个工具专门为ElectronProxy类设计，提供统一的序列化处理
  */
 
+import { CORE_ERROR_CODES, type ErrorParams } from '../constants/error-codes'
+
+class IpcSerializationError extends Error {
+  public readonly code: string
+  public readonly params?: ErrorParams
+
+  constructor(details: string) {
+    super(`[${CORE_ERROR_CODES.IPC_SERIALIZATION_FAILED}] ${details}`)
+    this.name = 'IpcSerializationError'
+    this.code = CORE_ERROR_CODES.IPC_SERIALIZATION_FAILED
+    this.params = { details }
+  }
+}
+
 /**
  * 安全序列化函数，用于清理Vue响应式对象
  * 确保所有通过IPC传递的对象都是纯净的JavaScript对象
@@ -27,7 +41,8 @@ export function safeSerializeForIPC<T>(obj: T): T {
     return JSON.parse(JSON.stringify(obj));
   } catch (error) {
     console.error('[IPC Serialization] Failed to serialize object:', error);
-    throw new Error(`Failed to serialize object for IPC: ${error instanceof Error ? error.message : String(error)}`);
+    const details = error instanceof Error ? error.message : String(error)
+    throw new IpcSerializationError(`Failed to serialize object for IPC: ${details}`);
   }
 }
 

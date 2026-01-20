@@ -1,4 +1,5 @@
 import { AbstractImageProviderAdapter } from './abstract-adapter'
+import { ImageError } from '../errors'
 import type {
   ImageProvider,
   ImageModel,
@@ -7,6 +8,7 @@ import type {
   ImageModelConfig,
   ImageParameterDefinition
 } from '../types'
+import { IMAGE_ERROR_CODES } from '../../../constants/error-codes'
 
 /**
  * ModelScope (魔搭) 图像生成适配器
@@ -101,7 +103,7 @@ export class ModelScopeImageAdapter extends AbstractImageProviderAdapter {
       }
     }
 
-    throw new Error(`Test type ${testType} not supported by ModelScope image adapter`)
+    throw new ImageError(IMAGE_ERROR_CODES.UNSUPPORTED_TEST_TYPE, undefined, { testType })
   }
 
   protected getParameterDefinitions(_modelId: string): readonly ImageParameterDefinition[] {
@@ -118,7 +120,7 @@ export class ModelScopeImageAdapter extends AbstractImageProviderAdapter {
   protected async doGenerate(request: ImageRequest, config: ImageModelConfig): Promise<ImageResult> {
     // ModelScope 适配器仅支持文生图
     if (request.inputImage) {
-      throw new Error('ModelScope adapter only supports text-to-image generation. For image editing, please use DashScope adapter.')
+      throw new ImageError(IMAGE_ERROR_CODES.MODEL_NOT_SUPPORT_IMAGE2IMAGE, undefined, { modelName: config.modelId })
     }
 
     return await this.generateImage(request, config)
@@ -160,14 +162,14 @@ export class ModelScopeImageAdapter extends AbstractImageProviderAdapter {
       } catch {
         // 忽略 JSON 解析错误
       }
-      throw new Error(errorMessage)
+      throw new ImageError(IMAGE_ERROR_CODES.GENERATION_FAILED, errorMessage)
     }
 
     const submitData = await response.json()
     const taskId = submitData.task_id
 
     if (!taskId) {
-      throw new Error('No task_id received from ModelScope API')
+      throw new ImageError(IMAGE_ERROR_CODES.GENERATION_FAILED, 'No task_id received from ModelScope API')
     }
 
     // 轮询任务状态
@@ -207,7 +209,7 @@ export class ModelScopeImageAdapter extends AbstractImageProviderAdapter {
         } catch {
           // 如果无法解析 JSON，使用默认错误信息
         }
-        throw new Error(`Failed to poll task status: ${errorMessage}`)
+        throw new ImageError(IMAGE_ERROR_CODES.GENERATION_FAILED, `Failed to poll task status: ${errorMessage}`)
       }
 
       const data = await response.json()
@@ -217,7 +219,7 @@ export class ModelScopeImageAdapter extends AbstractImageProviderAdapter {
         // 任务成功，解析结果
         const outputImages = data.output_images || []
         if (outputImages.length === 0) {
-          throw new Error('No output images in task result')
+          throw new ImageError(IMAGE_ERROR_CODES.INVALID_RESPONSE_FORMAT)
         }
 
         const images = outputImages.map((imageUrl: string) => ({
@@ -237,15 +239,15 @@ export class ModelScopeImageAdapter extends AbstractImageProviderAdapter {
       } else if (status === 'FAILED' || status === 'ERROR' || status === 'CANCELLED' || status === 'CANCELED') {
         // 任务失败或被取消，提取错误信息
         const errorMessage = data.error?.message || data.error || data.message || 'Unknown error'
-        throw new Error(`Task ${status.toLowerCase()}: ${errorMessage}`)
+        throw new ImageError(IMAGE_ERROR_CODES.GENERATION_FAILED, `Task ${status.toLowerCase()}: ${errorMessage}`)
       } else if (status !== 'PENDING' && status !== 'RUNNING' && status !== 'PROCESSING') {
         // 未知的终态，视为失败
-        throw new Error(`Unknown task status: ${status}`)
+        throw new ImageError(IMAGE_ERROR_CODES.GENERATION_FAILED, `Unknown task status: ${status}`)
       }
       // task_status 为 PENDING、RUNNING 或 PROCESSING，继续轮询
     }
 
-    throw new Error(`Task timeout after ${maxAttempts} attempts`)
+    throw new ImageError(IMAGE_ERROR_CODES.GENERATION_FAILED, `Task timeout after ${maxAttempts} attempts`)
   }
 
 }

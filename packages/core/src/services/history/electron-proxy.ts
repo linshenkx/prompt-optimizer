@@ -1,5 +1,6 @@
 import type { IHistoryManager, PromptRecord, PromptRecordChain } from './types';
 import { safeSerializeForIPC } from '../../utils/ipc-serialization';
+import { HistoryStorageError, RecordNotFoundError } from './errors';
 
 /**
  * Electron环境下的历史记录管理器代理
@@ -8,7 +9,7 @@ import { safeSerializeForIPC } from '../../utils/ipc-serialization';
 export class ElectronHistoryManagerProxy implements IHistoryManager {
   private get electronAPI() {
     if (!window.electronAPI) {
-      throw new Error('Electron API not available');
+      throw new HistoryStorageError('Electron API not available', 'storage');
     }
     return window.electronAPI;
   }
@@ -27,7 +28,7 @@ export class ElectronHistoryManagerProxy implements IHistoryManager {
     const records = await this.getRecords();
     const record = records.find(r => r.id === id);
     if (!record) {
-      throw new Error(`Record with id ${id} not found`);
+      throw new RecordNotFoundError(`Record with ID ${id} not found`, id);
     }
     return record;
   }

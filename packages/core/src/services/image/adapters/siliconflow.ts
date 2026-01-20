@@ -1,4 +1,5 @@
 import { AbstractImageProviderAdapter } from './abstract-adapter'
+import { ImageError } from '../errors'
 import type {
   ImageProvider,
   ImageModel,
@@ -7,6 +8,7 @@ import type {
   ImageModelConfig,
   ImageParameterDefinition
 } from '../types'
+import { IMAGE_ERROR_CODES } from '../../../constants/error-codes'
 
 export class SiliconFlowImageAdapter extends AbstractImageProviderAdapter {
   protected normalizeBaseUrl(base: string): string {
@@ -236,7 +238,7 @@ export class SiliconFlowImageAdapter extends AbstractImageProviderAdapter {
 
     // SiliconFlow 特定验证
     if (!connectionConfig.apiKey) {
-      throw new Error('SiliconFlow API key is required')
+      throw new ImageError(IMAGE_ERROR_CODES.API_KEY_REQUIRED, undefined, { providerName: 'SiliconFlow' })
     }
   }
 
@@ -259,7 +261,7 @@ export class SiliconFlowImageAdapter extends AbstractImageProviderAdapter {
       }
     }
 
-    throw new Error(`Unsupported test type: ${testType}`)
+    throw new ImageError(IMAGE_ERROR_CODES.UNSUPPORTED_TEST_TYPE, undefined, { testType })
   }
 
   protected async doGenerate(request: ImageRequest, config: ImageModelConfig): Promise<ImageResult> {
@@ -329,10 +331,11 @@ export class SiliconFlowImageAdapter extends AbstractImageProviderAdapter {
         getHeader('x-amzn-requestid') ||
         getHeader('x-requestid')
 
-      throw new Error(
+      throw new ImageError(
+        IMAGE_ERROR_CODES.GENERATION_FAILED,
         `SiliconFlow API error: ${response.status} ${response.statusText}` +
-        (requestId ? ` (requestId=${requestId})` : '') +
-        (bodyText ? `\n\n${bodyText}` : '')
+          (requestId ? ` (requestId=${requestId})` : '') +
+          (bodyText ? `\n\n${bodyText}` : '')
       )
     }
     return await response.json()

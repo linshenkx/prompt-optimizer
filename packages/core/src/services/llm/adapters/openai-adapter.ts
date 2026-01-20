@@ -1,5 +1,6 @@
 import OpenAI from 'openai'
 import { AbstractTextProviderAdapter } from './abstract-adapter'
+import { APIError } from '../errors'
 import type {
   TextProvider,
   TextModel,
@@ -131,13 +132,13 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
           .sort((a, b) => a.id.localeCompare(b.id))
 
         if (models.length === 0) {
-          throw new Error('EMPTY_MODEL_LIST: API returned empty model list')
+          throw new APIError('API returned empty model list')
         }
 
         return models
       }
 
-      throw new Error('INVALID_RESPONSE: Unexpected API response format')
+      throw new APIError('Unexpected API response format')
     } catch (error: any) {
       console.error('[OpenAIAdapter] Failed to fetch models:', error)
 
@@ -147,19 +148,19 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         const isCrossOriginError = this.detectCrossOriginError(error, baseURL)
 
         if (isCrossOriginError) {
-          throw new Error(`CROSS_ORIGIN_CONNECTION_FAILED: ${error.message}`)
+          throw new APIError(`Cross-origin connection failed: ${error.message}`)
         } else {
-          throw new Error(`CONNECTION_FAILED: ${error.message}`)
+          throw new APIError(`Connection failed: ${error.message}`)
         }
       }
 
       // API返回的错误信息
       if (error.response?.data) {
-        throw new Error(`API_ERROR: ${JSON.stringify(error.response.data)}`)
+        throw new APIError(`API error: ${JSON.stringify(error.response.data)}`)
       }
 
       // 其他错误,保持原始信息
-      throw new Error(`UNKNOWN_ERROR: ${error.message || 'Unknown error'}`)
+      throw new APIError(error.message || 'Unknown error')
     }
   }
 
@@ -463,12 +464,12 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
 
       // 处理响应中的 reasoning_content 和普通 content
       if (!response.choices || response.choices.length === 0) {
-        throw new Error('API returned invalid response: choices is empty or missing')
+        throw new APIError('API returned invalid response: choices is empty or missing')
       }
 
       const choice = response.choices[0]
       if (!choice?.message) {
-        throw new Error('No valid response received')
+        throw new APIError('No valid response received')
       }
 
       let content = choice.message.content || ''
@@ -579,7 +580,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         // JSON 解析失败，继续抛出错误
       }
       // SSE 和 JSON 解析都失败，抛出明确错误
-      throw new Error(
+      throw new APIError(
         `SSE response parsing failed: unable to extract any content from response. First 200 chars: ${sseString.slice(0, 200)}`
       )
     }

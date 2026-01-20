@@ -461,7 +461,7 @@ export class FavoriteManager implements IFavoriteManager {
         // 检查是否已存在同名分类
         const existing = categoriesList.find(c => c.name === category.name);
         if (existing) {
-          throw new FavoriteError(`Category already exists: ${category.name}`, 'CATEGORY_ALREADY_EXISTS');
+          throw new FavoriteValidationError(`Category already exists: ${category.name}`);
         }
         return [...categoriesList, newCategory];
       });
