@@ -51,6 +51,69 @@ describe('Session stores (image) persistence', () => {
     expect(runtimeAfter?.b64).toBe('AAAA')
   })
 
+  it('image-text2image saveSession throws when ImageStorageService is missing', async () => {
+    const set = vi.fn(async () => {})
+
+    const { pinia } = createTestPinia({
+      preferenceService: {
+        get: async <T,>(_key: string, defaultValue: T) => defaultValue,
+        set,
+        delete: async () => {},
+        keys: async () => [],
+        clear: async () => {},
+        getAll: async () => ({}),
+        exportData: async () => ({}),
+        importData: async () => {},
+        getDataType: async () => 'preference',
+        validateData: async () => true,
+      } as any,
+    })
+
+    const store = useImageText2ImageSession(pinia)
+    store.updateOriginalImageResult({
+      images: [{ b64: 'AAAA', mimeType: 'image/png' }],
+      metadata: { prompt: 'p', configId: 'cfg', modelId: 'm' }
+    } as any)
+
+    await expect(store.saveSession()).rejects.toThrow(/ImageStorageService/)
+    expect(set).not.toHaveBeenCalled()
+  })
+
+  it('image-text2image saveSession throws when saveImage fails (no base64 downgrade)', async () => {
+    const set = vi.fn(async () => {})
+    const saveImage = vi.fn(async () => {
+      throw new Error('boom')
+    })
+
+    const { pinia } = createTestPinia({
+      preferenceService: {
+        get: async <T,>(_key: string, defaultValue: T) => defaultValue,
+        set,
+        delete: async () => {},
+        keys: async () => [],
+        clear: async () => {},
+        getAll: async () => ({}),
+        exportData: async () => ({}),
+        importData: async () => {},
+        getDataType: async () => 'preference',
+        validateData: async () => true,
+      } as any,
+      imageStorageService: {
+        saveImage,
+        getImage: vi.fn()
+      } as any
+    })
+
+    const store = useImageText2ImageSession(pinia)
+    store.updateOriginalImageResult({
+      images: [{ b64: 'AAAA', mimeType: 'image/png' }],
+      metadata: { prompt: 'p', configId: 'cfg', modelId: 'm' }
+    } as any)
+
+    await expect(store.saveSession()).rejects.toThrow('boom')
+    expect(set).not.toHaveBeenCalled()
+  })
+
   it('image-image2image restoreSession loads input image + result images from ImageStorageService', async () => {
     const get = vi.fn(async (key: string, defaultValue: any) => {
       if (key !== 'session/v1/image-image2image') return defaultValue
@@ -103,5 +166,63 @@ describe('Session stores (image) persistence', () => {
     expect(store.inputImageB64).toBe('INPUT_B64')
     expect(store.originalImageResult?.images?.[0]).toMatchObject({ b64: 'RESULT_B64', mimeType: 'image/png' })
     expect(get).toHaveBeenCalledWith('session/v1/image-image2image', null)
+  })
+
+  it('image-image2image saveSession throws when ImageStorageService is missing', async () => {
+    const set = vi.fn(async () => {})
+
+    const { pinia } = createTestPinia({
+      preferenceService: {
+        get: async <T,>(_key: string, defaultValue: T) => defaultValue,
+        set,
+        delete: async () => {},
+        keys: async () => [],
+        clear: async () => {},
+        getAll: async () => ({}),
+        exportData: async () => ({}),
+        importData: async () => {},
+        getDataType: async () => 'preference',
+        validateData: async () => true,
+      } as any,
+    })
+
+    const store = useImageImage2ImageSession(pinia)
+    store.updateInputImage('INPUT_B64', 'image/png')
+
+    await expect(store.saveSession()).rejects.toThrow(/ImageStorageService/)
+    expect(set).not.toHaveBeenCalled()
+  })
+
+  it('image-image2image saveSession throws when saving input image fails (no base64 downgrade)', async () => {
+    const set = vi.fn(async () => {})
+    const saveImage = vi.fn(async () => {
+      throw new Error('boom')
+    })
+
+    const { pinia } = createTestPinia({
+      preferenceService: {
+        get: async <T,>(_key: string, defaultValue: T) => defaultValue,
+        set,
+        delete: async () => {},
+        keys: async () => [],
+        clear: async () => {},
+        getAll: async () => ({}),
+        exportData: async () => ({}),
+        importData: async () => {},
+        getDataType: async () => 'preference',
+        validateData: async () => true,
+      } as any,
+      imageStorageService: {
+        saveImage,
+        getImage: vi.fn()
+      } as any
+    })
+
+    const store = useImageImage2ImageSession(pinia)
+    store.updateInputImage('INPUT_B64', 'image/png')
+
+    await expect(store.saveSession()).rejects.toThrow('boom')
+    expect(set).not.toHaveBeenCalled()
+    expect(store.inputImageB64).toBe('INPUT_B64')
   })
 })

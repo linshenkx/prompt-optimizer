@@ -7,13 +7,12 @@
  */
 
 import { defineStore } from 'pinia'
-import { ref, type Ref } from 'vue'
+import { ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import {
   isImageRef,
   createImageRef,
   type ImageResult,
-  type ImageRef,
   type IImageStorageService
 } from '@prompt-optimizer/core'
 
@@ -101,7 +100,9 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
     if (selectedTextModelKey.value === modelKey) return
     selectedTextModelKey.value = modelKey
     lastActiveAt.value = Date.now()
-    saveSession()
+    saveSession().catch(error => {
+      console.error('[ImageText2ImageSession] 自动保存会话失败:', error)
+    })
   }
 
   const updateImageModel = (modelKey: string) => {
@@ -109,21 +110,27 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
     selectedImageModelKey.value = modelKey
     lastActiveAt.value = Date.now()
     // 异步保存完整状态（best-effort）
-    saveSession()
+    saveSession().catch(error => {
+      console.error('[ImageText2ImageSession] 自动保存会话失败:', error)
+    })
   }
 
   const updateTemplate = (templateId: string | null) => {
     if (selectedTemplateId.value === templateId) return
     selectedTemplateId.value = templateId
     lastActiveAt.value = Date.now()
-    saveSession()
+    saveSession().catch(error => {
+      console.error('[ImageText2ImageSession] 自动保存会话失败:', error)
+    })
   }
 
   const updateIterateTemplate = (templateId: string | null) => {
     if (selectedIterateTemplateId.value === templateId) return
     selectedIterateTemplateId.value = templateId
     lastActiveAt.value = Date.now()
-    saveSession()
+    saveSession().catch(error => {
+      console.error('[ImageText2ImageSession] 自动保存会话失败:', error)
+    })
   }
 
   const toggleCompareMode = (enabled?: boolean) => {
@@ -173,30 +180,24 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
 
       // 如果有 base64 数据，保存到存储服务并创建引用
       if (img.b64) {
-        try {
-          const imageId = await storageService.saveImage({
+        const imageId = await storageService.saveImage({
+          metadata: {
+            id: `img_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+            mimeType: img.mimeType || 'image/png',
+            sizeBytes: Math.floor(img.b64.length * 0.75),
+            createdAt: Date.now(),
+            accessedAt: Date.now(),
+            source: 'generated',
             metadata: {
-              id: `img_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
-              mimeType: img.mimeType || 'image/png',
-              sizeBytes: Math.floor(img.b64.length * 0.75),
-              createdAt: Date.now(),
-              accessedAt: Date.now(),
-              source: 'generated',
-              metadata: {
-                prompt: result.metadata?.prompt,
-                modelId: result.metadata?.modelId,
-                configId: result.metadata?.configId
-              }
-            },
-            data: img.b64
-          })
+              prompt: result.metadata?.prompt,
+              modelId: result.metadata?.modelId,
+              configId: result.metadata?.configId
+            }
+          },
+          data: img.b64
+        })
 
-          processedImages.push(createImageRef(imageId))
-        } catch (error) {
-          console.error('[ImageText2ImageSession] 保存图像失败:', error)
-          // 保存失败时保留原始数据（降级处理）
-          processedImages.push(img)
-        }
+        processedImages.push(createImageRef(imageId))
       } else {
         // URL 或其他格式，直接保留
         processedImages.push(img)
@@ -257,68 +258,52 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
   const saveSession = async () => {
     const $services = getPiniaServices()
     if (!$services?.preferenceService) {
-      console.warn('[ImageText2ImageSession] PreferenceService 不可用，无法保存会话')
-      return
+      throw new Error('[ImageText2ImageSession] PreferenceService 不可用，无法保存会话')
     }
-
     if (!$services?.imageStorageService) {
-      console.warn('[ImageText2ImageSession] ImageStorageService 不可用，将直接保存 base64')
+      throw new Error('[ImageText2ImageSession] ImageStorageService 不可用，无法保存会话')
     }
 
-    try {
-      // 准备保存的数据：将图像转换为引用
-      let originalResultToSave = originalImageResult.value
-      let optimizedResultToSave = optimizedImageResult.value
+    // 准备保存的数据：将图像转换为引用
+    const originalResultToSave = await prepareForSave(
+      originalImageResult.value,
+      $services.imageStorageService
+    )
+    const optimizedResultToSave = await prepareForSave(
+      optimizedImageResult.value,
+      $services.imageStorageService
+    )
 
-      if ($services?.imageStorageService) {
-        originalResultToSave = await prepareForSave(
-          originalImageResult.value,
-          $services.imageStorageService
-        )
-        optimizedResultToSave = await prepareForSave(
-          optimizedImageResult.value,
-          $services.imageStorageService
-        )
+    // ✅ 修复：不修改运行时 ref，只在序列化时使用转换后的数据
+    // 原代码会导致界面上的图像消失，因为 ImageRef 不包含实际图像数据
 
-        // ✅ 修复：不修改运行时 ref，只在序列化时使用转换后的数据
-        // 原代码会导致界面上的图像消失，因为 ImageRef 不包含实际图像数据
-      }
-
-      // 构建快照（仅包含引用，不包含 base64）
-      const snapshot = {
-        originalPrompt: originalPrompt.value,
-        optimizedPrompt: optimizedPrompt.value,
-        reasoning: reasoning.value,
-        chainId: chainId.value,
-        versionId: versionId.value,
-        originalImageResult: originalResultToSave,
-        optimizedImageResult: optimizedResultToSave,
-        isCompareMode: isCompareMode.value,
-        selectedTextModelKey: selectedTextModelKey.value,
-        selectedImageModelKey: selectedImageModelKey.value,
-        selectedTemplateId: selectedTemplateId.value,
-        selectedIterateTemplateId: selectedIterateTemplateId.value,
-        lastActiveAt: lastActiveAt.value,
-      }
-
-      await $services.preferenceService.set(
-        'session/v1/image-text2image',
-        snapshot
-      )
-    } catch (error) {
-      console.error('[ImageText2ImageSession] 保存会话失败:', error)
+    // 构建快照（仅包含引用，不包含 base64）
+    const snapshot = {
+      originalPrompt: originalPrompt.value,
+      optimizedPrompt: optimizedPrompt.value,
+      reasoning: reasoning.value,
+      chainId: chainId.value,
+      versionId: versionId.value,
+      originalImageResult: originalResultToSave,
+      optimizedImageResult: optimizedResultToSave,
+      isCompareMode: isCompareMode.value,
+      selectedTextModelKey: selectedTextModelKey.value,
+      selectedImageModelKey: selectedImageModelKey.value,
+      selectedTemplateId: selectedTemplateId.value,
+      selectedIterateTemplateId: selectedIterateTemplateId.value,
+      lastActiveAt: lastActiveAt.value,
     }
+
+    await $services.preferenceService.set('session/v1/image-text2image', snapshot)
   }
 
   const restoreSession = async () => {
     const $services = getPiniaServices()
     if (!$services?.preferenceService) {
-      console.warn('[ImageText2ImageSession] PreferenceService 不可用，无法恢复会话')
-      return
+      throw new Error('[ImageText2ImageSession] PreferenceService 不可用，无法恢复会话')
     }
-
     if (!$services?.imageStorageService) {
-      console.warn('[ImageText2ImageSession] ImageStorageService 不可用，将直接使用 session 数据')
+      throw new Error('[ImageText2ImageSession] ImageStorageService 不可用，无法恢复会话')
     }
 
     try {
@@ -338,16 +323,8 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
         let originalResultLoaded: ImageResult | null = (parsed.originalImageResult as ImageResult | null) ?? null
         let optimizedResultLoaded: ImageResult | null = (parsed.optimizedImageResult as ImageResult | null) ?? null
 
-        if ($services?.imageStorageService) {
-          originalResultLoaded = await loadFromRef(
-            originalResultLoaded,
-            $services.imageStorageService
-          )
-          optimizedResultLoaded = await loadFromRef(
-            optimizedResultLoaded,
-            $services.imageStorageService
-          )
-        }
+        originalResultLoaded = await loadFromRef(originalResultLoaded, $services.imageStorageService)
+        optimizedResultLoaded = await loadFromRef(optimizedResultLoaded, $services.imageStorageService)
 
         originalPrompt.value = typeof parsed.originalPrompt === 'string' ? parsed.originalPrompt : ''
         optimizedPrompt.value = typeof parsed.optimizedPrompt === 'string' ? parsed.optimizedPrompt : ''
@@ -365,8 +342,8 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
       }
       // else: 没有保存的会话，使用默认状态
     } catch (error) {
-      console.error('[ImageText2ImageSession] 恢复会话失败:', error)
       reset()
+      throw error
     }
   }
 
