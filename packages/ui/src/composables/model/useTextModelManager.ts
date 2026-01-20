@@ -574,16 +574,28 @@ export function useTextModelManager() {
   }
 
   const createNewModel = async () => {
-    if (!form.value.id) {
-      toast.error(t('modelManager.modelKeyRequired'))
-      throw new Error('模型标识必填')
+    const modelKey = form.value.id?.trim()
+
+    if (!modelKey) {
+      throw new Error(t('modelManager.modelKeyRequired'))
+    }
+
+    // Prevent conflict with builtin model IDs (e.g. "gemini", "openai").
+    if (isDefaultModel(modelKey)) {
+      throw new Error(t('modelManager.modelKeyReserved', { id: modelKey }))
+    }
+
+    // Prevent duplicate keys (including previously saved custom models).
+    const existingModel = await modelManager.getModel(modelKey)
+    if (existingModel) {
+      throw new Error(t('modelManager.modelKeyAlreadyExists', { id: modelKey }))
     }
 
     const providerMeta = ensureProviderMeta(form.value.providerId)
     const modelMeta = ensureModelMeta(form.value.providerId, form.value.defaultModel || form.value.modelId)
 
     const newConfig = {
-      id: form.value.id,
+      id: modelKey,
       name: form.value.name,
       enabled: true,
       providerMeta,
@@ -592,8 +604,8 @@ export function useTextModelManager() {
       paramOverrides: { ...(form.value.paramOverrides ?? {}) }
     } as TextModelConfig
 
-    await modelManager.addModel(form.value.id, newConfig)
-    return form.value.id
+    await modelManager.addModel(modelKey, newConfig)
+    return modelKey
   }
 
   const saveForm = async () => {

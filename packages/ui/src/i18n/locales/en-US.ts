@@ -801,6 +801,8 @@ export default {
     defaultModelPlaceholder: "Type or select a model name",
     apiKeyPlaceholder: "Enter API key (optional)",
     modelKeyRequired: "Model key is required",
+    modelKeyReserved: "Model key \"{id}\" conflicts with a built-in model. Please choose another key, or edit the built-in model configuration instead.",
+    modelKeyAlreadyExists: "Model key \"{id}\" already exists. Please choose another key.",
 
     // Confirmation
     deleteConfirm:

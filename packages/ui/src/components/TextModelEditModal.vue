@@ -205,6 +205,7 @@
 import { computed, inject, nextTick } from 'vue'
 
 import { useI18n } from 'vue-i18n'
+import { useToast } from '../composables/ui/useToast'
 import {
   NModal,
   NForm,
@@ -237,6 +238,7 @@ const { show } = defineProps({
 const emit = defineEmits(['update:show', 'saved'])
 
 const { t } = useI18n()
+const toast = useToast()
 const manager = inject<TextModelManager>('textModelManager')
 if (!manager) {
   throw new Error('Text model manager not provided')
@@ -281,9 +283,38 @@ const handleUpdateShow = async (value: boolean) => {
 }
 
 const handleSubmit = async () => {
-  const id = await manager.saveForm()
-  emit('saved', id || undefined)
-  handleUpdateShow(false)
+  try {
+    const id = await manager.saveForm()
+    emit('saved', id || undefined)
+    handleUpdateShow(false)
+  } catch (error) {
+    console.error('保存模型失败:', error)
+
+    const rawError = error instanceof Error ? error.message : String(error)
+    const fallback = isEditing.value
+      ? t('modelManager.updateFailed', { error: rawError })
+      : t('modelManager.createFailed', { error: rawError })
+
+    const errorCode = (error as { code?: unknown } | null)?.code
+    const errorParams = (error as { params?: unknown } | null)?.params
+
+    if (typeof errorCode === 'string') {
+      try {
+        const translated = t(
+          errorCode,
+          (typeof errorParams === 'object' && errorParams) ? (errorParams as Record<string, unknown>) : {}
+        )
+        if (translated && translated !== errorCode) {
+          toast.error(translated)
+          return
+        }
+      } catch {
+        // fall back
+      }
+    }
+
+    toast.error(rawError || fallback)
+  }
 }
 
 const handleCancel = () => {
