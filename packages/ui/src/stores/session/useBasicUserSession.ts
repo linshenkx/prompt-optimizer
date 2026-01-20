@@ -9,6 +9,10 @@ import { defineStore } from 'pinia'
 import { ref, type Ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { TEMPLATE_SELECTION_KEYS } from '@prompt-optimizer/core'
+import {
+  createDefaultEvaluationResults,
+  type PersistedEvaluationResults,
+} from '../../types/evaluation'
 
 /**
  * 测试结果结构
@@ -39,6 +43,9 @@ export interface BasicUserSessionState {
   // 测试结果
   testResults: TestResults | null
 
+  // 评估结果（分类型持久化，用于重启恢复）
+  evaluationResults: PersistedEvaluationResults
+
   // 模型和模板选择（只存 ID/key，不存对象）
   selectedOptimizeModelKey: string
   selectedTestModelKey: string
@@ -63,6 +70,7 @@ const createDefaultState = (): BasicUserSessionState => ({
   versionId: '',
   testContent: '',
   testResults: null,
+  evaluationResults: createDefaultEvaluationResults(),
   selectedOptimizeModelKey: '',
   selectedTestModelKey: '',
   selectedTemplateId: null,
@@ -88,6 +96,9 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
 
   // 测试结果
   const testResults = ref<TestResults | null>(null)
+
+  // 评估结果
+  const evaluationResults = ref<PersistedEvaluationResults>(createDefaultEvaluationResults())
 
   // 模型和模板选择（只存 ID/key，不存对象）
   const selectedOptimizeModelKey = ref('')
@@ -234,6 +245,7 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
     versionId.value = defaultState.versionId
     testContent.value = defaultState.testContent
     testResults.value = defaultState.testResults
+    evaluationResults.value = defaultState.evaluationResults
     selectedOptimizeModelKey.value = defaultState.selectedOptimizeModelKey
     selectedTestModelKey.value = defaultState.selectedTestModelKey
     selectedTemplateId.value = defaultState.selectedTemplateId
@@ -262,6 +274,7 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
         versionId: versionId.value,
         testContent: testContent.value,
         testResults: testResults.value,
+        evaluationResults: evaluationResults.value,
         selectedOptimizeModelKey: selectedOptimizeModelKey.value,
         selectedTestModelKey: selectedTestModelKey.value,
         selectedTemplateId: selectedTemplateId.value,
@@ -307,6 +320,13 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
         versionId.value = parsed.versionId
         testContent.value = parsed.testContent
         testResults.value = parsed.testResults
+        // 兼容旧数据：未保存 evaluationResults 时使用默认值
+        evaluationResults.value = {
+          ...createDefaultEvaluationResults(),
+          ...(parsed.evaluationResults && typeof parsed.evaluationResults === 'object'
+            ? (parsed.evaluationResults as PersistedEvaluationResults)
+            : {}),
+        }
         selectedOptimizeModelKey.value = parsed.selectedOptimizeModelKey
         selectedTestModelKey.value = parsed.selectedTestModelKey
         selectedTemplateId.value = parsed.selectedTemplateId
@@ -350,6 +370,7 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
     versionId,
     testContent,
     testResults,
+    evaluationResults,
     selectedOptimizeModelKey,
     selectedTestModelKey,
     selectedTemplateId,

@@ -277,6 +277,21 @@
                 </template>
             </TestAreaPanel>
         </NFlex>
+
+        <EvaluationPanel
+            v-model:show="evaluation.isPanelVisible.value"
+            :is-evaluating="panelProps.isEvaluating"
+            :result="panelProps.result"
+            :stream-content="panelProps.streamContent"
+            :error="panelProps.error"
+            :current-type="panelProps.currentType"
+            :score-level="panelProps.scoreLevel"
+            @re-evaluate="evaluationHandler.handleReEvaluate"
+            @apply-local-patch="handleApplyPatch"
+            @apply-improvement="handleApplyImprovement"
+            @clear="handleClearEvaluation"
+            @retry="evaluationHandler.handleReEvaluate"
+        />
     </div>
 </template>
 
@@ -292,7 +307,7 @@
  * - 使用 useEvaluationHandler 处理评估功能
  * - 内联基础模式工作区布局（与 BasicUserWorkspace 保持一致）
  */
-import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick, type Ref } from 'vue'
+ import { ref, computed, toRef, inject, onMounted, onUnmounted, watch, nextTick, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '../../composables/ui/useToast'
 import { useBasicSystemSession } from '../../stores/session/useBasicSystemSession'
@@ -306,7 +321,7 @@ import InputPanelUI from '../InputPanel.vue'
 import PromptPanelUI from '../PromptPanel.vue'
 import TestAreaPanel from '../TestAreaPanel.vue'
 import OutputDisplay from '../OutputDisplay.vue'
-import { EvaluationScoreBadge } from '../evaluation'
+import { EvaluationPanel, EvaluationScoreBadge } from '../evaluation'
 import SelectWithConfig from '../SelectWithConfig.vue'
 import { OptionAccessors } from '../../utils/data-transformer'
 import type { AppServices } from '../../types/services'
@@ -478,6 +493,7 @@ const evaluationHandler = useEvaluationHandler({
   evaluationModelKey: logic.selectedTestModelKey,
   functionMode: computed(() => 'basic'),
   subMode: computed(() => 'system'),
+  persistedResults: toRef(session, 'evaluationResults'),
   currentIterateRequirement: computed(() => {
     const versionId = logic.currentVersionId.value
     if (!versionId || !logic.currentVersions.value) return ''
@@ -492,6 +508,7 @@ provideEvaluation(evaluationHandler.evaluation)
 // 评估状态
 const { evaluation, handleEvaluate: handleEvaluateInternal } = evaluationHandler
 const testAreaProps = evaluationHandler.testAreaEvaluationProps
+const panelProps = evaluationHandler.panelProps
 const isEvaluatingOriginal = computed(() => testAreaProps.value.isEvaluatingOriginal)
 const isEvaluatingOptimized = computed(() => testAreaProps.value.isEvaluatingOptimized)
 const originalScore = computed(() => testAreaProps.value.originalScore ?? 0)
@@ -563,6 +580,12 @@ const handleApplyPatch = (payload: { operation: PatchOperation }) => {
     return
   }
   logic.optimizedPrompt.value = result.text
+  toast.success(t('evaluation.diagnose.applyFix'))
+}
+
+const handleClearEvaluation = () => {
+  evaluation.closePanel()
+  evaluation.clearAllResults()
 }
 
 // 保存本地编辑

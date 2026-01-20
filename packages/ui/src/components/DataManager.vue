@@ -230,9 +230,8 @@ import {
   NModal, NSpace, NText, NButton, NUpload, NUploadDragger,
   NIcon, NAlert, NCard, NStatistic, NGrid, NGridItem, type UploadFileInfo
 } from 'naive-ui'
-import { isRunningInElectron } from '@prompt-optimizer/core'
+import { isRunningInElectron, type ContextBundle } from '@prompt-optimizer/core'
 import { useToast } from '../composables/ui/useToast'
-import type { ContextBundle } from '@prompt-optimizer/core'
 import type { AppServices } from '../types/services'
 
 interface Props {

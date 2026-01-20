@@ -852,11 +852,26 @@
         />
     </FullscreenDialog>
 
+    <EvaluationPanel
+        v-model:show="evaluation.isPanelVisible.value"
+        :is-evaluating="panelProps.isEvaluating"
+        :result="panelProps.result"
+        :stream-content="panelProps.streamContent"
+        :error="panelProps.error"
+        :current-type="panelProps.currentType"
+        :score-level="panelProps.scoreLevel"
+        @re-evaluate="evaluationHandler.handleReEvaluate"
+        @apply-local-patch="handleApplyPatch"
+        @apply-improvement="handleApplyImprovement"
+        @clear="handleClearEvaluation"
+        @retry="evaluationHandler.handleReEvaluate"
+    />
+
     <!-- 模板管理器由 App 统一管理，这里不再渲染 -->
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, inject, ref, computed, nextTick, type Ref } from 'vue'
+import { onMounted, onUnmounted, inject, ref, computed, nextTick, toRef, type Ref } from 'vue'
 
 import {
     NCard,
@@ -879,7 +894,8 @@ import { useI18n } from "vue-i18n";
 import PromptPanelUI from "../PromptPanel.vue";
 import TestResultSection from "../TestResultSection.vue";
 import SelectWithConfig from "../SelectWithConfig.vue";
-import { provideEvaluation, useEvaluationContextOptional } from '../../composables/prompt/useEvaluationContext';
+import { EvaluationPanel } from '../evaluation'
+import { provideEvaluation } from '../../composables/prompt/useEvaluationContext';
 import { OptionAccessors } from "../../utils/data-transformer";
 import type { AppServices } from "../../types/services";
 import { useFullscreen } from "../../composables/ui/useFullscreen";
@@ -893,6 +909,7 @@ import { useEvaluationHandler, type TestResultsData } from '../../composables/pr
 import { useWorkspaceTemplateSelection } from '../../composables/workspaces/useWorkspaceTemplateSelection'
 import { useWorkspaceTextModelSelection } from '../../composables/workspaces/useWorkspaceTextModelSelection'
 import {
+    applyPatchOperationsToText,
     type ImageModelConfig,
     type Text2ImageRequest,
     type ImageResult,
@@ -901,6 +918,7 @@ import {
     type OptimizationRequest,
     type PromptRecordChain,
     type PromptRecordType,
+    type PatchOperation,
     type Template,
 } from '@prompt-optimizer/core'
 import { v4 as uuidv4 } from 'uuid'
@@ -913,9 +931,6 @@ const toast = useToast();
 
 // 服务注入
 const services = inject<Ref<AppServices | null>>("services", ref(null));
-
-// 获取全局评估实例（如果存在，由 App 层 provideEvaluation 注入）
-const globalEvaluation = useEvaluationContextOptional();
 
 // Session store（单一真源）
 const session = useImageText2ImageSession()
@@ -1054,11 +1069,36 @@ const evaluationHandler = useEvaluationHandler({
     evaluationModelKey: selectedTextModelKey,
     functionMode: computed(() => 'image'),
     subMode: computed(() => 'text2image'),
-    externalEvaluation: globalEvaluation || undefined,
+    persistedResults: toRef(session, 'evaluationResults'),
 })
 
-// 提供评估上下文给 PromptPanel（优先复用全局 evaluation，避免与 App 的 EvaluationPanel 分裂）
+// 提供评估上下文给 PromptPanel（子模式私有；结果持久化在 session store）
 provideEvaluation(evaluationHandler.evaluation)
+
+const { evaluation } = evaluationHandler
+const panelProps = evaluationHandler.panelProps
+
+const handleApplyImprovement = (payload: { improvement: string }) => {
+    evaluation.closePanel()
+    promptPanelRef.value?.openIterateDialog?.(payload.improvement)
+}
+
+const handleApplyPatch = (payload: { operation: PatchOperation }) => {
+    if (!payload.operation) return
+    const current = optimizedPrompt.value || ''
+    const result = applyPatchOperationsToText(current, payload.operation)
+    if (!result.ok) {
+        toast.warning(t('toast.warning.patchApplyFailed'))
+        return
+    }
+    optimizedPrompt.value = result.text
+    toast.success(t('evaluation.diagnose.applyFix'))
+}
+
+const handleClearEvaluation = () => {
+    evaluation.closePanel()
+    evaluation.clearAllResults()
+}
 
 // PromptPanel 引用，用于在语言切换后刷新迭代模板选择
 const promptPanelRef = ref<InstanceType<typeof PromptPanelUI> | null>(null);

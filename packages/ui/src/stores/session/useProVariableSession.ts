@@ -11,6 +11,10 @@ import { defineStore } from 'pinia'
 import { ref, type Ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { TEMPLATE_SELECTION_KEYS } from '@prompt-optimizer/core'
+import {
+  createDefaultEvaluationResults,
+  type PersistedEvaluationResults,
+} from '../../types/evaluation'
 
 export interface TestResults {
   originalResult: string
@@ -30,6 +34,7 @@ const createDefaultState = () => ({
   versionId: '',
   testContent: '',
   testResults: null,
+  evaluationResults: createDefaultEvaluationResults(),
   selectedOptimizeModelKey: '',
   selectedTestModelKey: '',
   selectedTemplateId: null,
@@ -48,6 +53,7 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
   const versionId = ref('')
   const testContent = ref('')
   const testResults = ref<TestResults | null>(null)
+  const evaluationResults = ref<PersistedEvaluationResults>(createDefaultEvaluationResults())
   const selectedOptimizeModelKey = ref('')
   const selectedTestModelKey = ref('')
   const selectedTemplateId = ref<string | null>(null)
@@ -158,6 +164,7 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
     versionId.value = defaultState.versionId
     testContent.value = defaultState.testContent
     testResults.value = defaultState.testResults
+    evaluationResults.value = defaultState.evaluationResults
     selectedOptimizeModelKey.value = defaultState.selectedOptimizeModelKey
     selectedTestModelKey.value = defaultState.selectedTestModelKey
     selectedTemplateId.value = defaultState.selectedTemplateId
@@ -183,6 +190,7 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
         versionId: versionId.value,
         testContent: testContent.value,
         testResults: testResults.value,
+        evaluationResults: evaluationResults.value,
         selectedOptimizeModelKey: selectedOptimizeModelKey.value,
         selectedTestModelKey: selectedTestModelKey.value,
         selectedTemplateId: selectedTemplateId.value,
@@ -227,6 +235,12 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
         testResults.value = (parsed.testResults && typeof parsed.testResults === 'object')
           ? (parsed.testResults as TestResults)
           : null
+        evaluationResults.value = {
+          ...createDefaultEvaluationResults(),
+          ...(parsed.evaluationResults && typeof parsed.evaluationResults === 'object'
+            ? (parsed.evaluationResults as PersistedEvaluationResults)
+            : {}),
+        }
         selectedOptimizeModelKey.value = typeof parsed.selectedOptimizeModelKey === 'string' ? parsed.selectedOptimizeModelKey : ''
         selectedTestModelKey.value = typeof parsed.selectedTestModelKey === 'string' ? parsed.selectedTestModelKey : ''
         selectedTemplateId.value = typeof parsed.selectedTemplateId === 'string' ? parsed.selectedTemplateId : null
@@ -270,6 +284,7 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
     versionId,
     testContent,
     testResults,
+    evaluationResults,
     selectedOptimizeModelKey,
     selectedTestModelKey,
     selectedTemplateId,

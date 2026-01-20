@@ -15,6 +15,10 @@ import {
   type ImageResult,
   type IImageStorageService
 } from '@prompt-optimizer/core'
+import {
+  createDefaultEvaluationResults,
+  type PersistedEvaluationResults,
+} from '../../types/evaluation'
 
 type ImageResultItem = ImageResult['images'][number]
 
@@ -29,6 +33,7 @@ const createDefaultState = () => ({
   versionId: '',
   originalImageResult: null,
   optimizedImageResult: null,
+  evaluationResults: createDefaultEvaluationResults(),
   isCompareMode: true,
   selectedTextModelKey: '',
   selectedImageModelKey: '',
@@ -45,6 +50,7 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
   const reasoning = ref('')
   const chainId = ref('')
   const versionId = ref('')
+  const evaluationResults = ref<PersistedEvaluationResults>(createDefaultEvaluationResults())
   const originalImageResult = ref<ImageResult | null>(null)
   const optimizedImageResult = ref<ImageResult | null>(null)
   const isCompareMode = ref(true)
@@ -149,6 +155,7 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
     versionId.value = defaultState.versionId
     originalImageResult.value = defaultState.originalImageResult
     optimizedImageResult.value = defaultState.optimizedImageResult
+    evaluationResults.value = defaultState.evaluationResults
     isCompareMode.value = defaultState.isCompareMode
     selectedTextModelKey.value = defaultState.selectedTextModelKey
     selectedImageModelKey.value = defaultState.selectedImageModelKey
@@ -286,6 +293,7 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
       versionId: versionId.value,
       originalImageResult: originalResultToSave,
       optimizedImageResult: optimizedResultToSave,
+      evaluationResults: evaluationResults.value,
       isCompareMode: isCompareMode.value,
       selectedTextModelKey: selectedTextModelKey.value,
       selectedImageModelKey: selectedImageModelKey.value,
@@ -333,6 +341,12 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
         versionId.value = typeof parsed.versionId === 'string' ? parsed.versionId : ''
         originalImageResult.value = originalResultLoaded
         optimizedImageResult.value = optimizedResultLoaded
+        evaluationResults.value = {
+          ...createDefaultEvaluationResults(),
+          ...(parsed.evaluationResults && typeof parsed.evaluationResults === 'object'
+            ? (parsed.evaluationResults as PersistedEvaluationResults)
+            : {}),
+        }
         isCompareMode.value = typeof parsed.isCompareMode === 'boolean' ? parsed.isCompareMode : true
         selectedTextModelKey.value = typeof parsed.selectedTextModelKey === 'string' ? parsed.selectedTextModelKey : ''
         selectedImageModelKey.value = typeof parsed.selectedImageModelKey === 'string' ? parsed.selectedImageModelKey : ''
@@ -354,6 +368,7 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
     reasoning,
     chainId,
     versionId,
+    evaluationResults,
     originalImageResult,
     optimizedImageResult,
     isCompareMode,

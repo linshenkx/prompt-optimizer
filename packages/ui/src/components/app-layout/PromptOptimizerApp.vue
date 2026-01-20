@@ -201,21 +201,6 @@
                 :renderPhase="renderPhase"
             />
 
-            <!-- 评估结果面板 -->
-            <EvaluationPanel
-                v-if="isReady"
-                v-model:show="evaluation.isPanelVisible.value"
-                :is-evaluating="evaluation.state.activeDetailType ? evaluation.state[evaluation.state.activeDetailType].isEvaluating : false"
-                :result="evaluation.activeResult.value"
-                :stream-content="evaluation.activeStreamContent.value"
-                :error="evaluation.activeError.value"
-                :current-type="evaluation.state.activeDetailType"
-                :score-level="evaluation.activeScoreLevel.value"
-                @re-evaluate="handleReEvaluate"
-                @apply-local-patch="handleApplyLocalPatch"
-                @apply-improvement="handleApplyImprovement"
-            />
-
             <!-- 关键:使用NGlobalStyle同步全局样式到body,消除CSS依赖 -->
             <NGlobalStyle />
         </template>
@@ -267,7 +252,6 @@ import ContextEditor from '../context-mode/ContextEditor.vue'
 import PromptPreviewPanel from '../PromptPreviewPanel.vue'
 import AppHeaderActions from './AppHeaderActions.vue'
 import AppCoreNav from './AppCoreNav.vue'
-import EvaluationPanel from '../evaluation/EvaluationPanel.vue'
 
 // Composables - 使用 barrel exports
 import {
@@ -299,11 +283,9 @@ import {
      // 系统相关
      useAppInitializer,
      useTemplateManager,
-     useEvaluationHandler,
-     provideEvaluation,
-    // App 级别
-    useAppHistoryRestore,
-    useAppFavorite,
+     // App 级别
+     useAppHistoryRestore,
+     useAppFavorite,
 } from '../../composables'
 
 // i18n functions
@@ -329,7 +311,7 @@ import { DataTransformer } from '../../utils/data-transformer'
 
 // Types
 import type { ModelSelectOption, TestAreaPanelInstance } from '../../types'
-import { applyPatchOperationsToText, type IPromptService, type PromptRecordChain, type PatchOperation, type Template, type TemplateType, type FunctionMode, type BasicSubMode, type ProSubMode, type ImageSubMode, type OptimizationMode, type ConversationMessage, type ToolDefinition, type ContextEditorState, type ContextMode, type EvaluationType } from "@prompt-optimizer/core";
+import { type IPromptService, type PromptRecordChain, type PatchOperation, type Template, type TemplateType, type FunctionMode, type BasicSubMode, type ProSubMode, type ImageSubMode, type OptimizationMode, type ConversationMessage, type ToolDefinition, type ContextEditorState, type ContextMode } from "@prompt-optimizer/core";
 
 // 1. 基础 composables
 const hljsInstance = hljs;
@@ -781,7 +763,6 @@ const handleToolManagerConfirm = (tools?: ToolDefinition[]) => {
 // 6. 在顶层调用所有 Composables
 const modelSelectRefs = useModelSelectRefs();
 const modelManager = useModelManager(services, modelSelectRefs);
-const functionModelManager = useFunctionModelManager(services);
 
 // ========== Session Store（单一真源：可持久化字段） ==========
 // 注意：这里需要在 optimizer 创建之前初始化，以便把基础模式字段直绑到 session store
@@ -982,46 +963,6 @@ const promptTester = usePromptTester(
     selectedOptimizationMode,
     variableManager
 );
-
-// 测试结果引用
-const testResults = computed(() => promptTester.testResults);
-
-// 🔧 Step E: 使用 route-computed 代替旧 state
-const currentSubMode = computed(() => {
-    if (routeFunctionMode.value === 'basic') return routeBasicSubMode.value;
-    if (routeFunctionMode.value === 'pro') return routeProSubMode.value;
-    if (routeFunctionMode.value === 'image') return routeImageSubMode.value;
-    return 'system';
-});
-
-// 计算当前版本的迭代需求（用于 prompt-iterate 类型的重新评估）
-const currentIterateRequirement = computed(() => {
-    const versions = optimizer.currentVersions;
-    const versionId = optimizer.currentVersionId;
-    if (!versions || versions.length === 0 || !versionId) return '';
-    const currentVersion = versions.find(
-        (v: { id: string; iterationNote?: string }) => v.id === versionId,
-    );
-    return currentVersion?.iterationNote || '';
-});
-
-const evaluationHandler = useEvaluationHandler({
-    services,
-    originalPrompt: basicSessionPrompt,
-    optimizedPrompt: basicSessionOptimizedPrompt,
-    testContent,
-    testResults,
-    evaluationModelKey: computed(() => functionModelManager.effectiveEvaluationModel.value),
-    // 🔧 Step E: 使用 route-computed 代替旧 state
-    functionMode: routeFunctionMode,
-    subMode: currentSubMode,
-    currentIterateRequirement,
-});
-
-const { evaluation, handleReEvaluate: handleReEvaluateBasic } = evaluationHandler;
-
-// 提供评估上下文给子组件
-provideEvaluation(evaluation);
 
 // ========== Session Store 状态同步 ==========
 
@@ -1504,10 +1445,6 @@ watch(
 watch(
     contextManagement.contextMode,
     async (newMode) => {
-        // Context 子模式切换时：关闭并清理评估状态，避免残留
-        evaluation.closePanel();
-        evaluation.clearAllResults();
-
         contextMode.value = newMode;
     },
     { immediate: true },
@@ -1770,103 +1707,6 @@ const handleDataImported = () => {
     }, 1500);
 };
 
-// 处理应用评估改进建议
-const _basicApplyImprovement = evaluationHandler.createApplyImprovementHandler(basicModeWorkspaceRef);
-const getActiveContextWorkspace = (): ContextWorkspaceExpose | null => {
-    if (contextMode.value === 'system') return systemWorkspaceRef.value;
-    if (contextMode.value === 'user') return userWorkspaceRef.value;
-    return null;
-};
-
-const handleApplyImprovement = (payload: { improvement: string; type: EvaluationType }) => {
-    // 关闭评估面板
-    evaluation.closePanel();
-
-    if (routeFunctionMode.value === 'pro') {
-        const workspace = getActiveContextWorkspace();
-        if (!workspace?.openIterateDialog) {
-            // 这里按产品约定属于异常：Context 模式必须可以应用改进建议
-            console.error('[PromptOptimizerApp] Context apply-improvement handler missing openIterateDialog');
-            toast.error(t('toast.error.optimizeProcessFailed'));
-            return;
-        }
-        workspace.openIterateDialog(payload.improvement);
-        return;
-    }
-
-    _basicApplyImprovement(payload);
-};
-
-const handleApplyLocalPatch = async (payload: { operation: PatchOperation }) => {
-    if (!payload.operation) return;
-
-    // Pro 模式：由当前 Context workspace 自己处理
-    if (routeFunctionMode.value === 'pro') {
-        const workspace = getActiveContextWorkspace();
-        if (!workspace?.applyLocalPatch) {
-            toast.error(t('toast.error.optimizeProcessFailed'));
-            return;
-        }
-        workspace.applyLocalPatch(payload.operation);
-        return;
-    }
-
-    // Image 模式：直接写回当前 Image session 的 optimizedPrompt
-    // 之前错误地写入了 basic 的 optimizer，导致 oldText 目标不一致。
-    if (routeFunctionMode.value === 'image') {
-        const session =
-            routeImageSubMode.value === 'text2image'
-                ? imageText2ImageSession
-                : imageImage2ImageSession;
-
-        const current = session.optimizedPrompt || '';
-        const result = applyPatchOperationsToText(current, payload.operation);
-        if (!result.ok) {
-            toast.warning(t('toast.warning.patchApplyFailed'));
-            console.warn('[PromptOptimizerApp] Local patch apply failed:', result.report);
-            return;
-        }
-
-        session.updateOptimizedResult({
-            optimizedPrompt: result.text,
-            reasoning: session.reasoning || '',
-            chainId: session.chainId || '',
-            versionId: session.versionId || '',
-        });
-        toast.success(t('evaluation.diagnose.applyFix'));
-        return;
-    }
-
-    // Basic 模式：直接覆盖当前 optimizedPrompt（不自动创建新版本）
-    // 用户可通过"保存修改"按钮显式保存为新版本
-    const current = optimizer.optimizedPrompt || '';
-    const result = applyPatchOperationsToText(current, payload.operation);
-    if (!result.ok) {
-        toast.warning(t('toast.warning.patchApplyFailed'));
-        console.warn('[PromptOptimizerApp] Local patch apply failed:', result.report);
-        return;
-    }
-    optimizer.optimizedPrompt = result.text;
-    toast.success(t('evaluation.diagnose.applyFix'));
-};
-
-// 处理重新评估：始终使用当前模式/工作区的最新状态
-const handleReEvaluate = async (): Promise<void> => {
-    if (routeFunctionMode.value === 'pro') {
-        const workspace = getActiveContextWorkspace();
-        if (!workspace?.reEvaluateActive) {
-            // 这里按产品约定属于异常：Context 模式必须可以重新评估当前内容
-            console.error('[PromptOptimizerApp] Context re-evaluate handler missing reEvaluateActive');
-            toast.error(t('toast.error.optimizeProcessFailed'));
-            return;
-        }
-        await workspace.reEvaluateActive();
-        return;
-    }
-
-    await handleReEvaluateBasic();
-};
-
 // 监听变量管理器关闭
 watch(showVariableManager, (newValue) => {
     if (!newValue) {
@@ -1929,14 +1769,31 @@ const normalizeTemplateTypeForManager = (
         return "conversationMessageOptimize";
     }
 
-    // TemplateManager 目前不支持 evaluation 分类，回退到基础的系统/用户优化模板管理
-    if (templateType === "evaluation") {
-        return selectedOptimizationMode.value === "system"
-            ? "optimize"
-            : "userOptimize";
-    }
+    const templateManagerSupportedTypes: readonly TemplateManagerTemplateType[] = [
+        "optimize",
+        "userOptimize",
+        "iterate",
+        "text2imageOptimize",
+        "image2imageOptimize",
+        "imageIterate",
+        "conversationMessageOptimize",
+        "contextUserOptimize",
+        "contextIterate",
+    ];
 
-    return templateType;
+    const isTemplateManagerTemplateType = (
+        type: TemplateType,
+    ): type is TemplateManagerTemplateType => {
+        return (templateManagerSupportedTypes as readonly string[]).includes(type);
+    };
+
+    if (isTemplateManagerTemplateType(templateType)) return templateType;
+
+    // TemplateManager 明确不支持的类型（如 evaluation）不能静默回退。
+    // 直接抛错，避免打开错误的模板集合掩盖问题。
+    throw new Error(
+        `[PromptOptimizerApp] Unsupported template type for TemplateManager: ${templateType}`,
+    );
 };
 
 // 打开模板管理器

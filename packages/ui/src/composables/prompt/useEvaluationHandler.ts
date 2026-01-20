@@ -5,10 +5,11 @@
  * 将 useEvaluation 与业务逻辑整合，提供开箱即用的评估功能
  */
 
-import { computed, type Ref, type ComputedRef } from 'vue'
+import { computed, watch, type Ref, type ComputedRef } from 'vue'
 import { useEvaluation, type UseEvaluationReturn, type ScoreLevel } from './useEvaluation'
 import type { AppServices } from '../../types/services'
 import type { EvaluationType, EvaluationResponse, ProEvaluationContext } from '@prompt-optimizer/core'
+import type { PersistedEvaluationResults } from '../../types/evaluation'
 
 /**
  * 测试结果数据结构
@@ -55,6 +56,13 @@ export interface UseEvaluationHandlerOptions {
    * 用于 Workspace 共享全局评估状态的场景
    */
   externalEvaluation?: UseEvaluationReturn
+
+  /**
+   * Persist evaluation results (per type) into a submode session store.
+   *
+   * This keeps results stable across restart and avoids global cross-mode state.
+   */
+  persistedResults?: Ref<PersistedEvaluationResults>
 }
 
 /**
@@ -181,6 +189,7 @@ export function useEvaluationHandler(
     proContext,
     currentIterateRequirement,
     externalEvaluation,
+    persistedResults,
   } = options
 
   // 使用外部评估实例或创建新的
@@ -190,6 +199,40 @@ export function useEvaluationHandler(
     functionMode,
     subMode,
   })
+
+  // Optional: bind evaluation results to a persisted store.
+  // - Initialize evaluation state from persisted results.
+  // - Keep persisted results updated when evaluation results change.
+  if (persistedResults) {
+    // Initialize (restore) results.
+    evaluation.state.original.result = persistedResults.value.original ?? null
+    evaluation.state.optimized.result = persistedResults.value.optimized ?? null
+    evaluation.state.compare.result = persistedResults.value.compare ?? null
+    evaluation.state['prompt-only'].result = persistedResults.value['prompt-only'] ?? null
+    evaluation.state['prompt-iterate'].result = persistedResults.value['prompt-iterate'] ?? null
+
+    // Keep persisted results updated.
+    watch(() => evaluation.state.original.result, (next) => {
+      if (persistedResults.value.original === next) return
+      persistedResults.value.original = next ?? null
+    })
+    watch(() => evaluation.state.optimized.result, (next) => {
+      if (persistedResults.value.optimized === next) return
+      persistedResults.value.optimized = next ?? null
+    })
+    watch(() => evaluation.state.compare.result, (next) => {
+      if (persistedResults.value.compare === next) return
+      persistedResults.value.compare = next ?? null
+    })
+    watch(() => evaluation.state['prompt-only'].result, (next) => {
+      if (persistedResults.value['prompt-only'] === next) return
+      persistedResults.value['prompt-only'] = next ?? null
+    })
+    watch(() => evaluation.state['prompt-iterate'].result, (next) => {
+      if (persistedResults.value['prompt-iterate'] === next) return
+      persistedResults.value['prompt-iterate'] = next ?? null
+    })
+  }
 
   /**
    * 执行评估
@@ -322,12 +365,27 @@ export function useEvaluationHandler(
   /**
    * EvaluationPanel props
    */
+  const getIsEvaluatingForType = (type: EvaluationType): boolean => {
+    switch (type) {
+      case 'original':
+        return evaluation.state.original.isEvaluating
+      case 'optimized':
+        return evaluation.state.optimized.isEvaluating
+      case 'compare':
+        return evaluation.state.compare.isEvaluating
+      case 'prompt-only':
+        return evaluation.state['prompt-only'].isEvaluating
+      case 'prompt-iterate':
+        return evaluation.state['prompt-iterate'].isEvaluating
+    }
+  }
+
   const panelProps = computed(() => {
     const activeType = evaluation.state.activeDetailType
     return {
       show: evaluation.isPanelVisible.value,
       isEvaluating: activeType
-        ? evaluation.state[activeType].isEvaluating
+        ? getIsEvaluatingForType(activeType)
         : false,
       result: evaluation.activeResult.value,
       streamContent: evaluation.activeStreamContent.value,

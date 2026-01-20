@@ -280,7 +280,20 @@
             </template>
         </ContextUserTestPanel>
 
-        <!-- 评估详情面板已移至 App 顶层统一管理，避免双套 evaluation 实例导致行为不一致 -->
+        <EvaluationPanel
+            v-model:show="evaluation.isPanelVisible.value"
+            :is-evaluating="panelProps.isEvaluating"
+            :result="panelProps.result"
+            :stream-content="panelProps.streamContent"
+            :error="panelProps.error"
+            :current-type="panelProps.currentType"
+            :score-level="panelProps.scoreLevel"
+            @re-evaluate="evaluationHandler.handleReEvaluate"
+            @apply-local-patch="handleApplyLocalPatch"
+            @apply-improvement="handleApplyImprovement"
+            @clear="handleClearEvaluation"
+            @retry="evaluationHandler.handleReEvaluate"
+        />
     </NFlex>
 </template>
 
@@ -313,7 +326,7 @@
  * />
  * ```
  */
-import { ref, computed, inject, nextTick, watch, onMounted, type Ref } from 'vue'
+import { ref, computed, inject, nextTick, watch, onMounted, toRef, type Ref } from 'vue'
 
 import { useI18n } from "vue-i18n";
 import { NCard, NFlex, NText, NIcon, NButton } from "naive-ui";
@@ -323,6 +336,7 @@ import PromptPanelUI from "../PromptPanel.vue";
 import ContextUserTestPanel from "./ContextUserTestPanel.vue";
 import OutputDisplay from "../OutputDisplay.vue";
 import SelectWithConfig from "../SelectWithConfig.vue";
+import { EvaluationPanel } from '../evaluation'
 import {
     applyPatchOperationsToText,
     type OptimizationMode,
@@ -339,7 +353,7 @@ import type { VariableManagerHooks } from '../../composables/prompt/useVariableM
 import { useTemporaryVariables } from "../../composables/variable/useTemporaryVariables";
 import { useContextUserOptimization } from '../../composables/prompt/useContextUserOptimization';
 import { useContextUserTester } from '../../composables/prompt/useContextUserTester';
-import { useEvaluationHandler, provideProContext, useEvaluationContext } from '../../composables/prompt';
+import { useEvaluationHandler, provideEvaluation, provideProContext } from '../../composables/prompt';
 import { useProVariableSession, type TestResults as ProVariableTestResults } from '../../stores/session/useProVariableSession';
 import { useWorkspaceModelSelection } from '../../composables/workspaces/useWorkspaceModelSelection';
 import { useWorkspaceTemplateSelection } from '../../composables/workspaces/useWorkspaceTemplateSelection';
@@ -716,9 +730,6 @@ const proContext = computed<ProUserEvaluationContext | undefined>(() => {
 // 🆕 提供 Pro 模式上下文给子组件（如 PromptPanel），用于评估时传递变量解析上下文
 provideProContext(proContext);
 
-// 🆕 获取全局评估实例（由 App 层 provideEvaluation 注入）
-const globalEvaluation = useEvaluationContext();
-
 // 🆕 测试结果数据
 const testResultsData = computed(() => ({
     originalResult: contextUserTester.testResults.originalResult || undefined,
@@ -747,11 +758,34 @@ const evaluationHandler = useEvaluationHandler({
         return key || "";
     }),
     functionMode: computed(() => 'pro'),
-    subMode: computed(() => 'user'),
+    subMode: computed(() => 'variable'),
     proContext,
     currentIterateRequirement,
-    externalEvaluation: globalEvaluation,
+    persistedResults: toRef(proVariableSession, 'evaluationResults'),
 });
+
+provideEvaluation(evaluationHandler.evaluation)
+
+const { evaluation } = evaluationHandler
+const panelProps = evaluationHandler.panelProps
+
+const handleApplyLocalPatch = (payload: { operation: PatchOperation }) => {
+    if (!payload.operation) return
+    const current = contextUserOptimization.optimizedPrompt || ''
+    const result = applyPatchOperationsToText(current, payload.operation)
+    if (!result.ok) {
+        toast.warning(t('toast.warning.patchApplyFailed'))
+        return
+    }
+
+    contextUserOptimization.optimizedPrompt = result.text
+    toast.success(t('evaluation.diagnose.applyFix'))
+}
+
+const handleClearEvaluation = () => {
+    evaluation.closePanel()
+    evaluation.clearAllResults()
+}
 
 // ========================
 // 计算属性
@@ -1088,16 +1122,7 @@ defineExpose({
         promptPanelRef.value?.openIterateDialog?.(initialContent);
     },
     applyLocalPatch: (operation: PatchOperation) => {
-        // 直接覆盖当前 optimizedPrompt（不自动创建新版本）
-        // 用户可通过"保存修改"按钮显式保存为新版本
-        const current = contextUserOptimization.optimizedPrompt || '';
-        const result = applyPatchOperationsToText(current, operation);
-        contextUserOptimization.optimizedPrompt = result.text;
-        if (!result.ok) {
-            toast.warning(t('toast.warning.patchApplyFailed'));
-        } else {
-            toast.success(t('evaluation.diagnose.applyFix'));
-        }
+        handleApplyLocalPatch({ operation })
     },
     reEvaluateActive: async () => {
         await evaluationHandler.handleReEvaluate();

@@ -241,13 +241,26 @@
             </template>
             </ConversationTestPanel>
 
-            <!-- 评估详情面板已移至 App 顶层统一管理，避免双套 evaluation 实例导致行为不一致 -->
+            <EvaluationPanel
+                v-model:show="evaluation.isPanelVisible.value"
+                :is-evaluating="panelProps.isEvaluating"
+                :result="panelProps.result"
+                :stream-content="panelProps.streamContent"
+                :error="panelProps.error"
+                :current-type="panelProps.currentType"
+                :score-level="panelProps.scoreLevel"
+                @re-evaluate="evaluationHandler.handleReEvaluate"
+                @apply-local-patch="handleApplyLocalPatch"
+                @apply-improvement="handleApplyImprovement"
+                @clear="handleClearEvaluation"
+                @retry="evaluationHandler.handleReEvaluate"
+            />
         </NFlex>
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject, provide, watch, onMounted, type Ref } from 'vue'
+ import { ref, computed, toRef, inject, provide, watch, onMounted, type Ref } from 'vue'
 
 import { useI18n } from "vue-i18n";
 import { useProMultiMessageSession, type TestResults } from '../../stores/session/useProMultiMessageSession'
@@ -257,11 +270,12 @@ import ConversationTestPanel from "./ConversationTestPanel.vue";
 import ConversationManager from "./ConversationManager.vue";
 import OutputDisplay from "../OutputDisplay.vue";
 import SelectWithConfig from "../SelectWithConfig.vue";
+import { EvaluationPanel } from '../evaluation'
 import { useConversationTester } from '../../composables/prompt/useConversationTester'
 import { useConversationOptimization } from '../../composables/prompt/useConversationOptimization'
 import { usePromptDisplayAdapter } from '../../composables/prompt/usePromptDisplayAdapter'
 import { useTemporaryVariables } from '../../composables/variable/useTemporaryVariables'
-import { useEvaluationHandler, provideProContext, useEvaluationContext } from '../../composables/prompt'
+import { useEvaluationHandler, provideEvaluation, provideProContext } from '../../composables/prompt'
 import { useWorkspaceModelSelection } from '../../composables/workspaces/useWorkspaceModelSelection'
 import { useWorkspaceTemplateSelection } from '../../composables/workspaces/useWorkspaceTemplateSelection'
 import { OptionAccessors } from '../../utils/data-transformer'
@@ -593,9 +607,6 @@ const proContext = computed<ProSystemEvaluationContext | undefined>(() => {
 // 🆕 提供 Pro 模式上下文给子组件（如 PromptPanel），用于评估时传递多消息上下文
 provideProContext(proContext)
 
-// 🆕 获取全局评估实例（由 App 层 provideEvaluation 注入）
-const globalEvaluation = useEvaluationContext()
-
 // 🆕 测试结果数据
 const testResultsData = computed(() => ({
     originalResult: conversationTester.testResults.originalResult || undefined,
@@ -620,10 +631,39 @@ const evaluationHandler = useEvaluationHandler({
     testResults: testResultsData,
     evaluationModelKey: computed(() => props.evaluationModelKey || modelSelection.selectedOptimizeModelKey.value),
     functionMode: computed(() => 'pro'),
-    subMode: computed(() => 'system'),
+    subMode: computed(() => 'multi'),
     proContext,
     currentIterateRequirement,
-    externalEvaluation: globalEvaluation,
+    persistedResults: toRef(proMultiSession, 'evaluationResults'),
+})
+
+provideEvaluation(evaluationHandler.evaluation)
+
+const { evaluation } = evaluationHandler
+const panelProps = evaluationHandler.panelProps
+
+const handleApplyLocalPatch = (payload: { operation: PatchOperation }) => {
+    if (!payload.operation) return
+    const current = conversationOptimization.optimizedPrompt.value || ''
+    const result = applyPatchOperationsToText(current, payload.operation)
+    if (!result.ok) {
+        toast.warning(t('toast.warning.patchApplyFailed'))
+        return
+    }
+
+    conversationOptimization.optimizedPrompt.value = result.text
+    toast.success(t('evaluation.diagnose.applyFix'))
+}
+
+const handleClearEvaluation = () => {
+    evaluation.closePanel()
+    evaluation.clearAllResults()
+}
+
+// Pro/multi: selected message changed => clear evaluation results
+watch(selectedMessageId, (next, prev) => {
+    if (next === prev) return
+    handleClearEvaluation()
 })
 
 // 处理迭代优化事件
@@ -822,16 +862,7 @@ defineExpose({
         promptPanelRef.value?.openIterateDialog?.(initialContent);
     },
     applyLocalPatch: (operation: PatchOperation) => {
-        // 直接覆盖当前 optimizedPrompt（不自动创建新版本）
-        // 用户可通过"保存修改"按钮显式保存为新版本
-        const current = conversationOptimization.optimizedPrompt.value || '';
-        const result = applyPatchOperationsToText(current, operation);
-        conversationOptimization.optimizedPrompt.value = result.text;
-        if (!result.ok) {
-            toast.warning(t('toast.warning.patchApplyFailed'));
-        } else {
-            toast.success(t('evaluation.diagnose.applyFix'));
-        }
+        handleApplyLocalPatch({ operation })
     },
     reEvaluateActive: async () => {
         await evaluationHandler.handleReEvaluate();

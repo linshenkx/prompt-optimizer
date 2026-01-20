@@ -12,6 +12,10 @@ import { defineStore } from 'pinia'
 import { ref, type Ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { TEMPLATE_SELECTION_KEYS, type ConversationMessage } from '@prompt-optimizer/core'
+import {
+  createDefaultEvaluationResults,
+  type PersistedEvaluationResults,
+} from '../../types/evaluation'
 
 export interface TestResults {
   originalResult: string
@@ -32,6 +36,7 @@ const createDefaultState = () => ({
   versionId: '',
   messageChainMap: {},
   testResults: null,
+  evaluationResults: createDefaultEvaluationResults(),
   selectedOptimizeModelKey: '',
   selectedTestModelKey: '',
   selectedTemplateId: null,
@@ -64,6 +69,9 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
 
   // 测试结果
   const testResults = ref<TestResults | null>(null)
+
+  // 评估结果
+  const evaluationResults = ref<PersistedEvaluationResults>(createDefaultEvaluationResults())
 
   // 模型和模板选择（只存 ID/key）
   const selectedOptimizeModelKey = ref('')
@@ -234,6 +242,7 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
     versionId.value = defaultState.versionId
     messageChainMap.value = defaultState.messageChainMap
     testResults.value = defaultState.testResults
+    evaluationResults.value = defaultState.evaluationResults
     selectedOptimizeModelKey.value = defaultState.selectedOptimizeModelKey
     selectedTestModelKey.value = defaultState.selectedTestModelKey
     selectedTemplateId.value = defaultState.selectedTemplateId
@@ -263,6 +272,7 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
         versionId: versionId.value,
         messageChainMap: messageChainMap.value,
         testResults: testResults.value,
+        evaluationResults: evaluationResults.value,
         selectedOptimizeModelKey: selectedOptimizeModelKey.value,
         selectedTestModelKey: selectedTestModelKey.value,
         selectedTemplateId: selectedTemplateId.value,
@@ -314,6 +324,12 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
         testResults.value = (parsed.testResults && typeof parsed.testResults === 'object')
           ? (parsed.testResults as TestResults)
           : null
+        evaluationResults.value = {
+          ...createDefaultEvaluationResults(),
+          ...(parsed.evaluationResults && typeof parsed.evaluationResults === 'object'
+            ? (parsed.evaluationResults as PersistedEvaluationResults)
+            : {}),
+        }
         selectedOptimizeModelKey.value = typeof parsed.selectedOptimizeModelKey === 'string' ? parsed.selectedOptimizeModelKey : ''
         selectedTestModelKey.value = typeof parsed.selectedTestModelKey === 'string' ? parsed.selectedTestModelKey : ''
         selectedTemplateId.value = typeof parsed.selectedTemplateId === 'string' ? parsed.selectedTemplateId : null
@@ -358,6 +374,7 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
     versionId,
     messageChainMap,
     testResults,
+    evaluationResults,
     selectedOptimizeModelKey,
     selectedTestModelKey,
     selectedTemplateId,
