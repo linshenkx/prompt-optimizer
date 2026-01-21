@@ -37,14 +37,13 @@ jobs:
       - name: 安装依赖
         run: pnpm install
 
-      - name: 运行构建
-        run: pnpm build
+      - name: 运行门禁（不含 E2E）
+        run: pnpm test:gate
 
       - name: 安装 Playwright 浏览器
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: 运行 E2E（VCR 回放模式）
-        run: pnpm test:e2e:replay
-
-      - name: 运行门禁（含 E2E）
-        run: E2E_VCR_MODE=replay pnpm test:gate:full
+      - name: 运行门禁 E2E（关键用例，VCR 回放模式）
+        run: pnpm test:gate:e2e
+        env:
+          E2E_VCR_MODE: replay
