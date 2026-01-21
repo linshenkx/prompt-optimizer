@@ -52,7 +52,20 @@ export function getErrorMessage(error: unknown, fallback = 'Unknown error'): str
   if (error === null || error === undefined) {
     return fallback
   }
-  return String(error)
+
+  // IPC / cross-context errors may arrive as plain objects ({ message, code, params }).
+  if (typeof error === 'object') {
+    const maybeMessage = (error as { message?: unknown }).message
+    if (typeof maybeMessage === 'string' && maybeMessage.trim()) {
+      return maybeMessage
+    }
+  }
+
+  try {
+    return String(error)
+  } catch {
+    return fallback
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -85,7 +98,14 @@ export function getI18nErrorMessage(error: unknown, fallback = 'Unknown error'):
     }
   }
 
-  return getErrorMessage(error, fallback)
+  const message = getErrorMessage(error, fallback)
+
+  // Avoid leaking internal error-code placeholders like "[error.xxx]" to users.
+  if (typeof fallback === 'string' && fallback.trim() && /^\[error\.[^\]]+\]/.test(message)) {
+    return fallback
+  }
+
+  return message
 }
 
 

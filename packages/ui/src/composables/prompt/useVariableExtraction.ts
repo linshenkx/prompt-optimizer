@@ -7,6 +7,7 @@
 import { ref, type Ref } from 'vue'
 import { useToast } from '../ui/useToast'
 import { useI18n } from 'vue-i18n'
+import { getI18nErrorMessage } from '../../utils/error'
 import type { AppServices } from '../../types/services'
 import type {
   VariableExtractionResponse,
@@ -94,7 +95,7 @@ export function useVariableExtraction(
         toast.info(t('evaluation.variableExtraction.noVariables'))
       }
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error)
+      const errorMsg = getI18nErrorMessage(error, 'Unknown error')
       toast.error(`${t('evaluation.variableExtraction.extractFailed')}: ${errorMsg}`)
       console.error('[useVariableExtraction] Extract failed:', error)
     } finally {

@@ -2,6 +2,7 @@ import { ref, computed, inject } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import { useToast } from '../ui/useToast'
+import { getI18nErrorMessage } from '../../utils/error'
 import type {
   ImageProvider,
   ImageModel,
@@ -19,12 +20,7 @@ type EditableImageModelConfig = Omit<ImageModelConfig, 'provider' | 'model'> & {
 }
 
 const toErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) return error.message
-  try {
-    return String(error)
-  } catch {
-    return 'Unknown error'
-  }
+  return getI18nErrorMessage(error, 'Unknown error')
 }
 
 export function useImageModelManager() {

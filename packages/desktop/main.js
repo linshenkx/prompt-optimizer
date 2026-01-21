@@ -548,9 +548,9 @@ function createSuccessResponse(data) {
 
 function createErrorResponse(error) {
   console.error('[Main Process IPC Error]', error);
-  // 对于非 Error 实例，包装一下
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  return { success: false, error: errorMessage };
+  // Always return a structured error payload so renderer can translate via `code + params`.
+  // This is safe even for legacy callers because preload normalizes both string/object.
+  return { success: false, error: normalizeIpcError(error) };
 }
 
 // Structured error payload for renderer-side i18n (code + params).
@@ -577,8 +577,8 @@ function normalizeIpcError(error) {
 }
 
 function createStructuredErrorResponse(error) {
-  console.error('[Main Process IPC Error]', error);
-  return { success: false, error: normalizeIpcError(error) };
+  // Backward-compat: keep the helper name used by newer handlers.
+  return createErrorResponse(error)
 }
 
 // 创建详细的错误响应，确保100%信息保真

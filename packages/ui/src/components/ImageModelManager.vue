@@ -144,6 +144,7 @@ import {
 } from 'naive-ui'
 import { useImageModelManager } from '../composables/model/useImageModelManager'
 import { useToast } from '../composables/ui/useToast'
+import { getI18nErrorMessage } from '../utils/error'
 import type { IImageService, ImageModel } from '@prompt-optimizer/core'
 
 const { t } = useI18n()
@@ -260,7 +261,12 @@ const testConnection = async (configId: string) => {
       testType: 'text2image' // 默认值
     }
 
-    toast.error(`${t('image.connection.testError')}: ${error instanceof Error ? error.message : String(error)}`)
+    const detail = getI18nErrorMessage(error, t('image.connection.testError'))
+    if (detail === t('image.connection.testError')) {
+      toast.error(detail)
+    } else {
+      toast.error(`${t('image.connection.testError')}: ${detail}`)
+    }
   } finally {
     delete testingConnections.value[configId]
   }
@@ -273,7 +279,7 @@ const toggleConfig = async (config: { id: string; enabled: boolean }) => {
     toast.success(config.enabled ? t('modelManager.disableSuccess') : t('modelManager.enableSuccess'))
   } catch (error) {
     console.error('切换模型状态失败:', error)
-    toast.error(t('modelManager.toggleFailed', { error: error instanceof Error ? error.message : 'Unknown error' }))
+    toast.error(t('modelManager.toggleFailed', { error: getI18nErrorMessage(error, 'Unknown error') }))
   }
 }
 
@@ -285,7 +291,7 @@ const deleteConfig = async (configId: string) => {
       toast.success(t('modelManager.deleteSuccess'))
     } catch (error) {
       console.error('删除模型失败:', error)
-      toast.error(t('modelManager.deleteFailed', { error: error instanceof Error ? error.message : 'Unknown error' }))
+      toast.error(t('modelManager.deleteFailed', { error: getI18nErrorMessage(error, 'Unknown error') }))
     }
   }
 }

@@ -9,6 +9,7 @@ import {
   type TextProvider,
   getBuiltinModelIds
 } from '@prompt-optimizer/core'
+import { getI18nErrorMessage } from '../../utils/error'
 import { useModelAdvancedParameters } from './useModelAdvancedParameters'
 import { computeConnectionConfig } from './useConnectionConfig'
 import type { AppServices } from '../../types/services'
@@ -266,7 +267,7 @@ export function useTextModelManager() {
       console.error('连接测试失败:', error)
       const model = await modelManager.getModel(id)
       const modelName = model?.name || id
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      const errorMessage = getI18nErrorMessage(error, 'Unknown error')
       toast.error(t('modelManager.testFailed', {
         provider: modelName,
         error: errorMessage
@@ -285,7 +286,7 @@ export function useTextModelManager() {
       toast.success(t('modelManager.enableSuccess'))
     } catch (error: unknown) {
       console.error('启用模型失败:', error)
-      const message = error instanceof Error ? error.message : String(error)
+      const message = getI18nErrorMessage(error, 'Unknown error')
       toast.error(t('modelManager.enableFailed', { error: message }))
     }
   }
@@ -299,7 +300,7 @@ export function useTextModelManager() {
       toast.success(t('modelManager.disableSuccess'))
     } catch (error: unknown) {
       console.error('禁用模型失败:', error)
-      const message = error instanceof Error ? error.message : String(error)
+      const message = getI18nErrorMessage(error, 'Unknown error')
       toast.error(t('modelManager.disableFailed', { error: message }))
     }
   }
@@ -311,7 +312,7 @@ export function useTextModelManager() {
       toast.success(t('modelManager.deleteSuccess'))
     } catch (error: unknown) {
       console.error('删除模型失败:', error)
-      const message = error instanceof Error ? error.message : String(error)
+      const message = getI18nErrorMessage(error, 'Unknown error')
       toast.error(t('modelManager.deleteFailed', { error: message }))
     }
   }

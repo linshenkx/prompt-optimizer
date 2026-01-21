@@ -17,6 +17,7 @@ import type { OptimizationRequest, PromptRecord, PromptRecordChain, PromptRecord
 import { v4 as uuidv4 } from 'uuid'
 import { useToast } from '../ui/useToast'
 import { useI18n } from 'vue-i18n'
+import { getI18nErrorMessage } from '../../utils/error'
 import type { IteratePayload } from '../../types/workspace'
 
 type BasicSessionStore = {
@@ -264,8 +265,13 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
         }
       })
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error))
-      toast.error(t('toast.error.optimizeFailed') + ': ' + err.message)
+      const fallback = t('toast.error.optimizeFailed')
+      const detail = getI18nErrorMessage(error, fallback)
+      if (detail === fallback) {
+        toast.error(fallback)
+      } else {
+        toast.error(`${fallback}: ${detail}`)
+      }
     } finally {
       isOptimizing.value = false
     }
@@ -392,8 +398,13 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
         iterateTemplateId,
       )
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error))
-      toast.error(t('toast.error.iterateFailed') + ': ' + err.message)
+      const fallback = t('toast.error.iterateFailed')
+      const detail = getI18nErrorMessage(error, fallback)
+      if (detail === fallback) {
+        toast.error(fallback)
+      } else {
+        toast.error(`${fallback}: ${detail}`)
+      }
     } finally {
       isIterating.value = false
     }
@@ -504,8 +515,13 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
         }
       )
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error))
-      toast.error(t('toast.error.testFailed') + ': ' + err.message)
+      const fallback = t('toast.error.testFailed')
+      const detail = getI18nErrorMessage(error, fallback)
+      if (detail === fallback) {
+        toast.error(fallback)
+      } else {
+        toast.error(`${fallback}: ${detail}`)
+      }
     } finally {
       isTestingOriginal.value = false
       isTestingOptimized.value = false
