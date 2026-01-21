@@ -40,11 +40,11 @@ jobs:
       - name: 运行构建
         run: pnpm build
 
-      - name: 运行测试（VCR 回放模式）
-        run: pnpm test:replay
-
       - name: 安装 Playwright 浏览器
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: 运行 E2E（VCR 回放模式）
+        run: pnpm test:e2e:replay
+
       - name: 运行门禁（含 E2E）
-        run: pnpm test:gate:full
+        run: E2E_VCR_MODE=replay pnpm test:gate:full
