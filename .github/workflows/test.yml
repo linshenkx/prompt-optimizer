@@ -12,6 +12,7 @@ on:
       - '**.md'
       - 'docs/**'
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   test:

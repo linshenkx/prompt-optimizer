@@ -1,11 +1,9 @@
 name: Docker Build and Push
 
 on:
-  push:
-    branches: [ main, master ]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
+  workflow_run:
+    workflows: [ test ]
+    types: [ completed ]
   workflow_dispatch:
 
 env:
@@ -19,6 +17,7 @@ env:
 
 jobs:
   build:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'master')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -27,27 +26,8 @@ jobs:
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
-
-      - name: 安装 pnpm
-        uses: pnpm/action-setup@v2
         with:
-          version: 10.5.2
-          run_install: false
-
-      - name: 设置 Node.js 环境
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'pnpm'
-
-      - name: 安装依赖
-        run: pnpm install
-
-      - name: 运行构建
-        run: pnpm build
-
-      - name: 运行测试
-        run: pnpm test
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: 获取package.json版本号
         id: version

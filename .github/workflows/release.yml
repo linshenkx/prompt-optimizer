@@ -17,8 +17,12 @@ env:
   PNPM_VERSION: '10.6.1'
 
 jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
   # 构建 Windows 版本
   build-windows:
+    needs: test
     runs-on: windows-latest
     steps:
       - name: 检出代码
@@ -152,6 +156,7 @@ jobs:
 
   # 构建 macOS 版本
   build-macos:
+    needs: test
     runs-on: macos-latest
     steps:
       - name: 检出代码
@@ -278,6 +283,7 @@ jobs:
 
   # 构建 Linux 版本
   build-linux:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码
