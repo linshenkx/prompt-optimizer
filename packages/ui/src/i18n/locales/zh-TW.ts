@@ -21,6 +21,7 @@ export default {
     save: "儲存",
     cancel: "取消",
     confirm: "確認",
+    retry: "重試",
     delete: "刪除",
     edit: "編輯",
     create: "建立",

@@ -21,6 +21,7 @@ export default {
     save: "保存",
     cancel: "取消",
     confirm: "确认",
+    retry: "重试",
     delete: "删除",
     edit: "编辑",
     create: "创建",

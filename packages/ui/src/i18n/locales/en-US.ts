@@ -21,6 +21,7 @@ export default {
     save: "Save",
     cancel: "Cancel",
     confirm: "Confirm",
+    retry: "Retry",
     delete: "Delete",
     edit: "Edit",
     copy: "Copy",
