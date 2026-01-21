@@ -31,7 +31,7 @@
     "test:e2e:record": "cross-env E2E_VCR_MODE=record playwright test",
     "test:e2e:replay": "cross-env E2E_VCR_MODE=replay playwright test",
     "test:gate:core": "pnpm -F @prompt-optimizer/core test:gate",
-    "test:gate:ui": "pnpm -F @prompt-optimizer/ui test",
+    "test:gate:ui": "pnpm -F @prompt-optimizer/core build && pnpm -F @prompt-optimizer/ui test",
     "test:gate:e2e": "playwright test tests/e2e/regression.spec.ts tests/e2e/workflows/p0-route-smoke.spec.ts",
     "test:gate": "npm-run-all -s test:gate:core test:gate:ui",
     "test:gate:full": "npm-run-all -s test:gate test:gate:e2e",
