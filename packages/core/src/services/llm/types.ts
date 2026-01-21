@@ -27,6 +27,12 @@ export interface TextProvider {
   readonly name: string
   /** 描述信息 */
   readonly description?: string
+  /**
+   * 浏览器环境是否会被 CORS 限制（无法直接请求该 API）。
+   * - true: Web 端可能因 CORS 被浏览器拦截，建议使用 Desktop 或自行配置代理
+   * - false/undefined: 未标记为 CORS 限制（不代表一定可用，仍可能受网络/鉴权等影响）
+   */
+  readonly corsRestricted?: boolean
   /** 是否必须提供 API Key */
   readonly requiresApiKey: boolean
   /** 默认 API 地址 */

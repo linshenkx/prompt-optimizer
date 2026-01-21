@@ -806,6 +806,8 @@ export default {
     fetchModelsFailed: "取得模型清單失敗：{error}",
     needApiKeyAndBaseUrl: "請先填寫API位址和金鑰",
     needBaseUrl: "請先填寫API位址",
+    corsRestrictedTag: "CORS受限",
+    corsRestrictedConfirm: "{provider} 存在瀏覽器CORS跨域限制，Web端連線測試可能會失敗。\n\n這不代表API Key有問題，而是瀏覽器安全策略阻止了請求。\n建議下載桌面版APP使用，或確保該提供商支援瀏覽器直連。\n\n是否繼續測試？",
 
     // 模型取得錯誤處理
     errors: {

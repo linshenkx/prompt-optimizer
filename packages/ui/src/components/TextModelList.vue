@@ -24,6 +24,14 @@
                 {{ model.modelMeta?.name || model.modelMeta?.id }}
               </NTag>
               <NTag
+                v-if="model.providerMeta?.corsRestricted && !isElectronEnv"
+                size="small"
+                type="error"
+                :bordered="false"
+              >
+                {{ t('modelManager.corsRestrictedTag') }}
+              </NTag>
+              <NTag
                 v-if="model.modelMeta?.capabilities?.supportsTools"
                 size="small"
                 type="success"
@@ -172,7 +180,7 @@ import { type PropType } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import { NButton, NCard, NTag, NText, NSpace } from 'naive-ui'
-import type { TextModelConfig } from '@prompt-optimizer/core'
+import { isRunningInElectron, type TextModelConfig } from '@prompt-optimizer/core'
 
 const { models, isTestingConnectionFor, isDefaultModel } = defineProps({
   models: {
@@ -192,4 +200,6 @@ const { models, isTestingConnectionFor, isDefaultModel } = defineProps({
 const emit = defineEmits(['test', 'edit', 'enable', 'disable', 'delete'])
 
 const { t } = useI18n()
+
+const isElectronEnv = isRunningInElectron()
 </script>

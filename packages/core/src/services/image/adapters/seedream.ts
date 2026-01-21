@@ -21,6 +21,7 @@ export class SeedreamImageAdapter extends AbstractImageProviderAdapter {
       id: 'seedream',
       name: 'Seedream (火山方舟)',
       description: '火山方舟 Seedream 图像生成模型',
+      corsRestricted: true,
       requiresApiKey: true,
       defaultBaseURL: 'https://ark.cn-beijing.volces.com/api/v3',
       supportsDynamicModels: false,  // 不支持动态获取

@@ -36,6 +36,7 @@ export class DashScopeImageAdapter extends AbstractImageProviderAdapter {
       id: 'dashscope',
       name: '阿里百炼',
       description: '阿里云百炼图像生成服务，支持通义千问图像模型（文生图/图生图）',
+      corsRestricted: true,
       requiresApiKey: true,
       defaultBaseURL: 'https://dashscope.aliyuncs.com',
       supportsDynamicModels: false,

@@ -5,14 +5,16 @@
         placement="top-right"
         container-style="position: fixed; top: 20px; right: 20px;"
     >
-        <MessageApiInitializer />
-        <slot />
+        <NDialogProvider>
+            <MessageApiInitializer />
+            <slot />
+        </NDialogProvider>
     </NMessageProvider>
 </template>
 
 <script setup lang="ts">
 import { onMounted, defineComponent, h } from "vue";
-import { NMessageProvider, useMessage } from "naive-ui";
+import { NMessageProvider, NDialogProvider, useMessage } from "naive-ui";
 
 import { setGlobalMessageApi } from '../composables/ui/useToast';
 

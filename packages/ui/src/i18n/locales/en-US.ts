@@ -833,6 +833,8 @@ export default {
     fetchModelsFailed: "Failed to fetch models: {error}",
     needApiKeyAndBaseUrl: "Please fill API key and base URL first",
     needBaseUrl: "Please fill in API URL first",
+    corsRestrictedTag: "CORS Restricted",
+    corsRestrictedConfirm: "{provider} has browser CORS restrictions, connection test may fail in Web.\n\nThis does not mean your API Key is invalid, but browser security policy blocked the request.\nRecommend using Desktop App, or ensure this provider supports direct browser access.\n\nContinue testing?",
 
     // Error handling for model fetching
     errors: {

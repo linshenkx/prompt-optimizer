@@ -350,8 +350,25 @@ export class ImageModelManager implements IImageModelManager {
 
   // 确保配置是自包含的（包含完整的provider和model信息）
   private ensureSelfContained(config: ImageModelConfig): ImageModelConfig {
-    // 如果已经有完整的自包含字段，直接返回
+    // 如果已经有完整的自包含字段，尽量补齐新增的 provider 字段（保持向后兼容）
     if (config.provider && config.model) {
+      // 旧存储数据里 provider 可能缺少新字段；用当前 adapter 的 provider 元数据补齐。
+      if (config.provider.corsRestricted === undefined) {
+        try {
+          const latestProvider = this.registry.getAdapter(config.providerId).getProvider()
+          if (latestProvider.corsRestricted !== undefined) {
+            return {
+              ...config,
+              provider: {
+                ...config.provider,
+                corsRestricted: latestProvider.corsRestricted
+              }
+            }
+          }
+        } catch {
+          // ignore - unknown provider or adapter failure
+        }
+      }
       return config
     }
 

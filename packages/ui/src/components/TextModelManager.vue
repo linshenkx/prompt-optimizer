@@ -20,15 +20,18 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, provide, ref } from 'vue'
+import { onMounted, provide, ref, h } from 'vue'
 
 import { useI18n } from 'vue-i18n'
+import { isRunningInElectron } from '@prompt-optimizer/core'
 import { useTextModelManager } from '../composables/model/useTextModelManager'
 import TextModelList from './TextModelList.vue'
 import TextModelEditModal from './TextModelEditModal.vue'
+import { useDialog } from 'naive-ui'
 
 const emit = defineEmits(['modelsUpdated'])
 const { t } = useI18n()
+const dialog = useDialog()
 const manager = useTextModelManager()
 provide('textModelManager', manager)
 
@@ -49,7 +52,28 @@ const handleModelUpdated = async (id?: string) => {
 }
 
 const handleTestConnection = async (id: string) => {
-  await manager.testConfigConnection(id)
+  const runTest = async () => {
+    await manager.testConfigConnection(id)
+  }
+
+  if (!isRunningInElectron()) {
+    const model = manager.models.value.find(m => m.id === id)
+    if (model) {
+      const isCorsRestricted = !!model.providerMeta?.corsRestricted
+      if (isCorsRestricted) {
+        const providerName = model.providerMeta?.name || model.providerMeta?.id || 'Unknown Provider'
+        dialog.warning({
+          title: t('modelManager.corsRestrictedTag'),
+          content: () => h('div', { style: 'white-space: pre-line;' }, t('modelManager.corsRestrictedConfirm', { provider: providerName })),
+          positiveText: t('common.confirm'),
+          negativeText: t('common.cancel'),
+          onPositiveClick: runTest
+        })
+        return
+      }
+    }
+  }
+  await runTest()
 }
 
 const handleEditModel = async (id: string) => {

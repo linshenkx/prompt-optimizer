@@ -38,6 +38,7 @@ export class ModelScopeImageAdapter extends AbstractImageProviderAdapter {
       id: 'modelscope',
       name: 'ModelScope',
       description: 'ModelScope 魔搭社区图像生成服务，每天免费 2000 次调用',
+      corsRestricted: true,
       requiresApiKey: true,
       defaultBaseURL: 'https://api-inference.modelscope.cn/v1',
       supportsDynamicModels: false,

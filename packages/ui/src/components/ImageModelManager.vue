@@ -39,6 +39,14 @@
                 <NTag size="small" type="primary" :bordered="false">
                   {{ config.model?.name || config.modelId }}
                 </NTag>
+                <NTag
+                  v-if="config.provider?.corsRestricted && !isElectronEnv"
+                  size="small"
+                  type="error"
+                  :bordered="false"
+                >
+                  {{ t('modelManager.corsRestrictedTag') }}
+                </NTag>
                 <!-- 能力标签移到这里 -->
                 <NTag v-if="config.model?.capabilities?.text2image" size="small" type="success" :bordered="false">
                   {{ t('image.capability.text2image') }}
@@ -136,19 +144,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, inject } from 'vue'
+import { ref, onMounted, inject, h } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import {
-  NSpace, NCard, NText, NTag, NButton, NEmpty, NImage
+  NSpace, NCard, NText, NTag, NButton, NEmpty, NImage, useDialog
 } from 'naive-ui'
 import { useImageModelManager } from '../composables/model/useImageModelManager'
 import { useToast } from '../composables/ui/useToast'
 import { getI18nErrorMessage } from '../utils/error'
-import type { IImageService, ImageModel } from '@prompt-optimizer/core'
+import { isRunningInElectron, type IImageService, type ImageModel } from '@prompt-optimizer/core'
 
 const { t } = useI18n()
 const toast = useToast()
+const dialog = useDialog()
+const isElectronEnv = isRunningInElectron()
 
 // 定义事件
 const emit = defineEmits(['add', 'edit'])
@@ -223,53 +233,72 @@ const editConfig = (configId: string) => {
 const testConnection = async (configId: string) => {
   if (isTestingConnectionFor(configId)) return
 
-  try {
-    testingConnections.value[configId] = true
+  const config = configs.value.find(c => c.id === configId)
+  if (!config) return
 
-    // 清除之前的测试结果
-    delete testResults.value[configId]
+  const runTest = async () => {
+    try {
+      testingConnections.value[configId] = true
 
-    const config = configs.value.find(c => c.id === configId)
-    if (!config) throw new Error('Config not found')
+      // 清除之前的测试结果
+      delete testResults.value[configId]
 
-    // 获取选中的模型信息
-    if (!config.model) {
-      throw new Error('选中的模型未找到')
+      if (!config) throw new Error('Config not found')
+
+      // 获取选中的模型信息
+      if (!config.model) {
+        throw new Error('选中的模型未找到')
+      }
+
+      // 根据模型能力确定测试类型
+      const testType = selectTestType(config.model)
+
+      // 通过统一服务执行测试（Electron 下经 IPC 走主进程；Web 下本地执行）
+      const result = await imageService.testConnection(config)
+
+      // 测试成功
+      testResults.value[configId] = {
+        success: true,
+        image: result.images[0],
+        testType
+      }
+
+      toast.success(t('image.connection.testSuccess'))
+
+    } catch (error) {
+      console.error('Connection test failed:', error)
+
+      // 记录失败结果
+      testResults.value[configId] = {
+        success: false,
+        testType: 'text2image' // 默认值
+      }
+
+      const detail = getI18nErrorMessage(error, t('image.connection.testError'))
+      if (detail === t('image.connection.testError')) {
+        toast.error(detail)
+      } else {
+        toast.error(`${t('image.connection.testError')}: ${detail}`)
+      }
+    } finally {
+      delete testingConnections.value[configId]
     }
-
-    // 根据模型能力确定测试类型
-    const testType = selectTestType(config.model)
-
-    // 通过统一服务执行测试（Electron 下经 IPC 走主进程；Web 下本地执行）
-    const result = await imageService.testConnection(config)
-
-    // 测试成功
-    testResults.value[configId] = {
-      success: true,
-      image: result.images[0],
-      testType
-    }
-
-    toast.success(t('image.connection.testSuccess'))
-
-  } catch (error) {
-    console.error('Connection test failed:', error)
-
-    // 记录失败结果
-    testResults.value[configId] = {
-      success: false,
-      testType: 'text2image' // 默认值
-    }
-
-    const detail = getI18nErrorMessage(error, t('image.connection.testError'))
-    if (detail === t('image.connection.testError')) {
-      toast.error(detail)
-    } else {
-      toast.error(`${t('image.connection.testError')}: ${detail}`)
-    }
-  } finally {
-    delete testingConnections.value[configId]
   }
+
+  if (!isRunningInElectron()) {
+    if (config?.provider?.corsRestricted) {
+      dialog.warning({
+        title: t('modelManager.corsRestrictedTag'),
+        content: () => h('div', { style: 'white-space: pre-line;' }, t('modelManager.corsRestrictedConfirm', { provider: config.provider.name || config.providerId })),
+        positiveText: t('common.confirm'),
+        negativeText: t('common.cancel'),
+        onPositiveClick: runTest
+      })
+      return
+    }
+  }
+
+  await runTest()
 }
 
 const toggleConfig = async (config: { id: string; enabled: boolean }) => {

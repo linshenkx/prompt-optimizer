@@ -170,7 +170,7 @@
       <NSpace justify="space-between" align="center" style="width: 100%;">
         <NSpace align="center">
           <NButton
-            @click="testFormConnection"
+            @click="handleTestFormConnection"
             :loading="isTestingFormConnection"
             :disabled="!canTestFormConnection"
             secondary
@@ -202,10 +202,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, nextTick } from 'vue'
+import { computed, inject, nextTick, h } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import { useToast } from '../composables/ui/useToast'
+import { isRunningInElectron } from '@prompt-optimizer/core'
 import {
   NModal,
   NForm,
@@ -222,7 +223,8 @@ import {
   NText,
   NTag,
   NTooltip,
-  NSpin
+  NSpin,
+  useDialog
 } from 'naive-ui'
 import ModelAdvancedSection from './ModelAdvancedSection.vue'
 import ExternalLinkIcon from './icons/ExternalLinkIcon.vue'
@@ -239,6 +241,7 @@ const emit = defineEmits(['update:show', 'saved'])
 
 const { t } = useI18n()
 const toast = useToast()
+const dialog = useDialog()
 const manager = inject<TextModelManager>('textModelManager')
 if (!manager) {
   throw new Error('Text model manager not provided')
@@ -270,6 +273,28 @@ const isEditing = computed(() => !!manager.editingModelId.value)
 const currentProviderApiKeyUrl = computed(() => {
   return manager.selectedProvider.value?.apiKeyUrl || null
 })
+
+const handleTestFormConnection = async () => {
+  const runTest = async () => {
+    await testFormConnection()
+  }
+
+  if (!isRunningInElectron()) {
+    const provider = manager.selectedProvider.value
+    if (provider?.corsRestricted) {
+      const providerName = provider.name || provider.id || 'Unknown Provider'
+      dialog.warning({
+        title: t('modelManager.corsRestrictedTag'),
+        content: () => h('div', { style: 'white-space: pre-line;' }, t('modelManager.corsRestrictedConfirm', { provider: providerName })),
+        positiveText: t('common.confirm'),
+        negativeText: t('common.cancel'),
+        onPositiveClick: runTest
+      })
+      return
+    }
+  }
+  await runTest()
+}
 
 const handleUpdateShow = async (value: boolean) => {
   emit('update:show', value)

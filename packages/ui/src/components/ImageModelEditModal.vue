@@ -232,23 +232,24 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch, nextTick } from 'vue'
+import { computed, watch, nextTick, h } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import {
   NModal, NSpace, NInput, NInputNumber,
   NCheckbox, NSelect, NButton, NTag, NTooltip, NText,
-  NDivider, NH4, NForm, NFormItem, NImage
+  NDivider, NH4, NForm, NFormItem, NImage, useDialog
 } from 'naive-ui'
 import { useImageModelManager } from '../composables/model/useImageModelManager'
 import { useToast } from '../composables/ui/useToast'
-import type { ImageModelConfig } from '@prompt-optimizer/core'
+import { isRunningInElectron, type ImageModelConfig } from '@prompt-optimizer/core'
 import ModelAdvancedSection from './ModelAdvancedSection.vue'
 import ExternalLinkIcon from './icons/ExternalLinkIcon.vue'
 
 
 const { t } = useI18n()
 const toast = useToast()
+const dialog = useDialog()
 
 // Props
 const props = defineProps<{
@@ -293,7 +294,7 @@ const {
   onProviderChange: handleProviderChange,
   onConnectionConfigChange,
   onModelChange,
-  testConnection: handleTestConnection,
+  testConnection: performTestConnection,
   refreshModels: handleRefreshModels,
   updateParamOverrides,
   saveConfig,
@@ -308,6 +309,27 @@ const isEditing = computed(() => !!props.configId)
 const currentProviderApiKeyUrl = computed(() => {
   return selectedProvider.value?.apiKeyUrl || null
 })
+
+const handleTestConnection = async () => {
+  const runTest = async () => {
+    await performTestConnection()
+  }
+
+  if (!isRunningInElectron()) {
+    if (selectedProvider.value?.corsRestricted) {
+      const providerName = selectedProvider.value.name || selectedProvider.value.id || 'Unknown'
+      dialog.warning({
+        title: t('modelManager.corsRestrictedTag'),
+        content: () => h('div', { style: 'white-space: pre-line;' }, t('modelManager.corsRestrictedConfirm', { provider: providerName })),
+        positiveText: t('common.confirm'),
+        negativeText: t('common.cancel'),
+        onPositiveClick: runTest
+      })
+      return
+    }
+  }
+  await runTest()
+}
 
 const providerOptions = computed(() =>
   providers.value.map(p => ({
