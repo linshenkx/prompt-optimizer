@@ -65,10 +65,11 @@ interface UseBasicWorkspaceLogicOptions {
   promptRecordType: PromptRecordType
   onOptimizeComplete?: (chain: PromptRecordChain) => void
   onIterateComplete?: (chain: PromptRecordChain) => void
+  onLocalEditComplete?: (chain: PromptRecordChain) => void
 }
 
 export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
-  const { services, sessionStore, optimizationMode, promptRecordType, onOptimizeComplete, onIterateComplete } = options
+  const { services, sessionStore, optimizationMode, promptRecordType, onOptimizeComplete, onIterateComplete, onLocalEditComplete } = options
   const toast = useToast()
   const { t } = useI18n()
 
@@ -529,6 +530,84 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
   }
 
   /**
+   * 3.5 保存本地编辑为新版本（不触发 LLM）
+   * - 将当前编辑后的 optimizedPrompt 写入历史链
+   * - 清空 reasoning（避免误用旧的推理内容）
+   */
+  const handleSaveLocalEdit = async (payload: { optimizedPrompt: string; note?: string; source?: 'patch' | 'manual' }) => {
+    const historyManager = services.value?.historyManager
+    if (!historyManager) {
+      toast.error(t('toast.error.historyUnavailable'))
+      return
+    }
+
+    const newPrompt = payload.optimizedPrompt || ''
+    if (!newPrompt.trim()) return
+
+    try {
+      const chainId = currentChainId.value || sessionStore.chainId || ''
+      const currentRecord = currentVersions.value.find((v) => v.id === currentVersionId.value)
+
+      const modelKey = currentRecord?.modelKey || selectedOptimizeModelKey.value || 'local-edit'
+      const templateId =
+        currentRecord?.templateId ||
+        selectedIterateTemplateId.value ||
+        selectedTemplateId.value ||
+        'local-edit'
+
+      const note = payload.note || (payload.source === 'patch' ? 'Direct fix' : 'Manual edit')
+
+      const chain = chainId
+        ? await historyManager.addIteration({
+            chainId,
+            originalPrompt: prompt.value,
+            optimizedPrompt: newPrompt,
+            modelKey,
+            templateId,
+            iterationNote: note,
+            metadata: {
+              optimizationMode,
+              functionMode: 'basic',
+              localEdit: true,
+              localEditSource: payload.source || 'manual',
+            },
+          })
+        : await historyManager.createNewChain({
+            id: uuidv4(),
+            originalPrompt: prompt.value,
+            optimizedPrompt: newPrompt,
+            type: promptRecordType,
+            modelKey,
+            templateId,
+            timestamp: Date.now(),
+            metadata: {
+              optimizationMode,
+              functionMode: 'basic',
+              localEdit: true,
+              localEditSource: payload.source || 'manual',
+            },
+          })
+
+      currentChainId.value = chain.chainId
+      currentVersions.value = chain.versions
+      currentVersionId.value = chain.currentRecord.id
+
+      sessionStore.updateOptimizedResult({
+        optimizedPrompt: newPrompt,
+        reasoning: '',
+        chainId: chain.chainId,
+        versionId: chain.currentRecord.id,
+      })
+
+      onLocalEditComplete?.(chain)
+      toast.success(t('toast.success.localEditSaved'))
+    } catch (error) {
+      console.error('[useBasicWorkspaceLogic] 保存本地编辑失败:', error)
+      toast.warning(t('toast.warning.saveHistoryFailed'))
+    }
+  }
+
+  /**
    * 4. 切换版本
    */
   const handleSwitchVersion = (version: PromptRecord) => {
@@ -607,6 +686,7 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
     handleOptimize,
     handleIterate,
     handleTest,
+    handleSaveLocalEdit,
     handleSwitchVersion,
     loadVersions
   }

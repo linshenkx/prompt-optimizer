@@ -316,6 +316,7 @@
                     @openTemplateManager="onOpenTemplateManager"
                     @switchVersion="handleSwitchVersion"
                     @save-favorite="handleSaveFavorite"
+                    @save-local-edit="handleSaveLocalEdit"
                 />
             </NCard>
         </NFlex>
@@ -1093,6 +1094,83 @@ const handleApplyPatch = (payload: { operation: PatchOperation }) => {
     }
     optimizedPrompt.value = result.text
     toast.success(t('evaluation.diagnose.applyFix'))
+}
+
+// 保存本地编辑
+const handleSaveLocalEdit = async (payload: { note?: string }) => {
+    if (!historyManager.value) {
+        toast.error(t('toast.error.historyUnavailable'))
+        return
+    }
+
+    const newPrompt = optimizedPrompt.value || ''
+    if (!newPrompt.trim()) return
+
+    try {
+        const chainId = currentChainId.value || session.chainId || ''
+        const currentRecord = currentVersions.value.find((v) => v.id === currentVersionId.value)
+
+        const modelKey = currentRecord?.modelKey || selectedTextModelKey.value || 'local-edit'
+        const templateId =
+            currentRecord?.templateId ||
+            selectedIterateTemplate.value?.id ||
+            selectedTemplate.value?.id ||
+            'local-edit'
+
+        const chain = chainId
+            ? await historyManager.value.addIteration({
+                  chainId,
+                  originalPrompt: originalPrompt.value,
+                  optimizedPrompt: newPrompt,
+                  modelKey,
+                  templateId,
+                  iterationNote: payload.note,
+                  metadata: {
+                      optimizationMode: 'user' as OptimizationMode,
+                      functionMode: 'image',
+                      localEdit: true,
+                      localEditSource: 'manual',
+                      imageModelKey: selectedImageModelKey.value,
+                      hasInputImage: false,
+                      compareMode: isCompareMode.value,
+                  },
+              })
+            : await historyManager.value.createNewChain({
+                  id: uuidv4(),
+                  originalPrompt: originalPrompt.value,
+                  optimizedPrompt: newPrompt,
+                  type: 'text2imageOptimize' as PromptRecordType,
+                  modelKey,
+                  templateId,
+                  timestamp: Date.now(),
+                  metadata: {
+                      optimizationMode: 'user' as OptimizationMode,
+                      functionMode: 'image',
+                      localEdit: true,
+                      localEditSource: 'manual',
+                      imageModelKey: selectedImageModelKey.value,
+                      hasInputImage: false,
+                      compareMode: isCompareMode.value,
+                  },
+              })
+
+        currentChainId.value = chain.chainId
+        currentVersions.value = chain.versions
+        currentVersionId.value = chain.currentRecord.id
+
+        session.updateOptimizedResult({
+            optimizedPrompt: newPrompt,
+            reasoning: '',
+            chainId: chain.chainId,
+            versionId: chain.currentRecord.id,
+        })
+
+        window.dispatchEvent(new CustomEvent('prompt-optimizer:history-refresh'))
+        toast.success(t('toast.success.localEditSaved'))
+    } catch (e) {
+        console.error('[ImageText2ImageWorkspace] Failed to save local edit:', e)
+        toast.warning(t('toast.warning.saveHistoryFailed'))
+    }
 }
 
 const handleClearEvaluation = () => {

@@ -353,6 +353,9 @@ const logic = useBasicWorkspaceLogic({
   },
   onIterateComplete: (_chain) => {
     window.dispatchEvent(new CustomEvent('prompt-optimizer:history-refresh'))
+  },
+  onLocalEditComplete: (_chain) => {
+    window.dispatchEvent(new CustomEvent('prompt-optimizer:history-refresh'))
   }
 })
 
@@ -589,9 +592,12 @@ const handleClearEvaluation = () => {
 }
 
 // 保存本地编辑
-const handleSaveLocalEdit = (payload: { note?: string }) => {
-  console.log('[BasicSystemWorkspace] saveLocalEdit', payload)
-  toast.info('保存编辑功能开发中')
+const handleSaveLocalEdit = async (payload: { note?: string }) => {
+  await logic.handleSaveLocalEdit({
+    optimizedPrompt: logic.optimizedPrompt.value || '',
+    note: payload.note,
+    source: 'manual',
+  })
 }
 
 // 保存收藏（从顶层 App 注入）
@@ -623,19 +629,19 @@ const handleSaveFavorite = () => {
 
 // 打开变量管理器
 const handleOpenVariableManager = (_variableName?: string) => {
-  toast.info('变量管理器功能开发中')
+  toast.info('变量管理器暂不可用')
 }
 
 // 打开输入预览
 const handleOpenInputPreview = () => {
   console.log('[BasicSystemWorkspace] openInputPreview')
-  toast.info('输入预览功能开发中')
+  toast.info('输入预览暂不可用')
 }
 
 // 打开提示词预览
 const handleOpenPromptPreview = () => {
   console.log('[BasicSystemWorkspace] openPromptPreview')
-  toast.info('提示词预览功能开发中')
+  toast.info('提示词预览暂不可用')
 }
 
 // 打开模型管理器
