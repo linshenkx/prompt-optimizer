@@ -33,6 +33,40 @@ export interface TestResults {
 }
 
 /**
+ * basic-system 测试面板的版本选择：
+ * - 0: v0（原始提示词）
+ * - >=1: v1..vn（历史链版本号）
+ * - 'latest': 跟随最新 vn
+ */
+export type TestPanelVersionValue = 0 | number | 'latest'
+
+export type TestVariantId = 'a' | 'b' | 'c' | 'd'
+
+export type TestColumnCount = 2 | 3 | 4
+
+export interface BasicSystemLayoutConfig {
+  /** 主布局左侧宽度（百分比，25..50） */
+  mainSplitLeftPct: number
+  /** 测试区列数（2..4） */
+  testColumnCount: TestColumnCount
+}
+
+export interface TestVariantConfig {
+  id: TestVariantId
+  version: TestPanelVersionValue
+  modelKey: string
+}
+
+export interface TestVariantResult {
+  result: string
+  reasoning: string
+}
+
+export type TestVariantResults = Record<TestVariantId, TestVariantResult>
+
+export type TestVariantLastRunFingerprint = Record<TestVariantId, string>
+
+/**
  * Basic-System 会话状态
  */
 export interface BasicSystemSessionState {
@@ -50,6 +84,14 @@ export interface BasicSystemSessionState {
 
   // 测试结果
   testResults: TestResults | null
+
+  // 测试布局与列配置（basic-system 专用：最多 4 列）
+  layout: BasicSystemLayoutConfig
+  testVariants: TestVariantConfig[]
+
+  // 测试结果（按列持久化，支持最多 4 列）
+  testVariantResults: TestVariantResults
+  testVariantLastRunFingerprint: TestVariantLastRunFingerprint
 
   // 评估结果（分类型持久化，用于重启恢复）
   evaluationResults: PersistedEvaluationResults
@@ -78,6 +120,25 @@ const createDefaultState = (): BasicSystemSessionState => ({
   versionId: '',
   testContent: '',
   testResults: null,
+  layout: { mainSplitLeftPct: 50, testColumnCount: 2 },
+  testVariants: [
+    { id: 'a', version: 0, modelKey: '' },
+    { id: 'b', version: 'latest', modelKey: '' },
+    { id: 'c', version: 'latest', modelKey: '' },
+    { id: 'd', version: 'latest', modelKey: '' },
+  ],
+  testVariantResults: {
+    a: { result: '', reasoning: '' },
+    b: { result: '', reasoning: '' },
+    c: { result: '', reasoning: '' },
+    d: { result: '', reasoning: '' },
+  },
+  testVariantLastRunFingerprint: {
+    a: '',
+    b: '',
+    c: '',
+    d: '',
+  },
   evaluationResults: createDefaultEvaluationResults(),
   selectedOptimizeModelKey: '',
   selectedTestModelKey: '',
@@ -104,6 +165,29 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
 
   // 测试结果
   const testResults = ref<TestResults | null>(null)
+
+  // 测试布局与列配置（最多 4 列）
+  const layout = ref<BasicSystemLayoutConfig>({ mainSplitLeftPct: 50, testColumnCount: 2 })
+  const testVariants = ref<TestVariantConfig[]>([
+    { id: 'a', version: 0, modelKey: '' },
+    { id: 'b', version: 'latest', modelKey: '' },
+    { id: 'c', version: 'latest', modelKey: '' },
+    { id: 'd', version: 'latest', modelKey: '' },
+  ])
+
+  const testVariantResults = ref<TestVariantResults>({
+    a: { result: '', reasoning: '' },
+    b: { result: '', reasoning: '' },
+    c: { result: '', reasoning: '' },
+    d: { result: '', reasoning: '' },
+  })
+
+  const testVariantLastRunFingerprint = ref<TestVariantLastRunFingerprint>({
+    a: '',
+    b: '',
+    c: '',
+    d: '',
+  })
 
   // 评估结果
   const evaluationResults = ref<PersistedEvaluationResults>(createDefaultEvaluationResults())
@@ -244,6 +328,44 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
   }
 
   /**
+   * 设置测试区列数
+   */
+  const setTestColumnCount = (count: TestColumnCount) => {
+    if (layout.value.testColumnCount === count) return
+    layout.value = { ...layout.value, testColumnCount: count }
+    lastActiveAt.value = Date.now()
+    saveSession()
+  }
+
+  /**
+   * 设置主布局左侧宽度（百分比）
+   */
+  const setMainSplitLeftPct = (pct: number) => {
+    const normalized = Number.isFinite(pct) ? Math.round(pct) : layout.value.mainSplitLeftPct
+    const next = Math.min(50, Math.max(25, normalized))
+    if (layout.value.mainSplitLeftPct === next) return
+    layout.value = { ...layout.value, mainSplitLeftPct: next }
+    lastActiveAt.value = Date.now()
+    saveSession()
+  }
+
+  /**
+   * 更新某一列（variant）的版本/模型配置
+   */
+  const updateTestVariant = (id: TestVariantId, patch: Partial<Omit<TestVariantConfig, 'id'>>) => {
+    const idx = testVariants.value.findIndex(v => v.id === id)
+    if (idx < 0) return
+    const prev = testVariants.value[idx]
+    const next: TestVariantConfig = { ...prev, ...patch, id }
+    if (prev.version === next.version && prev.modelKey === next.modelKey) return
+    const nextList = testVariants.value.slice()
+    nextList[idx] = next
+    testVariants.value = nextList
+    lastActiveAt.value = Date.now()
+    saveSession()
+  }
+
+  /**
    * 重置状态
    */
   const reset = () => {
@@ -255,6 +377,10 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
     versionId.value = defaultState.versionId
     testContent.value = defaultState.testContent
     testResults.value = defaultState.testResults
+    layout.value = defaultState.layout
+    testVariants.value = defaultState.testVariants
+    testVariantResults.value = defaultState.testVariantResults
+    testVariantLastRunFingerprint.value = defaultState.testVariantLastRunFingerprint
     evaluationResults.value = defaultState.evaluationResults
     selectedOptimizeModelKey.value = defaultState.selectedOptimizeModelKey
     selectedTestModelKey.value = defaultState.selectedTestModelKey
@@ -284,6 +410,10 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
         versionId: versionId.value,
         testContent: testContent.value,
         testResults: testResults.value,
+        layout: layout.value,
+        testVariants: testVariants.value,
+        testVariantResults: testVariantResults.value,
+        testVariantLastRunFingerprint: testVariantLastRunFingerprint.value,
         evaluationResults: evaluationResults.value,
         selectedOptimizeModelKey: selectedOptimizeModelKey.value,
         selectedTestModelKey: selectedTestModelKey.value,
@@ -330,6 +460,85 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
         versionId.value = parsed.versionId
         testContent.value = parsed.testContent
         testResults.value = parsed.testResults
+
+        // 兼容旧数据：layout/testVariants 缺失时使用默认值
+        const defaultState = createDefaultState()
+        const coerceVersionValue = (value: unknown): TestPanelVersionValue | null => {
+          if (value === 'latest') return 'latest'
+          if (typeof value === 'number' && Number.isFinite(value) && value >= 0) return Math.floor(value)
+          return null
+        }
+
+        const legacyModelKey = typeof parsed.selectedTestModelKey === 'string' ? parsed.selectedTestModelKey : ''
+
+        // variant results (v2): 优先从 saved 读取；否则从旧 testResults 迁移 a/b
+        const savedVariantResults = (parsed as Partial<BasicSystemSessionState>).testVariantResults
+        const savedFingerprint = (parsed as Partial<BasicSystemSessionState>).testVariantLastRunFingerprint
+        const nextVariantResults: TestVariantResults = { ...defaultState.testVariantResults }
+        const nextFingerprint: TestVariantLastRunFingerprint = { ...defaultState.testVariantLastRunFingerprint }
+
+        const coerceVariantResult = (value: unknown): TestVariantResult | null => {
+          if (!value || typeof value !== 'object') return null
+          const v = value as { result?: unknown; reasoning?: unknown }
+          if (typeof v.result !== 'string') return null
+          if (typeof v.reasoning !== 'string') return null
+          return { result: v.result, reasoning: v.reasoning }
+        }
+
+        const ids: TestVariantId[] = ['a', 'b', 'c', 'd']
+        if (savedVariantResults && typeof savedVariantResults === 'object') {
+          const obj = savedVariantResults as Record<string, unknown>
+          for (const id of ids) {
+            const vr = coerceVariantResult(obj[id])
+            if (vr) nextVariantResults[id] = vr
+          }
+        } else if (parsed.testResults) {
+          // legacy: 仅 a/b
+          if (typeof parsed.testResults.originalResult === 'string') nextVariantResults.a.result = parsed.testResults.originalResult
+          if (typeof parsed.testResults.originalReasoning === 'string') nextVariantResults.a.reasoning = parsed.testResults.originalReasoning
+          if (typeof parsed.testResults.optimizedResult === 'string') nextVariantResults.b.result = parsed.testResults.optimizedResult
+          if (typeof parsed.testResults.optimizedReasoning === 'string') nextVariantResults.b.reasoning = parsed.testResults.optimizedReasoning
+        }
+
+        if (savedFingerprint && typeof savedFingerprint === 'object') {
+          const obj = savedFingerprint as Record<string, unknown>
+          for (const id of ids) {
+            const fp = obj[id]
+            if (typeof fp === 'string') nextFingerprint[id] = fp
+          }
+        }
+        testVariantResults.value = nextVariantResults
+        testVariantLastRunFingerprint.value = nextFingerprint
+
+        // layout
+        const savedLayout = (parsed as Partial<BasicSystemSessionState>).layout
+        const savedLeftRaw = savedLayout && typeof savedLayout.mainSplitLeftPct === 'number'
+          ? savedLayout.mainSplitLeftPct
+          : defaultState.layout.mainSplitLeftPct
+        const savedLeft = Math.min(50, Math.max(25, Math.round(savedLeftRaw)))
+        const savedCols = savedLayout && (savedLayout.testColumnCount === 2 || savedLayout.testColumnCount === 3 || savedLayout.testColumnCount === 4)
+          ? savedLayout.testColumnCount
+          : defaultState.layout.testColumnCount
+        layout.value = {
+          mainSplitLeftPct: savedLeft,
+          testColumnCount: savedCols,
+        }
+
+        // variants
+        const fromSavedVariants = (parsed as Partial<BasicSystemSessionState>).testVariants
+        if (Array.isArray(fromSavedVariants) && fromSavedVariants.length) {
+          const normalized: TestVariantConfig[] = defaultState.testVariants.map((d) => {
+            const found = fromSavedVariants.find((v) => v?.id === d.id)
+            return {
+              id: d.id,
+              version: coerceVersionValue(found?.version) ?? d.version,
+              modelKey: typeof found?.modelKey === 'string' ? found.modelKey : legacyModelKey,
+            }
+          })
+          testVariants.value = normalized
+        } else {
+          testVariants.value = defaultState.testVariants.map((v) => ({ ...v, modelKey: legacyModelKey }))
+        }
         // 兼容旧数据：未保存 evaluationResults 时使用默认值
         evaluationResults.value = {
           ...createDefaultEvaluationResults(),
@@ -380,6 +589,10 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
     versionId,
     testContent,
     testResults,
+    layout,
+    testVariants,
+    testVariantResults,
+    testVariantLastRunFingerprint,
     evaluationResults,
     selectedOptimizeModelKey,
     selectedTestModelKey,
@@ -398,6 +611,9 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
     updateTemplate,
     updateIterateTemplate,
     toggleCompareMode,
+    setTestColumnCount,
+    setMainSplitLeftPct,
+    updateTestVariant,
     reset,
 
     // ========== 持久化方法 ==========
