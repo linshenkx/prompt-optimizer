@@ -1,5 +1,5 @@
 <template>
-    <NFlex vertical :style="{ height: '100%', gap: '12px' }">
+    <NFlex vertical :style="{ height: mode === 'full' ? '100%' : 'auto', gap: '12px' }">
         <!-- 变量值输入表单 -->
         <NCard
             :title="t('test.variables.formTitle')"
@@ -155,76 +155,78 @@
             </NSpace>
         </NModal>
 
-        <!-- 控制工具栏 -->
-        <NCard :style="{ flexShrink: 0 }" size="small">
-            <TestControlBar
-                :model-label="t('test.model')"
-                :model-name="modelName"
-                :show-compare-toggle="enableCompareMode"
+        <template v-if="mode === 'full'">
+            <!-- 控制工具栏 -->
+            <NCard :style="{ flexShrink: 0 }" size="small">
+                <TestControlBar
+                    :model-label="t('test.model')"
+                    :model-name="modelName"
+                    :show-compare-toggle="enableCompareMode"
+                    :is-compare-mode="isCompareMode"
+                    @compare-toggle="handleCompareToggle"
+                    :primary-action-text="primaryActionText"
+                    :primary-action-disabled="primaryActionDisabled"
+                    :primary-action-loading="isTestRunning"
+                    :button-size="adaptiveButtonSize"
+                    @primary-action="handleTest"
+                >
+                    <template #model-select>
+                        <slot name="model-select"></slot>
+                    </template>
+                    <template #secondary-controls>
+                        <slot name="secondary-controls"></slot>
+                    </template>
+                    <template #custom-actions>
+                        <slot name="custom-actions"></slot>
+                    </template>
+                </TestControlBar>
+            </NCard>
+
+            <!-- 测试结果区域（不支持工具调用，仅显示文本结果）-->
+            <TestResultSection
                 :is-compare-mode="isCompareMode"
-                @compare-toggle="handleCompareToggle"
-                :primary-action-text="primaryActionText"
-                :primary-action-disabled="primaryActionDisabled"
-                :primary-action-loading="isTestRunning"
-                :button-size="adaptiveButtonSize"
-                @primary-action="handleTest"
+                :vertical-layout="adaptiveResultVerticalLayout"
+                :show-original="isCompareMode"
+                :original-result-title="t('test.originalResult')"
+                :optimized-result-title="t('test.optimizedResult')"
+                :single-result-title="singleResultTitle"
+                :size="adaptiveButtonSize"
+                :style="{ flex: 1, minHeight: 0 }"
+                :show-evaluation="showEvaluation"
+                :has-original-result="hasOriginalResult"
+                :has-optimized-result="hasOptimizedResult"
+                :is-evaluating-original="isEvaluatingOriginal"
+                :is-evaluating-optimized="isEvaluatingOptimized"
+                :original-score="originalScore"
+                :optimized-score="optimizedScore"
+                :has-original-evaluation="hasOriginalEvaluation"
+                :has-optimized-evaluation="hasOptimizedEvaluation"
+                :original-evaluation-result="originalEvaluationResult"
+                :optimized-evaluation-result="optimizedEvaluationResult"
+                :original-score-level="originalScoreLevel"
+                :optimized-score-level="optimizedScoreLevel"
+                @evaluate-original="emit('evaluate-original')"
+                @evaluate-optimized="emit('evaluate-optimized')"
+                @show-original-detail="emit('show-original-detail')"
+                @show-optimized-detail="emit('show-optimized-detail')"
+                @apply-improvement="emit('apply-improvement', $event)"
             >
-                <template #model-select>
-                    <slot name="model-select"></slot>
+                <!-- 对比模式：原始结果 -->
+                <template #original-result>
+                    <slot name="original-result"></slot>
                 </template>
-                <template #secondary-controls>
-                    <slot name="secondary-controls"></slot>
+
+                <!-- 对比模式：优化结果 -->
+                <template #optimized-result>
+                    <slot name="optimized-result"></slot>
                 </template>
-                <template #custom-actions>
-                    <slot name="custom-actions"></slot>
+
+                <!-- 单一结果模式 -->
+                <template #single-result>
+                    <slot name="single-result"></slot>
                 </template>
-            </TestControlBar>
-        </NCard>
-
-        <!-- 测试结果区域（不支持工具调用，仅显示文本结果）-->
-        <TestResultSection
-            :is-compare-mode="isCompareMode"
-            :vertical-layout="adaptiveResultVerticalLayout"
-            :show-original="isCompareMode"
-            :original-result-title="t('test.originalResult')"
-            :optimized-result-title="t('test.optimizedResult')"
-            :single-result-title="singleResultTitle"
-            :size="adaptiveButtonSize"
-            :style="{ flex: 1, minHeight: 0 }"
-            :show-evaluation="showEvaluation"
-            :has-original-result="hasOriginalResult"
-            :has-optimized-result="hasOptimizedResult"
-            :is-evaluating-original="isEvaluatingOriginal"
-            :is-evaluating-optimized="isEvaluatingOptimized"
-            :original-score="originalScore"
-            :optimized-score="optimizedScore"
-            :has-original-evaluation="hasOriginalEvaluation"
-            :has-optimized-evaluation="hasOptimizedEvaluation"
-            :original-evaluation-result="originalEvaluationResult"
-            :optimized-evaluation-result="optimizedEvaluationResult"
-            :original-score-level="originalScoreLevel"
-            :optimized-score-level="optimizedScoreLevel"
-            @evaluate-original="emit('evaluate-original')"
-            @evaluate-optimized="emit('evaluate-optimized')"
-            @show-original-detail="emit('show-original-detail')"
-            @show-optimized-detail="emit('show-optimized-detail')"
-            @apply-improvement="emit('apply-improvement', $event)"
-        >
-            <!-- 对比模式：原始结果 -->
-            <template #original-result>
-                <slot name="original-result"></slot>
-            </template>
-
-            <!-- 对比模式：优化结果 -->
-            <template #optimized-result>
-                <slot name="optimized-result"></slot>
-            </template>
-
-            <!-- 单一结果模式 -->
-            <template #single-result>
-                <slot name="single-result"></slot>
-            </template>
-        </TestResultSection>
+            </TestResultSection>
+        </template>
 
         <!-- 变量值预览对话框 -->
         <VariableValuePreviewDialog
@@ -279,6 +281,13 @@ const {
 } = useResponsive();
 
 interface Props {
+    /**
+     * 渲染模式：
+     * - full: 变量表单 + 测试控制栏 + 结果区（历史行为）
+     * - variables-only: 仅变量表单（供 Workspace 自行渲染多列 variants 测试区）
+     */
+    mode?: "full" | "variables-only";
+
     // 原始提示词（fallback，当optimizedPrompt为空时使用）
     prompt?: string;
     // 优化后的提示词（优先使用）
@@ -331,6 +340,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+    mode: "full",
     prompt: "",
     optimizedPrompt: "",
     isTestRunning: false,
