@@ -24,7 +24,11 @@
     @reasoning-toggle="emit('reasoning-toggle', $event)"
     @view-change="emit('view-change', $event)"
     @save-favorite="emit('save-favorite', $event)"
-  />
+  >
+    <template #toolbar-right-extra>
+      <slot name="toolbar-right-extra"></slot>
+    </template>
+  </OutputDisplayCore>
   <OutputDisplayFullscreen
     v-model="isShowingFullscreen"
     :content="content"

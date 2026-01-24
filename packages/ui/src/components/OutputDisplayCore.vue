@@ -38,7 +38,9 @@
         </NButtonGroup>
         
         <!-- 右侧：操作按钮 -->
-        <NButtonGroup>
+        <NFlex align="center" :size="8" :wrap="false">
+          <slot name="toolbar-right-extra"></slot>
+          <NButtonGroup>
           <NButton
             v-if="isActionEnabled('favorite')"
             @click="handleFavorite"
@@ -82,7 +84,8 @@
               </NIcon>
             </template>
           </NButton>
-        </NButtonGroup>
+          </NButtonGroup>
+        </NFlex>
       </NFlex>
 
       <!-- 推理内容区域 -->
