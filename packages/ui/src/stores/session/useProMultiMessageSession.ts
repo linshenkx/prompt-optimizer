@@ -9,7 +9,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { ref, type Ref } from 'vue'
+import { ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { TEMPLATE_SELECTION_KEYS, type ConversationMessage } from '@prompt-optimizer/core'
 import {
@@ -25,9 +25,68 @@ export interface TestResults {
 }
 
 /**
+ * Pro-MultiMessage 会话状态
+ */
+export interface ProMultiMessageSessionState {
+  conversationMessagesSnapshot: ConversationMessage[]
+  selectedMessageId: string
+  optimizedPrompt: string
+  reasoning: string
+  chainId: string
+  versionId: string
+  messageChainMap: Record<string, string>
+  testResults: TestResults | null
+  layout: ProMultiLayoutConfig
+  testVariants: TestVariantConfig[]
+  testVariantResults: TestVariantResults
+  testVariantLastRunFingerprint: TestVariantLastRunFingerprint
+  evaluationResults: PersistedEvaluationResults
+  selectedOptimizeModelKey: string
+  selectedTestModelKey: string
+  selectedTemplateId: string | null
+  selectedIterateTemplateId: string | null
+  isCompareMode: boolean
+  lastActiveAt: number
+}
+
+/**
+ * pro-multi 测试面板的版本选择（针对“当前选中消息”）：
+ * - 0: v0（原始消息内容）
+ * - >=1: v1..vn（历史链版本号）
+ * - 'latest': 跟随最新 vn
+ */
+export type TestPanelVersionValue = 0 | number | 'latest'
+
+export type TestVariantId = 'a' | 'b' | 'c' | 'd'
+
+export type TestColumnCount = 2 | 3 | 4
+
+export interface ProMultiLayoutConfig {
+  /** 主布局左侧宽度（百分比，25..50） */
+  mainSplitLeftPct: number
+  /** 测试区列数（2..4） */
+  testColumnCount: TestColumnCount
+}
+
+export interface TestVariantConfig {
+  id: TestVariantId
+  version: TestPanelVersionValue
+  modelKey: string
+}
+
+export interface TestVariantResult {
+  result: string
+  reasoning: string
+}
+
+export type TestVariantResults = Record<TestVariantId, TestVariantResult>
+
+export type TestVariantLastRunFingerprint = Record<TestVariantId, string>
+
+/**
  * 默认状态
  */
-const createDefaultState = () => ({
+const createDefaultState = (): ProMultiMessageSessionState => ({
   conversationMessagesSnapshot: [],
   selectedMessageId: '',
   optimizedPrompt: '',
@@ -36,6 +95,26 @@ const createDefaultState = () => ({
   versionId: '',
   messageChainMap: {},
   testResults: null,
+  // v2: 多列测试（最多 4 列）
+  layout: { mainSplitLeftPct: 50, testColumnCount: 2 },
+  testVariants: [
+    { id: 'a', version: 0, modelKey: '' },
+    { id: 'b', version: 'latest', modelKey: '' },
+    { id: 'c', version: 'latest', modelKey: '' },
+    { id: 'd', version: 'latest', modelKey: '' },
+  ],
+  testVariantResults: {
+    a: { result: '', reasoning: '' },
+    b: { result: '', reasoning: '' },
+    c: { result: '', reasoning: '' },
+    d: { result: '', reasoning: '' },
+  },
+  testVariantLastRunFingerprint: {
+    a: '',
+    b: '',
+    c: '',
+    d: '',
+  },
   evaluationResults: createDefaultEvaluationResults(),
   selectedOptimizeModelKey: '',
   selectedTestModelKey: '',
@@ -69,6 +148,27 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
 
   // 测试结果
   const testResults = ref<TestResults | null>(null)
+
+  // 多列测试（最多 4 列）
+  const layout = ref<ProMultiLayoutConfig>({ mainSplitLeftPct: 50, testColumnCount: 2 })
+  const testVariants = ref<TestVariantConfig[]>([
+    { id: 'a', version: 0, modelKey: '' },
+    { id: 'b', version: 'latest', modelKey: '' },
+    { id: 'c', version: 'latest', modelKey: '' },
+    { id: 'd', version: 'latest', modelKey: '' },
+  ])
+  const testVariantResults = ref<TestVariantResults>({
+    a: { result: '', reasoning: '' },
+    b: { result: '', reasoning: '' },
+    c: { result: '', reasoning: '' },
+    d: { result: '', reasoning: '' },
+  })
+  const testVariantLastRunFingerprint = ref<TestVariantLastRunFingerprint>({
+    a: '',
+    b: '',
+    c: '',
+    d: '',
+  })
 
   // 评估结果
   const evaluationResults = ref<PersistedEvaluationResults>(createDefaultEvaluationResults())
@@ -229,6 +329,34 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
     lastActiveAt.value = Date.now()
   }
 
+  const setTestColumnCount = (count: TestColumnCount) => {
+    if (layout.value.testColumnCount === count) return
+    layout.value = { ...layout.value, testColumnCount: count }
+    lastActiveAt.value = Date.now()
+    saveSession()
+  }
+
+  const setMainSplitLeftPct = (pct: number) => {
+    const clamped = Math.min(50, Math.max(25, Math.round(pct)))
+    if (layout.value.mainSplitLeftPct === clamped) return
+    layout.value = { ...layout.value, mainSplitLeftPct: clamped }
+    lastActiveAt.value = Date.now()
+    saveSession()
+  }
+
+  const updateTestVariant = (id: TestVariantId, patch: Partial<Omit<TestVariantConfig, 'id'>>) => {
+    const idx = testVariants.value.findIndex((v) => v.id === id)
+    if (idx < 0) return
+    const prev = testVariants.value[idx]
+    const next: TestVariantConfig = { ...prev, ...patch, id }
+    if (prev.version === next.version && prev.modelKey === next.modelKey) return
+    const nextList = testVariants.value.slice()
+    nextList[idx] = next
+    testVariants.value = nextList
+    lastActiveAt.value = Date.now()
+    saveSession()
+  }
+
   /**
    * 重置状态
    */
@@ -242,6 +370,10 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
     versionId.value = defaultState.versionId
     messageChainMap.value = defaultState.messageChainMap
     testResults.value = defaultState.testResults
+    layout.value = defaultState.layout
+    testVariants.value = defaultState.testVariants
+    testVariantResults.value = defaultState.testVariantResults
+    testVariantLastRunFingerprint.value = defaultState.testVariantLastRunFingerprint
     evaluationResults.value = defaultState.evaluationResults
     selectedOptimizeModelKey.value = defaultState.selectedOptimizeModelKey
     selectedTestModelKey.value = defaultState.selectedTestModelKey
@@ -272,6 +404,10 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
         versionId: versionId.value,
         messageChainMap: messageChainMap.value,
         testResults: testResults.value,
+        layout: layout.value,
+        testVariants: testVariants.value,
+        testVariantResults: testVariantResults.value,
+        testVariantLastRunFingerprint: testVariantLastRunFingerprint.value,
         evaluationResults: evaluationResults.value,
         selectedOptimizeModelKey: selectedOptimizeModelKey.value,
         selectedTestModelKey: selectedTestModelKey.value,
@@ -324,6 +460,110 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
         testResults.value = (parsed.testResults && typeof parsed.testResults === 'object')
           ? (parsed.testResults as TestResults)
           : null
+
+        // ==================== v2: 多列 variants ====================
+        // 默认状态
+        const defaultState = createDefaultState()
+
+        // layout
+        const rawLayout = parsed.layout
+        if (rawLayout && typeof rawLayout === 'object') {
+          const layoutRecord = rawLayout as Record<string, unknown>
+          const pct =
+            typeof layoutRecord['mainSplitLeftPct'] === 'number'
+              ? (layoutRecord['mainSplitLeftPct'] as number)
+              : defaultState.layout.mainSplitLeftPct
+          const countRaw = layoutRecord['testColumnCount']
+          const count: TestColumnCount = countRaw === 2 || countRaw === 3 || countRaw === 4 ? countRaw : defaultState.layout.testColumnCount
+          layout.value = {
+            mainSplitLeftPct: Math.min(50, Math.max(25, Math.round(pct))),
+            testColumnCount: count,
+          }
+        } else {
+          layout.value = defaultState.layout
+        }
+
+        // testVariants
+        const rawVariants = parsed.testVariants
+        if (Array.isArray(rawVariants)) {
+          const byId = new Map<TestVariantId, TestVariantConfig>()
+
+          const normalizeVersion = (v: unknown): TestPanelVersionValue => {
+            if (v === 0) return 0
+            if (v === 'latest') return 'latest'
+            if (typeof v === 'number' && Number.isFinite(v) && v >= 1) return v
+            return 'latest'
+          }
+
+          for (const item of rawVariants) {
+            if (!item || typeof item !== 'object') continue
+            const obj = item as Record<string, unknown>
+            const id = obj['id']
+            if (id !== 'a' && id !== 'b' && id !== 'c' && id !== 'd') continue
+            const modelKey = typeof obj['modelKey'] === 'string' ? (obj['modelKey'] as string) : ''
+            const version = normalizeVersion(obj['version'])
+            byId.set(id, { id, modelKey, version })
+          }
+
+          testVariants.value = defaultState.testVariants.map((v) => {
+            const restored = byId.get(v.id)
+            return restored ? restored : v
+          })
+        } else {
+          testVariants.value = defaultState.testVariants
+        }
+
+        // testVariantResults / migration from legacy testResults
+        const rawVariantResults = parsed.testVariantResults
+        if (rawVariantResults && typeof rawVariantResults === 'object') {
+          const resultRecord = rawVariantResults as Record<string, unknown>
+          const pick = (id: TestVariantId) => {
+            const one = resultRecord[id]
+            if (!one || typeof one !== 'object') return defaultState.testVariantResults[id]
+            const oneRecord = one as Record<string, unknown>
+            const r = typeof oneRecord['result'] === 'string' ? (oneRecord['result'] as string) : ''
+            const reasoning = typeof oneRecord['reasoning'] === 'string' ? (oneRecord['reasoning'] as string) : ''
+            return { result: r, reasoning }
+          }
+
+          testVariantResults.value = {
+            a: pick('a'),
+            b: pick('b'),
+            c: pick('c'),
+            d: pick('d'),
+          }
+        } else if (testResults.value) {
+          // legacy 迁移：旧版 testResults（original/optimized） → A/B
+          testVariantResults.value = {
+            ...defaultState.testVariantResults,
+            a: {
+              result: testResults.value.originalResult || '',
+              reasoning: testResults.value.originalReasoning || '',
+            },
+            b: {
+              result: testResults.value.optimizedResult || '',
+              reasoning: testResults.value.optimizedReasoning || '',
+            },
+          }
+        } else {
+          testVariantResults.value = defaultState.testVariantResults
+        }
+
+        // lastRunFingerprint
+        const rawFingerprints = parsed.testVariantLastRunFingerprint
+        if (rawFingerprints && typeof rawFingerprints === 'object') {
+          const fingerprintRecord = rawFingerprints as Record<string, unknown>
+          const pick = (id: TestVariantId) => (typeof fingerprintRecord[id] === 'string' ? (fingerprintRecord[id] as string) : '')
+          testVariantLastRunFingerprint.value = {
+            a: pick('a'),
+            b: pick('b'),
+            c: pick('c'),
+            d: pick('d'),
+          }
+        } else {
+          testVariantLastRunFingerprint.value = defaultState.testVariantLastRunFingerprint
+        }
+
         evaluationResults.value = {
           ...createDefaultEvaluationResults(),
           ...(parsed.evaluationResults && typeof parsed.evaluationResults === 'object'
@@ -336,6 +576,20 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
         selectedIterateTemplateId.value = typeof parsed.selectedIterateTemplateId === 'string' ? parsed.selectedIterateTemplateId : null
         isCompareMode.value = typeof parsed.isCompareMode === 'boolean' ? parsed.isCompareMode : true
         lastActiveAt.value = Date.now()
+
+        // 如果 variants 的 modelKey 为空，尝试用 legacy selectedTestModelKey 填充一次
+        const seedModelKey = selectedTestModelKey.value
+        if (seedModelKey) {
+          let changed = false
+          const next = testVariants.value.map((v) => {
+            if (v.modelKey) return v
+            changed = true
+            return { ...v, modelKey: seedModelKey }
+          })
+          if (changed) {
+            testVariants.value = next
+          }
+        }
       }
       // else: 没有保存的会话，使用默认状态
 
@@ -374,6 +628,10 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
     versionId,
     messageChainMap,
     testResults,
+    layout,
+    testVariants,
+    testVariantResults,
+    testVariantLastRunFingerprint,
     evaluationResults,
     selectedOptimizeModelKey,
     selectedTestModelKey,
@@ -395,6 +653,9 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
     updateTemplate,
     updateIterateTemplate,
     toggleCompareMode,
+    setTestColumnCount,
+    setMainSplitLeftPct,
+    updateTestVariant,
     reset,
 
     // ========== 持久化方法 ==========

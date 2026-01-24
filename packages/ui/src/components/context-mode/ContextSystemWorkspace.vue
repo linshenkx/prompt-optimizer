@@ -1,277 +1,458 @@
 <template>
-    <div data-testid="workspace" data-mode="pro-multi" style="width: 100%; height: 100%">
-        <NFlex
-            justify="space-between"
-            :style="{
-                display: 'flex',
-                flexDirection: 'row',
-                width: '100%',
-                height: '100%',
-                'max-height': '100%',
-                gap: '16px',
-            }"
+    <div class="context-system-workspace" data-testid="workspace" data-mode="pro-multi">
+        <div
+            ref="splitRootRef"
+            class="context-system-split"
+            :style="{ gridTemplateColumns: `${mainSplitLeftPct}% 12px 1fr` }"
         >
             <!-- 左侧：优化区域 -->
-            <NFlex
-                vertical
-                :style="{
-                    flex: 1,
-                    overflow: 'auto',
-                    height: '100%',
-                }"
-            >
-            <!-- 会话管理器 (系统模式专属，也是消息输入界面) -->
-            <NCard
-                :style="{ flexShrink: 0, overflow: 'auto' }"
-                content-style="padding: 0;"
-            >
-<ConversationManager
-                     :messages="optimizationContext"
-                     @update:messages="
-                         emit('update:optimizationContext', $event)
-                     "
-                     @message-change="(index, message, action) => {
-                         // Pro Multi：新增/更新消息后自动选中最新消息，确保“优化”按钮可用
-                         if ((action === 'add' || action === 'update') && (message.role === 'system' || message.role === 'user') && message.id) {
-                             void conversationOptimization.selectMessage(message)
-                         }
-                         emit('message-change', index, message, action)
-                     }"
-                     :available-variables="availableVariables"
-                     :temporary-variables="tempVars.temporaryVariables.value"
-                     :scan-variables="scanVariables"
-                     :optimization-mode="optimizationMode"
-                     :tool-count="toolCount"
-                     @open-variable-manager="emit('open-variable-manager')"
-                     @open-context-editor="emit('open-context-editor')"
-                     @open-tool-manager="emit('open-tool-manager')"
-                     :enable-tool-management="true"
-                     :collapsible="true"
-                     :max-height="300"
-                     :selected-message-id="selectedMessageId"
-                     :enable-message-optimization="enableMessageOptimization"
-                     :is-message-optimizing="conversationOptimization.isOptimizing.value"
-                     @message-select="conversationOptimization.selectMessage"
-                     @optimize-message="handleOptimizeClick"
-                     @variable-extracted="handleVariableExtracted"
-                     @add-missing-variable="handleAddMissingVariable"
-                 />
-            </NCard>
-
-            <!-- 优化控制区 -->
-            <NCard :style="{ flexShrink: 0 }" size="small">
-                <NFlex vertical :size="12">
-                    <!-- 模型和模板选择行 -->
-                    <NFlex :size="12" :wrap="false">
-                        <!-- 优化模型选择 -->
-                        <NFlex vertical :size="4" style="flex: 1">
-                            <NText :depth="3" style="font-size: 12px">
-                                {{ $t('promptOptimizer.optimizeModel') }}
-                            </NText>
-                            <SelectWithConfig
-                                v-model="selectedOptimizeModelKeyModel"
-                                :options="modelSelection.textModelOptions.value"
-                                :getPrimary="OptionAccessors.getPrimary"
-                                :getSecondary="OptionAccessors.getSecondary"
-                                :getValue="OptionAccessors.getValue"
-                                @config="emit('config-model')"
-                            />
-                        </NFlex>
-
-                        <!-- 模板选择 -->
-                        <NFlex vertical :size="4" style="flex: 1">
-                            <NText :depth="3" style="font-size: 12px">
-                                {{ $t('promptOptimizer.templateLabel') }}
-                            </NText>
-                            <SelectWithConfig
-                                v-model="selectedTemplateIdModel"
-                                :options="templateSelection.templateOptions.value"
-                                :getPrimary="OptionAccessors.getPrimary"
-                                :getSecondary="OptionAccessors.getSecondary"
-                                :getValue="OptionAccessors.getValue"
-                                @config="emit('open-template-manager')"
-                            />
-                        </NFlex>
-                    </NFlex>
-
-                    <!-- 优化按钮 -->
-                    <NButton
-                        type="primary"
-                        :loading="displayAdapter.displayedIsOptimizing.value"
-                        :disabled="displayAdapter.displayedIsOptimizing.value || !selectedMessageId"
-                        @click="handleOptimizeClick"
-                        block
-                        data-testid="pro-multi-optimize-button"
+            <div class="split-pane" style="min-width: 0; height: 100%; overflow: hidden;">
+                <NFlex
+                    vertical
+                    :style="{ overflow: 'auto', height: '100%', minHeight: 0 }"
+                    :size="12"
+                >
+                    <!-- 会话管理器 (系统模式专属，也是消息输入界面) -->
+                    <NCard
+                        :style="{ flexShrink: 0, overflow: 'auto' }"
+                        content-style="padding: 0;"
                     >
-                        {{ displayAdapter.displayedIsOptimizing.value ? $t('common.loading') : $t('promptOptimizer.optimize') }}
-                    </NButton>
+                        <ConversationManager
+                            :messages="optimizationContext"
+                            @update:messages="emit('update:optimizationContext', $event)"
+                            @message-change="(index, message, action) => {
+                                // Pro Multi：新增/更新消息后自动选中最新消息，确保“优化”按钮可用
+                                if ((action === 'add' || action === 'update') && (message.role === 'system' || message.role === 'user') && message.id) {
+                                    void conversationOptimization.selectMessage(message)
+                                }
+                                emit('message-change', index, message, action)
+                            }"
+                            :available-variables="availableVariables"
+                            :temporary-variables="tempVars.temporaryVariables.value"
+                            :scan-variables="scanVariables"
+                            :optimization-mode="optimizationMode"
+                            :tool-count="toolCount"
+                            @open-variable-manager="emit('open-variable-manager')"
+                            @open-context-editor="emit('open-context-editor')"
+                            @open-tool-manager="emit('open-tool-manager')"
+                            :enable-tool-management="true"
+                            :collapsible="true"
+                            :max-height="300"
+                            :selected-message-id="selectedMessageId"
+                            :enable-message-optimization="enableMessageOptimization"
+                            :is-message-optimizing="conversationOptimization.isOptimizing.value"
+                            @message-select="conversationOptimization.selectMessage"
+                            @optimize-message="handleOptimizeClick"
+                            @variable-extracted="handleVariableExtracted"
+                            @add-missing-variable="handleAddMissingVariable"
+                        />
+                    </NCard>
+
+                    <!-- 优化控制区 -->
+                    <NCard :style="{ flexShrink: 0 }" size="small">
+                        <NFlex vertical :size="12">
+                            <!-- 模型和模板选择行 -->
+                            <NFlex :size="12" :wrap="false">
+                                <!-- 优化模型选择 -->
+                                <NFlex vertical :size="4" style="flex: 1">
+                                    <NText :depth="3" style="font-size: 12px">
+                                        {{ $t('promptOptimizer.optimizeModel') }}
+                                    </NText>
+                                    <SelectWithConfig
+                                        v-model="selectedOptimizeModelKeyModel"
+                                        :options="modelSelection.textModelOptions.value"
+                                        :getPrimary="OptionAccessors.getPrimary"
+                                        :getSecondary="OptionAccessors.getSecondary"
+                                        :getValue="OptionAccessors.getValue"
+                                        @config="emit('config-model')"
+                                    />
+                                </NFlex>
+
+                                <!-- 模板选择 -->
+                                <NFlex vertical :size="4" style="flex: 1">
+                                    <NText :depth="3" style="font-size: 12px">
+                                        {{ $t('promptOptimizer.templateLabel') }}
+                                    </NText>
+                                    <SelectWithConfig
+                                        v-model="selectedTemplateIdModel"
+                                        :options="templateSelection.templateOptions.value"
+                                        :getPrimary="OptionAccessors.getPrimary"
+                                        :getSecondary="OptionAccessors.getSecondary"
+                                        :getValue="OptionAccessors.getValue"
+                                        @config="emit('open-template-manager')"
+                                    />
+                                </NFlex>
+                            </NFlex>
+
+                            <!-- 优化按钮 -->
+                            <NButton
+                                type="primary"
+                                :loading="displayAdapter.displayedIsOptimizing.value"
+                                :disabled="displayAdapter.displayedIsOptimizing.value || !selectedMessageId"
+                                @click="handleOptimizeClick"
+                                block
+                                data-testid="pro-multi-optimize-button"
+                            >
+                                {{ displayAdapter.displayedIsOptimizing.value ? $t('common.loading') : $t('promptOptimizer.optimize') }}
+                            </NButton>
+                        </NFlex>
+                    </NCard>
+
+                    <!-- 优化结果面板 -->
+                    <NCard
+                        :style="{ flex: 1, minHeight: '200px', overflow: 'hidden' }"
+                        content-style="height: 100%; max-height: 100%; overflow: hidden;"
+                    >
+                        <template v-if="displayAdapter.isInMessageOptimizationMode.value">
+                            <PromptPanelUI
+                                test-id="pro-multi"
+                                ref="promptPanelRef"
+                                :original-prompt="displayAdapter.displayedOriginalPrompt.value"
+                                :optimized-prompt="displayAdapter.displayedOptimizedPrompt.value"
+                                :reasoning="optimizedReasoning"
+                                :is-optimizing="displayAdapter.displayedIsOptimizing.value"
+                                :is-iterating="isIterating"
+                                :selected-iterate-template="selectedIterateTemplate"
+                                @update:selectedIterateTemplate="emit('update:selectedIterateTemplate', $event)"
+                                :versions="displayAdapter.displayedVersions.value"
+                                :current-version-id="displayAdapter.displayedCurrentVersionId.value ?? undefined"
+                                :show-apply-button="displayAdapter.isInMessageOptimizationMode.value"
+                                :optimization-mode="optimizationMode"
+                                :advanced-mode-enabled="true"
+                                :show-preview="true"
+                                @iterate="handleIterate"
+                                @openTemplateManager="emit('open-template-manager', $event)"
+                                @switchVersion="handleSwitchVersion"
+                                @switchToV0="handleSwitchToV0"
+                                @save-favorite="emit('save-favorite', $event)"
+                                @open-preview="emit('open-prompt-preview')"
+                                @apply-to-conversation="handleApplyToConversation"
+                                @apply-improvement="handleApplyImprovement"
+                                @save-local-edit="handleSaveLocalEdit"
+                            />
+                        </template>
+                        <template v-else>
+                            <NEmpty
+                                data-testid="pro-multi-empty-select-message"
+                                :description="t('contextMode.system.selectMessageHint')"
+                                size="large"
+                            />
+                        </template>
+                    </NCard>
                 </NFlex>
-            </NCard>
+            </div>
 
-            <!-- 优化结果面板 -->
-            <NCard
-                :style="{
-                    flex: 1,
-                    minHeight: '200px',
-                    overflow: 'hidden',
-                }"
-                content-style="height: 100%; max-height: 100%; overflow: hidden;"
-            >
-                <template v-if="displayAdapter.isInMessageOptimizationMode.value">
-                    <PromptPanelUI
-                         test-id="pro-multi"
-                        ref="promptPanelRef"
-                        :original-prompt="displayAdapter.displayedOriginalPrompt.value"
-                        :optimized-prompt="displayAdapter.displayedOptimizedPrompt.value"
-                        :reasoning="optimizedReasoning"
-                        :is-optimizing="displayAdapter.displayedIsOptimizing.value"
-                        :is-iterating="isIterating"
-                        :selected-iterate-template="selectedIterateTemplate"
-                        @update:selectedIterateTemplate="
-                            emit('update:selectedIterateTemplate', $event)
-                        "
-                        :versions="displayAdapter.displayedVersions.value"
-                        :current-version-id="displayAdapter.displayedCurrentVersionId.value ?? undefined"
-                        :show-apply-button="displayAdapter.isInMessageOptimizationMode.value"
-                        :optimization-mode="optimizationMode"
-                        :advanced-mode-enabled="true"
-                        :show-preview="true"
-                        @iterate="handleIterate"
-                        @openTemplateManager="emit('open-template-manager', $event)"
-                        @switchVersion="handleSwitchVersion"
-                        @switchToV0="handleSwitchToV0"
-                        @save-favorite="emit('save-favorite', $event)"
-                        @open-preview="emit('open-prompt-preview')"
-                        @apply-to-conversation="handleApplyToConversation"
-                        @apply-improvement="handleApplyImprovement"
-                        @save-local-edit="handleSaveLocalEdit"
-                    />
-                </template>
-                <template v-else>
-                    <NEmpty
-                        data-testid="pro-multi-empty-select-message"
-                        :description="t('contextMode.system.selectMessageHint')"
-                        size="large"
-                    />
-                </template>
-            </NCard>
-        </NFlex>
-
-            <!-- 右侧：测试区域 -->
-            <ConversationTestPanel
-                ref="testAreaPanelRef"
-                :style="{
-                    flex: 1,
-                    overflow: 'auto',
-                    height: '100%',
-                    minHeight: 0,
-                }"
-                :optimization-mode="optimizationMode"
-                :is-test-running="conversationTester.testResults.isTestingOriginal || conversationTester.testResults.isTestingOptimized"
-                :is-compare-mode="isCompareMode"
-                :enable-compare-mode="true"
-                @update:isCompareMode="emit('update:isCompareMode', $event)"
-                @compare-toggle="emit('compare-toggle')"
-                :model-name="props.testModelName"
-                :global-variables="globalVariables"
-                :predefined-variables="predefinedVariables"
-                :temporary-variables="tempVars.temporaryVariables.value"
-                :input-mode="inputMode"
-                :button-size="buttonSize"
-                :result-vertical-layout="resultVerticalLayout"
-                @test="handleTestWithVariables"
-                @open-variable-manager="emit('open-variable-manager')"
-                @open-global-variables="emit('open-global-variables')"
-                @variable-change="handleVariableChange"
-                @save-to-global="(name: string, value: string) => emit('save-to-global', name, value)"
-                @temporary-variable-remove="handleVariableRemove"
-                @temporary-variables-clear="handleVariablesClear"
-                v-bind="evaluationHandler.testAreaEvaluationProps.value"
-                @evaluate-original="evaluationHandler.handlers.onEvaluateOriginal"
-                @evaluate-optimized="evaluationHandler.handlers.onEvaluateOptimized"
-                @show-original-detail="evaluationHandler.handlers.onShowOriginalDetail"
-                @show-optimized-detail="evaluationHandler.handlers.onShowOptimizedDetail"
-                @apply-improvement="handleApplyImprovement"
-            >
-            <!-- 模型选择插槽 -->
-            <template #model-select>
-                <SelectWithConfig
-                    v-model="selectedTestModelKeyModel"
-                    :options="modelSelection.textModelOptions.value"
-                    :getPrimary="OptionAccessors.getPrimary"
-                    :getSecondary="OptionAccessors.getSecondary"
-                    :getValue="OptionAccessors.getValue"
-                    @config="emit('config-model')"
-                />
-            </template>
-
-            <!-- 对比模式结果插槽 -->
-            <template #original-result>
-                <OutputDisplay
-                    :content="conversationTester.testResults.originalResult"
-                    :reasoning="conversationTester.testResults.originalReasoning"
-                    :streaming="conversationTester.testResults.isTestingOriginal"
-                    :enableDiff="false"
-                    mode="readonly"
-                    :style="{ height: '100%', minHeight: '0' }"
-                />
-            </template>
-
-            <template #optimized-result>
-                <OutputDisplay
-                    :content="conversationTester.testResults.optimizedResult"
-                    :reasoning="conversationTester.testResults.optimizedReasoning"
-                    :streaming="conversationTester.testResults.isTestingOptimized"
-                    :enableDiff="false"
-                    mode="readonly"
-                    :style="{ height: '100%', minHeight: '0' }"
-                />
-            </template>
-
-            <!-- 单一结果插槽 -->
-            <template #single-result>
-                <OutputDisplay
-                    :content="conversationTester.testResults.optimizedResult"
-                    :reasoning="conversationTester.testResults.optimizedReasoning"
-                    :streaming="conversationTester.testResults.isTestingOptimized"
-                    :enableDiff="false"
-                    mode="readonly"
-                    :style="{ height: '100%', minHeight: '0' }"
-                />
-            </template>
-            </ConversationTestPanel>
-
-            <EvaluationPanel
-                v-model:show="evaluation.isPanelVisible.value"
-                :is-evaluating="panelProps.isEvaluating"
-                :result="panelProps.result"
-                :stream-content="panelProps.streamContent"
-                :error="panelProps.error"
-                :current-type="panelProps.currentType"
-                :score-level="panelProps.scoreLevel"
-                @re-evaluate="evaluationHandler.handleReEvaluate"
-                @apply-local-patch="handleApplyLocalPatch"
-                @apply-improvement="handleApplyImprovement"
-                @clear="handleClearEvaluation"
-                @retry="evaluationHandler.handleReEvaluate"
+            <div
+                class="split-divider"
+                role="separator"
+                tabindex="0"
+                :aria-valuemin="25"
+                :aria-valuemax="50"
+                :aria-valuenow="mainSplitLeftPct"
+                @pointerdown="onSplitPointerDown"
+                @keydown="onSplitKeydown"
             />
-        </NFlex>
+
+            <!-- 右侧：测试区域（变量共享 + 多列 variants） -->
+            <div ref="testPaneRef" class="split-pane" style="min-width: 0; height: 100%; overflow: hidden;">
+                <NFlex vertical :style="{ height: '100%', gap: '12px' }">
+                    <!-- 变量表单（共享所有列） -->
+                    <ConversationTestPanel
+                        ref="testAreaPanelRef"
+                        mode="variables-only"
+                        :optimization-mode="optimizationMode"
+                        :global-variables="globalVariables"
+                        :predefined-variables="predefinedVariables"
+                        :temporary-variables="tempVars.temporaryVariables.value"
+                        :input-mode="inputMode"
+                        :button-size="buttonSize"
+                        @open-global-variables="emit('open-global-variables')"
+                        @variable-change="handleVariableChange"
+                        @save-to-global="(name: string, value: string) => emit('save-to-global', name, value)"
+                        @temporary-variable-remove="handleVariableRemove"
+                        @temporary-variables-clear="handleVariablesClear"
+                    />
+
+                    <!-- 顶部：列数与全局操作 -->
+                    <NCard size="small" :style="{ flexShrink: 0 }">
+                        <div class="test-area-top">
+                            <NFlex align="center" :size="8" :wrap="false" style="min-width: 0;">
+                                <NText :depth="2" class="test-area-label">
+                                    {{ t('test.layout.columns') }}：
+                                </NText>
+                                <NRadioGroup
+                                    v-model:value="testColumnCountModel"
+                                    size="small"
+                                    :disabled="isAnyVariantRunning"
+                                >
+                                    <NRadioButton :value="2">2</NRadioButton>
+                                    <NRadioButton :value="3">3</NRadioButton>
+                                    <NRadioButton :value="4" :disabled="!canUseFourColumns">4</NRadioButton>
+                                </NRadioGroup>
+                            </NFlex>
+
+                            <NFlex align="center" justify="end" :size="8" :wrap="false">
+                                <NButton
+                                    type="primary"
+                                    size="small"
+                                    :loading="isAnyVariantRunning"
+                                    :disabled="isAnyVariantRunning"
+                                    @click="runAllVariants"
+                                    :data-testid="'pro-multi-test-run-all'"
+                                >
+                                    {{ t('test.layout.runAll') }}
+                                </NButton>
+
+                                <template v-if="testColumnCountModel === 2 && hasVariantResult('a') && hasVariantResult('b')">
+                                    <EvaluationScoreBadge
+                                        v-if="hasCompareEvaluation || isEvaluatingCompare"
+                                        :score="compareScore"
+                                        :level="compareScoreLevel"
+                                        :loading="isEvaluatingCompare"
+                                        :result="compareEvaluationResult"
+                                        type="compare"
+                                        size="small"
+                                        @show-detail="() => showDetail('compare')"
+                                        @apply-improvement="handleApplyImprovement"
+                                        @apply-patch="handleApplyLocalPatch"
+                                    />
+                                    <NButton
+                                        v-else
+                                        quaternary
+                                        size="small"
+                                        :disabled="isEvaluatingCompare"
+                                        @click="() => handleEvaluate('compare')"
+                                    >
+                                        {{ t('evaluation.compareEvaluate') }}
+                                    </NButton>
+                                </template>
+                            </NFlex>
+                        </div>
+                    </NCard>
+
+                    <!-- 配置区：与结果列对齐 -->
+                    <NCard size="small" :style="{ flexShrink: 0 }">
+                        <div class="variant-deck" :style="{ gridTemplateColumns: testGridTemplateColumns }">
+                            <div v-for="id in activeVariantIds" :key="id" class="variant-cell">
+                                <div class="variant-cell__controls">
+                                    <NTag size="small" :bordered="false" class="variant-cell__label">
+                                        {{ getVariantLabel(id) }}
+                                    </NTag>
+                                    <NTag
+                                        v-if="isVariantStale(id)"
+                                        size="small"
+                                        type="warning"
+                                        :bordered="false"
+                                        class="variant-cell__stale"
+                                    >
+                                        {{ t('test.layout.stale') }}
+                                    </NTag>
+                                    <NSelect
+                                        :value="variantVersionModels[id].value"
+                                        :options="versionOptions"
+                                        size="small"
+                                        :disabled="variantRunning[id] || isAnyVariantRunning"
+                                        :data-testid="getVariantVersionTestId(id)"
+                                        @update:value="(value) => { variantVersionModels[id].value = value }"
+                                        style="width: 92px"
+                                    />
+                                    <div class="variant-cell__model">
+                                        <SelectWithConfig
+                                            :data-testid="getVariantModelTestId(id)"
+                                            :model-value="variantModelKeyModels[id].value"
+                                            @update:model-value="(value) => { variantModelKeyModels[id].value = String(value ?? '') }"
+                                            :options="modelSelection.textModelOptions.value"
+                                            :getPrimary="OptionAccessors.getPrimary"
+                                            :getSecondary="OptionAccessors.getSecondary"
+                                            :getValue="OptionAccessors.getValue"
+                                            @config="emit('config-model')"
+                                            style="min-width: 0; width: 100%;"
+                                        />
+                                    </div>
+
+                                    <NTooltip trigger="hover">
+                                        <template #trigger>
+                                            <NButton
+                                                type="primary"
+                                                size="small"
+                                                circle
+                                                :loading="variantRunning[id]"
+                                                :disabled="isAnyVariantRunning && !variantRunning[id]"
+                                                @click="() => runVariant(id)"
+                                                :data-testid="getVariantRunTestId(id)"
+                                            >
+                                                <template #icon>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                                                        <path d="M8 5v14l11-7z" />
+                                                    </svg>
+                                                </template>
+                                            </NButton>
+                                        </template>
+                                        {{ t('test.layout.runThisColumn') }}
+                                    </NTooltip>
+                                </div>
+                            </div>
+                        </div>
+                    </NCard>
+
+                    <!-- 结果区：多列网格（无横向滚动） -->
+                    <div class="variant-results-wrap">
+                        <div class="variant-results" :style="{ gridTemplateColumns: testGridTemplateColumns }">
+                            <NCard
+                                v-for="id in activeVariantIds"
+                                :key="id"
+                                size="small"
+                                class="variant-result-card"
+                                content-style="padding: 0; height: 100%; max-height: 100%; overflow: hidden;"
+                            >
+                                <div class="result-container">
+                                    <ToolCallDisplay
+                                        v-if="variantToolCalls[id].length > 0"
+                                        :tool-calls="variantToolCalls[id]"
+                                        size="small"
+                                        class="tool-calls-section"
+                                    />
+
+                                    <div class="result-body">
+                                        <OutputDisplay
+                                            :test-id="getVariantOutputTestId(id)"
+                                            :content="getVariantResult(id).result"
+                                            :reasoning="getVariantResult(id).reasoning"
+                                            :streaming="variantRunning[id]"
+                                            :enableCopy="true"
+                                            :enableFullscreen="true"
+                                            :enableEdit="false"
+                                            :enableDiff="false"
+                                            :enableFavorite="false"
+                                            reasoningMode="hide"
+                                            mode="readonly"
+                                            :style="{ height: '100%', minHeight: '0' }"
+                                        >
+                                            <template #toolbar-right-extra>
+                                                <div
+                                                    v-if="id === 'a' && hasVariantResult('a')"
+                                                    class="output-evaluation-entry"
+                                                >
+                                                    <EvaluationScoreBadge
+                                                        v-if="hasOriginalEvaluation || isEvaluatingOriginal"
+                                                        :score="originalScore"
+                                                        :level="originalScoreLevel"
+                                                        :loading="isEvaluatingOriginal"
+                                                        :result="originalEvaluationResult"
+                                                        type="original"
+                                                        size="small"
+                                                        @show-detail="() => showDetail('original')"
+                                                        @evaluate="() => handleEvaluate('original')"
+                                                        @apply-improvement="handleApplyImprovement"
+                                                        @apply-patch="handleApplyLocalPatch"
+                                                    />
+                                                    <NButton
+                                                        v-else
+                                                        size="small"
+                                                        quaternary
+                                                        :disabled="isEvaluatingOriginal"
+                                                        @click="() => handleEvaluate('original')"
+                                                    >
+                                                        {{ t('evaluation.evaluate') }}
+                                                    </NButton>
+                                                </div>
+
+                                                <div
+                                                    v-else-if="id === 'b' && hasVariantResult('b')"
+                                                    class="output-evaluation-entry"
+                                                >
+                                                    <EvaluationScoreBadge
+                                                        v-if="hasOptimizedEvaluation || isEvaluatingOptimized"
+                                                        :score="optimizedScore"
+                                                        :level="optimizedScoreLevel"
+                                                        :loading="isEvaluatingOptimized"
+                                                        :result="optimizedEvaluationResult"
+                                                        type="optimized"
+                                                        size="small"
+                                                        @show-detail="() => showDetail('optimized')"
+                                                        @evaluate="() => handleEvaluate('optimized')"
+                                                        @apply-improvement="handleApplyImprovement"
+                                                        @apply-patch="handleApplyLocalPatch"
+                                                    />
+                                                    <NButton
+                                                        v-else
+                                                        size="small"
+                                                        quaternary
+                                                        :disabled="isEvaluatingOptimized"
+                                                        @click="() => handleEvaluate('optimized')"
+                                                    >
+                                                        {{ t('evaluation.evaluate') }}
+                                                    </NButton>
+                                                </div>
+                                            </template>
+                                        </OutputDisplay>
+                                    </div>
+                                </div>
+                            </NCard>
+                        </div>
+                    </div>
+                </NFlex>
+            </div>
+        </div>
+
+        <EvaluationPanel
+            v-model:show="evaluation.isPanelVisible.value"
+            :is-evaluating="panelProps.isEvaluating"
+            :result="panelProps.result"
+            :stream-content="panelProps.streamContent"
+            :error="panelProps.error"
+            :current-type="panelProps.currentType"
+            :score-level="panelProps.scoreLevel"
+            @re-evaluate="evaluationHandler.handleReEvaluate"
+            @apply-local-patch="handleApplyLocalPatch"
+            @apply-improvement="handleApplyImprovement"
+            @clear="handleClearEvaluation"
+            @retry="evaluationHandler.handleReEvaluate"
+        />
     </div>
 </template>
 
 <script setup lang="ts">
- import { ref, computed, toRef, inject, provide, watch, onMounted, type Ref } from 'vue'
+import {
+    ref,
+    reactive,
+    computed,
+    toRef,
+    inject,
+    provide,
+    watch,
+    onMounted,
+    onUnmounted,
+    type Ref,
+} from 'vue'
 
 import { useI18n } from "vue-i18n";
-import { useProMultiMessageSession, type TestResults } from '../../stores/session/useProMultiMessageSession'
-import { NCard, NFlex, NButton, NText, NEmpty } from "naive-ui";
+import {
+    useProMultiMessageSession,
+    type TestPanelVersionValue,
+    type TestVariantConfig,
+    type TestVariantId,
+    type TestColumnCount,
+} from '../../stores/session/useProMultiMessageSession'
+import {
+    NCard,
+    NFlex,
+    NButton,
+    NText,
+    NEmpty,
+    NSelect,
+    NRadioGroup,
+    NRadioButton,
+    NTooltip,
+    NTag,
+} from "naive-ui";
 import PromptPanelUI from "../PromptPanel.vue";
 import ConversationTestPanel from "./ConversationTestPanel.vue";
 import ConversationManager from "./ConversationManager.vue";
 import OutputDisplay from "../OutputDisplay.vue";
 import SelectWithConfig from "../SelectWithConfig.vue";
-import { EvaluationPanel } from '../evaluation'
-import { useConversationTester } from '../../composables/prompt/useConversationTester'
+import ToolCallDisplay from "../ToolCallDisplay.vue";
+import { EvaluationPanel, EvaluationScoreBadge } from '../evaluation'
 import { useConversationOptimization } from '../../composables/prompt/useConversationOptimization'
 import { usePromptDisplayAdapter } from '../../composables/prompt/usePromptDisplayAdapter'
 import { useTemporaryVariables } from '../../composables/variable/useTemporaryVariables'
@@ -280,10 +461,13 @@ import { useWorkspaceModelSelection } from '../../composables/workspaces/useWork
 import { useWorkspaceTemplateSelection } from '../../composables/workspaces/useWorkspaceTemplateSelection'
 import { OptionAccessors } from '../../utils/data-transformer'
 import { useToast } from "../../composables/ui/useToast";
+import { useElementSize } from '@vueuse/core'
 import {
     applyPatchOperationsToText,
     PREDEFINED_VARIABLES,
     type ConversationMessage,
+    type ToolCall,
+    type ToolCallResult,
     type OptimizationMode,
     type PromptRecord,
     type PromptRecordChain,
@@ -400,7 +584,8 @@ const { t } = useI18n();
 const toast = useToast();
 
 // 注入服务和变量管理器
-const services = inject<Ref<AppServices | null>>('services')
+const injectedServices = inject<Ref<AppServices | null>>('services')
+const servicesRef = injectedServices ?? ref<AppServices | null>(null)
 const variableManager = inject<VariableManagerHooks | null>('variableManager', null)
 
 // 🆕 注入优化上下文（多轮对话消息）
@@ -447,9 +632,9 @@ const tempVars = useTemporaryVariables()
 const proMultiSession = useProMultiMessageSession()
 
 // ✨ 新增：直接使用 session store 管理模型和模板选择
-const modelSelection = useWorkspaceModelSelection(services || ref(null), proMultiSession)
+const modelSelection = useWorkspaceModelSelection(servicesRef, proMultiSession)
 const templateSelection = useWorkspaceTemplateSelection(
-    services || ref(null),
+    servicesRef,
     proMultiSession,
     'conversationMessageOptimize',
     'contextIterate'
@@ -457,7 +642,7 @@ const templateSelection = useWorkspaceTemplateSelection(
 
 // 🆕 初始化本地会话优化逻辑
 const conversationOptimization = useConversationOptimization(
-    services || ref(null),
+    servicesRef,
     optimizationContext,
     computed(() => optimizationMode),
     modelSelection.selectedOptimizeModelKey,
@@ -480,21 +665,10 @@ const displayAdapter = usePromptDisplayAdapter(
     }
 )
 
-// 🆕 初始化多对话测试器
-// ✅ 从 session store 读取测试模型
 // 从 inject 获取 optimizationContextTools（由 App.vue 提供）
 const optimizationContextToolsRef = inject<Ref<ToolDefinition[]>>('optimizationContextTools', ref([]))
 // 使用本地 managed 的 selectedMessageId
 const selectedMessageId = conversationOptimization.selectedMessageId
-
-const conversationTester = useConversationTester(
-    services || ref(null),
-    modelSelection.selectedTestModelKey,
-    optimizationContext,
-    optimizationContextToolsRef,
-    variableManager,
-    selectedMessageId
-)
 
 // 🔧 为 SelectWithConfig 的 v-model 创建解包的 computed（避免 Vue prop 类型警告）
 const selectedOptimizeModelKeyModel = computed({
@@ -505,11 +679,6 @@ const selectedOptimizeModelKeyModel = computed({
 const selectedTemplateIdModel = computed({
     get: () => templateSelection.selectedTemplateId.value,
     set: (value) => { templateSelection.selectedTemplateId.value = value }
-})
-
-const selectedTestModelKeyModel = computed({
-    get: () => modelSelection.selectedTestModelKey.value,
-    set: (value) => { modelSelection.selectedTestModelKey.value = value }
 })
 
 const selectedIterateTemplate = computed<Template | null>({
@@ -541,64 +710,564 @@ onMounted(() => {
         }
     }
 
-    const saved = proMultiSession.testResults
-    if (!saved) {
-        return
-    }
-
-    // 只恢复稳定字段，不恢复 isTesting* 过程态
-    conversationTester.testResults.originalResult = saved.originalResult || ""
-    conversationTester.testResults.originalReasoning = saved.originalReasoning || ""
-    conversationTester.testResults.optimizedResult = saved.optimizedResult || ""
-    conversationTester.testResults.optimizedReasoning = saved.optimizedReasoning || ""
-    conversationTester.testResults.isTestingOriginal = false
-    conversationTester.testResults.isTestingOptimized = false
 })
 
-// 🆕 监听测试结果变化，同步到 session store（只持久化稳定字段）
+// ==================== 主布局：可拖拽分栏（左侧 25%~50%） ====================
+
+const splitRootRef = ref<HTMLElement | null>(null)
+const testPaneRef = ref<HTMLElement | null>(null)
+
+const clampLeftPct = (pct: number) => Math.min(50, Math.max(25, pct))
+
+// 使用本地 draft，避免拖拽过程频繁写入持久化存储
+const mainSplitLeftPct = ref<number>(50)
 watch(
-    () => ({
-        originalResult: conversationTester.testResults.originalResult,
-        originalReasoning: conversationTester.testResults.originalReasoning,
-        optimizedResult: conversationTester.testResults.optimizedResult,
-        optimizedReasoning: conversationTester.testResults.optimizedReasoning,
-    }),
-    (stable) => {
-        const hasAny =
-            !!stable.originalResult ||
-            !!stable.originalReasoning ||
-            !!stable.optimizedResult ||
-            !!stable.optimizedReasoning
-
-        if (!hasAny) {
-            proMultiSession.updateTestResults(null)
-            return
+    () => proMultiSession.layout.mainSplitLeftPct,
+    (pct) => {
+        if (typeof pct === 'number' && Number.isFinite(pct)) {
+            mainSplitLeftPct.value = clampLeftPct(Math.round(pct))
         }
-
-        const snapshot: TestResults = {
-            originalResult: stable.originalResult || "",
-            originalReasoning: stable.originalReasoning || "",
-            optimizedResult: stable.optimizedResult || "",
-            optimizedReasoning: stable.optimizedReasoning || "",
-        }
-        proMultiSession.updateTestResults(snapshot)
     },
+    { immediate: true },
 )
 
-// 🆕 构建 Pro-System 评估上下文
+const isDraggingSplit = ref(false)
+let dragStartX = 0
+let dragStartPct = 0
+
+const handleSplitPointerMove = (e: PointerEvent) => {
+    const root = splitRootRef.value
+    if (!root) return
+    const rect = root.getBoundingClientRect()
+    if (!rect.width) return
+
+    const deltaX = e.clientX - dragStartX
+    const nextPct = dragStartPct + (deltaX / rect.width) * 100
+    mainSplitLeftPct.value = clampLeftPct(nextPct)
+}
+
+const endSplitDrag = () => {
+    if (!isDraggingSplit.value) return
+    isDraggingSplit.value = false
+    document.removeEventListener('pointermove', handleSplitPointerMove)
+    document.removeEventListener('pointerup', endSplitDrag)
+    document.removeEventListener('pointercancel', endSplitDrag)
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+
+    proMultiSession.setMainSplitLeftPct(mainSplitLeftPct.value)
+}
+
+const onSplitPointerDown = (e: PointerEvent) => {
+    if (!splitRootRef.value) return
+    dragStartX = e.clientX
+    dragStartPct = mainSplitLeftPct.value
+    isDraggingSplit.value = true
+    document.addEventListener('pointermove', handleSplitPointerMove)
+    document.addEventListener('pointerup', endSplitDrag)
+    document.addEventListener('pointercancel', endSplitDrag)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+}
+
+const onSplitKeydown = (e: KeyboardEvent) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return
+    e.preventDefault()
+
+    if (e.key === 'Home') {
+        mainSplitLeftPct.value = 25
+    } else if (e.key === 'End') {
+        mainSplitLeftPct.value = 50
+    } else {
+        const delta = e.key === 'ArrowLeft' ? -1 : 1
+        mainSplitLeftPct.value = clampLeftPct(mainSplitLeftPct.value + delta)
+    }
+
+    proMultiSession.setMainSplitLeftPct(mainSplitLeftPct.value)
+}
+
+onUnmounted(() => {
+    endSplitDrag()
+})
+
+// ==================== 测试区：多列 variants（当前选中消息版本） ====================
+
+const getVariant = (id: TestVariantId): TestVariantConfig | undefined => {
+    const list = proMultiSession.testVariants as unknown as TestVariantConfig[]
+    return Array.isArray(list) ? list.find((v) => v.id === id) : undefined
+}
+
+const testColumnCountModel = computed<TestColumnCount>({
+    get: () => {
+        const raw = proMultiSession.layout.testColumnCount
+        return raw === 2 || raw === 3 || raw === 4 ? raw : 2
+    },
+    set: (value) => proMultiSession.setTestColumnCount(value),
+})
+
+const variantAVersionModel = computed<TestPanelVersionValue>({
+    get: () => getVariant('a')?.version ?? 0,
+    set: (value) => proMultiSession.updateTestVariant('a', { version: value }),
+})
+
+const variantBVersionModel = computed<TestPanelVersionValue>({
+    get: () => getVariant('b')?.version ?? 'latest',
+    set: (value) => proMultiSession.updateTestVariant('b', { version: value }),
+})
+
+const variantCVersionModel = computed<TestPanelVersionValue>({
+    get: () => getVariant('c')?.version ?? 'latest',
+    set: (value) => proMultiSession.updateTestVariant('c', { version: value }),
+})
+
+const variantDVersionModel = computed<TestPanelVersionValue>({
+    get: () => getVariant('d')?.version ?? 'latest',
+    set: (value) => proMultiSession.updateTestVariant('d', { version: value }),
+})
+
+const variantAModelKeyModel = computed<string>({
+    get: () => getVariant('a')?.modelKey ?? '',
+    set: (value) => proMultiSession.updateTestVariant('a', { modelKey: value }),
+})
+
+const variantBModelKeyModel = computed<string>({
+    get: () => getVariant('b')?.modelKey ?? '',
+    set: (value) => proMultiSession.updateTestVariant('b', { modelKey: value }),
+})
+
+const variantCModelKeyModel = computed<string>({
+    get: () => getVariant('c')?.modelKey ?? '',
+    set: (value) => proMultiSession.updateTestVariant('c', { modelKey: value }),
+})
+
+const variantDModelKeyModel = computed<string>({
+    get: () => getVariant('d')?.modelKey ?? '',
+    set: (value) => proMultiSession.updateTestVariant('d', { modelKey: value }),
+})
+
+const ALL_VARIANT_IDS: TestVariantId[] = ['a', 'b', 'c', 'd']
+const activeVariantIds = computed<TestVariantId[]>(() =>
+    ALL_VARIANT_IDS.slice(0, testColumnCountModel.value),
+)
+
+const variantVersionModels = {
+    a: variantAVersionModel,
+    b: variantBVersionModel,
+    c: variantCVersionModel,
+    d: variantDVersionModel,
+} as const
+
+const variantModelKeyModels = {
+    a: variantAModelKeyModel,
+    b: variantBModelKeyModel,
+    c: variantCModelKeyModel,
+    d: variantDModelKeyModel,
+} as const
+
+// pro-multi 变量优先级：global < temporary < predefined
+const mergedTestVariables = computed<Record<string, string>>(() => ({
+    ...globalVariables.value,
+    ...(tempVars.temporaryVariables.value || {}),
+    ...predefinedVariables.value,
+}))
+
+// 测试区宽度：用于禁用 4 列（避免横向滚动）
+const { width: testPaneWidth } = useElementSize(testPaneRef)
+const canUseFourColumns = computed(() => testPaneWidth.value >= 1000)
+
+watch(
+    canUseFourColumns,
+    (ok) => {
+        if (!ok && testColumnCountModel.value === 4) {
+            testColumnCountModel.value = 3
+        }
+    },
+    { immediate: true },
+)
+
+const testGridTemplateColumns = computed(
+    () => `repeat(${testColumnCountModel.value}, minmax(0, 1fr))`,
+)
+
+// 版本选项：仅显示“原始(v0)”与“最新(latest)”，若存在中间版本，则额外显示 v1..v(n-1)。
+const versionOptions = computed(() => {
+    const versions = conversationOptimization.currentVersions.value || []
+
+    const sortedVersions = versions
+        .map((v) => v.version)
+        .filter((v): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 1)
+        .slice()
+        .sort((a, b) => a - b)
+
+    const latest = sortedVersions.length ? sortedVersions[sortedVersions.length - 1] : null
+    const middle = latest ? sortedVersions.filter((v) => v < latest) : []
+
+    return [
+        { label: t('test.layout.original'), value: 0 },
+        ...middle.map((v) => ({ label: `v${v}`, value: v })),
+        { label: t('test.layout.latest'), value: 'latest' },
+    ]
+})
+
+// 确保测试列的模型选择始终有效（模型列表变化时自动 fallback）
+watch(
+    () => modelSelection.textModelOptions.value,
+    (opts) => {
+        const fallback = opts?.[0]?.value || ''
+        if (!fallback) return
+        const keys = new Set((opts || []).map((o) => o.value))
+
+        const legacy = proMultiSession.selectedTestModelKey
+        const seed = legacy && keys.has(legacy) ? legacy : fallback
+
+        for (const id of ALL_VARIANT_IDS) {
+            const current = variantModelKeyModels[id].value
+            if (!current || !keys.has(current)) {
+                proMultiSession.updateTestVariant(id, { modelKey: seed })
+            }
+        }
+    },
+    { immediate: true },
+)
+
+type ResolvedSelectedMessage = { text: string; resolvedVersion: number }
+
+const resolveSelectedMessageContent = (
+    selection: TestPanelVersionValue,
+): ResolvedSelectedMessage => {
+    const selectedMsg = conversationOptimization.selectedMessage.value
+    const v0 = selectedMsg?.originalContent || selectedMsg?.content || ''
+    const versions = conversationOptimization.currentVersions.value || []
+
+    const latest = versions.reduce<{ version: number; optimizedPrompt: string } | null>(
+        (acc, v) => {
+            if (typeof v.version !== 'number' || v.version < 1) return acc
+            const next = { version: v.version, optimizedPrompt: v.optimizedPrompt || '' }
+            if (!acc || next.version > acc.version) return next
+            return acc
+        },
+        null,
+    )
+
+    if (selection === 0) {
+        return { text: v0, resolvedVersion: 0 }
+    }
+
+    if (selection === 'latest') {
+        if (!latest) return { text: v0, resolvedVersion: 0 }
+        return { text: latest.optimizedPrompt || '', resolvedVersion: latest.version }
+    }
+
+    const target = versions.find((v) => v.version === selection)
+    if (target) {
+        return { text: target.optimizedPrompt || '', resolvedVersion: target.version }
+    }
+
+    if (!latest) return { text: v0, resolvedVersion: 0 }
+    return { text: latest.optimizedPrompt || '', resolvedVersion: latest.version }
+}
+
+const resolvedOriginalTestPrompt = computed(() =>
+    resolveSelectedMessageContent(variantAVersionModel.value),
+)
+const resolvedOptimizedTestPrompt = computed(() =>
+    resolveSelectedMessageContent(variantBVersionModel.value),
+)
+
+// Pinia setup store 会自动解包 refs，这里是直接可变的响应式对象（非 Ref）
+const variantResults = proMultiSession.testVariantResults
+const variantLastRunFingerprint = proMultiSession.testVariantLastRunFingerprint
+
+const variantRunning = reactive<Record<TestVariantId, boolean>>({
+    a: false,
+    b: false,
+    c: false,
+    d: false,
+})
+
+const variantToolCalls = reactive<Record<TestVariantId, ToolCallResult[]>>({
+    a: [],
+    b: [],
+    c: [],
+    d: [],
+})
+
+const isAnyVariantRunning = computed(() =>
+    activeVariantIds.value.some((id) => !!variantRunning[id]),
+)
+
+const getVariantLabel = (id: TestVariantId) => ({ a: 'A', b: 'B', c: 'C', d: 'D' }[id])
+
+const getVariantVersionTestId = (id: TestVariantId) => {
+    if (id === 'a') return 'pro-multi-test-original-version-select'
+    if (id === 'b') return 'pro-multi-test-optimized-version-select'
+    return `pro-multi-test-variant-${id}-version-select`
+}
+
+const getVariantModelTestId = (id: TestVariantId) => {
+    if (id === 'a') return 'pro-multi-test-original-model-select'
+    if (id === 'b') return 'pro-multi-test-optimized-model-select'
+    return `pro-multi-test-variant-${id}-model-select`
+}
+
+const getVariantRunTestId = (id: TestVariantId) => `pro-multi-test-run-${id}`
+
+const getVariantOutputTestId = (id: TestVariantId) => {
+    if (id === 'a') return 'pro-multi-test-original-output'
+    if (id === 'b') return 'pro-multi-test-optimized-output'
+    return `pro-multi-test-variant-${id}-output`
+}
+
+const getVariantResult = (id: TestVariantId) => variantResults[id]
+const hasVariantResult = (id: TestVariantId) => !!(variantResults[id]?.result || '').trim()
+
+const hashString = (input: string): string => {
+    let hash = 5381
+    for (let i = 0; i < input.length; i++) {
+        hash = ((hash << 5) + hash) ^ input.charCodeAt(i)
+    }
+    return (hash >>> 0).toString(36)
+}
+
+const stableStringifyVars = (vars: Record<string, string>): string => {
+    const keys = Object.keys(vars).sort()
+    let out = ''
+    for (const k of keys) {
+        out += `${k}=${vars[k] ?? ''}\n`
+    }
+    return out
+}
+
+const variablesHash = computed(() => hashString(stableStringifyVars(mergedTestVariables.value)))
+
+const formatConversationAsText = (messages: ConversationMessage[]): string => {
+    if (!messages || messages.length === 0) return ''
+    return messages.map((msg) => `${String(msg.role).toUpperCase()}: ${msg.content}`).join('\n\n')
+}
+
+const formatToolsAsText = (tools: ToolDefinition[]): string => {
+    if (!tools || tools.length === 0) return ''
+    return tools
+        .map((tool) => {
+            const func = tool.function
+            let text = `工具名称: ${func.name}`
+            if (func.description) text += `\n描述: ${func.description}`
+            if (func.parameters) text += `\n参数结构: ${JSON.stringify(func.parameters, null, 2)}`
+            return text
+        })
+        .join('\n\n')
+}
+
+const buildMessagesForSelection = (selection: TestPanelVersionValue): ConversationMessage[] => {
+    const id = selectedMessageId.value
+    const resolved = resolveSelectedMessageContent(selection)
+    return (optimizationContext.value || []).map((msg) => ({
+        ...msg,
+        content: id && msg.id === id ? resolved.text : msg.content,
+    }))
+}
+
+const getVariantFingerprint = (id: TestVariantId) => {
+    const selection = variantVersionModels[id].value
+    const resolved = resolveSelectedMessageContent(selection)
+    const modelKey = variantModelKeyModels[id].value || ''
+    const tools = optimizationContextToolsRef.value || []
+    const messages = buildMessagesForSelection(selection)
+    const convHash = hashString(formatConversationAsText(messages))
+    const toolsHash = hashString(formatToolsAsText(tools))
+    return `${selectedMessageId.value || ''}:${String(selection)}:${resolved.resolvedVersion}:${modelKey}:${convHash}:${toolsHash}:${variablesHash.value}`
+}
+
+const isVariantStale = (id: TestVariantId) => {
+    if (!hasVariantResult(id)) return false
+    const prev = variantLastRunFingerprint[id]
+    if (!prev) return false
+    return prev !== getVariantFingerprint(id)
+}
+
+type VariantTestInput = {
+    messages: ConversationMessage[]
+    modelKey: string
+    resolvedVersion: number
+    tools: ToolDefinition[]
+    variables: Record<string, string>
+}
+
+const getVariantTestInput = (id: TestVariantId): VariantTestInput | null => {
+    const modelKey = (variantModelKeyModels[id].value || '').trim()
+    if (!modelKey) {
+        toast.error(t('test.error.noModel'))
+        return null
+    }
+
+    if (!optimizationContext.value || optimizationContext.value.length === 0) {
+        toast.error(t('test.error.noConversation'))
+        return null
+    }
+
+    if (!selectedMessageId.value) {
+        toast.warning(t('toast.warning.messageNotFound'))
+        return null
+    }
+
+    const resolved = resolveSelectedMessageContent(variantVersionModels[id].value)
+    if (!resolved.text?.trim()) {
+        const key = resolved.resolvedVersion === 0 ? 'test.error.noOriginalPrompt' : 'test.error.noOptimizedPrompt'
+        toast.error(t(key))
+        return null
+    }
+
+    const messages = buildMessagesForSelection(variantVersionModels[id].value)
+    const tools = optimizationContextToolsRef.value || []
+
+    const baseVars = variableManager?.variableManager.value?.resolveAllVariables() || {}
+    const conversationContext = formatConversationAsText(messages)
+    const toolsContext = formatToolsAsText(tools)
+    const variables = {
+        ...baseVars,
+        ...mergedTestVariables.value,
+        conversationContext,
+        toolsContext,
+    }
+
+    return {
+        messages,
+        modelKey,
+        resolvedVersion: resolved.resolvedVersion,
+        tools,
+        variables,
+    }
+}
+
+const runVariant = async (
+    id: TestVariantId,
+    opts?: {
+        silentSuccess?: boolean
+        silentError?: boolean
+        skipClearEvaluation?: boolean
+        persist?: boolean
+        allowParallel?: boolean
+    },
+): Promise<boolean> => {
+    if (variantRunning[id]) return false
+    if (!opts?.allowParallel && isAnyVariantRunning.value) return false
+
+    const promptService = servicesRef.value?.promptService
+    if (!promptService) {
+        toast.error(t('toast.error.serviceInit'))
+        return false
+    }
+
+    const input = getVariantTestInput(id)
+    if (!input) return false
+
+    if (!opts?.skipClearEvaluation) {
+        evaluationHandler.clearBeforeTest()
+    }
+
+    variantResults[id] = { result: '', reasoning: '' }
+    variantToolCalls[id] = []
+    variantRunning[id] = true
+
+    try {
+        await promptService.testCustomConversationStream(
+            {
+                modelKey: input.modelKey,
+                messages: input.messages,
+                variables: input.variables,
+                tools: input.tools,
+            },
+            {
+                onToken: (token: string) => {
+                    const prev = variantResults[id]
+                    variantResults[id] = { ...prev, result: (prev.result || '') + token }
+                },
+                onReasoningToken: (token: string) => {
+                    const prev = variantResults[id]
+                    variantResults[id] = { ...prev, reasoning: (prev.reasoning || '') + token }
+                },
+                onToolCall: (toolCall: ToolCall) => {
+                    const toolCallResult: ToolCallResult = {
+                        toolCall,
+                        status: 'success',
+                        timestamp: new Date(),
+                    }
+                    variantToolCalls[id].push(toolCallResult)
+                },
+                onComplete: () => {
+                    // 由 finally 统一收尾
+                },
+                onError: (error: Error) => {
+                    throw error
+                },
+            },
+        )
+
+        if (!opts?.silentSuccess) {
+            toast.success(t('toast.success.testComplete'))
+        }
+        return true
+    } catch (_error) {
+        if (!opts?.silentError) {
+            toast.error(t('toast.error.testFailed'))
+        }
+        return false
+    } finally {
+        variantRunning[id] = false
+        variantLastRunFingerprint[id] = getVariantFingerprint(id)
+        if (opts?.persist !== false) {
+            void proMultiSession.saveSession()
+        }
+    }
+}
+
+const runAllVariants = async () => {
+    if (isAnyVariantRunning.value) return
+
+    const ids = activeVariantIds.value
+    for (const id of ids) {
+        if (!getVariantTestInput(id)) return
+    }
+
+    evaluationHandler.clearBeforeTest()
+    const results = await Promise.all(
+        ids.map((id) =>
+            runVariant(id, {
+                silentSuccess: true,
+                silentError: true,
+                skipClearEvaluation: true,
+                persist: false,
+                allowParallel: true,
+            }),
+        ),
+    )
+
+    void proMultiSession.saveSession()
+
+    if (results.every(Boolean)) {
+        toast.success(t('toast.success.testComplete'))
+    } else {
+        toast.error(t('toast.error.testFailed'))
+    }
+}
+
+// 🆕 构建 Pro-System 评估上下文（基于 A/B 的消息版本）
 const proContext = computed<ProSystemEvaluationContext | undefined>(() => {
     const selectedMsg = conversationOptimization.selectedMessage.value
-    if (!selectedMsg) return undefined
+    if (!selectedMsg?.id) return undefined
+
+    const original = resolvedOriginalTestPrompt.value.text
+    const optimized = resolvedOptimizedTestPrompt.value.text
 
     return {
         targetMessage: {
             role: selectedMsg.role as 'system' | 'user' | 'assistant' | 'tool',
-            content: conversationOptimization.optimizedPrompt.value || selectedMsg.content,
-            originalContent: selectedMsg.content,
+            content: optimized,
+            originalContent: original,
         },
-        conversationMessages: optimizationContext.value.map((msg) => ({
+        conversationMessages: (optimizationContext.value || []).map((msg) => ({
             role: msg.role,
-            content: msg.content,
+            content: msg.id === selectedMsg.id ? optimized : msg.content,
             isTarget: msg.id === selectedMsg.id,
         })),
     }
@@ -607,10 +1276,10 @@ const proContext = computed<ProSystemEvaluationContext | undefined>(() => {
 // 🆕 提供 Pro 模式上下文给子组件（如 PromptPanel），用于评估时传递多消息上下文
 provideProContext(proContext)
 
-// 🆕 测试结果数据
+// 🆕 测试结果数据（仅取 A/B）
 const testResultsData = computed(() => ({
-    originalResult: conversationTester.testResults.originalResult || undefined,
-    optimizedResult: conversationTester.testResults.optimizedResult || undefined,
+    originalResult: variantResults.a.result || undefined,
+    optimizedResult: variantResults.b.result || undefined,
 }))
 
 // 🆕 计算当前迭代需求（用于 prompt-iterate 的 re-evaluate）
@@ -624,12 +1293,15 @@ const currentIterateRequirement = computed(() => {
 
 // 🆕 初始化评估处理器（使用全局 evaluation 实例，避免双套状态）
 const evaluationHandler = useEvaluationHandler({
-    services: services || ref(null),
-    originalPrompt: computed(() => conversationOptimization.selectedMessage.value?.content || ''),
-    optimizedPrompt: computed(() => conversationOptimization.optimizedPrompt.value),
-    testContent: computed(() => ''), // Pro-System 模式无测试内容输入
+    services: servicesRef,
+    originalPrompt: computed(() => resolvedOriginalTestPrompt.value.text),
+    optimizedPrompt: computed(() => resolvedOptimizedTestPrompt.value.text),
+    testContent: computed(() => ''), // Pro-Multi 无测试内容输入
     testResults: testResultsData,
-    evaluationModelKey: computed(() => props.evaluationModelKey || modelSelection.selectedOptimizeModelKey.value),
+    evaluationModelKey: computed(() => {
+        const key = props.evaluationModelKey || modelSelection.selectedOptimizeModelKey.value
+        return key || ''
+    }),
     functionMode: computed(() => 'pro'),
     subMode: computed(() => 'multi'),
     proContext,
@@ -639,8 +1311,37 @@ const evaluationHandler = useEvaluationHandler({
 
 provideEvaluation(evaluationHandler.evaluation)
 
-const { evaluation } = evaluationHandler
+const { evaluation, handleEvaluate: handleEvaluateInternal } = evaluationHandler
+const testAreaProps = evaluationHandler.testAreaEvaluationProps
 const panelProps = evaluationHandler.panelProps
+
+const isEvaluatingOriginal = computed(() => testAreaProps.value.isEvaluatingOriginal)
+const isEvaluatingOptimized = computed(() => testAreaProps.value.isEvaluatingOptimized)
+const originalScore = computed(() => testAreaProps.value.originalScore ?? 0)
+const optimizedScore = computed(() => testAreaProps.value.optimizedScore ?? 0)
+const hasOriginalEvaluation = computed(() => testAreaProps.value.hasOriginalEvaluation)
+const hasOptimizedEvaluation = computed(() => testAreaProps.value.hasOptimizedEvaluation)
+const originalEvaluationResult = computed(() => testAreaProps.value.originalEvaluationResult)
+const optimizedEvaluationResult = computed(() => testAreaProps.value.optimizedEvaluationResult)
+const originalScoreLevel = computed(() => testAreaProps.value.originalScoreLevel)
+const optimizedScoreLevel = computed(() => testAreaProps.value.optimizedScoreLevel)
+
+// 对比评估状态
+const isEvaluatingCompare = evaluationHandler.compareEvaluation.isEvaluatingCompare
+const compareScore = computed(() => evaluationHandler.compareEvaluation.compareScore.value ?? 0)
+const hasCompareEvaluation = evaluationHandler.compareEvaluation.hasCompareResult
+const compareEvaluationResult = computed(() => evaluation.state['compare'].result)
+const compareScoreLevel = computed(() =>
+    evaluation.getScoreLevel(evaluationHandler.compareEvaluation.compareScore.value ?? null),
+)
+
+const handleEvaluate = async (type: 'original' | 'optimized' | 'compare') => {
+    await handleEvaluateInternal(type)
+}
+
+const showDetail = (type: 'original' | 'optimized' | 'compare') => {
+    evaluation.showDetail(type)
+}
 
 const handleApplyLocalPatch = (payload: { operation: PatchOperation }) => {
     if (!payload.operation) return
@@ -829,19 +1530,6 @@ const handleVariablesClear = () => {
     removedNames.forEach(name => emit('variable-change', name, ''));
 };
 
-// 🆕 处理测试事件
-const handleTestWithVariables = async () => {
-    // 重新测试时清理之前的评估结果
-    evaluationHandler.clearBeforeTest();
-
-    const testVariables = testAreaPanelRef.value?.getVariableValues?.() || {};
-    await conversationTester.executeTest(
-        props.isCompareMode || false,
-        testVariables,
-        testAreaPanelRef.value
-    );
-};
-
 // 🆕 处理应用改进建议事件（使用 evaluationHandler 提供的工厂方法）
 const handleApplyImprovement = evaluationHandler.createApplyImprovementHandler(promptPanelRef);
 
@@ -873,3 +1561,138 @@ defineExpose({
     },
 });
 </script>
+
+<style scoped>
+.context-system-workspace {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.context-system-split {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.split-pane {
+    min-height: 0;
+}
+
+.split-divider {
+    cursor: col-resize;
+    background: var(--n-divider-color, rgba(0, 0, 0, 0.08));
+    border-radius: 999px;
+    margin: 6px 0;
+    transition: background 120ms ease;
+}
+
+.split-divider:hover,
+.split-divider:focus-visible {
+    background: var(--n-primary-color, rgba(59, 130, 246, 0.5));
+    outline: none;
+}
+
+.test-area-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+}
+
+.test-area-label {
+    white-space: nowrap;
+}
+
+.variant-deck {
+    display: grid;
+    gap: 12px;
+    width: 100%;
+}
+
+.variant-cell {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.variant-cell__controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.variant-cell__label {
+    flex-shrink: 0;
+}
+
+.variant-cell__stale {
+    flex-shrink: 0;
+}
+
+.variant-cell__model {
+    /* 让模型选择不要无限拉伸：保持紧凑，避免把右侧按钮/布局挤散 */
+    flex: 0 1 220px;
+    max-width: 220px;
+    min-width: 0;
+}
+
+.output-evaluation-entry {
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.variant-results-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.variant-results {
+    display: grid;
+    gap: 12px;
+    height: 100%;
+    min-height: 0;
+}
+
+.variant-result-card {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.variant-result-card :deep(.n-card__content) {
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+}
+
+.result-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.result-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+.tool-calls-section {
+    flex: 0 0 auto;
+}
+</style>
