@@ -24,9 +24,65 @@ import {
 type ImageResultItem = ImageResult['images'][number]
 
 /**
+ * image 模式测试面板的版本选择：
+ * - 0: v0（原始提示词）
+ * - >=1: v1..vn（历史链版本号）
+ * - 'latest': 跟随最新 vn
+ */
+export type TestPanelVersionValue = 0 | number | 'latest'
+
+export type TestVariantId = 'a' | 'b' | 'c' | 'd'
+
+export type TestColumnCount = 2 | 3 | 4
+
+export interface ImageWorkspaceLayoutConfig {
+  /** 主布局左侧宽度（百分比，25..50） */
+  mainSplitLeftPct: number
+  /** 测试区列数（2..4） */
+  testColumnCount: TestColumnCount
+}
+
+export interface TestVariantConfig {
+  id: TestVariantId
+  /** 提示词版本（v0 / vN / latest） */
+  version: TestPanelVersionValue
+  /** 图像模型配置 key（configId） */
+  modelKey: string
+}
+
+export type TestVariantResults = Record<TestVariantId, ImageResult | null>
+
+export type TestVariantLastRunFingerprint = Record<TestVariantId, string>
+
+export interface ImageImage2ImageSessionState {
+  originalPrompt: string
+  optimizedPrompt: string
+  reasoning: string
+  chainId: string
+  versionId: string
+  inputImageB64: string | null
+  inputImageId: string | null
+  inputImageMime: string
+  originalImageResult: ImageResult | null
+  optimizedImageResult: ImageResult | null
+  // v2: 多列测试（最多 4 列）
+  layout: ImageWorkspaceLayoutConfig
+  testVariants: TestVariantConfig[]
+  testVariantResults: TestVariantResults
+  testVariantLastRunFingerprint: TestVariantLastRunFingerprint
+  evaluationResults: PersistedEvaluationResults
+  isCompareMode: boolean
+  selectedTextModelKey: string
+  selectedImageModelKey: string
+  selectedTemplateId: string | null
+  selectedIterateTemplateId: string | null
+  lastActiveAt: number
+}
+
+/**
  * 默认状态
  */
-const createDefaultState = () => ({
+const createDefaultState = (): ImageImage2ImageSessionState => ({
   originalPrompt: '',
   optimizedPrompt: '',
   reasoning: '',
@@ -37,6 +93,26 @@ const createDefaultState = () => ({
   inputImageMime: '',
   originalImageResult: null,
   optimizedImageResult: null,
+  // v2: 多列测试（最多 4 列）
+  layout: { mainSplitLeftPct: 50, testColumnCount: 2 },
+  testVariants: [
+    { id: 'a', version: 0, modelKey: '' },
+    { id: 'b', version: 'latest', modelKey: '' },
+    { id: 'c', version: 'latest', modelKey: '' },
+    { id: 'd', version: 'latest', modelKey: '' },
+  ],
+  testVariantResults: {
+    a: null,
+    b: null,
+    c: null,
+    d: null,
+  },
+  testVariantLastRunFingerprint: {
+    a: '',
+    b: '',
+    c: '',
+    d: '',
+  },
   evaluationResults: createDefaultEvaluationResults(),
   isCompareMode: true,
   selectedTextModelKey: '',
@@ -60,6 +136,26 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
   const inputImageMime = ref('')
   const originalImageResult = ref<ImageResult | null>(null)
   const optimizedImageResult = ref<ImageResult | null>(null)
+  // v2: 多列测试（最多 4 列）
+  const layout = ref<ImageWorkspaceLayoutConfig>({ mainSplitLeftPct: 50, testColumnCount: 2 })
+  const testVariants = ref<TestVariantConfig[]>([
+    { id: 'a', version: 0, modelKey: '' },
+    { id: 'b', version: 'latest', modelKey: '' },
+    { id: 'c', version: 'latest', modelKey: '' },
+    { id: 'd', version: 'latest', modelKey: '' },
+  ])
+  const testVariantResults = ref<TestVariantResults>({
+    a: null,
+    b: null,
+    c: null,
+    d: null,
+  })
+  const testVariantLastRunFingerprint = ref<TestVariantLastRunFingerprint>({
+    a: '',
+    b: '',
+    c: '',
+    d: '',
+  })
   const isCompareMode = ref(true)
   const selectedTextModelKey = ref('')
   const selectedImageModelKey = ref('')
@@ -108,11 +204,62 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
 
   const updateOriginalImageResult = (result: ImageResult | null) => {
     originalImageResult.value = result
+    testVariantResults.value = { ...testVariantResults.value, a: result }
     lastActiveAt.value = Date.now()
   }
 
   const updateOptimizedImageResult = (result: ImageResult | null) => {
     optimizedImageResult.value = result
+    testVariantResults.value = { ...testVariantResults.value, b: result }
+    lastActiveAt.value = Date.now()
+  }
+
+  const setTestColumnCount = (count: TestColumnCount) => {
+    if (layout.value.testColumnCount === count) return
+    layout.value = { ...layout.value, testColumnCount: count }
+    lastActiveAt.value = Date.now()
+    saveSession().catch(error => {
+      console.error('[ImageImage2ImageSession] 自动保存会话失败:', error)
+    })
+  }
+
+  const setMainSplitLeftPct = (pct: number) => {
+    const normalized = Number.isFinite(pct) ? Math.round(pct) : layout.value.mainSplitLeftPct
+    const next = Math.min(50, Math.max(25, normalized))
+    if (layout.value.mainSplitLeftPct === next) return
+    layout.value = { ...layout.value, mainSplitLeftPct: next }
+    lastActiveAt.value = Date.now()
+    saveSession().catch(error => {
+      console.error('[ImageImage2ImageSession] 自动保存会话失败:', error)
+    })
+  }
+
+  const updateTestVariant = (id: TestVariantId, patch: Partial<Omit<TestVariantConfig, 'id'>>) => {
+    const idx = testVariants.value.findIndex(v => v.id === id)
+    if (idx < 0) return
+    const prev = testVariants.value[idx]
+    const next: TestVariantConfig = { ...prev, ...patch, id }
+    if (prev.version === next.version && prev.modelKey === next.modelKey) return
+    const nextList = testVariants.value.slice()
+    nextList[idx] = next
+    testVariants.value = nextList
+    lastActiveAt.value = Date.now()
+    saveSession().catch(error => {
+      console.error('[ImageImage2ImageSession] 自动保存会话失败:', error)
+    })
+  }
+
+  const updateTestVariantResult = (id: TestVariantId, result: ImageResult | null) => {
+    testVariantResults.value = { ...testVariantResults.value, [id]: result }
+    // legacy alias: A/B
+    if (id === 'a') originalImageResult.value = result
+    if (id === 'b') optimizedImageResult.value = result
+    lastActiveAt.value = Date.now()
+  }
+
+  const setTestVariantLastRunFingerprint = (id: TestVariantId, fingerprint: string) => {
+    if (testVariantLastRunFingerprint.value[id] === fingerprint) return
+    testVariantLastRunFingerprint.value = { ...testVariantLastRunFingerprint.value, [id]: fingerprint }
     lastActiveAt.value = Date.now()
   }
 
@@ -172,6 +319,10 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
     inputImageMime.value = defaultState.inputImageMime
     originalImageResult.value = defaultState.originalImageResult
     optimizedImageResult.value = defaultState.optimizedImageResult
+    layout.value = defaultState.layout
+    testVariants.value = defaultState.testVariants
+    testVariantResults.value = defaultState.testVariantResults
+    testVariantLastRunFingerprint.value = defaultState.testVariantLastRunFingerprint
     evaluationResults.value = defaultState.evaluationResults
     isCompareMode.value = defaultState.isCompareMode
     selectedTextModelKey.value = defaultState.selectedTextModelKey
@@ -312,8 +463,13 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
 
     // 准备保存的数据
     let inputImageIdToSave = inputImageId.value
-    let originalResultToSave = originalImageResult.value
-    let optimizedResultToSave = optimizedImageResult.value
+    // v2: 多列 variants
+    const baseVariantResults: TestVariantResults = {
+      a: testVariantResults.value.a ?? originalImageResult.value,
+      b: testVariantResults.value.b ?? optimizedImageResult.value,
+      c: testVariantResults.value.c,
+      d: testVariantResults.value.d,
+    }
 
     // 保存输入图像
     if (inputImageB64.value && !inputImageId.value) {
@@ -329,15 +485,12 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
       // inputImageB64.value = null  // ❌ 删除此行，不清空运行时数据
     }
 
-    // 准备图像结果（转换为引用）
-    originalResultToSave = await prepareForSave(
-      originalImageResult.value,
-      $services.imageStorageService
-    )
-    optimizedResultToSave = await prepareForSave(
-      optimizedImageResult.value,
-      $services.imageStorageService
-    )
+    const variantResultsToSave: TestVariantResults = {
+      a: await prepareForSave(baseVariantResults.a, $services.imageStorageService),
+      b: await prepareForSave(baseVariantResults.b, $services.imageStorageService),
+      c: await prepareForSave(baseVariantResults.c, $services.imageStorageService),
+      d: await prepareForSave(baseVariantResults.d, $services.imageStorageService),
+    }
 
     // ✅ 修复：不修改运行时 ref，只在序列化时使用转换后的数据
 
@@ -350,8 +503,15 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
       versionId: versionId.value,
       inputImageId: inputImageIdToSave,
       inputImageB64: null,
-      originalImageResult: originalResultToSave,
-      optimizedImageResult: optimizedResultToSave,
+      inputImageMime: inputImageMime.value,
+      // legacy: 仍保留 original/optimized 字段（对应 A/B）
+      originalImageResult: variantResultsToSave.a,
+      optimizedImageResult: variantResultsToSave.b,
+      // v2: 多列 variants
+      layout: layout.value,
+      testVariants: testVariants.value,
+      testVariantResults: variantResultsToSave,
+      testVariantLastRunFingerprint: testVariantLastRunFingerprint.value,
       evaluationResults: evaluationResults.value,
       isCompareMode: isCompareMode.value,
       selectedTextModelKey: selectedTextModelKey.value,
@@ -385,6 +545,8 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
             ? (JSON.parse(saved) as Record<string, unknown>)
             : (saved as Record<string, unknown>)
 
+        const defaultState = createDefaultState()
+
         // 从存储加载输入图像
         let inputImageB64Loaded = null
         if (typeof parsed.inputImageId === 'string' && parsed.inputImageId) {
@@ -401,24 +563,116 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
           inputImageB64Loaded = typeof parsed.inputImageB64 === 'string' ? parsed.inputImageB64 : null
         }
 
-         // 从引用加载图像结果
-         // restore data is untrusted; cast to expected shape and validate defensively.
-         let originalResultLoaded: ImageResult | null = (parsed.originalImageResult as ImageResult | null) ?? null
-         let optimizedResultLoaded: ImageResult | null = (parsed.optimizedImageResult as ImageResult | null) ?? null
+        // ==================== v2: 多列 variants ====================
+        // layout
+        const rawLayout = parsed.layout
+        if (rawLayout && typeof rawLayout === 'object') {
+          const layoutRecord = rawLayout as Record<string, unknown>
+          const pct =
+            typeof layoutRecord['mainSplitLeftPct'] === 'number'
+              ? (layoutRecord['mainSplitLeftPct'] as number)
+              : defaultState.layout.mainSplitLeftPct
+          const countRaw = layoutRecord['testColumnCount']
+          const count: TestColumnCount = countRaw === 2 || countRaw === 3 || countRaw === 4 ? countRaw : defaultState.layout.testColumnCount
+          layout.value = {
+            mainSplitLeftPct: Math.min(50, Math.max(25, Math.round(pct))),
+            testColumnCount: count,
+          }
+        } else {
+          layout.value = defaultState.layout
+        }
 
-          originalResultLoaded = await loadFromRef(originalResultLoaded, $services.imageStorageService)
-          optimizedResultLoaded = await loadFromRef(optimizedResultLoaded, $services.imageStorageService)
+        // testVariants
+        const rawVariants = parsed.testVariants
+        if (Array.isArray(rawVariants)) {
+          const byId = new Map<TestVariantId, TestVariantConfig>()
+
+          const normalizeVersion = (v: unknown): TestPanelVersionValue => {
+            if (v === 0) return 0
+            if (v === 'latest') return 'latest'
+            if (typeof v === 'number' && Number.isFinite(v) && v >= 1) return v
+            return 'latest'
+          }
+
+          for (const item of rawVariants) {
+            if (!item || typeof item !== 'object') continue
+            const obj = item as Record<string, unknown>
+            const id = obj['id']
+            if (id !== 'a' && id !== 'b' && id !== 'c' && id !== 'd') continue
+            const modelKey = typeof obj['modelKey'] === 'string' ? (obj['modelKey'] as string) : ''
+            const version = normalizeVersion(obj['version'])
+            byId.set(id, { id, modelKey, version })
+          }
+
+          testVariants.value = defaultState.testVariants.map((v) => byId.get(v.id) ?? v)
+        } else {
+          testVariants.value = defaultState.testVariants
+        }
+
+        // testVariantResults (优先使用 v2 字段)
+        const rawVariantResults = parsed.testVariantResults
+        let variantResultsLoaded: TestVariantResults | null = null
+        if (rawVariantResults && typeof rawVariantResults === 'object') {
+          const record = rawVariantResults as Record<string, unknown>
+          const pick = (id: TestVariantId): ImageResult | null => {
+            const one = record[id]
+            if (!one) return null
+            if (typeof one !== 'object') return null
+            return one as ImageResult
+          }
+          variantResultsLoaded = {
+            a: pick('a'),
+            b: pick('b'),
+            c: pick('c'),
+            d: pick('d'),
+          }
+        }
+
+        // legacy: original/optimized → A/B
+        if (!variantResultsLoaded) {
+          variantResultsLoaded = {
+            a: (parsed.originalImageResult as ImageResult | null) ?? null,
+            b: (parsed.optimizedImageResult as ImageResult | null) ?? null,
+            c: null,
+            d: null,
+          }
+        }
+
+        const loaded: TestVariantResults = {
+          a: await loadFromRef(variantResultsLoaded.a, $services.imageStorageService),
+          b: await loadFromRef(variantResultsLoaded.b, $services.imageStorageService),
+          c: await loadFromRef(variantResultsLoaded.c, $services.imageStorageService),
+          d: await loadFromRef(variantResultsLoaded.d, $services.imageStorageService),
+        }
+
+        testVariantResults.value = loaded
+        // legacy alias
+        originalImageResult.value = loaded.a
+        optimizedImageResult.value = loaded.b
+
+        // lastRunFingerprint
+        const rawFingerprints = parsed.testVariantLastRunFingerprint
+        if (rawFingerprints && typeof rawFingerprints === 'object') {
+          const fingerprintRecord = rawFingerprints as Record<string, unknown>
+          const pick = (id: TestVariantId) => (typeof fingerprintRecord[id] === 'string' ? (fingerprintRecord[id] as string) : '')
+          testVariantLastRunFingerprint.value = {
+            a: pick('a'),
+            b: pick('b'),
+            c: pick('c'),
+            d: pick('d'),
+          }
+        } else {
+          testVariantLastRunFingerprint.value = defaultState.testVariantLastRunFingerprint
+        }
 
          originalPrompt.value = typeof parsed.originalPrompt === 'string' ? parsed.originalPrompt : ''
          optimizedPrompt.value = typeof parsed.optimizedPrompt === 'string' ? parsed.optimizedPrompt : ''
          reasoning.value = typeof parsed.reasoning === 'string' ? parsed.reasoning : ''
          chainId.value = typeof parsed.chainId === 'string' ? parsed.chainId : ''
          versionId.value = typeof parsed.versionId === 'string' ? parsed.versionId : ''
-         inputImageB64.value = typeof inputImageB64Loaded === 'string' ? inputImageB64Loaded : null
-         inputImageId.value = typeof parsed.inputImageId === 'string' ? parsed.inputImageId : null
-         inputImageMime.value = typeof parsed.inputImageMime === 'string' ? parsed.inputImageMime : ''
-         originalImageResult.value = originalResultLoaded
-         optimizedImageResult.value = optimizedResultLoaded
+          inputImageB64.value = typeof inputImageB64Loaded === 'string' ? inputImageB64Loaded : null
+          inputImageId.value = typeof parsed.inputImageId === 'string' ? parsed.inputImageId : null
+          inputImageMime.value = typeof parsed.inputImageMime === 'string' ? parsed.inputImageMime : ''
          evaluationResults.value = {
            ...createDefaultEvaluationResults(),
            ...(parsed.evaluationResults && typeof parsed.evaluationResults === 'object'
@@ -429,8 +683,22 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
          selectedTextModelKey.value = typeof parsed.selectedTextModelKey === 'string' ? parsed.selectedTextModelKey : ''
          selectedImageModelKey.value = typeof parsed.selectedImageModelKey === 'string' ? parsed.selectedImageModelKey : ''
          selectedTemplateId.value = typeof parsed.selectedTemplateId === 'string' ? parsed.selectedTemplateId : null
-         selectedIterateTemplateId.value = typeof parsed.selectedIterateTemplateId === 'string' ? parsed.selectedIterateTemplateId : null
-         lastActiveAt.value = Date.now()
+          selectedIterateTemplateId.value = typeof parsed.selectedIterateTemplateId === 'string' ? parsed.selectedIterateTemplateId : null
+          lastActiveAt.value = Date.now()
+
+          // 如果 variants 的 modelKey 为空，尝试用 legacy selectedImageModelKey 填充一次
+          const seedModelKey = selectedImageModelKey.value
+          if (seedModelKey) {
+            let changed = false
+            const next = testVariants.value.map((v) => {
+              if (v.modelKey) return v
+              changed = true
+              return { ...v, modelKey: seedModelKey }
+            })
+            if (changed) {
+              testVariants.value = next
+            }
+          }
 
       }
       // else: 没有保存的会话，使用默认状态
@@ -453,6 +721,10 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
     inputImageMime,
     originalImageResult,
     optimizedImageResult,
+    layout,
+    testVariants,
+    testVariantResults,
+    testVariantLastRunFingerprint,
     isCompareMode,
     selectedTextModelKey,
     selectedImageModelKey,
@@ -466,6 +738,11 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
     updateInputImage,
     updateOriginalImageResult,
     updateOptimizedImageResult,
+    setTestColumnCount,
+    setMainSplitLeftPct,
+    updateTestVariant,
+    updateTestVariantResult,
+    setTestVariantLastRunFingerprint,
     updateTextModel,
     updateImageModel,
     updateTemplate,

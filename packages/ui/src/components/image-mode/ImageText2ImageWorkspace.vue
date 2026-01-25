@@ -1,24 +1,17 @@
 <template>
-    <!-- 使用NFlex实现水平左右布局，参考App.vue的实现 -->
-    <NFlex
-        data-testid="workspace"
-        data-mode="image-text2image"
-        justify="space-between"
-        :style="{
-            display: 'flex',
-            flexDirection: 'row',
-            width: '100%',
-            height: '100%',
-            gap: '16px',
-            overflow: 'hidden',
-        }"
-    >
-        <!-- 左侧：提示词优化区域（文本模型） -->
-        <NFlex
-            vertical
-            :style="{ flex: 1, overflow: 'auto', height: '100%' }"
-            size="medium"
+    <div class="image-text2image-workspace" data-testid="workspace" data-mode="image-text2image">
+        <div
+            ref="splitRootRef"
+            class="image-text2image-split"
+            :style="{ gridTemplateColumns: `${mainSplitLeftPct}% 12px 1fr` }"
         >
+            <!-- 左侧：提示词优化区域（文本模型） -->
+            <div class="split-pane" style="min-width: 0; height: 100%; overflow: hidden;">
+                <NFlex
+                    vertical
+                    :style="{ overflow: 'auto', height: '100%', minHeight: 0 }"
+                    size="medium"
+                >
             <!-- 输入控制区域 - 对齐InputPanel布局 -->
             <NCard :style="{ flexShrink: 0 }">
                 <!-- 折叠态：只显示标题栏 -->
@@ -319,581 +312,289 @@
                     @save-local-edit="handleSaveLocalEdit"
                 />
             </NCard>
-        </NFlex>
+                </NFlex>
+            </div>
 
-        <!-- 右侧：图像生成测试区域（图像模型） -->
-        <NFlex
-            vertical
-            :style="{
-                flex: 1,
-                overflow: 'auto',
-                height: '100%',
-                gap: '12px',
-            }"
-        >
-            <!-- 测试控制栏 -->
-            <NCard :style="{ flexShrink: 0 }" size="small">
-                    <n-form label-placement="left" size="medium">
-                        <n-form-item
-                            :label="t('imageWorkspace.generation.imageModel')"
-                        >
-                            <n-space align="center" :size="12">
-                                <template v-if="appOpenModelManager">
-                                    <SelectWithConfig
-                                        data-testid="image-text2image-image-model-select"
-                                        v-model="selectedImageModelKey"
-                                        :options="imageModelOptions"
-                                        :getPrimary="OptionAccessors.getPrimary"
-                                        :getSecondary="
-                                            OptionAccessors.getSecondary
-                                        "
-                                        :getValue="OptionAccessors.getValue"
-                                        :placeholder="
-                                            t(
-                                                'imageWorkspace.generation.imageModelPlaceholder',
-                                            )
-                                        "
-                                        style="
-                                            min-width: 200px;
-                                            max-width: 100%;
-                                        "
-                                        :disabled="isGenerating"
-                                        filterable
-                                        @config="
-                                            () =>
-                                                appOpenModelManager &&
-                                                appOpenModelManager('image')
-                                        "
-                                        :show-config-action="true"
-                                        :show-empty-config-c-t-a="true"
-                                    />
-                                </template>
-                                <template v-else>
-                                    <SelectWithConfig
-                                        data-testid="image-text2image-image-model-select"
-                                        v-model="selectedImageModelKey"
-                                        :options="imageModelOptions"
-                                        :getPrimary="OptionAccessors.getPrimary"
-                                        :getSecondary="
-                                            OptionAccessors.getSecondary
-                                        "
-                                        :getValue="OptionAccessors.getValue"
-                                        :placeholder="
-                                            t(
-                                                'imageWorkspace.generation.imageModelPlaceholder',
-                                            )
-                                        "
-                                        style="
-                                            min-width: 200px;
-                                            max-width: 100%;
-                                        "
-                                        :disabled="isGenerating"
-                                        filterable
-                                    />
-                                </template>
-                                <!-- 当前选中模型名称标签 -->
-                                <n-tag
-                                    v-if="selectedImageModelInfo?.model"
+            <div
+                class="split-divider"
+                role="separator"
+                tabindex="0"
+                :aria-valuemin="25"
+                :aria-valuemax="50"
+                :aria-valuenow="mainSplitLeftPct"
+                @pointerdown="onSplitPointerDown"
+                @keydown="onSplitKeydown"
+            />
+
+            <!-- 右侧：图像生成测试区域（图像模型，多列 variants） -->
+            <div ref="testPaneRef" class="split-pane" style="min-width: 0; height: 100%; overflow: hidden;">
+                <NFlex vertical :style="{ height: '100%', gap: '12px' }">
+                    <!-- 顶部：列数与全局操作 -->
+                    <NCard size="small" :style="{ flexShrink: 0 }">
+                        <div class="test-area-top">
+                            <NFlex align="center" :size="8" :wrap="false" style="min-width: 0;">
+                                <NText :depth="2" class="test-area-label">
+                                    {{ t('test.layout.columns') }}：
+                                </NText>
+                                <NRadioGroup
+                                    v-model:value="testColumnCountModel"
                                     size="small"
-                                    type="primary"
-                                    :bordered="false"
+                                    :disabled="isAnyVariantRunning"
                                 >
-                                    {{ selectedImageModelInfo.model }}
-                                </n-tag>
-                            </n-space>
-                        </n-form-item>
-                        <n-form-item>
-                            <n-space align="center" wrap>
-                                <n-switch
-                                    data-testid="image-text2image-generate-compare-toggle"
-                                    v-model:value="isCompareMode"
-                                    :disabled="isGenerating"
-                                />
-                                <n-text depth="3">{{
-                                    t("imageWorkspace.generation.compareMode")
-                                }}</n-text>
-                                <n-button
-                                    data-testid="image-text2image-generate-button"
+                                    <NRadioButton :value="2">2</NRadioButton>
+                                    <NRadioButton :value="3">3</NRadioButton>
+                                    <NRadioButton :value="4" :disabled="!canUseFourColumns">4</NRadioButton>
+                                </NRadioGroup>
+                            </NFlex>
+
+                            <NFlex align="center" justify="end" :size="8" :wrap="false">
+                                <NButton
                                     type="primary"
-                                    :loading="isGenerating"
-                                    @click="handleGenerateImage"
-                                    :disabled="
-                                        !currentPrompt.trim() ||
-                                        !selectedImageModelKey
-                                    "
+                                    size="small"
+                                    :loading="isAnyVariantRunning"
+                                    :disabled="isAnyVariantRunning"
+                                    @click="runAllVariants"
+                                    :data-testid="'image-text2image-test-run-all'"
                                 >
-                                    {{
-                                        isGenerating
-                                            ? t(
-                                                  "imageWorkspace.generation.generating",
-                                              )
-                                            : t(
-                                                  "imageWorkspace.generation.generateImage",
-                                              )
-                                    }}
-                                </n-button>
-                            </n-space>
-                        </n-form-item>
-                    </n-form>
-            </NCard>
+                                    {{ t('test.layout.runAll') }}
+                                </NButton>
+                            </NFlex>
+                        </div>
+                    </NCard>
 
-            <!-- 图像结果展示区域（使用统一的 TestResultSection 布局） -->
-            <TestResultSection
-                :is-compare-mode="isCompareMode"
-                :style="{ flex: 1, minHeight: 0 }"
-                :original-title="t('imageWorkspace.results.originalPromptResult')"
-                :optimized-title="t('imageWorkspace.results.optimizedPromptResult')"
-                :single-result-title="t('imageWorkspace.results.optimizedPromptResult')"
-            >
-                 <template #original-result>
-                     <template
-                            v-if="
-                                originalImageResult &&
-                                originalImageResult.images.length > 0
-                            "
-                        >
-                            <!-- 多模态结果显示：图像 + 文本（使用Naive UI组件） -->
-                            <NSpace vertical :size="12">
-                                <!-- 图像显示 -->
-                                <NImage
-                                    data-testid="image-text2image-original-image"
-                                    :src="
-                                        getImageSrc(
-                                            originalImageResult.images[0],
-                                        )
-                                    "
-                                    object-fit="contain"
-                                    :img-props="{
-                                        style: {
-                                            width: '100%',
-                                            height: 'auto',
-                                            display: 'block',
-                                        },
-                                    }"
-                                />
-
-                                <!-- 文本输出显示（如果存在） -->
-                                <template v-if="originalImageResult.text">
-                                    <NCard
+                    <!-- 配置区：与结果列对齐 -->
+                    <NCard size="small" :style="{ flexShrink: 0 }">
+                        <div class="variant-deck" :style="{ gridTemplateColumns: testGridTemplateColumns }">
+                            <div v-for="id in activeVariantIds" :key="id" class="variant-cell">
+                                <div class="variant-cell__controls">
+                                    <NTag size="small" :bordered="false" class="variant-cell__label">
+                                        {{ getVariantLabel(id) }}
+                                    </NTag>
+                                    <NTag
+                                        v-if="isVariantStale(id)"
                                         size="small"
-                                        :title="
-                                            t(
-                                                'imageWorkspace.results.textOutput',
-                                            )
-                                        "
-                                        style="margin-top: 8px"
+                                        type="warning"
+                                        :bordered="false"
+                                        class="variant-cell__stale"
                                     >
-                                        <NText
-                                            :depth="2"
-                                            style="
-                                                white-space: pre-wrap;
-                                                line-height: 1.5;
-                                            "
-                                        >
-                                            {{ originalImageResult.text }}
-                                        </NText>
-                                    </NCard>
-                                </template>
+                                        {{ t('test.layout.stale') }}
+                                    </NTag>
 
-                                <!-- 操作按钮 -->
-                                <NSpace justify="center" :size="8">
-                                    <NButton
+                                    <NSelect
+                                        :value="variantVersionModels[id].value"
+                                        :options="versionOptions"
                                         size="small"
-                                        @click="
-                                            downloadImageFromResult(
-                                                originalImageResult.images[0],
-                                                'original',
-                                            )
-                                        "
-                                    >
-                                        <template #icon>
-                                            <NIcon>
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    stroke-width="2"
-                                                >
-                                                    <path
-                                                        d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"
-                                                    />
-                                                </svg>
-                                            </NIcon>
+                                        :disabled="variantRunning[id]"
+                                        :data-testid="getVariantVersionTestId(id)"
+                                        @update:value="(value) => { variantVersionModels[id].value = value }"
+                                        style="width: 92px"
+                                    />
+
+                                    <div class="variant-cell__model">
+                                        <SelectWithConfig
+                                            :data-testid="getVariantModelTestId(id)"
+                                            :model-value="variantModelKeyModels[id].value"
+                                            @update:model-value="(value) => { variantModelKeyModels[id].value = String(value ?? '') }"
+                                            :options="imageModelOptions"
+                                            :getPrimary="OptionAccessors.getPrimary"
+                                            :getSecondary="OptionAccessors.getSecondary"
+                                            :getValue="OptionAccessors.getValue"
+                                            :placeholder="t('imageWorkspace.generation.imageModelPlaceholder')"
+                                            size="small"
+                                            :disabled="variantRunning[id]"
+                                            filterable
+                                            :show-config-action="!!appOpenModelManager"
+                                            :show-empty-config-c-t-a="true"
+                                            @config="() => appOpenModelManager && appOpenModelManager('image')"
+                                            style="min-width: 0; width: 100%;"
+                                        />
+                                    </div>
+
+                                    <NTooltip trigger="hover">
+                                        <template #trigger>
+                                                 <NButton
+                                                     type="primary"
+                                                     size="small"
+                                                     circle
+                                                     :loading="variantRunning[id]"
+                                                     :disabled="variantRunning[id]"
+                                                     @click="() => runVariant(id)"
+                                                     :data-testid="getVariantRunTestId(id)"
+                                                 >
+                                                <template #icon>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                                                        <path d="M8 5v14l11-7z" />
+                                                    </svg>
+                                                </template>
+                                            </NButton>
                                         </template>
-                                        {{
-                                            t("imageWorkspace.results.download")
-                                        }}
-                                    </NButton>
+                                        {{ t('test.layout.runThisColumn') }}
+                                    </NTooltip>
+                                </div>
+                            </div>
+                        </div>
+                    </NCard>
 
-                                    <NButton
-                                        v-if="originalImageResult.text"
-                                        size="small"
-                                        secondary
-                                        @click="
-                                            copyImageText(
-                                                originalImageResult.text,
-                                            )
-                                        "
-                                    >
-                                        <template #icon>
-                                            <NIcon>
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    stroke-width="2"
-                                                >
-                                                    <rect
-                                                        x="9"
-                                                        y="9"
-                                                        width="13"
-                                                        height="13"
-                                                        rx="2"
-                                                        ry="2"
-                                                    />
-                                                    <path
-                                                        d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"
-                                                    />
-                                                </svg>
-                                            </NIcon>
+                    <!-- 结果区：多列网格（无横向滚动） -->
+                    <div class="variant-results-wrap">
+                        <div class="variant-results" :style="{ gridTemplateColumns: testGridTemplateColumns }">
+                            <NCard
+                                v-for="id in activeVariantIds"
+                                :key="id"
+                                size="small"
+                                class="variant-result-card"
+                                content-style="padding: 0; height: 100%; max-height: 100%; overflow: hidden;"
+                            >
+                                <div class="result-container">
+                                    <div class="result-body">
+                                        <template v-if="hasVariantResult(id)">
+                                            <NSpace vertical :size="12" style="padding: 12px;">
+                                                <NImage
+                                                    :data-testid="getVariantImageTestId(id)"
+                                                    :src="getImageSrc(getVariantResult(id)?.images?.[0])"
+                                                    object-fit="contain"
+                                                    :img-props="{
+                                                        style: {
+                                                            width: '100%',
+                                                            height: 'auto',
+                                                            display: 'block',
+                                                        },
+                                                    }"
+                                                />
+
+                                                <template v-if="getVariantResult(id)?.text">
+                                                    <NCard
+                                                        size="small"
+                                                        :title="t('imageWorkspace.results.textOutput')"
+                                                    >
+                                                        <NText
+                                                            :depth="2"
+                                                            style="white-space: pre-wrap; line-height: 1.5;"
+                                                        >
+                                                            {{ getVariantResult(id)?.text }}
+                                                        </NText>
+                                                    </NCard>
+                                                </template>
+
+                                                <NSpace justify="center" :size="8">
+                                                    <NButton
+                                                        size="small"
+                                                        @click="downloadImageFromResult(getVariantResult(id)?.images?.[0], `variant-${id}`)"
+                                                    >
+                                                        <template #icon>
+                                                            <NIcon>
+                                                                <svg
+                                                                    xmlns="http://www.w3.org/2000/svg"
+                                                                    viewBox="0 0 24 24"
+                                                                    fill="none"
+                                                                    stroke="currentColor"
+                                                                    stroke-width="2"
+                                                                >
+                                                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                                                                </svg>
+                                                            </NIcon>
+                                                        </template>
+                                                        {{ t('imageWorkspace.results.download') }}
+                                                    </NButton>
+
+                                                    <NButton
+                                                        v-if="getVariantResult(id)?.text"
+                                                        size="small"
+                                                        secondary
+                                                        @click="copyImageText(String(getVariantResult(id)?.text || ''))"
+                                                    >
+                                                        <template #icon>
+                                                            <NIcon>
+                                                                <svg
+                                                                    xmlns="http://www.w3.org/2000/svg"
+                                                                    viewBox="0 0 24 24"
+                                                                    fill="none"
+                                                                    stroke="currentColor"
+                                                                    stroke-width="2"
+                                                                >
+                                                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                                                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                                                                </svg>
+                                                            </NIcon>
+                                                        </template>
+                                                        {{ t('imageWorkspace.results.copyText') }}
+                                                    </NButton>
+                                                </NSpace>
+                                            </NSpace>
                                         </template>
-                                        {{
-                                            t("imageWorkspace.results.copyText")
-                                        }}
-                                    </NButton>
-                                </NSpace>
-                            </NSpace>
-                        </template>
-                        <template v-else>
-                            <NEmpty
-                                :description="
-                                    t('imageWorkspace.results.noOriginalResult')
-                                "
-                            />
-                        </template>
-                    </template>
-
-                    <template #optimized-result>
-                        <template
-                            v-if="
-                                optimizedImageResult &&
-                                optimizedImageResult.images.length > 0
-                            "
-                        >
-                            <!-- 多模态结果显示：图像 + 文本（使用Naive UI组件） -->
-                            <NSpace vertical :size="12">
-                                <!-- 图像显示 -->
-                                <NImage
-                                    data-testid="image-text2image-optimized-image"
-                                    :src="
-                                        getImageSrc(
-                                            optimizedImageResult.images[0],
-                                        )
-                                    "
-                                    object-fit="contain"
-                                    :img-props="{
-                                        style: {
-                                            width: '100%',
-                                            height: 'auto',
-                                            display: 'block',
-                                        },
-                                    }"
-                                />
-
-                                <!-- 文本输出显示（如果存在） -->
-                                <template v-if="optimizedImageResult.text">
-                                    <NCard
-                                        size="small"
-                                        :title="
-                                            t(
-                                                'imageWorkspace.results.textOutput',
-                                            )
-                                        "
-                                        style="margin-top: 8px"
-                                    >
-                                        <NText
-                                            :depth="2"
-                                            style="
-                                                white-space: pre-wrap;
-                                                line-height: 1.5;
-                                            "
-                                        >
-                                            {{ optimizedImageResult.text }}
-                                        </NText>
-                                    </NCard>
-                                </template>
-
-                                <!-- 操作按钮 -->
-                                <NSpace justify="center" :size="8">
-                                    <NButton
-                                        size="small"
-                                        @click="
-                                            downloadImageFromResult(
-                                                optimizedImageResult.images[0],
-                                                'optimized',
-                                            )
-                                        "
-                                    >
-                                        <template #icon>
-                                            <NIcon>
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    stroke-width="2"
-                                                >
-                                                    <path
-                                                        d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"
-                                                    />
-                                                </svg>
-                                            </NIcon>
+                                        <template v-else>
+                                            <NEmpty
+                                                :description="t('imageWorkspace.results.noGenerationResult')"
+                                                style="padding: 24px 12px;"
+                                            />
                                         </template>
-                                        {{
-                                            t("imageWorkspace.results.download")
-                                        }}
-                                    </NButton>
+                                    </div>
+                                </div>
+                            </NCard>
+                        </div>
+                    </div>
+                </NFlex>
+            </div>
+        </div>
 
-                                    <NButton
-                                        v-if="optimizedImageResult.text"
-                                        size="small"
-                                        secondary
-                                        @click="
-                                            copyImageText(
-                                                optimizedImageResult.text,
-                                            )
-                                        "
-                                    >
-                                        <template #icon>
-                                            <NIcon>
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    stroke-width="2"
-                                                >
-                                                    <rect
-                                                        x="9"
-                                                        y="9"
-                                                        width="13"
-                                                        height="13"
-                                                        rx="2"
-                                                        ry="2"
-                                                    />
-                                                    <path
-                                                        d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"
-                                                    />
-                                                </svg>
-                                            </NIcon>
-                                        </template>
-                                        {{
-                                            t("imageWorkspace.results.copyText")
-                                        }}
-                                    </NButton>
-                                </NSpace>
-                            </NSpace>
-                        </template>
-                        <template v-else>
-                            <NEmpty
-                                :description="
-                                    t(
-                                        'imageWorkspace.results.noOptimizedResult',
-                                    )
-                                "
-                            />
-                        </template>
-                    </template>
+        <!-- 原始提示词 - 全屏编辑器 -->
+        <FullscreenDialog
+            v-model="isFullscreen"
+            :title="t('imageWorkspace.input.originalPrompt')"
+        >
+            <NInput
+                v-model:value="fullscreenValue"
+                type="textarea"
+                :placeholder="t('imageWorkspace.input.originalPromptPlaceholder')"
+                :autosize="{ minRows: 20 }"
+                clearable
+                show-count
+                :disabled="isOptimizing"
+            />
+        </FullscreenDialog>
 
-                    <template #single-result>
-                        <template
-                            v-if="
-                                optimizedImageResult &&
-                                optimizedImageResult.images.length > 0
-                            "
-                        >
-                            <!-- 多模态结果显示：图像 + 文本（使用Naive UI组件） -->
-                            <NSpace vertical :size="12">
-                                <!-- 图像显示 -->
-                                <NImage
-                                    data-testid="image-text2image-single-image"
-                                    :src="
-                                        getImageSrc(
-                                            optimizedImageResult.images[0],
-                                        )
-                                    "
-                                    object-fit="contain"
-                                    :img-props="{
-                                        style: {
-                                            width: '100%',
-                                            height: 'auto',
-                                            display: 'block',
-                                        },
-                                    }"
-                                />
-
-                                <!-- 文本输出显示（如果存在） -->
-                                <template v-if="optimizedImageResult.text">
-                                    <NCard
-                                        size="small"
-                                        :title="
-                                            t(
-                                                'imageWorkspace.results.textOutput',
-                                            )
-                                        "
-                                        style="margin-top: 8px"
-                                    >
-                                        <NText
-                                            :depth="2"
-                                            style="
-                                                white-space: pre-wrap;
-                                                line-height: 1.5;
-                                            "
-                                        >
-                                            {{ optimizedImageResult.text }}
-                                        </NText>
-                                    </NCard>
-                                </template>
-
-                                <!-- 操作按钮 -->
-                                <NSpace justify="center" :size="8">
-                                    <NButton
-                                        @click="
-                                            downloadImageFromResult(
-                                                optimizedImageResult.images[0],
-                                                'optimized',
-                                            )
-                                        "
-                                    >
-                                        <template #icon>
-                                            <NIcon>
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    stroke-width="2"
-                                                >
-                                                    <path
-                                                        d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"
-                                                    />
-                                                </svg>
-                                            </NIcon>
-                                        </template>
-                                        {{
-                                            t("imageWorkspace.results.download")
-                                        }}
-                                    </NButton>
-
-                                    <NButton
-                                        v-if="optimizedImageResult.text"
-                                        size="small"
-                                        secondary
-                                        @click="
-                                            copyImageText(
-                                                optimizedImageResult.text,
-                                            )
-                                        "
-                                    >
-                                        <template #icon>
-                                            <NIcon>
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    stroke-width="2"
-                                                >
-                                                    <rect
-                                                        x="9"
-                                                        y="9"
-                                                        width="13"
-                                                        height="13"
-                                                        rx="2"
-                                                        ry="2"
-                                                    />
-                                                    <path
-                                                        d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"
-                                                    />
-                                                </svg>
-                                            </NIcon>
-                                        </template>
-                                        {{
-                                            t("imageWorkspace.results.copyText")
-                                        }}
-                                    </NButton>
-                                </NSpace>
-                            </NSpace>
-                        </template>
-                        <template v-else>
-                            <NEmpty
-                                :description="t('imageWorkspace.results.noGenerationResult')"
-                            />
-                        </template>
-                    </template>
-                </TestResultSection>
-        </NFlex>
-    </NFlex>
-
-    <!-- 原始提示词 - 全屏编辑器 -->
-    <FullscreenDialog
-        v-model="isFullscreen"
-        :title="t('imageWorkspace.input.originalPrompt')"
-    >
-        <NInput
-            v-model:value="fullscreenValue"
-            type="textarea"
-            :placeholder="t('imageWorkspace.input.originalPromptPlaceholder')"
-            :autosize="{ minRows: 20 }"
-            clearable
-            show-count
-            :disabled="isOptimizing"
+        <EvaluationPanel
+            v-model:show="evaluation.isPanelVisible.value"
+            :is-evaluating="panelProps.isEvaluating"
+            :result="panelProps.result"
+            :stream-content="panelProps.streamContent"
+            :error="panelProps.error"
+            :current-type="panelProps.currentType"
+            :score-level="panelProps.scoreLevel"
+            @re-evaluate="evaluationHandler.handleReEvaluate"
+            @apply-local-patch="handleApplyPatch"
+            @apply-improvement="handleApplyImprovement"
+            @clear="handleClearEvaluation"
+            @retry="evaluationHandler.handleReEvaluate"
         />
-    </FullscreenDialog>
 
-    <EvaluationPanel
-        v-model:show="evaluation.isPanelVisible.value"
-        :is-evaluating="panelProps.isEvaluating"
-        :result="panelProps.result"
-        :stream-content="panelProps.streamContent"
-        :error="panelProps.error"
-        :current-type="panelProps.currentType"
-        :score-level="panelProps.scoreLevel"
-        @re-evaluate="evaluationHandler.handleReEvaluate"
-        @apply-local-patch="handleApplyPatch"
-        @apply-improvement="handleApplyImprovement"
-        @clear="handleClearEvaluation"
-        @retry="evaluationHandler.handleReEvaluate"
-    />
-
-    <!-- 模板管理器由 App 统一管理，这里不再渲染 -->
+        <!-- 模板管理器由 App 统一管理，这里不再渲染 -->
+    </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, inject, ref, computed, nextTick, toRef, type Ref } from 'vue'
+import { onMounted, onUnmounted, inject, ref, reactive, computed, watch, nextTick, toRef, type Ref } from 'vue'
 
 import {
     NCard,
     NButton,
     NInput,
     NEmpty,
-    NFormItem,
-    NForm,
     NSpace,
     NImage,
     NText,
-    NSwitch,
     NFlex,
     NGrid,
     NGridItem,
     NIcon,
     NTag,
+    NSelect,
+    NRadioGroup,
+    NRadioButton,
+    NTooltip,
 } from "naive-ui";
 import { useI18n } from "vue-i18n";
 import PromptPanelUI from "../PromptPanel.vue";
-import TestResultSection from "../TestResultSection.vue";
 import SelectWithConfig from "../SelectWithConfig.vue";
 import { EvaluationPanel } from '../evaluation'
 import { provideEvaluation } from '../../composables/prompt/useEvaluationContext';
@@ -904,11 +605,18 @@ import FullscreenDialog from "../FullscreenDialog.vue";
 import type { SelectOption } from "../../types/select-options";
 import { useToast } from "../../composables/ui/useToast";
 import { getI18nErrorMessage } from '../../utils/error'
-import { useImageText2ImageSession } from '../../stores/session/useImageText2ImageSession'
+import {
+    useImageText2ImageSession,
+    type TestColumnCount,
+    type TestPanelVersionValue,
+    type TestVariantConfig,
+    type TestVariantId,
+} from '../../stores/session/useImageText2ImageSession'
 import { useImageGeneration } from '../../composables/image/useImageGeneration'
 import { useEvaluationHandler, type TestResultsData } from '../../composables/prompt/useEvaluationHandler'
 import { useWorkspaceTemplateSelection } from '../../composables/workspaces/useWorkspaceTemplateSelection'
 import { useWorkspaceTextModelSelection } from '../../composables/workspaces/useWorkspaceTextModelSelection'
+import { useElementSize } from '@vueuse/core'
 import {
     applyPatchOperationsToText,
     type ImageModelConfig,
@@ -939,8 +647,6 @@ const session = useImageText2ImageSession()
 // 图像生成相关
 const {
     imageModels,
-    generating: isGenerating,
-    result: imageResult,
     generateText2Image,
     validateText2ImageRequest,
     loadImageModels,
@@ -1013,19 +719,6 @@ const isCompareMode = computed<boolean>({
     set: (value) => session.toggleCompareMode(!!value),
 })
 
-const originalImageResult = computed<ImageResult | null>({
-    get: () => session.originalImageResult || null,
-    set: (value) => session.updateOriginalImageResult(value || null),
-})
-
-const optimizedImageResult = computed<ImageResult | null>({
-    get: () => session.optimizedImageResult || null,
-    set: (value) => session.updateOptimizedImageResult(value || null),
-})
-
-// 当前提示词（用于生成图像）
-const currentPrompt = computed(() => optimizedPrompt.value || originalPrompt.value)
-
 // 固定模板类型
 const templateType = computed(() => "text2imageOptimize" as const)
 
@@ -1048,17 +741,412 @@ const selectedIterateTemplate = computed<Template | null>({
 const textModelOptions = modelSelection.textModelOptions
 const imageModelOptions = ref<SelectOption<ImageModelConfig>[]>([])
 
-// 选中图像模型的Provider/Model信息
-const selectedImageModelInfo = computed(() => {
-    if (!selectedImageModelKey.value) return null
-    const selectedConfig = imageModels.value.find(m => m.id === selectedImageModelKey.value)
-    if (!selectedConfig) return null
+// ==================== 主布局：可拖拽分栏（左侧 25%~50%） ====================
+
+const splitRootRef = ref<HTMLElement | null>(null)
+const testPaneRef = ref<HTMLElement | null>(null)
+
+const clampLeftPct = (pct: number) => Math.min(50, Math.max(25, pct))
+
+// 使用本地 draft，避免拖拽过程频繁写入持久化存储
+const mainSplitLeftPct = ref<number>(50)
+watch(
+    () => session.layout.mainSplitLeftPct,
+    (pct) => {
+        if (typeof pct === 'number' && Number.isFinite(pct)) {
+            mainSplitLeftPct.value = clampLeftPct(Math.round(pct))
+        }
+    },
+    { immediate: true },
+)
+
+const isDraggingSplit = ref(false)
+let dragStartX = 0
+let dragStartPct = 0
+
+const handleSplitPointerMove = (e: PointerEvent) => {
+    const root = splitRootRef.value
+    if (!root) return
+    const rect = root.getBoundingClientRect()
+    if (!rect.width) return
+
+    const deltaX = e.clientX - dragStartX
+    const nextPct = dragStartPct + (deltaX / rect.width) * 100
+    mainSplitLeftPct.value = clampLeftPct(nextPct)
+}
+
+const endSplitDrag = () => {
+    if (!isDraggingSplit.value) return
+    isDraggingSplit.value = false
+    document.removeEventListener('pointermove', handleSplitPointerMove)
+    document.removeEventListener('pointerup', endSplitDrag)
+    document.removeEventListener('pointercancel', endSplitDrag)
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+
+    session.setMainSplitLeftPct(mainSplitLeftPct.value)
+}
+
+const onSplitPointerDown = (e: PointerEvent) => {
+    if (!splitRootRef.value) return
+    dragStartX = e.clientX
+    dragStartPct = mainSplitLeftPct.value
+    isDraggingSplit.value = true
+    document.addEventListener('pointermove', handleSplitPointerMove)
+    document.addEventListener('pointerup', endSplitDrag)
+    document.addEventListener('pointercancel', endSplitDrag)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+}
+
+const onSplitKeydown = (e: KeyboardEvent) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return
+    e.preventDefault()
+
+    if (e.key === 'Home') {
+        mainSplitLeftPct.value = 25
+    } else if (e.key === 'End') {
+        mainSplitLeftPct.value = 50
+    } else {
+        const delta = e.key === 'ArrowLeft' ? -1 : 1
+        mainSplitLeftPct.value = clampLeftPct(mainSplitLeftPct.value + delta)
+    }
+
+    session.setMainSplitLeftPct(mainSplitLeftPct.value)
+}
+
+onUnmounted(() => {
+    endSplitDrag()
+})
+
+// ==================== 测试区：多列 variants（按提示词版本 + 图像模型） ====================
+
+const getVariant = (id: TestVariantId): TestVariantConfig | undefined => {
+    const list = session.testVariants as unknown as TestVariantConfig[]
+    return Array.isArray(list) ? list.find((v) => v.id === id) : undefined
+}
+
+const testColumnCountModel = computed<TestColumnCount>({
+    get: () => {
+        const raw = session.layout.testColumnCount
+        return raw === 2 || raw === 3 || raw === 4 ? raw : 2
+    },
+    set: (value) => session.setTestColumnCount(value),
+})
+
+const variantAVersionModel = computed<TestPanelVersionValue>({
+    get: () => getVariant('a')?.version ?? 0,
+    set: (value) => session.updateTestVariant('a', { version: value }),
+})
+
+const variantBVersionModel = computed<TestPanelVersionValue>({
+    get: () => getVariant('b')?.version ?? 'latest',
+    set: (value) => session.updateTestVariant('b', { version: value }),
+})
+
+const variantCVersionModel = computed<TestPanelVersionValue>({
+    get: () => getVariant('c')?.version ?? 'latest',
+    set: (value) => session.updateTestVariant('c', { version: value }),
+})
+
+const variantDVersionModel = computed<TestPanelVersionValue>({
+    get: () => getVariant('d')?.version ?? 'latest',
+    set: (value) => session.updateTestVariant('d', { version: value }),
+})
+
+const variantAModelKeyModel = computed<string>({
+    get: () => getVariant('a')?.modelKey ?? '',
+    set: (value) => session.updateTestVariant('a', { modelKey: value }),
+})
+
+const variantBModelKeyModel = computed<string>({
+    get: () => getVariant('b')?.modelKey ?? '',
+    set: (value) => session.updateTestVariant('b', { modelKey: value }),
+})
+
+const variantCModelKeyModel = computed<string>({
+    get: () => getVariant('c')?.modelKey ?? '',
+    set: (value) => session.updateTestVariant('c', { modelKey: value }),
+})
+
+const variantDModelKeyModel = computed<string>({
+    get: () => getVariant('d')?.modelKey ?? '',
+    set: (value) => session.updateTestVariant('d', { modelKey: value }),
+})
+
+const ALL_VARIANT_IDS: TestVariantId[] = ['a', 'b', 'c', 'd']
+const activeVariantIds = computed<TestVariantId[]>(() =>
+    ALL_VARIANT_IDS.slice(0, testColumnCountModel.value),
+)
+
+const variantVersionModels = {
+    a: variantAVersionModel,
+    b: variantBVersionModel,
+    c: variantCVersionModel,
+    d: variantDVersionModel,
+} as const
+
+const variantModelKeyModels = {
+    a: variantAModelKeyModel,
+    b: variantBModelKeyModel,
+    c: variantCModelKeyModel,
+    d: variantDModelKeyModel,
+} as const
+
+// 测试区宽度：用于禁用 4 列（避免横向滚动）
+const { width: testPaneWidth } = useElementSize(testPaneRef)
+const canUseFourColumns = computed(() => testPaneWidth.value >= 1000)
+watch(
+    canUseFourColumns,
+    (ok) => {
+        if (!ok && testColumnCountModel.value === 4) {
+            testColumnCountModel.value = 3
+        }
+    },
+    { immediate: true },
+)
+
+const testGridTemplateColumns = computed(
+    () => `repeat(${testColumnCountModel.value}, minmax(0, 1fr))`,
+)
+
+// 版本选项：原始(v0) + 中间版本(v1..v(n-1)) + 最新(latest)
+const versionOptions = computed(() => {
+    const versions = currentVersions.value || []
+
+    const sortedVersions = versions
+        .map((v) => v.version)
+        .filter((v): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 1)
+        .slice()
+        .sort((a, b) => a - b)
+
+    const latest = sortedVersions.length ? sortedVersions[sortedVersions.length - 1] : null
+    const middle = latest ? sortedVersions.filter((v) => v < latest) : []
+
+    return [
+        { label: t('test.layout.original'), value: 0 },
+        ...middle.map((v) => ({ label: `v${v}`, value: v })),
+        { label: t('test.layout.latest'), value: 'latest' },
+    ]
+})
+
+// 确保测试列的模型选择始终有效（模型列表变化时自动 fallback）
+watch(
+    () => imageModelOptions.value,
+    (opts) => {
+        const fallback = opts?.[0]?.value || ''
+        if (!fallback) return
+        const keys = new Set((opts || []).map((o) => o.value))
+
+        const legacy = session.selectedImageModelKey
+        const seed = legacy && keys.has(legacy) ? legacy : fallback
+
+        for (const id of ALL_VARIANT_IDS) {
+            const current = variantModelKeyModels[id].value
+            if (!current || !keys.has(current)) {
+                session.updateTestVariant(id, { modelKey: seed })
+            }
+        }
+    },
+    { immediate: true },
+)
+
+type ResolvedPrompt = { text: string; resolvedVersion: number }
+
+const resolvePromptForSelection = (selection: TestPanelVersionValue): ResolvedPrompt => {
+    const v0 = originalPrompt.value || ''
+    const versions = currentVersions.value || []
+
+    const latest = versions.reduce<{ version: number; optimizedPrompt: string } | null>((acc, v) => {
+        if (typeof v.version !== 'number' || v.version < 1) return acc
+        const next = { version: v.version, optimizedPrompt: v.optimizedPrompt || '' }
+        if (!acc || next.version > acc.version) return next
+        return acc
+    }, null)
+
+    if (selection === 0) {
+        return { text: v0, resolvedVersion: 0 }
+    }
+
+    if (selection === 'latest') {
+        if (!latest) return { text: optimizedPrompt.value || v0, resolvedVersion: latest?.version ?? 0 }
+        return { text: latest.optimizedPrompt || '', resolvedVersion: latest.version }
+    }
+
+    const target = versions.find((v) => v.version === selection)
+    if (target) {
+        return { text: target.optimizedPrompt || '', resolvedVersion: target.version }
+    }
+
+    if (latest) return { text: latest.optimizedPrompt || '', resolvedVersion: latest.version }
+    return { text: optimizedPrompt.value || v0, resolvedVersion: 0 }
+}
+
+// 注意：Pinia setup store 会把 ref 自动解包；直接赋值会丢失响应性。
+// 这里用 computed 读取，确保 store 替换对象引用时 UI 能跟着更新。
+const variantResults = computed(
+    () => session.testVariantResults as unknown as Record<TestVariantId, ImageResult | null>,
+)
+const variantLastRunFingerprint = computed(
+    () => session.testVariantLastRunFingerprint as unknown as Record<TestVariantId, string>,
+)
+
+const variantRunning = reactive<Record<TestVariantId, boolean>>({
+    a: false,
+    b: false,
+    c: false,
+    d: false,
+})
+
+const isAnyVariantRunning = computed(() =>
+    activeVariantIds.value.some((id) => !!variantRunning[id]),
+)
+
+const getVariantLabel = (id: TestVariantId) => ({ a: 'A', b: 'B', c: 'C', d: 'D' }[id])
+
+const getVariantVersionTestId = (id: TestVariantId) => {
+    if (id === 'a') return 'image-text2image-test-original-version-select'
+    if (id === 'b') return 'image-text2image-test-optimized-version-select'
+    return `image-text2image-test-variant-${id}-version-select`
+}
+
+const getVariantModelTestId = (id: TestVariantId) => {
+    if (id === 'a') return 'image-text2image-test-original-model-select'
+    if (id === 'b') return 'image-text2image-test-optimized-model-select'
+    return `image-text2image-test-variant-${id}-model-select`
+}
+
+const getVariantRunTestId = (id: TestVariantId) => `image-text2image-test-run-${id}`
+
+const getVariantImageTestId = (id: TestVariantId) => {
+    if (id === 'a') return 'image-text2image-original-image'
+    if (id === 'b') return 'image-text2image-optimized-image'
+    return `image-text2image-variant-${id}-image`
+}
+
+const getVariantResult = (id: TestVariantId) => variantResults.value[id]
+const hasVariantResult = (id: TestVariantId) => !!(variantResults.value[id]?.images?.length)
+
+const hashString = (input: string): string => {
+    let hash = 5381
+    for (let i = 0; i < input.length; i++) {
+        hash = ((hash << 5) + hash) ^ input.charCodeAt(i)
+    }
+    return (hash >>> 0).toString(36)
+}
+
+const getVariantFingerprint = (id: TestVariantId) => {
+    const selection = variantVersionModels[id].value
+    const resolved = resolvePromptForSelection(selection)
+    const modelKey = (variantModelKeyModels[id].value || '').trim()
+    const promptHash = hashString(resolved.text || '')
+    return `${String(selection)}:${resolved.resolvedVersion}:${modelKey}:${promptHash}`
+}
+
+const isVariantStale = (id: TestVariantId) => {
+    if (!hasVariantResult(id)) return false
+    const prev = variantLastRunFingerprint.value[id]
+    if (!prev) return false
+    return prev !== getVariantFingerprint(id)
+}
+
+const getVariantRequest = (id: TestVariantId): Text2ImageRequest | null => {
+    const modelKey = (variantModelKeyModels[id].value || '').trim()
+    if (!modelKey) {
+        toast.error(t('imageWorkspace.generation.missingRequiredFields'))
+        return null
+    }
+
+    const resolved = resolvePromptForSelection(variantVersionModels[id].value)
+    if (!resolved.text?.trim()) {
+        toast.error(t('imageWorkspace.generation.missingRequiredFields'))
+        return null
+    }
 
     return {
-        provider: selectedConfig.provider?.name || selectedConfig.providerId || 'Unknown',
-        model: selectedConfig.model?.name || selectedConfig.modelId || 'Unknown',
+        prompt: resolved.text,
+        configId: modelKey,
+        count: 1,
+        paramOverrides: { outputMimeType: 'image/png' },
     }
-})
+}
+
+// 并行生成时避免 saveSession 竞态：串行化保存，最后一次写入应包含最新状态。
+let sessionSaveChain: Promise<void> = Promise.resolve()
+const queueSessionSave = () => {
+    sessionSaveChain = sessionSaveChain
+        .then(() => session.saveSession())
+        .catch((e) => {
+            console.error('[ImageText2ImageWorkspace] Failed to persist image session:', e)
+        })
+}
+
+const runVariant = async (
+    id: TestVariantId,
+    opts?: {
+        silentSuccess?: boolean
+        silentError?: boolean
+        persist?: boolean
+        allowParallel?: boolean
+    },
+): Promise<boolean> => {
+    if (variantRunning[id]) return false
+
+    const request = getVariantRequest(id)
+    if (!request) return false
+
+    variantRunning[id] = true
+    try {
+        try {
+            await validateText2ImageRequest(request)
+        } catch (e) {
+            if (!opts?.silentError) {
+                toast.error(getI18nErrorMessage(e, t('imageWorkspace.generation.validationFailed')))
+            }
+            return false
+        }
+
+        const res = await generateText2Image(request)
+        session.updateTestVariantResult(id, res)
+        session.setTestVariantLastRunFingerprint(id, getVariantFingerprint(id))
+
+        if (!opts?.silentSuccess) {
+            toast.success(t('imageWorkspace.generation.generationCompleted'))
+        }
+        return true
+    } catch (error) {
+        if (!opts?.silentError) {
+            toast.error(getI18nErrorMessage(error, t('imageWorkspace.generation.generateFailed')))
+        }
+        return false
+    } finally {
+        variantRunning[id] = false
+        if (opts?.persist !== false) {
+            queueSessionSave()
+        }
+    }
+}
+
+const runAllVariants = async () => {
+    if (isAnyVariantRunning.value) return
+
+    const ids = activeVariantIds.value
+    for (const id of ids) {
+        if (!getVariantRequest(id)) return
+    }
+
+    const results = await Promise.all(
+        ids.map((id) => runVariant(id, { silentSuccess: true, silentError: true, persist: false })),
+    )
+
+    queueSessionSave()
+
+    if (results.every(Boolean)) {
+        toast.success(t('imageWorkspace.generation.generationCompleted'))
+    } else {
+        toast.error(t('imageWorkspace.generation.generateFailed'))
+    }
+}
 
 // 评估处理器（图像模式专用：testResults 不参与）
 const evaluationHandler = useEvaluationHandler({
@@ -1630,53 +1718,6 @@ const handleIteratePrompt = async (payload: {
     }
 }
 
-// 生成图像（结果写入 session store）
-const handleGenerateImage = async () => {
-    if (!selectedImageModelKey.value || !currentPrompt.value.trim()) {
-        toast.error(t('imageWorkspace.generation.missingRequiredFields'))
-        return
-    }
-
-        const imageRequest: Text2ImageRequest = {
-            prompt: currentPrompt.value,
-            configId: selectedImageModelKey.value,
-            count: 1,
-            paramOverrides: { outputMimeType: 'image/png' },
-        }
-
-        // 显式文生图：避免把仅支持图生图的模型误用于此模式
-        try {
-            await validateText2ImageRequest(imageRequest)
-        } catch (e) {
-            toast.error(getI18nErrorMessage(e, t('imageWorkspace.generation.validationFailed')))
-            return
-        }
-
-
-    try {
-        if (isCompareMode.value) {
-            if (originalPrompt.value.trim()) {
-                await generateText2Image({ ...imageRequest, prompt: originalPrompt.value })
-                originalImageResult.value = imageResult.value
-            }
-            if (optimizedPrompt.value.trim()) {
-                await generateText2Image({ ...imageRequest, prompt: optimizedPrompt.value })
-                optimizedImageResult.value = imageResult.value
-            }
-        } else {
-            await generateText2Image(imageRequest)
-            if (optimizedPrompt.value.trim()) {
-                optimizedImageResult.value = imageResult.value
-            } else if (originalPrompt.value.trim()) {
-                originalImageResult.value = imageResult.value
-            }
-        }
-        toast.success(t('imageWorkspace.generation.generationCompleted'))
-    } catch (error) {
-        toast.error(getI18nErrorMessage(error, t('imageWorkspace.generation.generateFailed')))
-    }
-}
-
 // 切换版本（仅影响当前 UI 展示，不持久化 versions）
 const handleSwitchVersion = async (version: PromptRecordChain['versions'][number]) => {
     optimizedPrompt.value = version.optimizedPrompt
@@ -1864,5 +1905,126 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Text2Image 模式没有缩略图样式 */
+.image-text2image-workspace {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.image-text2image-split {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.split-pane {
+    min-height: 0;
+}
+
+.split-divider {
+    cursor: col-resize;
+    background: var(--n-divider-color, rgba(0, 0, 0, 0.08));
+    border-radius: 999px;
+    margin: 6px 0;
+    transition: background 120ms ease;
+}
+
+.split-divider:hover,
+.split-divider:focus-visible {
+    background: var(--n-primary-color, rgba(59, 130, 246, 0.5));
+    outline: none;
+}
+
+.test-area-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+}
+
+.test-area-label {
+    white-space: nowrap;
+}
+
+.variant-deck {
+    display: grid;
+    gap: 12px;
+    width: 100%;
+}
+
+.variant-cell {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.variant-cell__controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.variant-cell__label {
+    flex-shrink: 0;
+}
+
+.variant-cell__stale {
+    flex-shrink: 0;
+}
+
+.variant-cell__model {
+    /* 让模型选择不要无限拉伸：保持紧凑，避免把右侧按钮/布局挤散 */
+    flex: 0 1 260px;
+    max-width: 260px;
+    min-width: 0;
+}
+
+.variant-results-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.variant-results {
+    display: grid;
+    gap: 12px;
+    height: 100%;
+    min-height: 0;
+}
+
+.variant-result-card {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.variant-result-card :deep(.n-card__content) {
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+}
+
+.result-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.result-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
 </style>
