@@ -5,8 +5,11 @@ import { useImageImage2ImageSession } from '../../../../src/stores/session/useIm
 
 describe('Session stores (image) persistence', () => {
   it('image-text2image saveSession stores ImageRef in snapshot without mutating runtime base64', async () => {
-    const set = vi.fn(async () => {})
-    const saveImage = vi.fn(async () => 'img-1')
+    const set = vi.fn(async (_key: string, _value: any) => {})
+    const saveImage = vi.fn(async (data: any) => data?.metadata?.id || 'img-test')
+    const getMetadata = vi.fn(async () => null)
+    const listAllMetadata = vi.fn(async () => [])
+    const deleteImages = vi.fn(async () => {})
 
     const { pinia } = createTestPinia({
       preferenceService: {
@@ -23,6 +26,9 @@ describe('Session stores (image) persistence', () => {
       } as any,
       imageStorageService: {
         saveImage,
+        getMetadata,
+        listAllMetadata,
+        deleteImages,
         getImage: vi.fn()
       } as any
     })
@@ -45,7 +51,7 @@ describe('Session stores (image) persistence', () => {
     const raw = set.mock.calls[0]?.[1]
     const saved =
       typeof raw === 'string' ? JSON.parse(raw || '{}') : (raw as Record<string, any> | undefined) || {}
-    expect(saved.originalImageResult.images[0]).toEqual({ id: 'img-1', _type: 'image-ref' })
+    expect(saved.originalImageResult.images[0]).toMatchObject({ id: expect.any(String), _type: 'image-ref' })
 
     const runtimeAfter = store.originalImageResult?.images?.[0] as any
     expect(runtimeAfter?.b64).toBe('AAAA')
@@ -84,6 +90,9 @@ describe('Session stores (image) persistence', () => {
     const saveImage = vi.fn(async () => {
       throw new Error('boom')
     })
+    const getMetadata = vi.fn(async () => null)
+    const listAllMetadata = vi.fn(async () => [])
+    const deleteImages = vi.fn(async () => {})
 
     const { pinia } = createTestPinia({
       preferenceService: {
@@ -100,6 +109,9 @@ describe('Session stores (image) persistence', () => {
       } as any,
       imageStorageService: {
         saveImage,
+        getMetadata,
+        listAllMetadata,
+        deleteImages,
         getImage: vi.fn()
       } as any
     })
@@ -198,6 +210,9 @@ describe('Session stores (image) persistence', () => {
     const saveImage = vi.fn(async () => {
       throw new Error('boom')
     })
+    const getMetadata = vi.fn(async () => null)
+    const listAllMetadata = vi.fn(async () => [])
+    const deleteImages = vi.fn(async () => {})
 
     const { pinia } = createTestPinia({
       preferenceService: {
@@ -214,6 +229,9 @@ describe('Session stores (image) persistence', () => {
       } as any,
       imageStorageService: {
         saveImage,
+        getMetadata,
+        listAllMetadata,
+        deleteImages,
         getImage: vi.fn()
       } as any
     })

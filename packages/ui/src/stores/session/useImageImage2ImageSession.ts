@@ -17,6 +17,12 @@ import {
   type IImageStorageService
 } from '@prompt-optimizer/core'
 import {
+  IMAGE_IMAGE2IMAGE_SESSION_KEY,
+  computeStableImageId,
+  queueImageStorageMaintenance,
+  scheduleImageStorageGc,
+} from './imageStorageMaintenance'
+import {
   createDefaultEvaluationResults,
   type PersistedEvaluationResults,
 } from '../../types/evaluation'
@@ -355,22 +361,28 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
 
       // 如果有 base64 数据，保存到存储服务并创建引用
       if (img.b64) {
-        const imageId = await storageService.saveImage({
-          metadata: {
-            id: `img_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
-            mimeType: img.mimeType || 'image/png',
-            sizeBytes: Math.floor(img.b64.length * 0.75),
-            createdAt: Date.now(),
-            accessedAt: Date.now(),
-            source: 'generated',
+        const mimeType = img.mimeType || 'image/png'
+        const imageId = await computeStableImageId(img.b64, mimeType)
+
+        const existing = await storageService.getMetadata(imageId)
+        if (!existing) {
+          await storageService.saveImage({
             metadata: {
-              prompt: result.metadata?.prompt,
-              modelId: result.metadata?.modelId,
-              configId: result.metadata?.configId
-            }
-          },
-          data: img.b64
-        })
+              id: imageId,
+              mimeType,
+              sizeBytes: Math.floor(img.b64.length * 0.75),
+              createdAt: Date.now(),
+              accessedAt: Date.now(),
+              source: 'generated',
+              metadata: {
+                prompt: result.metadata?.prompt,
+                modelId: result.metadata?.modelId,
+                configId: result.metadata?.configId
+              }
+            },
+            data: img.b64
+          })
+        }
 
         processedImages.push(createImageRef(imageId))
       } else {
@@ -438,90 +450,100 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
     mimeType: string,
     storageService: IImageStorageService
   ): Promise<string> => {
-    const imageId = await storageService.saveImage({
-      metadata: {
-        id: `img_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
-        mimeType,
-        sizeBytes: Math.floor(b64.length * 0.75),
-        createdAt: Date.now(),
-        accessedAt: Date.now(),
-        source: 'uploaded'
-      },
-      data: b64
-    })
+    const normalizedMime = mimeType || 'image/png'
+    const imageId = await computeStableImageId(b64, normalizedMime)
+
+    const existing = await storageService.getMetadata(imageId)
+    if (!existing) {
+      await storageService.saveImage({
+        metadata: {
+          id: imageId,
+          mimeType: normalizedMime,
+          sizeBytes: Math.floor(b64.length * 0.75),
+          createdAt: Date.now(),
+          accessedAt: Date.now(),
+          source: 'uploaded'
+        },
+        data: b64
+      })
+    }
+
     return imageId
   }
 
   const saveSession = async () => {
-    const $services = getPiniaServices()
-    if (!$services?.preferenceService) {
-      throw new Error('[ImageImage2ImageSession] PreferenceService 不可用，无法保存会话')
-    }
-    if (!$services?.imageStorageService) {
-      throw new Error('[ImageImage2ImageSession] ImageStorageService 不可用，无法保存会话')
-    }
+    return await queueImageStorageMaintenance(async () => {
+      const $services = getPiniaServices()
+      if (!$services?.preferenceService) {
+        throw new Error('[ImageImage2ImageSession] PreferenceService 不可用，无法保存会话')
+      }
+      if (!$services?.imageStorageService) {
+        throw new Error('[ImageImage2ImageSession] ImageStorageService 不可用，无法保存会话')
+      }
 
-    // 准备保存的数据
-    let inputImageIdToSave = inputImageId.value
-    // v2: 多列 variants
-    const baseVariantResults: TestVariantResults = {
-      a: testVariantResults.value.a ?? originalImageResult.value,
-      b: testVariantResults.value.b ?? optimizedImageResult.value,
-      c: testVariantResults.value.c,
-      d: testVariantResults.value.d,
-    }
-
-    // 保存输入图像
-    if (inputImageB64.value && !inputImageId.value) {
-      inputImageIdToSave = await saveInputImage(
-        inputImageB64.value,
-        inputImageMime.value,
-        $services.imageStorageService
-      )
-
-      // ✅ 修复：只更新 ID，保留 base64 在运行时 ref 中
-      // 避免清空后导致界面图像消失
-      inputImageId.value = inputImageIdToSave
-      // inputImageB64.value = null  // ❌ 删除此行，不清空运行时数据
-    }
-
-    const variantResultsToSave: TestVariantResults = {
-      a: await prepareForSave(baseVariantResults.a, $services.imageStorageService),
-      b: await prepareForSave(baseVariantResults.b, $services.imageStorageService),
-      c: await prepareForSave(baseVariantResults.c, $services.imageStorageService),
-      d: await prepareForSave(baseVariantResults.d, $services.imageStorageService),
-    }
-
-    // ✅ 修复：不修改运行时 ref，只在序列化时使用转换后的数据
-
-    // 构建快照（不包含 base64）
-    const snapshot = {
-      originalPrompt: originalPrompt.value,
-      optimizedPrompt: optimizedPrompt.value,
-      reasoning: reasoning.value,
-      chainId: chainId.value,
-      versionId: versionId.value,
-      inputImageId: inputImageIdToSave,
-      inputImageB64: null,
-      inputImageMime: inputImageMime.value,
-      // legacy: 仍保留 original/optimized 字段（对应 A/B）
-      originalImageResult: variantResultsToSave.a,
-      optimizedImageResult: variantResultsToSave.b,
+      // 准备保存的数据
+      let inputImageIdToSave = inputImageId.value
       // v2: 多列 variants
-      layout: layout.value,
-      testVariants: testVariants.value,
-      testVariantResults: variantResultsToSave,
-      testVariantLastRunFingerprint: testVariantLastRunFingerprint.value,
-      evaluationResults: evaluationResults.value,
-      isCompareMode: isCompareMode.value,
-      selectedTextModelKey: selectedTextModelKey.value,
-      selectedImageModelKey: selectedImageModelKey.value,
-      selectedTemplateId: selectedTemplateId.value,
-      selectedIterateTemplateId: selectedIterateTemplateId.value,
-      lastActiveAt: lastActiveAt.value,
-    }
+      const baseVariantResults: TestVariantResults = {
+        a: testVariantResults.value.a ?? originalImageResult.value,
+        b: testVariantResults.value.b ?? optimizedImageResult.value,
+        c: testVariantResults.value.c,
+        d: testVariantResults.value.d,
+      }
 
-    await $services.preferenceService.set('session/v1/image-image2image', snapshot)
+      // 保存输入图像
+      if (inputImageB64.value && !inputImageId.value) {
+        inputImageIdToSave = await saveInputImage(
+          inputImageB64.value,
+          inputImageMime.value,
+          $services.imageStorageService
+        )
+
+        // ✅ 修复：只更新 ID，保留 base64 在运行时 ref 中
+        // 避免清空后导致界面图像消失
+        inputImageId.value = inputImageIdToSave
+        // inputImageB64.value = null  // ❌ 删除此行，不清空运行时数据
+      }
+
+      const variantResultsToSave: TestVariantResults = {
+        a: await prepareForSave(baseVariantResults.a, $services.imageStorageService),
+        b: await prepareForSave(baseVariantResults.b, $services.imageStorageService),
+        c: await prepareForSave(baseVariantResults.c, $services.imageStorageService),
+        d: await prepareForSave(baseVariantResults.d, $services.imageStorageService),
+      }
+
+      // ✅ 修复：不修改运行时 ref，只在序列化时使用转换后的数据
+
+      // 构建快照（不包含 base64）
+      const snapshot = {
+        originalPrompt: originalPrompt.value,
+        optimizedPrompt: optimizedPrompt.value,
+        reasoning: reasoning.value,
+        chainId: chainId.value,
+        versionId: versionId.value,
+        inputImageId: inputImageIdToSave,
+        inputImageB64: null,
+        inputImageMime: inputImageMime.value,
+        // legacy: 仍保留 original/optimized 字段（对应 A/B）
+        originalImageResult: variantResultsToSave.a,
+        optimizedImageResult: variantResultsToSave.b,
+        // v2: 多列 variants
+        layout: layout.value,
+        testVariants: testVariants.value,
+        testVariantResults: variantResultsToSave,
+        testVariantLastRunFingerprint: testVariantLastRunFingerprint.value,
+        evaluationResults: evaluationResults.value,
+        isCompareMode: isCompareMode.value,
+        selectedTextModelKey: selectedTextModelKey.value,
+        selectedImageModelKey: selectedImageModelKey.value,
+        selectedTemplateId: selectedTemplateId.value,
+        selectedIterateTemplateId: selectedIterateTemplateId.value,
+        lastActiveAt: lastActiveAt.value,
+      }
+
+      await $services.preferenceService.set(IMAGE_IMAGE2IMAGE_SESSION_KEY, snapshot)
+      scheduleImageStorageGc($services.preferenceService, $services.imageStorageService)
+    })
   }
 
   const restoreSession = async () => {
@@ -535,7 +557,7 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
 
     try {
       const saved = await $services.preferenceService.get<unknown>(
-        'session/v1/image-image2image',
+        IMAGE_IMAGE2IMAGE_SESSION_KEY,
         null
       )
 

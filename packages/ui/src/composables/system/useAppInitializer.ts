@@ -52,6 +52,7 @@ import {
   DEFAULT_CONTEXT_MODE
 } from '@prompt-optimizer/core';
 import type { AppServices } from '../../types/services';
+import { scheduleImageStorageGc } from '../../stores/session/imageStorageMaintenance'
 
 /**
  * 应用服务统一初始化器。
@@ -189,6 +190,11 @@ export function useAppInitializer(): {
           variableValueGenerationService, // 🆕 变量值生成服务
         };
         console.log('[AppInitializer] Electron代理服务初始化完成');
+
+        // 只保留 session 引用的图片：启动后做一次 best-effort GC
+        if (imageStorageService) {
+          scheduleImageStorageGc(preferenceService, imageStorageService)
+        }
 
       } else {
         console.log('[AppInitializer] 检测到Web环境，初始化完整服务...');
@@ -372,6 +378,11 @@ export function useAppInitializer(): {
         };
 
         console.log('[AppInitializer] 所有服务初始化完成');
+
+        // 只保留 session 引用的图片：启动后做一次 best-effort GC
+        if (imageStorageService) {
+          scheduleImageStorageGc(preferenceService, imageStorageService)
+        }
       }
 
     } catch (err) {

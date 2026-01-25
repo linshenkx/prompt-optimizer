@@ -16,6 +16,12 @@ import {
   type IImageStorageService
 } from '@prompt-optimizer/core'
 import {
+  IMAGE_TEXT2IMAGE_SESSION_KEY,
+  computeStableImageId,
+  queueImageStorageMaintenance,
+  scheduleImageStorageGc,
+} from './imageStorageMaintenance'
+import {
   createDefaultEvaluationResults,
   type PersistedEvaluationResults,
 } from '../../types/evaluation'
@@ -335,22 +341,29 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
 
       // 如果有 base64 数据，保存到存储服务并创建引用
       if (img.b64) {
-        const imageId = await storageService.saveImage({
-          metadata: {
-            id: `img_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
-            mimeType: img.mimeType || 'image/png',
-            sizeBytes: Math.floor(img.b64.length * 0.75),
-            createdAt: Date.now(),
-            accessedAt: Date.now(),
-            source: 'generated',
+        const mimeType = img.mimeType || 'image/png'
+        const imageId = await computeStableImageId(img.b64, mimeType)
+
+        // Dedup: do not rewrite existing records.
+        const existing = await storageService.getMetadata(imageId)
+        if (!existing) {
+          await storageService.saveImage({
             metadata: {
-              prompt: result.metadata?.prompt,
-              modelId: result.metadata?.modelId,
-              configId: result.metadata?.configId
-            }
-          },
-          data: img.b64
-        })
+              id: imageId,
+              mimeType,
+              sizeBytes: Math.floor(img.b64.length * 0.75),
+              createdAt: Date.now(),
+              accessedAt: Date.now(),
+              source: 'generated',
+              metadata: {
+                prompt: result.metadata?.prompt,
+                modelId: result.metadata?.modelId,
+                configId: result.metadata?.configId
+              }
+            },
+            data: img.b64
+          })
+        }
 
         processedImages.push(createImageRef(imageId))
       } else {
@@ -411,57 +424,60 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
   }
 
   const saveSession = async () => {
-    const $services = getPiniaServices()
-    if (!$services?.preferenceService) {
-      throw new Error('[ImageText2ImageSession] PreferenceService 不可用，无法保存会话')
-    }
-    if (!$services?.imageStorageService) {
-      throw new Error('[ImageText2ImageSession] ImageStorageService 不可用，无法保存会话')
-    }
+    return await queueImageStorageMaintenance(async () => {
+      const $services = getPiniaServices()
+      if (!$services?.preferenceService) {
+        throw new Error('[ImageText2ImageSession] PreferenceService 不可用，无法保存会话')
+      }
+      if (!$services?.imageStorageService) {
+        throw new Error('[ImageText2ImageSession] ImageStorageService 不可用，无法保存会话')
+      }
 
-    // v2: 多列测试结果（最多 4 列）
-    const baseVariantResults: TestVariantResults = {
-      a: testVariantResults.value.a ?? originalImageResult.value,
-      b: testVariantResults.value.b ?? optimizedImageResult.value,
-      c: testVariantResults.value.c,
-      d: testVariantResults.value.d,
-    }
+      // v2: 多列测试结果（最多 4 列）
+      const baseVariantResults: TestVariantResults = {
+        a: testVariantResults.value.a ?? originalImageResult.value,
+        b: testVariantResults.value.b ?? optimizedImageResult.value,
+        c: testVariantResults.value.c,
+        d: testVariantResults.value.d,
+      }
 
-    const variantResultsToSave: TestVariantResults = {
-      a: await prepareForSave(baseVariantResults.a, $services.imageStorageService),
-      b: await prepareForSave(baseVariantResults.b, $services.imageStorageService),
-      c: await prepareForSave(baseVariantResults.c, $services.imageStorageService),
-      d: await prepareForSave(baseVariantResults.d, $services.imageStorageService),
-    }
+      const variantResultsToSave: TestVariantResults = {
+        a: await prepareForSave(baseVariantResults.a, $services.imageStorageService),
+        b: await prepareForSave(baseVariantResults.b, $services.imageStorageService),
+        c: await prepareForSave(baseVariantResults.c, $services.imageStorageService),
+        d: await prepareForSave(baseVariantResults.d, $services.imageStorageService),
+      }
 
-    // ✅ 修复：不修改运行时 ref，只在序列化时使用转换后的数据
-    // 原代码会导致界面上的图像消失，因为 ImageRef 不包含实际图像数据
+      // ✅ 修复：不修改运行时 ref，只在序列化时使用转换后的数据
+      // 原代码会导致界面上的图像消失，因为 ImageRef 不包含实际图像数据
 
-    // 构建快照（仅包含引用，不包含 base64）
-    const snapshot = {
-      originalPrompt: originalPrompt.value,
-      optimizedPrompt: optimizedPrompt.value,
-      reasoning: reasoning.value,
-      chainId: chainId.value,
-      versionId: versionId.value,
-      // legacy: 仍保留 original/optimized 字段（对应 A/B）
-      originalImageResult: variantResultsToSave.a,
-      optimizedImageResult: variantResultsToSave.b,
-      // v2: 多列 variants
-      layout: layout.value,
-      testVariants: testVariants.value,
-      testVariantResults: variantResultsToSave,
-      testVariantLastRunFingerprint: testVariantLastRunFingerprint.value,
-      evaluationResults: evaluationResults.value,
-      isCompareMode: isCompareMode.value,
-      selectedTextModelKey: selectedTextModelKey.value,
-      selectedImageModelKey: selectedImageModelKey.value,
-      selectedTemplateId: selectedTemplateId.value,
-      selectedIterateTemplateId: selectedIterateTemplateId.value,
-      lastActiveAt: lastActiveAt.value,
-    }
+      // 构建快照（仅包含引用，不包含 base64）
+      const snapshot = {
+        originalPrompt: originalPrompt.value,
+        optimizedPrompt: optimizedPrompt.value,
+        reasoning: reasoning.value,
+        chainId: chainId.value,
+        versionId: versionId.value,
+        // legacy: 仍保留 original/optimized 字段（对应 A/B）
+        originalImageResult: variantResultsToSave.a,
+        optimizedImageResult: variantResultsToSave.b,
+        // v2: 多列 variants
+        layout: layout.value,
+        testVariants: testVariants.value,
+        testVariantResults: variantResultsToSave,
+        testVariantLastRunFingerprint: testVariantLastRunFingerprint.value,
+        evaluationResults: evaluationResults.value,
+        isCompareMode: isCompareMode.value,
+        selectedTextModelKey: selectedTextModelKey.value,
+        selectedImageModelKey: selectedImageModelKey.value,
+        selectedTemplateId: selectedTemplateId.value,
+        selectedIterateTemplateId: selectedIterateTemplateId.value,
+        lastActiveAt: lastActiveAt.value,
+      }
 
-    await $services.preferenceService.set('session/v1/image-text2image', snapshot)
+      await $services.preferenceService.set(IMAGE_TEXT2IMAGE_SESSION_KEY, snapshot)
+      scheduleImageStorageGc($services.preferenceService, $services.imageStorageService)
+    })
   }
 
   const restoreSession = async () => {
@@ -474,10 +490,10 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
     }
 
     try {
-      const saved = await $services.preferenceService.get<unknown>(
-        'session/v1/image-text2image',
-        null
-      )
+        const saved = await $services.preferenceService.get<unknown>(
+          IMAGE_TEXT2IMAGE_SESSION_KEY,
+          null
+        )
 
       if (saved) {
         const parsed =
