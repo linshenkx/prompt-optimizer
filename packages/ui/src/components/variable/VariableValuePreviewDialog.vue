@@ -115,8 +115,10 @@ watch(
     if (newResult && newResult.values.length > 0) {
       // 深拷贝数据以支持编辑
       editableValues.value = newResult.values.map((v) => ({ ...v }))
-      // 默认全选所有变量
-      selectedKeys.value = newResult.values.map((v) => v.name)
+      // 默认仅选中非空生成值，避免覆盖现有变量值为 ''（LLM 漏返回会被服务补齐空值）
+      selectedKeys.value = newResult.values
+        .filter((v) => String(v.value || '').trim() !== '')
+        .map((v) => v.name)
     } else {
       editableValues.value = []
       selectedKeys.value = []
