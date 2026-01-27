@@ -1911,6 +1911,7 @@ export default {
       validationFailed: "The selected config/model does not support this operation",
       generateFailed: "Image generation failed",
       missingRequiredFields: "Please select an image model and enter a valid prompt",
+      missingVariables: "Missing or empty variables: {vars}",
       inputImageRequired: "Please upload an input image (required for image-to-image)",
       generationCompleted: "Image generation completed",
     },

@@ -47,6 +47,7 @@
                         @open-model-manager="modelManager.showConfig = true"
                         @open-favorites="showFavoriteManager = true"
                         @open-data-manager="showDataManager = true"
+                        @open-variables="handleOpenVariableManager()"
                         @open-github="openGithubRepo"
                     />
                 </template>

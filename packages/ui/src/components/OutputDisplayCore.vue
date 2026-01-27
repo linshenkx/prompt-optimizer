@@ -201,11 +201,11 @@ import MarkdownRenderer from './MarkdownRenderer.vue'
 import TextDiffUI from './TextDiff.vue'
 import type { CompareResult, ICompareService } from '@prompt-optimizer/core'
 import { VariableAwareInput } from './variable-extraction'
-import { useFunctionMode } from '../composables/mode/useFunctionMode'
 import { useTemporaryVariables } from '../composables/variable/useTemporaryVariables'
 import { useVariableManager } from '../composables/prompt/useVariableManager'
 import type { AppServices } from '../types/services'
 import { platform } from '../utils/platform'
+import { router as routerInstance } from '../router'
 
 type ActionName = 'fullscreen' | 'diff' | 'copy' | 'edit' | 'reasoning' | 'favorite'
 
@@ -275,14 +275,16 @@ const emit = defineEmits<{
   'save-favorite': [data: { content: string; originalContent?: string }]
 }>()
 
-// 🆕 变量管理功能（仅 Pro 模式）
-// ==================== 功能模式判断 ====================
-// ✅ 无条件调用，使用全局单例的 functionMode
-// ⚠️ 不主动初始化，避免在 services 未就绪时污染全局单例
-const { functionMode } = useFunctionMode(services)
+// 🆕 变量管理功能（Pro / Image 模式）
+// 当前架构以路由为单一真源；不要依赖 legacy 的 Preference-based functionMode。
+const routeFunctionMode = computed<'basic' | 'pro' | 'image'>(() => {
+  const path = routerInstance.currentRoute.value.path || ''
+  if (path.startsWith('/pro')) return 'pro'
+  if (path.startsWith('/image')) return 'image'
+  return 'basic'
+})
 
-// 判断是否启用变量功能（仅 Pro 模式）
-const shouldEnableVariables = computed(() => functionMode.value === 'pro')
+const shouldEnableVariables = computed(() => routeFunctionMode.value === 'pro' || routeFunctionMode.value === 'image')
 
 // ==================== 变量管理 Composables ====================
 // 临时变量管理器（全局单例）
@@ -313,7 +315,7 @@ const purePredefinedVariables = computed(() => {
 })
 
 const variableData = computed(() => {
-  // 只在 Pro 模式下提供变量数据
+  // 只在 Pro / Image 模式下提供变量数据
   if (!shouldEnableVariables.value) return null
 
   // 🔒 如果全局变量管理器未就绪，返回 null 以禁用变量功能

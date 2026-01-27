@@ -109,7 +109,20 @@
                     </NFlex>
 
                     <!-- 输入框 -->
+                    <VariableAwareInput
+                        v-if="variableInputData"
+                        data-testid="image-image2image-input"
+                        :model-value="originalPrompt"
+                        @update:model-value="handleOriginalPromptInput"
+                        :readonly="isOptimizing"
+                        :placeholder="t('imageWorkspace.input.originalPromptPlaceholder')"
+                        :autosize="true"
+                        v-bind="variableInputData"
+                        @variable-extracted="handleVariableExtracted"
+                        @add-missing-variable="handleAddMissingVariable"
+                    />
                     <NInput
+                        v-else
                         v-model:value="originalPrompt"
                         type="textarea"
                         data-testid="image-image2image-input"
@@ -728,6 +741,11 @@ import FullscreenDialog from "../FullscreenDialog.vue";
 import type { SelectOption } from "../../types/select-options";
 import { useToast } from "../../composables/ui/useToast";
 import { getI18nErrorMessage } from '../../utils/error'
+import { VariableAwareInput } from '../variable-extraction'
+import { useTemporaryVariables } from '../../composables/variable/useTemporaryVariables'
+import type { VariableManagerHooks } from '../../composables/prompt/useVariableManager'
+import { platform } from '../../utils/platform'
+import { findMissingVariables, replaceVariablesInContent } from '../../utils/prompt-variables'
 import {
     useImageImage2ImageSession,
     type TestColumnCount,
@@ -763,6 +781,82 @@ const toast = useToast();
 
 // 服务注入
 const services = inject<Ref<AppServices | null>>("services", ref(null));
+
+// 变量系统（全局变量 + 临时变量）
+// - 全局变量由 PromptOptimizerApp 创建并 provide
+// - 临时变量由 Pinia store 承载（刷新即丢失）
+const variableManager = inject<VariableManagerHooks | null>('variableManager', null)
+const tempVarsManager = useTemporaryVariables()
+
+// VariableAwareInput 需要的变量数据
+const purePredefinedVariables = computed(() => {
+    const all = variableManager?.allVariables.value || {}
+    const custom = variableManager?.customVariables.value || {}
+    const predefined: Record<string, string> = {}
+    for (const [key, value] of Object.entries(all)) {
+        if (!(key in custom)) predefined[key] = value
+    }
+    return predefined
+})
+
+const variableInputData = computed(() => {
+    if (!variableManager?.isReady.value) return null
+
+    return {
+        existingGlobalVariables: Object.keys(variableManager.customVariables.value || {}),
+        existingTemporaryVariables: Object.keys(tempVarsManager.temporaryVariables.value || {}),
+        predefinedVariables: Object.keys(purePredefinedVariables.value || {}),
+        globalVariableValues: variableManager.customVariables.value || {},
+        temporaryVariableValues: tempVarsManager.temporaryVariables.value || {},
+        predefinedVariableValues: purePredefinedVariables.value || {},
+    }
+})
+
+const handleOriginalPromptInput = (value: string) => {
+    originalPrompt.value = value
+}
+
+const handleVariableExtracted = (data: {
+    variableName: string
+    variableValue: string
+    variableType: 'global' | 'temporary'
+}) => {
+    if (data.variableType === 'global') {
+        try {
+            variableManager?.addVariable(data.variableName, data.variableValue)
+            toast.success(t('variableExtraction.savedToGlobal', { name: data.variableName }))
+        } catch (error) {
+            console.error('[ImageImage2ImageWorkspace] Failed to save global variable:', error)
+            toast.error(
+                t('variableExtraction.saveFailedWithUndo', {
+                    name: data.variableName,
+                    undo: platform.getUndoKey(),
+                }),
+                { duration: 8000, closable: true },
+            )
+        }
+        return
+    }
+
+    try {
+        tempVarsManager.setVariable(data.variableName, data.variableValue)
+        toast.success(t('variableExtraction.savedToTemporary', { name: data.variableName }))
+    } catch (error) {
+        console.error('[ImageImage2ImageWorkspace] Failed to save temporary variable:', error)
+        toast.error(
+            t('variableExtraction.saveFailedWithUndo', {
+                name: data.variableName,
+                undo: platform.getUndoKey(),
+            }),
+            { duration: 8000, closable: true },
+        )
+    }
+}
+
+const handleAddMissingVariable = (varName: string) => {
+    tempVarsManager.setVariable(varName, '')
+    toast.success(t('variableDetection.addSuccess', { name: varName }))
+}
 
 // Session store（单一真源）
 const session = useImageImage2ImageSession()
@@ -1115,7 +1209,7 @@ const resolvePromptForSelection = (selection: TestPanelVersionValue): ResolvedPr
     }
 
     if (selection === 'latest') {
-        if (!latest) return { text: optimizedPrompt.value || v0, resolvedVersion: latest?.version ?? 0 }
+        if (!latest) return { text: optimizedPrompt.value || v0, resolvedVersion: 0 }
         return { text: latest.optimizedPrompt || '', resolvedVersion: latest.version }
     }
 
@@ -1181,6 +1275,32 @@ const hashString = (input: string): string => {
     return (hash >>> 0).toString(36)
 }
 
+// image 模式变量优先级：global < temporary < predefined
+const mergedGenerationVariables = computed<Record<string, string>>(() => ({
+    ...(variableManager?.customVariables.value || {}),
+    ...(tempVarsManager.temporaryVariables.value || {}),
+    ...(purePredefinedVariables.value || {}),
+}))
+
+const buildRuntimePredefinedVariables = (resolved: ResolvedPrompt): Record<string, string> => {
+    const current = (resolved.text || '').trim()
+    return {
+        originalPrompt: (originalPrompt.value || '').trim(),
+        lastOptimizedPrompt: (optimizedPrompt.value || '').trim(),
+        currentPrompt: current,
+        userQuestion: current,
+    }
+}
+
+const stableStringifyVars = (vars: Record<string, string>): string => {
+    const keys = Object.keys(vars).sort()
+    let out = ''
+    for (const k of keys) {
+        out += `${k}=${vars[k] ?? ''}\n`
+    }
+    return out
+}
+
 // 仅用于 stale 检测：避免对完整 base64 扫描（可能很大）
 const getInputImageSignature = (): string => {
     const b64 = inputImageB64.value
@@ -1201,9 +1321,14 @@ const getVariantFingerprint = (id: TestVariantId) => {
     const selection = variantVersionModels[id].value
     const resolved = resolvePromptForSelection(selection)
     const modelKey = (variantModelKeyModels[id].value || '').trim()
-    const promptHash = hashString(resolved.text || '')
+    const promptHash = hashString((resolved.text || '').trim())
     const imgSig = getInputImageSignature()
-    return `${String(selection)}:${resolved.resolvedVersion}:${modelKey}:${promptHash}:${imgSig}`
+    const varsForFingerprint = {
+        ...mergedGenerationVariables.value,
+        ...buildRuntimePredefinedVariables(resolved),
+    }
+    const varsHash = hashString(stableStringifyVars(varsForFingerprint))
+    return `${String(selection)}:${resolved.resolvedVersion}:${modelKey}:${promptHash}:${varsHash}:${imgSig}`
 }
 
 const isVariantStale = (id: TestVariantId) => {
@@ -1226,13 +1351,30 @@ const getVariantRequest = (id: TestVariantId): Image2ImageRequest | null => {
         return null
     }
 
+    const varsForRequest = {
+        ...mergedGenerationVariables.value,
+        ...buildRuntimePredefinedVariables(resolved),
+    }
+
+    const missing = findMissingVariables(resolved.text, varsForRequest)
+    if (missing.length > 0) {
+        toast.error(t('imageWorkspace.generation.missingVariables', { vars: missing.join(', ') }))
+        return null
+    }
+
+    const prompt = replaceVariablesInContent(resolved.text, varsForRequest)
+    if (!prompt.trim()) {
+        toast.error(t('imageWorkspace.generation.missingRequiredFields'))
+        return null
+    }
+
     if (!inputImageB64.value) {
         toast.error(t('imageWorkspace.generation.inputImageRequired'))
         return null
     }
 
     return {
-        prompt: resolved.text,
+        prompt,
         configId: modelKey,
         count: 1,
         inputImage: { b64: inputImageB64.value, mimeType: inputImageMime.value || 'image/png' },

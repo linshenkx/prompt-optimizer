@@ -1823,6 +1823,7 @@ export default {
       validationFailed: "目前設定或模型不支援此操作",
       generateFailed: "圖像生成失敗",
       missingRequiredFields: "請選擇圖像模型並確保有有效的提示詞",
+      missingVariables: "偵測到缺失或未填變數：{vars}",
       inputImageRequired: "請先上傳輸入圖像（圖生圖模式需要輸入圖）",
       generationCompleted: "圖像生成完成",
     },
