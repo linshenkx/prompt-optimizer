@@ -52,8 +52,12 @@
 
         <!-- 变量列表 - 分组显示 -->
         <NSpace vertical :size="16">
-            <!-- 预定义变量组 -->
-            <NCard v-if="predefinedVariables.length > 0" size="small">
+            <!-- 预定义变量组（默认折叠：一般只需要编辑自定义变量） -->
+            <NCard
+                v-if="predefinedVariables.length > 0"
+                size="small"
+                :content-style="isPredefinedExpanded ? null : 'padding: 0'"
+            >
                 <template #header>
                     <NSpace align="center">
                         <NText strong>{{ t("variables.predefined") }}</NText>
@@ -65,7 +69,45 @@
                         }}</NTag>
                     </NSpace>
                 </template>
+                <template #header-extra>
+                    <NButton
+                        size="small"
+                        quaternary
+                        @click="isPredefinedExpanded = !isPredefinedExpanded"
+                        :title="
+                            isPredefinedExpanded
+                                ? t('common.collapse')
+                                : t('common.expand')
+                        "
+                        :aria-label="
+                            isPredefinedExpanded
+                                ? t('common.collapse')
+                                : t('common.expand')
+                        "
+                    >
+                        <template #icon>
+                            <NIcon>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path
+                                        v-if="isPredefinedExpanded"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        d="M5 15l7-7 7 7"
+                                    />
+                                    <path
+                                        v-else
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        d="M19 9l-7 7-7-7"
+                                    />
+                                </svg>
+                            </NIcon>
+                        </template>
+                    </NButton>
+                </template>
+
                 <NDataTable
+                    v-if="isPredefinedExpanded"
                     :columns="predefinedTableColumns"
                     :data="predefinedVariables"
                     :max-height="200"
@@ -398,6 +440,9 @@ const showExportModal = ref(false);
 const editingVariable = ref<VariableRow | null>(null);
 const exportFormat = ref<"csv" | "txt">("csv");
 
+// 默认折叠预定义变量列表（很少需要查看/编辑）
+const isPredefinedExpanded = ref(false);
+
 // 内联编辑状态
 const editingRowKey = ref<string | null>(null);
 const editingValue = ref("");
@@ -417,6 +462,15 @@ const buttonSize = computed(() => {
         ? "small"
         : responsiveButtonSize.value;
 });
+
+watch(
+    () => localVisible.value,
+    (visible) => {
+        if (visible) {
+            isPredefinedExpanded.value = false;
+        }
+    },
+);
 
 const allVariables = computed<VariableRow[]>(() => {
     const manager = props.variableManager?.variableManager.value;
