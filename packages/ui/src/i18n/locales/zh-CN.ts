@@ -1062,6 +1062,7 @@ export default {
       detected: "检测到变量",
       manageVariables: "管理变量",
       viewPreview: "查看预览",
+      title: "变量",
       formTitle: "临时变量",
       variablesCount: "个变量",
       clearAll: "清空全部",

@@ -1093,6 +1093,7 @@ export default {
       detected: "Variables Detected",
       manageVariables: "Manage Variables",
       viewPreview: "View Preview",
+      title: "Variables",
       formTitle: "Temporary Variables",
       variablesCount: "variables",
       clearAll: "Clear All",

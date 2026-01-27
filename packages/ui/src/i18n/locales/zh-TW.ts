@@ -1056,6 +1056,7 @@ export default {
       detected: "偵測到變數",
       manageVariables: "管理變數",
       viewPreview: "查看預覽",
+      title: "變數",
       formTitle: "臨時變數",
       variablesCount: "個變數",
       clearAll: "清空全部",

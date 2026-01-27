@@ -1,20 +1,13 @@
 <template>
     <!-- 变量值输入表单（临时变量编辑区） -->
     <NCard
-        :title="t('test.variables.formTitle')"
+        :title="t('test.variables.title')"
         size="small"
         :bordered="true"
         :style="{ flexShrink: 0 }"
     >
         <template #header-extra>
             <NSpace :size="8">
-                <NTag :bordered="false" type="info" size="small">
-                    {{
-                        t('test.variables.tempCount', {
-                            count: displayVariables.length,
-                        })
-                    }}
-                </NTag>
                 <NButton
                     v-if="props.showGenerateValues"
                     size="small"
@@ -26,6 +19,11 @@
                         displayVariables.length === 0
                     "
                     @click="emit('generate-values')"
+                    :aria-label="
+                        props.isGenerating
+                            ? t('test.variableValueGeneration.generating')
+                            : t('test.variableValueGeneration.generateButton')
+                    "
                 >
                     {{
                         props.isGenerating
@@ -36,8 +34,10 @@
                 <NButton
                     size="small"
                     quaternary
+                    type="error"
                     :disabled="props.disabled"
                     @click="handleClearAllVariables"
+                    :aria-label="t('test.variables.clearAll')"
                 >
                     {{ t('test.variables.clearAll') }}
                 </NButton>
@@ -47,6 +47,7 @@
                     quaternary
                     :disabled="props.disabled"
                     @click="emit('open-global-variables')"
+                    :aria-label="t('contextMode.actions.globalVariables')"
                 >
                     {{ t('contextMode.actions.globalVariables') }}
                 </NButton>
@@ -62,6 +63,7 @@
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
+                    padding: '2px 0',
                 }"
             >
                 <NTag
@@ -74,16 +76,40 @@
                               ? 'warning'
                               : 'default'
                     "
-                    :style="{ minWidth: '120px', flexShrink: 0 }"
+                    :style="{ minWidth: '160px', maxWidth: '220px', flexShrink: 0 }"
                 >
-                    <span v-text="`{{${varName}}}`"></span>
+                    <span
+                        :style="{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            lineHeight: '1.5',
+                            maxWidth: '100%',
+                        }"
+                    >
+                        <span
+                            :style="{
+                                maxWidth: '120px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                            }"
+                            v-text="`{{${varName}}}`"
+                        ></span>
+                        <span
+                            v-if="getVariableSourceLabel(varName)"
+                            :style="{ fontSize: '12px', opacity: 0.75, whiteSpace: 'nowrap' }"
+                        >
+                            {{ getVariableSourceLabel(varName) }}
+                        </span>
+                    </span>
                 </NTag>
                 <NInput
                     :value="getVariableDisplayValue(varName)"
                     :placeholder="getVariablePlaceholder(varName)"
                     size="small"
                     :disabled="props.disabled"
-                    :style="{ flex: 1 }"
+                    :style="{ flex: 1, minWidth: 0 }"
                     @update:value="handleVariableValueChange(varName, $event)"
                 />
                 <!-- 删除按钮 (仅临时变量显示) -->
@@ -94,8 +120,11 @@
                     :disabled="props.disabled"
                     @click="handleDeleteVariable(varName)"
                     :title="t('test.variables.delete')"
+                    :aria-label="t('test.variables.delete')"
                 >
-                    🗑️
+                    <NIcon size="16">
+                        <Trash />
+                    </NIcon>
                 </NButton>
                 <!-- 保存到全局按钮 (仅测试变量显示) -->
                 <NButton
@@ -105,8 +134,11 @@
                     :disabled="props.disabled"
                     @click="handleSaveToGlobal(varName)"
                     :title="t('test.variables.saveToGlobal')"
+                    :aria-label="t('test.variables.saveToGlobal')"
                 >
-                    💾
+                    <NIcon size="16">
+                        <DeviceFloppy />
+                    </NIcon>
                 </NButton>
             </div>
 
@@ -179,7 +211,10 @@ import {
     NEmpty,
     NModal,
     NFormItem,
+    NIcon,
 } from 'naive-ui'
+
+import { DeviceFloppy, Trash } from '@vicons/tabler'
 
 import type { TestVariableManager } from '../../composables/variable/useTestVariableManager'
 
@@ -223,6 +258,12 @@ const {
     handleClearAllVariables,
     handleSaveToGlobal,
 } = props.manager
+
+const getVariableSourceLabel = (varName: string) => {
+    const source = getVariableSource(varName)
+    if (source === 'predefined') return t('variableDetection.sourcePredefined')
+    return ''
+}
 
 const displayVariables = computed(() => sortedVariables.value)
 </script>
