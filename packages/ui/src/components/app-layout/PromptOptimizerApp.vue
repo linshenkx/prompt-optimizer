@@ -698,14 +698,16 @@ const showPreviewPanel = ref(false);
 // 变量管理器实例
 const variableManager = useVariableManager(services);
 
-// 🆕 临时变量管理器（全局单例，用于AI提取的变量）
+// 临时变量管理器：
+// - Pro/Image：按子模式 session store 持久化（刷新不丢；子模式之间隔离）
+// - Basic：维持旧行为，仅内存态
 const tempVarsManager = useTemporaryVariables();
 
 // 🆕 AI 智能变量提取
 const variableExtraction = useVariableExtraction(
     services,
     (variableName: string, variableValue: string) => {
-        // 创建变量时的回调：保存到临时变量（不持久化）
+        // 创建变量时的回调：保存到临时变量（Pro/Image 会持久化到各自 session；Basic 仅内存态）
         tempVarsManager.setVariable(variableName, variableValue);
     },
     (replacedPrompt: string) => {

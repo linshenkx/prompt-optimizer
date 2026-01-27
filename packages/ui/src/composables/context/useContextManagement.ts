@@ -130,7 +130,7 @@ export function useContextManagement(options: ContextManagementOptions) {
   let persistContextUpdateTimer: ReturnType<typeof setTimeout> | null = null;
   const persistContextUpdate = async (patch: {
     messages?: ConversationMessage[];
-    // variables 已移除 - 临时变量由 useTemporaryVariables() 全局管理，不持久化
+    // variables 已移除 - 临时变量由 useTemporaryVariables() 管理：Pro/Image 持久化到 session，Basic 仅内存态
     tools?: ToolDefinition[];
   }) => {
     if (!contextRepo.value || !currentContextId.value) return;
@@ -218,7 +218,7 @@ export function useContextManagement(options: ContextManagementOptions) {
     optimizationContext.value = [...context.messages];
     optimizationContextTools.value = [...context.tools];
 
-    // 持久化到contextRepo（不包含临时变量）
+    // 持久化到 contextRepo（不包含临时变量；临时变量走 session store / 内存态）
     await persistContextUpdate({
       messages: context.messages,
       // variables 不持久化 - 临时变量由 useTemporaryVariables() 管理
@@ -241,7 +241,7 @@ export function useContextManagement(options: ContextManagementOptions) {
     // 实时同步状态到contextEditorState（不包含 variables）
     contextEditorState.value.messages = [...state.messages];
     contextEditorState.value.tools = [...state.tools];
-    // variables 不同步 - 临时变量由 useTemporaryVariables() 全局管理
+    // variables 不同步 - 临时变量由 useTemporaryVariables() 管理
 
     // 实时更新优化上下文
     optimizationContext.value = [...state.messages];
