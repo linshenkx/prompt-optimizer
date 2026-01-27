@@ -41,16 +41,6 @@
                 >
                     {{ t('test.variables.clearAll') }}
                 </NButton>
-                <NButton
-                    v-if="props.showOpenGlobalVariables"
-                    size="small"
-                    quaternary
-                    :disabled="props.disabled"
-                    @click="emit('open-global-variables')"
-                    :aria-label="t('contextMode.actions.globalVariables')"
-                >
-                    {{ t('contextMode.actions.globalVariables') }}
-                </NButton>
             </NSpace>
         </template>
 
@@ -223,20 +213,17 @@ interface Props {
     disabled?: boolean
 
     // Optional actions
-    showOpenGlobalVariables?: boolean
     showGenerateValues?: boolean
     isGenerating?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
     disabled: false,
-    showOpenGlobalVariables: true,
     showGenerateValues: false,
     isGenerating: false,
 })
 
 const emit = defineEmits<{
-    (e: 'open-global-variables'): void
     (e: 'generate-values'): void
 }>()
 
