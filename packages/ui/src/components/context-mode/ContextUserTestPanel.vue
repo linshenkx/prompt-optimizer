@@ -1,159 +1,12 @@
 <template>
     <NFlex vertical :style="{ height: mode === 'full' ? '100%' : 'auto', gap: '12px' }">
-        <!-- 变量值输入表单 -->
-        <NCard
-            :title="t('test.variables.formTitle')"
-            size="small"
-            :bordered="true"
-            :style="{ flexShrink: 0 }"
-        >
-            <template #header-extra>
-                <NSpace :size="8">
-                    <NTag :bordered="false" type="info" size="small">
-                        {{ t("test.variables.tempCount", { count: displayVariables.length }) }}
-                    </NTag>
-                    <NButton
-                        size="small"
-                        quaternary
-                        :loading="isGenerating"
-                        :disabled="displayVariables.length === 0 || isGenerating"
-                        @click="handleGenerateValues"
-                    >
-                        {{ isGenerating
-                            ? t('test.variableValueGeneration.generating')
-                            : t('test.variableValueGeneration.generateButton')
-                        }}
-                    </NButton>
-                    <NButton
-                        size="small"
-                        quaternary
-                        @click="handleClearAllVariables"
-                    >
-                        {{ t("test.variables.clearAll") }}
-                    </NButton>
-                    <NButton
-                        size="small"
-                        quaternary
-                        @click="emit('open-global-variables')"
-                    >
-                        {{ t("contextMode.actions.globalVariables") }}
-                    </NButton>
-                </NSpace>
-            </template>
-
-            <NSpace vertical :size="12">
-                <!-- 变量输入项 -->
-                <div
-                    v-for="varName in displayVariables"
-                    :key="varName"
-                    :style="{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                    }"
-                >
-                    <NTag
-                        size="small"
-                        :bordered="false"
-                        :type="
-                            getVariableSource(varName) === 'predefined'
-                                ? 'success'
-                                : getVariableSource(varName) === 'test'
-                                  ? 'warning'
-                                  : 'default'
-                        "
-                        :style="{ minWidth: '120px', flexShrink: 0 }"
-                    >
-                        <span v-text="`{{${varName}}}`"></span>
-                    </NTag>
-                    <NInput
-                        :value="getVariableDisplayValue(varName)"
-                        :placeholder="getVariablePlaceholder(varName)"
-                        size="small"
-                        :style="{ flex: 1 }"
-                        @update:value="
-                            handleVariableValueChange(varName, $event)
-                        "
-                    />
-                    <!-- 删除按钮 (仅临时变量显示) -->
-                    <NButton
-                        v-if="getVariableSource(varName) === 'test'"
-                        size="small"
-                        quaternary
-                        @click="handleDeleteVariable(varName)"
-                        :title="t('test.variables.delete')"
-                    >
-                        🗑️
-                    </NButton>
-                    <!-- 保存到全局按钮 (仅测试变量显示) -->
-                    <NButton
-                        v-if="getVariableSource(varName) === 'test'"
-                        size="small"
-                        quaternary
-                        @click="handleSaveToGlobal(varName)"
-                        :title="t('test.variables.saveToGlobal')"
-                    >
-                        💾
-                    </NButton>
-                </div>
-
-                <!-- 无变量提示 -->
-                <NEmpty
-                    v-if="displayVariables.length === 0"
-                    :description="t('test.variables.noVariables')"
-                    size="small"
-                />
-
-                <!-- 操作按钮 -->
-                <NSpace :size="8" justify="end">
-                    <!-- 添加变量按钮 -->
-                    <NButton
-                        size="small"
-                        @click="showAddVariableDialog = true"
-                    >
-                        {{ t("test.variables.addVariable") }}
-                    </NButton>
-                </NSpace>
-            </NSpace>
-        </NCard>
-
-        <!-- 添加变量对话框 -->
-        <NModal
-            v-model:show="showAddVariableDialog"
-            preset="dialog"
-            :title="t('test.variables.addVariable')"
-            :positive-text="t('common.confirm')"
-            :negative-text="t('common.cancel')"
-            :on-positive-click="handleAddVariable"
-            :mask-closable="false"
-        >
-            <NSpace vertical :size="12" style="margin-top: 16px;">
-                <NFormItem
-                    :label="t('variableExtraction.variableName')"
-                    :validation-status="
-                        newVariableNameError ? 'error' : undefined
-                    "
-                    :feedback="newVariableNameError"
-                >
-                    <NInput
-                        v-model:value="newVariableName"
-                        :placeholder="
-                            t('variableExtraction.variableNamePlaceholder')
-                        "
-                        @input="validateNewVariableName"
-                    />
-                </NFormItem>
-
-                <NFormItem :label="t('variableExtraction.variableValue')">
-                    <NInput
-                        v-model:value="newVariableValue"
-                        :placeholder="
-                            t('variableExtraction.variableValuePlaceholder')
-                        "
-                    />
-                </NFormItem>
-            </NSpace>
-        </NModal>
+        <TemporaryVariablesPanel
+            :manager="variableManager"
+            :show-generate-values="true"
+            :is-generating="isGenerating"
+            @generate-values="handleGenerateValues"
+            @open-global-variables="emit('open-global-variables')"
+        />
 
         <template v-if="mode === 'full'">
             <!-- 控制工具栏 -->
@@ -244,13 +97,6 @@ import { useI18n } from "vue-i18n";
 import {
     NFlex,
     NCard,
-    NButton,
-    NTag,
-    NSpace,
-    NInput,
-    NEmpty,
-    NModal,
-    NFormItem,
 } from "naive-ui";
 import { useResponsive } from '../../composables/ui/useResponsive';
 import { usePerformanceMonitor } from "../../composables/performance/usePerformanceMonitor";
@@ -260,6 +106,7 @@ import { useVariableValueGeneration } from "../../composables/variable/useVariab
 import { useToast } from "../../composables/ui/useToast";
 import TestControlBar from "../TestControlBar.vue";
 import TestResultSection from "../TestResultSection.vue";
+import TemporaryVariablesPanel from "../variable/TemporaryVariablesPanel.vue";
 import VariableValuePreviewDialog from "../variable/VariableValuePreviewDialog.vue";
 import type { EvaluationResponse, EvaluationType, VariableToGenerate } from '@prompt-optimizer/core';
 import type { ScoreLevel } from '../../composables/prompt/useEvaluation';
@@ -455,20 +302,10 @@ const variableManager = useTestVariableManager({
 });
 
 const {
-    showAddVariableDialog,
-    newVariableName,
-    newVariableValue,
-    newVariableNameError,
     sortedVariables: displayVariables,
     getVariableSource,
     getVariableDisplayValue,
-    getVariablePlaceholder,
-    validateNewVariableName,
     handleVariableValueChange,
-    handleAddVariable,
-    handleDeleteVariable,
-    handleClearAllVariables,
-    handleSaveToGlobal,
     getVariableValues,
     setVariableValues,
 } = variableManager;

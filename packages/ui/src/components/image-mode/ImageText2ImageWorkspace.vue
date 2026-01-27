@@ -342,6 +342,11 @@
             <!-- 右侧：图像生成测试区域（图像模型，多列 variants） -->
             <div ref="testPaneRef" class="split-pane" style="min-width: 0; height: 100%; overflow: hidden;">
                 <NFlex vertical :style="{ height: '100%', gap: '12px' }">
+                    <TemporaryVariablesPanel
+                        :manager="temporaryVariablePanelManager"
+                        :disabled="isOptimizing"
+                        :show-open-global-variables="false"
+                    />
                     <!-- 顶部：列数与全局操作 -->
                     <NCard size="small" :style="{ flexShrink: 0 }">
                         <div class="test-area-top">
@@ -619,10 +624,16 @@ import type { SelectOption } from "../../types/select-options";
 import { useToast } from "../../composables/ui/useToast";
 import { getI18nErrorMessage } from '../../utils/error'
 import { VariableAwareInput } from '../variable-extraction'
+import TemporaryVariablesPanel from '../variable/TemporaryVariablesPanel.vue'
 import { useTemporaryVariables } from '../../composables/variable/useTemporaryVariables'
+import { useVariableAwareInputBridge } from '../../composables/variable/useVariableAwareInputBridge'
+import { useTestVariableManager } from '../../composables/variable/useTestVariableManager'
 import type { VariableManagerHooks } from '../../composables/prompt/useVariableManager'
-import { platform } from '../../utils/platform'
-import { findMissingVariables, replaceVariablesInContent } from '../../utils/prompt-variables'
+import {
+    buildPromptExecutionContext,
+    hashString,
+    hashVariables,
+} from '../../utils/prompt-variables'
 import {
     useImageText2ImageSession,
     type TestColumnCount,
@@ -665,76 +676,49 @@ const services = inject<Ref<AppServices | null>>("services", ref(null));
 const variableManager = inject<VariableManagerHooks | null>('variableManager', null)
 const tempVarsManager = useTemporaryVariables()
 
-// VariableAwareInput 需要的变量数据
-const purePredefinedVariables = computed(() => {
-    const all = variableManager?.allVariables.value || {}
-    const custom = variableManager?.customVariables.value || {}
-    const predefined: Record<string, string> = {}
-    for (const [key, value] of Object.entries(all)) {
-        if (!(key in custom)) predefined[key] = value
-    }
-    return predefined
+const {
+    variableInputData,
+    predefinedVariableValues: purePredefinedVariables,
+    handleVariableExtracted,
+    handleAddMissingVariable,
+} = useVariableAwareInputBridge({
+    enabled: computed(() => true),
+    // 仅在全局变量管理器就绪时启用变量感知输入（避免“变量未加载但编辑器已替换/提取”）
+    isReady: computed(() => variableManager?.isReady.value ?? false),
+    globalVariables: computed(() => variableManager?.customVariables.value || {}),
+    temporaryVariables: tempVarsManager.temporaryVariables,
+    allVariables: computed(() => variableManager?.allVariables.value || {}),
+    saveGlobalVariable: (name, value) => variableManager?.addVariable(name, value),
+    saveTemporaryVariable: (name, value) => tempVarsManager.setVariable(name, value),
+    logPrefix: 'ImageText2ImageWorkspace',
 })
 
-const variableInputData = computed(() => {
-    // 仅在全局变量管理器就绪时启用变量感知输入（避免“变量未加载但编辑器已替换/提取”）
-    if (!variableManager?.isReady.value) return null
-
-    return {
-        existingGlobalVariables: Object.keys(variableManager.customVariables.value || {}),
-        existingTemporaryVariables: Object.keys(tempVarsManager.temporaryVariables.value || {}),
-        predefinedVariables: Object.keys(purePredefinedVariables.value || {}),
-        globalVariableValues: variableManager.customVariables.value || {},
-        temporaryVariableValues: tempVarsManager.temporaryVariables.value || {},
-        predefinedVariableValues: purePredefinedVariables.value || {},
-    }
+const temporaryVariablePanelManager = useTestVariableManager({
+    globalVariables: computed(() => variableManager?.customVariables.value || {}),
+    predefinedVariables: purePredefinedVariables,
+    temporaryVariables: computed(() => tempVarsManager.temporaryVariables.value),
+    onVariableChange: (name, value) => {
+        tempVarsManager.setVariable(name, value)
+    },
+    onVariableRemove: (name) => {
+        tempVarsManager.deleteVariable(name)
+    },
+    onVariablesClear: () => {
+        tempVarsManager.clearAll()
+    },
+    onSaveToGlobal: (name, value) => {
+        if (!variableManager || !variableManager.isReady.value) {
+            throw new Error('variable manager not ready')
+        }
+        variableManager.addVariable(name, value)
+    },
 })
 
 const handleOriginalPromptInput = (value: string) => {
     originalPrompt.value = value
 }
 
-const handleVariableExtracted = (data: {
-    variableName: string
-    variableValue: string
-    variableType: 'global' | 'temporary'
-}) => {
-    if (data.variableType === 'global') {
-        try {
-            variableManager?.addVariable(data.variableName, data.variableValue)
-            toast.success(t('variableExtraction.savedToGlobal', { name: data.variableName }))
-        } catch (error) {
-            console.error('[ImageText2ImageWorkspace] Failed to save global variable:', error)
-            toast.error(
-                t('variableExtraction.saveFailedWithUndo', {
-                    name: data.variableName,
-                    undo: platform.getUndoKey(),
-                }),
-                { duration: 8000, closable: true },
-            )
-        }
-        return
-    }
-
-    try {
-        tempVarsManager.setVariable(data.variableName, data.variableValue)
-        toast.success(t('variableExtraction.savedToTemporary', { name: data.variableName }))
-    } catch (error) {
-        console.error('[ImageText2ImageWorkspace] Failed to save temporary variable:', error)
-        toast.error(
-            t('variableExtraction.saveFailedWithUndo', {
-                name: data.variableName,
-                undo: platform.getUndoKey(),
-            }),
-            { duration: 8000, closable: true },
-        )
-    }
-}
-
-const handleAddMissingVariable = (varName: string) => {
-    tempVarsManager.setVariable(varName, '')
-    toast.success(t('variableDetection.addSuccess', { name: varName }))
-}
+// handleVariableExtracted / handleAddMissingVariable are provided by useVariableAwareInputBridge
 
 // Session store（单一真源）
 const session = useImageText2ImageSession()
@@ -1122,14 +1106,6 @@ const getVariantImageTestId = (id: TestVariantId) => {
 const getVariantResult = (id: TestVariantId) => variantResults.value[id]
 const hasVariantResult = (id: TestVariantId) => !!(variantResults.value[id]?.images?.length)
 
-const hashString = (input: string): string => {
-    let hash = 5381
-    for (let i = 0; i < input.length; i++) {
-        hash = ((hash << 5) + hash) ^ input.charCodeAt(i)
-    }
-    return (hash >>> 0).toString(36)
-}
-
 // image 模式变量优先级：global < temporary < predefined
 // - predefined 作为只读“系统变量”，在替换阶段优先级最高
 const mergedGenerationVariables = computed<Record<string, string>>(() => ({
@@ -1149,15 +1125,6 @@ const buildRuntimePredefinedVariables = (resolved: ResolvedPrompt): Record<strin
     }
 }
 
-const stableStringifyVars = (vars: Record<string, string>): string => {
-    const keys = Object.keys(vars).sort()
-    let out = ''
-    for (const k of keys) {
-        out += `${k}=${vars[k] ?? ''}\n`
-    }
-    return out
-}
-
 const getVariantFingerprint = (id: TestVariantId) => {
     const selection = variantVersionModels[id].value
     const resolved = resolvePromptForSelection(selection)
@@ -1167,7 +1134,7 @@ const getVariantFingerprint = (id: TestVariantId) => {
         ...mergedGenerationVariables.value,
         ...buildRuntimePredefinedVariables(resolved),
     }
-    const varsHash = hashString(stableStringifyVars(varsForFingerprint))
+    const varsHash = hashVariables(varsForFingerprint)
     return `${String(selection)}:${resolved.resolvedVersion}:${modelKey}:${promptHash}:${varsHash}`
 }
 
@@ -1196,13 +1163,17 @@ const getVariantRequest = (id: TestVariantId): Text2ImageRequest | null => {
         ...buildRuntimePredefinedVariables(resolved),
     }
 
-    const missing = findMissingVariables(resolved.text, varsForRequest)
-    if (missing.length > 0) {
-        toast.error(t('imageWorkspace.generation.missingVariables', { vars: missing.join(', ') }))
+    const ctx = buildPromptExecutionContext(resolved.text, varsForRequest)
+    if (ctx.forbiddenTemplateSyntax.length > 0) {
+        toast.error(t('imageWorkspace.generation.forbiddenTemplateSyntax'))
+        return null
+    }
+    if (ctx.missingVariables.length > 0) {
+        toast.error(t('imageWorkspace.generation.missingVariables', { vars: ctx.missingVariables.join(', ') }))
         return null
     }
 
-    const prompt = replaceVariablesInContent(resolved.text, varsForRequest)
+    const prompt = ctx.renderedContent
     if (!prompt.trim()) {
         toast.error(t('imageWorkspace.generation.missingRequiredFields'))
         return null
