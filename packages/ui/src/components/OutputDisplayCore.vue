@@ -505,6 +505,10 @@ const resetReasoningState = (initialState: boolean) => {
 }
 
 const forceExitEditing = () => {
+  // In Pro/Image (variable-enabled) workspaces, keep source view as the default
+  // to preserve variable highlighting instead of flipping back to Markdown.
+  if (shouldEnableVariables.value) return
+
   internalViewMode.value = 'render'
 }
 
