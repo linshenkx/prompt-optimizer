@@ -345,7 +345,6 @@
                     <TemporaryVariablesPanel
                         :manager="temporaryVariablePanelManager"
                         :disabled="isOptimizing"
-                        :show-open-global-variables="false"
                         :show-generate-values="true"
                         :is-generating="isGenerating"
                         @generate-values="handleGenerateValues"
