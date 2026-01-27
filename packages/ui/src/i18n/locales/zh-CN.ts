@@ -2033,7 +2033,7 @@ export default {
   variableExtraction: {
     dialogTitle: "提取为变量",
     variableName: "变量名",
-    variableNamePlaceholder: "请输入变量名（中英文、数字、下划线）",
+    variableNamePlaceholder: "请输入变量名（不含空白/花括号，且不能以数字开头）",
     variableValue: "变量值",
     variableValuePlaceholder: "选中的文本内容",
     variableType: "变量类型",
@@ -2054,8 +2054,11 @@ export default {
     readonlyWarning: "只读模式下无法提取变量",
     validation: {
       required: "变量名不能为空",
+      tooLong: "变量名过长（最多 {max} 个字符）",
+      forbiddenPrefix: "变量名不能以 # / ^ ! > & 开头",
       noNumberStart: "变量名不能以数字开头",
       invalidCharacters: "变量名不能包含空白字符或花括号（{}）",
+      reservedName: "变量名为保留字，不能使用",
       predefinedVariable: "不能使用系统预定义变量名",
       duplicateVariable: "该变量名已存在，将引用现有变量",
     },
@@ -2135,7 +2138,7 @@ export default {
       noPromptContent: "请先输入提示词内容",
       noEvaluationModel: "请先选择评估模型",
       serviceNotReady: "变量提取服务未就绪",
-      invalidVariableNames: "以下变量名不合法（仅允许字母、数字、下划线、中文）：{names}",
+      invalidVariableNames: "以下变量名不合法（不能以数字或 # / ^ ! > & 开头，且不能包含空白/花括号，最长 {max} 个字符）：{names}",
     },
 
     // 诊断相关翻译

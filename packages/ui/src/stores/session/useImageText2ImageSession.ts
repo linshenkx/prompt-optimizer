@@ -9,6 +9,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
+import { isValidVariableName, sanitizeVariableRecord } from '../../types/variable'
 import {
   isImageRef,
   createImageRef,
@@ -308,15 +309,22 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
 
   // 临时变量（持久化到 session）
   const setTemporaryVariable = (name: string, value: string) => {
+    if (!isValidVariableName(name)) {
+      console.warn('[ImageText2ImageSession] Ignoring invalid temporary variable name:', name)
+      return
+    }
     temporaryVariables.value[name] = value
     lastActiveAt.value = Date.now()
   }
 
   const getTemporaryVariable = (name: string): string | undefined => {
-    return temporaryVariables.value[name]
+    return Object.prototype.hasOwnProperty.call(temporaryVariables.value, name)
+      ? temporaryVariables.value[name]
+      : undefined
   }
 
   const deleteTemporaryVariable = (name: string) => {
+    if (!Object.prototype.hasOwnProperty.call(temporaryVariables.value, name)) return
     delete temporaryVariables.value[name]
     lastActiveAt.value = Date.now()
   }
@@ -489,7 +497,7 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
         reasoning: reasoning.value,
         chainId: chainId.value,
         versionId: versionId.value,
-        temporaryVariables: temporaryVariables.value,
+        temporaryVariables: sanitizeVariableRecord(temporaryVariables.value),
         // legacy: 仍保留 original/optimized 字段（对应 A/B）
         originalImageResult: variantResultsToSave.a,
         optimizedImageResult: variantResultsToSave.b,
@@ -644,17 +652,7 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
         chainId.value = typeof parsed.chainId === 'string' ? parsed.chainId : ''
         versionId.value = typeof parsed.versionId === 'string' ? parsed.versionId : ''
 
-        const savedTempVars = parsed.temporaryVariables
-        if (savedTempVars && typeof savedTempVars === 'object' && !Array.isArray(savedTempVars)) {
-          const obj = savedTempVars as Record<string, unknown>
-          const next: Record<string, string> = {}
-          for (const [key, value] of Object.entries(obj)) {
-            if (typeof value === 'string') next[key] = value
-          }
-          temporaryVariables.value = next
-        } else {
-          temporaryVariables.value = {}
-        }
+        temporaryVariables.value = sanitizeVariableRecord(parsed.temporaryVariables)
         evaluationResults.value = {
           ...createDefaultEvaluationResults(),
           ...(parsed.evaluationResults && typeof parsed.evaluationResults === 'object'

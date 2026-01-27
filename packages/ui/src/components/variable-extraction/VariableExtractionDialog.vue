@@ -81,7 +81,7 @@ import {
 } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '../../composables/ui/useToast'
-import { VARIABLE_VALIDATION } from '../../types/variable'
+import { VARIABLE_VALIDATION, getVariableNameValidationError } from '../../types/variable'
 
 /**
  * 变量提取对话框组件
@@ -147,12 +147,17 @@ const variableValue = ref('')
 const variableType = ref<'global' | 'temporary'>('temporary')
 const replaceAll = ref(true) // 默认选中"全部替换"
 
+const baseValidationError = computed(() => {
+  if (!variableName.value) return null
+  return getVariableNameValidationError(variableName.value)
+})
+
 // 变量名验证
 const validationStatus = computed<'success' | 'warning' | 'error' | undefined>(() => {
   if (!variableName.value) return undefined
 
-  // 验证规则: 不能包含空白字符或花括号
-  if (!VARIABLE_VALIDATION.NAME_PATTERN.test(variableName.value)) {
+  // 基础校验（统一规则）
+  if (baseValidationError.value) {
     return 'error'
   }
 
@@ -176,8 +181,19 @@ const validationStatus = computed<'success' | 'warning' | 'error' | undefined>((
 const validationMessage = computed(() => {
   if (!variableName.value) return ''
 
-  if (!VARIABLE_VALIDATION.NAME_PATTERN.test(variableName.value)) {
-    return t('variableExtraction.validation.invalidCharacters')
+  switch (baseValidationError.value) {
+    case 'required':
+      return t('variableExtraction.validation.required')
+    case 'tooLong':
+      return t('variableExtraction.validation.tooLong', { max: VARIABLE_VALIDATION.MAX_NAME_LENGTH })
+    case 'forbiddenPrefix':
+      return t('variableExtraction.validation.forbiddenPrefix')
+    case 'noNumberStart':
+      return t('variableExtraction.validation.noNumberStart')
+    case 'reservedName':
+      return t('variableExtraction.validation.reservedName')
+    case 'invalidCharacters':
+      return t('variableExtraction.validation.invalidCharacters')
   }
 
   if (props.predefinedVariables.includes(variableName.value)) {

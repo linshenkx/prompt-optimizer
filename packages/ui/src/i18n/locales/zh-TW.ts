@@ -2013,7 +2013,7 @@ export default {
   variableExtraction: {
     dialogTitle: "提取為變數",
     variableName: "變數名稱",
-    variableNamePlaceholder: "請輸入變數名稱（中英文、數字、底線）",
+    variableNamePlaceholder: "請輸入變數名稱（不含空白/花括號，且不能以數字開頭）",
     variableValue: "變數值",
     variableValuePlaceholder: "選中的文字內容",
     variableType: "變數類型",
@@ -2034,8 +2034,11 @@ export default {
     readonlyWarning: "唯讀模式下無法提取變數",
     validation: {
       required: "變數名稱不能為空",
+      tooLong: "變數名稱過長（最多 {max} 個字元）",
+      forbiddenPrefix: "變數名稱不能以 # / ^ ! > & 開頭",
       noNumberStart: "變數名稱不能以數字開頭",
       invalidCharacters: "變數名稱不能包含空白字元或花括號（{}）",
+      reservedName: "變數名稱為保留字，不能使用",
       predefinedVariable: "不能使用系統預定義變數名稱",
       duplicateVariable: "該變數名稱已存在，將參照現有變數",
     },
@@ -2115,7 +2118,7 @@ export default {
       noPromptContent: "請先輸入提示詞內容",
       noEvaluationModel: "請先選擇評估模型",
       serviceNotReady: "變數提取服務未就緒",
-      invalidVariableNames: "以下變數名稱不合法（僅允許字母、數字、底線、中文）：{names}",
+      invalidVariableNames: "以下變數名稱不合法（不能以數字或 # / ^ ! > & 開頭，且不能包含空白/花括號，最長 {max} 個字元）：{names}",
     },
 
     // 診斷相關翻譯

@@ -11,6 +11,7 @@ import { useToast } from '../ui/useToast'
 import { useFunctionModelManager } from '../model/useFunctionModelManager'
 import { useVariableValueGeneration } from './useVariableValueGeneration'
 import type { AppServices } from '../../types/services'
+import { getI18nErrorMessage } from '../../utils/error'
 
 type VariableSource = 'predefined' | 'test' | 'global' | 'empty'
 
@@ -76,7 +77,14 @@ export function useSmartVariableValueGeneration(
       return
     }
 
-    await functionModelManager.initialize()
+    try {
+      await functionModelManager.initialize()
+    } catch (error) {
+      const errorMsg = getI18nErrorMessage(error, 'Unknown error')
+      toast.error(`${t('test.variableValueGeneration.generateFailed')}: ${errorMsg}`)
+      console.error('[useSmartVariableValueGeneration] initialize failed:', error)
+      return
+    }
 
     const passedEvaluationModelKey = options.evaluationModelKey?.value || ''
     const generationModelKey =

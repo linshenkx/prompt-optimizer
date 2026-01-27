@@ -11,6 +11,7 @@ import { defineStore } from 'pinia'
 import { ref, type Ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { TEMPLATE_SELECTION_KEYS } from '@prompt-optimizer/core'
+import { isValidVariableName, sanitizeVariableRecord } from '../../types/variable'
 import {
   createDefaultEvaluationResults,
   type PersistedEvaluationResults,
@@ -230,15 +231,22 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
 
   // 临时变量（持久化到 session）
   const setTemporaryVariable = (name: string, value: string) => {
+    if (!isValidVariableName(name)) {
+      console.warn('[ProVariableSession] Ignoring invalid temporary variable name:', name)
+      return
+    }
     temporaryVariables.value[name] = value
     lastActiveAt.value = Date.now()
   }
 
   const getTemporaryVariable = (name: string): string | undefined => {
-    return temporaryVariables.value[name]
+    return Object.prototype.hasOwnProperty.call(temporaryVariables.value, name)
+      ? temporaryVariables.value[name]
+      : undefined
   }
 
   const deleteTemporaryVariable = (name: string) => {
+    if (!Object.prototype.hasOwnProperty.call(temporaryVariables.value, name)) return
     delete temporaryVariables.value[name]
     lastActiveAt.value = Date.now()
   }
@@ -352,7 +360,7 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
         chainId: chainId.value,
         versionId: versionId.value,
         testContent: testContent.value,
-        temporaryVariables: temporaryVariables.value,
+        temporaryVariables: sanitizeVariableRecord(temporaryVariables.value),
         testResults: testResults.value,
         layout: layout.value,
         testVariants: testVariants.value,
@@ -401,17 +409,9 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
         versionId.value = typeof parsed.versionId === 'string' ? parsed.versionId : ''
         testContent.value = typeof parsed.testContent === 'string' ? parsed.testContent : ''
 
-        const savedTempVars = (parsed as Partial<ProVariableSessionState>).temporaryVariables
-        if (savedTempVars && typeof savedTempVars === 'object' && !Array.isArray(savedTempVars)) {
-          const obj = savedTempVars as Record<string, unknown>
-          const next: Record<string, string> = {}
-          for (const [key, value] of Object.entries(obj)) {
-            if (typeof value === 'string') next[key] = value
-          }
-          temporaryVariables.value = next
-        } else {
-          temporaryVariables.value = {}
-        }
+        temporaryVariables.value = sanitizeVariableRecord(
+          (parsed as Partial<ProVariableSessionState>).temporaryVariables,
+        )
         testResults.value = (parsed.testResults && typeof parsed.testResults === 'object')
           ? (parsed.testResults as TestResults)
           : null

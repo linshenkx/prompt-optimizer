@@ -43,6 +43,22 @@ describe('prompt-variables', () => {
     )
   })
 
+  it('flags ampersand-unescaped tags even with whitespace/newlines', () => {
+    const ctx = buildPromptExecutionContext('A {{  &foo}} B {{\n&bar}}', {
+      foo: 'X',
+      bar: 'Y',
+    })
+
+    expect(ctx.forbiddenTemplateSyntax).toEqual(
+      expect.arrayContaining(['ampersand_unescaped']),
+    )
+  })
+
+  it('ignores invalid variable names (digit-start, reserved keys)', () => {
+    const input = '{{1foo}} {{__proto__}} {{ foo }}'
+    expect(scanVariableNames(input)).toEqual(['foo'])
+  })
+
   it('findMissingVariables treats undefined and empty as missing', () => {
     const vars = { foo: '', bar: 'Y' }
     expect(findMissingVariables('{{foo}} {{bar}} {{baz}}', vars)).toEqual([

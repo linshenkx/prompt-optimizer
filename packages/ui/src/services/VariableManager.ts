@@ -7,6 +7,8 @@ import type { IPreferenceService } from '@prompt-optimizer/core';
 import { 
   PREDEFINED_VARIABLES, 
   VARIABLE_VALIDATION,
+  isValidVariableName,
+  getVariableNameValidationError,
   VariableError,
   type IVariableManager, 
   type VariableStorage, 
@@ -88,8 +90,27 @@ export class VariableManager implements IVariableManager {
   // 变量CRUD操作
   setVariable(name: string, value: string): void {
     if (!this.validateVariableName(name)) {
+      const reason = getVariableNameValidationError(name)
+      const reasonText = (() => {
+        switch (reason) {
+          case 'required':
+            return 'Name is required.'
+          case 'tooLong':
+            return `Name must be at most ${VARIABLE_VALIDATION.MAX_NAME_LENGTH} characters.`
+          case 'forbiddenPrefix':
+            return 'Name cannot start with # / ^ ! > &.'
+          case 'noNumberStart':
+            return 'Name cannot start with a number.'
+          case 'reservedName':
+            return 'Name is reserved.'
+          case 'invalidCharacters':
+            return 'Name cannot contain whitespace or braces ({}).' 
+          default:
+            return 'Name is invalid.'
+        }
+      })()
       throw new VariableError(
-        `Invalid variable name: ${name}. Cannot be empty or contain spaces or braces ({}).`,
+        `Invalid variable name: ${name}. ${reasonText}`,
         name,
         undefined,
         'INVALID_VARIABLE_NAME'
@@ -168,9 +189,7 @@ export class VariableManager implements IVariableManager {
 
   // 验证方法
   validateVariableName(name: string): boolean {
-    if (!name || name.length === 0) return false;
-    if (name.length > VARIABLE_VALIDATION.MAX_NAME_LENGTH) return false;
-    return VARIABLE_VALIDATION.NAME_PATTERN.test(name);
+    return isValidVariableName(name)
   }
 
   scanVariablesInContent(content: string): string[] {
@@ -188,7 +207,10 @@ export class VariableManager implements IVariableManager {
       if (match[1]) {
         const variableName = match[1].trim();
         // Skip Mustache control tags (#, /, ^, !, >, &) to avoid false missing-variable reports.
-        if (/^[#/^!>&]/u.test(variableName)) {
+        if (VARIABLE_VALIDATION.FORBIDDEN_PREFIX_PATTERN.test(variableName)) {
+          continue;
+        }
+        if (!isValidVariableName(variableName)) {
           continue;
         }
         if (variableName && !variables.includes(variableName)) {
@@ -261,6 +283,11 @@ export class VariableManager implements IVariableManager {
     
     return content.replace(VARIABLE_VALIDATION.VARIABLE_SCAN_PATTERN, (match, variableName) => {
       const trimmedName = variableName.trim();
+
+      // Keep Mustache control tags and invalid names as-is.
+      if (VARIABLE_VALIDATION.FORBIDDEN_PREFIX_PATTERN.test(trimmedName)) return match;
+      if (!isValidVariableName(trimmedName)) return match;
+
       const value = finalVariables[trimmedName];
       
       // 如果变量不存在，保留原始占位符（不要静默失败）
@@ -283,6 +310,17 @@ export class VariableManager implements IVariableManager {
       this.customVariables = storage.customVariables || {};
       this.advancedModeEnabled = storage.advancedModeEnabled || false;
       this.lastConversationMessages = storage.lastConversationMessages || [];
+
+      // Sanitize persisted customVariables to avoid prototype pollution and invalid keys.
+      const sanitized: Record<string, string> = {};
+      if (storage.customVariables && typeof storage.customVariables === 'object') {
+        for (const [name, value] of Object.entries(storage.customVariables)) {
+          if (typeof value === 'string' && this.validateVariableName(name)) {
+            sanitized[name] = value;
+          }
+        }
+      }
+      this.customVariables = sanitized;
 
       // 触发回调通知外部数据已加载
       if (this._onDataLoaded) {

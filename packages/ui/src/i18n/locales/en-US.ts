@@ -2105,7 +2105,7 @@ export default {
     dialogTitle: "Extract as Variable",
     variableName: "Variable Name",
     variableNamePlaceholder:
-      "Enter variable name (letters, numbers, underscore)",
+      "Enter variable name (no spaces/braces; cannot start with number)",
     variableValue: "Variable Value",
     variableValuePlaceholder: "Selected text content",
     variableType: "Variable Type",
@@ -2127,9 +2127,12 @@ export default {
     readonlyWarning: "Cannot extract variables in readonly mode",
     validation: {
       required: "Variable name cannot be empty",
+      tooLong: "Variable name is too long (max {max} characters)",
+      forbiddenPrefix: "Variable name cannot start with # / ^ ! > &",
       noNumberStart: "Variable name cannot start with a number",
       invalidCharacters:
         "Variable name cannot contain whitespace or braces ({})",
+      reservedName: "Variable name is reserved and cannot be used",
       predefinedVariable: "Cannot use predefined variable name",
       duplicateVariable:
         "Variable name already exists, will reference existing variable",
@@ -2210,7 +2213,8 @@ export default {
       noPromptContent: "Please enter prompt content first",
       noEvaluationModel: "Please select an evaluation model first",
       serviceNotReady: "Variable extraction service not ready",
-      invalidVariableNames: "The following variable names are invalid (only letters, numbers, underscores, and Chinese characters allowed): {names}",
+      invalidVariableNames:
+        "Invalid variable names (cannot start with number or # / ^ ! > &; no whitespace/braces; max {max} chars): {names}",
     },
 
     // Diagnosis related translations

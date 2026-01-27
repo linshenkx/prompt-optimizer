@@ -4,6 +4,7 @@
 
 import type { DataImportExport, StandardPromptData, ConversionResult, ConversationMessage, OpenAIRequest } from '../types'
 import { PromptDataConverter } from './PromptDataConverter'
+import { scanVariableNames } from '../utils/prompt-variables'
 
 export class DataImportExportManager implements DataImportExport {
   private converter = new PromptDataConverter()
@@ -255,14 +256,12 @@ export class DataImportExportManager implements DataImportExport {
   } {
     // 提取变量
     const variables: Record<string, string> = {}
-    const variablePattern = /\{\{\s*([^}]+)\s*\}\}/g
     
     // 扫描所有消息中的变量
     data.messages.forEach(message => {
-      let match: RegExpExecArray | null
-      while ((match = variablePattern.exec(message.content)) !== null) {
-        const variableName = match[1].trim()
-        if (!variables[variableName]) {
+      const found = scanVariableNames(message.content)
+      for (const variableName of found) {
+        if (!Object.prototype.hasOwnProperty.call(variables, variableName)) {
           variables[variableName] = `[${variableName}_placeholder]`
         }
       }

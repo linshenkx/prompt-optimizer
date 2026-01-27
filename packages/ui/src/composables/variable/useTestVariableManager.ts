@@ -8,7 +8,7 @@ import { ref, computed, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage } from 'naive-ui'
 
-import { VARIABLE_VALIDATION } from '../../types/variable'
+import { VARIABLE_VALIDATION, getVariableNameValidationError } from '../../types/variable'
 
 interface TestVariable {
   value: string
@@ -127,9 +127,22 @@ export function useTestVariableManager(options: TestVariableManagerOptions) {
     const trimmedName = name.trim()
     if (!trimmedName) return ''
 
-    // Align with shared variable rules used by scanning/replacement.
-    if (!VARIABLE_VALIDATION.NAME_PATTERN.test(trimmedName)) {
-      return t('variableExtraction.validation.invalidCharacters')
+    const baseError = getVariableNameValidationError(trimmedName)
+    if (baseError) {
+      switch (baseError) {
+        case 'required':
+          return t('variableExtraction.validation.required')
+        case 'tooLong':
+          return t('variableExtraction.validation.tooLong', { max: VARIABLE_VALIDATION.MAX_NAME_LENGTH })
+        case 'forbiddenPrefix':
+          return t('variableExtraction.validation.forbiddenPrefix')
+        case 'noNumberStart':
+          return t('variableExtraction.validation.noNumberStart')
+        case 'reservedName':
+          return t('variableExtraction.validation.reservedName')
+        case 'invalidCharacters':
+          return t('variableExtraction.validation.invalidCharacters')
+      }
     }
 
     // Prevent creating a temporary variable that would be shadowed by predefined variables.

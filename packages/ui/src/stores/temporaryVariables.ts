@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, type Ref } from 'vue'
 
+import { isValidVariableName, sanitizeVariableRecord } from '../types/variable'
+
 export type TemporaryVariablesMap = Record<string, string>
 
 export interface TemporaryVariablesStoreApi {
@@ -24,6 +26,10 @@ export const useTemporaryVariablesStore = defineStore(
     const temporaryVariables = ref<TemporaryVariablesMap>({})
 
     const setVariable = (name: string, value: string): void => {
+      if (!isValidVariableName(name)) {
+        console.warn('[temporaryVariables] Ignoring invalid variable name:', name)
+        return
+      }
       temporaryVariables.value[name] = value
     }
 
@@ -50,7 +56,7 @@ export const useTemporaryVariablesStore = defineStore(
     const batchSet = (variables: TemporaryVariablesMap): void => {
       temporaryVariables.value = {
         ...temporaryVariables.value,
-        ...variables,
+        ...sanitizeVariableRecord(variables),
       }
     }
 

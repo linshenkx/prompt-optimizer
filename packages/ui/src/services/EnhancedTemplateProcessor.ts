@@ -15,6 +15,8 @@ import type {
   VariableUsageStats
 } from '../types/template'
 
+import { VARIABLE_VALIDATION, isValidVariableName, sanitizeVariableRecord } from '../types/variable'
+
 export class EnhancedTemplateProcessor implements TemplateProcessor {
   /**
    * 将StandardPromptData转换为模板+变量形式
@@ -29,7 +31,8 @@ export class EnhancedTemplateProcessor implements TemplateProcessor {
 
     // 从现有metadata中获取变量
     if (data.metadata?.variables) {
-      Object.assign(variables, data.metadata.variables)
+      // Avoid prototype pollution via Object.assign and ignore invalid keys.
+      Object.assign(variables, sanitizeVariableRecord(data.metadata.variables))
     }
 
     // 扫描消息中的所有变量
@@ -46,7 +49,8 @@ export class EnhancedTemplateProcessor implements TemplateProcessor {
 
     // 为所有发现的变量创建定义
     allVariables.forEach(varName => {
-      if (!variables[varName]) {
+      // Preserve explicit empty-string values; only fill when the key is missing.
+      if (!Object.prototype.hasOwnProperty.call(variables, varName)) {
         variables[varName] = `[${varName}_placeholder]`
       }
 
@@ -178,13 +182,21 @@ export class EnhancedTemplateProcessor implements TemplateProcessor {
       positions: Array<{start: number, end: number}>
     }>()
 
-    // 匹配标准变量格式：允许两侧空格，但变量名内部不允许空白
-    const standardPattern = /\{\{\s*([^{}\s]+)\s*\}\}/g
+    // Avoid sharing global RegExp state across calls.
+    const standardPattern = new RegExp(
+      VARIABLE_VALIDATION.VARIABLE_SCAN_PATTERN.source,
+      VARIABLE_VALIDATION.VARIABLE_SCAN_PATTERN.flags,
+    )
     let match: RegExpExecArray | null
 
     while ((match = standardPattern.exec(content)) !== null) {
       const fullMatch = match[0]
       const variableName = match[1].trim()
+
+      // Skip invalid names (Mustache control tags, reserved keys, etc.).
+      if (!isValidVariableName(variableName)) {
+        continue
+      }
       const start = match.index
       const end = match.index + fullMatch.length
 

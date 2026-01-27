@@ -9,6 +9,7 @@ import { useToast } from '../ui/useToast'
 import { useI18n } from 'vue-i18n'
 import { getI18nErrorMessage } from '../../utils/error'
 import type { AppServices } from '../../types/services'
+import { VARIABLE_VALIDATION, isValidVariableName } from '../../types/variable'
 import type {
   VariableExtractionResponse,
   ExtractedVariable,
@@ -160,25 +161,6 @@ export function useVariableExtraction(
   }
 
   /**
-   * 验证变量名是否合法
-   * 只允许：字母、数字、下划线、中文字符
-   * 不允许：空格、特殊符号、以 # 开头等
-   */
-  const isValidVariableName = (name: string): boolean => {
-    // 空值检查
-    if (!name || name.trim() === '') {
-      return false
-    }
-    // 与手动“提取为变量”命名规则保持一致：
-    // - 只能包含中文、英文、数字、下划线
-    // - 不能以数字开头
-    // - 不允许空格/特殊符号（如 Mustache 控制标签 {{#...}}）
-    // 中文范围使用更完整的 CJK Unified Ideographs：\u4E00-\u9FFF
-    const validPattern = /^[\u4e00-\u9fffA-Za-z_][\u4e00-\u9fffA-Za-z0-9_]*$/u
-    return validPattern.test(name)
-  }
-
-  /**
    * 批量创建变量
    */
   const confirmBatchCreate = (selectedVariables: ExtractedVariable[]): void => {
@@ -199,6 +181,7 @@ export function useVariableExtraction(
       toast.warning(
         t('evaluation.variableExtraction.invalidVariableNames', {
           names: invalidVariables.join(', '),
+          max: VARIABLE_VALIDATION.MAX_NAME_LENGTH,
         })
       )
     }
