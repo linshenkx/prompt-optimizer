@@ -206,7 +206,7 @@
                         mode="variables-only"
                         :prompt="contextUserOptimization.prompt"
                         :optimized-prompt="contextUserOptimization.optimizedPrompt"
-                        :evaluation-model-key="props.evaluationModelKey"
+                        :evaluation-model-key="effectiveEvaluationModelKey"
                         :services="servicesRef"
                         :global-variables="globalVariables"
                         :predefined-variables="predefinedVariables"
@@ -733,6 +733,12 @@ const templateSelection = useWorkspaceTemplateSelection(
     'contextUserOptimize',
     'contextIterate'
 )
+
+// Variable value generation uses ContextUserTestPanel and requires a model key.
+// If the app-level evaluation model key isn't configured, fall back to the selected optimize model.
+const effectiveEvaluationModelKey = computed(() => {
+    return props.evaluationModelKey || modelSelection.selectedOptimizeModelKey.value || ''
+})
 
 const patchSessionOptimizedResult = (
     partial: Partial<{
@@ -1308,11 +1314,7 @@ const evaluationHandler = useEvaluationHandler({
     optimizedPrompt: computed(() => resolvedOptimizedTestPrompt.value.text),
     testContent: computed(() => ''), // 变量模式不需要单独的测试内容，通过变量系统管理
     testResults: testResultsData,
-    evaluationModelKey: computed(() => {
-        const key =
-            props.evaluationModelKey || modelSelection.selectedOptimizeModelKey.value;
-        return key || "";
-    }),
+    evaluationModelKey: effectiveEvaluationModelKey,
     functionMode: computed(() => 'pro'),
     subMode: computed(() => 'variable'),
     proContext,

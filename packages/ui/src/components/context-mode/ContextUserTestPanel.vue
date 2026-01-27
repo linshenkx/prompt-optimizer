@@ -103,6 +103,7 @@ import { usePerformanceMonitor } from "../../composables/performance/usePerforma
 import { useDebounceThrottle } from "../../composables/performance/useDebounceThrottle";
 import { useTestVariableManager } from "../../composables/variable/useTestVariableManager";
 import { useVariableValueGeneration } from "../../composables/variable/useVariableValueGeneration";
+import { useFunctionModelManager } from "../../composables/model/useFunctionModelManager";
 import { useToast } from "../../composables/ui/useToast";
 import TestControlBar from "../TestControlBar.vue";
 import TestResultSection from "../TestResultSection.vue";
@@ -216,6 +217,8 @@ const props = withDefaults(defineProps<Props>(), {
     originalScoreLevel: null,
     optimizedScoreLevel: null,
 });
+
+const functionModelManager = useFunctionModelManager(toRef(props, 'services'))
 
 const emit = defineEmits<{
     "update:isCompareMode": [value: boolean];
@@ -353,10 +356,23 @@ const handleGenerateValues = async () => {
         return;
     }
 
-    // 🔧 使用评估模型进行生成（与变量提取功能保持一致）
-    const generationModelKey = props.evaluationModelKey || '';
+    // 🔧 使用评估模型进行生成（与评估/变量提取保持一致）：
+    // 1) 用户在「功能模型」里显式配置过的评估模型
+    // 2) 调用方传入的 evaluationModelKey（如果有）
+    // 3) 功能模型的有效评估模型（默认跟随全局优化模型）
+    await functionModelManager.initialize()
+    const generationModelKey =
+        functionModelManager.evaluationModel.value ||
+        props.evaluationModelKey ||
+        functionModelManager.effectiveEvaluationModel.value ||
+        ''
 
-    await generateValues(promptContent, missingVariables, generationModelKey);
+    if (!generationModelKey) {
+        toast.warning(t('evaluation.variableExtraction.noEvaluationModel'))
+        return
+    }
+
+    await generateValues(promptContent, missingVariables, generationModelKey)
 };
 
 // 开发环境下的性能调试
