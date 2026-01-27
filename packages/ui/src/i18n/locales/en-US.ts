@@ -1080,6 +1080,8 @@ export default {
       noTestContent: "Please enter test content",
       noOriginalPrompt: "Please enter the original prompt first",
       noOptimizedPrompt: "Please generate the optimized prompt first",
+      missingVariables: "Missing or empty variables: {vars}",
+      forbiddenTemplateSyntax: "Unescaped Mustache syntax (e.g. triple braces or ampersand tags) is not supported. Please use normal variable placeholders.",
       originalTestFailed: "Original prompt test failed",
       optimizedTestFailed: "Optimized prompt test failed",
       saveToGlobalFailed: "Failed to save variable {name} to global",
@@ -1912,6 +1914,7 @@ export default {
       generateFailed: "Image generation failed",
       missingRequiredFields: "Please select an image model and enter a valid prompt",
       missingVariables: "Missing or empty variables: {vars}",
+      forbiddenTemplateSyntax: "Unescaped Mustache syntax (e.g. triple braces or ampersand tags) is not supported. Please use normal variable placeholders.",
       inputImageRequired: "Please upload an input image (required for image-to-image)",
       generationCompleted: "Image generation completed",
     },
@@ -2126,7 +2129,7 @@ export default {
       required: "Variable name cannot be empty",
       noNumberStart: "Variable name cannot start with a number",
       invalidCharacters:
-        "Variable name can only contain letters, numbers, underscore",
+        "Variable name cannot contain whitespace or braces ({})",
       predefinedVariable: "Cannot use predefined variable name",
       duplicateVariable:
         "Variable name already exists, will reference existing variable",

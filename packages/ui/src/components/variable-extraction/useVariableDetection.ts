@@ -41,7 +41,7 @@ export function useVariableDetection(
    * @returns 检测到的变量列表
    */
   const extractVariables = (text: string): DetectedVariable[] => {
-    const regex = /\{\{([^{}\s]+)\}\}/gu;
+    const regex = /\{\{\s*([^{}\s]+)\s*\}\}/gu;
     const variables: DetectedVariable[] = [];
     let match;
 

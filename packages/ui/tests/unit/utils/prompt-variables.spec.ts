@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  buildPromptExecutionContext,
   findMissingVariables,
   replaceVariablesInContent,
   scanVariableNames,
@@ -28,6 +29,17 @@ describe('prompt-variables', () => {
     const vars = { if: 'SHOULD_NOT_APPLY' }
     expect(replaceVariablesInContent('{{#if}} ok {{/if}}', vars)).toBe(
       '{{#if}} ok {{/if}}',
+    )
+  })
+
+  it('buildPromptExecutionContext flags unescaped Mustache tags as forbidden', () => {
+    const ctx = buildPromptExecutionContext('A {{&foo}} B {{{bar}}}', {
+      foo: 'X',
+      bar: 'Y',
+    })
+
+    expect(ctx.forbiddenTemplateSyntax).toEqual(
+      expect.arrayContaining(['ampersand_unescaped', 'triple_braces']),
     )
   })
 

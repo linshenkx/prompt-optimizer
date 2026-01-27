@@ -178,8 +178,8 @@ export class EnhancedTemplateProcessor implements TemplateProcessor {
       positions: Array<{start: number, end: number}>
     }>()
 
-    // 匹配标准变量格式 {{variableName}}
-    const standardPattern = /\{\{\s*([^}]+)\s*\}\}/g
+    // 匹配标准变量格式：允许两侧空格，但变量名内部不允许空白
+    const standardPattern = /\{\{\s*([^{}\s]+)\s*\}\}/g
     let match: RegExpExecArray | null
 
     while ((match = standardPattern.exec(content)) !== null) {

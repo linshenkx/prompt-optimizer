@@ -1,6 +1,12 @@
 import { computed, type Ref } from 'vue'
 
-import type { ContextMode } from "@prompt-optimizer/core";
+import { PREDEFINED_VARIABLES, type ContextMode } from "@prompt-optimizer/core";
+
+import {
+  findMissingVariables,
+  replaceVariablesInContent,
+  scanVariableNames,
+} from "../../utils/prompt-variables";
 
 /**
  * 提示词预览 Composable
@@ -28,47 +34,15 @@ export function usePromptPreview(
       };
     }
 
-    // 使用简单的正则提取变量（与 ContextPromptRenderer 一致）
-    const regex = /\{\{([^{}]+)\}\}/g;
-    const allVars = new Set<string>();
+    const names = scanVariableNames(content.value);
+    const allVars = new Set<string>(names);
     const builtinVars = new Set<string>();
     const customVars = new Set<string>();
 
-    // 预定义变量列表（从 core 包导入）
-    const PREDEFINED_VARIABLES = [
-      "originalPrompt",
-      "lastOptimizedPrompt",
-      "iterateInput",
-      "currentPrompt",
-      "userQuestion",
-      "conversationContext",
-      "toolsContext",
-    ];
-    const predefinedSet = new Set(PREDEFINED_VARIABLES);
-
-    let match;
-    while ((match = regex.exec(content.value)) !== null) {
-      const varName = match[1].trim();
-
-      // 跳过 Mustache 特殊标签
-      if (
-        varName.startsWith("#") ||
-        varName.startsWith("/") ||
-        varName.startsWith("^") ||
-        varName.startsWith("!") ||
-        varName.startsWith(">") ||
-        varName.startsWith("&")
-      ) {
-        continue;
-      }
-
-      allVars.add(varName);
-
-      if (predefinedSet.has(varName)) {
-        builtinVars.add(varName);
-      } else {
-        customVars.add(varName);
-      }
+    const predefinedSet = new Set<string>(PREDEFINED_VARIABLES);
+    for (const name of names) {
+      if (predefinedSet.has(name)) builtinVars.add(name);
+      else customVars.add(name);
     }
 
     return { builtinVars, customVars, allVars };
@@ -78,20 +52,7 @@ export function usePromptPreview(
    * 缺失的变量
    */
   const missingVariables = computed(() => {
-    const missing: string[] = [];
-    const vars = variables.value || {};
-
-    for (const varName of parsedVariables.value.allVars) {
-      if (
-        !(varName in vars) ||
-        vars[varName] === undefined ||
-        vars[varName] === ""
-      ) {
-        missing.push(varName);
-      }
-    }
-
-    return missing;
+    return findMissingVariables(content.value || "", variables.value || {});
   });
 
   /**
@@ -111,34 +72,17 @@ export function usePromptPreview(
     try {
       const vars = variables.value || {};
 
-      // 统一的变量替换逻辑
-      // 替换所有提供的变量，未提供的保留占位符
-      const result = content.value.replace(
-        /\{\{([^{}]+)\}\}/g,
-        (match, varName) => {
-          const trimmedName = varName.trim();
+      // Preview behavior: keep placeholders when value is missing/empty.
+      // This makes missing variables obvious even though execution blocks them.
+      const filledVars: Record<string, string> = {};
+      for (const [key, value] of Object.entries(vars)) {
+        if (value === undefined) continue;
+        const str = String(value);
+        if (str.trim() === '') continue;
+        filledVars[key] = str;
+      }
 
-          // 跳过 Mustache 特殊标签
-          if (
-            trimmedName.startsWith("#") ||
-            trimmedName.startsWith("/") ||
-            trimmedName.startsWith("^") ||
-            trimmedName.startsWith("!") ||
-            trimmedName.startsWith(">") ||
-            trimmedName.startsWith("&")
-          ) {
-            return match;
-          }
-
-          // 如果变量存在且非空，替换；否则保留占位符
-          if (vars[trimmedName] !== undefined && vars[trimmedName] !== "") {
-            return vars[trimmedName];
-          }
-          return match;
-        },
-      );
-
-      return result;
+      return replaceVariablesInContent(content.value, filledVars);
     } catch (error) {
       console.error("[usePromptPreview] Preview rendering failed:", error);
       return content.value;

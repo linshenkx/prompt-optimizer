@@ -112,5 +112,8 @@ export const VARIABLE_VALIDATION = {
   NAME_PATTERN: /^[^\s{}]+$/,
   MAX_NAME_LENGTH: 50,
   MAX_VALUE_LENGTH: 10000,
-  VARIABLE_SCAN_PATTERN: /\{\{([^}]+)\}\}/g
+  // Allow whitespace around variable name, but not inside it.
+  // - valid: {{foo}}, {{ foo }}
+  // - invalid: {{ foo bar }}
+  VARIABLE_SCAN_PATTERN: /\{\{\s*([^{}\s]+)\s*\}\}/g
 } as const;

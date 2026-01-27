@@ -187,6 +187,10 @@ export class VariableManager implements IVariableManager {
     for (const match of matches) {
       if (match[1]) {
         const variableName = match[1].trim();
+        // Skip Mustache control tags (#, /, ^, !, >, &) to avoid false missing-variable reports.
+        if (/^[#/^!>&]/u.test(variableName)) {
+          continue;
+        }
         if (variableName && !variables.includes(variableName)) {
           variables.push(variableName);
         }
@@ -247,7 +251,7 @@ export class VariableManager implements IVariableManager {
 
     // 返回缺失的变量
     return Array.from(usedVariables).filter(varName => 
-      variables[varName] === undefined
+      variables[varName] === undefined || String(variables[varName]).trim() === ''
     );
   }
 

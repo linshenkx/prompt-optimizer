@@ -83,6 +83,25 @@ describe('useVariableDetection', () => {
       expect(variables[0].from).toBe(0)
       expect(variables[1].from).toBe(12)
     })
+
+    it('应该支持 {{ foo }} 这种带空格的占位符', () => {
+      const globalVariables = refRecord()
+      const temporaryVariables = refRecord()
+      const predefinedVariables = refRecord()
+
+      const { extractVariables } = useVariableDetection(
+        globalVariables,
+        temporaryVariables,
+        predefinedVariables
+      )
+
+      const text = 'Hello {{ name }}'
+      const variables = extractVariables(text)
+
+      expect(variables).toHaveLength(1)
+      expect(variables[0].name).toBe('name')
+      expect(text.substring(variables[0].from, variables[0].to)).toBe('{{ name }}')
+    })
   })
 
   describe('变量分类逻辑', () => {
