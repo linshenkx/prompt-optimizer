@@ -102,19 +102,16 @@ import { useResponsive } from '../../composables/ui/useResponsive';
 import { usePerformanceMonitor } from "../../composables/performance/usePerformanceMonitor";
 import { useDebounceThrottle } from "../../composables/performance/useDebounceThrottle";
 import { useTestVariableManager } from "../../composables/variable/useTestVariableManager";
-import { useVariableValueGeneration } from "../../composables/variable/useVariableValueGeneration";
-import { useFunctionModelManager } from "../../composables/model/useFunctionModelManager";
-import { useToast } from "../../composables/ui/useToast";
+import { useSmartVariableValueGeneration } from "../../composables/variable/useSmartVariableValueGeneration";
 import TestControlBar from "../TestControlBar.vue";
 import TestResultSection from "../TestResultSection.vue";
 import TemporaryVariablesPanel from "../variable/TemporaryVariablesPanel.vue";
 import VariableValuePreviewDialog from "../variable/VariableValuePreviewDialog.vue";
-import type { EvaluationResponse, EvaluationType, VariableToGenerate } from '@prompt-optimizer/core';
+import type { EvaluationResponse, EvaluationType } from '@prompt-optimizer/core';
 import type { ScoreLevel } from '../../composables/prompt/useEvaluation';
 import type { AppServices } from '../../types/services';
 
 const { t } = useI18n();
-const toast = useToast();
 
 // 性能监控
 const { recordUpdate, getPerformanceReport } = usePerformanceMonitor("ContextUserTestPanel");
@@ -218,8 +215,6 @@ const props = withDefaults(defineProps<Props>(), {
     optimizedScoreLevel: null,
 });
 
-const functionModelManager = useFunctionModelManager(toRef(props, 'services'))
-
 const emit = defineEmits<{
     "update:isCompareMode": [value: boolean];
     test: [testVariables: Record<string, string>];
@@ -319,61 +314,19 @@ const {
     isGenerating,
     generationResult,
     showPreviewDialog,
-    generateValues,
+    handleGenerateValues,
     confirmBatchApply,
-} = useVariableValueGeneration(
-    toRef(props, 'services'),
-    (name: string, value: string) => {
-        handleVariableValueChange(name, value);
-    }
-);
-
-/**
- * 处理智能填充变量值
- */
-const handleGenerateValues = async () => {
-    // 优先使用优化后的提示词，如果没有则使用原始提示词
-    const promptContent = props.optimizedPrompt || props.prompt;
-
-    if (!promptContent) {
-        toast.warning(t('test.variableValueGeneration.noPrompt'));
-        return;
-    }
-
-    // 筛选出缺失变量（值为空的变量）
-    const missingVariables: VariableToGenerate[] = displayVariables.value
-        .filter(name => {
-            const value = getVariableDisplayValue(name);
-            return !value || value.trim() === '';
-        })
-        .map(name => ({
-            name,
-            source: getVariableSource(name),
-        }));
-
-    if (missingVariables.length === 0) {
-        toast.info(t('test.variableValueGeneration.noMissingVariables'));
-        return;
-    }
-
-    // 🔧 使用评估模型进行生成（与评估/变量提取保持一致）：
-    // 1) 用户在「功能模型」里显式配置过的评估模型
-    // 2) 调用方传入的 evaluationModelKey（如果有）
-    // 3) 功能模型的有效评估模型（默认跟随全局优化模型）
-    await functionModelManager.initialize()
-    const generationModelKey =
-        functionModelManager.evaluationModel.value ||
-        props.evaluationModelKey ||
-        functionModelManager.effectiveEvaluationModel.value ||
-        ''
-
-    if (!generationModelKey) {
-        toast.warning(t('evaluation.variableExtraction.noEvaluationModel'))
-        return
-    }
-
-    await generateValues(promptContent, missingVariables, generationModelKey)
-};
+} = useSmartVariableValueGeneration({
+    services: toRef(props, 'services'),
+    promptContent: computed(() => props.optimizedPrompt || props.prompt),
+    variableNames: displayVariables,
+    getVariableValue: (name: string) => getVariableDisplayValue(name),
+    getVariableSource: (name: string) => getVariableSource(name),
+    applyValue: (name: string, value: string) => {
+        handleVariableValueChange(name, value)
+    },
+    evaluationModelKey: computed(() => props.evaluationModelKey || ''),
+})
 
 // 开发环境下的性能调试
 if (import.meta.env.DEV) {

@@ -346,6 +346,9 @@
                         :manager="temporaryVariablePanelManager"
                         :disabled="isOptimizing"
                         :show-open-global-variables="false"
+                        :show-generate-values="true"
+                        :is-generating="isGenerating"
+                        @generate-values="handleGenerateValues"
                     />
                     <!-- 顶部：列数与全局操作 -->
                     <NCard size="small" :style="{ flexShrink: 0 }">
@@ -571,6 +574,12 @@
             />
         </FullscreenDialog>
 
+        <VariableValuePreviewDialog
+            v-model:show="showPreviewDialog"
+            :result="generationResult"
+            @confirm="confirmBatchApply"
+        />
+
         <EvaluationPanel
             v-model:show="evaluation.isPanelVisible.value"
             :is-evaluating="panelProps.isEvaluating"
@@ -625,9 +634,11 @@ import { useToast } from "../../composables/ui/useToast";
 import { getI18nErrorMessage } from '../../utils/error'
 import { VariableAwareInput } from '../variable-extraction'
 import TemporaryVariablesPanel from '../variable/TemporaryVariablesPanel.vue'
+import VariableValuePreviewDialog from '../variable/VariableValuePreviewDialog.vue'
 import { useTemporaryVariables } from '../../composables/variable/useTemporaryVariables'
 import { useVariableAwareInputBridge } from '../../composables/variable/useVariableAwareInputBridge'
 import { useTestVariableManager } from '../../composables/variable/useTestVariableManager'
+import { useSmartVariableValueGeneration } from '../../composables/variable/useSmartVariableValueGeneration'
 import type { VariableManagerHooks } from '../../composables/prompt/useVariableManager'
 import {
     buildPromptExecutionContext,
@@ -711,6 +722,23 @@ const temporaryVariablePanelManager = useTestVariableManager({
             throw new Error('variable manager not ready')
         }
         variableManager.addVariable(name, value)
+    },
+})
+
+const {
+    isGenerating,
+    generationResult,
+    showPreviewDialog,
+    handleGenerateValues,
+    confirmBatchApply,
+} = useSmartVariableValueGeneration({
+    services,
+    promptContent: computed(() => optimizedPrompt.value || originalPrompt.value),
+    variableNames: computed(() => temporaryVariablePanelManager.sortedVariables.value),
+    getVariableValue: (name: string) => temporaryVariablePanelManager.getVariableDisplayValue(name),
+    getVariableSource: (name: string) => temporaryVariablePanelManager.getVariableSource(name),
+    applyValue: (name: string, value: string) => {
+        temporaryVariablePanelManager.handleVariableValueChange(name, value)
     },
 })
 
