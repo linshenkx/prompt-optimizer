@@ -102,6 +102,22 @@
                     :style="{ flex: 1, minWidth: 0 }"
                     @update:value="handleVariableValueChange(varName, $event)"
                 />
+
+                <!-- 单变量智能填充（允许覆盖已有值；仅 Pro/Image 的变量区启用） -->
+                <NButton
+                    v-if="props.showGenerateValues && getVariableSource(varName) === 'test'"
+                    size="small"
+                    quaternary
+                    :disabled="props.disabled || props.isGenerating"
+                    @click="emit('generate-values', varName)"
+                    :title="t('test.variableValueGeneration.generateButton')"
+                    :aria-label="t('test.variableValueGeneration.generateButton')"
+                >
+                    <NIcon size="16">
+                        <Wand />
+                    </NIcon>
+                </NButton>
+
                 <!-- 删除按钮 (仅临时变量显示) -->
                 <NButton
                     v-if="getVariableSource(varName) === 'test'"
@@ -204,7 +220,7 @@ import {
     NIcon,
 } from 'naive-ui'
 
-import { DeviceFloppy, Trash } from '@vicons/tabler'
+import { DeviceFloppy, Trash, Wand } from '@vicons/tabler'
 
 import type { TestVariableManager } from '../../composables/variable/useTestVariableManager'
 
@@ -224,7 +240,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-    (e: 'generate-values'): void
+    (e: 'generate-values', variableName?: string): void
 }>()
 
 const { t } = useI18n()

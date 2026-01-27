@@ -35,7 +35,7 @@ export interface UseSmartVariableValueGenerationReturn {
   isGenerating: Ref<boolean>
   generationResult: Ref<VariableValueGenerationResponse | null>
   showPreviewDialog: Ref<boolean>
-  handleGenerateValues: () => Promise<void>
+  handleGenerateValues: (targetName?: string) => Promise<void>
   confirmBatchApply: (selectedValues: GeneratedVariableValue[]) => void
 }
 
@@ -55,24 +55,39 @@ export function useSmartVariableValueGeneration(
     confirmBatchApply,
   } = useVariableValueGeneration(options.services, options.applyValue)
 
-  const handleGenerateValues = async () => {
+  const handleGenerateValues = async (targetName?: string) => {
     const promptContent = options.promptContent.value || ''
     if (!promptContent) {
       toast.warning(t('test.variableValueGeneration.noPrompt'))
       return
     }
 
-    const missingVariables: VariableToGenerate[] = options.variableNames.value
-      .filter((name) => {
-        const value = options.getVariableValue(name)
-        return !value || value.trim() === ''
-      })
-      .map((name) => ({
+    const buildVariableToGenerate = (name: string): VariableToGenerate => {
+      const currentValueRaw = options.getVariableValue(name)
+      const currentValue = typeof currentValueRaw === 'string' ? currentValueRaw : String(currentValueRaw ?? '')
+      const trimmedCurrentValue = currentValue.trim()
+      return {
         name,
         source: options.getVariableSource(name),
-      }))
+        // For single-variable inference, passing currentValue helps the model refine/override.
+        ...(trimmedCurrentValue ? { currentValue: trimmedCurrentValue } : {}),
+      }
+    }
 
-    if (missingVariables.length === 0) {
+    const trimmedTargetName = (targetName || '').trim()
+
+    // Batch mode (no target): only generate missing (empty/whitespace) variables.
+    // Single mode (target provided): allow inferring a single variable even if it already has a value.
+    const variablesToGenerate: VariableToGenerate[] = trimmedTargetName
+      ? [buildVariableToGenerate(trimmedTargetName)]
+      : options.variableNames.value
+          .filter((name) => {
+            const value = options.getVariableValue(name)
+            return !value || value.trim() === ''
+          })
+          .map((name) => buildVariableToGenerate(name))
+
+    if (!trimmedTargetName && variablesToGenerate.length === 0) {
       toast.info(t('test.variableValueGeneration.noMissingVariables'))
       return
     }
@@ -98,7 +113,7 @@ export function useSmartVariableValueGeneration(
       return
     }
 
-    await generateValues(promptContent, missingVariables, generationModelKey)
+    await generateValues(promptContent, variablesToGenerate, generationModelKey)
   }
 
   return {
