@@ -1,19 +1,6 @@
 <template>
   <NFlex align="center" :wrap="false" :size="12">
     <!-- 快捷操作按钮 -->
-    <!-- 全局变量 -->
-    <NButton
-      size="small"
-      type="default"
-      @click="$emit('open-global-variables')"
-      :title="$t('contextMode.actions.globalVariables')"
-    >
-      <template #icon>
-        <span>📊</span>
-      </template>
-      {{ $t('contextMode.actions.globalVariables') }}
-    </NButton>
-
     <!-- 工具管理 -->
     <NButton
       size="small"
@@ -33,7 +20,6 @@
 import { NButton, NFlex } from 'naive-ui'
 
 const emit = defineEmits<{
-  'open-global-variables': []
   'open-tool-manager': []
 }>()
 </script>
