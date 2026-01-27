@@ -2,7 +2,6 @@
     <NFlex vertical :style="{ height: mode === 'full' ? '100%' : 'auto', gap: '12px' }">
         <TemporaryVariablesPanel
             :manager="variableManager"
-            @open-global-variables="emit('open-global-variables')"
         />
 
         <template v-if="mode === 'full'">
@@ -255,7 +254,6 @@ const emit = defineEmits<{
     "update:isCompareMode": [value: boolean];
     "compare-toggle": [];
     "open-variable-manager": [];
-    "open-global-variables": [];
     "variable-change": [name: string, value: string];
     "save-to-global": [name: string, value: string];
     "tool-call": [toolCall: ToolCallResult];

@@ -211,7 +211,6 @@
                         :global-variables="globalVariables"
                         :predefined-variables="predefinedVariables"
                         :temporary-variables="temporaryVariables"
-                        @open-global-variables="emit('open-global-variables')"
                         @variable-change="handleTestVariableChange"
                         @save-to-global="(name: string, value: string) => emit('save-to-global', name, value)"
                         @temporary-variable-remove="handleTestVariableRemove"
@@ -579,8 +578,6 @@ const emit = defineEmits<{
     "save-favorite": [data: SaveFavoritePayload];
 
     // --- 打开面板/管理器 ---
-    /** 打开全局变量管理器 */
-    "open-global-variables": [];
     /** 打开变量管理器 */
     "open-variable-manager": [];
     /** 打开模板管理器 */

@@ -166,7 +166,6 @@
                         :temporary-variables="tempVars.temporaryVariables.value"
                         :input-mode="inputMode"
                         :button-size="buttonSize"
-                        @open-global-variables="emit('open-global-variables')"
                         @variable-change="handleVariableChange"
                         @save-to-global="(name: string, value: string) => emit('save-to-global', name, value)"
                         @temporary-variable-remove="handleVariableRemove"
@@ -566,7 +565,6 @@ const emit = defineEmits<{
     (e: "message-change", index: number, message: ConversationMessage, action: "add" | "update" | "delete"): void;
 
     // 打开面板/管理器
-    (e: "open-global-variables"): void;
     (e: "open-variable-manager"): void;
     (e: "open-context-editor", tab?: string): void;
     (e: "open-template-manager", type?: string): void;

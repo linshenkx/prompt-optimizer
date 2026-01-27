@@ -5,7 +5,6 @@
             :show-generate-values="true"
             :is-generating="isGenerating"
             @generate-values="handleGenerateValues"
-            @open-global-variables="emit('open-global-variables')"
         />
 
         <template v-if="mode === 'full'">
@@ -220,7 +219,6 @@ const emit = defineEmits<{
     test: [testVariables: Record<string, string>];
     "compare-toggle": [];
     "open-variable-manager": [];
-    "open-global-variables": [];
     "variable-change": [name: string, value: string];
     "save-to-global": [name: string, value: string];
     "temporary-variable-remove": [name: string];
