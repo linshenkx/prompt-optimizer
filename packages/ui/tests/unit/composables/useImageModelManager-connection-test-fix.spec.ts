@@ -28,7 +28,7 @@ describe('Image Model Manager Connection Test Fix', () => {
 
       getModels: vi.fn(() => [
         {
-          id: 'google/gemini-2.5-flash-image-preview',
+          id: 'google/gemini-2.5-flash-image',
           name: 'Gemini 2.5 Flash Image Preview',
           providerId: 'openrouter',
           capabilities: { text2image: true, image2image: true, multiImage: true },
@@ -57,7 +57,7 @@ describe('Image Model Manager Connection Test Fix', () => {
       getAllProviders: vi.fn(),
       getStaticModels: vi.fn(() => [
         {
-          id: 'google/gemini-2.5-flash-image-preview',
+           id: 'google/gemini-2.5-flash-image',
           name: 'Gemini 2.5 Flash Image Preview',
           providerId: 'openrouter',
           capabilities: { text2image: true, image2image: true, multiImage: true },
@@ -78,7 +78,7 @@ describe('Image Model Manager Connection Test Fix', () => {
     // 模拟静态模型列表
     const models = ref([
       {
-        id: 'google/gemini-2.5-flash-image-preview',
+           id: 'google/gemini-2.5-flash-image',
         name: 'Gemini 2.5 Flash Image Preview',
         providerId: 'openrouter',
         capabilities: { text2image: true, image2image: true, multiImage: true },
@@ -88,7 +88,7 @@ describe('Image Model Manager Connection Test Fix', () => {
     ])
 
     const configForm = ref({
-      modelId: 'google/gemini-2.5-flash-image-preview',
+       modelId: 'google/gemini-2.5-flash-image',
       providerId: 'openrouter'
     })
 
@@ -96,7 +96,7 @@ describe('Image Model Manager Connection Test Fix', () => {
     let selectedModel = models.value.find(m => m.id === configForm.value.modelId)
 
     expect(selectedModel).toBeDefined()
-    expect(selectedModel!.id).toBe('google/gemini-2.5-flash-image-preview')
+     expect(selectedModel!.id).toBe('google/gemini-2.5-flash-image')
     expect(selectedModel!.name).toBe('Gemini 2.5 Flash Image Preview')
   })
 
@@ -104,7 +104,7 @@ describe('Image Model Manager Connection Test Fix', () => {
     // 模拟静态模型列表（不包含自定义模型）
     const models = ref([
       {
-        id: 'google/gemini-2.5-flash-image-preview',
+         id: 'google/gemini-2.5-flash-image',
         name: 'Gemini 2.5 Flash Image Preview',
         providerId: 'openrouter',
         capabilities: { text2image: true, image2image: true, multiImage: true },

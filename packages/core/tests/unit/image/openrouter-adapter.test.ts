@@ -35,8 +35,8 @@ describe('OpenRouterImageAdapter', () => {
       const models = adapter.getModels()
 
       expect(models.length).toBeGreaterThan(0)
-      expect(models[0].id).toBe('openai/gpt-5-image-mini')
-      expect(models[0].name).toBe('GPT-5 Image Mini')
+      expect(models[0].id).toBe('google/gemini-2.5-flash-image')
+      expect(models[0].name).toBe('Gemini 2.5 Flash Image (Nano Banana)')
       expect(models[0].providerId).toBe('openrouter')
     })
 
