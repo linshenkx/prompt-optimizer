@@ -202,9 +202,9 @@ import TextDiffUI from './TextDiff.vue'
 import type { CompareResult, ICompareService } from '@prompt-optimizer/core'
 import { VariableAwareInput } from './variable-extraction'
 import { useTemporaryVariables } from '../composables/variable/useTemporaryVariables'
+import { useVariableAwareInputBridge } from '../composables/variable/useVariableAwareInputBridge'
 import { useVariableManager } from '../composables/prompt/useVariableManager'
 import type { AppServices } from '../types/services'
-import { platform } from '../utils/platform'
 import { router as routerInstance } from '../router'
 
 type ActionName = 'fullscreen' | 'diff' | 'copy' | 'edit' | 'reasoning' | 'favorite'
@@ -293,117 +293,20 @@ const tempVars = useTemporaryVariables()
 // ✅ 无条件调用，composable 内部会等待 services.preferenceService 准备就绪
 const globalVarsManager = useVariableManager(services)
 
-// ==================== 变量数据计算 ====================
-/**
- * 计算纯预定义变量
- * allVariables = 预定义变量 + 自定义全局变量
- * 因此：预定义变量 = allVariables - customVariables
- */
-const purePredefinedVariables = computed(() => {
-  const all = globalVarsManager.allVariables.value || {}
-  const custom = globalVarsManager.customVariables.value || {}
-
-  const predefined: Record<string, string> = {}
-  for (const [key, value] of Object.entries(all)) {
-    // 只保留不在 customVariables 中的变量
-    if (!(key in custom)) {
-      predefined[key] = value
-    }
-  }
-
-  return predefined
+const {
+  variableInputData: variableData,
+  handleVariableExtracted,
+  handleAddMissingVariable,
+} = useVariableAwareInputBridge({
+  enabled: shouldEnableVariables,
+  isReady: globalVarsManager.isReady,
+  globalVariables: globalVarsManager.customVariables,
+  temporaryVariables: tempVars.temporaryVariables,
+  allVariables: globalVarsManager.allVariables,
+  saveGlobalVariable: (name, value) => globalVarsManager.addVariable(name, value),
+  saveTemporaryVariable: (name, value) => tempVars.setVariable(name, value),
+  logPrefix: 'OutputDisplayCore',
 })
-
-const variableData = computed(() => {
-  // 只在 Pro / Image 模式下提供变量数据
-  if (!shouldEnableVariables.value) return null
-
-  // 🔒 如果全局变量管理器未就绪，返回 null 以禁用变量功能
-  // 这样可以避免文本被替换但变量未保存的不一致状态
-  if (!globalVarsManager.isReady.value) return null
-
-  return {
-    existingGlobalVariables: Object.keys(globalVarsManager.customVariables.value || {}),
-    existingTemporaryVariables: Object.keys(tempVars.temporaryVariables.value || {}),
-    predefinedVariables: Object.keys(purePredefinedVariables.value),
-    globalVariableValues: globalVarsManager.customVariables.value || {},
-    temporaryVariableValues: tempVars.temporaryVariables.value || {},
-    predefinedVariableValues: purePredefinedVariables.value
-  }
-})
-
-// ==================== 变量事件处理 ====================
-/**
- * 处理变量提取事件
- * 在 Pro 模式的原文编辑模式下，用户选中文本提取变量时触发
- *
- * ⚠️ 注意：此函数只会在 variableData 不为 null 时被调用
- * （即管理器已就绪且为 Pro 模式），因此不需要额外检查
- *
- * ⚠️ 数据一致性问题：
- * VariableAwareInput 在触发此事件前已完成文本替换（{{varName}}）
- * 如果保存失败，文本已被修改但变量未保存，需提示用户撤销操作
- */
-const handleVariableExtracted = (data: {
-  variableName: string
-  variableValue: string
-  variableType: 'global' | 'temporary'
-}) => {
-  if (data.variableType === 'global') {
-    try {
-      // 保存到全局变量
-      globalVarsManager.addVariable(data.variableName, data.variableValue)
-      message.success(
-        t('variableExtraction.savedToGlobal', { name: data.variableName })
-      )
-    } catch (error) {
-      console.error('[OutputDisplayCore] Failed to save global variable:', error)
-      // ⚠️ 保存失败但文本已被替换，提示用户需要撤销
-      message.error(
-        t('variableExtraction.saveFailedWithUndo', {
-          name: data.variableName,
-          undo: platform.getUndoKey()
-        }),
-        {
-          duration: 8000, // 延长显示时间，确保用户看到
-          closable: true
-        }
-      )
-    }
-  } else {
-    // 保存到临时变量（临时变量管理器是全局单例，始终可用）
-    try {
-      tempVars.setVariable(data.variableName, data.variableValue)
-      message.success(
-        t('variableExtraction.savedToTemporary', { name: data.variableName })
-      )
-    } catch (error) {
-      console.error('[OutputDisplayCore] Failed to save temporary variable:', error)
-      // 临时变量保存失败的可能性极低，但仍需处理
-      message.error(
-        t('variableExtraction.saveFailedWithUndo', {
-          name: data.variableName,
-          undo: platform.getUndoKey()
-        }),
-        {
-          duration: 8000,
-          closable: true
-        }
-      )
-    }
-  }
-}
-
-/**
- * 处理添加缺失变量事件
- * 当用户悬停在缺失变量上并点击快速添加时触发
- */
-const handleAddMissingVariable = (varName: string) => {
-  tempVars.setVariable(varName, '')
-  message.success(
-    t('variableDetection.addSuccess', { name: varName })
-  )
-}
 
 // 内部状态
 type ScrollbarLike = {
