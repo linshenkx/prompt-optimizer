@@ -1067,6 +1067,7 @@ export default {
       variablesCount: "个变量",
       clearAll: "清空全部",
       inputPlaceholder: "请输入变量值",
+      overridesGlobal: "覆盖全局",
       noVariables: "未检测到变量",
       previewTitle: "预览结果",
       firstRound: "第一轮替换(内置变量)",

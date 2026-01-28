@@ -1098,6 +1098,7 @@ export default {
       variablesCount: "variables",
       clearAll: "Clear All",
       inputPlaceholder: "Enter variable value",
+      overridesGlobal: "Overrides global",
       noVariables: "No variables detected",
       previewTitle: "Preview Result",
       firstRound: "First Round (Builtin Variables)",

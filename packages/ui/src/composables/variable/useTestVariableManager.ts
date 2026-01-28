@@ -114,6 +114,14 @@ export function useTestVariableManager(options: TestVariableManagerOptions) {
     if (hasOwn(options.predefinedVariables.value, varName)) {
       return t('test.variables.inputPlaceholder') + ` (${t('variables.source.predefined')})`
     }
+    // In the temporary variables panel, a name may exist in both temporary and global.
+    // Temporary values override global ones, so avoid misleading "(global)" placeholders.
+    if (hasOwn(testVariables.value as unknown as Record<string, unknown>, varName)) {
+      if (hasOwn(options.globalVariables.value, varName)) {
+        return t('test.variables.inputPlaceholder') + ` (${t('test.variables.overridesGlobal')})`
+      }
+      return t('test.variables.inputPlaceholder')
+    }
     if (hasOwn(options.globalVariables.value, varName)) {
       return t('test.variables.inputPlaceholder') + ` (${t('variables.source.global')})`
     }
