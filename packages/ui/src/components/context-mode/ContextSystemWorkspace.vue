@@ -117,19 +117,19 @@
                                 :versions="displayAdapter.displayedVersions.value"
                                 :current-version-id="displayAdapter.displayedCurrentVersionId.value ?? undefined"
                                 :show-apply-button="displayAdapter.isInMessageOptimizationMode.value"
-                                :optimization-mode="optimizationMode"
-                                :advanced-mode-enabled="true"
-                                :show-preview="true"
+                                 :optimization-mode="optimizationMode"
+                                 :advanced-mode-enabled="true"
+                                 :show-preview="true"
                                 @iterate="handleIterate"
                                 @openTemplateManager="emit('open-template-manager', $event)"
                                 @switchVersion="handleSwitchVersion"
-                                @switchToV0="handleSwitchToV0"
-                                @save-favorite="emit('save-favorite', $event)"
-                                @open-preview="emit('open-prompt-preview')"
-                                @apply-to-conversation="handleApplyToConversation"
-                                @apply-improvement="handleApplyImprovement"
-                                @save-local-edit="handleSaveLocalEdit"
-                            />
+                                 @switchToV0="handleSwitchToV0"
+                                 @save-favorite="emit('save-favorite', $event)"
+                                 @open-preview="handleOpenPromptPreview"
+                                 @apply-to-conversation="handleApplyToConversation"
+                                 @apply-improvement="handleApplyImprovement"
+                                 @save-local-edit="handleSaveLocalEdit"
+                             />
                         </template>
                         <template v-else>
                             <NEmpty
@@ -408,6 +408,17 @@
             @clear="handleClearEvaluation"
             @retry="evaluationHandler.handleReEvaluate"
         />
+
+        <!-- 子模式本地预览面板：不再依赖 PromptOptimizerApp 的全局预览状态 -->
+        <PromptPreviewPanel
+            v-model:show="showPromptPreview"
+            :previewContent="previewContent"
+            :missingVariables="missingVariables"
+            :hasMissingVariables="hasMissingVariables"
+            :variableStats="variableStats"
+            :contextMode="previewContextMode"
+            :renderPhase="previewRenderPhase"
+        />
     </div>
 </template>
 
@@ -446,6 +457,7 @@ import {
     NTag,
 } from "naive-ui";
 import PromptPanelUI from "../PromptPanel.vue";
+import PromptPreviewPanel from "../PromptPreviewPanel.vue";
 import ConversationTestPanel from "./ConversationTestPanel.vue";
 import ConversationManager from "./ConversationManager.vue";
 import OutputDisplay from "../OutputDisplay.vue";
@@ -456,6 +468,7 @@ import { useConversationOptimization } from '../../composables/prompt/useConvers
 import { usePromptDisplayAdapter } from '../../composables/prompt/usePromptDisplayAdapter'
 import { useTemporaryVariables } from '../../composables/variable/useTemporaryVariables'
 import { useEvaluationHandler, provideEvaluation, provideProContext } from '../../composables/prompt'
+import { useLocalPromptPreviewPanel } from '../../composables/prompt/useLocalPromptPreviewPanel'
 import { useWorkspaceModelSelection } from '../../composables/workspaces/useWorkspaceModelSelection'
 import { useWorkspaceTemplateSelection } from '../../composables/workspaces/useWorkspaceTemplateSelection'
 import { OptionAccessors } from '../../utils/data-transformer'
@@ -469,6 +482,7 @@ import {
 import {
     applyPatchOperationsToText,
     PREDEFINED_VARIABLES,
+    type ContextMode,
     type ConversationMessage,
     type ToolCall,
     type ToolCallResult,
@@ -630,6 +644,32 @@ const enableMessageOptimization = computed(() => {
 
 // 🆕 初始化临时变量管理器（与 ContextEditor 共享）
 const tempVars = useTemporaryVariables()
+
+// ========================
+// 子模式本地提示词预览（不经过 PromptOptimizerApp）
+// ========================
+const previewContextMode = computed<ContextMode>(() => 'system')
+
+// Priority: global < temporary < predefined
+const previewVariables = computed<Record<string, string>>(() => ({
+    ...globalVariables.value,
+    ...(tempVars.temporaryVariables.value || {}),
+    ...predefinedVariables.value,
+}))
+
+const {
+    show: showPromptPreview,
+    renderPhase: previewRenderPhase,
+    previewContent,
+    missingVariables,
+    hasMissingVariables,
+    variableStats,
+    open: openPromptPreview,
+} = useLocalPromptPreviewPanel(previewVariables, previewContextMode)
+
+const handleOpenPromptPreview = () => {
+    openPromptPreview(displayAdapter.displayedOptimizedPrompt.value || '', { renderPhase: 'optimize' })
+}
 
 // 🆕 测试结果持久化（Pro-system）
 const proMultiSession = useProMultiMessageSession()

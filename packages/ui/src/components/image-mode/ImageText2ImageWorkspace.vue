@@ -317,12 +317,14 @@
                     :current-version-id="currentVersionId"
                     :optimization-mode="optimizationMode"
                     :advanced-mode-enabled="advancedModeEnabled"
+                    :show-preview="true"
                     iterate-template-type="imageIterate"
                     @iterate="handleIteratePrompt"
                     @openTemplateManager="onOpenTemplateManager"
                     @switchVersion="handleSwitchVersion"
                     @save-favorite="handleSaveFavorite"
                     @save-local-edit="handleSaveLocalEdit"
+                    @open-preview="handleOpenPromptPreview"
                 />
             </NCard>
                 </NFlex>
@@ -594,6 +596,17 @@
             @retry="evaluationHandler.handleReEvaluate"
         />
 
+        <!-- 子模式本地预览面板：不再依赖 PromptOptimizerApp 的全局预览状态 -->
+        <PromptPreviewPanel
+            v-model:show="showPromptPreview"
+            :previewContent="previewContent"
+            :missingVariables="missingVariables"
+            :hasMissingVariables="hasMissingVariables"
+            :variableStats="variableStats"
+            :contextMode="previewContextMode"
+            :renderPhase="previewRenderPhase"
+        />
+
         <!-- 模板管理器由 App 统一管理，这里不再渲染 -->
     </div>
 </template>
@@ -621,9 +634,11 @@ import {
 } from "naive-ui";
 import { useI18n } from "vue-i18n";
 import PromptPanelUI from "../PromptPanel.vue";
+import PromptPreviewPanel from "../PromptPreviewPanel.vue";
 import SelectWithConfig from "../SelectWithConfig.vue";
 import { EvaluationPanel } from '../evaluation'
 import { provideEvaluation } from '../../composables/prompt/useEvaluationContext';
+import { useLocalPromptPreviewPanel } from '../../composables/prompt/useLocalPromptPreviewPanel'
 import { OptionAccessors } from "../../utils/data-transformer";
 import type { AppServices } from "../../types/services";
 import { useFullscreen } from "../../composables/ui/useFullscreen";
@@ -658,6 +673,7 @@ import { useWorkspaceTextModelSelection } from '../../composables/workspaces/use
 import { useElementSize } from '@vueuse/core'
 import {
     applyPatchOperationsToText,
+    type ContextMode,
     type ImageModelConfig,
     type Text2ImageRequest,
     type ImageResult,
@@ -1140,6 +1156,41 @@ const mergedGenerationVariables = computed<Record<string, string>>(() => ({
     ...(tempVarsManager.temporaryVariables.value || {}),
     ...(purePredefinedVariables.value || {}),
 }))
+
+// ========================
+// 子模式本地提示词预览（不经过 PromptOptimizerApp）
+// ========================
+const previewContextMode = computed<ContextMode>(() => 'user')
+
+// Keep runtime predefined values aligned with buildRuntimePredefinedVariables used for execution.
+const runtimePredefinedVariablesForPreview = computed<Record<string, string>>(() => {
+    const current = (optimizedPrompt.value || '').trim()
+    return {
+        originalPrompt: (originalPrompt.value || '').trim(),
+        lastOptimizedPrompt: (optimizedPrompt.value || '').trim(),
+        currentPrompt: current,
+        userQuestion: current,
+    }
+})
+
+const previewVariables = computed<Record<string, string>>(() => ({
+    ...mergedGenerationVariables.value,
+    ...runtimePredefinedVariablesForPreview.value,
+}))
+
+const {
+    show: showPromptPreview,
+    renderPhase: previewRenderPhase,
+    previewContent,
+    missingVariables,
+    hasMissingVariables,
+    variableStats,
+    open: openPromptPreview,
+} = useLocalPromptPreviewPanel(previewVariables, previewContextMode)
+
+const handleOpenPromptPreview = () => {
+    openPromptPreview(optimizedPrompt.value || '', { renderPhase: 'test' })
+}
 
 const buildRuntimePredefinedVariables = (resolved: ResolvedPrompt): Record<string, string> => {
     const current = (resolved.text || '').trim()
