@@ -27,21 +27,31 @@ async function openSelectAndWaitForVisibleOptions(page: any, select: any) {
 }
 
 async function selectOption(page: any, select: any, matcher?: RegExp) {
-  const options = await openSelectAndWaitForVisibleOptions(page, select)
+  // Naive UI 下拉选项存在动画/重渲染，直接 click 可能卡在“not stable / not visible”重试直到 test 超时。
+  // 这里做两次尝试：失败则收起下拉并重开；第二次使用 force click。
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const options = await openSelectAndWaitForVisibleOptions(page, select)
 
-  if (!matcher) {
-    await options.first().click()
-    return
+    if (!matcher) {
+      await options.first().click({ timeout: 20000, force: attempt > 0 })
+      return
+    }
+
+    const target = options.filter({ hasText: matcher }).first()
+    if ((await target.count()) === 0) {
+      // 明确失败：图像模型必须命中 SiliconFlow，否则会导致 VCR requestHash 不匹配。
+      await page.keyboard.press('Escape').catch(() => {})
+      throw new Error(`[E2E] selectOption: option not found for matcher: ${String(matcher)}`)
+    }
+
+    try {
+      await target.click({ timeout: 20000, force: attempt > 0 })
+      return
+    } catch {
+      await page.keyboard.press('Escape').catch(() => {})
+      await page.waitForTimeout(200)
+    }
   }
-
-  const target = options.filter({ hasText: matcher }).first()
-  if ((await target.count()) > 0) {
-    await target.click()
-    return
-  }
-
-  // Fallback: pick the first visible option.
-  await options.first().click()
 }
 
 test.describe('Image Image2Image - 生成（SiliconFlow）', () => {
@@ -84,21 +94,21 @@ test.describe('Image Image2Image - 生成（SiliconFlow）', () => {
     await clickOptimizeButton(page, MODE)
     await expectOptimizedResultNotEmpty(page, MODE)
 
-    // 6) 选择图像模型：siliconflow
-    const modelSelect = page.getByTestId('image-image2image-image-model-select')
-    await expect(modelSelect).toBeVisible({ timeout: 20000 })
+    // 6) 确保列数为 2（避免默认列数变化导致额外请求，影响 VCR fixture 匹配）
+    const workspace = page.locator('[data-testid="workspace"][data-mode="image-image2image"]').first()
+    // Naive UI 的 radio button 真实可点元素是 label；若 value=2 已默认选中，click 会因拦截重试而超时。
+    await workspace.getByRole('radio', { name: '2' }).check()
 
-    await selectOption(page, modelSelect, /siliconflow/i)
+    // 7) 选择图像模型：A/B 两列都设置为 SiliconFlow，保证请求与 fixture 匹配
+    const originalModelSelect = page.getByTestId('image-image2image-test-original-model-select')
+    const optimizedModelSelect = page.getByTestId('image-image2image-test-optimized-model-select')
+    await expect(originalModelSelect).toBeVisible({ timeout: 20000 })
+    await expect(optimizedModelSelect).toBeVisible({ timeout: 20000 })
+    await selectOption(page, originalModelSelect, /siliconflow/i)
+    await selectOption(page, optimizedModelSelect, /siliconflow/i)
 
-    // 7) 打开对比模式
-    const compareToggle = page.getByTestId('image-image2image-generate-compare-toggle')
-    const ariaChecked = await compareToggle.getAttribute('aria-checked').catch(() => null)
-    if (ariaChecked !== 'true') {
-      await compareToggle.click()
-    }
-
-    // 8) 点击生成
-    await page.getByTestId('image-image2image-generate-button').click()
+    // 8) 运行两列生成（original + optimized）
+    await page.getByTestId('image-image2image-test-run-all').click()
 
     // 9) 断言两张结果图都非空
     const originalImg = page.getByTestId('image-image2image-original-image').locator('img')

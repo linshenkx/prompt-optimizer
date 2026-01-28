@@ -70,6 +70,13 @@ export default defineConfig({
     // 先构建再启动 web dev server，避免跑到过期 dist 导致交互/事件异常。
     command: `pnpm -F @prompt-optimizer/core build && pnpm -F @prompt-optimizer/ui build && pnpm -F @prompt-optimizer/web dev --port ${E2E_PORT}`,
     url: BASE_URL,
+    // 为 Vite 提供最小的“启用”环境变量：让内置 SiliconFlow 图像模型在 E2E (VCR replay) 下可选，
+    // 避免因本机缺少真实 key 而导致 UI 不渲染对应选项，从而无法命中既有 VCR fixtures。
+    env: {
+      ...process.env,
+      VITE_SILICONFLOW_API_KEY: process.env.VITE_SILICONFLOW_API_KEY || 'vcr',
+      VITE_DEEPSEEK_API_KEY: process.env.VITE_DEEPSEEK_API_KEY || 'vcr',
+    },
     // 为了保证每次测试都使用最新构建产物，默认不复用已有 server。
     reuseExistingServer: false,
     timeout: 120 * 1000,

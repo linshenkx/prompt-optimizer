@@ -20,15 +20,13 @@ test.describe('Basic User - 测试（无需填写测试内容）', () => {
     await clickOptimizeButton(page, MODE)
     await expectOptimizedResultNotEmpty(page, MODE)
 
-    // 2) 对比模式开启（不依赖默认状态）
-    const compareToggle = page.getByTestId('basic-user-test-compare-toggle')
-    const ariaChecked = await compareToggle.getAttribute('aria-checked').catch(() => null)
-    if (ariaChecked !== 'true') {
-      await compareToggle.click()
-    }
+    // 2) 确保列数为 2（避免默认列数变化导致额外请求，影响 VCR fixture 匹配）
+    const workspace = page.locator('[data-testid="workspace"][data-mode="basic-user"]').first()
+    // Naive UI 的 radio button 真实可点元素是 label；若 value=2 已默认选中，click 会因拦截重试而超时。
+    await workspace.getByRole('radio', { name: '2' }).check()
 
-    // 3) 直接点击 Test（不填写测试内容）
-    await page.getByTestId('basic-user-test-run').click()
+    // 3) 直接点击 Run All（不填写测试内容）
+    await page.getByTestId('basic-user-test-run-all').click()
 
     // 4) 断言两份输出均非空
     await expectOutputByTestIdNotEmpty(page, 'basic-user-test-original-output')
