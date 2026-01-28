@@ -77,18 +77,18 @@
                     :loading-text="t('common.loading')"
                     :loading="contextUserOptimization.isOptimizing"
                     :disabled="contextUserOptimization.isOptimizing"
-                    :show-preview="true"
-                    :show-analyze-button="true"
-                    :analyze-loading="isAnalyzing"
-                    @submit="handleOptimize"
-                    @analyze="handleAnalyze"
-                    @configModel="emit('config-model')"
-                    @open-preview="emit('open-input-preview')"
-                    :enable-variable-extraction="true"
-                    :show-extract-button="true"
-                    :extracting="props.isExtracting"
-                    v-bind="inputPanelVariableData || {}"
-                    @extract-variables="handleExtractVariables"
+                     :show-preview="true"
+                     :show-analyze-button="true"
+                     :analyze-loading="isAnalyzing"
+                     @submit="handleOptimize"
+                     @analyze="handleAnalyze"
+                     @configModel="emit('config-model')"
+                     @open-preview="handleOpenInputPreview"
+                     :enable-variable-extraction="true"
+                     :show-extract-button="true"
+                     :extracting="props.isExtracting"
+                     v-bind="inputPanelVariableData || {}"
+                     @extract-variables="handleExtractVariables"
                     @variable-extracted="handleVariableExtracted"
                     @add-missing-variable="handleAddMissingVariable"
                 >
@@ -171,17 +171,17 @@
                     :versions="contextUserOptimization.currentVersions"
                     :current-version-id="contextUserOptimization.currentVersionId"
                     :optimization-mode="optimizationMode"
-                    :advanced-mode-enabled="true"
-                    :show-preview="true"
-                    @iterate="handleIterate"
-                    @openTemplateManager="emit('open-template-manager', $event)"
-                    @switchVersion="handleSwitchVersion"
-                    @switchToV0="handleSwitchToV0"
-                    @save-favorite="emit('save-favorite', $event)"
-                    @open-preview="emit('open-prompt-preview')"
-                    @apply-improvement="handleApplyImprovement"
-                    @save-local-edit="handleSaveLocalEdit"
-                />
+                     :advanced-mode-enabled="true"
+                     :show-preview="true"
+                     @iterate="handleIterate"
+                     @openTemplateManager="emit('open-template-manager', $event)"
+                     @switchVersion="handleSwitchVersion"
+                     @switchToV0="handleSwitchToV0"
+                     @save-favorite="emit('save-favorite', $event)"
+                     @open-preview="handleOpenPromptPreview"
+                     @apply-improvement="handleApplyImprovement"
+                     @save-local-edit="handleSaveLocalEdit"
+                 />
             </NCard>
                 </NFlex>
             </div>
@@ -212,7 +212,7 @@
                         :predefined-variables="predefinedVariables"
                         :temporary-variables="temporaryVariables"
                         @variable-change="handleTestVariableChange"
-                        @save-to-global="(name: string, value: string) => emit('save-to-global', name, value)"
+                        @save-to-global="handleSaveToGlobalFromTest"
                         @temporary-variable-remove="handleTestVariableRemove"
                         @temporary-variables-clear="handleClearTemporaryVariables"
                     />
@@ -436,6 +436,17 @@
             @clear="handleClearEvaluation"
             @retry="evaluationHandler.handleReEvaluate"
         />
+
+        <!-- 子模式本地预览面板：不再依赖 PromptOptimizerApp 的全局预览状态 -->
+        <PromptPreviewPanel
+            v-model:show="showPromptPreview"
+            :previewContent="previewContent"
+            :missingVariables="missingVariables"
+            :hasMissingVariables="hasMissingVariables"
+            :variableStats="variableStats"
+            :contextMode="previewContextMode"
+            :renderPhase="previewRenderPhase"
+        />
     </div>
 </template>
 
@@ -475,12 +486,15 @@ import { NCard, NFlex, NText, NIcon, NButton, NSelect, NRadioGroup, NRadioButton
 import { useToast } from "../../composables/ui/useToast";
 import InputPanelUI from "../InputPanel.vue";
 import PromptPanelUI from "../PromptPanel.vue";
+import PromptPreviewPanel from "../PromptPreviewPanel.vue";
 import ContextUserTestPanel from "./ContextUserTestPanel.vue";
 import OutputDisplay from "../OutputDisplay.vue";
 import SelectWithConfig from "../SelectWithConfig.vue";
 import { EvaluationPanel, EvaluationScoreBadge } from '../evaluation'
 import {
     applyPatchOperationsToText,
+    PREDEFINED_VARIABLES,
+    type ContextMode,
     type OptimizationMode,
     type PatchOperation,
     type PromptRecord,
@@ -493,6 +507,7 @@ import type { IteratePayload, SaveFavoritePayload } from "../../types/workspace"
 import type { AppServices } from '../../types/services';
 import type { VariableManagerHooks } from '../../composables/prompt/useVariableManager';
 import { useTemporaryVariables } from "../../composables/variable/useTemporaryVariables";
+import { useLocalPromptPreviewPanel } from '../../composables/prompt/useLocalPromptPreviewPanel'
 import { useVariableAwareInputBridge } from '../../composables/variable/useVariableAwareInputBridge'
 import { useContextUserOptimization } from '../../composables/prompt/useContextUserOptimization';
 import type { ConversationMessage } from '../../types/variable'
@@ -640,6 +655,58 @@ const isAnalyzing = ref(false);
 /** 🆕 使用全局临时变量管理器 (从文本提取的变量,仅当前会话有效) */
 const tempVarsManager = useTemporaryVariables();
 const temporaryVariables = tempVarsManager.temporaryVariables;
+
+// ========================
+// 子模式本地提示词预览（不经过 PromptOptimizerApp）
+// ========================
+const previewContextMode = computed<ContextMode>(() => 'user')
+
+const globalVariables = computed<Record<string, string>>(
+    () => variableManager?.customVariables.value || props.globalVariables || {},
+)
+
+const predefinedVariables = computed<Record<string, string>>(() => {
+    const originalPrompt = (contextUserOptimization.prompt || '').trim()
+    const lastOptimizedPrompt = (contextUserOptimization.optimizedPrompt || '').trim()
+    const currentPrompt = (lastOptimizedPrompt || originalPrompt).trim()
+
+    const map: Record<string, string> = {}
+    PREDEFINED_VARIABLES.forEach((name) => {
+        map[name] = ''
+    })
+
+    map.originalPrompt = originalPrompt
+    map.lastOptimizedPrompt = lastOptimizedPrompt
+    map.currentPrompt = currentPrompt
+    map.userQuestion = currentPrompt
+
+    return map
+})
+
+// Priority: global < temporary < predefined (predefined is treated as reserved/system variables)
+const previewVariables = computed<Record<string, string>>(() => ({
+    ...globalVariables.value,
+    ...(temporaryVariables.value || {}),
+    ...predefinedVariables.value,
+}))
+
+const {
+    show: showPromptPreview,
+    renderPhase: previewRenderPhase,
+    previewContent,
+    missingVariables,
+    hasMissingVariables,
+    variableStats,
+    open: openPromptPreview,
+} = useLocalPromptPreviewPanel(previewVariables, previewContextMode)
+
+const handleOpenInputPreview = () => {
+    openPromptPreview(contextUserOptimization.prompt || '', { renderPhase: 'optimize' })
+}
+
+const handleOpenPromptPreview = () => {
+    openPromptPreview(contextUserOptimization.optimizedPrompt || '', { renderPhase: 'optimize' })
+}
 
 // Pro-user（变量模式）以 session store 为唯一真源（可持久化字段）
 const proVariableSession = useProVariableSession();
@@ -898,9 +965,9 @@ const variantModelKeyModels = {
 
 // pro-variable 变量优先级：global < temporary < predefined
 const mergedTestVariables = computed<Record<string, string>>(() => ({
-    ...(props.globalVariables || {}),
+    ...(globalVariables.value || {}),
     ...(temporaryVariables.value || {}),
-    ...(props.predefinedVariables || {}),
+    ...(predefinedVariables.value || {}),
 }))
 
 // 测试区宽度：用于禁用 4 列（避免横向滚动）
@@ -1216,8 +1283,8 @@ onMounted(() => {
 
 const proContext = computed<ProUserEvaluationContext | undefined>(() => {
     const tempVars = temporaryVariables.value;
-    const globalVars = props.globalVariables;
-    const predefinedVars = props.predefinedVariables;
+    const globalVars = globalVariables.value;
+    const predefinedVars = predefinedVariables.value;
     const rawPrompt = resolvedOriginalTestPrompt.value.text;
     const resolvedPrompt = resolvedOptimizedTestPrompt.value.text;
 
@@ -1380,14 +1447,27 @@ const {
     handleAddMissingVariable,
 } = useVariableAwareInputBridge({
     enabled: computed(() => true),
-    globalVariables: computed(() => ({ ...props.globalVariables })),
+    isReady: computed(() => variableManager?.isReady.value ?? true),
+    globalVariables,
     temporaryVariables: computed(() => ({ ...temporaryVariables.value })),
-    predefinedVariables: computed(() => ({ ...props.predefinedVariables })),
-    saveGlobalVariable: (name, value) => emit('save-to-global', name, value),
+    predefinedVariables,
+    saveGlobalVariable: (name, value) => {
+        if (variableManager?.isReady.value) {
+            variableManager.addVariable(name, value)
+        }
+        emit('save-to-global', name, value)
+    },
     saveTemporaryVariable: (name, value) => tempVarsManager.setVariable(name, value),
     afterVariableExtracted: (data) => emit('variable-extracted', data),
     logPrefix: 'ContextUserWorkspace',
 })
+
+const handleSaveToGlobalFromTest = (name: string, value: string) => {
+    if (variableManager?.isReady.value) {
+        variableManager.addVariable(name, value)
+    }
+    emit('save-to-global', name, value)
+}
 
 /** 变量提示文本，包含双花括号示例，避免模板解析误判 */
 const doubleBraceToken = "{{}}";
