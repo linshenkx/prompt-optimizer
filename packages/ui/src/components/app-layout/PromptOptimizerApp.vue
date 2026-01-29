@@ -1866,6 +1866,16 @@ const openModelManager = (tab: "text" | "image" | "function" = "text") => {
 };
 provide("openModelManager", openModelManager);
 
+// 提供 openContextEditor 接口（供 Pro Multi 等工作区直接调用）
+type ContextEditorOpenArg = ConversationMessage[] | "messages" | "variables" | "tools";
+const openContextEditor = (
+    messagesOrTab?: ContextEditorOpenArg,
+    variables?: Record<string, string>,
+) => {
+    void contextManagement.handleOpenContextEditor(messagesOrTab, variables);
+};
+provide("openContextEditor", openContextEditor);
+
 // 模型管理器关闭回调
 const handleModelManagerClosed = async () => {
     try {

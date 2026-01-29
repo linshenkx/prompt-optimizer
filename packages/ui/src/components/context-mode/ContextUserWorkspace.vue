@@ -80,11 +80,11 @@
                      :show-preview="true"
                      :show-analyze-button="true"
                      :analyze-loading="isAnalyzing"
-                     @submit="handleOptimize"
-                     @analyze="handleAnalyze"
-                     @configModel="emit('config-model')"
-                     @open-preview="handleOpenInputPreview"
-                     :enable-variable-extraction="true"
+                      @submit="handleOptimize"
+                      @analyze="handleAnalyze"
+                      @configModel="handleOpenModelManager"
+                      @open-preview="handleOpenInputPreview"
+                      :enable-variable-extraction="true"
                      :show-extract-button="true"
                      :extracting="props.isExtracting"
                      v-bind="inputPanelVariableData || {}"
@@ -100,7 +100,7 @@
                             :getPrimary="OptionAccessors.getPrimary"
                             :getSecondary="OptionAccessors.getSecondary"
                             :getValue="OptionAccessors.getValue"
-                            @config="emit('config-model')"
+                            @config="handleOpenModelManager"
                         />
                     </template>
 
@@ -112,7 +112,7 @@
                             :getPrimary="OptionAccessors.getPrimary"
                             :getSecondary="OptionAccessors.getSecondary"
                             :getValue="OptionAccessors.getValue"
-                            @config="emit('open-template-manager')"
+                            @config="handleOpenTemplateManager"
                         />
                     </template>
 
@@ -170,14 +170,14 @@
                     "
                     :versions="contextUserOptimization.currentVersions"
                     :current-version-id="contextUserOptimization.currentVersionId"
-                    :optimization-mode="optimizationMode"
-                     :advanced-mode-enabled="true"
-                     :show-preview="true"
-                     @iterate="handleIterate"
-                     @openTemplateManager="emit('open-template-manager', $event)"
-                     @switchVersion="handleSwitchVersion"
-                     @switchToV0="handleSwitchToV0"
-                     @save-favorite="emit('save-favorite', $event)"
+                      :optimization-mode="optimizationMode"
+                       :advanced-mode-enabled="true"
+                       :show-preview="true"
+                      @iterate="handleIterate"
+                      @openTemplateManager="handleOpenTemplateManager"
+                      @switchVersion="handleSwitchVersion"
+                      @switchToV0="handleSwitchToV0"
+                      @save-favorite="emit('save-favorite', $event)"
                      @open-preview="handleOpenPromptPreview"
                      @apply-improvement="handleApplyImprovement"
                      @save-local-edit="handleSaveLocalEdit"
@@ -638,6 +638,33 @@ const optimizationMode: OptimizationMode = 'user';
 const injectedServices = inject<Ref<AppServices | null>>('services');
 const servicesRef = injectedServices ?? ref<AppServices | null>(null)
 const variableManager = inject<VariableManagerHooks | null>('variableManager', null);
+
+// 注入 App 层统一的 open* 接口（与 Basic/Image 工作区保持一致）
+const appOpenModelManager = inject<
+    ((tab?: 'text' | 'image' | 'function') => void) | null
+>('openModelManager', null)
+const appOpenTemplateManager = inject<((type?: string) => void) | null>(
+    'openTemplateManager',
+    null,
+)
+
+const handleOpenModelManager = () => {
+    if (appOpenModelManager) {
+        appOpenModelManager('text')
+        return
+    }
+    emit('config-model')
+}
+
+const handleOpenTemplateManager = (typeOrPayload?: string | Record<string, unknown>) => {
+    // SelectWithConfig 的 @config 可能会传入 payload（非字符串），这里统一兜底处理。
+    const type = typeof typeOrPayload === 'string' ? typeOrPayload : undefined
+    if (appOpenTemplateManager) {
+        appOpenTemplateManager(type || 'optimize')
+        return
+    }
+    emit('open-template-manager', type)
+}
 
 // ========================
 // 内部状态管理

@@ -51,6 +51,7 @@
                         :size="buttonSize"
                         type="primary"
                         :loading="loading"
+                        data-testid="pro-multi-open-context-editor"
                     >
                         <template #icon>
                             <svg

@@ -19,7 +19,7 @@
                     >
                         <ConversationManager
                             :messages="optimizationContext"
-                            @update:messages="emit('update:optimizationContext', $event)"
+                            @update:messages="handleConversationMessagesUpdated"
                             @message-change="(index, message, action) => {
                                 // Pro Multi：新增/更新消息后自动选中最新消息，确保“优化”按钮可用
                                 if ((action === 'add' || action === 'update') && (message.role === 'system' || message.role === 'user') && message.id) {
@@ -33,7 +33,7 @@
                             :optimization-mode="optimizationMode"
                             :tool-count="toolCount"
                             @open-variable-manager="emit('open-variable-manager')"
-                            @open-context-editor="emit('open-context-editor')"
+                            @open-context-editor="handleOpenContextEditor"
                             @open-tool-manager="emit('open-tool-manager')"
                             :enable-tool-management="true"
                             :collapsible="true"
@@ -64,7 +64,7 @@
                                         :getPrimary="OptionAccessors.getPrimary"
                                         :getSecondary="OptionAccessors.getSecondary"
                                         :getValue="OptionAccessors.getValue"
-                                        @config="emit('config-model')"
+                                        @config="handleOpenModelManager"
                                     />
                                 </NFlex>
 
@@ -79,7 +79,7 @@
                                         :getPrimary="OptionAccessors.getPrimary"
                                         :getSecondary="OptionAccessors.getSecondary"
                                         :getValue="OptionAccessors.getValue"
-                                        @config="emit('open-template-manager')"
+                                        @config="handleOpenTemplateManager"
                                     />
                                 </NFlex>
                             </NFlex>
@@ -119,14 +119,14 @@
                                 :show-apply-button="displayAdapter.isInMessageOptimizationMode.value"
                                  :optimization-mode="optimizationMode"
                                  :advanced-mode-enabled="true"
-                                 :show-preview="true"
+                                  :show-preview="true"
                                 @iterate="handleIterate"
-                                @openTemplateManager="emit('open-template-manager', $event)"
+                                @openTemplateManager="handleOpenTemplateManager"
                                 @switchVersion="handleSwitchVersion"
-                                 @switchToV0="handleSwitchToV0"
-                                 @save-favorite="emit('save-favorite', $event)"
-                                 @open-preview="handleOpenPromptPreview"
-                                 @apply-to-conversation="handleApplyToConversation"
+                                  @switchToV0="handleSwitchToV0"
+                                  @save-favorite="emit('save-favorite', $event)"
+                                  @open-preview="handleOpenPromptPreview"
+                                  @apply-to-conversation="handleApplyToConversation"
                                  @apply-improvement="handleApplyImprovement"
                                  @save-local-edit="handleSaveLocalEdit"
                              />
@@ -605,8 +605,57 @@ const injectedServices = inject<Ref<AppServices | null>>('services')
 const servicesRef = injectedServices ?? ref<AppServices | null>(null)
 const variableManager = inject<VariableManagerHooks | null>('variableManager', null)
 
+// 注入 App 层统一的 open* 接口（避免 Pro 工作区 emit 链断导致按钮无响应）
+const appOpenModelManager = inject<
+    ((tab?: 'text' | 'image' | 'function') => void) | null
+>('openModelManager', null)
+const appOpenTemplateManager = inject<((type?: string) => void) | null>(
+    'openTemplateManager',
+    null,
+)
+type ContextEditorOpenArg = ConversationMessage[] | 'messages' | 'variables' | 'tools'
+const appOpenContextEditor = inject<
+    ((messagesOrTab?: ContextEditorOpenArg, variables?: Record<string, string>) => void) | null
+>('openContextEditor', null)
+
 // 🆕 注入优化上下文（多轮对话消息）
 const optimizationContext = inject<Ref<ConversationMessage[]>>('optimizationContext', ref([]))
+
+const handleConversationMessagesUpdated = (messages: ConversationMessage[]) => {
+    optimizationContext.value = messages
+    // 兜底：保留对外 emits，供非 PromptOptimizerApp 宿主集成使用
+    emit('update:optimizationContext', messages)
+}
+
+const handleOpenModelManager = () => {
+    if (appOpenModelManager) {
+        appOpenModelManager('text')
+        return
+    }
+    emit('config-model')
+}
+
+const handleOpenTemplateManager = (typeOrPayload?: string | Record<string, unknown>) => {
+    // SelectWithConfig 的 @config 可能会传入 payload（非字符串），这里统一兜底处理。
+    const type = typeof typeOrPayload === 'string' ? typeOrPayload : undefined
+    if (appOpenTemplateManager) {
+        appOpenTemplateManager(type || 'optimize')
+        return
+    }
+    emit('open-template-manager', type)
+}
+
+const handleOpenContextEditor = (
+    messages: ConversationMessage[],
+    variables: Record<string, string>,
+) => {
+    if (appOpenContextEditor) {
+        appOpenContextEditor(messages, variables)
+        return
+    }
+    // 兜底：旧链路（如果宿主仍通过 emit 打开编辑器）
+    emit('open-context-editor')
+}
 
 // ✅ 优化模式：固定为 'system'（此组件专门用于系统模式优化）
 const optimizationMode: OptimizationMode = 'system';
@@ -737,19 +786,15 @@ onMounted(() => {
     // ✅ 刷新模型列表
     modelSelection.refreshTextModels()
 
-    // Pro Multi：自动选中最新一条可优化消息（system/user），以便直接启用“优化”
-    const latestSelectable = [...(optimizationContext.value || [])]
-        .reverse()
-        .find((msg) => msg && (msg.role === 'system' || msg.role === 'user') && !!msg.id)
-    if (latestSelectable) {
-        void conversationOptimization.selectMessage(latestSelectable)
-    }
-
-    // 兜底：如果还没有消息可选，但 session store 已有选中消息（刷新/恢复场景），尝试同步一次
-    if (!latestSelectable && proMultiSession.selectedMessageId) {
+    // Pro Multi：初始态保持“未选择消息”，让用户明确选择要优化的消息。
+    // 仅在 session store 有选中记录时尝试恢复（刷新/恢复场景）。
+    if (proMultiSession.selectedMessageId) {
         const restored = (optimizationContext.value || []).find((m) => m.id === proMultiSession.selectedMessageId)
         if (restored) {
             void conversationOptimization.selectMessage(restored)
+        } else {
+            // 防止选中 ID 指向已不存在的消息，导致 UI 误判为“已选中”。
+            proMultiSession.selectMessage('')
         }
     }
 

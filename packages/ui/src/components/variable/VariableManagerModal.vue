@@ -56,7 +56,7 @@
             <NCard
                 v-if="predefinedVariables.length > 0"
                 size="small"
-                :content-style="isPredefinedExpanded ? null : 'padding: 0'"
+                :content-style="isPredefinedExpanded ? undefined : 'padding: 0'"
             >
                 <template #header>
                     <NSpace align="center">

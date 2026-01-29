@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.json",
+  "include": [
+    "../env.d.ts",
+    "../src/**/*",
+    "../src/**/*.vue",
+    "./**/*"
+  ],
+  "compilerOptions": {
+    "types": ["vitest/globals", "node"]
+  }
+}
