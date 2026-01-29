@@ -229,6 +229,7 @@ import {
 } from "vue";
 import { RouterView } from "vue-router";
 import { router as routerInstance } from '../../router';
+import { registerOptionalIntegrations } from '../../integrations/registerOptionalIntegrations';
 import { useI18n } from "vue-i18n";
 import {
     NConfigProvider,
@@ -1548,6 +1549,20 @@ const {
     isLoadingExternalData,
 });
 
+// Optional integrations (feature-flagged + lazy-loaded).
+void registerOptionalIntegrations({
+    router: routerInstance,
+    hasRestoredInitialState,
+    isLoadingExternalData,
+    optimizationContext,
+    basicSystemSession,
+    basicUserSession,
+    proMultiMessageSession,
+    proVariableSession,
+    imageText2ImageSession,
+    imageImage2ImageSession,
+    optimizerCurrentVersions,
+});
 provide("handleSaveFavorite", handleSaveFavorite);
 
 // 模板管理器

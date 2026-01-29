@@ -1275,6 +1275,7 @@ export default {
       conversationRestored: "已從歷史紀錄恢復完整對話",
       imageFavoriteLoaded: "收藏的圖像提示詞已載入",
       favoriteLoaded: "已將提示詞載入到輸入框",
+      promptGardenImportSuccess: "已從 Prompt Garden 匯入",
       localEditSaved: "已儲存為新版本",
       testComplete: "測試完成",
       optimizeCompleteNoHistory: "提示詞優化完成（歷史紀錄服務不可用）",

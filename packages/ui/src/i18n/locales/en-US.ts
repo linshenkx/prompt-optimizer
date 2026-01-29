@@ -1322,6 +1322,7 @@ export default {
       conversationRestored: "Complete conversation restored from history",
       imageFavoriteLoaded: "Favorite image prompt loaded",
       favoriteLoaded: "Prompt loaded to input",
+      promptGardenImportSuccess: "Imported from Prompt Garden",
       localEditSaved: "Saved as a new version",
       testComplete: "Test complete",
       optimizeCompleteNoHistory: "Prompt optimization complete (history service unavailable)",
