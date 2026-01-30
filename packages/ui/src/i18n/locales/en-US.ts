@@ -463,6 +463,14 @@ export default {
       "Provide conversation background for optimization to help AI better understand optimization goals",
     enterPrompt: "Enter Prompt",
     placeholder: "Enter the prompt you want to optimize...",
+
+    // Pro Multi default conversation context (used only when context is empty)
+    defaultOptimizationContext: {
+      proMulti: {
+        system: "You are a poet.",
+        user: "Please write a poem about {{topic}}.",
+      },
+    },
   },
   variables: {
     title: "Variable Manager",

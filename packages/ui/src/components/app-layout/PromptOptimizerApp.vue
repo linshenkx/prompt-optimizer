@@ -1743,8 +1743,18 @@ watch(
             ) {
                 if (newOptimizationMode === "system") {
                     optimizationContext.value = [
-                        { role: "system", content: "{{currentPrompt}}" },
-                        { role: "user", content: "{{userQuestion}}" },
+                        {
+                            role: "system",
+                            content: t(
+                                "promptOptimizer.defaultOptimizationContext.proMulti.system",
+                            ),
+                        },
+                        {
+                            role: "user",
+                            content: t(
+                                "promptOptimizer.defaultOptimizationContext.proMulti.user",
+                            ),
+                        },
                     ];
                 } else if (newOptimizationMode === "user") {
                     optimizationContext.value = [

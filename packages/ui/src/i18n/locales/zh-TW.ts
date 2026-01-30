@@ -448,6 +448,14 @@ export default {
     contextDescription: "為優化提供對話背景，幫助AI更好地理解優化目標",
     enterPrompt: "輸入提示詞",
     placeholder: "請輸入需要優化的提示詞...",
+
+    // Pro Multi 預設對話情境示例（首次進入且情境為空時使用）
+    defaultOptimizationContext: {
+      proMulti: {
+        system: "你是一位詩人",
+        user: "請寫一首關於{{主題}}的詩",
+      },
+    },
   },
   variables: {
     title: "變數管理",
