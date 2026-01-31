@@ -5,10 +5,13 @@ import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // 加载环境变量（从项目根目录加载）
-  const env = loadEnv(mode, resolve(process.cwd(), '../../'))
+  // 在 monorepo 中，脚本可能从不同的 cwd 启动；不要依赖 process.cwd() 去定位 .env。
+  // 这里用配置文件所在位置推导出 monorepo root，并让 Vite 将 VITE_* 注入 import.meta.env。
+  const monorepoRoot = resolve(__dirname, '../..')
+  const env = loadEnv(mode, monorepoRoot)
   
   return {
+    envDir: monorepoRoot,
     plugins: [vue()],
     server: {
       port: 18181,

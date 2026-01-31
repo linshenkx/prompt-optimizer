@@ -1,5 +1,7 @@
 import type { OptionalIntegration } from './types'
 
+import { getEnvVar } from '@prompt-optimizer/core'
+
 export const integration: OptionalIntegration = {
   id: 'prompt-garden',
   envFlag: 'VITE_ENABLE_PROMPT_GARDEN_IMPORT',
@@ -8,14 +10,13 @@ export const integration: OptionalIntegration = {
       '../composables/app/useAppPromptGardenImport'
     )
 
-    const gardenBaseUrl = (import.meta.env.VITE_PROMPT_GARDEN_BASE_URL as string | undefined) || null
+    const gardenBaseUrl = getEnvVar('VITE_PROMPT_GARDEN_BASE_URL').trim() || null
 
     useAppPromptGardenImport({
       router: ctx.router,
       hasRestoredInitialState: ctx.hasRestoredInitialState,
       isLoadingExternalData: ctx.isLoadingExternalData,
       gardenBaseUrl,
-      optimizationContext: ctx.optimizationContext,
       basicSystemSession: ctx.basicSystemSession,
       basicUserSession: ctx.basicUserSession,
       proMultiMessageSession: ctx.proMultiMessageSession,

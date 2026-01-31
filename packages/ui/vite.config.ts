@@ -4,6 +4,9 @@ import { resolve } from 'path'
 import path from 'path'
 
 export default defineConfig({
+  // Monorepo: load VITE_* from repo root .env(.local) so optional integrations
+  // can be enabled for the built UI bundle used by the web dev server.
+  envDir: resolve(__dirname, '../..'),
   plugins: [vue()],
   resolve: {
     alias: {

@@ -1,12 +1,17 @@
 import type { OptionalIntegration, OptionalIntegrationsContext } from './types'
 
+import { getEnvVar } from '@prompt-optimizer/core'
+
 function isEnvEnabled(value: unknown): boolean {
   return value === '1' || value === 'true'
 }
 
-function getEnvValue(flag: string): unknown {
-  // import.meta.env is Vite-provided and has an index signature.
-  return (import.meta.env as unknown as Record<string, unknown>)[flag]
+function getEnvValue(flag: string): string {
+  // Use core's unified env reader so this works consistently across:
+  // - Vite (import.meta.env)
+  // - Docker/Electron runtime config (window.runtime_config)
+  // - Node (process.env)
+  return getEnvVar(flag)
 }
 
 /**
