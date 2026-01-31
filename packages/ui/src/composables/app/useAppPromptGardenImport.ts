@@ -104,6 +104,11 @@ type FetchedPrompt = {
   promptText?: string
   promptMessages?: ConversationMessage[]
   variables: Array<{ name: string; defaultValue?: string }>
+  examples: Array<{
+    id?: string
+    parameters?: Record<string, string>
+    inputImages?: string[]
+  }>
 }
 
 type ImportedVariable = {
@@ -115,6 +120,29 @@ type TemporaryVariablesSessionApi = {
   getTemporaryVariable: (name: string) => string | undefined
   setTemporaryVariable: (name: string, value: string) => void
   clearTemporaryVariables: () => void
+}
+
+const getTemporaryVariablesSession = (
+  targetKey: SupportedSubModeKey,
+  api: {
+    proMultiMessageSession: ProMultiMessageSessionApi
+    proVariableSession: ProVariableSessionApi
+    imageText2ImageSession: ImageText2ImageSessionApi
+    imageImage2ImageSession: ImageImage2ImageSessionApi
+  },
+): TemporaryVariablesSessionApi | null => {
+  switch (targetKey) {
+    case 'pro-multi':
+      return api.proMultiMessageSession
+    case 'pro-variable':
+      return api.proVariableSession
+    case 'image-text2image':
+      return api.imageText2ImageSession
+    case 'image-image2image':
+      return api.imageImage2ImageSession
+    default:
+      return null
+  }
 }
 
 const ensureImportedTemporaryVariables = (
@@ -129,20 +157,7 @@ const ensureImportedTemporaryVariables = (
     variables: ImportedVariable[]
   },
 ) => {
-  const session: TemporaryVariablesSessionApi | null = (() => {
-    switch (targetKey) {
-      case 'pro-multi':
-        return api.proMultiMessageSession
-      case 'pro-variable':
-        return api.proVariableSession
-      case 'image-text2image':
-        return api.imageText2ImageSession
-      case 'image-image2image':
-        return api.imageImage2ImageSession
-      default:
-        return null
-    }
-  })()
+  const session = getTemporaryVariablesSession(targetKey, api)
 
   if (!session) return
 
@@ -306,12 +321,48 @@ const fetchPromptFromGarden = async (opts: {
       })
       .filter((v) => isValidVariableName(v.name))
 
+    const assets = isPlainObject((data as any).assets) ? ((data as any).assets as Record<string, unknown>) : null
+    const rawExamples = assets && Array.isArray((assets as any).examples) ? ((assets as any).examples as unknown[]) : []
+    const examples = rawExamples
+      .map((ex): { id?: string; parameters?: Record<string, string>; inputImages?: string[] } => {
+        if (!isPlainObject(ex)) return {}
+
+        const id = typeof ex.id === 'string' ? ex.id.trim() : undefined
+
+        const parameters = (() => {
+          const p = (ex as any).parameters
+          if (!isPlainObject(p)) return undefined
+          const out: Record<string, string> = {}
+          for (const [k, v] of Object.entries(p)) {
+            const key = String(k || '').trim()
+            if (!isValidVariableName(key)) continue
+            if (v === undefined || v === null) continue
+            out[key] = String(v)
+          }
+          return Object.keys(out).length ? out : undefined
+        })()
+
+        const inputImages = Array.isArray((ex as any).inputImages)
+          ? ((ex as any).inputImages as unknown[])
+              .map((u) => (typeof u === 'string' ? u.trim() : ''))
+              .filter(Boolean)
+          : undefined
+
+        return {
+          id,
+          parameters,
+          inputImages,
+        }
+      })
+      .filter((ex) => Boolean(ex.parameters) || (Array.isArray(ex.inputImages) && ex.inputImages.length > 0))
+
     return {
       optimizerTargetKey,
       promptFormat: format,
       promptText,
       promptMessages,
       variables,
+      examples,
     }
   }
 
@@ -323,6 +374,72 @@ const fetchPromptFromGarden = async (opts: {
   }
 
   return parseV1(data)
+}
+
+const resolveGardenUrl = (opts: { gardenBaseUrl: string | null; url: string }): string | null => {
+  const raw = String(opts.url || '').trim()
+  if (!raw) return null
+  if (/^https?:\/\//u.test(raw)) return raw
+
+  const base = opts.gardenBaseUrl ? normalizeBaseUrl(opts.gardenBaseUrl) : null
+  if (!base) return null
+
+  try {
+    return new URL(raw, `${base}/`).toString()
+  } catch {
+    return null
+  }
+}
+
+const fetchImageAsBase64 = async (absoluteUrl: string): Promise<{ b64: string; mimeType: string } | null> => {
+  const resp = await fetch(absoluteUrl, { method: 'GET' })
+  if (!resp.ok) {
+    throw new Error(`Example image request failed: ${resp.status}`)
+  }
+
+  const headerType = resp.headers.get('content-type')
+  const mimeType = typeof headerType === 'string' ? headerType.split(';')[0].trim() : ''
+
+  // Tests run in Node where Buffer is available; browsers use FileReader.
+  const maybeBuffer = (globalThis as any).Buffer as any
+  if (maybeBuffer && typeof maybeBuffer.from === 'function') {
+    const ab = await resp.arrayBuffer()
+    const b64 = maybeBuffer.from(ab).toString('base64')
+    return { b64, mimeType }
+  }
+
+  if (typeof FileReader === 'undefined') {
+    throw new Error('FileReader is not available to decode images')
+  }
+
+  const blob = await resp.blob()
+  const actualMime = blob.type || mimeType
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('Failed to read image blob'))
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.readAsDataURL(blob)
+  })
+
+  const match = dataUrl.match(/^data:.*?;base64,(.*)$/u)
+  const b64 = match ? match[1] : ''
+  if (!b64) {
+    throw new Error('Failed to decode image data URL')
+  }
+  return { b64, mimeType: actualMime }
+}
+
+const pickImportedExample = (
+  examples: FetchedPrompt['examples'],
+  exampleId: string | null,
+): FetchedPrompt['examples'][number] | null => {
+  if (!Array.isArray(examples) || examples.length === 0) return null
+  const id = (exampleId || '').trim()
+  if (id) {
+    const found = examples.find((ex) => (ex.id || '').trim() === id)
+    if (found) return found
+  }
+  return examples[0] || null
 }
 
 const clearSessionForExternalImport = (targetKey: SupportedSubModeKey, api: {
@@ -453,6 +570,8 @@ export function useAppPromptGardenImport(options: AppPromptGardenImportOptions) 
       const importCode = getQueryString(query, 'importCode')
       if (!importCode) return
 
+      const exampleId = getQueryString(query, 'exampleId')
+
       inFlight.value = true
       isLoadingExternalData.value = true
       try {
@@ -460,6 +579,8 @@ export function useAppPromptGardenImport(options: AppPromptGardenImportOptions) 
           gardenBaseUrl,
           importCode,
         })
+
+        const importedExample = pickImportedExample(fetched.examples, exampleId)
 
         const targetKey = resolveTargetKey(query, currentRoute.path, fetched.optimizerTargetKey)
 
@@ -539,6 +660,48 @@ export function useAppPromptGardenImport(options: AppPromptGardenImportOptions) 
           }
         )
 
+        // If the imported prompt provides a full example, apply the example's parameter values
+        // (and input image for image2image) so the user can reproduce the result directly.
+        if (importedExample) {
+          const session = getTemporaryVariablesSession(targetKey, {
+            proMultiMessageSession,
+            proVariableSession,
+            imageText2ImageSession,
+            imageImage2ImageSession,
+          })
+
+          const importedVariableNames = new Set(
+            fetched.variables
+              .map((v) => String(v?.name || '').trim())
+              .filter((name) => isValidVariableName(name))
+          )
+
+          if (session && importedExample.parameters) {
+            for (const [key, value] of Object.entries(importedExample.parameters)) {
+              if (!importedVariableNames.has(key)) continue
+              session.setTemporaryVariable(key, String(value))
+            }
+          }
+
+          if (targetKey === 'image-image2image' && Array.isArray(importedExample.inputImages) && importedExample.inputImages.length > 0) {
+            const inputUrl = resolveGardenUrl({
+              gardenBaseUrl,
+              url: importedExample.inputImages[0],
+            })
+            if (inputUrl) {
+              try {
+                const img = await fetchImageAsBase64(inputUrl)
+                if (img?.b64) {
+                  imageImage2ImageSession.updateInputImage(img.b64, img.mimeType)
+                }
+              } catch (e) {
+                console.warn('[PromptGardenImport] Failed to load example input image:', e)
+                toast.warning('示例输入图加载失败（请检查 Prompt Garden /prompt-assets 的 CORS 配置）')
+              }
+            }
+          }
+        }
+
         // Best-effort persist.
         try {
           if (targetKey === 'basic-system') await basicSystemSession.saveSession()
@@ -552,7 +715,7 @@ export function useAppPromptGardenImport(options: AppPromptGardenImportOptions) 
         }
 
         // Remove import params to avoid re-import on refresh.
-        const cleanedQuery = omitKeys(query, ['importCode', 'subModeKey'])
+        const cleanedQuery = omitKeys(query, ['importCode', 'subModeKey', 'exampleId'])
         await router.replace({ path: router.currentRoute.value.path, query: cleanedQuery })
         await nextTick()
 

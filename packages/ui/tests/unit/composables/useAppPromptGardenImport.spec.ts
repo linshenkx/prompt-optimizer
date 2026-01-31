@@ -596,6 +596,243 @@ describe('useAppPromptGardenImport', () => {
     }
   })
 
+  it('applies default example parameters into pro-variable temporary variables', async () => {
+    const { pinia } = createTestPinia()
+
+    // Avoid console.warn from useToast (tests fail on console.warn).
+    const createReactive = (): MessageReactive => ({
+      destroy: () => {},
+    } as unknown as MessageReactive)
+    setGlobalMessageApi({
+      success: vi.fn(() => createReactive()),
+      error: vi.fn(() => createReactive()),
+      warning: vi.fn(() => createReactive()),
+      info: vi.fn(() => createReactive()),
+    })
+
+    const basicSystemSession = useBasicSystemSession(pinia)
+    const basicUserSession = useBasicUserSession(pinia)
+    const proMultiMessageSession = useProMultiMessageSession(pinia)
+    const proVariableSession = useProVariableSession(pinia)
+    const imageText2ImageSession = useImageText2ImageSession(pinia)
+    const imageImage2ImageSession = useImageImage2ImageSession(pinia)
+
+    // Seed existing values; example parameters should override them.
+    proVariableSession.setTemporaryVariable('name', 'Bob')
+
+    const optimizerCurrentVersions = ref<PromptRecordChain['versions']>([makeDummyRecord()])
+    const hasRestoredInitialState = ref(false)
+    const isLoadingExternalData = ref(false)
+
+    const query: LocationQuery = {
+      importCode: 'NB-PVAR-EX-001',
+    }
+
+    const currentRoute = ref<RouteLocationNormalizedLoaded>(makeRoute('/basic/system', query))
+
+    let replaceResolve: (() => void) | undefined
+    const replaceDone = new Promise<void>((resolve) => {
+      replaceResolve = resolve
+    })
+
+    const push: Router['push'] = vi.fn(async (to) => {
+      applyNavigation(currentRoute, to)
+      return undefined
+    })
+
+    const replace: Router['replace'] = vi.fn(async (to) => {
+      applyNavigation(currentRoute, to)
+      replaceResolve?.()
+      return undefined
+    })
+
+    const router: Pick<Router, 'currentRoute' | 'push' | 'replace'> = {
+      currentRoute,
+      push,
+      replace,
+    }
+
+    const v1Payload = {
+      schema: 'prompt-garden.prompt.v1',
+      schemaVersion: 1,
+      optimizerTarget: { subModeKey: 'pro-variable' },
+      prompt: {
+        format: 'text',
+        text: 'Hello {{name}}',
+      },
+      variables: [{ name: 'name' }, { name: 'tone' }],
+      assets: {
+        examples: [
+          {
+            id: 'ex-001',
+            parameters: {
+              name: 'Alice',
+              tone: 'friendly',
+            },
+          },
+        ],
+      },
+    }
+
+    const fetchMock = vi.fn<
+      (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+    >(async () => {
+      return new Response(JSON.stringify(v1Payload), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const scope = effectScope()
+    try {
+      scope.run(() => {
+        useAppPromptGardenImport({
+          router,
+          hasRestoredInitialState,
+          isLoadingExternalData,
+          gardenBaseUrl: 'http://garden.local',
+          basicSystemSession,
+          basicUserSession,
+          proMultiMessageSession,
+          proVariableSession,
+          imageText2ImageSession,
+          imageImage2ImageSession,
+          optimizerCurrentVersions,
+        })
+      })
+
+      hasRestoredInitialState.value = true
+
+      await replaceDone
+      await waitForCondition(() => isLoadingExternalData.value === false)
+
+      expect(currentRoute.value.path).toBe('/pro/variable')
+      expect(proVariableSession.prompt).toBe('Hello {{name}}')
+
+      // Example parameters override existing values.
+      expect(proVariableSession.getTemporaryVariable('name')).toBe('Alice')
+      expect(proVariableSession.getTemporaryVariable('tone')).toBe('friendly')
+    } finally {
+      scope.stop()
+    }
+  })
+
+  it('applies selected exampleId parameters when provided', async () => {
+    const { pinia } = createTestPinia()
+
+    // Avoid console.warn from useToast (tests fail on console.warn).
+    const createReactive = (): MessageReactive => ({
+      destroy: () => {},
+    } as unknown as MessageReactive)
+    setGlobalMessageApi({
+      success: vi.fn(() => createReactive()),
+      error: vi.fn(() => createReactive()),
+      warning: vi.fn(() => createReactive()),
+      info: vi.fn(() => createReactive()),
+    })
+
+    const basicSystemSession = useBasicSystemSession(pinia)
+    const basicUserSession = useBasicUserSession(pinia)
+    const proMultiMessageSession = useProMultiMessageSession(pinia)
+    const proVariableSession = useProVariableSession(pinia)
+    const imageText2ImageSession = useImageText2ImageSession(pinia)
+    const imageImage2ImageSession = useImageImage2ImageSession(pinia)
+
+    const optimizerCurrentVersions = ref<PromptRecordChain['versions']>([makeDummyRecord()])
+    const hasRestoredInitialState = ref(false)
+    const isLoadingExternalData = ref(false)
+
+    const query: LocationQuery = {
+      importCode: 'NB-PVAR-EX-002',
+      exampleId: 'ex-b',
+    }
+
+    const currentRoute = ref<RouteLocationNormalizedLoaded>(makeRoute('/basic/system', query))
+
+    let replaceResolve: (() => void) | undefined
+    const replaceDone = new Promise<void>((resolve) => {
+      replaceResolve = resolve
+    })
+
+    const push: Router['push'] = vi.fn(async (to) => {
+      applyNavigation(currentRoute, to)
+      return undefined
+    })
+
+    const replace: Router['replace'] = vi.fn(async (to) => {
+      applyNavigation(currentRoute, to)
+      replaceResolve?.()
+      return undefined
+    })
+
+    const router: Pick<Router, 'currentRoute' | 'push' | 'replace'> = {
+      currentRoute,
+      push,
+      replace,
+    }
+
+    const v1Payload = {
+      schema: 'prompt-garden.prompt.v1',
+      schemaVersion: 1,
+      optimizerTarget: { subModeKey: 'pro-variable' },
+      prompt: {
+        format: 'text',
+        text: 'Hello {{name}}',
+      },
+      variables: [{ name: 'name' }],
+      assets: {
+        examples: [
+          { id: 'ex-a', parameters: { name: 'Alice' } },
+          { id: 'ex-b', parameters: { name: 'Charlie' } },
+        ],
+      },
+    }
+
+    const fetchMock = vi.fn<
+      (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+    >(async () => {
+      return new Response(JSON.stringify(v1Payload), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const scope = effectScope()
+    try {
+      scope.run(() => {
+        useAppPromptGardenImport({
+          router,
+          hasRestoredInitialState,
+          isLoadingExternalData,
+          gardenBaseUrl: 'http://garden.local',
+          basicSystemSession,
+          basicUserSession,
+          proMultiMessageSession,
+          proVariableSession,
+          imageText2ImageSession,
+          imageImage2ImageSession,
+          optimizerCurrentVersions,
+        })
+      })
+
+      hasRestoredInitialState.value = true
+
+      await replaceDone
+      await waitForCondition(() => isLoadingExternalData.value === false)
+
+      expect(currentRoute.value.path).toBe('/pro/variable')
+      expect(proVariableSession.getTemporaryVariable('name')).toBe('Charlie')
+
+      // Import params removed from the URL.
+      expect(currentRoute.value.query.importCode).toBeUndefined()
+      expect(currentRoute.value.query.exampleId).toBeUndefined()
+    } finally {
+      scope.stop()
+    }
+  })
+
   it('injects {{var}} placeholders into image temporary variables', async () => {
     const { pinia } = createTestPinia({
       // Image sessions require ImageStorageService to persist.
@@ -720,6 +957,142 @@ describe('useAppPromptGardenImport', () => {
 
       // Variables not present in the import payload are removed.
       expect(imageText2ImageSession.getTemporaryVariable('obsolete')).toBeUndefined()
+    } finally {
+      scope.stop()
+    }
+  })
+
+  it('loads image2image example input image when present', async () => {
+    const { pinia } = createTestPinia({
+      imageStorageService: {
+        getMetadata: async () => null,
+        saveImage: async () => {},
+        listAllMetadata: async () => [],
+        deleteImages: async () => {},
+      } as unknown as never,
+    })
+
+    // Avoid console.warn from useToast (tests fail on console.warn).
+    const createReactive = (): MessageReactive => ({
+      destroy: () => {},
+    } as unknown as MessageReactive)
+    setGlobalMessageApi({
+      success: vi.fn(() => createReactive()),
+      error: vi.fn(() => createReactive()),
+      warning: vi.fn(() => createReactive()),
+      info: vi.fn(() => createReactive()),
+    })
+
+    const basicSystemSession = useBasicSystemSession(pinia)
+    const basicUserSession = useBasicUserSession(pinia)
+    const proMultiMessageSession = useProMultiMessageSession(pinia)
+    const proVariableSession = useProVariableSession(pinia)
+    const imageText2ImageSession = useImageText2ImageSession(pinia)
+    const imageImage2ImageSession = useImageImage2ImageSession(pinia)
+
+    const optimizerCurrentVersions = ref<PromptRecordChain['versions']>([makeDummyRecord()])
+    const hasRestoredInitialState = ref(false)
+    const isLoadingExternalData = ref(false)
+
+    const query: LocationQuery = {
+      importCode: 'NB-I2I-001',
+      subModeKey: 'image-image2image',
+    }
+
+    const currentRoute = ref<RouteLocationNormalizedLoaded>(makeRoute('/basic/system', query))
+
+    let replaceResolve: (() => void) | undefined
+    const replaceDone = new Promise<void>((resolve) => {
+      replaceResolve = resolve
+    })
+
+    const push: Router['push'] = vi.fn(async (to) => {
+      applyNavigation(currentRoute, to)
+      return undefined
+    })
+
+    const replace: Router['replace'] = vi.fn(async (to) => {
+      applyNavigation(currentRoute, to)
+      replaceResolve?.()
+      return undefined
+    })
+
+    const router: Pick<Router, 'currentRoute' | 'push' | 'replace'> = {
+      currentRoute,
+      push,
+      replace,
+    }
+
+    const inputAssetPath = '/prompt-assets/NB-I2I-001/examples/ex-001/01.png'
+    const inputAssetUrl = `http://garden.local${inputAssetPath}`
+
+    const v1Payload = {
+      schema: 'prompt-garden.prompt.v1',
+      schemaVersion: 1,
+      optimizerTarget: { subModeKey: 'image-image2image' },
+      prompt: { format: 'text', text: 'Transform the image' },
+      variables: [],
+      assets: {
+        examples: [
+          {
+            id: 'ex-001',
+            inputImages: [inputAssetPath],
+          },
+        ],
+      },
+    }
+
+    const fetchMock = vi.fn<
+      (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+    >(async (input) => {
+      const url = String(input)
+      if (url === 'http://garden.local/api/prompt-source/NB-I2I-001') {
+        return new Response(JSON.stringify(v1Payload), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      if (url === inputAssetUrl) {
+        return new Response(new Uint8Array([0, 1, 2, 3]), {
+          status: 200,
+          headers: { 'content-type': 'image/png' },
+        })
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const scope = effectScope()
+    try {
+      scope.run(() => {
+        useAppPromptGardenImport({
+          router,
+          hasRestoredInitialState,
+          isLoadingExternalData,
+          gardenBaseUrl: 'http://garden.local',
+          basicSystemSession,
+          basicUserSession,
+          proMultiMessageSession,
+          proVariableSession,
+          imageText2ImageSession,
+          imageImage2ImageSession,
+          optimizerCurrentVersions,
+        })
+      })
+
+      hasRestoredInitialState.value = true
+
+      await replaceDone
+      await waitForCondition(() => isLoadingExternalData.value === false)
+
+      expect(currentRoute.value.path).toBe('/image/image2image')
+      expect(imageImage2ImageSession.originalPrompt).toBe('Transform the image')
+
+      // [0,1,2,3] -> AAECAw==
+      expect(imageImage2ImageSession.inputImageB64).toBe('AAECAw==')
+      expect(imageImage2ImageSession.inputImageMime).toBe('image/png')
+
+      expect(fetchMock).toHaveBeenCalledTimes(2)
     } finally {
       scope.stop()
     }
