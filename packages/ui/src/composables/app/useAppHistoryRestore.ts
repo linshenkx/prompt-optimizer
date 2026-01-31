@@ -8,17 +8,16 @@
  * - 恢复会话快照和消息级优化状态
  */
 
-import { nextTick, type Ref, type ComputedRef } from 'vue'
+import { nextTick, type Ref } from 'vue'
 import { useToast } from '../ui/useToast'
 import type { ConversationMessage } from '../../types'
+import type { ProMultiMessageSessionApi } from '../../stores/session/useProMultiMessageSession'
 import type {
-    BasicSubMode,
     ContextMode,
     PromptRecord,
     PromptRecordChain,
     IHistoryManager,
     OptimizationMode,
-    ImageSubMode,
 } from '@prompt-optimizer/core'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -53,8 +52,8 @@ export interface AppHistoryRestoreOptions {
     handleContextModeChange: (mode: ContextMode) => Promise<void>
     /** 处理历史记录选择 */
     handleSelectHistory: (context: HistoryContext) => Promise<void>
-    /** 优化上下文（多消息） */
-    optimizationContext: Ref<ConversationMessage[]>
+    /** Pro-multi 会话（多消息会话：消息列表在此持久化，避免写入 optimizationContext） */
+    proMultiMessageSession: ProMultiMessageSessionApi
     /** 系统工作区组件引用 */
     systemWorkspaceRef: Ref<WorkspaceRef | null>
     /** 用户工作区组件引用 */
@@ -91,7 +90,7 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
         navigateToSubModeKey,
         handleContextModeChange,
         handleSelectHistory,
-        optimizationContext,
+        proMultiMessageSession,
         systemWorkspaceRef,
         userWorkspaceRef,
         t,
@@ -236,7 +235,7 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
                     )
 
                     // 🆕 精确版本恢复：为每条消息加载其指定的版本
-                    const restoredMessages = await Promise.all(
+                const restoredMessages = await Promise.all(
                         conversationSnapshot.map(async (snapshotMsg) => {
                             // 如果快照包含 chainId 和 appliedVersion，尝试精确恢复
                             if (
@@ -306,13 +305,25 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
                         }),
                     )
 
-                    optimizationContext.value = restoredMessages
+                    // Pro-multi: session-owned messages
+                    proMultiMessageSession.updateConversationMessages(restoredMessages)
+
+                    // Persist message→chain mapping for Pro-multi (so refresh / mode-switch keeps links).
+                    const mapRecord: Record<string, string> = {}
+                    for (const msg of conversationSnapshot) {
+                        if (msg.id && msg.chainId) {
+                            mapRecord[msg.id] = msg.chainId
+                        }
+                    }
+                    if (Object.keys(mapRecord).length > 0) {
+                        proMultiMessageSession.setMessageChainMap(mapRecord)
+                    }
                     await nextTick()
                 }
 
                 const messageId = record.metadata?.messageId
                 const targetMessage = messageId
-                    ? optimizationContext.value.find((msg) => msg.id === messageId)
+                    ? (proMultiMessageSession.conversationMessagesSnapshot || []).find((msg) => msg.id === messageId)
                     : undefined
 
                 await systemWorkspaceRef.value?.restoreFromHistory?.({

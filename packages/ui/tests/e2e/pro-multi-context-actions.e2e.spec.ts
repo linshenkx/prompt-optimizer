@@ -3,8 +3,8 @@ import { mount } from '@vue/test-utils'
 import { defineComponent, nextTick, ref } from 'vue'
 import { setActivePinia } from 'pinia'
 
-import type { ConversationMessage } from '@prompt-optimizer/core'
 import ContextSystemWorkspace from '../../src/components/context-mode/ContextSystemWorkspace.vue'
+import { useProMultiMessageSession } from '../../src/stores/session/useProMultiMessageSession'
 import { useSessionManager } from '../../src/stores/session/useSessionManager'
 import { createTestPinia } from '../utils/pinia-test-helpers'
 
@@ -160,7 +160,6 @@ describe('Pro Multi: context actions wiring (e2e)', () => {
       getImageSubMode: () => 'text2image',
     })
 
-    const optimizationContext = ref<ConversationMessage[]>([])
     const openContextEditor = vi.fn()
 
     const wrapper = mount(ContextSystemWorkspace, {
@@ -169,7 +168,6 @@ describe('Pro Multi: context actions wiring (e2e)', () => {
         provide: {
           // ContextSystemWorkspace expects a Ref<AppServices | null>.
           services: ref(null),
-          optimizationContext,
           openContextEditor,
           openModelManager: vi.fn(),
           openTemplateManager: vi.fn(),
@@ -192,8 +190,9 @@ describe('Pro Multi: context actions wiring (e2e)', () => {
     await wrapper.find('[data-testid="pro-multi-add-first-message"]').trigger('click')
     await nextTick()
 
-    expect(optimizationContext.value).toHaveLength(1)
-    expect(optimizationContext.value[0]?.role).toBe('user')
+    const proMulti = useProMultiMessageSession()
+    expect(proMulti.conversationMessagesSnapshot).toHaveLength(1)
+    expect(proMulti.conversationMessagesSnapshot[0]?.role).toBe('user')
 
     await wrapper.find('[data-testid="pro-multi-open-context-editor"]').trigger('click')
     expect(openContextEditor).toHaveBeenCalledTimes(1)

@@ -453,7 +453,7 @@ export default {
     defaultOptimizationContext: {
       proMulti: {
         system: "你是一个诗人",
-        user: "请写一首关于{{主题}}的诗",
+        user: "请写一首关于春天的诗",
       },
     },
   },

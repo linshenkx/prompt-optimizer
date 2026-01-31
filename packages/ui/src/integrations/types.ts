@@ -14,7 +14,10 @@ export interface OptionalIntegrationsContext {
   hasRestoredInitialState: Ref<boolean>
   isLoadingExternalData: Ref<boolean>
 
-  /** Pro multi-mode conversation messages (owned by PromptOptimizerApp context management). */
+  /**
+   * Optimization context messages stored in the context repo.
+   * Note: Pro-multi conversation messages are session-owned (see proMultiMessageSession).
+   */
   optimizationContext: Ref<ConversationMessage[]>
 
   basicSystemSession: BasicSystemSessionApi

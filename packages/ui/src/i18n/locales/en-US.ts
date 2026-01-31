@@ -468,7 +468,8 @@ export default {
     defaultOptimizationContext: {
       proMulti: {
         system: "You are a poet.",
-        user: "Please write a poem about {{topic}}.",
+        // Note: Avoid {{var}} placeholders here; message compilation forbids nested placeholders.
+        user: "Please write a poem about spring.",
       },
     },
   },

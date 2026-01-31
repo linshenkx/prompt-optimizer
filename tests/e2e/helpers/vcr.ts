@@ -673,13 +673,16 @@ class E2EVCR {
                 // replay 模式：没有 fixture 则失败
                 const errorMsg =
                   `[VCR] ❌ Fixture not found for test: ${this.currentTestName} - ${this.currentTestCase}\n` +
+                  `Request hash: ${requestHash} (${provider} ${method} ${url.split('?')[0]})\n` +
                   `Run with E2E_VCR_MODE=record to create it.`
 
                 console.error(errorMsg)
                 await route.abort()
               } else {
                 // auto 模式：降级到真实 API
-                console.log(`[VCR] ⚠️  No fixture, calling real API`)
+                console.log(
+                  `[VCR] ⚠️  No fixture for requestHash=${requestHash} (${provider} ${method} ${url.split('?')[0]}), calling real API`,
+                )
                 await route.continue()
               }
             }

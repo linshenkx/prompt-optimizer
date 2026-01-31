@@ -682,15 +682,30 @@ const contextEditorDefaultTab = ref<"messages" | "variables" | "tools">("message
 const {
     onlyShowTab: contextEditorOnlyShowTab,
     title: contextEditorTitle,
-    handleCancel: handleContextEditorCancel,
+    handleCancel: handleContextEditorCancelBase,
 } = useContextEditorUIState(showContextEditor, t);
 
-const contextEditorState = ref({
-    messages: [] as ConversationMessage[],
-    tools: [] as ToolDefinition[],
+type ContextEditorOwner = 'context-repo' | 'pro-multi'
+const contextEditorOwner = ref<ContextEditorOwner>('context-repo')
+
+watch(showContextEditor, (visible) => {
+    if (!visible) {
+        contextEditorOwner.value = 'context-repo'
+    }
+})
+
+const handleContextEditorCancel = () => {
+    contextEditorOwner.value = 'context-repo'
+    handleContextEditorCancelBase()
+}
+
+const contextEditorState = ref<ContextEditorState>({
+    messages: [],
+    variables: {},
+    tools: [],
     showVariablePreview: true,
     showToolManager: false,
-    mode: "edit" as "edit" | "preview",
+    mode: 'edit',
 });
 
 // 提示词预览面板状态
@@ -937,11 +952,21 @@ const contextManagement = useContextManagement({
 const optimizationContext = contextManagement.optimizationContext;
 const optimizationContextTools = contextManagement.optimizationContextTools;
 const initializeContextPersistence = contextManagement.initializeContextPersistence;
+const persistContextUpdate = contextManagement.persistContextUpdate;
 const handleContextEditorSave = contextManagement.handleContextEditorSave;
 const handleContextEditorStateUpdate = contextManagement.handleContextEditorStateUpdate;
 
 const handleContextEditorStateUpdateSafe = (state?: ContextEditorState) => {
     if (!state) return;
+    if (contextEditorOwner.value === 'pro-multi') {
+        // Pro-multi: keep edits local until user hits Save.
+        contextEditorState.value = {
+            ...contextEditorState.value,
+            messages: [...(state.messages || [])],
+            tools: [...(state.tools || [])],
+        };
+        return;
+    }
     void handleContextEditorStateUpdate(state);
 };
 
@@ -951,6 +976,47 @@ const handleContextEditorSaveSafe = (context?: {
     tools: ToolDefinition[];
 }) => {
     if (!context) return;
+
+    if (contextEditorOwner.value === 'pro-multi') {
+        const prevMessages = proMultiMessageSession.conversationMessagesSnapshot || []
+        const prevIds = new Set(
+            prevMessages
+                .map((m) => m.id)
+                .filter((id): id is string => typeof id === 'string' && id.length > 0),
+        )
+        const nextIds = new Set(
+            (context.messages || [])
+                .map((m) => m.id)
+                .filter((id): id is string => typeof id === 'string' && id.length > 0),
+        )
+
+        // Remove chain mappings for deleted messages.
+        for (const id of prevIds) {
+            if (!nextIds.has(id)) {
+                proMultiMessageSession.removeMessageChainMapping(id)
+            }
+        }
+
+        proMultiMessageSession.updateConversationMessages([...(context.messages || [])])
+
+        const selectedId = proMultiMessageSession.selectedMessageId
+        if (selectedId && ![...(context.messages || [])].some((m) => m.id === selectedId)) {
+            proMultiMessageSession.selectMessage('')
+        }
+
+        // Keep tools in the context repo (unchanged architecture for now).
+        optimizationContextTools.value = [...(context.tools || [])]
+        void persistContextUpdate({ tools: context.tools || [] })
+
+        showContextEditor.value = false
+        contextEditorOwner.value = 'context-repo'
+
+        // Best-effort persist the pro-multi session after an explicit save.
+        void proMultiMessageSession.saveSession()
+        toast.success('上下文已更新')
+        return
+    }
+
     void handleContextEditorSave(context);
 };
 const handleContextModeChange = contextManagement.handleContextModeChange;
@@ -1118,9 +1184,37 @@ const restoreProMultiMessageSession = async () => {
     // 恢复对比模式
     isCompareMode.value = savedState.isCompareMode;
 
-    // 恢复对话消息列表（Pro 多消息专有字段）
-    if (savedState.conversationMessagesSnapshot && savedState.conversationMessagesSnapshot.length > 0) {
-        optimizationContext.value = [...savedState.conversationMessagesSnapshot];
+    // Pro Multi messages are session-owned. Ensure a default example exists when empty.
+    if (!session.conversationMessagesSnapshot || session.conversationMessagesSnapshot.length === 0) {
+        let seed = 0;
+        const makeId = () => {
+            const maybeCrypto = globalThis.crypto as unknown as { randomUUID?: () => string } | undefined;
+            if (maybeCrypto && typeof maybeCrypto.randomUUID === 'function') {
+                return maybeCrypto.randomUUID();
+            }
+            seed += 1;
+            return `pro-multi-default-${Date.now()}-${seed}`;
+        };
+
+        const systemText = t('promptOptimizer.defaultOptimizationContext.proMulti.system');
+        const userText = t('promptOptimizer.defaultOptimizationContext.proMulti.user');
+        const defaultMessages: ConversationMessage[] = [
+            {
+                id: makeId(),
+                role: 'system',
+                content: systemText,
+                originalContent: systemText,
+            },
+            {
+                id: makeId(),
+                role: 'user',
+                content: userText,
+                originalContent: userText,
+            },
+        ];
+        session.updateConversationMessages(defaultMessages);
+        // Keep initial selection empty (Playwright expects the empty-select UI).
+        session.selectMessage('');
     }
 
     // 🔧 Codex 修复：等待 DOM 更新，确保子组件 ref 已建立
@@ -1525,7 +1619,7 @@ const { handleHistoryReuse } = useAppHistoryRestore({
     navigateToSubModeKey: navigateToSubModeKeyCompat,  // 🔧 Step D: 替代旧的 setFunctionMode/set*SubMode
     handleContextModeChange,
     handleSelectHistory: promptHistory.handleSelectHistory,
-    optimizationContext,
+    proMultiMessageSession,
     systemWorkspaceRef,
     userWorkspaceRef,
     t,
@@ -1741,22 +1835,8 @@ watch(
                 !optimizationContext.value ||
                 optimizationContext.value.length === 0
             ) {
-                if (newOptimizationMode === "system") {
-                    optimizationContext.value = [
-                        {
-                            role: "system",
-                            content: t(
-                                "promptOptimizer.defaultOptimizationContext.proMulti.system",
-                            ),
-                        },
-                        {
-                            role: "user",
-                            content: t(
-                                "promptOptimizer.defaultOptimizationContext.proMulti.user",
-                            ),
-                        },
-                    ];
-                } else if (newOptimizationMode === "user") {
+                // Note: Pro Multi messages are now session-owned; avoid writing defaults into optimizationContext.
+                if (newOptimizationMode === "user") {
                     optimizationContext.value = [
                         { role: "user", content: "{{currentPrompt}}" },
                     ];
@@ -1882,6 +1962,35 @@ const openContextEditor = (
     messagesOrTab?: ContextEditorOpenArg,
     variables?: Record<string, string>,
 ) => {
+    // Pro-multi: ContextEditor edits the session-owned conversation messages.
+    if (routeFunctionMode.value === 'pro' && routeProSubMode.value === 'multi') {
+        contextEditorOwner.value = 'pro-multi'
+
+        let messages: ConversationMessage[] | undefined
+        let defaultTab: 'messages' | 'variables' | 'tools' = 'messages'
+        if (typeof messagesOrTab === 'string') {
+            defaultTab = messagesOrTab
+            messages = undefined
+        } else {
+            messages = messagesOrTab
+        }
+
+        contextEditorDefaultTab.value = defaultTab
+        void variableManager?.refresh?.()
+
+        contextEditorState.value = {
+            messages: messages || [...(proMultiMessageSession.conversationMessagesSnapshot || [])],
+            variables: {},
+            tools: [...(optimizationContextTools.value || [])],
+            showVariablePreview: false,
+            showToolManager: contextMode.value === 'user',
+            mode: 'edit',
+        }
+        showContextEditor.value = true
+        return
+    }
+
+    contextEditorOwner.value = 'context-repo'
     void contextManagement.handleOpenContextEditor(messagesOrTab, variables);
 };
 provide("openContextEditor", openContextEditor);

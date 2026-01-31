@@ -399,9 +399,6 @@ export interface AppPromptGardenImportOptions {
   hasRestoredInitialState: Ref<boolean>
   isLoadingExternalData: Ref<boolean>
 
-  /** Pro multi-mode conversation messages (owned by PromptOptimizerApp context management). */
-  optimizationContext: Ref<ConversationMessage[]>
-
   /** Fixed integration base URL (no per-link overrides). */
   gardenBaseUrl: string | null
 
@@ -423,7 +420,6 @@ export function useAppPromptGardenImport(options: AppPromptGardenImportOptions) 
     hasRestoredInitialState,
     isLoadingExternalData,
     gardenBaseUrl,
-    optimizationContext,
     basicSystemSession,
     basicUserSession,
     proMultiMessageSession,
@@ -478,8 +474,6 @@ export function useAppPromptGardenImport(options: AppPromptGardenImportOptions) 
             throw new Error('Empty conversation content')
           }
 
-          // Pro Multi UI reads from optimizationContext; session store keeps a persisted snapshot.
-          optimizationContext.value = messages
           proMultiMessageSession.updateConversationMessages(messages)
 
           // Reset state that is tied to the previously selected message/chain.

@@ -18,7 +18,7 @@
                         content-style="padding: 0;"
                     >
                         <ConversationManager
-                            :messages="optimizationContext"
+                            :messages="conversationMessages"
                             @update:messages="handleConversationMessagesUpdated"
                             @message-change="(index, message, action) => {
                                 // Pro Multi：新增/更新消息后自动选中最新消息，确保“优化”按钮可用
@@ -618,14 +618,27 @@ const appOpenContextEditor = inject<
     ((messagesOrTab?: ContextEditorOpenArg, variables?: Record<string, string>) => void) | null
 >('openContextEditor', null)
 
-// 🆕 注入优化上下文（多轮对话消息）
-const optimizationContext = inject<Ref<ConversationMessage[]>>('optimizationContext', ref([]))
+ // Pro Multi: message list is session-owned (per-submode isolation).
+ // Keep emitting update:optimizationContext only as a backward-compat hook for non-App hosts.
+ const proMultiSession = useProMultiMessageSession()
+ const conversationMessages = computed<ConversationMessage[]>({
+     get: () => proMultiSession.conversationMessagesSnapshot || [],
+     set: (messages) => {
+         proMultiSession.updateConversationMessages(messages)
+     },
+ })
 
-const handleConversationMessagesUpdated = (messages: ConversationMessage[]) => {
-    optimizationContext.value = messages
-    // 兜底：保留对外 emits，供非 PromptOptimizerApp 宿主集成使用
-    emit('update:optimizationContext', messages)
-}
+ const handleConversationMessagesUpdated = (messages: ConversationMessage[]) => {
+     proMultiSession.updateConversationMessages(messages)
+
+     // If the selected message was deleted, clear selection to keep the UI consistent.
+     const selectedId = proMultiSession.selectedMessageId
+     if (selectedId && !messages.some((m) => m.id === selectedId)) {
+         proMultiSession.selectMessage('')
+     }
+
+     emit('update:optimizationContext', messages)
+ }
 
 const handleOpenModelManager = () => {
     if (appOpenModelManager) {
@@ -720,8 +733,7 @@ const handleOpenPromptPreview = () => {
     openPromptPreview(displayAdapter.displayedOptimizedPrompt.value || '', { renderPhase: 'optimize' })
 }
 
-// 🆕 测试结果持久化（Pro-system）
-const proMultiSession = useProMultiMessageSession()
+ // 🆕 测试结果持久化（Pro-system）
 
 // ✨ 新增：直接使用 session store 管理模型和模板选择
 const modelSelection = useWorkspaceModelSelection(servicesRef, proMultiSession)
@@ -733,29 +745,29 @@ const templateSelection = useWorkspaceTemplateSelection(
 )
 
 // 🆕 初始化本地会话优化逻辑
-const conversationOptimization = useConversationOptimization(
-    servicesRef,
-    optimizationContext,
-    computed(() => optimizationMode),
-    modelSelection.selectedOptimizeModelKey,
-    templateSelection.selectedTemplate,
-    templateSelection.selectedIterateTemplate
-)
+ const conversationOptimization = useConversationOptimization(
+     servicesRef,
+     conversationMessages,
+     computed(() => optimizationMode),
+     modelSelection.selectedOptimizeModelKey,
+     templateSelection.selectedTemplate,
+     templateSelection.selectedIterateTemplate
+ )
 
 // 暴露给子组件（虽然目前主要通过 Props 传递给 ConversationManager，但保持 Provide 以防万一）
 provide('conversationOptimization', conversationOptimization);
 
 // 🆕 初始化显示适配器（根据模式自动切换数据源）
-const displayAdapter = usePromptDisplayAdapter(
-    conversationOptimization,
-    {
-        enableMessageOptimization,
-        optimizationContext,
-        globalVersions: computed(() => props.versions || []),
-        globalCurrentVersionId: computed(() => props.currentVersionId),
-        globalIsOptimizing: computed(() => props.isOptimizing),
-    }
-)
+ const displayAdapter = usePromptDisplayAdapter(
+     conversationOptimization,
+     {
+         enableMessageOptimization,
+         optimizationContext: conversationMessages,
+         globalVersions: computed(() => props.versions || []),
+         globalCurrentVersionId: computed(() => props.currentVersionId),
+         globalIsOptimizing: computed(() => props.isOptimizing),
+     }
+ )
 
 // 从 inject 获取 optimizationContextTools（由 App.vue 提供）
 const optimizationContextToolsRef = inject<Ref<ToolDefinition[]>>('optimizationContextTools', ref([]))
@@ -782,21 +794,21 @@ const selectedIterateTemplate = computed<Template | null>({
 })
 
 // 🆕 从 session store 恢复测试结果（只恢复稳定字段，不恢复过程态）
-onMounted(() => {
+ onMounted(() => {
     // ✅ 刷新模型列表
     modelSelection.refreshTextModels()
 
-    // Pro Multi：初始态保持“未选择消息”，让用户明确选择要优化的消息。
-    // 仅在 session store 有选中记录时尝试恢复（刷新/恢复场景）。
-    if (proMultiSession.selectedMessageId) {
-        const restored = (optimizationContext.value || []).find((m) => m.id === proMultiSession.selectedMessageId)
-        if (restored) {
-            void conversationOptimization.selectMessage(restored)
-        } else {
-            // 防止选中 ID 指向已不存在的消息，导致 UI 误判为“已选中”。
-            proMultiSession.selectMessage('')
-        }
-    }
+     // Pro Multi：初始态保持“未选择消息”，让用户明确选择要优化的消息。
+     // 仅在 session store 有选中记录时尝试恢复（刷新/恢复场景）。
+     if (proMultiSession.selectedMessageId) {
+         const restored = (conversationMessages.value || []).find((m) => m.id === proMultiSession.selectedMessageId)
+         if (restored) {
+             void conversationOptimization.selectMessage(restored)
+         } else {
+             // 防止选中 ID 指向已不存在的消息，导致 UI 误判为“已选中”。
+             proMultiSession.selectMessage('')
+         }
+     }
 
 })
 
@@ -1127,14 +1139,14 @@ const formatToolsAsText = (tools: ToolDefinition[]): string => {
         .join('\n\n')
 }
 
-const buildMessagesForSelection = (selection: TestPanelVersionValue): ConversationMessage[] => {
-    const id = selectedMessageId.value
-    const resolved = resolveSelectedMessageContent(selection)
-    return (optimizationContext.value || []).map((msg) => ({
-        ...msg,
-        content: id && msg.id === id ? resolved.text : msg.content,
-    }))
-}
+ const buildMessagesForSelection = (selection: TestPanelVersionValue): ConversationMessage[] => {
+     const id = selectedMessageId.value
+     const resolved = resolveSelectedMessageContent(selection)
+     return (conversationMessages.value || []).map((msg) => ({
+         ...msg,
+         content: id && msg.id === id ? resolved.text : msg.content,
+     }))
+ }
 
 const getVariantFingerprint = (id: TestVariantId) => {
     const selection = variantVersionModels[id].value
@@ -1180,10 +1192,10 @@ const getVariantTestInput = (id: TestVariantId): VariantTestInput | null => {
         return null
     }
 
-    if (!optimizationContext.value || optimizationContext.value.length === 0) {
-        toast.error(t('test.error.noConversation'))
-        return null
-    }
+     if (!conversationMessages.value || conversationMessages.value.length === 0) {
+         toast.error(t('test.error.noConversation'))
+         return null
+     }
 
     if (!selectedMessageId.value) {
         toast.warning(t('toast.warning.messageNotFound'))
@@ -1342,26 +1354,26 @@ const runAllVariants = async () => {
 }
 
 // 🆕 构建 Pro-System 评估上下文（基于 A/B 的消息版本）
-const proContext = computed<ProSystemEvaluationContext | undefined>(() => {
-    const selectedMsg = conversationOptimization.selectedMessage.value
-    if (!selectedMsg?.id) return undefined
+ const proContext = computed<ProSystemEvaluationContext | undefined>(() => {
+     const selectedMsg = conversationOptimization.selectedMessage.value
+     if (!selectedMsg?.id) return undefined
 
     const original = resolvedOriginalTestPrompt.value.text
     const optimized = resolvedOptimizedTestPrompt.value.text
 
-    return {
-        targetMessage: {
-            role: selectedMsg.role as 'system' | 'user' | 'assistant' | 'tool',
-            content: optimized,
-            originalContent: original,
-        },
-        conversationMessages: (optimizationContext.value || []).map((msg) => ({
-            role: msg.role,
-            content: msg.id === selectedMsg.id ? optimized : msg.content,
-            isTarget: msg.id === selectedMsg.id,
-        })),
-    }
-})
+     return {
+         targetMessage: {
+             role: selectedMsg.role as 'system' | 'user' | 'assistant' | 'tool',
+             content: optimized,
+             originalContent: original,
+         },
+         conversationMessages: (conversationMessages.value || []).map((msg) => ({
+             role: msg.role,
+             content: msg.id === selectedMsg.id ? optimized : msg.content,
+             isTarget: msg.id === selectedMsg.id,
+         })),
+     }
+ })
 
 // 🆕 提供 Pro 模式上下文给子组件（如 PromptPanel），用于评估时传递多消息上下文
 provideProContext(proContext)

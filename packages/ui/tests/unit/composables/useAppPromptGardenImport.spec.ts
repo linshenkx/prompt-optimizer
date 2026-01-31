@@ -119,8 +119,6 @@ describe('useAppPromptGardenImport', () => {
     const imageText2ImageSession = useImageText2ImageSession(pinia)
     const imageImage2ImageSession = useImageImage2ImageSession(pinia)
 
-    const optimizationContext = ref<ConversationMessage[]>([])
-
     // Seed non-empty state so we can verify it gets cleared.
     basicSystemSession.updatePrompt('old')
     basicSystemSession.updateOptimizedResult({
@@ -197,7 +195,6 @@ describe('useAppPromptGardenImport', () => {
           router,
           hasRestoredInitialState,
           isLoadingExternalData,
-          optimizationContext,
           gardenBaseUrl: 'http://garden.local',
           basicSystemSession,
           basicUserSession,
@@ -265,8 +262,6 @@ describe('useAppPromptGardenImport', () => {
     const proVariableSession = useProVariableSession(pinia)
     const imageText2ImageSession = useImageText2ImageSession(pinia)
     const imageImage2ImageSession = useImageImage2ImageSession(pinia)
-
-    const optimizationContext = ref<ConversationMessage[]>([])
 
     // Seed some state to ensure import resets pro-multi-specific fields.
     proMultiMessageSession.setMessageChainMap({ old: 'chain' })
@@ -369,7 +364,6 @@ describe('useAppPromptGardenImport', () => {
           router,
           hasRestoredInitialState,
           isLoadingExternalData,
-          optimizationContext,
           gardenBaseUrl: 'http://garden.local',
           basicSystemSession,
           basicUserSession,
@@ -415,8 +409,7 @@ describe('useAppPromptGardenImport', () => {
         },
       ]
 
-      // Optimization context updated + persisted snapshot updated.
-      expect(optimizationContext.value).toEqual(expectedMessages)
+      // Session updated + persisted snapshot updated.
       expect(proMultiMessageSession.conversationMessagesSnapshot).toEqual(expectedMessages)
 
       // Auto-select latest system/user message.
@@ -465,8 +458,6 @@ describe('useAppPromptGardenImport', () => {
     const proVariableSession = useProVariableSession(pinia)
     const imageText2ImageSession = useImageText2ImageSession(pinia)
     const imageImage2ImageSession = useImageImage2ImageSession(pinia)
-
-    const optimizationContext = ref<ConversationMessage[]>([])
 
     // Seed non-empty state so we can verify it gets cleared.
     proVariableSession.updatePrompt('old')
@@ -551,7 +542,6 @@ describe('useAppPromptGardenImport', () => {
           router,
           hasRestoredInitialState,
           isLoadingExternalData,
-          optimizationContext,
           gardenBaseUrl: 'http://garden.local',
           basicSystemSession,
           basicUserSession,
@@ -590,8 +580,8 @@ describe('useAppPromptGardenImport', () => {
       expect(proVariableSession.getTemporaryVariable('name')).toBe('Bob')
       expect(proVariableSession.getTemporaryVariable('tone')).toBe('')
 
-      // Pro-variable import should not mutate pro-multi optimization context.
-      expect(optimizationContext.value).toEqual([])
+      // Pro-variable import should not mutate pro-multi session messages.
+      expect(proMultiMessageSession.conversationMessagesSnapshot).toEqual([])
 
       // Import params removed from the URL.
       expect(currentRoute.value.query.importCode).toBeUndefined()
@@ -629,8 +619,6 @@ describe('useAppPromptGardenImport', () => {
     const proVariableSession = useProVariableSession(pinia)
     const imageText2ImageSession = useImageText2ImageSession(pinia)
     const imageImage2ImageSession = useImageImage2ImageSession(pinia)
-
-    const optimizationContext = ref<ConversationMessage[]>([])
 
     // Existing values should be preserved.
     imageText2ImageSession.setTemporaryVariable('season', 'winter')
@@ -695,7 +683,6 @@ describe('useAppPromptGardenImport', () => {
           router,
           hasRestoredInitialState,
           isLoadingExternalData,
-          optimizationContext,
           gardenBaseUrl: 'http://garden.local',
           basicSystemSession,
           basicUserSession,
