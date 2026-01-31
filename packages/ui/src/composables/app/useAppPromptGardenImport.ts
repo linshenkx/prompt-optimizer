@@ -114,6 +114,7 @@ type ImportedVariable = {
 type TemporaryVariablesSessionApi = {
   getTemporaryVariable: (name: string) => string | undefined
   setTemporaryVariable: (name: string, value: string) => void
+  clearTemporaryVariables: () => void
 }
 
 const ensureImportedTemporaryVariables = (
@@ -152,14 +153,20 @@ const ensureImportedTemporaryVariables = (
     }))
     .filter((v) => isValidVariableName(v.name))
 
-  if (!variableEntries.length) return
-
-  // Add missing variable keys so the variables panel can render them immediately.
-  // Preserve existing values to avoid unexpected destructive behavior.
-  for (const { name, value } of variableEntries) {
-    if (session.getTemporaryVariable(name) === undefined) {
-      session.setTemporaryVariable(name, value)
+  // Reset the temporary variables panel to match the imported variable list.
+  // Preserve existing values for the same keys to avoid clobbering user input.
+  const preservedValues = new Map<string, string>()
+  for (const { name } of variableEntries) {
+    const existing = session.getTemporaryVariable(name)
+    if (existing !== undefined) {
+      preservedValues.set(name, existing)
     }
+  }
+
+  session.clearTemporaryVariables()
+
+  for (const { name, value } of variableEntries) {
+    session.setTemporaryVariable(name, preservedValues.get(name) ?? value)
   }
 }
 

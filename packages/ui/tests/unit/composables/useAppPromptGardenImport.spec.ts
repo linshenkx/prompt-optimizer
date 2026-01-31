@@ -278,6 +278,7 @@ describe('useAppPromptGardenImport', () => {
       optimizedReasoning: 'old-opt-r',
     })
     proMultiMessageSession.setTemporaryVariable('topic', 'pizza')
+    proMultiMessageSession.setTemporaryVariable('obsolete', 'should-delete')
 
     const optimizerCurrentVersions = ref<PromptRecordChain['versions']>([makeDummyRecord()])
 
@@ -427,6 +428,7 @@ describe('useAppPromptGardenImport', () => {
       expect(proMultiMessageSession.getTemporaryVariable('topic')).toBe('pizza')
       expect(proMultiMessageSession.getTemporaryVariable('format')).toBe('markdown')
       expect(proMultiMessageSession.getTemporaryVariable('tone')).toBe('')
+      expect(proMultiMessageSession.getTemporaryVariable('obsolete')).toBeUndefined()
 
       // Import params removed from the URL.
       expect(currentRoute.value.query.importCode).toBeUndefined()
@@ -477,6 +479,7 @@ describe('useAppPromptGardenImport', () => {
 
     // Existing values should be preserved.
     proVariableSession.setTemporaryVariable('name', 'Bob')
+    proVariableSession.setTemporaryVariable('obsolete', 'should-delete')
 
     const optimizerCurrentVersions = ref<PromptRecordChain['versions']>([makeDummyRecord()])
     const hasRestoredInitialState = ref(false)
@@ -579,6 +582,7 @@ describe('useAppPromptGardenImport', () => {
       // Variables injected from schema; existing values preserved.
       expect(proVariableSession.getTemporaryVariable('name')).toBe('Bob')
       expect(proVariableSession.getTemporaryVariable('tone')).toBe('')
+      expect(proVariableSession.getTemporaryVariable('obsolete')).toBeUndefined()
 
       // Pro-variable import should not mutate pro-multi session messages.
       expect(proMultiMessageSession.conversationMessagesSnapshot).toEqual([])
@@ -622,6 +626,7 @@ describe('useAppPromptGardenImport', () => {
 
     // Existing values should be preserved.
     imageText2ImageSession.setTemporaryVariable('season', 'winter')
+    imageText2ImageSession.setTemporaryVariable('obsolete', 'should-delete')
 
     const optimizerCurrentVersions = ref<PromptRecordChain['versions']>([makeDummyRecord()])
 
@@ -712,6 +717,123 @@ describe('useAppPromptGardenImport', () => {
 
       // Missing variable names are injected as empty strings.
       expect(imageText2ImageSession.getTemporaryVariable('style')).toBe('')
+
+      // Variables not present in the import payload are removed.
+      expect(imageText2ImageSession.getTemporaryVariable('obsolete')).toBeUndefined()
+    } finally {
+      scope.stop()
+    }
+  })
+
+  it('clears temporary variables when importing an empty variable list into pro-variable', async () => {
+    const { pinia } = createTestPinia()
+
+    // Avoid console.warn from useToast (tests fail on console.warn).
+    const createReactive = (): MessageReactive => ({
+      destroy: () => {},
+    } as unknown as MessageReactive)
+    setGlobalMessageApi({
+      success: vi.fn(() => createReactive()),
+      error: vi.fn(() => createReactive()),
+      warning: vi.fn(() => createReactive()),
+      info: vi.fn(() => createReactive()),
+    })
+
+    const basicSystemSession = useBasicSystemSession(pinia)
+    const basicUserSession = useBasicUserSession(pinia)
+    const proMultiMessageSession = useProMultiMessageSession(pinia)
+    const proVariableSession = useProVariableSession(pinia)
+    const imageText2ImageSession = useImageText2ImageSession(pinia)
+    const imageImage2ImageSession = useImageImage2ImageSession(pinia)
+
+    // Seed non-empty variables; they should be cleared because the import has no variables.
+    proVariableSession.setTemporaryVariable('keep', '1')
+    proVariableSession.setTemporaryVariable('alsoRemove', '2')
+
+    const optimizerCurrentVersions = ref<PromptRecordChain['versions']>([makeDummyRecord()])
+    const hasRestoredInitialState = ref(false)
+    const isLoadingExternalData = ref(false)
+
+    const query: LocationQuery = {
+      importCode: 'NB-PVAR-EMPTY-001',
+    }
+
+    const currentRoute = ref<RouteLocationNormalizedLoaded>(makeRoute('/basic/system', query))
+
+    let replaceResolve: (() => void) | undefined
+    const replaceDone = new Promise<void>((resolve) => {
+      replaceResolve = resolve
+    })
+
+    const push: Router['push'] = vi.fn(async (to) => {
+      applyNavigation(currentRoute, to)
+      return undefined
+    })
+
+    const replace: Router['replace'] = vi.fn(async (to) => {
+      applyNavigation(currentRoute, to)
+      replaceResolve?.()
+      return undefined
+    })
+
+    const router: Pick<Router, 'currentRoute' | 'push' | 'replace'> = {
+      currentRoute,
+      push,
+      replace,
+    }
+
+    const v1Payload = {
+      schema: 'prompt-garden.prompt.v1',
+      schemaVersion: 1,
+      optimizerTarget: { subModeKey: 'pro-variable' },
+      prompt: {
+        format: 'text',
+        text: 'Hello',
+      },
+      variables: [],
+    }
+
+    const fetchMock = vi.fn<
+      (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+    >(async () => {
+      return new Response(JSON.stringify(v1Payload), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const scope = effectScope()
+    try {
+      scope.run(() => {
+        useAppPromptGardenImport({
+          router,
+          hasRestoredInitialState,
+          isLoadingExternalData,
+          gardenBaseUrl: 'http://garden.local',
+          basicSystemSession,
+          basicUserSession,
+          proMultiMessageSession,
+          proVariableSession,
+          imageText2ImageSession,
+          imageImage2ImageSession,
+          optimizerCurrentVersions,
+        })
+      })
+
+      expect(fetchMock).not.toHaveBeenCalled()
+
+      hasRestoredInitialState.value = true
+
+      await replaceDone
+      await waitForCondition(() => isLoadingExternalData.value === false)
+
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(currentRoute.value.path).toBe('/pro/variable')
+      expect(proVariableSession.prompt).toBe('Hello')
+
+      expect(proVariableSession.getTemporaryVariable('keep')).toBeUndefined()
+      expect(proVariableSession.getTemporaryVariable('alsoRemove')).toBeUndefined()
     } finally {
       scope.stop()
     }
