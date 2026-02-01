@@ -770,7 +770,83 @@ const applyThemeId = (selectedThemeId: string): boolean => {
     return false
   }
   currentThemeId.value = applied
+
+  // Keep Tailwind's `dark:` variant in sync with the app theme.
+  // Tailwind in this repo uses `darkMode: 'class'`, so we must toggle `.dark`.
+  try {
+    if (typeof document !== 'undefined' && document.documentElement) {
+      const isDark = naiveThemeConfigs[applied]?.naiveTheme === darkTheme
+      document.documentElement.classList.toggle('dark', Boolean(isDark))
+    }
+  } catch (error) {
+    // Best-effort only; theme switching must not break if DOM is unavailable.
+    console.warn('[Theme] Failed to sync Tailwind dark class:', error)
+  }
   return true
+}
+
+type MediaQueryListCompat = MediaQueryList & {
+  addListener?: (listener: (e: MediaQueryListEvent) => void) => void
+  removeListener?: (listener: (e: MediaQueryListEvent) => void) => void
+}
+
+let __autoColorSchemeWatchInitialized = false
+let __autoColorSchemeQuery: MediaQueryListCompat | null = null
+let __autoColorSchemeListener: ((e: MediaQueryListEvent) => void) | null = null
+
+const cleanupAutoColorSchemeWatch = (): void => {
+  try {
+    const query = __autoColorSchemeQuery
+    const listener = __autoColorSchemeListener
+    if (!query || !listener) return
+
+    if (typeof query.removeEventListener === 'function') {
+      query.removeEventListener('change', listener)
+    } else if (typeof query.removeListener === 'function') {
+      query.removeListener(listener)
+    }
+  } catch (error) {
+    console.warn('[Theme] Failed to cleanup prefers-color-scheme watcher:', error)
+  } finally {
+    __autoColorSchemeQuery = null
+    __autoColorSchemeListener = null
+    __autoColorSchemeWatchInitialized = false
+  }
+}
+
+const ensureAutoColorSchemeWatch = (settings: ReturnType<typeof useGlobalSettings>): void => {
+  // Only relevant when the user-selected theme is 'auto'.
+  if (__autoColorSchemeWatchInitialized) return
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+
+  try {
+    const query = window.matchMedia('(prefers-color-scheme: dark)') as MediaQueryListCompat
+    const listener = (_e: MediaQueryListEvent) => {
+      if (settings.state.selectedThemeId !== 'auto') return
+      applyThemeId('auto')
+    }
+
+    if (typeof query.addEventListener === 'function') {
+      query.addEventListener('change', listener)
+    } else if (typeof query.addListener === 'function') {
+      query.addListener(listener)
+    }
+
+    // Keep refs so we can clean up on HMR dispose.
+    __autoColorSchemeQuery = query
+    __autoColorSchemeListener = listener
+
+    // Dev-only: avoid accumulating listeners across Vite HMR reloads.
+    if (import.meta.hot) {
+      import.meta.hot.dispose(() => {
+        cleanupAutoColorSchemeWatch()
+      })
+    }
+
+    __autoColorSchemeWatchInitialized = true
+  } catch (error) {
+    console.warn('[Theme] Failed to init prefers-color-scheme watcher:', error)
+  }
 }
 
 // 主题切换（统一由 useGlobalSettings 持久化）
@@ -807,6 +883,9 @@ export const initializeNaiveTheme = (): void => {
   } catch (error) {
     console.warn('Failed to load legacy theme preference:', error)
   }
+
+  // When in 'auto' mode, keep theme synced with OS color scheme changes.
+  ensureAutoColorSchemeWatch(settings)
 
   // 监听全局配置的主题选择，驱动实际应用主题
   // 使用模块级 guard，防止 initializeNaiveTheme 被多次调用时重复注册 watch
