@@ -1252,6 +1252,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
       }
       return result.data;
     },
+
+    // Sync UI locale (renderer -> main) so main-process UI (e.g. context menus)
+    // can follow the app's selected language.
+    setLocale: async (locale) => {
+      const result = await withTimeout(
+        ipcRenderer.invoke('app-set-locale', locale),
+        5000
+      );
+      if (!result.success) {
+        throw createIpcError(result.error);
+      }
+    },
   },
 
   // Auto-updater interface with timeout protection

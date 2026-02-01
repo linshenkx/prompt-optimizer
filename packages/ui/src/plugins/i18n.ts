@@ -1,4 +1,4 @@
-import { shallowRef, type App } from "vue";
+import { shallowRef, watch, type App } from "vue";
 import { createI18n } from "vue-i18n";
 
 import zhCN from "../i18n/locales/zh-CN";
@@ -38,6 +38,29 @@ const i18n = createI18n({
     "en-US": enUS,
   },
 });
+
+function syncLocaleToElectronMain(locale: string) {
+  if (typeof window === 'undefined') return;
+  const api = window.electronAPI;
+  if (!api?.app?.setLocale) return;
+
+  // Best-effort sync. Desktop-only; web builds simply no-op.
+  void api.app.setLocale(locale).catch((error) => {
+    console.warn('[i18n] Failed to sync locale to Electron main process:', error);
+  });
+}
+
+// Keep Electron main process informed so native menus (context menu, etc.)
+// can follow the app's selected language.
+watch(
+  i18n.global.locale,
+  (locale) => {
+    const value = String(locale || '');
+    if (!value) return;
+    syncLocaleToElectronMain(value);
+  },
+  { immediate: true },
+);
 
 // 初始化语言设置
 async function initializeLanguage() {

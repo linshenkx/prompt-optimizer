@@ -22,7 +22,7 @@ const consoleLogger = new ConsoleLogger();
 // 立即设置全局错误处理器，确保任何异常都能被记录
 consoleLogger.setupGlobalErrorHandlers();
 
-const { app, BrowserWindow, ipcMain, shell, session } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, session, Menu } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const {
   buildReleaseUrl,
@@ -103,6 +103,71 @@ let modelManager, templateManager, historyManager, llmService, promptService, te
 let imageModelManager, imageService;
 let imageAdapterRegistry; // 全局引用以供 IPC 处理器使用
 let storageProvider; // 全局存储提供器引用，用于退出时保存数据
+
+// UI 当前语言（由渲染进程 i18n 选择决定）。
+// 说明：Electron 默认不会为输入框提供浏览器那种右键编辑菜单，
+// 我们在主进程中自行弹出菜单，并用该 locale 来决定菜单文案。
+let uiLocale = null;
+
+const SUPPORTED_UI_LOCALES = new Set(['zh-CN', 'zh-TW', 'en-US']);
+
+function normalizeUiLocale(locale) {
+  if (typeof locale !== 'string' || !locale) return null;
+  if (SUPPORTED_UI_LOCALES.has(locale)) return locale;
+
+  const lower = locale.toLowerCase();
+  if (lower.startsWith('zh')) {
+    // Covers: zh-TW / zh-HK / zh-Hant, etc.
+    if (lower.includes('tw') || lower.includes('hk') || lower.includes('hant')) return 'zh-TW';
+    return 'zh-CN';
+  }
+  if (lower.startsWith('en')) return 'en-US';
+  return null;
+}
+
+function getCurrentUiLocale() {
+  const fromUi = normalizeUiLocale(uiLocale);
+  if (fromUi) return fromUi;
+
+  try {
+    const fromSystem = typeof app.getLocale === 'function' ? app.getLocale() : null;
+    return normalizeUiLocale(fromSystem) || 'en-US';
+  } catch (_e) {
+    return 'en-US';
+  }
+}
+
+const CONTEXT_MENU_LABELS = {
+  'zh-CN': {
+    undo: '撤销',
+    redo: '重做',
+    cut: '剪切',
+    copy: '复制',
+    paste: '粘贴',
+    selectAll: '全选',
+  },
+  'zh-TW': {
+    undo: '復原',
+    redo: '重做',
+    cut: '剪下',
+    copy: '複製',
+    paste: '貼上',
+    selectAll: '全選',
+  },
+  'en-US': {
+    undo: 'Undo',
+    redo: 'Redo',
+    cut: 'Cut',
+    copy: 'Copy',
+    paste: 'Paste',
+    selectAll: 'Select All',
+  },
+};
+
+function getContextMenuLabels(locale) {
+  const normalized = normalizeUiLocale(locale) || 'en-US';
+  return CONTEXT_MENU_LABELS[normalized] || CONTEXT_MENU_LABELS['en-US'];
+}
 let isQuitting = false; // 防止重复保存数据的标志
 let isUpdaterQuitting = false; // 标识是否为更新安装退出，跳过数据保存
 let forceQuitTimer = null; // 强制退出定时器
@@ -346,6 +411,44 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
     },
+  });
+
+  // Enable native-like context menu for text inputs (cut/copy/paste/selectAll).
+  // Electron doesn't provide this by default, which makes right-click paste
+  // unavailable on Windows.
+  mainWindow.webContents.on('context-menu', (_event, params) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+
+    const isEditable = Boolean(params.isEditable);
+    const selectionText = typeof params.selectionText === 'string' ? params.selectionText : '';
+    const hasSelection = selectionText.trim().length > 0;
+
+    const labels = getContextMenuLabels(getCurrentUiLocale());
+
+    // Avoid showing an empty menu on right-click.
+    if (!isEditable && !hasSelection) return;
+
+    const editFlags = params.editFlags || {};
+
+    const template = isEditable
+      ? [
+          { label: labels.undo, role: 'undo', enabled: Boolean(editFlags.canUndo) },
+          { label: labels.redo, role: 'redo', enabled: Boolean(editFlags.canRedo) },
+          { type: 'separator' },
+          { label: labels.cut, role: 'cut', enabled: Boolean(editFlags.canCut) },
+          { label: labels.copy, role: 'copy', enabled: Boolean(editFlags.canCopy) },
+          { label: labels.paste, role: 'paste', enabled: Boolean(editFlags.canPaste) },
+          { type: 'separator' },
+          { label: labels.selectAll, role: 'selectAll', enabled: Boolean(editFlags.canSelectAll) },
+        ]
+      : [
+          { label: labels.copy, role: 'copy', enabled: hasSelection },
+          { type: 'separator' },
+          { label: labels.selectAll, role: 'selectAll' },
+        ];
+
+    const menu = Menu.buildFromTemplate(template);
+    menu.popup({ window: mainWindow, x: params.x, y: params.y });
   });
 
   // In development, we can point to the vite dev server
@@ -1972,6 +2075,17 @@ function setupIPC() {
       return createSuccessResponse(packageJson.version);
     } catch (error) {
       console.error('[Main Process] Failed to get app version:', error);
+      return createErrorResponse(error);
+    }
+  });
+
+  // UI locale sync (renderer -> main)
+  // Used to localize Electron-only UI like context menus.
+  ipcMain.handle('app-set-locale', (_event, locale) => {
+    try {
+      uiLocale = normalizeUiLocale(locale) || 'en-US';
+      return createSuccessResponse(null);
+    } catch (error) {
       return createErrorResponse(error);
     }
   });
