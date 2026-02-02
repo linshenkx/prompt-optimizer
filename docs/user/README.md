@@ -8,7 +8,9 @@
 - [桌面用户手册](./desktop-user-manual.md) - 桌面版完整使用指南
 
 ### Web版
-- Web用户指南（待创建） - Web版使用说明
+- [快速开始](./quick-start.md) - 5分钟快速上手
+- [上下文模式指南](./context-mode.md) - 上下文模式（多消息/变量）使用说明
+- [Context Mode Guide (English)](./context-mode_en.md) - Context Mode usage guide (Multi-message/Variable)
 
 ### 模型配置
 - [多自定义模型配置指南](./multi-custom-models.md) - 配置无限数量自定义模型的完整指南
