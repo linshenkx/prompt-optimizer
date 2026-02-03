@@ -140,6 +140,67 @@ describe('ModelManager', () => {
     });
   });
 
+  describe('provider metadata patching', () => {
+    it('should backfill providerMeta.corsRestricted for stored configs missing it', async () => {
+      const adapter = registry.getAdapter('modelscope')
+      const provider = adapter.getProvider()
+      const models = adapter.getModels()
+
+      // Simulate legacy stored providerMeta without the newly added field.
+      // Also tweak the name to ensure we don't overwrite user-customized metadata.
+      const { corsRestricted: _ignored, ...providerWithoutCors } = provider
+
+      const legacyConfig: TextModelConfig = {
+        id: 'legacy-modelscope',
+        name: 'Legacy ModelScope',
+        enabled: true,
+        providerMeta: {
+          ...providerWithoutCors,
+          name: 'Legacy Provider Name'
+        },
+        modelMeta: models[0] || adapter.buildDefaultModel('test-model'),
+        connectionConfig: {
+          apiKey: 'test_api_key',
+          baseURL: provider.defaultBaseURL
+        },
+        paramOverrides: {}
+      }
+
+      await modelManager.addModel('legacy-modelscope', legacyConfig)
+
+      const reloaded = await modelManager.getModel('legacy-modelscope')
+      expect(reloaded?.providerMeta.name).toBe('Legacy Provider Name')
+      expect(reloaded?.providerMeta.corsRestricted).toBe(true)
+    })
+
+    it('should not override providerMeta.corsRestricted when already set', async () => {
+      const adapter = registry.getAdapter('modelscope')
+      const provider = adapter.getProvider()
+      const models = adapter.getModels()
+
+      const customConfig: TextModelConfig = {
+        id: 'custom-modelscope',
+        name: 'Custom ModelScope',
+        enabled: true,
+        providerMeta: {
+          ...provider,
+          corsRestricted: false
+        },
+        modelMeta: models[0] || adapter.buildDefaultModel('test-model'),
+        connectionConfig: {
+          apiKey: 'test_api_key',
+          baseURL: provider.defaultBaseURL
+        },
+        paramOverrides: {}
+      }
+
+      await modelManager.addModel('custom-modelscope', customConfig)
+
+      const reloaded = await modelManager.getModel('custom-modelscope')
+      expect(reloaded?.providerMeta.corsRestricted).toBe(false)
+    })
+  })
+
   describe('getModel', () => {
     it('should retrieve an existing model by key', async () => {
       const model = createTextModelConfig('MyModel', 'MyModel');

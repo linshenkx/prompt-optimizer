@@ -39,6 +39,7 @@ describe('ModelScopeAdapter', () => {
         id: provider.id,
         name: provider.name,
         description: provider.description,
+        corsRestricted: provider.corsRestricted,
         requiresApiKey: provider.requiresApiKey,
         defaultBaseURL: provider.defaultBaseURL,
         supportsDynamicModels: provider.supportsDynamicModels,
@@ -74,6 +75,7 @@ describe('ModelScopeAdapter', () => {
       expect(provider.id).toBe('modelscope');
       expect(provider.name).toBe('ModelScope');
       expect(provider.defaultBaseURL).toBe('https://api-inference.modelscope.cn/v1');
+      expect(provider.corsRestricted).toBe(true);
       expect(provider.requiresApiKey).toBe(true);
       expect(provider.supportsDynamicModels).toBe(true);
     });

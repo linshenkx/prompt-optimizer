@@ -44,6 +44,7 @@ export class ModelScopeAdapter extends OpenAIAdapter {
       id: 'modelscope',
       name: 'ModelScope',
       description: '阿里云魔搭社区 API 推理服务，每天免费 2000 次调用',
+      corsRestricted: true,
       requiresApiKey: true,
       defaultBaseURL: 'https://api-inference.modelscope.cn/v1',
       supportsDynamicModels: true,
