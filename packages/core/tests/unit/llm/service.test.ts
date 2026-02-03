@@ -105,4 +105,32 @@ describe('LLMService', () => {
         .toThrow();
     });
   });
+
+  describe('testConnection', () => {
+    it('should allow connection test when model is disabled', async () => {
+      const mockConfig = createMockModelConfig();
+      const disabledConfig = { ...mockConfig, enabled: false };
+
+      await modelManager.addModel(disabledConfig.id, disabledConfig);
+
+      const adapter = registry.getAdapter(disabledConfig.providerMeta.id);
+      const sendSpy = vi
+        .spyOn(adapter, 'sendMessage')
+        .mockResolvedValue({ content: 'ok' });
+
+      await expect(service.testConnection(disabledConfig.id)).resolves.toBeUndefined();
+      expect(sendSpy).toHaveBeenCalled();
+    });
+
+    it('should still reject sendMessage when model is disabled', async () => {
+      const mockConfig = createMockModelConfig();
+      const disabledConfig = { ...mockConfig, enabled: false };
+
+      await modelManager.addModel(disabledConfig.id, disabledConfig);
+
+      await expect(
+        service.sendMessage([{ role: 'user', content: 'Hello' }], disabledConfig.id)
+      ).rejects.toThrow(RequestConfigError);
+    });
+  });
 }); 

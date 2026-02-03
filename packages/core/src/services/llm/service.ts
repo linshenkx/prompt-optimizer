@@ -47,7 +47,10 @@ export class LLMService implements ILLMService {
   /**
    * 验证模型配置
    */
-  private validateModelConfig(modelConfig: TextModelConfig): void {
+  private validateModelConfig(
+    modelConfig: TextModelConfig,
+    options: { allowDisabled?: boolean } = {}
+  ): void {
     if (!modelConfig) {
       throw new RequestConfigError('Model config cannot be empty');
     }
@@ -57,7 +60,9 @@ export class LLMService implements ILLMService {
     if (!modelConfig.modelMeta || !modelConfig.modelMeta.id) {
       throw new RequestConfigError('Model metadata cannot be empty');
     }
-    if (!modelConfig.enabled) {
+    // Default behavior: disabled models cannot be used for normal requests.
+    // Connection testing is allowed to bypass this check (align with image model test behavior).
+    if (!options.allowDisabled && !modelConfig.enabled) {
       throw new RequestConfigError('Model is not enabled');
     }
   }
@@ -184,6 +189,14 @@ export class LLMService implements ILLMService {
         throw new RequestConfigError('Model provider cannot be empty');
       }
 
+      const modelConfig = await this.modelManager.getModel(provider);
+      if (!modelConfig) {
+        throw new RequestConfigError(`Model ${provider} not found`);
+      }
+
+      // Align with image model connection testing: allow testing even if the model is disabled.
+      this.validateModelConfig(modelConfig, { allowDisabled: true });
+
       // 发送一个简单的测试消息
       const testMessages: Message[] = [
         {
@@ -192,8 +205,12 @@ export class LLMService implements ILLMService {
         }
       ];
 
-      // 使用 sendMessage 进行测试
-      await this.sendMessage(testMessages, provider);
+      this.validateMessages(testMessages);
+
+      // Send directly through the adapter to avoid the normal "enabled" constraint.
+      const adapter = this.registry.getAdapter(modelConfig.providerMeta.id);
+      const runtimeConfig = this.prepareRuntimeConfig(modelConfig);
+      await adapter.sendMessage(testMessages, runtimeConfig);
 
     } catch (error: any) {
       if (error instanceof RequestConfigError || error instanceof APIError) {
