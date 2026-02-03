@@ -813,6 +813,7 @@ export default {
     modelKeyRequired: "Model key is required",
     modelKeyReserved: "Model key \"{id}\" conflicts with a built-in model. Please choose another key, or edit the built-in model configuration instead.",
     modelKeyAlreadyExists: "Model key \"{id}\" already exists. Please choose another key.",
+    modelIdGenerateFailed: "Failed to generate a unique model id. Please try again.",
 
     // Confirmation
     deleteConfirm:

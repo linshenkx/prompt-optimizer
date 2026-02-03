@@ -39,6 +39,14 @@ interface SetProviderOptions {
   resetConnectionConfig?: boolean
 }
 
+const generateTextModelId = (providerId: string, nonce?: number) => {
+  const normalizedProvider = (providerId || 'custom').toLowerCase().replace(/[^a-z0-9_-]/g, '_')
+  const rand = Math.random().toString(36).slice(2, 10)
+  // Include a nonce so retries remain unique even if Date.now/Math.random are mocked/stubbed.
+  const noncePart = typeof nonce === 'number' ? `_${nonce}` : ''
+  return `text_${normalizedProvider}_${Date.now()}_${rand}${noncePart}`
+}
+
 export function useTextModelManager() {
   const { t } = useI18n()
   const toast = useToast()
@@ -575,21 +583,22 @@ export function useTextModelManager() {
   }
 
   const createNewModel = async () => {
-    const modelKey = form.value.id?.trim()
+    // Auto-generate a stable internal id for the config.
+    // Text models use the id as the storage key and runtime selector.
+    const providerId = form.value.providerId || 'custom'
+    // Extremely unlikely, but avoid collisions with built-in keys or existing custom configs.
+    let modelKey = ''
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = generateTextModelId(providerId, attempt)
+      const existingModel = await modelManager.getModel(candidate)
+      if (!existingModel && !isDefaultModel(candidate)) {
+        modelKey = candidate
+        break
+      }
+    }
 
     if (!modelKey) {
-      throw new Error(t('modelManager.modelKeyRequired'))
-    }
-
-    // Prevent conflict with builtin model IDs (e.g. "gemini", "openai").
-    if (isDefaultModel(modelKey)) {
-      throw new Error(t('modelManager.modelKeyReserved', { id: modelKey }))
-    }
-
-    // Prevent duplicate keys (including previously saved custom models).
-    const existingModel = await modelManager.getModel(modelKey)
-    if (existingModel) {
-      throw new Error(t('modelManager.modelKeyAlreadyExists', { id: modelKey }))
+      throw new Error(t('modelManager.modelIdGenerateFailed'))
     }
 
     const providerMeta = ensureProviderMeta(form.value.providerId)

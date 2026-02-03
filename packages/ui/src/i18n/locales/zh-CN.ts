@@ -792,6 +792,7 @@ export default {
     modelKeyRequired: "模型标识不能为空",
     modelKeyReserved: "模型标识“{id}”与内置配置冲突，请换一个标识，或直接编辑对应的内置模型配置",
     modelKeyAlreadyExists: "模型标识“{id}”已存在，请换一个标识",
+    modelIdGenerateFailed: "生成唯一的模型标识失败，请重试",
 
     // 确认信息
     deleteConfirm: "确定要删除此模型吗？此操作不可恢复。",
