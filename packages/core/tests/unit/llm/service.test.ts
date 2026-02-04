@@ -133,4 +133,45 @@ describe('LLMService', () => {
       ).rejects.toThrow(RequestConfigError);
     });
   });
+
+  describe('fetchModelList', () => {
+    it('should reject when dynamic model fetch fails instead of silently falling back to static models', async () => {
+      const adapter = registry.getAdapter('openai');
+
+      const spy = vi
+        .spyOn(adapter, 'getModelsAsync')
+        .mockRejectedValue(new APIError('Unauthorized'));
+
+      await expect(
+        service.fetchModelList('openai', {
+          connectionConfig: {
+            apiKey: 'bad-key',
+            baseURL: adapter.getProvider().defaultBaseURL,
+          },
+        })
+      ).rejects.toThrow(APIError);
+
+      expect(spy).toHaveBeenCalled();
+    });
+
+    it('should return merged dynamic + static models when dynamic fetch succeeds', async () => {
+      const adapter = registry.getAdapter('openai');
+      const staticCount = adapter.getModels().length;
+      const dynamicModel = adapter.buildDefaultModel('dyn-1');
+
+      vi
+        .spyOn(adapter, 'getModelsAsync')
+        .mockResolvedValue([dynamicModel]);
+
+      const models = await service.fetchModelList('openai', {
+        connectionConfig: {
+          apiKey: 'ok-key',
+          baseURL: adapter.getProvider().defaultBaseURL,
+        },
+      });
+
+      expect(models[0]?.value).toBe('dyn-1');
+      expect(models).toHaveLength(staticCount + 1);
+    });
+  });
 }); 

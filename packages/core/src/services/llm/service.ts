@@ -1,10 +1,18 @@
-import { ILLMService, Message, StreamHandlers, LLMResponse, ModelOption, ToolDefinition } from './types';
+import type {
+  ILLMService,
+  Message,
+  StreamHandlers,
+  LLMResponse,
+  ModelOption,
+  ToolDefinition,
+  TextModel,
+  ITextAdapterRegistry
+} from './types';
 import type { TextModelConfig, ModelConfig } from '../model/types';
 import { ModelManager } from '../model/manager';
 import { APIError, RequestConfigError } from './errors';
 import { isRunningInElectron } from '../../utils/environment';
 import { ElectronLLMProxy } from './electron-proxy';
-import type { ITextAdapterRegistry } from './types';
 import { TextAdapterRegistry } from './adapters/registry';
 import { mergeOverrides, splitOverridesBySchema } from '../model/parameter-utils';
 
@@ -236,7 +244,25 @@ export class LLMService implements ILLMService {
 
       // 使用 Registry 获取模型列表
       const providerId = modelConfig.providerMeta.id;
-      const models = await this.registry.getModels(providerId, modelConfig);
+      let models: TextModel[] = [];
+
+      // NOTE: Registry.getModels() will silently fall back to static models when dynamic fetch fails.
+      // For explicit "fetch model list" actions, we want to surface the failure so UI can avoid
+      // misleading "success" toasts and optionally fall back with a warning.
+      if (this.registry.supportsDynamicModels(providerId)) {
+        const dynamicModels = await this.registry.getDynamicModels(providerId, modelConfig);
+
+        const staticModels = this.registry.getStaticModels(providerId);
+        const dynamicIds = new Set(dynamicModels.map((m) => m.id));
+
+        // Merge static + dynamic for completeness; dynamic wins.
+        models = [
+          ...dynamicModels,
+          ...staticModels.filter((m) => !dynamicIds.has(m.id))
+        ];
+      } else {
+        models = this.registry.getStaticModels(providerId);
+      }
 
       // 转换为选项格式
       return models.map(model => ({
