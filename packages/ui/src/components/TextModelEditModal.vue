@@ -280,7 +280,10 @@ const handleTestFormConnection = async () => {
         content: () => h('div', { style: 'white-space: pre-line;' }, t('modelManager.corsRestrictedConfirm', { provider: providerName })),
         positiveText: t('common.confirm'),
         negativeText: t('common.cancel'),
-        onPositiveClick: runTest
+        // Don't block dialog close while the async test runs.
+        onPositiveClick: () => {
+          void runTest()
+        }
       })
       return
     }
