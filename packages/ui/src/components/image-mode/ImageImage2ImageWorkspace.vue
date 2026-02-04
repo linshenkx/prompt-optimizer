@@ -118,6 +118,8 @@
                         :placeholder="t('imageWorkspace.input.originalPromptPlaceholder')"
                         :autosize="true"
                         v-bind="variableInputData"
+                        clearable
+                        show-count
                         @variable-extracted="handleVariableExtracted"
                         @add-missing-variable="handleAddMissingVariable"
                     />
@@ -132,6 +134,7 @@
                         :rows="4"
                         :autosize="{ minRows: 4, maxRows: 12 }"
                         clearable
+                        show-count
                         :disabled="isOptimizing"
                     />
 

@@ -43,6 +43,10 @@ export interface ExistingVariableTooltipTheme extends MissingVariableTooltipThem
   surfaceOverlay?: string
 }
 
+export interface ThemeExtensionOptions {
+  readonly?: boolean
+}
+
 type RgbTuple = {
   r: number
   g: number
@@ -603,8 +607,20 @@ export function missingVariableTooltip(
  * 主题扩展 - 适配 Naive UI 主题
  * 根据亮色/暗色主题动态调整变量高亮颜色,确保可读性
  */
-export function createThemeExtension(themeVars: ThemeCommonVars) {
+export function createThemeExtension(
+  themeVars: ThemeCommonVars,
+  options: ThemeExtensionOptions = {}
+) {
   const isDark = detectIsDarkTheme(themeVars)
+
+  // Keep CodeMirror background aligned with Naive UI NInput.
+  // Fallbacks make unit tests (partial ThemeCommonVars mocks) resilient.
+  const inputBackgroundColor = themeVars.inputColor ?? themeVars.cardColor ?? 'transparent'
+
+  const readonlyBackgroundColor =
+    themeVars.inputColorDisabled ?? themeVars.inputColor ?? themeVars.cardColor ?? inputBackgroundColor
+
+  const resolvedBackgroundColor = options.readonly ? readonlyBackgroundColor : inputBackgroundColor
 
   const fallbackSurface = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)'
   const fallbackText = themeVars.textColor1 || (isDark ? '#ffffff' : '#1f1f1f')
@@ -667,7 +683,7 @@ export function createThemeExtension(themeVars: ThemeCommonVars) {
 
   return EditorView.theme({
     '&': {
-      backgroundColor: themeVars.cardColor,
+      backgroundColor: resolvedBackgroundColor,
       color: themeVars.textColor1,
       fontSize: '14px',
       fontFamily: 'inherit',
@@ -695,7 +711,7 @@ export function createThemeExtension(themeVars: ThemeCommonVars) {
       color: themeVars.textColor1
     },
     '.cm-gutters': {
-      backgroundColor: themeVars.cardColor,
+      backgroundColor: resolvedBackgroundColor,
       color: themeVars.textColor3,
       border: 'none'
     },
