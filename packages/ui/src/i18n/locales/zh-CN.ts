@@ -818,6 +818,7 @@ export default {
     loadingModels: "正在加载模型选项...",
     noModelsAvailable: "没有可用模型",
     fetchModelsFailed: "获取模型列表失败：{error}",
+    fetchModelsFallback: "获取模型列表失败：{error}（已回退到默认的 {count} 个模型）",
     needApiKeyAndBaseUrl: "请先填写API地址和密钥",
     needBaseUrl: "请先填写API地址",
     corsRestrictedTag: "CORS受限",

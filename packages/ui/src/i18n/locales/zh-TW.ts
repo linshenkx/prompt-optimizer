@@ -814,6 +814,7 @@ export default {
     noModelsAvailable: "沒有可用模型",
     selectModel: "選擇一個模型",
     fetchModelsFailed: "取得模型清單失敗：{error}",
+    fetchModelsFallback: "取得模型清單失敗：{error}（已回退到預設的 {count} 個模型）",
     needApiKeyAndBaseUrl: "請先填寫API位址和金鑰",
     needBaseUrl: "請先填寫API位址",
     corsRestrictedTag: "CORS受限",

@@ -842,6 +842,8 @@ export default {
     noModelsAvailable: "No models available",
     selectModel: "Select a model",
     fetchModelsFailed: "Failed to fetch models: {error}",
+    fetchModelsFallback:
+      "Failed to fetch models: {error} (fell back to {count} default models)",
     needApiKeyAndBaseUrl: "Please fill API key and base URL first",
     needBaseUrl: "Please fill in API URL first",
     corsRestrictedTag: "CORS Restricted",

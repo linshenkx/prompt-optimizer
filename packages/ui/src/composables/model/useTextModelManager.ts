@@ -462,8 +462,10 @@ export function useTextModelManager() {
 
     isLoadingModelOptions.value = true
 
+    // Keep this outside try/catch so we can fall back to static models on error.
+    const providerTemplateId = form.value.providerId || currentProviderType.value || 'custom'
+
     try {
-      const providerTemplateId = form.value.providerId || currentProviderType.value || 'custom'
       const connectionConfig: TextConnectionConfig = {
         baseURL,
         ...form.value.connectionConfig,
@@ -514,9 +516,26 @@ export function useTextModelManager() {
       }
     } catch (error: unknown) {
       console.error('获取模型列表失败:', error)
-      const message = error instanceof Error ? error.message : t('modelManager.loadFailed')
-      toast.error(message)
-      modelOptions.value = []
+
+      // Keep UX consistent: if dynamic fetch fails, fall back to static models
+      // but surface the failure to avoid a misleading "success" toast.
+      const errorMessage = getI18nErrorMessage(error, t('modelManager.loadFailed'))
+
+      let staticCount = 0
+      try {
+        const staticModels = textAdapterRegistry.getStaticModels(providerTemplateId)
+        staticCount = staticModels.length
+      } catch {
+        staticCount = 0
+      }
+
+      loadStaticModelsForProvider(providerTemplateId)
+
+      if (staticCount > 0) {
+        toast.warning(t('modelManager.fetchModelsFallback', { error: errorMessage, count: staticCount }))
+      } else {
+        toast.error(t('modelManager.fetchModelsFailed', { error: errorMessage }))
+      }
     } finally {
       isLoadingModelOptions.value = false
     }
