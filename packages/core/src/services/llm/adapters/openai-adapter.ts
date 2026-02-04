@@ -381,7 +381,9 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
    * @param isStream 是否为流式请求
    * @returns OpenAI SDK实例
    */
-  private createOpenAIInstance(config: TextModelConfig, isStream: boolean = false): OpenAI {
+  // NOTE: protected so OpenAI-compatible providers (e.g. Ollama) can tweak auth/baseURL
+  // without re-implementing the whole chat/stream/tool plumbing.
+  protected createOpenAIInstance(config: TextModelConfig, isStream: boolean = false): OpenAI {
     const apiKey = config.connectionConfig.apiKey || ''
 
     // 处理baseURL，如果以'/chat/completions'结尾则去掉

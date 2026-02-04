@@ -244,12 +244,32 @@ export class ModelManager implements IModelManager {
    */
   private patchProviderMeta(config: TextModelConfig): TextModelConfig {
     const providerMeta = config.providerMeta
-    if (!providerMeta || providerMeta.corsRestricted !== undefined) {
+    if (!providerMeta) {
+      return config
+    }
+
+    const providerId = (providerMeta.id || config.modelMeta?.providerId || '').toLowerCase()
+
+    // Historical metadata might incorrectly mark Ollama as CORS-restricted.
+    // Ollama can be configured (CORS/reverse-proxy), so we force-disable the tag.
+    if (providerId === 'ollama') {
+      if (providerMeta.corsRestricted === false) {
+        return config
+      }
+      return {
+        ...config,
+        providerMeta: {
+          ...providerMeta,
+          corsRestricted: false
+        }
+      }
+    }
+
+    if (providerMeta.corsRestricted !== undefined) {
       return config
     }
 
     try {
-      const providerId = (providerMeta.id || config.modelMeta?.providerId || '').toLowerCase()
       if (!providerId || !this.registry) {
         return config
       }

@@ -31,6 +31,13 @@ describe('TextAdapterRegistry', () => {
       expect(adapter.getProvider().id).toBe('deepseek');
     });
 
+    it('should return Ollama adapter for "ollama" provider', () => {
+      const adapter = registry.getAdapter('ollama');
+
+      expect(adapter).toBeDefined();
+      expect(adapter.getProvider().id).toBe('ollama');
+    });
+
     it('should return SiliconFlow adapter for "siliconflow" provider', () => {
       const adapter = registry.getAdapter('siliconflow');
 
@@ -78,11 +85,11 @@ describe('TextAdapterRegistry', () => {
       const providers = registry.getAllProviders();
 
       expect(Array.isArray(providers)).toBe(true);
-      expect(providers.length).toBe(9);
+      expect(providers.length).toBe(10);
 
       const providerIds = providers.map(p => p.id);
       expect(providerIds).toEqual(
-        expect.arrayContaining(['openai', 'deepseek', 'siliconflow', 'zhipu', 'gemini', 'anthropic', 'dashscope', 'openrouter', 'modelscope'])
+        expect.arrayContaining(['openai', 'deepseek', 'siliconflow', 'zhipu', 'gemini', 'anthropic', 'dashscope', 'openrouter', 'modelscope', 'ollama'])
       );
     });
 

@@ -16,6 +16,7 @@ describe('ImageAdapterRegistry', () => {
     expect(providerIds).toContain('openai')
     expect(providerIds).toContain('seedream')
     expect(providerIds).toContain('siliconflow')
+    expect(providerIds).toContain('ollama')
   })
 
   it('should return providers with correct structure', () => {
