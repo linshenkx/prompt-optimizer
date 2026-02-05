@@ -26,7 +26,7 @@ describe('AnthropicAdapter', () => {
       description: 'Anthropic Claude models',
       requiresApiKey: true,
       defaultBaseURL: 'https://api.anthropic.com',
-      supportsDynamicModels: false,
+      supportsDynamicModels: true,
       connectionSchema: {
         required: ['apiKey'],
         optional: ['baseURL'],
@@ -76,7 +76,7 @@ describe('AnthropicAdapter', () => {
       expect(provider.id).toBe('anthropic');
       expect(provider.name).toBe('Anthropic');
       expect(provider.defaultBaseURL).toBe('https://api.anthropic.com');
-      expect(provider.supportsDynamicModels).toBe(false);
+      expect(provider.supportsDynamicModels).toBe(true);
       expect(provider.requiresApiKey).toBe(true);
     });
   });
