@@ -20,7 +20,7 @@ jobs:
     
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 安装 pnpm
         uses: pnpm/action-setup@v2
@@ -29,7 +29,7 @@ jobs:
           run_install: false
 
       - name: 设置 Node.js 环境
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: 'pnpm'

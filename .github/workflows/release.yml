@@ -26,7 +26,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0  # 获取完整的git历史
           fetch-tags: true  # 确保获取所有tags
@@ -38,7 +38,7 @@ jobs:
           run_install: false
 
       - name: 设置 Node.js 环境
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -145,7 +145,7 @@ jobs:
           echo "Build artifacts verification passed"
 
       - name: 上传 Windows 构建产物
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: windows-build
           path: |
@@ -160,7 +160,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0  # 获取完整的git历史
           fetch-tags: true  # 确保获取所有tags
@@ -172,7 +172,7 @@ jobs:
           run_install: false
 
       - name: 设置 Node.js 环境
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -272,7 +272,7 @@ jobs:
           echo "Build artifacts verification passed"
 
       - name: 上传 macOS 构建产物
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: macos-build
           path: |
@@ -287,7 +287,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0  # 获取完整的git历史
           fetch-tags: true  # 确保获取所有tags
@@ -299,7 +299,7 @@ jobs:
           run_install: false
 
       - name: 设置 Node.js 环境
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -399,7 +399,7 @@ jobs:
           echo "Build artifacts verification passed"
 
       - name: 上传 Linux 构建产物
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: linux-build
           path: |
@@ -416,7 +416,7 @@ jobs:
       contents: write
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0  # 获取完整的git历史
           fetch-tags: true  # 确保获取所有tags
@@ -462,7 +462,7 @@ jobs:
           echo "release_name_prefix=$RELEASE_NAME_PREFIX" >> $GITHUB_OUTPUT
 
       - name: 下载所有构建产物
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: ./artifacts
 
