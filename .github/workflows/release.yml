@@ -32,7 +32,7 @@ jobs:
           fetch-tags: true  # 确保获取所有tags
 
       - name: 安装 pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
           run_install: false
@@ -166,7 +166,7 @@ jobs:
           fetch-tags: true  # 确保获取所有tags
 
       - name: 安装 pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
           run_install: false
@@ -293,7 +293,7 @@ jobs:
           fetch-tags: true  # 确保获取所有tags
 
       - name: 安装 pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
           run_install: false
