@@ -55,9 +55,15 @@ export const test = base.extend<{ context: BrowserContext; page: Page }>({
 
     // ✅ Step 2: 注入测试配置到页面（合并为一次 addInitScript 调用）
     await page.addInitScript((dbName) => {
-      // 清理 localStorage 和 sessionStorage（避免测试间状态泄漏）
-      localStorage.clear()
-      sessionStorage.clear()
+      // 清理 localStorage 和 sessionStorage（避免测试间状态泄漏）。
+      // 注意：当页面导航失败落到浏览器错误页（如 chrome-error://）时，访问 storage 可能抛 SecurityError。
+      // 这里容错处理，避免测试基建本身把“服务未就绪/连接中断”误报为页面脚本错误。
+      try {
+        localStorage.clear()
+      } catch {}
+      try {
+        sessionStorage.clear()
+      } catch {}
       // 注入测试数据库名称
       ;(window as any).__TEST_DB_NAME__ = dbName
     }, testDbName)

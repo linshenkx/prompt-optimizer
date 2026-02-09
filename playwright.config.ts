@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import * as os from 'node:os';
 
 /**
  * Playwright E2E 测试配置
@@ -21,8 +22,21 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
 
-  // CI 环境下使用更少的 worker，本地使用所有可用核心
-  workers: process.env.CI ? 1 : undefined,
+  // CI 环境下使用更少的 worker；本地默认限制并发，避免 Windows/Chromium 在高并发下出现
+  // ERR_CONNECTION_RESET / ERR_INSUFFICIENT_RESOURCES / worker crash 等不稳定问题。
+  // 如需提速可通过 E2E_WORKERS 覆盖。
+  workers: (() => {
+    if (process.env.CI) return 1
+
+    const raw = process.env.E2E_WORKERS
+    if (raw) {
+      const parsed = Number(raw)
+      if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed)
+    }
+
+    // 默认取 2（或更小），在资源紧张机器上更稳。
+    return Math.min(2, os.cpus().length || 1)
+  })(),
 
   // 测试报告配置
   reporter: [
