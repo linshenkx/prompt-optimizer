@@ -593,6 +593,7 @@
             :current-type="panelProps.currentType"
             :score-level="panelProps.scoreLevel"
             @re-evaluate="evaluationHandler.handleReEvaluate"
+            @evaluate-with-feedback="({ feedback }) => evaluationHandler.handleEvaluateActiveWithFeedback(feedback)"
             @apply-local-patch="handleApplyPatch"
             @apply-improvement="handleApplyImprovement"
             @clear="handleClearEvaluation"

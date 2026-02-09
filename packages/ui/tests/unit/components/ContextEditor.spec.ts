@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { nextTick } from 'vue'
+import { nextTick, ref } from 'vue'
 import ContextEditor from '../../../src/components/context-mode/ContextEditor.vue'
 
 // Mock Naive UI 组件
@@ -126,7 +126,7 @@ vi.mock('vue-i18n', () => ({
       }
       return translations[key] || key
     },
-    locale: { value: 'zh-CN' }
+    locale: ref('zh-CN')
   })
 }))
 

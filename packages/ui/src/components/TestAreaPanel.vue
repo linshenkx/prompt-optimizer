@@ -71,6 +71,7 @@
             :optimized-score-level="optimizedScoreLevel"
             @evaluate-original="handleEvaluateOriginal"
             @evaluate-optimized="handleEvaluateOptimized"
+            @evaluate-with-feedback="handleEvaluateWithFeedback"
             @show-original-detail="handleShowOriginalDetail"
             @show-optimized-detail="handleShowOptimizedDetail"
             @apply-improvement="handleApplyImprovement"
@@ -283,6 +284,7 @@ const emit = defineEmits<{
     // 评估事件
     "evaluate-original": [];
     "evaluate-optimized": [];
+    "evaluate-with-feedback": [payload: { type: EvaluationType; feedback: string }];
     "show-original-detail": [];
     "show-optimized-detail": [];
     "apply-improvement": [payload: { improvement: string; type: EvaluationType }];
@@ -404,6 +406,10 @@ const handleEvaluateOriginal = () => {
 
 const handleEvaluateOptimized = () => {
     emit("evaluate-optimized");
+};
+
+const handleEvaluateWithFeedback = (payload: { type: EvaluationType; feedback: string }) => {
+    emit("evaluate-with-feedback", payload);
 };
 
 const handleShowOriginalDetail = () => {

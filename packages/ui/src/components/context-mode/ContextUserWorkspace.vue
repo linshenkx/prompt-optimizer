@@ -257,18 +257,28 @@
                                         type="compare"
                                         size="small"
                                         @show-detail="() => showDetail('compare')"
+                                        @evaluate="() => handleEvaluate('compare')"
+                                        @evaluate-with-feedback="handleEvaluateWithFeedback"
                                         @apply-improvement="handleApplyImprovement"
                                         @apply-patch="handleApplyLocalPatch"
                                     />
-                                    <NButton
-                                        v-else
-                                        quaternary
-                                        size="small"
-                                        :disabled="isEvaluatingCompare"
-                                        @click="() => handleEvaluate('compare')"
-                                    >
-                                        {{ t('evaluation.compareEvaluate') }}
-                                    </NButton>
+                                    <NSpace v-else :size="6" align="center">
+                                        <FeedbackAnalyzeButton
+                                            type="compare"
+                                            :loading="isEvaluatingCompare"
+                                            size="small"
+                                            :compact="true"
+                                            @evaluate-with-feedback="handleEvaluateWithFeedback"
+                                        />
+                                        <NButton
+                                            quaternary
+                                            size="small"
+                                            :disabled="isEvaluatingCompare"
+                                            @click="() => handleEvaluate('compare')"
+                                        >
+                                            {{ t('evaluation.compareEvaluate') }}
+                                        </NButton>
+                                    </NSpace>
                                 </template>
                             </NFlex>
                         </div>
@@ -375,18 +385,27 @@
                                                 size="small"
                                                 @show-detail="() => showDetail('original')"
                                                 @evaluate="() => handleEvaluate('original')"
+                                                @evaluate-with-feedback="handleEvaluateWithFeedback"
                                                 @apply-improvement="handleApplyImprovement"
                                                 @apply-patch="handleApplyLocalPatch"
                                             />
-                                            <NButton
-                                                v-else
-                                                size="small"
-                                                quaternary
-                                                :disabled="isEvaluatingOriginal"
-                                                @click="() => handleEvaluate('original')"
-                                            >
-                                                {{ t('evaluation.evaluate') }}
-                                            </NButton>
+                                            <NSpace v-else :size="6" align="center">
+                                                <FeedbackAnalyzeButton
+                                                    type="original"
+                                                    :loading="isEvaluatingOriginal"
+                                                    size="small"
+                                                    :compact="true"
+                                                    @evaluate-with-feedback="handleEvaluateWithFeedback"
+                                                />
+                                                <NButton
+                                                    size="small"
+                                                    quaternary
+                                                    :disabled="isEvaluatingOriginal"
+                                                    @click="() => handleEvaluate('original')"
+                                                >
+                                                    {{ t('evaluation.evaluate') }}
+                                                </NButton>
+                                            </NSpace>
                                         </div>
 
                                         <div v-else-if="id === 'b' && hasVariantResult('b')" class="output-evaluation-entry">
@@ -400,18 +419,27 @@
                                                 size="small"
                                                 @show-detail="() => showDetail('optimized')"
                                                 @evaluate="() => handleEvaluate('optimized')"
+                                                @evaluate-with-feedback="handleEvaluateWithFeedback"
                                                 @apply-improvement="handleApplyImprovement"
                                                 @apply-patch="handleApplyLocalPatch"
                                             />
-                                            <NButton
-                                                v-else
-                                                size="small"
-                                                quaternary
-                                                :disabled="isEvaluatingOptimized"
-                                                @click="() => handleEvaluate('optimized')"
-                                            >
-                                                {{ t('evaluation.evaluate') }}
-                                            </NButton>
+                                            <NSpace v-else :size="6" align="center">
+                                                <FeedbackAnalyzeButton
+                                                    type="optimized"
+                                                    :loading="isEvaluatingOptimized"
+                                                    size="small"
+                                                    :compact="true"
+                                                    @evaluate-with-feedback="handleEvaluateWithFeedback"
+                                                />
+                                                <NButton
+                                                    size="small"
+                                                    quaternary
+                                                    :disabled="isEvaluatingOptimized"
+                                                    @click="() => handleEvaluate('optimized')"
+                                                >
+                                                    {{ t('evaluation.evaluate') }}
+                                                </NButton>
+                                            </NSpace>
                                         </div>
                                     </template>
                                 </OutputDisplay>
@@ -431,6 +459,7 @@
             :current-type="panelProps.currentType"
             :score-level="panelProps.scoreLevel"
             @re-evaluate="evaluationHandler.handleReEvaluate"
+            @evaluate-with-feedback="({ feedback }) => evaluationHandler.handleEvaluateActiveWithFeedback(feedback)"
             @apply-local-patch="handleApplyLocalPatch"
             @apply-improvement="handleApplyImprovement"
             @clear="handleClearEvaluation"
@@ -482,7 +511,7 @@
 import { ref, reactive, computed, inject, nextTick, watch, onMounted, onUnmounted, toRef, type Ref } from 'vue'
 
 import { useI18n } from "vue-i18n";
-import { NCard, NFlex, NText, NIcon, NButton, NSelect, NRadioGroup, NRadioButton, NTooltip, NTag } from "naive-ui";
+import { NCard, NFlex, NText, NIcon, NButton, NSelect, NRadioGroup, NRadioButton, NTooltip, NTag, NSpace } from "naive-ui";
 import { useToast } from "../../composables/ui/useToast";
 import InputPanelUI from "../InputPanel.vue";
 import PromptPanelUI from "../PromptPanel.vue";
@@ -490,11 +519,12 @@ import PromptPreviewPanel from "../PromptPreviewPanel.vue";
 import ContextUserTestPanel from "./ContextUserTestPanel.vue";
 import OutputDisplay from "../OutputDisplay.vue";
 import SelectWithConfig from "../SelectWithConfig.vue";
-import { EvaluationPanel, EvaluationScoreBadge } from '../evaluation'
+import { EvaluationPanel, EvaluationScoreBadge, FeedbackAnalyzeButton } from '../evaluation'
 import {
     applyPatchOperationsToText,
     PREDEFINED_VARIABLES,
     type ContextMode,
+    type EvaluationType,
     type OptimizationMode,
     type PatchOperation,
     type PromptRecord,
@@ -1441,6 +1471,13 @@ const compareScoreLevel = computed(() =>
 
 const handleEvaluate = async (type: 'original' | 'optimized' | 'compare') => {
     await handleEvaluateInternal(type)
+}
+
+const handleEvaluateWithFeedback = async (payload: {
+    type: EvaluationType
+    feedback: string
+}) => {
+    await evaluationHandler.handleEvaluateWithFeedback(payload.type, payload.feedback)
 }
 
 const showDetail = (type: 'original' | 'optimized' | 'compare') => {

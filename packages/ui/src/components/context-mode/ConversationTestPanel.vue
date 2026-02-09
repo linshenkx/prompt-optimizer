@@ -59,6 +59,7 @@
                 :optimized-score-level="optimizedScoreLevel"
                 @evaluate-original="emit('evaluate-original')"
                 @evaluate-optimized="emit('evaluate-optimized')"
+                @evaluate-with-feedback="emit('evaluate-with-feedback', $event)"
                 @show-original-detail="emit('show-original-detail')"
                 @show-optimized-detail="emit('show-optimized-detail')"
                 @apply-improvement="emit('apply-improvement', $event)"
@@ -263,6 +264,7 @@ const emit = defineEmits<{
     // 🆕 评估相关事件
     "evaluate-original": [];
     "evaluate-optimized": [];
+    "evaluate-with-feedback": [payload: { type: EvaluationType; feedback: string }];
     "show-original-detail": [];
     "show-optimized-detail": [];
     "apply-improvement": [payload: { improvement: string; type: EvaluationType }];

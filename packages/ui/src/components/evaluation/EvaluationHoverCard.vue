@@ -3,85 +3,143 @@
     <!-- 加载状态 -->
     <div v-if="loading" class="hover-card-loading">
       <NSpin size="small" />
-      <NText depth="3" style="font-size: 12px;">{{ t('evaluation.loading') }}</NText>
+      <NText depth="3" class="meta-text">{{ t('evaluation.loading') }}</NText>
     </div>
 
     <!-- 有评估结果 -->
     <template v-else-if="result">
-      <!-- 总分 + 等级 -->
-      <div class="score-header">
-        <div class="score-circle" :class="getScoreLevelClass(result.score.overall)">
-          <span class="score-number">{{ result.score.overall }}</span>
-        </div>
-        <div class="score-info">
-          <NTag :type="getScoreLevelType(result.score.overall)" size="small" round>
-            {{ getScoreLevelText(result.score.overall) }}
-          </NTag>
-        </div>
-      </div>
-
-      <!-- 维度分数 -->
-      <div class="dimensions-list">
-        <div v-for="dim in result.score.dimensions" :key="dim.key" class="dimension-row">
-          <NText depth="2" style="font-size: 11px; min-width: 56px;">{{ dim.label }}</NText>
+      <div class="hover-card-scroll">
+        <!-- 总分 + 等级 -->
+        <NSpace align="center" :size="12" class="score-header">
           <NProgress
-            :percentage="dim.score"
-            :status="getDimensionStatus(dim.score)"
-            :show-indicator="false"
-            :height="5"
-            style="flex: 1;"
+            type="circle"
+            :percentage="result.score.overall"
+            :status="getDimensionStatus(result.score.overall)"
+            :stroke-width="8"
+            :circle-gap="0"
+            :show-indicator="true"
+            :indicator-text-color="undefined"
+            :processing="false"
+            class="overall-progress"
           />
-          <NText style="font-size: 11px; min-width: 24px; text-align: right;">{{ dim.score }}</NText>
-        </div>
-      </div>
-
-      <!-- 精准修复（诊断分析） -->
-      <div v-if="result.patchPlan && result.patchPlan.length > 0" class="section patches-section">
-        <div class="section-header">
-          <span class="section-icon">🛠️</span>
-          <NText depth="2" style="font-size: 11px; font-weight: 600;">{{ t('evaluation.diagnose.title') }}</NText>
-        </div>
-        <div class="patch-list">
-          <div v-for="(op, idx) in result.patchPlan" :key="idx" class="patch-item">
-            <div class="patch-instruction">{{ op.instruction }}</div>
-            <div class="patch-diff-inline">
-              <InlineDiff :old-text="op.oldText" :new-text="op.newText" />
-            </div>
-            <NButton text size="tiny" type="primary" class="patch-apply-btn" @click.stop="handleApplyPatch(op)">
-              {{ t('evaluation.diagnose.replaceNow') }}
-            </NButton>
+          <div class="score-info">
+            <NTag :type="getScoreLevelType(result.score.overall)" size="small" round>
+              {{ getScoreLevelText(result.score.overall) }}
+            </NTag>
           </div>
-        </div>
-      </div>
+        </NSpace>
 
-      <!-- 改进建议 -->
-      <div v-if="result.improvements && result.improvements.length > 0" class="section improvements-section">
-        <div class="section-header">
-          <span class="section-icon">💡</span>
-          <NText depth="2" style="font-size: 11px; font-weight: 600;">{{ t('evaluation.improvements') }}</NText>
-        </div>
-        <ul class="section-list">
-          <li v-for="(item, idx) in result.improvements" :key="idx" class="improvement-item">
-            <span class="improvement-text">{{ item }}</span>
-            <NButton text size="tiny" type="primary" class="apply-btn" @click.stop="handleApplyImprovement(item)">
-              {{ t('evaluation.applyToIterate') }}
-            </NButton>
-          </li>
-        </ul>
-      </div>
+        <!-- 维度分数 -->
+        <NCard embedded size="small" :bordered="false" class="section-card">
+          <template #header>
+            <NText depth="2" class="section-title">{{ t('evaluation.dimensions') }}</NText>
+          </template>
+          <NList :show-divider="false" class="compact-list">
+            <NListItem v-for="dim in result.score.dimensions" :key="dim.key" class="compact-list-item">
+              <div class="dimension-row">
+                <NText depth="2" class="dimension-label">{{ dim.label }}</NText>
+                <NProgress
+                  :percentage="dim.score"
+                  :status="getDimensionStatus(dim.score)"
+                  :show-indicator="false"
+                  :height="6"
+                  class="dimension-progress"
+                />
+                <NText class="dimension-score">{{ dim.score }}</NText>
+              </div>
+            </NListItem>
+          </NList>
+        </NCard>
 
-      <!-- 一句话总结 -->
-      <div v-if="result.summary" class="summary-box">
-        <NText style="font-size: 12px;">{{ result.summary }}</NText>
-      </div>
+        <!-- 精准修复（诊断分析） -->
+        <NCard
+          v-if="result.patchPlan && result.patchPlan.length > 0"
+          embedded
+          size="small"
+          :bordered="false"
+          class="section-card"
+        >
+          <template #header>
+            <NSpace align="center" :size="6">
+              <NIcon size="14" depth="3" aria-hidden="true">
+                <Tool />
+              </NIcon>
+              <NText depth="2" class="section-title">{{ t('evaluation.diagnose.title') }}</NText>
+            </NSpace>
+          </template>
+          <NList :show-divider="false" class="compact-list">
+            <NListItem v-for="(op, idx) in result.patchPlan" :key="idx" class="compact-list-item">
+              <NSpace vertical :size="8" class="full-width">
+                <NText class="patch-instruction">{{ op.instruction }}</NText>
+                <div class="patch-diff-inline">
+                  <InlineDiff :old-text="op.oldText" :new-text="op.newText" />
+                </div>
+                <NButton
+                  size="tiny"
+                  type="primary"
+                  ghost
+                  class="patch-apply-btn"
+                  @click.stop="handleApplyPatch(op)"
+                >
+                  {{ t('evaluation.diagnose.replaceNow') }}
+                </NButton>
+              </NSpace>
+            </NListItem>
+          </NList>
+        </NCard>
 
-      <!-- 查看详情按钮 -->
-      <div class="hover-card-footer">
-        <NSpace justify="space-between" style="width: 100%;">
+        <!-- 改进建议 -->
+        <NCard
+          v-if="result.improvements && result.improvements.length > 0"
+          embedded
+          size="small"
+          :bordered="false"
+          class="section-card"
+        >
+          <template #header>
+            <NSpace align="center" :size="6">
+              <NIcon size="14" depth="3" aria-hidden="true">
+                <Bulb />
+              </NIcon>
+              <NText depth="2" class="section-title">{{ t('evaluation.improvements') }}</NText>
+            </NSpace>
+          </template>
+          <NList :show-divider="false" class="compact-list">
+            <NListItem v-for="(item, idx) in result.improvements" :key="idx" class="compact-list-item">
+              <NSpace justify="space-between" align="start" :size="10" class="full-width">
+                <NText depth="2" class="improvement-text">{{ item }}</NText>
+                <NButton text size="tiny" type="primary" @click.stop="handleApplyImprovement(item)">
+                  {{ t('evaluation.applyToIterate') }}
+                </NButton>
+              </NSpace>
+            </NListItem>
+          </NList>
+        </NCard>
+
+        <!-- 一句话总结 -->
+        <NCard v-if="result.summary" embedded size="small" :bordered="false" class="section-card">
+          <NText class="meta-text">{{ result.summary }}</NText>
+        </NCard>
+
+        <NDivider class="section-divider" />
+        <NCard embedded size="small" :bordered="false" class="feedback-editor-card">
+          <template #header>
+            <NSpace align="center" :size="8">
+              <NText depth="2" class="section-title">{{ t('evaluation.feedbackTitle') }}</NText>
+              <NTag size="small" round :bordered="false" type="default" class="optional-tag">
+                {{ t('evaluation.optional') }}
+              </NTag>
+            </NSpace>
+          </template>
+          <FeedbackEditor v-model="feedbackDraft" :show-actions="false" />
+        </NCard>
+
+        <NDivider class="section-divider" />
+        <NSpace justify="space-between" class="full-width">
           <NButton text size="tiny" @click="handleShowDetail">
             {{ t('evaluation.viewDetails') }}
           </NButton>
-          <NButton type="primary" size="tiny" @click="handleEvaluate">
+          <NButton type="primary" size="tiny" @click="handleEvaluateClick">
             {{ t('evaluation.reEvaluate') }}
           </NButton>
         </NSpace>
@@ -90,45 +148,68 @@
 
     <!-- 无结果 -->
     <div v-else class="hover-card-empty">
-      <NText depth="3" style="font-size: 12px; margin-bottom: 12px; display: block;">
-        {{ t('evaluation.noResult') }}
-      </NText>
-          <NButton type="primary" size="small" @click="handleEvaluate">
-            {{ t('evaluation.evaluate') }}
-          </NButton>
+      <NEmpty :description="t('evaluation.noResult')">
+        <template #extra>
+          <NSpace justify="center" :size="8">
+            <NButton type="primary" size="small" @click="handleEvaluateClick">
+              {{ t('evaluation.evaluate') }}
+            </NButton>
+          </NSpace>
+        </template>
+      </NEmpty>
+
+      <NDivider class="section-divider" />
+      <NCard embedded size="small" :bordered="false" class="feedback-editor-card">
+        <template #header>
+          <NSpace align="center" :size="8">
+            <NText depth="2" class="section-title">{{ t('evaluation.feedbackTitle') }}</NText>
+            <NTag size="small" round :bordered="false" type="default" class="optional-tag">
+              {{ t('evaluation.optional') }}
+            </NTag>
+          </NSpace>
+        </template>
+        <FeedbackEditor v-model="feedbackDraft" :show-actions="false" />
+      </NCard>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NText, NTag, NProgress, NButton, NSpin, NSpace } from 'naive-ui'
+import { NButton, NCard, NDivider, NEmpty, NIcon, NList, NListItem, NProgress, NSpace, NSpin, NTag, NText } from 'naive-ui'
 import type { EvaluationResponse, EvaluationType, PatchOperation } from '@prompt-optimizer/core'
+import { Bulb, Tool } from '@vicons/tabler'
 import InlineDiff from './InlineDiff.vue'
+import FeedbackEditor from './FeedbackEditor.vue'
 
 const props = defineProps<{
   result: EvaluationResponse | null
   type: EvaluationType
   loading?: boolean
+  /** 由父组件传入，用于在 popover 关闭时重置内部编辑器状态 */
+  visible?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'show-detail'): void
   (e: 'evaluate'): void
+  (e: 'evaluate-with-feedback', payload: { feedback: string }): void
   (e: 'apply-improvement', payload: { improvement: string; type: EvaluationType }): void
   (e: 'apply-patch', payload: { operation: PatchOperation }): void
 }>()
 
 const { t } = useI18n()
+const feedbackDraft = ref('')
 
-// 获取分数等级样式类
-const getScoreLevelClass = (score: number): string => {
-  if (score >= 90) return 'level-excellent'
-  if (score >= 80) return 'level-good'
-  if (score >= 60) return 'level-acceptable'
-  if (score >= 40) return 'level-poor'
-  return 'level-very-poor'
-}
+watch(
+  () => props.visible,
+  (visible) => {
+    if (visible === false) {
+      feedbackDraft.value = ''
+    }
+  }
+)
 
 // 获取分数等级标签类型
 const getScoreLevelType = (score: number): 'success' | 'info' | 'warning' | 'error' => {
@@ -159,9 +240,17 @@ const handleShowDetail = () => {
   emit('show-detail')
 }
 
-// 处理评估
-const handleEvaluate = () => {
+const handleEvaluateClick = () => {
+  const trimmed = feedbackDraft.value.trim()
+
+  if (trimmed) {
+    emit('evaluate-with-feedback', { feedback: trimmed })
+    feedbackDraft.value = ''
+    return
+  }
+
   emit('evaluate')
+  feedbackDraft.value = ''
 }
 
 // 处理应用改进建议到迭代
@@ -177,10 +266,24 @@ const handleApplyPatch = (operation: PatchOperation) => {
 
 <style scoped>
 .evaluation-hover-card {
-  width: 360px;
+  width: min(360px, calc(100vw - 32px));
+  /* 避免在视口底部被截断：高度随视口缩放，内容内部滚动 */
+  max-height: min(480px, calc(100vh - 32px));
+  box-sizing: border-box;
   padding: 14px;
-  max-height: 480px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hover-card-scroll {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+}
+
+.meta-text {
+  font-size: 12px;
 }
 
 .hover-card-loading {
@@ -196,28 +299,17 @@ const handleApplyPatch = (operation: PatchOperation) => {
   padding: 16px 0;
 }
 
+.full-width {
+  width: 100%;
+}
+
 /* 分数头部 */
 .score-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
   margin-bottom: 10px;
 }
 
-.score-circle {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 3px solid currentColor;
-  flex-shrink: 0;
-}
-
-.score-number {
-  font-size: 16px;
-  font-weight: bold;
+.overall-progress {
+  width: 56px;
 }
 
 .score-info {
@@ -226,14 +318,21 @@ const handleApplyPatch = (operation: PatchOperation) => {
   gap: 4px;
 }
 
-/* 维度列表 */
-.dimensions-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.section-card {
   margin-bottom: 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--n-border-color);
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.compact-list :deep(.n-list-item) {
+  padding: 0;
+}
+
+.compact-list-item {
+  padding: 6px 0;
 }
 
 .dimension-row {
@@ -242,62 +341,19 @@ const handleApplyPatch = (operation: PatchOperation) => {
   gap: 6px;
 }
 
-/* 分区样式 */
-.section {
-  margin-bottom: 8px;
+.dimension-label {
+  min-width: 56px;
+  font-size: 11px;
 }
 
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-bottom: 4px;
+.dimension-progress {
+  flex: 1;
 }
 
-.section-icon {
-  font-size: 12px;
-}
-
-.section-list {
-  margin: 0;
-  padding-left: 18px;
-  font-size: 12px;
-  color: var(--n-text-color-2);
-  line-height: 1.6;
-}
-
-.section-list li {
-  margin-bottom: 2px;
-}
-
-.section-list li:last-child {
-  margin-bottom: 0;
-}
-
-/* 问题分区 */
-.issues-section .section-list {
-  color: #d03050;
-}
-
-/* 改进建议分区 */
-.improvements-section .section-list {
-  color: #2080f0;
-}
-
-/* 精准修复分区 */
-.patch-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.patch-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px;
-  background: var(--n-color-embedded);
-  border-radius: 6px;
+.dimension-score {
+  min-width: 24px;
+  text-align: right;
+  font-size: 11px;
 }
 
 .patch-instruction {
@@ -315,59 +371,32 @@ const handleApplyPatch = (operation: PatchOperation) => {
   align-self: flex-end;
 }
 
-/* 改进建议项 */
-.improvement-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 8px;
-}
-
 .improvement-text {
-  flex: 1;
   word-break: break-word;
 }
 
-.apply-btn {
-  flex-shrink: 0;
-  font-size: 10px !important;
-  padding: 0 4px !important;
-  height: 18px !important;
+.section-divider {
+  margin: 8px 0;
 }
 
-/* 总结框 */
-.summary-box {
-  padding: 8px;
-  background: var(--n-color-embedded);
-  border-radius: 4px;
-  margin-bottom: 8px;
+.icon-action-btn {
+  padding: 0;
 }
 
-/* 底部操作 */
-.hover-card-footer {
-  text-align: center;
-  padding-top: 8px;
-  border-top: 1px solid var(--n-border-color);
+.feedback-editor-card {
+  margin: 0;
+  text-align: left;
 }
 
-/* 分数等级颜色 */
-.level-excellent {
-  color: #18a058;
+.feedback-editor-card :deep(.n-card__header) {
+  padding: 8px 10px 6px;
 }
 
-.level-good {
-  color: #2080f0;
+.feedback-editor-card :deep(.n-card__content) {
+  padding: 0 10px 10px;
 }
 
-.level-acceptable {
-  color: #f0a020;
-}
-
-.level-poor {
-  color: #d03050;
-}
-
-.level-very-poor {
-  color: #d03050;
+.optional-tag {
+  opacity: 0.85;
 }
 </style>

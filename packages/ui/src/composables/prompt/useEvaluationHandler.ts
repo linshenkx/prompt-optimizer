@@ -80,10 +80,16 @@ export interface UseEvaluationHandlerReturn {
   evaluation: UseEvaluationReturn
 
   /** 执行评估 */
-  handleEvaluate: (type: EvaluationType) => Promise<void>
+  handleEvaluate: (type: EvaluationType, options?: { userFeedback?: string }) => Promise<void>
+
+  /** 带用户反馈的评估 */
+  handleEvaluateWithFeedback: (type: EvaluationType, userFeedback: string) => Promise<void>
 
   /** 重新评估（从详情面板触发） */
   handleReEvaluate: () => Promise<void>
+
+  /** 带反馈评估（基于当前详情类型触发） */
+  handleEvaluateActiveWithFeedback: (userFeedback: string) => Promise<void>
 
   /**
    * 测试前清空评估结果
@@ -237,12 +243,16 @@ export function useEvaluationHandler(
   /**
    * 执行评估
    */
-  const handleEvaluate = async (type: EvaluationType): Promise<void> => {
+  const handleEvaluate = async (
+    type: EvaluationType,
+    options?: { userFeedback?: string }
+  ): Promise<void> => {
     const original = originalPrompt.value || ''
     const optimized = optimizedPrompt.value || ''
     const content = testContent.value || ''
     const results = testResults.value
     const context = proContext?.value
+    const userFeedback = options?.userFeedback?.trim() || ''
 
     // 🔧 预先计算 trim 结果，避免重复调用
     const originalTrimmed = original?.trim()
@@ -258,6 +268,7 @@ export function useEvaluationHandler(
         testContent: content,
         testResult: results?.originalResult || '',
         proContext: context,
+        userFeedback: userFeedback || undefined,
       })
     } else if (type === 'optimized') {
       await evaluation.evaluateOptimized({
@@ -266,6 +277,7 @@ export function useEvaluationHandler(
         testContent: content,
         testResult: results?.optimizedResult || '',
         proContext: context,
+        userFeedback: userFeedback || undefined,
       })
     } else if (type === 'compare') {
       await evaluation.evaluateCompare({
@@ -275,6 +287,7 @@ export function useEvaluationHandler(
         originalTestResult: results?.originalResult || '',
         optimizedTestResult: results?.optimizedResult || '',
         proContext: context,
+        userFeedback: userFeedback || undefined,
       })
     } else if (type === 'prompt-only') {
       // 仅提示词评估（无需测试结果）
@@ -284,6 +297,7 @@ export function useEvaluationHandler(
         originalPrompt: shouldPassOriginal ? original : '',
         optimizedPrompt: optimized,
         proContext: context,
+        userFeedback: userFeedback || undefined,
       })
     } else if (type === 'prompt-iterate') {
       // 带迭代需求的提示词评估
@@ -295,6 +309,7 @@ export function useEvaluationHandler(
           originalPrompt: shouldPassOriginal ? original : '',
           optimizedPrompt: optimized,
           proContext: context,
+          userFeedback: userFeedback || undefined,
         })
       } else {
         // 🔧 迭代评估同样处理分析模式场景
@@ -303,21 +318,36 @@ export function useEvaluationHandler(
           optimizedPrompt: optimized,
           iterateRequirement,
           proContext: context,
+          userFeedback: userFeedback || undefined,
         })
       }
     }
+  }
+
+  const handleEvaluateWithFeedback = async (
+    type: EvaluationType,
+    userFeedback: string
+  ): Promise<void> => {
+    await handleEvaluate(type, { userFeedback })
   }
 
   /**
    * 重新评估（从详情面板触发）
    * 规则：始终使用“当前业务状态”重新组装请求并执行一次评估
    *
-   * 说明：该策略不保存/重放 lastRequest，符合“重新评估使用最新状态”的产品定义。
+   * 说明：该策略不保存/重放 lastRequest，且不会隐式复用历史反馈。
    */
   const handleReEvaluate = async (): Promise<void> => {
     const currentType = evaluation.state.activeDetailType
     if (currentType) {
       await handleEvaluate(currentType)
+    }
+  }
+
+  const handleEvaluateActiveWithFeedback = async (userFeedback: string): Promise<void> => {
+    const currentType = evaluation.state.activeDetailType
+    if (currentType) {
+      await handleEvaluate(currentType, { userFeedback })
     }
   }
 
@@ -432,7 +462,9 @@ export function useEvaluationHandler(
   return {
     evaluation,
     handleEvaluate,
+    handleEvaluateWithFeedback,
     handleReEvaluate,
+    handleEvaluateActiveWithFeedback,
     clearBeforeTest,
     createApplyImprovementHandler,
     handlers,

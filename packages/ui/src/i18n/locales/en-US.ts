@@ -2174,6 +2174,12 @@ export default {
     applySuccess: "Applying improvement...",
     noResult: "No evaluation result yet. Click the evaluate button to start.",
     viewDetails: "View Details",
+    feedbackAnalyze: "Feedback Analysis",
+    feedbackTitle: "Feedback",
+    optional: "Optional",
+    feedbackPlaceholder: "Describe issues, expectations, or concerns. Analysis will prioritize your feedback.",
+    feedbackHint: "Esc to cancel · Ctrl/⌘+Enter to submit",
+    feedbackSubmit: "Submit & Re-evaluate",
     title: {
       default: "Evaluation Result",
       original: "Original Prompt Evaluation",

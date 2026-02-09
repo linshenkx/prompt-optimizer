@@ -156,6 +156,7 @@ export interface UseEvaluationReturn {
     testContent?: string
     testResult: string
     proContext?: ProEvaluationContext
+    userFeedback?: string
   }) => Promise<void>
   /** 评估优化后提示词 */
   evaluateOptimized: (params: {
@@ -164,6 +165,7 @@ export interface UseEvaluationReturn {
     testContent?: string
     testResult: string
     proContext?: ProEvaluationContext
+    userFeedback?: string
   }) => Promise<void>
   /** 对比评估 */
   evaluateCompare: (params: {
@@ -173,12 +175,14 @@ export interface UseEvaluationReturn {
     originalTestResult: string
     optimizedTestResult: string
     proContext?: ProEvaluationContext
+    userFeedback?: string
   }) => Promise<void>
   /** 仅提示词评估（无需测试结果） */
   evaluatePromptOnly: (params: {
     originalPrompt: string
     optimizedPrompt: string
     proContext?: ProEvaluationContext
+    userFeedback?: string
   }) => Promise<void>
   /** 带迭代需求的提示词评估 */
   evaluatePromptIterate: (params: {
@@ -186,6 +190,7 @@ export interface UseEvaluationReturn {
     optimizedPrompt: string
     iterateRequirement: string
     proContext?: ProEvaluationContext
+    userFeedback?: string
   }) => Promise<void>
 
   // ===== 状态管理方法 =====
@@ -434,6 +439,7 @@ export function useEvaluation(
     testContent?: string
     testResult: string
     proContext?: ProEvaluationContext
+    userFeedback?: string
   }): Promise<void> => {
     const request: OriginalEvaluationRequest = {
       type: 'original',
@@ -444,6 +450,7 @@ export function useEvaluation(
       variables: { language: getLanguage() },
       mode: getModeConfig(),
       proContext: params.proContext,
+      userFeedback: params.userFeedback,
     }
     await executeEvaluation('original', request, false)
   }
@@ -457,6 +464,7 @@ export function useEvaluation(
     testContent?: string
     testResult: string
     proContext?: ProEvaluationContext
+    userFeedback?: string
   }): Promise<void> => {
     const request: OptimizedEvaluationRequest = {
       type: 'optimized',
@@ -468,6 +476,7 @@ export function useEvaluation(
       variables: { language: getLanguage() },
       mode: getModeConfig(),
       proContext: params.proContext,
+      userFeedback: params.userFeedback,
       // 注：optimized 评估暂不支持诊断模式，诊断功能仅在 prompt-only/prompt-iterate 中启用
     }
     await executeEvaluation('optimized', request, false)
@@ -483,6 +492,7 @@ export function useEvaluation(
     originalTestResult: string
     optimizedTestResult: string
     proContext?: ProEvaluationContext
+    userFeedback?: string
   }): Promise<void> => {
     const request: CompareEvaluationRequest = {
       type: 'compare',
@@ -495,6 +505,7 @@ export function useEvaluation(
       variables: { language: getLanguage() },
       mode: getModeConfig(),
       proContext: params.proContext,
+      userFeedback: params.userFeedback,
     }
     await executeEvaluation('compare', request, false)
   }
@@ -506,6 +517,7 @@ export function useEvaluation(
     originalPrompt: string
     optimizedPrompt: string
     proContext?: ProEvaluationContext
+    userFeedback?: string
   }): Promise<void> => {
     const request: PromptOnlyEvaluationRequest = {
       type: 'prompt-only',
@@ -516,6 +528,7 @@ export function useEvaluation(
       variables: { language: getLanguage() },
       mode: getModeConfig(),
       proContext: params.proContext,
+      userFeedback: params.userFeedback,
     }
     await executeEvaluation('prompt-only', request)
   }
@@ -528,6 +541,7 @@ export function useEvaluation(
     optimizedPrompt: string
     iterateRequirement: string
     proContext?: ProEvaluationContext
+    userFeedback?: string
   }): Promise<void> => {
     const request: PromptIterateEvaluationRequest = {
       type: 'prompt-iterate',
@@ -539,6 +553,7 @@ export function useEvaluation(
       variables: { language: getLanguage() },
       mode: getModeConfig(),
       proContext: params.proContext,
+      userFeedback: params.userFeedback,
     }
     await executeEvaluation('prompt-iterate', request)
   }

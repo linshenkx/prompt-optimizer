@@ -2097,6 +2097,12 @@ export default {
     applySuccess: "正在应用改进建议...",
     noResult: "暂无评估结果，点击评估按钮开始评估",
     viewDetails: "查看详情",
+    feedbackAnalyze: "反馈分析",
+    feedbackTitle: "反馈内容",
+    optional: "可选",
+    feedbackPlaceholder: "请输入你的问题、预期或不满意点，分析将优先围绕你的反馈展开",
+    feedbackHint: "Esc 取消 · Ctrl/⌘ + Enter 提交",
+    feedbackSubmit: "提交并重新评估",
     title: {
       default: "评估结果",
       original: "原始提示词评估",

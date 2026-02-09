@@ -3,51 +3,65 @@
     v-model:show="popoverVisible"
     trigger="manual"
     placement="bottom"
+    flip
+    ref="popoverInstRef"
+    :style="{ padding: '0' }"
+    :content-style="{ padding: '0' }"
     :disabled="loading"
     :delay="200"
     :duration="150"
+    @clickoutside="handleClickOutside"
   >
     <template #trigger>
-      <div
-        class="evaluation-score-badge"
-        :class="[sizeClass, levelClass, { clickable: !loading, loading }]"
+      <NButton
+        secondary
+        :type="badgeType"
+        :size="buttonSize"
+        :loading="loading"
+        :disabled="loading"
+        class="evaluation-score-badge-btn"
         :data-testid="`score-badge-${type}`"
         :data-eval-type="type"
         @click="handleClick"
         @mouseenter="handleMouseEnter"
         @mouseleave="handleMouseLeave"
       >
-        <template v-if="loading">
-          <NSpin :size="spinSize" data-testid="score-loading" />
-        </template>
-        <template v-else-if="score !== null && score !== undefined">
-          <span class="score-value" data-testid="score-value">{{ score }}</span>
-        </template>
-        <template v-else>
-          <span class="score-placeholder">--</span>
-        </template>
-      </div>
+        <span v-if="!loading" data-testid="score-value">{{ displayText }}</span>
+      </NButton>
     </template>
-    <EvaluationHoverCard
-      :result="result"
-      :type="type"
-      :loading="loading"
-      @show-detail="handleShowDetail"
-      @evaluate="handleEvaluate"
-      @apply-improvement="handleApplyImprovement"
-      @apply-patch="handleApplyPatch"
+    <div
+      class="hover-card-wrapper"
+      ref="hoverCardWrapperRef"
       @mouseenter="handlePopoverMouseEnter"
       @mouseleave="handlePopoverMouseLeave"
-    />
+      @focusin.capture="handlePopoverFocusIn"
+      @focusout.capture="handlePopoverFocusOut"
+    >
+      <EvaluationHoverCard
+        :result="result"
+        :type="type"
+        :loading="loading"
+        :visible="popoverVisible"
+        @show-detail="handleShowDetail"
+        @evaluate="handleEvaluate"
+        @evaluate-with-feedback="handleEvaluateWithFeedback"
+        @apply-improvement="handleApplyImprovement"
+        @apply-patch="handleApplyPatch"
+      />
+    </div>
   </NPopover>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { NSpin, NPopover } from 'naive-ui'
+import { computed, ref, onBeforeUnmount, watch, nextTick } from 'vue'
+import { NButton, NPopover } from 'naive-ui'
 import EvaluationHoverCard from './EvaluationHoverCard.vue'
 import type { EvaluationResponse, EvaluationType, PatchOperation } from '@prompt-optimizer/core'
 import type { ScoreLevel } from './types'
+
+type PopoverInst = {
+  syncPosition?: () => void
+}
 
 const props = withDefaults(
   defineProps<{
@@ -77,6 +91,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'show-detail'): void
   (e: 'evaluate'): void
+  (e: 'evaluate-with-feedback', payload: { type: EvaluationType; feedback: string }): void
   (e: 'apply-improvement', payload: { improvement: string; type: EvaluationType }): void
   (e: 'apply-patch', payload: { operation: PatchOperation }): void
 }>()
@@ -85,6 +100,60 @@ const emit = defineEmits<{
 const popoverVisible = ref(false)
 const isHoveringBadge = ref(false)
 const isHoveringPopover = ref(false)
+const isPinnedByClick = ref(false)
+const hasFocusWithinPopover = ref(false)
+const popoverInstRef = ref<PopoverInst | null>(null)
+const hoverCardWrapperRef = ref<HTMLElement | null>(null)
+const POPOVER_CLOSE_DELAY = 250
+let closeTimer: ReturnType<typeof setTimeout> | null = null
+
+const clearCloseTimer = () => {
+  if (closeTimer) {
+    clearTimeout(closeTimer)
+    closeTimer = null
+  }
+}
+
+onBeforeUnmount(() => {
+  clearCloseTimer()
+})
+
+// 由于内部内容（尤其是 textarea autosize）可能在挂载后产生布局变化，
+// 这里在打开后主动同步位置，降低靠近视口边缘时的遮挡概率。
+watch(popoverVisible, (visible) => {
+  if (!visible) return
+
+  nextTick(() => {
+    popoverInstRef.value?.syncPosition?.()
+
+    // 再同步一次，覆盖异步布局（如字体加载、组件内部测量）带来的高度变更
+    if (typeof requestAnimationFrame !== 'undefined') {
+      requestAnimationFrame(() => popoverInstRef.value?.syncPosition?.())
+    }
+  })
+})
+
+const closePopover = () => {
+  clearCloseTimer()
+  popoverVisible.value = false
+  isPinnedByClick.value = false
+  hasFocusWithinPopover.value = false
+}
+
+const scheduleClose = () => {
+  // 若用户正在 popover 内输入/操作（focus 在内部），不要因为 hover 状态变化而自动关闭。
+  if (isPinnedByClick.value || hasFocusWithinPopover.value) {
+    clearCloseTimer()
+    return
+  }
+
+  clearCloseTimer()
+  closeTimer = setTimeout(() => {
+    if (!isHoveringBadge.value && !isHoveringPopover.value) {
+      closePopover()
+    }
+  }, POPOVER_CLOSE_DELAY)
+}
 
 // 计算等级（如果未提供则根据分数计算）
 const computedLevel = computed<ScoreLevel | null>(() => {
@@ -97,160 +166,146 @@ const computedLevel = computed<ScoreLevel | null>(() => {
   return 'very-poor'
 })
 
-// 尺寸类
-const sizeClass = computed(() => `size-${props.size}`)
-
-// 等级颜色类
-const levelClass = computed(() => {
-  if (!computedLevel.value) return ''
-  return `level-${computedLevel.value}`
+const displayText = computed(() => {
+  if (props.score === null || props.score === undefined) return '--'
+  return String(props.score)
 })
 
-// 加载图标尺寸
-const spinSize = computed(() => (props.size === 'small' ? 12 : 16))
+const buttonSize = computed(() => (props.size === 'small' ? 'tiny' : 'small'))
+
+const badgeType = computed(() => {
+  switch (computedLevel.value) {
+    case 'excellent':
+    case 'good':
+      return 'success'
+    case 'acceptable':
+      return 'info'
+    case 'poor':
+      return 'warning'
+    case 'very-poor':
+      return 'error'
+    default:
+      return 'default'
+  }
+})
 
 // 点击处理 - 显示/隐藏悬浮预览
 const handleClick = () => {
-  if (!props.loading) {
-    popoverVisible.value = !popoverVisible.value
+  if (props.loading) return
+
+  if (popoverVisible.value && isPinnedByClick.value) {
+    closePopover()
+    return
   }
+
+  clearCloseTimer()
+  isPinnedByClick.value = true
+  popoverVisible.value = true
 }
 
 // 鼠标进入徽章
 const handleMouseEnter = () => {
   if (!props.loading) {
     isHoveringBadge.value = true
-    popoverVisible.value = true
+    clearCloseTimer()
+
+    if (!isPinnedByClick.value) {
+      popoverVisible.value = true
+    }
   }
 }
 
 // 鼠标离开徽章
 const handleMouseLeave = () => {
   isHoveringBadge.value = false
-  // 延迟检查，给用户时间移动到 popover
-  setTimeout(() => {
-    if (!isHoveringBadge.value && !isHoveringPopover.value) {
-      popoverVisible.value = false
-    }
-  }, 100)
+  scheduleClose()
 }
 
 // 鼠标进入 popover
 const handlePopoverMouseEnter = () => {
   isHoveringPopover.value = true
+  clearCloseTimer()
 }
 
 // 鼠标离开 popover
 const handlePopoverMouseLeave = () => {
   isHoveringPopover.value = false
-  // 延迟检查
-  setTimeout(() => {
-    if (!isHoveringBadge.value && !isHoveringPopover.value) {
-      popoverVisible.value = false
-    }
-  }, 100)
+  scheduleClose()
+}
+
+const handleClickOutside = () => {
+  if (isPinnedByClick.value || hasFocusWithinPopover.value) {
+    closePopover()
+  }
+}
+
+const handlePopoverFocusIn = () => {
+  hasFocusWithinPopover.value = true
+  clearCloseTimer()
+}
+
+const handlePopoverFocusOut = () => {
+  if (typeof document === 'undefined') return
+
+  const wrapper = hoverCardWrapperRef.value
+  const updateFocusState = () => {
+    const active = document.activeElement
+    if (wrapper && active && wrapper.contains(active)) return
+
+    hasFocusWithinPopover.value = false
+    scheduleClose()
+  }
+
+  if (typeof requestAnimationFrame !== 'undefined') {
+    requestAnimationFrame(updateFocusState)
+    return
+  }
+
+  updateFocusState()
 }
 
 // 查看详情处理 - 关闭悬浮预览并打开详情面板
 const handleShowDetail = () => {
-  popoverVisible.value = false
+  closePopover()
   emit('show-detail')
 }
 
 // 评估处理 - 关闭悬浮预览并触发评估
 const handleEvaluate = () => {
-  popoverVisible.value = false
+  closePopover()
   emit('evaluate')
+}
+
+// 带反馈评估处理
+const handleEvaluateWithFeedback = (payload: { feedback: string }) => {
+  closePopover()
+  emit('evaluate-with-feedback', {
+    type: props.type,
+    feedback: payload.feedback,
+  })
 }
 
 // 应用改进建议处理 - 关闭悬浮预览并转发事件
 const handleApplyImprovement = (payload: { improvement: string; type: EvaluationType }) => {
-  popoverVisible.value = false
+  closePopover()
   emit('apply-improvement', payload)
 }
 
 // 应用补丁处理 - 关闭悬浮预览并转发事件
 const handleApplyPatch = (payload: { operation: PatchOperation }) => {
-  popoverVisible.value = false
+  closePopover()
   emit('apply-patch', payload)
 }
 </script>
 
 <style scoped>
-.evaluation-score-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  font-weight: 600;
-  transition: all 0.2s ease;
-  user-select: none;
-}
-
-/* 尺寸 */
-.size-small {
-  min-width: 32px;
-  height: 22px;
-  padding: 0 6px;
-  font-size: 12px;
-}
-
-.size-medium {
+.evaluation-score-badge-btn {
   min-width: 40px;
-  height: 28px;
-  padding: 0 8px;
-  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 
-/* 可点击状态 */
-.clickable:not(.loading) {
-  cursor: pointer;
-}
-
-.clickable:not(.loading):hover {
-  opacity: 0.85;
-  transform: scale(1.05);
-}
-
-/* 加载状态 */
-.loading {
-  background: var(--n-color-embedded, #f5f5f5);
-  color: var(--n-text-color-3, #999);
-}
-
-/* 等级颜色 */
-.level-excellent {
-  background: rgba(24, 160, 88, 0.15);
-  color: #18a058;
-}
-
-.level-good {
-  background: rgba(32, 128, 240, 0.15);
-  color: #2080f0;
-}
-
-.level-acceptable {
-  background: rgba(240, 160, 32, 0.15);
-  color: #f0a020;
-}
-
-.level-poor {
-  background: rgba(208, 48, 80, 0.15);
-  color: #d03050;
-}
-
-.level-very-poor {
-  background: rgba(208, 48, 80, 0.2);
-  color: #d03050;
-}
-
-/* 占位符样式 */
-.score-placeholder {
-  color: var(--n-text-color-3, #999);
-}
-
-/* 无等级时的默认样式 */
-.evaluation-score-badge:not([class*='level-']):not(.loading) {
-  background: var(--n-color-embedded, #f5f5f5);
+.hover-card-wrapper {
+  display: block;
 }
 </style>

@@ -136,34 +136,43 @@
                             size="small"
                             @show-detail="handleShowEvaluationDetail"
                             @evaluate="handleEvaluate"
+                            @evaluate-with-feedback="handleEvaluateWithFeedback"
                             @apply-improvement="handleApplyImprovement"
                             @apply-patch="handleApplyPatch"
                         />
-                        <NButton
-                            v-else
-                            size="small"
-                            type="tertiary"
-                            @click="handleEvaluate"
-                        >
-                            <template #icon>
-                                <NIcon>
-                                    <svg
-                                        class="w-4 h-4"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            stroke-width="2"
-                                            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                                        ></path>
-                                    </svg>
-                                </NIcon>
-                            </template>
-                            {{ t("prompt.analyze") }}
-                        </NButton>
+                        <NSpace v-else :size="6" align="center">
+                            <FeedbackAnalyzeButton
+                                :type="evaluationType"
+                                :loading="isEvaluating"
+                                size="small"
+                                :compact="true"
+                                @evaluate-with-feedback="handleEvaluateWithFeedback"
+                            />
+                            <NButton
+                                size="small"
+                                type="tertiary"
+                                @click="handleEvaluate"
+                            >
+                                <template #icon>
+                                    <NIcon>
+                                        <svg
+                                            class="w-4 h-4"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                stroke-width="2"
+                                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                                            ></path>
+                                        </svg>
+                                    </NIcon>
+                                </template>
+                                {{ t("prompt.analyze") }}
+                            </NButton>
+                        </NSpace>
                     </div>
                     <!-- 保存本地修改（手动编辑/直接修复后建议保存到历史版本） -->
                     <NButton
@@ -304,7 +313,7 @@ import { useProContextOptional } from '../composables/prompt/useProContext';
 import TemplateSelect from "./TemplateSelect.vue";
 import Modal from "./Modal.vue";
 import OutputDisplay from "./OutputDisplay.vue";
-import { EvaluationScoreBadge } from "./evaluation";
+import { EvaluationScoreBadge, FeedbackAnalyzeButton } from "./evaluation";
 import type { Template, PromptRecord, EvaluationType, PatchOperation } from "@prompt-optimizer/core";
 
 const { t } = useI18n();
@@ -532,28 +541,34 @@ const switchToV0 = async () => {
 };
 
 // 处理评估按钮点击（触发评估）
-const handleEvaluate = async () => {
+const executeEvaluate = async (userFeedback?: string, preferredType?: EvaluationType) => {
     if (!props.optimizedPrompt?.trim()) {
         toast.error(t("prompt.error.noOptimizedPrompt"));
         return;
     }
 
     if (!evaluation) {
-        console.warn("[PromptPanel] 评估上下文不可用");
+        toast.error(t("evaluation.error.serviceNotReady"));
         return;
     }
 
     const iterateRequirement = currentIterationNote.value.trim();
+    const targetType =
+        preferredType === "prompt-only" || preferredType === "prompt-iterate"
+            ? preferredType
+            : evaluationType.value;
+
     // 获取 Pro 模式上下文（如果可用）
     const proContext = proContextRef?.value;
 
-    if (iterateRequirement) {
+    if (targetType === "prompt-iterate" && iterateRequirement) {
         // 有迭代需求时使用 prompt-iterate 评估
         await evaluation.evaluatePromptIterate({
             originalPrompt: props.originalPrompt,
             optimizedPrompt: props.optimizedPrompt,
             iterateRequirement,
             proContext,
+            userFeedback,
         });
     } else {
         // 无迭代需求时使用 prompt-only 评估
@@ -561,8 +576,18 @@ const handleEvaluate = async () => {
             originalPrompt: props.originalPrompt,
             optimizedPrompt: props.optimizedPrompt,
             proContext,
+            userFeedback,
         });
     }
+};
+
+// 处理评估按钮点击（触发评估）
+const handleEvaluate = async () => {
+    await executeEvaluate();
+};
+
+const handleEvaluateWithFeedback = async (payload: { type: EvaluationType; feedback: string }) => {
+    await executeEvaluate(payload.feedback, payload.type);
 };
 
 // 处理显示评估详情
