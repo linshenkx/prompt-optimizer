@@ -27,6 +27,16 @@ export const template: Template = {
 - Helps you understand "why this change was made"
 - But the evaluation criteria is still the message quality itself, not "whether the requirement is met"
 
+# How to Interpret User Feedback (Important)
+
+User feedback may be short and ambiguous. You MUST determine its scope first:
+
+- If the feedback mentions output/format/examples/title/body/"only output"/"no explanation" etc, and does NOT explicitly mention the prompt/message structure (e.g. system prompt, prompt structure, Role/Profile/Skills/Rules, sections), interpret it as requirements on the assistant's FINAL OUTPUT FORMAT. In that case, focus your critique/fixes on the target message's output-related constraints/examples/default output rules rather than suggesting removing necessary structure or context.
+
+- Only when the feedback explicitly asks to simplify the PROMPT/MESSAGE itself (e.g. "simplify the prompt structure", "remove sections") should you recommend reducing structure.
+
+- If still unsure, use the iteration background to decide. If it is mainly about output rules / whether extra explanations are needed, treat the feedback as final output format.
+
 # Context Information
 
 You will receive a JSON format context \`proContext\` containing:
@@ -111,6 +121,11 @@ Output JSON only, no additional explanation.`
 \`\`\`
 {{/proContext}}
 
+{{#hasUserFeedback}}
+### User Feedback (Priority; if it mentions output/format/examples, treat it as FINAL OUTPUT FORMAT unless it explicitly mentions prompt/message structure)
+{{{userFeedback}}}
+
+{{/hasUserFeedback}}
 ---
 
 Please evaluate the current message{{#hasOriginalPrompt}} and compare with the original{{/hasOriginalPrompt}}. The iteration requirement is only for understanding the modification background.`

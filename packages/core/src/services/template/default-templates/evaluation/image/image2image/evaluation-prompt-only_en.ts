@@ -85,6 +85,11 @@ Output JSON only, no additional explanation.`
 ### Workspace Image-to-Image Prompt (Evaluation Target)
 {{optimizedPrompt}}
 
+{{#hasUserFeedback}}
+### User Feedback (Priority)
+{{{userFeedback}}}
+
+{{/hasUserFeedback}}
 ---
 
 Please evaluate the current image-to-image prompt{{#hasOriginalPrompt}} and compare with the original version{{/hasOriginalPrompt}}.`

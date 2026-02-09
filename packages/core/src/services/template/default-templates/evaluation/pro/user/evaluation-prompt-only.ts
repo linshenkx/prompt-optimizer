@@ -108,6 +108,11 @@ export const template: Template = {
 \`\`\`
 {{/proContext}}
 
+{{#hasUserFeedback}}
+### 用户反馈（优先关注）
+{{{userFeedback}}}
+
+{{/hasUserFeedback}}
 ---
 
 请直接评估优化后的用户提示词相对于原始版本的改进程度。`

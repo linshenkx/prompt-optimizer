@@ -126,6 +126,11 @@ improvements should be **specific and actionable** suggestions:
 ### Test Result (AI Output)
 {{testResult}}
 
+{{#hasUserFeedback}}
+### User Feedback (Priority)
+{{{userFeedback}}}
+
+{{/hasUserFeedback}}
 ---
 
 Please strictly evaluate the above test result and provide specific improvement suggestions for the user prompt, with particular focus on variable utilization.`

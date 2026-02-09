@@ -136,6 +136,11 @@ improvements should be **generic** improvements, such as:
 ### Optimized Test Result
 {{optimizedTestResult}}
 
+{{#hasUserFeedback}}
+### User Feedback (Priority)
+{{{userFeedback}}}
+
+{{/hasUserFeedback}}
 ---
 
 Please compare and evaluate the effectiveness difference between original and optimized messages, determine if optimization brought substantial improvement, and provide generic suggestions for further improvement.`

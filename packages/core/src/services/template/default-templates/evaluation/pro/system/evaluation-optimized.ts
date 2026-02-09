@@ -133,6 +133,11 @@ improvements 应该是**通用性**改进，例如：
 ### 测试结果（AI输出）
 {{testResult}}
 
+{{#hasUserFeedback}}
+### 用户反馈（优先关注）
+{{{userFeedback}}}
+
+{{/hasUserFeedback}}
 ---
 
 请严格评估优化后消息的效果，并给出进一步改进的通用性建议。`

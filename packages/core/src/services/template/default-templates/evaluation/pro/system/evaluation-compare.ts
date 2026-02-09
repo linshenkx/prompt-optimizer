@@ -136,6 +136,11 @@ improvements 应该是**通用性**改进，例如：
 ### 优化后测试结果
 {{optimizedTestResult}}
 
+{{#hasUserFeedback}}
+### 用户反馈（优先关注）
+{{{userFeedback}}}
+
+{{/hasUserFeedback}}
 ---
 
 请对比评估原始消息和优化后消息的效果差异，判断优化是否带来实质性提升，并给出进一步改进的通用性建议。`

@@ -132,6 +132,11 @@ improvements should be **specific and actionable** suggestions:
 ### Optimized Test Result
 {{optimizedTestResult}}
 
+{{#hasUserFeedback}}
+### User Feedback (Priority)
+{{{userFeedback}}}
+
+{{/hasUserFeedback}}
 ---
 
 Please compare and evaluate the effectiveness difference between original and optimized prompts, determine if optimization brought substantial improvement, and provide specific suggestions for further improvement, with particular focus on variable utilization.`

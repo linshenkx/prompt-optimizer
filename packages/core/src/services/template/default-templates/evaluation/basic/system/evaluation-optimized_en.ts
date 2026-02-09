@@ -113,6 +113,11 @@ improvements SHOULD be **generic** improvements, for example:
 ### Test Result (AI Output)
 {{testResult}}
 
+{{#hasUserFeedback}}
+### User Feedback (Priority)
+{{{userFeedback}}}
+
+{{/hasUserFeedback}}
 ---
 
 Please strictly evaluate the above test result and provide generic improvement suggestions for the system prompt.`

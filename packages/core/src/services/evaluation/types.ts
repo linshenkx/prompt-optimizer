@@ -127,6 +127,8 @@ export interface PatchOperation {
 export interface EvaluationRequestBase {
   /** 原始提示词（可选，用于对比） */
   originalPrompt?: string;
+  /** 用户反馈（可选，用于反馈分析） */
+  userFeedback?: string;
   /** 测试文本/输入 */
   testContent?: string;
   /** 评估使用的模型Key */

@@ -85,6 +85,11 @@ Output JSON only, no additional explanation.`
 ### Workspace Image Generation Prompt (Evaluation Target)
 {{optimizedPrompt}}
 
+{{#hasUserFeedback}}
+### User Feedback (Priority)
+{{{userFeedback}}}
+
+{{/hasUserFeedback}}
 ---
 
 Please evaluate the current image generation prompt{{#hasOriginalPrompt}} and compare with the original version{{/hasOriginalPrompt}}.`

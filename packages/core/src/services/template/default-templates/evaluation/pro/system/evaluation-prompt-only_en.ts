@@ -103,6 +103,11 @@ Output JSON only, no additional explanation.`
 \`\`\`
 {{/proContext}}
 
+{{#hasUserFeedback}}
+### User Feedback (Priority)
+{{{userFeedback}}}
+
+{{/hasUserFeedback}}
 ---
 
 Please directly evaluate the improvement of the optimized message compared to the original in the conversation context.`

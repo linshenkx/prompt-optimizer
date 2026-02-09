@@ -83,6 +83,11 @@ Output JSON only, no additional explanation.`
 ### Workspace User Prompt (Evaluation Target)
 {{optimizedPrompt}}
 
+{{#hasUserFeedback}}
+### User Feedback (Priority)
+{{{userFeedback}}}
+
+{{/hasUserFeedback}}
 ---
 
 Please evaluate the current user prompt{{#hasOriginalPrompt}} and compare with the original{{/hasOriginalPrompt}}.`

@@ -258,6 +258,84 @@ describe('EvaluationService', () => {
         'evaluation-basic-system-prompt-iterate'
       )
     })
+
+    it('should include userFeedback in template output when template supports it', async () => {
+      mockTemplateManager.getTemplate.mockResolvedValueOnce({
+        id: 'evaluation-basic-system-prompt-only',
+        content: [
+          { role: 'system', content: 'You are an evaluator.' },
+          {
+            role: 'user',
+            content:
+              '{{optimizedPrompt}}\n\n{{#hasUserFeedback}}\n## User Feedback\n{{userFeedback}}\n{{/hasUserFeedback}}',
+          },
+        ],
+      })
+
+      const request: PromptOnlyEvaluationRequest = {
+        type: 'prompt-only',
+        originalPrompt: 'Original prompt',
+        optimizedPrompt: 'Optimized prompt',
+        evaluationModelKey: 'test-model',
+        mode: defaultModeConfig,
+        userFeedback: 'Need stricter output format',
+        variables: { language: 'en' },
+      }
+
+      await evaluationService.evaluate(request)
+
+      const sentMessages = mockLLMService.sendMessage.mock.calls[0][0]
+      expect(sentMessages).toHaveLength(2)
+      expect(sentMessages[1].role).toBe('user')
+      expect(sentMessages[1].content).toContain('Need stricter output format')
+      expect(sentMessages[1].content).toContain('User Feedback')
+    })
+
+    it('should not include userFeedback section when feedback is not provided', async () => {
+      mockTemplateManager.getTemplate.mockImplementation(async () => ({
+        id: 'evaluation-basic-system-prompt-only',
+        content: [
+          { role: 'system', content: 'You are an evaluator.' },
+          {
+            role: 'user',
+            content:
+              '{{optimizedPrompt}}\n\n{{#hasUserFeedback}}\n## User Feedback\n{{userFeedback}}\n{{/hasUserFeedback}}',
+          },
+        ],
+      }))
+
+      const requestWithFeedback: PromptOnlyEvaluationRequest = {
+        type: 'prompt-only',
+        originalPrompt: 'Original prompt',
+        optimizedPrompt: 'Optimized prompt',
+        evaluationModelKey: 'test-model',
+        mode: defaultModeConfig,
+        userFeedback: 'Need stricter output format',
+        variables: { language: 'en' },
+      }
+
+      await evaluationService.evaluate(requestWithFeedback)
+      mockLLMService.sendMessage.mockClear()
+
+      const requestWithoutFeedback: PromptOnlyEvaluationRequest = {
+        type: 'prompt-only',
+        originalPrompt: 'Original prompt',
+        optimizedPrompt: 'Optimized prompt',
+        evaluationModelKey: 'test-model',
+        mode: defaultModeConfig,
+      }
+
+      await evaluationService.evaluate(requestWithoutFeedback)
+
+      const sentMessages = mockLLMService.sendMessage.mock.calls[0][0]
+      expect(sentMessages).toHaveLength(2)
+      expect(
+        sentMessages.some((msg: { content: string }) =>
+          msg.content.includes('Need stricter output format')
+        )
+      ).toBe(false)
+      expect(sentMessages[1].content).not.toContain('User Feedback')
+    })
   })
 
   describe('getTemplateId', () => {

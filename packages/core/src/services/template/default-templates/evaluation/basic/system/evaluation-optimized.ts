@@ -120,6 +120,11 @@ improvements 应该是**通用性**改进，例如：
 ### 测试结果（AI输出）
 {{testResult}}
 
+{{#hasUserFeedback}}
+### 用户反馈（优先关注）
+{{{userFeedback}}}
+
+{{/hasUserFeedback}}
 ---
 
 请严格评估上述测试结果，并给出针对系统提示词的通用性改进建议。`

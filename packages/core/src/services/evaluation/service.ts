@@ -250,6 +250,12 @@ export class EvaluationService implements IEvaluationService {
       ...(request.variables || {}),
     };
 
+    const feedback = request.userFeedback?.trim();
+    baseContext.hasUserFeedback = !!feedback;
+    if (feedback) {
+      baseContext.userFeedback = feedback;
+    }
+
     // 原始提示词（可选）
     if (request.originalPrompt) {
       baseContext.originalPrompt = request.originalPrompt;

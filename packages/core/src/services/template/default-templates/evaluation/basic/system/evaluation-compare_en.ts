@@ -115,6 +115,11 @@ improvements SHOULD be **generic** improvements, for example:
 ### Test Result of Optimized Prompt
 {{optimizedTestResult}}
 
+{{#hasUserFeedback}}
+### User Feedback (Priority)
+{{{userFeedback}}}
+
+{{/hasUserFeedback}}
 ---
 
 Please strictly compare and evaluate, determine if the optimization is effective, and provide generic improvement suggestions for the system prompt.`

@@ -117,6 +117,11 @@ improvements 应该是**具体可操作**的改进建议：
 ### 优化后提示词的输出
 {{optimizedTestResult}}
 
+{{#hasUserFeedback}}
+### 用户反馈（优先关注）
+{{{userFeedback}}}
+
+{{/hasUserFeedback}}
 ---
 
 请严格对比评估，判断优化是否有效，并给出针对用户提示词的具体改进建议。`

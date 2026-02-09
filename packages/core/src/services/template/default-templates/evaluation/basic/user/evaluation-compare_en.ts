@@ -110,6 +110,11 @@ improvements should be **specific and actionable** suggestions:
 ### Test Result of Optimized Prompt
 {{optimizedTestResult}}
 
+{{#hasUserFeedback}}
+### User Feedback (Priority)
+{{{userFeedback}}}
+
+{{/hasUserFeedback}}
 ---
 
 Please strictly compare and evaluate, determine if the optimization is effective, and provide specific improvement suggestions for the user prompt.`

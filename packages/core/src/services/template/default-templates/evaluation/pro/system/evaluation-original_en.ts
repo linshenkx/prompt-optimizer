@@ -132,6 +132,11 @@ improvements should be **generic** improvements, such as:
 ### Test Result (AI Output)
 {{testResult}}
 
+{{#hasUserFeedback}}
+### User Feedback (Priority)
+{{{userFeedback}}}
+
+{{/hasUserFeedback}}
 ---
 
 Please strictly evaluate the above test result and provide generic improvement suggestions for the target message.`

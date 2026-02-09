@@ -85,6 +85,11 @@ export const template: Template = {
 ### 工作区图像生成提示词（评估对象）
 {{optimizedPrompt}}
 
+{{#hasUserFeedback}}
+### 用户反馈（优先关注）
+{{{userFeedback}}}
+
+{{/hasUserFeedback}}
 ---
 
 请评估当前图像生成提示词的质量{{#hasOriginalPrompt}}，并与原始版本对比{{/hasOriginalPrompt}}。`

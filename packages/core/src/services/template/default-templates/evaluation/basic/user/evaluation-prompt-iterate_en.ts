@@ -27,6 +27,16 @@ export const template: Template = {
 - Helps you understand "why this change was made"
 - But the evaluation criteria is still the prompt quality itself, not "whether the requirement is met"
 
+# How to Interpret User Feedback (Important)
+
+User feedback may be short and ambiguous. You MUST determine its scope first:
+
+- If the feedback mentions output/format/examples/title/body/"only output"/"no explanation" etc, and does NOT explicitly mention the prompt itself (e.g. user prompt, prompt structure, sections), interpret it as requirements on the assistant's FINAL OUTPUT FORMAT. In that case, focus your critique/fixes on the prompt parts that control output (e.g. output format instructions, examples, default output rules) rather than suggesting simplifying the prompt structure in general.
+
+- Only when the feedback explicitly asks to simplify the PROMPT ITSELF (e.g. "simplify the prompt structure", "remove sections") should you recommend reducing prompt content/sections.
+
+- If still unsure, use the iteration background to decide. If it is mainly about output rules / whether extra explanations are needed, treat the feedback as final output format.
+
 # Evaluation Dimensions (0-100)
 
 1. **Task Expression** - Does it clearly express the user's intent and task goals?
@@ -98,6 +108,11 @@ Output JSON only, no additional explanation.`
 ### Modification Background (User's Iteration Requirement)
 {{iterateRequirement}}
 
+{{#hasUserFeedback}}
+### User Feedback (Priority; if it mentions output/format/examples, treat it as FINAL OUTPUT FORMAT unless it explicitly mentions prompt structure)
+{{{userFeedback}}}
+
+{{/hasUserFeedback}}
 ---
 
 Please evaluate the current user prompt{{#hasOriginalPrompt}} and compare with the original{{/hasOriginalPrompt}}. The iteration requirement is only for understanding the modification background.`
