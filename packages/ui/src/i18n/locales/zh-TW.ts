@@ -2077,12 +2077,18 @@ export default {
     applySuccess: "正在應用改進建議...",
     noResult: "暫無評估結果，點擊評估按鈕開始評估",
     viewDetails: "檢視詳情",
-    feedbackAnalyze: "回饋分析",
-    feedbackTitle: "回饋內容",
+    feedbackAnalyze: "聚焦",
+    feedbackTitle: "聚焦點",
     optional: "可選",
-    feedbackPlaceholder: "請輸入你的問題、預期或不滿意點，分析將優先圍繞你的回饋展開",
+    feedbackPlaceholder: "請輸入你希望評估重點關注的面向或意見，分析將優先圍繞該點展開",
     feedbackHint: "Esc 取消 · Ctrl/⌘ + Enter 提交",
-    feedbackSubmit: "提交並重新評估",
+    feedbackSubmit: "提交並開始分析",
+
+    focus: "聚焦",
+    focusTitle: "聚焦點",
+    focusPlaceholder:
+      "可選：輸入你希望評估重點關注的面向/意見（例如輸出結構、約束遺漏、示例長度等）",
+    focusHint: "不填也可以直接開始（等同預設智慧評估）",
     title: {
       default: "評估結果",
       original: "原始提示詞評估",

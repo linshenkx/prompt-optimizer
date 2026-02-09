@@ -2174,12 +2174,18 @@ export default {
     applySuccess: "Applying improvement...",
     noResult: "No evaluation result yet. Click the evaluate button to start.",
     viewDetails: "View Details",
-    feedbackAnalyze: "Feedback Analysis",
-    feedbackTitle: "Feedback",
+    feedbackAnalyze: "Focus",
+    feedbackTitle: "Focus",
     optional: "Optional",
-    feedbackPlaceholder: "Describe issues, expectations, or concerns. Analysis will prioritize your feedback.",
+    feedbackPlaceholder: "Describe what to focus on. Analysis will prioritize your notes.",
     feedbackHint: "Esc to cancel · Ctrl/⌘+Enter to submit",
-    feedbackSubmit: "Submit & Re-evaluate",
+    feedbackSubmit: "Submit & Analyze",
+
+    focus: "Focus",
+    focusTitle: "Focus",
+    focusPlaceholder:
+      "Optional: what should the evaluation focus on? (e.g. output structure, missing constraints, example length)",
+    focusHint: "Leave blank to run the default smart evaluation.",
     title: {
       default: "Evaluation Result",
       original: "Original Prompt Evaluation",

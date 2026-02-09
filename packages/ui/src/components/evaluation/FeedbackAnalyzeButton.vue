@@ -16,7 +16,7 @@
         >
           <template #icon>
             <NIcon :size="14" aria-hidden="true">
-              <MessageCircle />
+              <Focus2 />
             </NIcon>
           </template>
         </NButton>
@@ -38,7 +38,7 @@
     >
       <template #icon>
         <NIcon :size="14" aria-hidden="true">
-          <MessageCircle />
+          <Focus2 />
         </NIcon>
       </template>
       {{ t('evaluation.feedbackAnalyze') }}
@@ -63,7 +63,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NButton, NCard, NDivider, NIcon, NTooltip } from 'naive-ui'
 import type { EvaluationType } from '@prompt-optimizer/core'
-import { MessageCircle } from '@vicons/tabler'
+import { Focus2 } from '@vicons/tabler'
 import FeedbackEditor from './FeedbackEditor.vue'
 
 const props = withDefaults(

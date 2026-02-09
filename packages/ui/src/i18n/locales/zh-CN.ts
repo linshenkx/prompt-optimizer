@@ -2097,12 +2097,18 @@ export default {
     applySuccess: "正在应用改进建议...",
     noResult: "暂无评估结果，点击评估按钮开始评估",
     viewDetails: "查看详情",
-    feedbackAnalyze: "反馈分析",
-    feedbackTitle: "反馈内容",
+    feedbackAnalyze: "聚焦",
+    feedbackTitle: "聚焦点",
     optional: "可选",
-    feedbackPlaceholder: "请输入你的问题、预期或不满意点，分析将优先围绕你的反馈展开",
+    feedbackPlaceholder: "请输入你希望评估重点关注的方面或意见，分析将优先围绕该点展开",
     feedbackHint: "Esc 取消 · Ctrl/⌘ + Enter 提交",
-    feedbackSubmit: "提交并重新评估",
+    feedbackSubmit: "提交并开始分析",
+
+    focus: "聚焦",
+    focusTitle: "聚焦点",
+    focusPlaceholder:
+      "可选：输入你希望评估重点关注的方面/意见（例如输出结构、约束遗漏、示例长度等）",
+    focusHint: "不填写也可以直接开始（等同默认智能评估）",
     title: {
       default: "评估结果",
       original: "原始提示词评估",

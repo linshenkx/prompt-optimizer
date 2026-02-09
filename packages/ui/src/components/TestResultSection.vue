@@ -51,23 +51,15 @@
                 @apply-improvement="handleApplyImprovement"
                 @apply-patch="handleApplyPatch"
               />
-              <NSpace v-else :size="6" align="center">
-                <FeedbackAnalyzeButton
-                  type="original"
-                  :loading="isEvaluatingOriginal"
-                  size="tiny"
-                  :compact="true"
-                  @evaluate-with-feedback="handleEvaluateWithFeedback"
-                />
-                <NButton
-                  size="tiny"
-                  secondary
-                  :disabled="isEvaluatingOriginal"
-                  @click="handleEvaluateOriginal"
-                >
-                  {{ t('evaluation.evaluate') }}
-                </NButton>
-              </NSpace>
+              <FocusAnalyzeButton
+                v-else
+                type="original"
+                :label="t('evaluation.evaluate')"
+                :loading="isEvaluatingOriginal"
+                :button-props="{ size: 'tiny', secondary: true }"
+                @evaluate="handleEvaluateOriginal"
+                @evaluate-with-feedback="handleEvaluateWithFeedback"
+              />
             </div>
           </div>
         </template>
@@ -114,23 +106,15 @@
                 @apply-improvement="handleApplyImprovement"
                 @apply-patch="handleApplyPatch"
               />
-              <NSpace v-else :size="6" align="center">
-                <FeedbackAnalyzeButton
-                  type="optimized"
-                  :loading="isEvaluatingOptimized"
-                  size="tiny"
-                  :compact="true"
-                  @evaluate-with-feedback="handleEvaluateWithFeedback"
-                />
-                <NButton
-                  size="tiny"
-                  secondary
-                  :disabled="isEvaluatingOptimized"
-                  @click="handleEvaluateOptimized"
-                >
-                  {{ t('evaluation.evaluate') }}
-                </NButton>
-              </NSpace>
+              <FocusAnalyzeButton
+                v-else
+                type="optimized"
+                :label="t('evaluation.evaluate')"
+                :loading="isEvaluatingOptimized"
+                :button-props="{ size: 'tiny', secondary: true }"
+                @evaluate="handleEvaluateOptimized"
+                @evaluate-with-feedback="handleEvaluateWithFeedback"
+              />
             </div>
           </div>
         </template>
@@ -178,23 +162,15 @@
               @evaluate-with-feedback="handleEvaluateWithFeedback"
               @apply-improvement="handleApplyImprovement"
             />
-            <NSpace v-else :size="6" align="center">
-              <FeedbackAnalyzeButton
-                type="optimized"
-                :loading="isEvaluatingOptimized"
-                size="tiny"
-                :compact="true"
-                @evaluate-with-feedback="handleEvaluateWithFeedback"
-              />
-              <NButton
-                size="tiny"
-                secondary
-                :disabled="isEvaluatingOptimized"
-                @click="handleEvaluateOptimized"
-              >
-                {{ t('evaluation.evaluate', '评估') }}
-              </NButton>
-            </NSpace>
+            <FocusAnalyzeButton
+              v-else
+              type="optimized"
+              :label="t('evaluation.evaluate', '评估')"
+              :loading="isEvaluatingOptimized"
+              :button-props="{ size: 'tiny', secondary: true }"
+              @evaluate="handleEvaluateOptimized"
+              @evaluate-with-feedback="handleEvaluateWithFeedback"
+            />
           </div>
         </div>
       </template>
@@ -215,9 +191,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NFlex, NCard, NText, NButton, NSpace } from 'naive-ui'
+import { NFlex, NCard, NText } from 'naive-ui'
 import ToolCallDisplay from './ToolCallDisplay.vue'
-import { EvaluationScoreBadge, FeedbackAnalyzeButton } from './evaluation'
+import { EvaluationScoreBadge, FocusAnalyzeButton } from './evaluation'
 import type { AdvancedTestResult, EvaluationResponse, EvaluationType, PatchOperation } from '@prompt-optimizer/core'
 import type { ScoreLevel } from './evaluation/types'
 
