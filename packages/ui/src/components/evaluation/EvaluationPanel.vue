@@ -104,7 +104,7 @@
                 <NListItem v-for="(item, index) in result.improvements" :key="index">
                   <div class="improvement-item">
                     <NText type="info" class="improvement-text">{{ item }}</NText>
-                    <NButton size="tiny" type="primary" ghost @click="handleApplyImprovement(item)">
+                    <NButton size="tiny" type="primary" @click="handleApplyImprovement(item)">
                       {{ t('evaluation.applyToIterate') }}
                     </NButton>
                   </div>

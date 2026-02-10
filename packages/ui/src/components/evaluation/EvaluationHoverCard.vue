@@ -108,7 +108,13 @@
             <NListItem v-for="(item, idx) in result.improvements" :key="idx" class="compact-list-item">
               <NSpace justify="space-between" align="start" :size="10" class="full-width">
                 <NText depth="2" class="improvement-text">{{ item }}</NText>
-                <NButton text size="tiny" type="primary" @click.stop="handleApplyImprovement(item)">
+                <NButton
+                  size="tiny"
+                  type="primary"
+                  ghost
+                  class="improvement-apply-btn"
+                  @click.stop="handleApplyImprovement(item)"
+                >
                   {{ t('evaluation.applyToIterate') }}
                 </NButton>
               </NSpace>
@@ -369,6 +375,10 @@ const handleApplyPatch = (operation: PatchOperation) => {
 
 .patch-apply-btn {
   align-self: flex-end;
+}
+
+.improvement-apply-btn {
+  white-space: nowrap;
 }
 
 .improvement-text {

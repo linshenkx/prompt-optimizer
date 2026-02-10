@@ -287,13 +287,13 @@ const handleEvaluateWithFeedback = (payload: { feedback: string }) => {
 
 // 应用改进建议处理 - 关闭悬浮预览并转发事件
 const handleApplyImprovement = (payload: { improvement: string; type: EvaluationType }) => {
-  closePopover()
+  // 保持分析窗口打开，便于连续应用多条建议。
   emit('apply-improvement', payload)
 }
 
 // 应用补丁处理 - 关闭悬浮预览并转发事件
 const handleApplyPatch = (payload: { operation: PatchOperation }) => {
-  closePopover()
+  // 保持分析窗口打开，便于连续应用多个 patch。
   emit('apply-patch', payload)
 }
 </script>

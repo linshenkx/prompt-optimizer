@@ -101,4 +101,78 @@ describe('EvaluationScoreBadge popover focus interaction', () => {
     // Should still be visible because focus prevents scheduleClose
     expect(wrapper.find('.hover-card-wrapper').exists()).toBe(true)
   })
+
+  it('should keep popover open when applying an improvement', async () => {
+    const wrapper = mount(EvaluationScoreBadge, {
+      props: {
+        score: 80,
+        level: 'good',
+        loading: false,
+        result: null,
+        type: 'original',
+      },
+      global: {
+        stubs: {
+          NPopover: NPopoverStub,
+          NButton: NButtonStub,
+          EvaluationHoverCard: EvaluationHoverCardStub,
+        },
+      },
+    })
+
+    const badgeButton = wrapper.find('[data-testid="score-badge-original"]')
+    await badgeButton.trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('.hover-card-wrapper').exists()).toBe(true)
+
+    const hoverCard = wrapper.findComponent({ name: 'EvaluationHoverCard' })
+    hoverCard.vm.$emit('apply-improvement', { improvement: 'Do X', type: 'original' })
+    await nextTick()
+
+    expect(wrapper.find('.hover-card-wrapper').exists()).toBe(true)
+    expect(wrapper.emitted('apply-improvement')?.[0]?.[0]).toEqual({
+      improvement: 'Do X',
+      type: 'original',
+    })
+  })
+
+  it('should keep popover open when applying a patch', async () => {
+    const wrapper = mount(EvaluationScoreBadge, {
+      props: {
+        score: 80,
+        level: 'good',
+        loading: false,
+        result: null,
+        type: 'original',
+      },
+      global: {
+        stubs: {
+          NPopover: NPopoverStub,
+          NButton: NButtonStub,
+          EvaluationHoverCard: EvaluationHoverCardStub,
+        },
+      },
+    })
+
+    const badgeButton = wrapper.find('[data-testid="score-badge-original"]')
+    await badgeButton.trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('.hover-card-wrapper').exists()).toBe(true)
+
+    const operation = {
+      op: 'replace',
+      oldText: 'Old',
+      newText: 'New',
+      instruction: 'Replace it',
+    }
+
+    const hoverCard = wrapper.findComponent({ name: 'EvaluationHoverCard' })
+    hoverCard.vm.$emit('apply-patch', { operation })
+    await nextTick()
+
+    expect(wrapper.find('.hover-card-wrapper').exists()).toBe(true)
+    expect(wrapper.emitted('apply-patch')?.[0]?.[0]).toEqual({ operation })
+  })
 })
