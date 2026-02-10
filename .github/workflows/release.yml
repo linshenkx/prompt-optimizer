@@ -14,7 +14,6 @@ on:
 
 env:
   NODE_VERSION: '22'
-  PNPM_VERSION: '10.6.1'
 
 jobs:
   test:
@@ -34,7 +33,6 @@ jobs:
       - name: 安装 pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: ${{ env.PNPM_VERSION }}
           run_install: false
 
       - name: 设置 Node.js 环境
@@ -168,7 +166,6 @@ jobs:
       - name: 安装 pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: ${{ env.PNPM_VERSION }}
           run_install: false
 
       - name: 设置 Node.js 环境
@@ -295,7 +292,6 @@ jobs:
       - name: 安装 pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: ${{ env.PNPM_VERSION }}
           run_install: false
 
       - name: 设置 Node.js 环境

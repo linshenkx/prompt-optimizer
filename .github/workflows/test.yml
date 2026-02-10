@@ -25,7 +25,6 @@ jobs:
       - name: 安装 pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10.5.2
           run_install: false
 
       - name: 设置 Node.js 环境
