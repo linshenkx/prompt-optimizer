@@ -28,7 +28,32 @@ export const template: Template = {
 - Deduct points for any issue found, at least 5-10 for each obvious problem
 - Score each dimension independently, avoid convergence
 
+{{#hasUserFeedback}}
+# Focused Evaluation Rules (Important)
+
+User feedback is the PRIMARY objective for this evaluation. Your scoring and recommendations MUST prioritize the focus note, rather than performing a generic evaluation only.
+
+## How to Interpret User Feedback (Avoid Misclassification)
+
+User feedback may be short and ambiguous. You MUST first determine whether it targets the assistant's FINAL OUTPUT FORMAT or the USER PROMPT'S OWN STRUCTURE:
+
+- If the feedback talks about output/format/examples/title/body/"only output"/"no explanation"/verbosity/length, and does NOT explicitly mention the prompt itself (e.g. user prompt, prompt structure, sections), interpret it as requirements on the FINAL OUTPUT behavior/format. In that case, focus your fixes on output-controlling instructions (e.g. explicit output format, examples, default output rules, consistency constraints) rather than suggesting simplifying the prompt structure.
+
+- Only when the feedback explicitly asks to simplify the PROMPT ITSELF (e.g. "simplify the prompt structure", "remove sections") should you recommend reducing prompt content/sections, and you must mention the risk of losing constraints.
+
+- If still unsure: prefer minimal reversible changes first (adjust output rules/examples before removing structure). You may include 1 clarification question (optional), but still provide actionable patchPlan.
+
+## Output Requirements (Close the Loop)
+
+- improvements / patchPlan MUST include at least one item that directly addresses the focus note.
+- summary MUST state whether the focus note is satisfied, or what must change to satisfy it.
+{{/hasUserFeedback}}
+
 # Evaluation Dimensions (0-100)
+
+{{#hasUserFeedback}}
+(Note: each dimension score must primarily reflect how well the prompt supports the focus note; unrelated strengths cannot offset missing/conflicting focus support.)
+{{/hasUserFeedback}}
 
 1. **Task Expression** - Is user intent clear? Is the task goal explicit? Can AI understand accurately?
 2. **Information Completeness** - Are key details present? Any missing constraints or requirements?
@@ -43,6 +68,26 @@ export const template: Template = {
 - 55-69: Passing, core complete but many problems
 - 40-54: Poor, barely usable
 - 0-39: Failed, needs redo
+
+# Scoring Method (More Granular, Must Follow)
+
+1. Score all 4 dimensions first (0-100, integers; any integer is allowed).
+   - Do NOT rely on "tier scores" (e.g. always 85/90/70). Scores must reflect real differences.
+   - If issues cluster in one dimension, that dimension MUST be noticeably lower (avoid convergence).
+
+2. Use a "start from 100 and deduct" approach per dimension:
+   - Severe issues (blocks the goal / missing key information / clear conflicts): -15 ~ -25
+   - Major issues (hurts outcomes / easy to misinterpret / unstable): -8 ~ -14
+   - Minor issues (wording / redundancy / ordering): -3 ~ -7
+   - Deduct for every issue found; you may merge similar issues, but do not ignore them.
+
+3. Overall score MUST be computed from dimension scores (no gut-feel overall):
+   - overall = round((d1 + d2 + d3 + d4) / 4)
+
+4. Consistency checks (prevent arbitrary high scores):
+   - If any dimension < 70, overall MUST be < 80
+   - If any dimension < 60, overall MUST be < 70
+   - If any dimension < 40, overall MUST be < 55
 
 # Output Format (Unified)
 
@@ -109,13 +154,13 @@ improvements should be **specific and actionable** suggestions:
 {{testResult}}
 
 {{#hasUserFeedback}}
-### User Feedback (Priority)
+### User Feedback (Focus note; if it mentions output/format/examples, treat it as FINAL OUTPUT FORMAT)
 {{{userFeedback}}}
 
 {{/hasUserFeedback}}
 ---
 
-Please strictly evaluate the above test result and provide specific improvement suggestions for the user prompt.`
+Please strictly evaluate the above test result and provide specific improvement suggestions for the user prompt.{{#hasUserFeedback}} Treat the user feedback as the primary objective and prioritize improvements/patchPlan that address it.{{/hasUserFeedback}}`
     }
   ] as MessageTemplate[],
   metadata: {

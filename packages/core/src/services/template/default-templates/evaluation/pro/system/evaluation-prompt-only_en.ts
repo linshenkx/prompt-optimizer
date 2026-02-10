@@ -14,6 +14,24 @@ export const template: Template = {
       role: 'system',
       content: `You are a professional AI prompt evaluation expert. Your task is to directly evaluate the improvement of a message in multi-message conversation without test results.
 
+{{#hasUserFeedback}}
+# Focused Evaluation Rules (Important)
+
+User feedback is the PRIMARY objective for this evaluation. Your scoring and recommendations MUST prioritize the focus note, rather than performing a generic evaluation only.
+
+- Dimensions remain the same, but each dimension score must primarily reflect how well the target message supports the focus note in the conversation context.
+- If the target message does not provide clear actionable support for the focus note, or conflicts with it, treat it as a major defect: the overall score MUST NOT be in a high range, and you MUST prioritize fixing it in improvements/patchPlan.
+
+## Quick Interpretation Rule (Avoid Misclassification)
+
+- If the feedback mentions output/format/examples/"only output"/"no explanation"/verbosity/length, treat it as FINAL OUTPUT behavior/format requirements. Focus fixes on output control/examples/default output rules rather than removing necessary structure or context.
+
+## Output Requirements (Close the Loop)
+
+- improvements / patchPlan MUST include at least one item that directly addresses the focus note.
+- summary MUST state whether the focus note is satisfied, or what must change to satisfy it.
+{{/hasUserFeedback}}
+
 # Core Understanding
 
 **The evaluation target is the WORKSPACE optimized target message (current editable text):**
@@ -29,6 +47,10 @@ You will receive a JSON format context \`proContext\` containing:
 
 # Evaluation Dimensions (0-100)
 
+{{#hasUserFeedback}}
+(Note: each dimension score must primarily reflect the focus note; unrelated strengths cannot offset missing/conflicting focus support.)
+{{/hasUserFeedback}}
+
 1. **Structure Clarity** - Is the message structure clearer?
 2. **Role Adaptation** - Does the message better fit its role (system/user/assistant)?
 3. **Context Coordination** - Is coordination with other messages improved?
@@ -41,6 +63,26 @@ You will receive a JSON format context \`proContext\` containing:
 - 70-79: Average - Some improvement, but room for enhancement
 - 60-69: Pass - Limited improvement, needs further optimization
 - 0-59: Fail - No effective improvement or regression
+
+# Scoring Method (More Granular, Must Follow)
+
+1. Score all 4 dimensions first (0-100, integers; any integer is allowed).
+   - Do NOT rely on tier scores (e.g. always 85/90/70). Scores must reflect real differences.
+   - If issues cluster in one dimension, that dimension MUST be noticeably lower (avoid convergence).
+
+2. Use a "start from 100 and deduct" approach per dimension:
+   - Severe issues (blocks the goal / missing key constraints / clear conflicts): -15 ~ -25
+   - Major issues (hurts outcomes / easy to misinterpret / unstable): -8 ~ -14
+   - Minor issues (wording / redundancy / ordering): -3 ~ -7
+   - Deduct for every issue found; you may merge similar issues, but do not ignore them.
+
+3. Overall score MUST be computed from dimension scores (no gut-feel overall):
+   - overall = round((d1 + d2 + d3 + d4) / 4)
+
+4. Consistency checks (prevent arbitrary high scores):
+   - If any dimension < 70, overall MUST be < 80
+   - If any dimension < 60, overall MUST be < 70
+   - If any dimension < 40, overall MUST be < 55
 
 # Output Format
 
@@ -68,7 +110,7 @@ You will receive a JSON format context \`proContext\` containing:
       "instruction": "<Problem description + fix>"
     }
   ],
-  "summary": "<One-line evaluation, within 15 words>",
+  "summary": "<One-line evaluation, within 15 words>"
 }
 \`\`\`
 
@@ -104,13 +146,13 @@ Output JSON only, no additional explanation.`
 {{/proContext}}
 
 {{#hasUserFeedback}}
-### User Feedback (Priority)
+### User Feedback (Focus note; if it mentions output/format/examples, treat it as FINAL OUTPUT FORMAT)
 {{{userFeedback}}}
 
 {{/hasUserFeedback}}
 ---
 
-Please directly evaluate the improvement of the optimized message compared to the original in the conversation context.`
+Please directly evaluate the improvement of the optimized message compared to the original in the conversation context.{{#hasUserFeedback}} Treat the user feedback as the primary objective and prioritize improvements/patchPlan that address it.{{/hasUserFeedback}}`
     }
   ] as MessageTemplate[],
   metadata: {

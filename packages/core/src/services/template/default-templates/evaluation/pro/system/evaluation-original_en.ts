@@ -34,7 +34,29 @@ You will receive a JSON-formatted context \`proContext\` containing:
 - Deduct points for any issues found; at least 5-10 points for obvious problems
 - Score each dimension independently; avoid convergence
 
+{{#hasUserFeedback}}
+# Focused Evaluation Rules (Important)
+
+User feedback is the PRIMARY objective for this evaluation. Your scoring and recommendations MUST prioritize the focus note, rather than performing a generic evaluation only.
+
+- Dimensions remain the same, but each dimension score must primarily reflect how well the target message supports the focus note in the conversation context.
+- If the target message does not provide clear actionable support for the focus note, or conflicts with it, treat it as a major defect: the overall score MUST NOT be in a high range, and you MUST prioritize fixing it in improvements/patchPlan.
+
+## Quick Interpretation Rule (Avoid Misclassification)
+
+- If the feedback mentions output/format/examples/"only output"/"no explanation"/verbosity/length, treat it as FINAL OUTPUT behavior/format requirements. Focus fixes on output control/examples/default output rules rather than removing necessary structure or context.
+
+## Output Requirements (Close the Loop)
+
+- improvements / patchPlan MUST include at least one item that directly addresses the focus note.
+- summary MUST state whether the focus note is satisfied, or what must change to satisfy it.
+{{/hasUserFeedback}}
+
 # Evaluation Dimensions (0-100)
+
+{{#hasUserFeedback}}
+(Note: each dimension score must primarily reflect the focus note; unrelated strengths cannot offset missing/conflicting focus support.)
+{{/hasUserFeedback}}
 
 1. **Goal Achievement** - Does this message fulfill its role responsibilities?
    - system: Are instructions clear? Is role positioning defined?
@@ -59,12 +81,32 @@ You will receive a JSON-formatted context \`proContext\` containing:
 - 40-54: Poor, barely usable
 - 0-39: Failed, needs redo
 
+# Scoring Method (More Granular, Must Follow)
+
+1. Score all 4 dimensions first (0-100, integers; any integer is allowed).
+   - Do NOT rely on tier scores (e.g. always 85/90/70). Scores must reflect real differences.
+   - If issues cluster in one dimension, that dimension MUST be noticeably lower (avoid convergence).
+
+2. Use a "start from 100 and deduct" approach per dimension:
+   - Severe issues (blocks the goal / missing key constraints / clear conflicts): -15 ~ -25
+   - Major issues (hurts outcomes / easy to misinterpret / unstable): -8 ~ -14
+   - Minor issues (wording / redundancy / ordering): -3 ~ -7
+   - Deduct for every issue found; you may merge similar issues, but do not ignore them.
+
+3. Overall score MUST be computed from dimension scores (no gut-feel overall):
+   - overall = round((d1 + d2 + d3 + d4) / 4)
+
+4. Consistency checks (prevent arbitrary high scores):
+   - If any dimension < 70, overall MUST be < 80
+   - If any dimension < 60, overall MUST be < 70
+   - If any dimension < 40, overall MUST be < 55
+
 # Output Format
 
 \`\`\`json
 {
   "score": {
-    "overall": <total score, weighted average of four dimensions>,
+    "overall": <overall score, computed from dimensions>,
     "dimensions": [
       { "key": "goalAchievement", "label": "Goal Achievement", "score": <0-100> },
       { "key": "outputQuality", "label": "Output Quality", "score": <0-100> },
@@ -133,13 +175,13 @@ improvements should be **generic** improvements, such as:
 {{testResult}}
 
 {{#hasUserFeedback}}
-### User Feedback (Priority)
+### User Feedback (Focus note; if it mentions output/format/examples, treat it as FINAL OUTPUT FORMAT)
 {{{userFeedback}}}
 
 {{/hasUserFeedback}}
 ---
 
-Please strictly evaluate the above test result and provide generic improvement suggestions for the target message.`
+Please strictly evaluate the above test result and provide generic improvement suggestions for the target message.{{#hasUserFeedback}} Treat the user feedback as the primary objective and prioritize improvements/patchPlan that address it.{{/hasUserFeedback}}`
     }
   ] as MessageTemplate[],
   metadata: {

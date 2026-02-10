@@ -28,7 +28,33 @@ export const template: Template = {
 - 50 = equal, >50 = optimization effective, <50 = optimization regressed
 - Strict comparison, don't give high scores just because "both are okay"
 
+{{#hasUserFeedback}}
+# Focused Comparison Rules (Important)
+
+User feedback is the PRIMARY objective for this comparison. You MUST prioritize whether the optimized version better satisfies the focus note, rather than doing a generic comparison only.
+
+## How to Interpret User Feedback (Avoid Misclassification)
+
+User feedback may be short and ambiguous. You MUST first determine whether it targets the assistant's FINAL OUTPUT FORMAT or the PROMPT'S OWN STRUCTURE:
+
+- If the feedback talks about output/format/examples/title/body/"only output"/"no explanation"/verbosity/length, and does NOT explicitly mention the prompt itself (e.g. system prompt, prompt structure, sections, Role/Profile/Skills/Rules), interpret it as requirements on the FINAL OUTPUT behavior/format. In that case, focus your fixes on output-controlling parts (e.g. OutputFormat, examples, default output rules, consistency of constraints) rather than suggesting removing structural prompt sections.
+
+- Only when the feedback explicitly asks to simplify the PROMPT ITSELF (e.g. "simplify the prompt structure", "remove sections like Profile/Skills/Rules") should you recommend reducing prompt sections, and you must mention the risk of losing constraints.
+
+- If still unsure: prefer minimal reversible changes first (adjust output rules/examples before removing structure). You may include 1 clarification question (optional), but still provide actionable patchPlan.
+
+## Output Requirements (Close the Loop)
+
+- improvements / patchPlan MUST include at least one item that directly addresses the focus note.
+- summary MUST state whether the optimized version is better/worse vs original on the focus note.
+- If the optimized version is worse or conflicts with the focus note, overall MUST NOT exceed 50.
+{{/hasUserFeedback}}
+
 # Evaluation Dimensions (0-100, 50 as baseline)
+
+{{#hasUserFeedback}}
+(Note: each dimension score must primarily reflect whether the optimized version better satisfies the focus note; unrelated gains cannot offset focus regression.)
+{{/hasUserFeedback}}
 
 1. **Goal Achievement** - Does the optimized version better complete the core task?
 2. **Output Quality** - Is there improvement in accuracy and completeness?
@@ -42,6 +68,22 @@ export const template: Template = {
 - 40-59: Roughly equal, little difference (50 as center)
 - 20-39: Some regression, some dimensions worsened
 - 0-19: Severe regression, optimization failed
+
+# Scoring Method (More Granular, Must Follow)
+
+1. Score all 4 dimensions first (0-100, integers; any integer is allowed). 50 means "equal" baseline.
+   - Do NOT rely on tier scores (e.g. always 80/60/50). Scores must reflect real differences.
+   - If differences cluster in one dimension, that dimension should deviate noticeably (avoid convergence).
+
+2. Use a "50 as baseline" delta approach per dimension:
+   - Significant improvement: +15 ~ +25
+   - Clear improvement: +6 ~ +14
+   - Roughly equal: -5 ~ +5
+   - Regression: -6 ~ -14
+   - Severe regression: -15 ~ -25
+
+3. Overall score MUST be computed from dimension scores (no gut-feel overall):
+   - overall = round((d1 + d2 + d3 + d4) / 4)
 
 # Output Format (Unified, 50 as baseline)
 
@@ -116,13 +158,13 @@ improvements SHOULD be **generic** improvements, for example:
 {{optimizedTestResult}}
 
 {{#hasUserFeedback}}
-### User Feedback (Priority)
+### User Feedback (Focus note; if it mentions output/format/examples, treat it as FINAL OUTPUT FORMAT)
 {{{userFeedback}}}
 
 {{/hasUserFeedback}}
 ---
 
-Please strictly compare and evaluate, determine if the optimization is effective, and provide generic improvement suggestions for the system prompt.`
+Please strictly compare and evaluate, determine if the optimization is effective, and provide generic improvement suggestions for the system prompt.{{#hasUserFeedback}} Treat the user feedback as the primary objective and prioritize improvements/patchPlan that address it.{{/hasUserFeedback}}`
     }
   ] as MessageTemplate[],
   metadata: {
