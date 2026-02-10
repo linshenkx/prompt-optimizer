@@ -467,4 +467,80 @@ describe('EvaluationService', () => {
       expect(onComplete).not.toHaveBeenCalled()
     })
   })
+
+  describe('parse robustness', () => {
+    const baseRequest: PromptOnlyEvaluationRequest = {
+      type: 'prompt-only',
+      originalPrompt: 'Original',
+      optimizedPrompt: 'Optimized',
+      evaluationModelKey: 'test-model',
+      mode: defaultModeConfig,
+    }
+
+    it('should parse JSON inside fenced code block without language tag', async () => {
+      mockLLMService.sendMessage.mockResolvedValueOnce(
+        `Here is the result:\n\n\
+\`\`\`\n${mockEvaluationResult}\n\`\`\`\n`
+      )
+
+      const res = await evaluationService.evaluate(baseRequest)
+      expect(res.score.overall).toBe(85)
+      expect(res.score.dimensions.length).toBeGreaterThan(0)
+    })
+
+    it('should locate nested payload that contains a score field', async () => {
+      const nested = JSON.stringify({
+        evaluation: JSON.parse(mockEvaluationResult),
+      })
+      mockLLMService.sendMessage.mockResolvedValueOnce(nested)
+
+      const res = await evaluationService.evaluate(baseRequest)
+      expect(res.score.overall).toBe(85)
+    })
+
+    it('should accept dimensions as an object map', async () => {
+      const payload = JSON.stringify({
+        score: {
+          overall: 80,
+          dimensions: {
+            goalAchievement: 90,
+            outputQuality: 70,
+          },
+        },
+        improvements: [],
+        patchPlan: [],
+        summary: 'OK',
+      })
+      mockLLMService.sendMessage.mockResolvedValueOnce(payload)
+
+      const res = await evaluationService.evaluate(baseRequest)
+      expect(res.score.overall).toBe(80)
+      expect(res.score.dimensions.find((d) => d.key === 'goalAchievement')?.score).toBe(90)
+      expect(res.score.dimensions.find((d) => d.key === 'outputQuality')?.score).toBe(70)
+    })
+
+    it('should fall back to overall-only dimension when dimensions are missing', async () => {
+      const payload = JSON.stringify({
+        score: {
+          overall: 88,
+        },
+        improvements: [],
+        patchPlan: [],
+        summary: 'OK',
+      })
+      mockLLMService.sendMessage.mockResolvedValueOnce(payload)
+
+      const res = await evaluationService.evaluate(baseRequest)
+      expect(res.score.overall).toBe(88)
+      expect(res.score.dimensions).toHaveLength(1)
+      expect(res.score.dimensions[0].key).toBe('overall')
+    })
+
+    it('should extract overall score from text when JSON parsing fails', async () => {
+      mockLLMService.sendMessage.mockResolvedValueOnce('Overall score: 85/100')
+
+      const res = await evaluationService.evaluate(baseRequest)
+      expect(res.score.overall).toBe(85)
+    })
+  })
 })

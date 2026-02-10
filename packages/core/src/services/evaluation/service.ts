@@ -317,17 +317,47 @@ export class EvaluationService implements IEvaluationService {
     type: EvaluationType,
     metadata?: { model?: string; timestamp?: number; duration?: number }
   ): EvaluationResponse {
-    const tryNormalizeParsed = (parsed: unknown): EvaluationResponse | null => {
-      if (!parsed || typeof parsed !== 'object') return null;
+    const findEvaluationPayload = (value: unknown): unknown | null => {
+      // 允许模型返回 "{ evaluation: {...} }" / "{ data: {...} }" 之类包装结构。
+      // 为避免性能问题，这里做广度优先、有限步数的遍历。
+      const visited = new Set<unknown>();
+      const queue: unknown[] = [value];
+      let steps = 0;
 
-      if (!Array.isArray(parsed) && (parsed as any).score) {
-        return this.normalizeEvaluationResponse(parsed, type, metadata);
-      }
+      while (queue.length > 0 && steps < 1000) {
+        steps += 1;
+        const current = queue.shift();
+        if (!current || typeof current !== 'object') continue;
 
-      if (Array.isArray(parsed)) {
-        for (const item of parsed) {
-          if (item && typeof item === 'object' && (item as any).score) {
-            return this.normalizeEvaluationResponse(item, type, metadata);
+        if (visited.has(current)) continue;
+        visited.add(current);
+
+        if ((current as any).score !== undefined) {
+          const score = (current as any).score;
+
+          // 过滤掉类似维度项 "{ key, label, score }" 这种误命中。
+          const isDimensionLike =
+            typeof (current as any).key === 'string' &&
+            typeof (current as any).label === 'string' &&
+            (typeof score === 'number' || typeof score === 'string');
+
+          const looksLikeEvaluation =
+            (!isDimensionLike && (typeof score === 'number' || typeof score === 'string')) ||
+            (score && typeof score === 'object' && ('overall' in score || 'dimensions' in score)) ||
+            typeof (current as any).summary === 'string' ||
+            Array.isArray((current as any).improvements) ||
+            Array.isArray((current as any).patchPlan);
+
+          if (looksLikeEvaluation) {
+            return current;
+          }
+        }
+
+        if (Array.isArray(current)) {
+          for (const item of current) queue.push(item);
+        } else {
+          for (const v of Object.values(current as Record<string, unknown>)) {
+            queue.push(v);
           }
         }
       }
@@ -335,21 +365,19 @@ export class EvaluationService implements IEvaluationService {
       return null;
     };
 
-    // 尝试解析 JSON
-    const fencedMatch = content.match(/```json\s*([\s\S]*?)\s*```/i);
-    const candidates = [fencedMatch?.[1], content].filter(Boolean) as string[];
-
-    for (const candidate of candidates) {
+    const jsonCandidates = this.extractJsonCandidates(content);
+    for (const candidate of jsonCandidates) {
       try {
         const repairedJson = jsonrepair(candidate);
         const parsed = JSON.parse(repairedJson);
-        const normalized = tryNormalizeParsed(parsed);
-        if (normalized) {
-          return normalized;
-        }
+        const payload = findEvaluationPayload(parsed);
+        if (!payload) continue;
+
+        const normalized = this.normalizeEvaluationResponse(payload as any, type, metadata);
+        return normalized;
       } catch (e) {
         console.warn(
-          '[EvaluationService] jsonrepair failed:',
+          '[EvaluationService] Failed to parse evaluation JSON candidate:',
           e instanceof Error ? e.message : String(e)
         );
       }
@@ -363,8 +391,132 @@ export class EvaluationService implements IEvaluationService {
     }
 
     throw new EvaluationParseError(
-      `Failed to parse evaluation result. Raw content length: ${content.length} characters.`
+      `Failed to parse evaluation result: no valid score JSON or recognizable overall score found. Raw content length: ${content.length} characters.`
     );
+  }
+
+  /**
+   * 从模型输出中提取可能的 JSON 片段。
+   *
+   * 现实中模型可能：
+   * - 输出 ```json ... ```
+   * - 输出 ``` ... ```（无语言标注）
+   * - 在解释文字中夹杂一段 JSON
+   */
+  private extractJsonCandidates(content: string): string[] {
+    const candidates: string[] = [];
+
+    // 1) 优先提取所有 fenced code block（不限语言），只挑看起来像 JSON 的块。
+    const fencedRegex = /```[a-zA-Z0-9_-]*\s*([\s\S]*?)\s*```/g;
+    for (const match of content.matchAll(fencedRegex)) {
+      const block = (match[1] ?? '').trim();
+      if (!block) continue;
+      const head = block.slice(0, 200);
+      if (block.startsWith('{') || block.startsWith('[') || /["']score["']\s*:/.test(head)) {
+        candidates.push(block);
+      }
+    }
+
+    // 2) 尝试从正文中截取平衡的 JSON 子串（从 score 附近反向找起点）。
+    const scoreIndex = content.search(/["']score["']\s*:/);
+    if (scoreIndex >= 0) {
+      const objCandidate = this.extractBalancedJsonSubstring(content, scoreIndex, '{', '}');
+      if (objCandidate) candidates.push(objCandidate);
+
+      const arrCandidate = this.extractBalancedJsonSubstring(content, scoreIndex, '[', ']');
+      if (arrCandidate) candidates.push(arrCandidate);
+    }
+
+    // 3) 兜底：从第一个 '{' 或 '[' 开始尝试提取一个平衡块。
+    const firstObj = content.indexOf('{');
+    if (firstObj >= 0) {
+      const objCandidate = this.extractBalancedFrom(content, firstObj, '{', '}');
+      if (objCandidate) candidates.push(objCandidate);
+    }
+    const firstArr = content.indexOf('[');
+    if (firstArr >= 0) {
+      const arrCandidate = this.extractBalancedFrom(content, firstArr, '[', ']');
+      if (arrCandidate) candidates.push(arrCandidate);
+    }
+
+    // 最后再把原始内容作为候选（部分情况下 jsonrepair 能救回来）。
+    candidates.push(content);
+
+    // 去重 + 过滤明显不可能的候选
+    const uniq: string[] = [];
+    const seen = new Set<string>();
+    for (const c of candidates) {
+      const trimmed = c.trim();
+      if (!trimmed) continue;
+      if (trimmed.length > 200_000) continue;
+      if (seen.has(trimmed)) continue;
+      seen.add(trimmed);
+      uniq.push(trimmed);
+    }
+    return uniq;
+  }
+
+  private extractBalancedJsonSubstring(
+    content: string,
+    aroundIndex: number,
+    openChar: '{' | '[',
+    closeChar: '}' | ']'
+  ): string | null {
+    // 从 aroundIndex 向左找一个可能的起点，然后做括号匹配。
+    const start = content.lastIndexOf(openChar, aroundIndex);
+    if (start < 0) return null;
+    return this.extractBalancedFrom(content, start, openChar, closeChar);
+  }
+
+  private extractBalancedFrom(
+    content: string,
+    start: number,
+    openChar: '{' | '[',
+    closeChar: '}' | ']'
+  ): string | null {
+    let depth = 0;
+    let inString = false;
+    let stringQuote: '"' | "'" | null = null;
+    let escaped = false;
+
+    for (let i = start; i < content.length; i += 1) {
+      const ch = content[i];
+
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (ch === '\\') {
+          escaped = true;
+          continue;
+        }
+        if (ch === stringQuote) {
+          inString = false;
+          stringQuote = null;
+        }
+        continue;
+      }
+
+      if (ch === '"' || ch === "'") {
+        inString = true;
+        stringQuote = ch as '"' | "'";
+        continue;
+      }
+
+      if (ch === openChar) {
+        depth += 1;
+        continue;
+      }
+      if (ch === closeChar) {
+        depth -= 1;
+        if (depth === 0) {
+          return content.slice(start, i + 1);
+        }
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -379,11 +531,11 @@ export class EvaluationService implements IEvaluationService {
       throw new EvaluationParseError('Evaluation result is not a valid object.');
     }
 
-    if (!data.score || typeof data.score !== 'object') {
+    if (data.score === undefined || data.score === null) {
       throw new EvaluationParseError('Evaluation result is missing the "score" field.');
     }
 
-    // 提取分数
+    // 提取分数（0-100，整数）
     const extractScore = (value: any, fieldName: string): number => {
       if (value === undefined || value === null) {
         throw new EvaluationParseError(`Evaluation result is missing score for "${fieldName}".`);
@@ -395,42 +547,120 @@ export class EvaluationService implements IEvaluationService {
       return Math.max(0, Math.min(100, num));
     };
 
-    // 解析维度
-    const dimensionsData = data.score.dimensions;
-    if (!dimensionsData || !Array.isArray(dimensionsData)) {
-      throw new EvaluationParseError('Evaluation result "dimensions" must be an array.');
+    const tryExtractScore = (value: any, fieldName: string): number | null => {
+      try {
+        return extractScore(value, fieldName);
+      } catch {
+        return null;
+      }
+    };
+
+    const toDimension = (key: string, label: string, scoreValue: any): EvaluationDimension | null => {
+      const score = tryExtractScore(scoreValue, `dimension.${key}`);
+      if (score === null) return null;
+      return { key, label: label || key, score };
+    };
+
+    const normalizeDimensionsFromArray = (dims: any[]): EvaluationDimension[] => {
+      const out: EvaluationDimension[] = [];
+      dims.forEach((dim: any, index: number) => {
+        if (dim === null || dim === undefined) return;
+
+        // 常见结构：{ key, label, score }
+        if (typeof dim === 'object' && !Array.isArray(dim)) {
+          const key = typeof dim.key === 'string' ? dim.key : typeof dim.name === 'string' ? dim.name : '';
+          const label = typeof dim.label === 'string' ? dim.label : typeof dim.title === 'string' ? dim.title : key;
+          const scoreValue = (dim as any).score ?? (dim as any).value;
+          if (key) {
+            const d = toDimension(key, label, scoreValue);
+            if (d) out.push(d);
+          }
+          return;
+        }
+
+        // 兜底：如果维度是 "85" 这种，仍然保留一个占位维度。
+        if (typeof dim === 'number' || typeof dim === 'string') {
+          const d = toDimension(`dim${index + 1}`, `dim${index + 1}`, dim);
+          if (d) out.push(d);
+        }
+      });
+      return out;
+    };
+
+    const normalizeDimensionsFromObject = (dims: Record<string, any>): EvaluationDimension[] => {
+      const out: EvaluationDimension[] = [];
+      for (const [key, value] of Object.entries(dims)) {
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          const label = typeof (value as any).label === 'string' ? (value as any).label : key;
+          const scoreValue = (value as any).score ?? (value as any).value;
+          const d = toDimension(key, label, scoreValue);
+          if (d) out.push(d);
+        } else {
+          const d = toDimension(key, key, value);
+          if (d) out.push(d);
+        }
+      }
+      return out;
+    };
+
+    const scoreRaw = data.score;
+    let overall: number | null = null;
+    let dimensions: EvaluationDimension[] = [];
+
+    // score 可能直接是数字（少数模型会这样输出）
+    if (typeof scoreRaw === 'number' || typeof scoreRaw === 'string') {
+      overall = tryExtractScore(scoreRaw, 'overall');
+    } else if (scoreRaw && typeof scoreRaw === 'object') {
+      overall = tryExtractScore((scoreRaw as any).overall, 'overall');
+
+      const dimensionsRaw = (scoreRaw as any).dimensions;
+      if (Array.isArray(dimensionsRaw)) {
+        dimensions = normalizeDimensionsFromArray(dimensionsRaw);
+      } else if (dimensionsRaw && typeof dimensionsRaw === 'object') {
+        dimensions = normalizeDimensionsFromObject(dimensionsRaw as Record<string, any>);
+      } else {
+        // 有些模型会把维度直接平铺到 score 对象里：{ overall, goalAchievement, ... }
+        const knownKeys = ['goalAchievement', 'outputQuality', 'formatCompliance', 'relevance'];
+        const flattened: Record<string, any> = {};
+        for (const k of knownKeys) {
+          if ((scoreRaw as any)[k] !== undefined) {
+            flattened[k] = (scoreRaw as any)[k];
+          }
+        }
+        if (Object.keys(flattened).length > 0) {
+          dimensions = normalizeDimensionsFromObject(flattened);
+        }
+      }
     }
 
-    if (dimensionsData.length === 0) {
-      throw new EvaluationParseError('Evaluation result "dimensions" array must not be empty.');
+    // 如果 overall 缺失，但维度存在，则按平均分计算。
+    if (overall === null && dimensions.length > 0) {
+      const avg = Math.round(
+        dimensions.reduce((sum, d) => sum + d.score, 0) / dimensions.length
+      );
+      overall = Math.max(0, Math.min(100, avg));
     }
 
-    const dimensions: EvaluationDimension[] = dimensionsData.map((dim: any, index: number) => {
-      if (!dim || typeof dim !== 'object') {
-        throw new EvaluationParseError(`dimensions[${index}] is not a valid object.`);
-      }
-      if (!dim.key || typeof dim.key !== 'string') {
-        throw new EvaluationParseError(`dimensions[${index}] is missing a valid "key" field.`);
-      }
-      if (!dim.label || typeof dim.label !== 'string') {
-        throw new EvaluationParseError(`dimensions[${index}] is missing a valid "label" field.`);
-      }
-      return {
-        key: dim.key,
-        label: dim.label,
-        score: extractScore(dim.score, `dimensions[${index}].score`),
-      };
-    });
+    // 如果维度缺失，但 overall 存在，则返回一个最小维度数组。
+    if (dimensions.length === 0 && overall !== null) {
+      dimensions = [{ key: 'overall', label: '综合评分', score: overall }];
+    }
+
+    if (overall === null) {
+      throw new EvaluationParseError('Evaluation result is missing a valid overall score.');
+    }
 
     const score: EvaluationScore = {
-      overall: extractScore(data.score.overall, 'overall'),
+      overall,
       dimensions,
     };
 
     // 解析 improvements（最多3条）
     const improvements = Array.isArray(data.improvements)
-      ? data.improvements.slice(0, 3)
-      : [];
+      ? data.improvements.map((x: any) => String(x)).filter(Boolean).slice(0, 3)
+      : typeof data.improvements === 'string' && data.improvements.trim()
+        ? [data.improvements.trim()].slice(0, 3)
+        : [];
 
     // 解析 patchPlan（最多3条）
     const patchPlan = this.normalizePatchPlan(data.patchPlan || []).slice(0, 3);
@@ -456,10 +686,21 @@ export class EvaluationService implements IEvaluationService {
     metadata?: { model?: string; timestamp?: number; duration?: number }
   ): EvaluationResponse | null {
     const scorePatterns = [
-      /总[分评][:：]\s*(\d{1,3})/,
-      /overall[:：]\s*(\d{1,3})/i,
+      // JSON 残片里常见的 overall 字段
+      /["']overall["']\s*[:=]\s*(\d{1,3})/i,
+
+      // 中文常见写法
+      /综合评分\s*[:：]?\s*(\d{1,3})(?:\s*\/\s*100)?/,
+      /总[分评]\s*[:：]?\s*(\d{1,3})(?:\s*\/\s*100)?/,
+      /评分\s*[:：]?\s*(\d{1,3})(?:\s*\/\s*100)?/,
+
+      // 英文常见写法
+      /overall(?:\s+score)?\s*[:：]?\s*(\d{1,3})(?:\s*\/\s*100)?/i,
+      /score\s*[:：]?\s*(\d{1,3})(?:\s*\/\s*100)?/i,
+
+      // 纯数字 + /100
+      /(\d{1,3})\s*\/\s*100/,
       /(\d{1,3})\s*[分点](?:\s*[（(]满分100[)）])?/,
-      /评分[:：]\s*(\d{1,3})/,
     ];
 
     let overall: number | null = null;
@@ -487,7 +728,7 @@ export class EvaluationService implements IEvaluationService {
         ],
       },
       improvements: [],
-      summary: '评估完成',
+      summary: '评估完成（解析降级）',
       patchPlan: [],
       metadata,
     };
