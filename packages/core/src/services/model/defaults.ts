@@ -11,6 +11,7 @@ import { generateDynamicModels } from './model-utils';
 const PROVIDER_ENV_KEYS = {
   openai: 'VITE_OPENAI_API_KEY',
   gemini: 'VITE_GEMINI_API_KEY',
+  anthropic: 'VITE_ANTHROPIC_API_KEY',
   deepseek: 'VITE_DEEPSEEK_API_KEY',
   siliconflow: 'VITE_SILICONFLOW_API_KEY',
   zhipu: 'VITE_ZHIPU_API_KEY',

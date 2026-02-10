@@ -537,9 +537,13 @@ async function initializeServices() {
     const staticEnvVars = [
       'VITE_OPENAI_API_KEY',
       'VITE_GEMINI_API_KEY',
+      'VITE_ANTHROPIC_API_KEY',
       'VITE_DEEPSEEK_API_KEY',
       'VITE_SILICONFLOW_API_KEY',
       'VITE_ZHIPU_API_KEY',
+      'VITE_DASHSCOPE_API_KEY',
+      'VITE_OPENROUTER_API_KEY',
+      'VITE_MODELSCOPE_API_KEY',
       'VITE_CUSTOM_API_KEY',
       'VITE_CUSTOM_API_BASE_URL',
       'VITE_CUSTOM_API_MODEL'

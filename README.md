@@ -193,7 +193,7 @@ MCP Server 需要配置 API 密钥才能正常工作。主要的 MCP 专属配�
 
 ```bash
 # MCP 服务器配置
-MCP_DEFAULT_MODEL_PROVIDER=openai  # 可选值：openai, gemini, deepseek, siliconflow, zhipu, custom
+MCP_DEFAULT_MODEL_PROVIDER=openai  # 可选值：openai, gemini, anthropic, deepseek, siliconflow, zhipu, dashscope, openrouter, modelscope, custom
 MCP_LOG_LEVEL=info                 # 日志级别
 ```
 

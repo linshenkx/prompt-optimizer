@@ -72,7 +72,7 @@ VITE_CUSTOM_API_MODEL=qwen2.5:0.5b
 
 ```bash
 # 首选模型提供商（当配置了多个 API 密钥时）
-# 可选值：openai, gemini, deepseek, siliconflow, zhipu, custom
+# 可选值：openai, gemini, anthropic, deepseek, siliconflow, zhipu, dashscope, openrouter, modelscope, custom
 MCP_DEFAULT_MODEL_PROVIDER=openai
 
 # 日志级别（可选，默认 debug）

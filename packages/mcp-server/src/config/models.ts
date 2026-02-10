@@ -27,9 +27,15 @@ export async function setupDefaultModel(
 
   // 1. 如果指定了 preferredProvider，尝试匹配
   if (preferredProvider) {
+    const normalizedPreferred = preferredProvider.toLowerCase();
+
     selectedModel = availableModels.find(([key, config]) =>
-      config.provider === preferredProvider.toLowerCase() ||
-      config.name.toLowerCase().includes(preferredProvider.toLowerCase())
+      // 直接匹配模型 key（支持 custom_<suffix>）
+      key.toLowerCase() === normalizedPreferred ||
+      // 匹配 provider id
+      String(config.providerMeta?.id || config.modelMeta?.providerId || config.provider || '').toLowerCase() === normalizedPreferred ||
+      // 兼容通过名称模糊匹配
+      String(config.name || '').toLowerCase().includes(normalizedPreferred)
     );
   }
 

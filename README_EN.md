@@ -196,7 +196,7 @@ MCP Server requires API key configuration to function properly. Main MCP-specifi
 
 ```bash
 # MCP Server Configuration
-MCP_DEFAULT_MODEL_PROVIDER=openai  # Options: openai, gemini, deepseek, siliconflow, zhipu, custom
+MCP_DEFAULT_MODEL_PROVIDER=openai  # Options: openai, gemini, anthropic, deepseek, siliconflow, zhipu, dashscope, openrouter, modelscope, custom
 MCP_LOG_LEVEL=info                 # Log level
 ```
 

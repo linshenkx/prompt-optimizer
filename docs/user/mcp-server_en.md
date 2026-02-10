@@ -72,7 +72,7 @@ VITE_CUSTOM_API_MODEL=qwen2.5:0.5b
 
 ```bash
 # Preferred model provider (when multiple API keys are configured)
-# Options: openai, gemini, deepseek, siliconflow, zhipu, custom
+# Options: openai, gemini, anthropic, deepseek, siliconflow, zhipu, dashscope, openrouter, modelscope, custom
 MCP_DEFAULT_MODEL_PROVIDER=openai
 
 # Log level (optional, default: debug)
