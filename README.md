@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/linshenkx-prompt-optimizer-badge.png)](https://mseep.ai/app/linshenkx-prompt-optimizer)
+
 # Prompt Optimizer (提示词优化器) 🚀
 
 <div align="center">
