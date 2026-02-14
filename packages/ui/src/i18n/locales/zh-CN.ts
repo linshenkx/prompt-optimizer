@@ -1209,6 +1209,8 @@ export default {
       noTemplate: "请先选择迭代提示词",
       noOptimizedPrompt: "请先优化提示词",
     },
+    resetWorkspace: "新建",
+    resetWorkspaceConfirm: "重新开始？历史记录不受影响。",
   },
   output: {
     title: "测试结果",

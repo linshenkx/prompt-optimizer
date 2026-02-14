@@ -97,6 +97,7 @@ test-results/
 .factorypath
 .buildpath
 .target
+prompt-optimizer.code-workspace
 
 # ==========================================
 # 操作系统文件
@@ -196,3 +197,5 @@ CLAUDE.md
 .kiro
 # BMAD (local only)
 .ace-tool/
+packages/desktop/DESKTOP-DEV-GUIDE.md
+.gemini/HANDOFF.md

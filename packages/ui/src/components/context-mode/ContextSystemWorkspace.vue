@@ -129,6 +129,7 @@
                                   @apply-to-conversation="handleApplyToConversation"
                                  @apply-improvement="handleApplyImprovement"
                                  @save-local-edit="handleSaveLocalEdit"
+                                 @reset-workspace="handleResetWorkspace"
                              />
                         </template>
                         <template v-else>
@@ -1655,6 +1656,23 @@ const handleSaveLocalEdit = async (payload: { note?: string }) => {
         note: payload.note,
         source: 'manual',
     });
+};
+
+// 🆕 重置工作区：清空优化状态，开始新的序列
+const handleResetWorkspace = () => {
+    // Clear conversationOptimization state
+    conversationOptimization.optimizedPrompt.value = ''
+    conversationOptimization.currentChainId.value = ''
+    conversationOptimization.currentVersions.value = []
+    conversationOptimization.currentRecordId.value = ''
+
+    // Clear session store optimized result
+    proMultiSession.updateOptimizedResult({
+        optimizedPrompt: '',
+        reasoning: '',
+        chainId: '',
+        versionId: '',
+    })
 };
 
 // 暴露引用

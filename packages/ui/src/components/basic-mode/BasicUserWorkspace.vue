@@ -147,6 +147,7 @@
                         @apply-improvement="handleApplyImprovement"
                         @apply-patch="handleApplyPatch"
                         @save-local-edit="handleSaveLocalEdit"
+                        @reset-workspace="logic.handleResetWorkspace"
                     />
                 </NCard>
                 </NFlex>

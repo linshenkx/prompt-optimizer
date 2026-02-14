@@ -63,6 +63,33 @@
 
                 <!-- 右侧：操作按钮 -->
                 <NSpace align="center" :size="8" class="flex-shrink-0">
+                    <!-- 新建（重置工作区） -->
+                    <NButton
+                        v-if="versions && versions.length > 0"
+                        @click="handleResetWorkspace"
+                        type="tertiary"
+                        size="small"
+                        ghost
+                        round
+                        :title="t('prompt.resetWorkspace')"
+                    >
+                        <template #icon>
+                            <NIcon>
+                                <svg
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M12 4v16m8-8H4"
+                                    />
+                                </svg>
+                            </NIcon>
+                        </template>
+                    </NButton>
                     <!-- 预览按钮 -->
                     <NButton
                         v-if="showPreview && optimizedPrompt"
@@ -463,6 +490,8 @@ const emit = defineEmits<{
     "apply-patch": [payload: { operation: PatchOperation }];
     /** 保存当前编辑内容为新版本（不触发 LLM） */
     "save-local-edit": [payload: { note?: string }];
+    /** 重置工作区（开始新的优化链） */
+    "reset-workspace": [];
 }>();
 
 const showIterateInput = ref(false);
@@ -698,6 +727,13 @@ const switchVersion = async (version: PromptRecord) => {
 
 const handleSaveChanges = () => {
     emit("save-local-edit", { note: t("prompt.saveChangesNote") });
+};
+
+// 重置工作区
+const handleResetWorkspace = () => {
+    const ok = window.confirm(t('prompt.resetWorkspaceConfirm'));
+    if (!ok) return;
+    emit('reset-workspace');
 };
 
 // 监听流式状态变化，强制退出编辑状态

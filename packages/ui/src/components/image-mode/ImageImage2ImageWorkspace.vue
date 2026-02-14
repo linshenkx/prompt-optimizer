@@ -387,6 +387,7 @@
                     @switchVersion="handleSwitchVersion"
                     @save-favorite="handleSaveFavorite"
                     @save-local-edit="handleSaveLocalEdit"
+                    @reset-workspace="handleResetWorkspace"
                     @open-preview="handleOpenPromptPreview"
                 />
             </NCard>
@@ -1545,6 +1546,23 @@ const handleApplyPatch = (payload: { operation: PatchOperation }) => {
     }
     optimizedPrompt.value = result.text
     toast.success(t('evaluation.diagnose.applyFix'))
+}
+
+// 🆕 重置工作区：清空优化状态，开始新的序列
+const handleResetWorkspace = () => {
+    // Clear local history refs
+    currentChainId.value = ''
+    currentVersions.value = []
+    currentVersionId.value = ''
+
+    // Clear session store
+    session.updatePrompt('')
+    session.updateOptimizedResult({
+        optimizedPrompt: '',
+        reasoning: '',
+        chainId: '',
+        versionId: '',
+    })
 }
 
 // 保存本地编辑

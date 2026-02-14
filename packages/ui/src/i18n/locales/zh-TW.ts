@@ -1200,6 +1200,8 @@ export default {
       noTemplate: "請先選擇迭代提示詞",
       noOptimizedPrompt: "請先優化提示詞",
     },
+    resetWorkspace: "新建",
+    resetWorkspaceConfirm: "重新開始？歷史紀錄不受影響。",
   },
   output: {
     title: "測試結果",

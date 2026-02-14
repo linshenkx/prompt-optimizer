@@ -1246,6 +1246,8 @@ export default {
       noTemplate: "Please select an iteration template first",
       noOptimizedPrompt: "Please optimize the prompt first",
     },
+    resetWorkspace: "New",
+    resetWorkspaceConfirm: "Start fresh? Your history is preserved.",
   },
   output: {
     title: "Test Result",

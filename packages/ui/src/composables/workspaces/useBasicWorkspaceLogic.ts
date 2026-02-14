@@ -659,6 +659,28 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
     }
   }
 
+  /**
+   * 6. 重置工作区（开始新的优化链）
+   * - 清空所有本地状态和 session store 绑定
+   * - 不删除历史记录中的旧链
+   */
+  const handleResetWorkspace = () => {
+    // 清空本地历史状态
+    currentChainId.value = ''
+    currentVersions.value = []
+    currentVersionId.value = ''
+
+    // 清空 session store
+    sessionStore.updatePrompt('')
+    sessionStore.updateOptimizedResult({
+      optimizedPrompt: '',
+      reasoning: '',
+      chainId: '',
+      versionId: ''
+    })
+    sessionStore.updateTestResults(null)
+  }
+
   return {
     // 状态代理
     prompt,
@@ -688,6 +710,7 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
     handleTest,
     handleSaveLocalEdit,
     handleSwitchVersion,
+    handleResetWorkspace,
     loadVersions
   }
 }

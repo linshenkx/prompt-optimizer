@@ -181,6 +181,7 @@
                      @open-preview="handleOpenPromptPreview"
                      @apply-improvement="handleApplyImprovement"
                      @save-local-edit="handleSaveLocalEdit"
+                     @reset-workspace="handleResetWorkspace"
                  />
             </NCard>
                 </NFlex>
@@ -1688,6 +1689,26 @@ const handleSaveLocalEdit = async (payload: { note?: string }) => {
         note: payload.note,
         source: 'manual',
     });
+};
+
+// 🆕 重置工作区：清空优化状态，开始新的序列
+const handleResetWorkspace = () => {
+    // Clear contextUserOptimization reactive state
+    contextUserOptimization.prompt = ''
+    contextUserOptimization.optimizedPrompt = ''
+    contextUserOptimization.optimizedReasoning = ''
+    contextUserOptimization.currentChainId = ''
+    contextUserOptimization.currentVersions = []
+    contextUserOptimization.currentVersionId = ''
+
+    // Sync to session store
+    proVariableSession.updatePrompt('')
+    proVariableSession.updateOptimizedResult({
+        optimizedPrompt: '',
+        reasoning: '',
+        chainId: '',
+        versionId: '',
+    })
 };
 
 // 暴露 TestAreaPanel 引用给父组件（用于工具调用等高级功能）
