@@ -561,6 +561,8 @@
                                                     </NCard>
                                                 </template>
 
+                                                <ImageTokenUsage :metadata="getVariantResult(id)?.metadata" :image="getVariantResult(id)?.images?.[0]" :input-image="{ b64: inputImageB64 || undefined, mimeType: inputImageMime || 'image/png' }" />
+
                                                 <NSpace justify="center" :size="8">
                                                     <NButton
                                                         size="small"
@@ -794,6 +796,7 @@ import {
     type TestVariantId,
 } from '../../stores/session/useImageImage2ImageSession'
 import { useImageGeneration } from '../../composables/image/useImageGeneration'
+import ImageTokenUsage from './ImageTokenUsage.vue'
 import { useEvaluationHandler, type TestResultsData } from '../../composables/prompt/useEvaluationHandler'
 import { useWorkspaceTemplateSelection } from '../../composables/workspaces/useWorkspaceTemplateSelection'
 import { useWorkspaceTextModelSelection } from '../../composables/workspaces/useWorkspaceTextModelSelection'
@@ -2195,6 +2198,9 @@ const getImageSrc = (imageItem: ImageResultItem | null | undefined) => {
 const downloadImageFromResult = async (imageItem: ImageResultItem | null | undefined, prefix: string) => {
     if (!imageItem) return
 
+    const ext = (imageItem.mimeType?.replace('image/', '') || 'png').replace('jpeg', 'jpg')
+    const filename = `${prefix}-image.${ext}`
+
     if (imageItem.url) {
         try {
             const response = await fetch(imageItem.url)
@@ -2202,7 +2208,7 @@ const downloadImageFromResult = async (imageItem: ImageResultItem | null | undef
             const url = window.URL.createObjectURL(blob)
             const a = document.createElement('a')
             a.href = url
-            a.download = `${prefix}-image.png`
+            a.download = filename
             a.click()
             window.URL.revokeObjectURL(url)
         } catch {
@@ -2215,7 +2221,7 @@ const downloadImageFromResult = async (imageItem: ImageResultItem | null | undef
         const a = document.createElement('a')
         const mime = imageItem.mimeType ?? 'image/png'
         a.href = `data:${mime};base64,${imageItem.b64}`
-        a.download = `${prefix}-image.png`
+        a.download = filename
         a.click()
     }
 }
