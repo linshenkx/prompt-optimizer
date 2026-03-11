@@ -125,6 +125,26 @@
           <NTooltip trigger="hover">
             <template #trigger>
               <NButton
+                @click="emit('clone', model.id)"
+                size="small"
+                quaternary
+                circle
+                :title="t('modelManager.cloneModel')"
+              >
+                <template #icon>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                  </svg>
+                </template>
+              </NButton>
+            </template>
+            {{ t('modelManager.cloneModel') }}
+          </NTooltip>
+
+          <NTooltip trigger="hover">
+            <template #trigger>
+              <NButton
                 @click="emit(model.enabled ? 'disable' : 'enable', model.id)"
                 size="small"
                 quaternary
@@ -227,7 +247,7 @@ const { models, isTestingConnectionFor, isDefaultModel } = defineProps({
   }
 })
 
-const emit = defineEmits(['test', 'edit', 'enable', 'disable', 'delete'])
+const emit = defineEmits(['test', 'edit', 'clone', 'enable', 'disable', 'delete'])
 
 const { t } = useI18n()
 

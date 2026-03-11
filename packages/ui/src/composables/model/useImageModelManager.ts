@@ -732,6 +732,7 @@ export function useImageModelManager() {
     loadConfigs,
     loadProviders,
     updateConfig,
+    addConfig,
     deleteConfig
   }
 }

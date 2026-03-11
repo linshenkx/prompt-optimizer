@@ -313,6 +313,28 @@ export function useTextModelManager() {
     }
   }
 
+  const cloneModel = async (id: string): Promise<string | null> => {
+    try {
+      const model = await modelManager.getModel(id)
+      if (!model) throw new Error(t('modelManager.noModelsAvailable'))
+
+      const newId = `model_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      const cloned = {
+        ...JSON.parse(JSON.stringify(model)),
+        id: newId,
+        name: `${model.name || id} (Copy)`
+      }
+      await modelManager.addModel(newId, cloned)
+      await loadModels()
+      toast.success(t('modelManager.cloneSuccess'))
+      return newId
+    } catch (error: unknown) {
+      console.error('Failed to clone model:', error)
+      toast.error(t('modelManager.cloneFailed'))
+      return null
+    }
+  }
+
   const deleteModel = async (id: string) => {
     try {
       await modelManager.deleteModel(id)
@@ -752,6 +774,7 @@ export function useTextModelManager() {
     testConfigConnection,
     enableModel,
     disableModel,
+    cloneModel,
     deleteModel,
 
     // providers
