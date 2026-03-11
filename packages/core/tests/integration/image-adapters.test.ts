@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest'
 import { ImageService } from '../../src/services/image/service'
 import { ImageModelManager } from '../../src/services/image-model/manager'
 import { createImageAdapterRegistry } from '../../src/services/image/adapters/registry'
@@ -46,7 +46,7 @@ describe.skipIf(!RUN_REAL_API)('Image Adapters Real API Integration Tests', () =
         id: 'test-gemini-fast',
         name: 'Gemini 2.5 Flash Image',
         providerId: 'gemini',
-        modelId: 'gemini-2.5-flash-image-preview',
+        modelId: 'gemini-2.5-flash-image',
         enabled: true,
         connectionConfig: { apiKey: process.env.VITE_GEMINI_API_KEY! },
         paramOverrides: { outputMimeType: 'image/png' }
@@ -66,13 +66,18 @@ describe.skipIf(!RUN_REAL_API)('Image Adapters Real API Integration Tests', () =
       expect(result).toBeDefined()
       expect(result.images).toBeDefined()
       expect(result.images.length).toBe(1)
-      expect(result.images[0].b64).toBeDefined()
-      expect(result.images[0].b64.length).toBeGreaterThan(100)
-      expect(result.images[0].mimeType).toBe('image/png')
-      expect(result.metadata?.modelId).toBe('gemini-2.5-flash-image-preview')
+      const image = result.images[0]
+      expect(image).toBeDefined()
+      if (!image) throw new Error('Expected Gemini image result')
+      const b64 = image.b64
+      expect(b64).toBeDefined()
+      if (!b64) throw new Error('Expected Gemini image payload')
+      expect(b64.length).toBeGreaterThan(100)
+      expect(image.mimeType).toBe('image/png')
+      expect(result.metadata?.modelId).toBe('gemini-2.5-flash-image')
     }, 120000)
 
-    // 仅支持 gemini-2.5-flash-image-preview，不再测试 Imagen 3.x
+    // 当前 Gemini 适配器仅覆盖 generateContent 兼容的 Gemini image 模型
 
     it.skipIf(!runGeminiTests)('跳过Gemini测试 - 未设置API密钥', () => {
       expect(true).toBe(true)
@@ -112,9 +117,14 @@ describe.skipIf(!RUN_REAL_API)('Image Adapters Real API Integration Tests', () =
       expect(result).toBeDefined()
       expect(result.images).toBeDefined()
       expect(result.images.length).toBe(1)
-      expect(result.images[0].b64).toBeDefined()
-      expect(result.images[0].b64.length).toBeGreaterThan(100)
-      expect(result.images[0].mimeType).toBe('image/png')
+      const image = result.images[0]
+      expect(image).toBeDefined()
+      if (!image) throw new Error('Expected OpenRouter image result')
+      const b64 = image.b64
+      expect(b64).toBeDefined()
+      if (!b64) throw new Error('Expected OpenRouter image payload')
+      expect(b64.length).toBeGreaterThan(100)
+      expect(image.mimeType).toBe('image/png')
       expect(result.metadata?.modelId).toBe(openrouterModelId)
     }, 120000)
 
@@ -134,19 +144,25 @@ describe.skipIf(!RUN_REAL_API)('Image Adapters Real API Integration Tests', () =
       const request: ImageRequest = {
         prompt: 'Transform this image into a vibrant watercolor painting',
         count: 1,
+        configId: 'test-openrouter-i2i',
         inputImage: {
           b64: testImageBase64,
           mimeType: 'image/png'
         }
       }
 
-      const result = await imageService.generate({ ...request, configId: 'test-openrouter-i2i' })
+      const result = await imageService.generate(request)
 
       expect(result).toBeDefined()
       expect(result.images).toBeDefined()
       expect(result.images.length).toBe(1)
-      expect(result.images[0].b64).toBeDefined()
-      expect(result.images[0].b64.length).toBeGreaterThan(100)
+      const image = result.images[0]
+      expect(image).toBeDefined()
+      if (!image) throw new Error('Expected OpenRouter image result')
+      const b64 = image.b64
+      expect(b64).toBeDefined()
+      if (!b64) throw new Error('Expected OpenRouter image payload')
+      expect(b64.length).toBeGreaterThan(100)
       expect(result.metadata?.modelId).toBe(openrouterModelId)
 
     }, 90000) // 图生图可能需要更长时间
@@ -209,7 +225,7 @@ describe.skipIf(!RUN_REAL_API)('Image Adapters Real API Integration Tests', () =
         id: 'invalid-model',
         name: 'Invalid Model',
         providerId: hasGeminiKey ? 'gemini' : 'openai',
-        modelId: hasGeminiKey ? 'gemini-2.5-flash-image-preview' : 'dall-e-3',
+        modelId: hasGeminiKey ? 'gemini-2.5-flash-image' : 'dall-e-3',
         enabled: true,
         connectionConfig: { apiKey: 'invalid-key', baseURL: hasGeminiKey ? undefined : 'https://api.openai.com/v1' } as any,
         paramOverrides: {}
@@ -234,15 +250,6 @@ describe.skipIf(!RUN_REAL_API)('Image Adapters Real API Integration Tests', () =
     const runMultiImageTests = false // 已不支持多图
 
     it.runIf(runMultiImageTests)('应该能生成多张图像', async () => {
-      // 添加DALL-E 2模型（更稳定）
-      const dalle2Model: ImageModelConfig = {
-        name: 'DALL-E 2 Multi',
-        baseURL: 'https://api.openai.com/v1',
-        apiKey: process.env.VITE_OPENAI_API_KEY!,
-        defaultModel: 'dall-e-2',
-        enabled: true,
-        provider: 'openai'
-      }
       await imageModelManager.addConfig({
         id: 'test-dalle2-multi',
         name: 'DALL-E 2 Multi',
@@ -256,19 +263,21 @@ describe.skipIf(!RUN_REAL_API)('Image Adapters Real API Integration Tests', () =
       // 生成2张图像
       const request: ImageRequest = {
         prompt: 'A simple geometric pattern',
+        configId: 'test-dalle2-multi',
         count: 2,
-        imgParams: {
+        paramOverrides: {
           size: '256x256' // 使用较小尺寸以节省时间和费用
         }
       }
 
-      const result = await imageService.generate({ ...request, configId: 'test-dalle2-multi', count: 1 })
+      const result = await imageService.generate({ ...request, count: 1 })
 
       expect(result).toBeDefined()
       expect(result.images).toBeDefined()
       expect(result.images.length).toBe(1)
       result.images.forEach(image => {
         expect(image.b64).toBeDefined()
+        if (!image.b64) throw new Error('Expected OpenAI image payload')
         expect(image.b64.length).toBeGreaterThan(100)
       })
     }, 120000) // 多图像生成需要更长时间

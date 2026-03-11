@@ -1,4 +1,19 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
+
+const googleGenAiMocks = vi.hoisted(() => ({
+  list: vi.fn(),
+  generateContent: vi.fn()
+}))
+
+vi.mock('@google/genai', () => ({
+  GoogleGenAI: class {
+    models = {
+      list: googleGenAiMocks.list,
+      generateContent: googleGenAiMocks.generateContent
+    }
+  }
+}))
+
 import { GeminiImageAdapter } from '../../../src/services/image/adapters/gemini'
 import type { ImageRequest, ImageModelConfig } from '../../../src/services/image/types'
 
@@ -7,6 +22,8 @@ describe('GeminiImageAdapter', () => {
 
   beforeEach(() => {
     adapter = new GeminiImageAdapter()
+    googleGenAiMocks.list.mockReset()
+    googleGenAiMocks.generateContent.mockReset()
   })
 
   describe('Provider Information', () => {
@@ -29,6 +46,10 @@ describe('GeminiImageAdapter', () => {
 
       expect(Array.isArray(models)).toBe(true)
       expect(models.length).toBeGreaterThan(0)
+      expect(models.map(model => model.id)).toEqual([
+        'gemini-2.5-flash-image',
+        'gemini-3.1-flash-image-preview'
+      ])
 
       const geminiModel = models.find(m => m.id.includes('gemini'))
       expect(geminiModel).toBeDefined()
@@ -54,24 +75,73 @@ describe('GeminiImageAdapter', () => {
       // 默认输出格式
       expect(model.defaultParameterValues).toHaveProperty('outputMimeType')
     })
-  })
 
-  // Dynamic models are not supported
+    test('should fetch only generateContent-compatible Gemini image models dynamically', async () => {
+      async function* createPager() {
+        yield {
+          name: 'models/gemini-2.5-flash-image',
+          displayName: 'Gemini 2.5 Flash Image',
+          description: 'Gemini image model'
+        }
+        yield {
+          name: 'models/gemini-3.1-flash-image-preview',
+          displayName: 'Gemini 3.1 Flash Image Preview',
+          description: 'Gemini preview image model'
+        }
+        yield {
+          name: 'models/imagen-4.0-generate-001',
+          displayName: 'Imagen 4',
+          description: 'Imagen model'
+        }
+        yield {
+          name: 'models/gemini-2.5-flash',
+          displayName: 'Gemini 2.5 Flash',
+          description: 'Text model'
+        }
+      }
+
+      googleGenAiMocks.list.mockResolvedValue(createPager())
+
+      const models = await adapter.getModelsAsync({ apiKey: 'test-api-key' })
+
+      expect(googleGenAiMocks.list).toHaveBeenCalledWith({ config: { pageSize: 100 } })
+      expect(models.map(model => model.id)).toEqual([
+        'gemini-2.5-flash-image',
+        'gemini-3.1-flash-image-preview'
+      ])
+    })
+
+    test('should fall back to static models when dynamic fetch fails', async () => {
+      googleGenAiMocks.list.mockRejectedValue(new Error('network failure'))
+
+      const models = await adapter.getModelsAsync({ apiKey: 'test-api-key' })
+
+      expect(models.map(model => model.id)).toEqual([
+        'gemini-2.5-flash-image',
+        'gemini-3.1-flash-image-preview'
+      ])
+    })
+  })
 
   // 连接验证已移除
 
   describe('Image Generation', () => {
     test('should generate image successfully with mocked SDK', async () => {
+      const provider = adapter.getProvider()
+      const model = adapter.getModels()[0]
+
       const config: ImageModelConfig = {
         id: 'test-gemini-config',
         name: 'Test Gemini Config',
         providerId: 'gemini',
-        modelId: 'gemini-2.5-flash-image-preview',
+        modelId: 'gemini-2.5-flash-image',
         enabled: true,
         connectionConfig: {
           apiKey: 'test-api-key'
         },
-        paramOverrides: {}
+        paramOverrides: {},
+        provider,
+        model
       }
 
       const request: ImageRequest = {

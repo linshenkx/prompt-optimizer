@@ -11,6 +11,8 @@ import type {
 import { IMAGE_ERROR_CODES } from '../../../constants/error-codes'
 
 export class GeminiImageAdapter extends AbstractImageProviderAdapter {
+  private static readonly DYNAMIC_IMAGE_MODEL_PATTERN = /^gemini-.*image/i
+
   getProvider(): ImageProvider {
     return {
       id: 'gemini',
@@ -49,9 +51,9 @@ export class GeminiImageAdapter extends AbstractImageProviderAdapter {
         }
       },
       {
-        id: 'gemini-3-pro-image-preview',
-        name: 'Gemini 3 Pro Image',
-        description: 'Google Gemini 3 Pro 高级图像生成模型（Nano Banana Pro），支持高分辨率输出和高级文本渲染',
+        id: 'gemini-3.1-flash-image-preview',
+        name: 'Gemini 3.1 Flash Image Preview',
+        description: 'Google Gemini 3.1 Flash 图像生成预览模型，支持文生图、图生图和多图输入',
         providerId: 'gemini',
         capabilities: {
           text2image: true,
@@ -67,8 +69,8 @@ export class GeminiImageAdapter extends AbstractImageProviderAdapter {
   }
 
   /**
-   * Dynamically fetch available image models from the Gemini API.
-   * Filters for models that support image generation (generateImages or imagen).
+   * Dynamically fetch available Gemini image-generation models from the Gemini API.
+   * This adapter only supports Gemini image models that are compatible with generateContent.
    * Falls back to the static model list on failure.
    */
   public async getModelsAsync(connectionConfig: Record<string, any>): Promise<ImageModel[]> {
@@ -85,15 +87,9 @@ export class GeminiImageAdapter extends AbstractImageProviderAdapter {
       const dynamicModels: ImageModel[] = []
 
       for await (const model of modelsPager) {
-        const methods = (model as any).supportedGenerationMethods || []
-        const isImageModel =
-          methods.some((m: string) => m === 'generateImages') ||
-          /image/i.test(model.name || '') ||
-          /imagen/i.test(model.name || '')
-
-        if (!isImageModel) continue
-
         const modelId = model.name?.replace('models/', '') || model.name || ''
+        if (!GeminiImageAdapter.DYNAMIC_IMAGE_MODEL_PATTERN.test(modelId)) continue
+
         dynamicModels.push({
           id: modelId,
           name: model.displayName || modelId,
