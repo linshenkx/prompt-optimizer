@@ -17,7 +17,7 @@ describe('GeminiImageAdapter', () => {
       expect(provider.name).toBe('Google Gemini')
       expect(provider.requiresApiKey).toBe(true)
       expect(provider.defaultBaseURL).toBe('https://generativelanguage.googleapis.com')
-      expect(provider.supportsDynamicModels).toBe(false)
+      expect(provider.supportsDynamicModels).toBe(true)
       expect(provider.connectionSchema?.required).toContain('apiKey')
       expect(provider.connectionSchema?.optional).toContain('baseURL')
     })
@@ -116,9 +116,9 @@ describe('GeminiImageAdapter', () => {
   })
 
   describe('Provider Capabilities', () => {
-    test('should not support dynamic models', () => {
+    test('should support dynamic models', () => {
       const provider = adapter.getProvider()
-      expect(provider.supportsDynamicModels).toBe(false)
+      expect(provider.supportsDynamicModels).toBe(true)
     })
 
     test('should require API key', () => {

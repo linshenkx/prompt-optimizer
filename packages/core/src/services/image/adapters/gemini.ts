@@ -18,7 +18,7 @@ export class GeminiImageAdapter extends AbstractImageProviderAdapter {
       description: 'Google Gemini 图像生成服务',
       requiresApiKey: true,
       defaultBaseURL: 'https://generativelanguage.googleapis.com',
-      supportsDynamicModels: false,
+      supportsDynamicModels: true,
       apiKeyUrl: 'https://aistudio.google.com/apikey',
       connectionSchema: {
         required: ['apiKey'],
@@ -64,6 +64,56 @@ export class GeminiImageAdapter extends AbstractImageProviderAdapter {
         }
       }
     ]
+  }
+
+  /**
+   * Dynamically fetch available image models from the Gemini API.
+   * Filters for models that support image generation (generateImages or imagen).
+   * Falls back to the static model list on failure.
+   */
+  public async getModelsAsync(connectionConfig: Record<string, any>): Promise<ImageModel[]> {
+    try {
+      const apiKey = connectionConfig.apiKey || ''
+      const customBaseURL = connectionConfig.baseURL?.trim()
+
+      const genAI = customBaseURL
+        ? new GoogleGenAI({ apiKey, httpOptions: { baseUrl: this.normalizeBaseUrl(customBaseURL) } })
+        : new GoogleGenAI({ apiKey })
+
+      const modelsPager = await genAI.models.list({ config: { pageSize: 100 } })
+
+      const dynamicModels: ImageModel[] = []
+
+      for await (const model of modelsPager) {
+        const methods = (model as any).supportedGenerationMethods || []
+        const isImageModel =
+          methods.some((m: string) => m === 'generateImages') ||
+          /image/i.test(model.name || '') ||
+          /imagen/i.test(model.name || '')
+
+        if (!isImageModel) continue
+
+        const modelId = model.name?.replace('models/', '') || model.name || ''
+        dynamicModels.push({
+          id: modelId,
+          name: model.displayName || modelId,
+          description: model.description || `Gemini image model: ${modelId}`,
+          providerId: 'gemini',
+          capabilities: {
+            text2image: true,
+            image2image: true,
+            multiImage: true
+          },
+          parameterDefinitions: this.getParameterDefinitions(modelId),
+          defaultParameterValues: this.getDefaultParameterValues(modelId)
+        })
+      }
+
+      return dynamicModels.length > 0 ? dynamicModels : this.getModels()
+    } catch (error) {
+      console.error('[GeminiImageAdapter] Failed to fetch models dynamically, falling back to static list:', error)
+      return this.getModels()
+    }
   }
 
   protected getTestImageRequest(testType: 'text2image' | 'image2image'): Omit<ImageRequest, 'configId'> {
