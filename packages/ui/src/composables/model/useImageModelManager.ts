@@ -198,10 +198,6 @@ export function useImageModelManager() {
     await imageModelManager.updateConfig(id, updates)
   }
 
-  const addConfig = async (config: ImageModelConfig) => {
-    await imageModelManager.addConfig(config)
-  }
-
   const deleteConfig = async (id: string) => {
     await imageModelManager.deleteConfig(id)
   }
@@ -732,7 +728,6 @@ export function useImageModelManager() {
     loadConfigs,
     loadProviders,
     updateConfig,
-    addConfig,
     deleteConfig
   }
 }

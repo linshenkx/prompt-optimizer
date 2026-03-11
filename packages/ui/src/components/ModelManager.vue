@@ -89,6 +89,7 @@
                 v-show="activeTab === 'image'"
                 ref="imageListRef"
                 @edit="handleEditImageModel"
+                @clone="handleCloneImageModel"
                 @add="handleAddImageModel"
               />
               <FunctionModelManager
@@ -104,7 +105,8 @@
     <ImageModelEditModal
       :show="showImageModelEdit"
       :config-id="editingImageModelId"
-      @update:show="showImageModelEdit = $event"
+      :initial-config="draftImageModelConfig"
+      @update:show="updateImageEditModalVisibility"
       @saved="handleImageModelSaved"
     />
   </ToastUI>
@@ -115,6 +117,7 @@ import { inject, onMounted, onUnmounted, provide, ref, type Ref } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import { NButton, NCard, NModal, NTabs, NTabPane } from 'naive-ui'
+import type { ImageModelConfig } from '@prompt-optimizer/core'
 import ImageModelEditModal from './ImageModelEditModal.vue'
 import ImageModelManager from './ImageModelManager.vue'
 import TextModelManager from './TextModelManager.vue'
@@ -139,6 +142,7 @@ const imageListRef = ref<InstanceType<typeof ImageModelManager> | null>(null)
 const functionManagerRef = ref<InstanceType<typeof FunctionModelManager> | null>(null)
 const showImageModelEdit = ref(false)
 const editingImageModelId = ref<string | undefined>(undefined)
+const draftImageModelConfig = ref<ImageModelConfig | undefined>(undefined)
 
 const services = inject<Ref<AppServices | null>>('services')
 if (!services?.value) {
@@ -170,17 +174,34 @@ const handleTextModelsUpdated = (id?: string) => {
 
 const handleAddImageModel = () => {
   editingImageModelId.value = undefined
+  draftImageModelConfig.value = undefined
   showImageModelEdit.value = true
 }
 
 const handleEditImageModel = (configId: string) => {
   editingImageModelId.value = configId
+  draftImageModelConfig.value = undefined
   showImageModelEdit.value = true
+}
+
+const handleCloneImageModel = (draft: ImageModelConfig) => {
+  editingImageModelId.value = undefined
+  draftImageModelConfig.value = draft
+  showImageModelEdit.value = true
+}
+
+const updateImageEditModalVisibility = (value: boolean) => {
+  showImageModelEdit.value = value
+  if (!value) {
+    editingImageModelId.value = undefined
+    draftImageModelConfig.value = undefined
+  }
 }
 
 const handleImageModelSaved = () => {
   showImageModelEdit.value = false
   editingImageModelId.value = undefined
+  draftImageModelConfig.value = undefined
   try {
     imageListRef.value?.refresh?.()
   } catch {

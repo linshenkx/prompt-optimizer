@@ -106,11 +106,12 @@ const updateEditModalVisibility = (value: boolean) => {
 }
 
 const handleCloneModel = async (id: string) => {
-  const newId = await manager.cloneModel(id)
-  if (newId) {
-    await manager.prepareForEdit(newId, true)
-    editingModelId.value = newId
+  try {
+    await manager.prepareForClone(id)
     showEditModal.value = true
+    editingModelId.value = null
+  } catch {
+    // prepareForClone already handles user-facing errors
   }
 }
 

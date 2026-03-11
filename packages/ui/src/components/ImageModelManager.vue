@@ -210,7 +210,7 @@ const dialog = useDialog()
 const isElectronEnv = isRunningInElectron()
 
 // 定义事件
-const emit = defineEmits(['add', 'edit'])
+const emit = defineEmits(['add', 'edit', 'clone'])
 
 // 使用 composable
 const {
@@ -218,7 +218,6 @@ const {
   initialize,
   loadConfigs,
   updateConfig,
-  addConfig,
   deleteConfig: deleteConfigFromManager
 } = useImageModelManager()
 
@@ -280,21 +279,17 @@ const editConfig = (configId: string) => {
   emit('edit', configId)
 }
 
-const cloneConfig = async (configId: string) => {
+const cloneConfig = (configId: string) => {
   const source = configs.value.find(c => c.id === configId)
   if (!source) return
 
   try {
-    const newId = `config_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     const cloned = {
       ...JSON.parse(JSON.stringify(source)),
-      id: newId,
+      id: '',
       name: `${source.name || source.id} (Copy)`
     }
-    await addConfig(cloned)
-    await loadConfigs()
-    toast.success(t('modelManager.cloneSuccess'))
-    emit('edit', newId)
+    emit('clone', cloned)
   } catch (error) {
     console.error('Failed to clone model config:', error)
     toast.error(t('modelManager.cloneFailed'))
