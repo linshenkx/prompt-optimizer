@@ -561,7 +561,7 @@
                                                     </NCard>
                                                 </template>
 
-                                                <ImageTokenUsage :metadata="getVariantResult(id)?.metadata" :image="getVariantResult(id)?.images?.[0]" :input-image="{ b64: inputImageB64 || undefined, mimeType: inputImageMime || 'image/png' }" />
+                                                <ImageTokenUsage :metadata="getVariantResult(id)?.metadata" :image="getVariantResult(id)?.images?.[0]" :input-image-info="getVariantInputImageInfo(id)" />
 
                                                 <NSpace justify="center" :size="8">
                                                     <NButton
@@ -819,6 +819,12 @@ import { v4 as uuidv4 } from 'uuid'
 
 // 国际化
 const { t } = useI18n();
+
+interface VariantInputImageInfo {
+    width?: number
+    height?: number
+    mimeType?: string
+}
 
 // Toast
 const toast = useToast();
@@ -1298,7 +1304,46 @@ const getVariantImageTestId = (id: TestVariantId) => {
     return `image-image2image-variant-${id}-image`
 }
 
+const toPositiveNumber = (value: unknown): number | undefined => {
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+        return value
+    }
+    if (typeof value === 'string' && value.trim()) {
+        const parsed = Number(value)
+        if (Number.isFinite(parsed) && parsed > 0) {
+            return parsed
+        }
+    }
+    return undefined
+}
+
+const hasInputImageInfo = (value: VariantInputImageInfo | null): value is VariantInputImageInfo =>
+    !!value && Object.keys(value).length > 0
+
 const getVariantResult = (id: TestVariantId) => variantResults.value[id]
+const getVariantInputImageInfo = (id: TestVariantId): VariantInputImageInfo | null => {
+    const metadata = getVariantResult(id)?.metadata
+    const rawInfo = metadata?.inputImageInfo
+    if (!rawInfo || typeof rawInfo !== 'object') return null
+
+    const record = rawInfo as Record<string, unknown>
+    const width = toPositiveNumber(record.width)
+    const height = toPositiveNumber(record.height)
+    const mimeType =
+        typeof record.mimeType === 'string' && record.mimeType.trim()
+            ? record.mimeType
+            : undefined
+
+    if (width == null && height == null && !mimeType) {
+        return null
+    }
+
+    return {
+        width,
+        height,
+        mimeType,
+    }
+}
 const hasVariantResult = (id: TestVariantId) => !!(variantResults.value[id]?.images?.length)
 
 // image 模式变量优先级：global < temporary < predefined
@@ -1447,6 +1492,54 @@ const queueSessionSave = () => {
         })
 }
 
+const getImageDimensionsFromSource = (src: string): Promise<{ width: number; height: number }> =>
+    new Promise((resolve, reject) => {
+        const image = new Image()
+        image.onload = () => {
+            resolve({
+                width: image.naturalWidth,
+                height: image.naturalHeight,
+            })
+        }
+        image.onerror = () => reject(new Error('Failed to resolve image dimensions'))
+        image.src = src
+    })
+
+const createVariantInputImageInfo = async (
+    inputImage: Image2ImageRequest['inputImage'],
+): Promise<VariantInputImageInfo | null> => {
+    const mimeType = inputImage.mimeType || 'image/png'
+    try {
+        const { width, height } = await getImageDimensionsFromSource(
+            `data:${mimeType};base64,${inputImage.b64}`,
+        )
+        return { width, height, mimeType }
+    } catch (error) {
+        console.warn(
+            '[ImageImage2ImageWorkspace] Failed to resolve input image metadata for variant result:',
+            error,
+        )
+        return mimeType ? { mimeType } : null
+    }
+}
+
+const withVariantInputImageInfo = (
+    result: ImageResult,
+    inputImageInfo: VariantInputImageInfo | null,
+): ImageResult => {
+    if (!hasInputImageInfo(inputImageInfo)) {
+        return result
+    }
+
+    return {
+        ...result,
+        metadata: {
+            ...(result.metadata || {}),
+            inputImageInfo,
+        } as NonNullable<ImageResult['metadata']>,
+    }
+}
+
 const runVariant = async (
     id: TestVariantId,
     opts?: {
@@ -1473,7 +1566,8 @@ const runVariant = async (
         }
 
         const res = await generateImage2Image(request)
-        session.updateTestVariantResult(id, res)
+        const inputImageInfo = await createVariantInputImageInfo(request.inputImage)
+        session.updateTestVariantResult(id, withVariantInputImageInfo(res, inputImageInfo))
         session.setTestVariantLastRunFingerprint(id, getVariantFingerprint(id))
 
         if (!opts?.silentSuccess) {

@@ -53,21 +53,34 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 
+interface ImageRefLike {
+    b64?: string
+    url?: string
+    mimeType?: string
+}
+
+interface InputImageInfo {
+    width?: number
+    height?: number
+    mimeType?: string
+}
+
+interface NormalizedUsage {
+    inputTokens: number | null
+    outputTokens: number | null
+    thinkingTokens: number | null
+    totalTokens: number | null
+    inferenceTime: number | null
+}
+
 const props = defineProps<{
     metadata?: {
-        usage?: any
-        [key: string]: any
+        usage?: unknown
+        [key: string]: unknown
     } | null
-    image?: {
-        b64?: string
-        url?: string
-        mimeType?: string
-    } | null
-    inputImage?: {
-        b64?: string
-        url?: string
-        mimeType?: string
-    } | null
+    image?: ImageRefLike | null
+    inputImage?: ImageRefLike | null
+    inputImageInfo?: InputImageInfo | null
 }>()
 
 interface Dimensions {
@@ -99,11 +112,83 @@ function formatImageType(mimeType?: string): string {
     return type
 }
 
-const inputImageType = computed(() => formatImageType(props.inputImage?.mimeType))
+function toRecord(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' ? value as Record<string, unknown> : null
+}
+
+function toFiniteNumber(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'string' && value.trim()) {
+        const parsed = Number(value)
+        return Number.isFinite(parsed) ? parsed : null
+    }
+    return null
+}
+
+function toDimensions(value: InputImageInfo | null | undefined): Dimensions | null {
+    const width = toFiniteNumber(value?.width)
+    const height = toFiniteNumber(value?.height)
+    if (width == null || height == null || width <= 0 || height <= 0) {
+        return null
+    }
+    return { width, height }
+}
+
+function pickNumber(record: Record<string, unknown> | null, keys: string[]): number | null {
+    if (!record) return null
+    for (const key of keys) {
+        const value = toFiniteNumber(record[key])
+        if (value != null) return value
+    }
+    return null
+}
+
+function normalizeUsage(usage: unknown): NormalizedUsage {
+    const record = toRecord(usage)
+    return {
+        inputTokens: pickNumber(record, [
+            'promptTokenCount',
+            'promptTokens',
+            'inputTokenCount',
+            'inputTokens',
+            'prompt_tokens',
+            'input_tokens',
+        ]),
+        outputTokens: pickNumber(record, [
+            'responseTokenCount',
+            'responseTokens',
+            'outputTokenCount',
+            'outputTokens',
+            'candidatesTokenCount',
+            'candidatesTokens',
+            'completion_tokens',
+            'output_tokens',
+        ]),
+        thinkingTokens: pickNumber(record, [
+            'thoughtsTokenCount',
+            'thoughtTokens',
+            'thinkingTokenCount',
+            'thinkingTokens',
+        ]),
+        totalTokens: pickNumber(record, [
+            'totalTokenCount',
+            'totalTokens',
+            'total_tokens',
+        ]),
+        inferenceTime: pickNumber(record, [
+            'inference_time',
+            'inferenceTime',
+        ]),
+    }
+}
+
 const outputImageType = computed(() => formatImageType(props.image?.mimeType))
+const inputImageType = computed(() =>
+    formatImageType(props.inputImageInfo?.mimeType || props.inputImage?.mimeType),
+)
 
 function resolveImageDimensions(
-    imageRef: () => { b64?: string; url?: string; mimeType?: string } | null | undefined,
+    imageRef: () => ImageRefLike | null | undefined,
     target: typeof outputImageDimensions
 ) {
     return watch(imageRef, (img) => {
@@ -118,19 +203,23 @@ function resolveImageDimensions(
 }
 
 const outputImageDimensions = ref<Dimensions | null>(null)
-const inputImageDimensions = ref<Dimensions | null>(null)
+const loadedInputImageDimensions = ref<Dimensions | null>(null)
 
 resolveImageDimensions(() => props.image, outputImageDimensions)
-resolveImageDimensions(() => props.inputImage, inputImageDimensions)
+resolveImageDimensions(() => props.inputImage, loadedInputImageDimensions)
 
-const usage = computed(() => props.metadata?.usage)
+const inputImageDimensions = computed(() =>
+    toDimensions(props.inputImageInfo) ?? loadedInputImageDimensions.value,
+)
 
-const inputTokens = computed(() => usage.value?.promptTokenCount ?? usage.value?.input_tokens ?? null)
-const outputTokens = computed(() => usage.value?.responseTokenCount ?? usage.value?.output_tokens ?? null)
-const thinkingTokens = computed(() => usage.value?.thoughtsTokenCount ?? null)
-const totalTokens = computed(() => usage.value?.totalTokenCount ?? usage.value?.total_tokens ?? null)
+const usage = computed(() => normalizeUsage(props.metadata?.usage))
+
+const inputTokens = computed(() => usage.value.inputTokens)
+const outputTokens = computed(() => usage.value.outputTokens)
+const thinkingTokens = computed(() => usage.value.thinkingTokens)
+const totalTokens = computed(() => usage.value.totalTokens)
 const inferenceTime = computed(() => {
-    const t = usage.value?.inference_time
+    const t = usage.value.inferenceTime
     return t != null ? Number(t).toFixed(1) : null
 })
 
