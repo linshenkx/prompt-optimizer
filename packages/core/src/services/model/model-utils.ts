@@ -93,7 +93,7 @@ export function generateTextModelConfig(envConfig: ValidatedCustomModelEnvConfig
       apiKey: envConfig.apiKey,
       baseURL: envConfig.baseURL
     },
-    paramOverrides: {}
+    paramOverrides: envConfig.params ? { ...envConfig.params } : {}
   };
 }
 

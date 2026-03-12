@@ -133,6 +133,41 @@ LOG_LEVEL=info
 CACHE_TTL=3600
 ```
 
+## 🧠 自定义模型高级请求参数
+
+如果你的 OpenAI 兼容接口除了 `apiKey`、`baseURL`、`model` 之外，还需要额外请求字段，可以直接通过 Docker 运行时环境变量下发：
+
+```yaml
+services:
+  prompt-optimizer:
+    image: linshen/prompt-optimizer:latest
+    environment:
+      VITE_CUSTOM_API_KEY_nvidia: nvapi-xxx
+      VITE_CUSTOM_API_BASE_URL_nvidia: https://integrate.api.nvidia.com/v1
+      VITE_CUSTOM_API_MODEL_nvidia: qwen/qwen3.5-397b-a17b
+      VITE_CUSTOM_API_PARAMS_nvidia: '{"chat_template_kwargs":{"enable_thinking":true},"temperature":0.6,"top_p":0.95,"max_tokens":16384}'
+```
+
+### 适用场景
+
+- NVIDIA NIM 的 `chat_template_kwargs`
+- OpenAI 兼容模型的 `temperature`、`top_p`、`max_tokens`
+- 需要在 Docker 层固化的默认推理参数
+
+### 配置约束
+
+- `VITE_CUSTOM_API_PARAMS_<suffix>` 必须是 JSON 对象字符串
+- `model`、`messages`、`stream` 是保留字段，不允许通过 `PARAMS` 覆盖
+- `timeout` 可以通过 `PARAMS` 传入，用于覆盖请求超时时间
+- 如果 JSON 写法错误，模型仍会加载，但额外参数会被忽略并打印警告
+
+### 验证方法
+
+1. 启动容器后，在界面选择对应的自定义模型
+2. 打开浏览器 DevTools 的 Network 面板
+3. 发送测试消息，检查请求体是否包含配置的附加字段
+4. 若目标服务返回特殊字段或 `<think>` 标签，Prompt Optimizer 会继续沿用现有解析逻辑展示结果
+
 ## 🔒 HTTPS和SSL配置
 
 ### Nginx反向代理配置

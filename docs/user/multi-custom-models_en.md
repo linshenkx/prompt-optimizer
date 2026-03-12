@@ -22,6 +22,7 @@ Use the following format to configure multiple custom models:
 VITE_CUSTOM_API_KEY_<suffix>=your-api-key          # Required
 VITE_CUSTOM_API_BASE_URL_<suffix>=your-base-url    # Required
 VITE_CUSTOM_API_MODEL_<suffix>=your-model-name     # Required
+VITE_CUSTOM_API_PARAMS_<suffix>=json-object-string # Optional extra request parameters
 ```
 
 ### Configuration Requirements
@@ -30,6 +31,7 @@ VITE_CUSTOM_API_MODEL_<suffix>=your-model-name     # Required
 - **API_KEY**: Required for API authentication
 - **BASE_URL**: Required, API service base URL
 - **MODEL**: Required, specific model name
+- **PARAMS**: Optional JSON object string injected into the final request body
 
 ### Configuration Examples
 
@@ -54,11 +56,13 @@ VITE_CUSTOM_API_MODEL_qwen3=qwen3:8b
 VITE_CUSTOM_API_KEY_claude=sk-ant-your-claude-key
 VITE_CUSTOM_API_BASE_URL_claude=https://api.anthropic.com/v1
 VITE_CUSTOM_API_MODEL_claude=claude-3-sonnet-20240229
+VITE_CUSTOM_API_PARAMS_claude={"temperature":0.3,"top_p":0.8}
 
 # Custom OpenAI Compatible Service
 VITE_CUSTOM_API_KEY_custom=your-custom-api-key
 VITE_CUSTOM_API_BASE_URL_custom=https://api.example.com/v1
 VITE_CUSTOM_API_MODEL_custom=custom-model-name
+VITE_CUSTOM_API_PARAMS_custom={"temperature":0.7,"top_p":0.9,"max_tokens":4096}
 ```
 
 #### Example 3: Mixed Configuration
@@ -78,7 +82,36 @@ VITE_CUSTOM_API_MODEL_cloud=gpt-4-turbo
 VITE_CUSTOM_API_KEY_dev=dev-api-key
 VITE_CUSTOM_API_BASE_URL_dev=https://dev-api.example.com/v1
 VITE_CUSTOM_API_MODEL_dev=dev-model
+VITE_CUSTOM_API_PARAMS_dev={"temperature":0.4}
 ```
+
+### Extra Request Parameters
+
+`VITE_CUSTOM_API_PARAMS_<suffix>` is useful when you need to:
+
+- set standard OpenAI-compatible fields such as `temperature`, `top_p`, or `max_tokens`
+- pass vendor-specific payload fields such as NVIDIA NIM's `chat_template_kwargs`
+- define stable defaults in Docker runtime configuration instead of re-entering them in the UI
+
+Example JSON payload:
+
+```json
+{
+  "chat_template_kwargs": {
+    "enable_thinking": true
+  },
+  "temperature": 0.6,
+  "top_p": 0.95,
+  "max_tokens": 16384
+}
+```
+
+Notes:
+
+- `PARAMS` must be a JSON object string
+- `model`, `messages`, and `stream` are reserved and will be ignored automatically
+- `timeout` is allowed and can be used to override request timeout behavior
+- for complex Docker Compose values, wrap the entire JSON string in single quotes
 
 ## Deployment Methods
 
@@ -95,6 +128,7 @@ VITE_GEMINI_API_KEY=your-gemini-key
 VITE_CUSTOM_API_KEY_ollama=dummy-key
 VITE_CUSTOM_API_BASE_URL_ollama=http://localhost:11434/v1
 VITE_CUSTOM_API_MODEL_ollama=qwen2.5:7b
+VITE_CUSTOM_API_PARAMS_ollama={"temperature":0.7}
 ```
 
 ### Docker Deployment
@@ -107,9 +141,11 @@ docker run -d -p 8081:80 \
   -e VITE_CUSTOM_API_KEY_ollama=dummy-key \
   -e VITE_CUSTOM_API_BASE_URL_ollama=http://host.docker.internal:11434/v1 \
   -e VITE_CUSTOM_API_MODEL_ollama=qwen2.5:7b \
+  -e 'VITE_CUSTOM_API_PARAMS_ollama={"temperature":0.7}' \
   -e VITE_CUSTOM_API_KEY_claude=your-claude-key \
   -e VITE_CUSTOM_API_BASE_URL_claude=https://api.anthropic.com/v1 \
   -e VITE_CUSTOM_API_MODEL_claude=claude-3-sonnet \
+  -e 'VITE_CUSTOM_API_PARAMS_claude={"temperature":0.3,"top_p":0.8}' \
   --restart unless-stopped \
   --name prompt-optimizer \
   linshen/prompt-optimizer
@@ -124,9 +160,11 @@ VITE_OPENAI_API_KEY=your-openai-key
 VITE_CUSTOM_API_KEY_ollama=dummy-key
 VITE_CUSTOM_API_BASE_URL_ollama=http://host.docker.internal:11434/v1
 VITE_CUSTOM_API_MODEL_ollama=qwen2.5:7b
+VITE_CUSTOM_API_PARAMS_ollama={"temperature":0.7}
 VITE_CUSTOM_API_KEY_qwen3=your-qwen3-key
 VITE_CUSTOM_API_BASE_URL_qwen3=http://host.docker.internal:11434/v1
 VITE_CUSTOM_API_MODEL_qwen3=qwen3:8b
+VITE_CUSTOM_API_PARAMS_qwen3={"temperature":0.6,"top_p":0.95}
 ```
 
 Run with environment file:
@@ -198,6 +236,7 @@ The system automatically validates configurations:
 2. **Required Fields Check**: Ensures all three environment variables are present
 3. **URL Format Check**: Validates BASE_URL format
 4. **Conflict Detection**: Prevents conflicts with built-in model names
+5. **PARAMS Shape Check**: Accepts only JSON objects for extra request parameters
 
 ### Error Handling
 
@@ -205,6 +244,7 @@ The system automatically validates configurations:
 - **Invalid Suffix**: Configuration skipped with warning log
 - **Duplicate Suffix**: Later configuration overwrites earlier one
 - **Network Issues**: Individual model failures don't affect system stability
+- **Invalid PARAMS JSON**: Extra parameters are ignored, but the model remains available
 
 ## Troubleshooting
 
@@ -233,6 +273,8 @@ A: Check browser console or application logs for:
 [scanCustomModelEnvVars] Found X valid custom models: [model1, model2, ...]
 [generateDynamicModels] Generated model: custom_modelname (Display Name)
 ```
+
+If you configured `PARAMS`, inspect the outgoing request payload in browser DevTools to verify the extra fields are present.
 
 ### Performance Optimization
 

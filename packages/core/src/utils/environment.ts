@@ -3,9 +3,10 @@
  */
 
 // 常量定义
-export const CUSTOM_API_PATTERN = /^VITE_CUSTOM_API_(KEY|BASE_URL|MODEL)_(.+)$/;
+export const CUSTOM_API_PATTERN = /^VITE_CUSTOM_API_(KEY|BASE_URL|MODEL|PARAMS)_(.+)$/;
 export const SUFFIX_PATTERN = /^[a-zA-Z0-9_-]+$/;
 export const MAX_SUFFIX_LENGTH = 50;
+const FORBIDDEN_CUSTOM_PARAM_KEYS = new Set(['model', 'messages', 'stream']);
 
 // 简单的缓存机制
 let cachedCustomModels: Record<string, ValidatedCustomModelEnvConfig> | null = null;
@@ -24,6 +25,8 @@ export interface CustomModelEnvConfig {
   baseURL?: string;
   /** 模型名称（可选） */
   model?: string;
+  /** 额外请求参数（JSON 字符串，可选） */
+  params?: string;
 }
 
 /**
@@ -39,6 +42,8 @@ export interface ValidatedCustomModelEnvConfig {
   baseURL: string;
   /** 模型名称（已验证存在） */
   model: string;
+  /** 已解析的额外请求参数（可选） */
+  params?: Record<string, unknown>;
 }
 
 /**
@@ -105,6 +110,38 @@ export function validateCustomModelConfig(config: CustomModelEnvConfig): Validat
   }
 
   return result;
+}
+
+function parseCustomModelParams(rawParams: string, suffix: string): Record<string, unknown> | undefined {
+  try {
+    const parsed = JSON.parse(rawParams);
+
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      console.warn(`[scanCustomModelEnvVars] Invalid PARAMS for ${suffix}: must be a JSON object`);
+      return undefined;
+    }
+
+    const sanitizedParams = { ...(parsed as Record<string, unknown>) };
+    const removedKeys: string[] = [];
+
+    FORBIDDEN_CUSTOM_PARAM_KEYS.forEach((key) => {
+      if (key in sanitizedParams) {
+        delete sanitizedParams[key];
+        removedKeys.push(key);
+      }
+    });
+
+    if (removedKeys.length > 0) {
+      console.warn(
+        `[scanCustomModelEnvVars] Ignored forbidden PARAMS keys for ${suffix}: ${removedKeys.join(', ')}`
+      );
+    }
+
+    return sanitizedParams;
+  } catch (error) {
+    console.warn(`[scanCustomModelEnvVars] Failed to parse PARAMS for ${suffix}:`, error);
+    return undefined;
+  }
 }
 
 /**
@@ -330,7 +367,8 @@ export function scanCustomModelEnvVars(useCache: boolean = true): Record<string,
           suffix,
           apiKey: undefined,
           baseURL: undefined,
-          model: undefined
+          model: undefined,
+          params: undefined
         };
       }
 
@@ -345,6 +383,9 @@ export function scanCustomModelEnvVars(useCache: boolean = true): Record<string,
         case 'MODEL':
           customModels[suffix].model = value;
           break;
+        case 'PARAMS':
+          customModels[suffix].params = value;
+          break;
         default:
           console.warn(`[scanCustomModelEnvVars] Unknown config type: ${configType} in ${key}`);
           break;
@@ -358,8 +399,21 @@ export function scanCustomModelEnvVars(useCache: boolean = true): Record<string,
     const validation = validateCustomModelConfig(config);
 
     if (validation.valid) {
-      // 类型断言：验证通过的配置确保所有必需字段存在
-      validModels[suffix] = config as ValidatedCustomModelEnvConfig;
+      const validatedConfig: ValidatedCustomModelEnvConfig = {
+        suffix: config.suffix,
+        apiKey: config.apiKey!,
+        baseURL: config.baseURL!,
+        model: config.model!
+      };
+
+      if (config.params) {
+        const parsedParams = parseCustomModelParams(config.params, suffix);
+        if (parsedParams !== undefined) {
+          validatedConfig.params = parsedParams;
+        }
+      }
+
+      validModels[suffix] = validatedConfig;
 
       // 输出警告信息
       if (validation.warnings.length > 0) {

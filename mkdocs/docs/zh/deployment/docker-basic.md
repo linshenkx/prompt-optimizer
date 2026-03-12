@@ -119,17 +119,35 @@ docker run -d --network prompt-net -p 8081:80 linshen/prompt-optimizer
 -e VITE_CUSTOM_API_KEY_ollama=dummy_key \
 -e VITE_CUSTOM_API_BASE_URL_ollama=http://host.docker.internal:11434/v1 \
 -e VITE_CUSTOM_API_MODEL_ollama=qwen2.5:7b \
+-e 'VITE_CUSTOM_API_PARAMS_ollama={"temperature":0.7}' \
 
 # 其他OpenAI兼容API
 -e VITE_CUSTOM_API_KEY_custom1=your-api-key \
 -e VITE_CUSTOM_API_BASE_URL_custom1=https://api.example.com/v1 \
 -e VITE_CUSTOM_API_MODEL_custom1=custom-model-name \
+-e 'VITE_CUSTOM_API_PARAMS_custom1={"temperature":0.6,"top_p":0.95}' \
 ```
 
 **配置规则**：
 - 变量名格式：`VITE_CUSTOM_API_[TYPE]_[NAME]`
-- `[TYPE]`：`KEY`、`BASE_URL`、`MODEL`
+- `[TYPE]`：`KEY`、`BASE_URL`、`MODEL`，以及可选的 `PARAMS`
 - `[NAME]`：自定义模型名称（只能包含字母、数字、下划线）
+
+#### 自定义模型额外请求参数
+
+如果你的 OpenAI 兼容服务还需要额外请求字段，可以使用：
+
+```bash
+-e 'VITE_CUSTOM_API_PARAMS_nvidia={"chat_template_kwargs":{"enable_thinking":true},"temperature":0.6,"top_p":0.95,"max_tokens":16384}'
+```
+
+说明：
+
+- `VITE_CUSTOM_API_PARAMS_<suffix>` 的值必须是 JSON 对象字符串
+- 字段会直接注入最终请求体，适合 `temperature`、`top_p`、`max_tokens` 等标准参数
+- 也支持供应商特有字段，例如 NVIDIA NIM 的 `chat_template_kwargs`
+- `model`、`messages`、`stream` 属于保留字段，会被系统自动忽略
+- 在 `docker run` 或 `docker compose` 中书写复杂 JSON 时，建议用单引号包裹整个值
 
 ### 访问控制配置
 
@@ -244,6 +262,7 @@ MCP_LOG_LEVEL=info
 VITE_CUSTOM_API_KEY_ollama=dummy_key
 VITE_CUSTOM_API_BASE_URL_ollama=http://host.docker.internal:11434/v1
 VITE_CUSTOM_API_MODEL_ollama=qwen2.5:7b
+VITE_CUSTOM_API_PARAMS_ollama={"temperature":0.7}
 ```
 
 ### 基本操作命令
