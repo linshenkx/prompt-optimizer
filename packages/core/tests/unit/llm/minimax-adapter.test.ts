@@ -40,9 +40,9 @@ describe('MinimaxAdapter', () => {
       }
     },
     modelMeta: {
-      id: 'MiniMax-M2.5',
-      name: 'MiniMax M2.5',
-      description: 'MiniMax latest flagship model',
+      id: 'MiniMax-M2.7',
+      name: 'MiniMax M2.7',
+      description: 'Latest flagship model with enhanced reasoning and coding',
       providerId: 'minimax',
       capabilities: {
         supportsTools: true,
@@ -118,20 +118,29 @@ describe('MinimaxAdapter', () => {
       expect(Array.isArray(models)).toBe(true);
       expect(models.length).toBeGreaterThan(0);
 
-      const m25 = models.find(m => m.id === 'MiniMax-M2.5');
-      expect(m25).toBeDefined();
-      expect(m25?.name).toBe('MiniMax M2.5');
-      expect(m25?.providerId).toBe('minimax');
-      expect(m25?.capabilities.supportsTools).toBe(true);
+      const m27 = models.find(m => m.id === 'MiniMax-M2.7');
+      expect(m27).toBeDefined();
+      expect(m27?.name).toBe('MiniMax M2.7');
+      expect(m27?.providerId).toBe('minimax');
+      expect(m27?.capabilities.supportsTools).toBe(true);
     });
 
     it('should include all expected models', () => {
       const models = adapter.getModels();
       const modelIds = models.map(m => m.id);
 
+      expect(modelIds).toContain('MiniMax-M2.7');
+      expect(modelIds).toContain('MiniMax-M2.7-highspeed');
       expect(modelIds).toContain('MiniMax-M2.5');
       expect(modelIds).toContain('MiniMax-M2.5-highspeed');
-      expect(models.length).toBe(2);
+      expect(models.length).toBe(4);
+    });
+
+    it('should have M2.7 as the first model', () => {
+      const models = adapter.getModels();
+
+      expect(models[0].id).toBe('MiniMax-M2.7');
+      expect(models[1].id).toBe('MiniMax-M2.7-highspeed');
     });
 
     it('should have capabilities for each model', () => {
@@ -162,7 +171,7 @@ describe('MinimaxAdapter', () => {
         id: 'chatcmpl-minimax-123',
         object: 'chat.completion',
         created: Date.now(),
-        model: 'MiniMax-M2.5',
+        model: 'MiniMax-M2.7',
         choices: [{
           index: 0,
           message: {
@@ -184,7 +193,7 @@ describe('MinimaxAdapter', () => {
 
       expect(response.content).toBe('Hello from MiniMax!');
       expect(response.metadata).toEqual({
-        model: 'MiniMax-M2.5',
+        model: 'MiniMax-M2.7',
         finishReason: 'stop'
       });
     });
