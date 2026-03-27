@@ -18,7 +18,8 @@ const PROVIDER_ENV_KEYS = {
   dashscope: 'VITE_DASHSCOPE_API_KEY',
   openrouter: 'VITE_OPENROUTER_API_KEY',
   modelscope: 'VITE_MODELSCOPE_API_KEY',
-  minimax: 'VITE_MINIMAX_API_KEY'
+  minimax: 'VITE_MINIMAX_API_KEY',
+  ofoxai: 'VITE_OFOXAI_API_KEY'
 } as const;
 
 /**
