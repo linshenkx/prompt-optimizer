@@ -2,6 +2,10 @@
 
 Full release narratives now live in versioned files under `releases/`. This file stays as the index and summary entry point.
 
+## [2.10.2] - 2026-05-06
+- EN: This patch clarifies Prompt Optimizer and Prompt Garden positioning, adds a bilingual Prompt Garden image workflow tutorial, and fixes optional prompt-asset variable handling. See [Release Notes (EN)](releases/v2.10.2.en.md).
+- 中文：本次补丁澄清 Prompt Optimizer 与 Prompt Garden 的产品定位，新增双语 Prompt Garden 图像工作流教程，并修复可选提示词资产变量处理。参见 [版本说明（中文）](releases/v2.10.2.zh-CN.md)。
+
 ## [2.10.1] - 2026-05-04
 - EN: This patch adds a comprehensive MkDocs documentation site with bilingual support, fixes Pro workspace actions broken by RouterView refactoring, corrects Prompt Garden nav paths, and updates project landing page copy. See [Release Notes (EN)](releases/v2.10.1.en.md).
 - 中文：本次补丁新增完整的 MkDocs 双语文档站，修复 RouterView 重构导致的 Pro 工作区操作失效，修正 Prompt Garden 导航路径，并更新项目落地页文案。参见 [版本说明（中文）](releases/v2.10.1.zh-CN.md)。
