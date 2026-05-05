@@ -41,7 +41,12 @@ describe('VariableValueGenerationService runtime messages', () => {
         { name: 'audience', currentValue: 'high school students', source: 'test' },
       ],
       variables: [
-        { name: 'style', source: 'test' },
+        {
+          name: 'style',
+          description: 'Writing style',
+          defaultValue: 'explainer',
+          source: 'test',
+        },
         { name: 'length', source: 'test' },
       ],
     })
@@ -49,7 +54,9 @@ describe('VariableValueGenerationService runtime messages', () => {
     const messages = sendMessage.mock.calls[0][0]
     expect(messages[0].content).toContain('1. topic (current value: AI) [test]')
     expect(messages[0].content).toContain('2. audience (current value: high school students) [test]')
-    expect(messages[0].content).toContain('1. style [test]')
+    expect(messages[0].content).toContain(
+      '1. style (description: Writing style) (default value: explainer) [test]',
+    )
     expect(messages[0].content).toContain('2. length [test]')
     expect(messages[0].content).toContain('ContextCount=2 MissingCount=2')
     expect(result.values.map((value) => value.name)).toEqual(['style', 'length'])

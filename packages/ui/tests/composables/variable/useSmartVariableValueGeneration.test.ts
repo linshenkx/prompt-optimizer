@@ -45,4 +45,33 @@ describe('buildVariableValueGenerationPlan', () => {
     ])
     expect(plan.contextVariables).toEqual([])
   })
+
+  it('attaches variable metadata when available', () => {
+    const values: Record<string, string> = {
+      tone: '',
+      audience: 'developers',
+    }
+
+    const plan = buildVariableValueGenerationPlan(
+      ['tone', 'audience'],
+      (name) => values[name] ?? '',
+      () => 'test',
+      '',
+      (name) => name === 'tone'
+        ? {
+            description: 'Writing tone',
+            defaultValue: 'friendly',
+          }
+        : undefined
+    )
+
+    expect(plan.variablesToGenerate).toEqual([
+      {
+        name: 'tone',
+        description: 'Writing tone',
+        defaultValue: 'friendly',
+        source: 'test',
+      },
+    ])
+  })
 })

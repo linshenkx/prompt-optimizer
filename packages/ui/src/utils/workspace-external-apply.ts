@@ -53,6 +53,22 @@ export type WorkspaceExternalApplySessions = {
 export type WorkspaceVariableDefinition = {
   name: string
   defaultValue?: unknown
+  description?: unknown
+  required?: unknown
+  options?: unknown
+}
+
+export const OPTIONAL_VARIABLE_PLACEHOLDER = 'undefined'
+
+const resolveVariableApplyValue = (
+  variable: WorkspaceVariableDefinition | undefined,
+  value: unknown = variable?.defaultValue,
+): string => {
+  if (value !== undefined && value !== null && String(value).trim() !== '') {
+    return String(value)
+  }
+
+  return variable?.required === false ? OPTIONAL_VARIABLE_PLACEHOLDER : ''
 }
 
 export const getWorkspaceTemporaryVariablesSession = (
@@ -147,17 +163,24 @@ export const applyWorkspaceTemporaryVariables = (
   const variableEntries = opts.variables
     .map((variable) => ({
       name: String(variable?.name || '').trim(),
-      value: variable?.defaultValue !== undefined ? String(variable.defaultValue) : '',
+      value: resolveVariableApplyValue(variable),
+      definition: variable,
     }))
     .filter((variable) => isValidVariableName(variable.name))
 
   const variableNames = new Set(variableEntries.map((variable) => variable.name))
+  const variableDefinitions = new Map(variableEntries.map((variable) => [
+    variable.name,
+    variable.definition,
+  ]))
   const preservedValues = new Map<string, string>()
 
   if (opts.preserveExistingValues) {
     for (const { name } of variableEntries) {
       const existing = session.getTemporaryVariable(name)
-      if (existing !== undefined) preservedValues.set(name, existing)
+      if (existing !== undefined && String(existing).trim() !== '') {
+        preservedValues.set(name, existing)
+      }
     }
   }
 
@@ -171,7 +194,7 @@ export const applyWorkspaceTemporaryVariables = (
     const name = key.trim()
     if (!isValidVariableName(name)) continue
     if (opts.restrictParametersToDefinitions && variableNames.size > 0 && !variableNames.has(name)) continue
-    session.setTemporaryVariable(name, String(value))
+    session.setTemporaryVariable(name, resolveVariableApplyValue(variableDefinitions.get(name), value))
   }
 }
 

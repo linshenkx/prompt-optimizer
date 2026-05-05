@@ -136,6 +136,8 @@ export class VariableValueGenerationService implements IVariableValueGenerationS
     const formatVariables = (variables: VariableToGenerate[]): string => variables
       .map((v, idx) => {
         const parts = [`${idx + 1}. ${v.name}`];
+        if (v.description?.trim()) parts.push(`(description: ${v.description.trim()})`);
+        if (v.defaultValue?.trim()) parts.push(`(default value: ${v.defaultValue.trim()})`);
         if (v.currentValue) parts.push(`(current value: ${v.currentValue})`);
         if (v.source) parts.push(`[${v.source}]`);
         return parts.join(' ');

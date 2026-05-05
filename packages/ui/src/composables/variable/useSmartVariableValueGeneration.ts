@@ -15,6 +15,11 @@ import { formatErrorSummary } from '../../utils/error'
 
 type VariableSource = 'predefined' | 'test' | 'global' | 'empty'
 
+export type VariableValueGenerationMetadata = {
+  description?: string
+  defaultValue?: string
+}
+
 export interface UseSmartVariableValueGenerationOptions {
   services: Ref<AppServices | null>
 
@@ -25,6 +30,7 @@ export interface UseSmartVariableValueGenerationOptions {
   variableNames: Ref<string[]> | ComputedRef<string[]>
   getVariableValue: (name: string) => string
   getVariableSource: (name: string) => VariableSource
+  getVariableMetadata?: (name: string) => VariableValueGenerationMetadata | undefined
   applyValue: (name: string, value: string) => void
 
   // Optional fallback model key, e.g. passed from workspace props.
@@ -48,14 +54,18 @@ export function buildVariableValueGenerationPlan(
   variableNames: string[],
   getVariableValue: (name: string) => string,
   getVariableSource: (name: string) => VariableSource,
-  targetName = ''
+  targetName = '',
+  getVariableMetadata?: (name: string) => VariableValueGenerationMetadata | undefined
 ): VariableValueGenerationPlan {
   const buildVariableToGenerate = (name: string): VariableToGenerate => {
     const currentValueRaw = getVariableValue(name)
     const currentValue = typeof currentValueRaw === 'string' ? currentValueRaw : String(currentValueRaw ?? '')
     const trimmedCurrentValue = currentValue.trim()
+    const metadata = getVariableMetadata?.(name)
     return {
       name,
+      ...(metadata?.description?.trim() ? { description: metadata.description.trim() } : {}),
+      ...(metadata?.defaultValue?.trim() ? { defaultValue: metadata.defaultValue.trim() } : {}),
       source: getVariableSource(name),
       ...(trimmedCurrentValue ? { currentValue: trimmedCurrentValue } : {}),
     }
@@ -112,7 +122,8 @@ export function useSmartVariableValueGeneration(
       options.variableNames.value,
       options.getVariableValue,
       options.getVariableSource,
-      trimmedTargetName
+      trimmedTargetName,
+      options.getVariableMetadata
     )
 
     if (!trimmedTargetName && variablesToGenerate.length === 0) {

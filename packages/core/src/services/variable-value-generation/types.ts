@@ -11,6 +11,12 @@ export interface VariableToGenerate {
   /** 变量名 */
   name: string;
 
+  /** 变量描述（可选，用于LLM理解语义） */
+  description?: string;
+
+  /** 默认值（可选，用于LLM参考） */
+  defaultValue?: string;
+
   /** 当前值（可选，用于LLM参考） */
   currentValue?: string;
 
