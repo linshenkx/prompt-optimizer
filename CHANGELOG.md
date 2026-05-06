@@ -2,6 +2,10 @@
 
 Full release narratives now live in versioned files under `releases/`. This file stays as the index and summary entry point.
 
+## [2.10.3] - 2026-05-06
+- EN: This patch adds a best-effort LLM image-input compatibility layer so non-standard input formats can be converted to PNG before provider requests without changing stored assets. See [Release Notes (EN)](releases/v2.10.3.en.md).
+- 中文：本次补丁新增 LLM 输入图片格式兼容层，在不改变已保存素材的前提下，尽力将非标准输入格式转为 PNG 后再请求模型。参见 [版本说明（中文）](releases/v2.10.3.zh-CN.md)。
+
 ## [2.10.2] - 2026-05-06
 - EN: This patch clarifies Prompt Optimizer and Prompt Garden positioning, adds a bilingual Prompt Garden image workflow tutorial, and fixes optional prompt-asset variable handling. See [Release Notes (EN)](releases/v2.10.2.en.md).
 - 中文：本次补丁澄清 Prompt Optimizer 与 Prompt Garden 的产品定位，新增双语 Prompt Garden 图像工作流教程，并修复可选提示词资产变量处理。参见 [版本说明（中文）](releases/v2.10.2.zh-CN.md)。
