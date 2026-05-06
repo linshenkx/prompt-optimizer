@@ -2,12 +2,16 @@ import { TextAdapterRegistry } from '../llm/adapters/registry'
 import { RequestConfigError } from '../llm/errors'
 import type { IImageUnderstandingService, ImageUnderstandingExecutionRequest, CreateImageUnderstandingServiceOptions } from './types'
 import type { ITextAdapterRegistry, StreamHandlers } from '../llm/types'
+import type { ImageInputCompatibilityOptions } from '../image/types'
+import { normalizeImageInputsForLlm } from '../image/input-normalizer'
 
 export class ImageUnderstandingService implements IImageUnderstandingService {
   private readonly registry: ITextAdapterRegistry
+  private readonly imageInputOptions: ImageInputCompatibilityOptions
 
   constructor(options: CreateImageUnderstandingServiceOptions = {}) {
     this.registry = options.registry ?? new TextAdapterRegistry()
+    this.imageInputOptions = { imageInputConverter: options.imageInputConverter }
   }
 
   async understand(request: ImageUnderstandingExecutionRequest) {
@@ -15,8 +19,9 @@ export class ImageUnderstandingService implements IImageUnderstandingService {
 
     const providerId = request.modelConfig.providerMeta.id
     const adapter = this.registry.getAdapter(providerId)
+    const runtimeRequest = await this.prepareRuntimeRequest(request)
 
-    return await adapter.sendImageUnderstanding(request, request.modelConfig)
+    return await adapter.sendImageUnderstanding(runtimeRequest, request.modelConfig)
   }
 
   async understandStream(
@@ -27,8 +32,9 @@ export class ImageUnderstandingService implements IImageUnderstandingService {
 
     const providerId = request.modelConfig.providerMeta.id
     const adapter = this.registry.getAdapter(providerId)
+    const runtimeRequest = await this.prepareRuntimeRequest(request)
 
-    await adapter.sendImageUnderstandingStream(request, request.modelConfig, callbacks)
+    await adapter.sendImageUnderstandingStream(runtimeRequest, request.modelConfig, callbacks)
   }
 
   private validateRequest(request: ImageUnderstandingExecutionRequest): void {
@@ -51,6 +57,16 @@ export class ImageUnderstandingService implements IImageUnderstandingService {
 
     if (!modelConfig.enabled) {
       throw new RequestConfigError('Model is not enabled')
+    }
+  }
+
+  private async prepareRuntimeRequest(
+    request: ImageUnderstandingExecutionRequest
+  ): Promise<ImageUnderstandingExecutionRequest> {
+    const images = await normalizeImageInputsForLlm(request.images, this.imageInputOptions)
+    return {
+      ...request,
+      images: images ?? request.images,
     }
   }
 }

@@ -6,6 +6,8 @@ export type {
   ImageModel,
   ImageModelConfig,
   ImageInputRef,
+  ImageInputConverter,
+  ImageInputCompatibilityOptions,
   ImageRequest,
   Text2ImageRequest,
   Image2ImageRequest,

@@ -22,7 +22,7 @@ const consoleLogger = new ConsoleLogger();
 // 立即设置全局错误处理器，确保任何异常都能被记录
 consoleLogger.setupGlobalErrorHandlers();
 
-const { app, BrowserWindow, ipcMain, shell, session, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, session, Menu, nativeImage } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const {
   buildReleaseUrl,
@@ -99,6 +99,37 @@ function safeSerialize(obj) {
   } catch (error) {
     console.error('[IPC Serialization] Failed to serialize object:', error);
     throw new Error(`Failed to serialize object for IPC: ${error.message}`);
+  }
+}
+
+async function convertImageInputWithElectronNativeImage(input) {
+  try {
+    if (!input || typeof input.b64 !== 'string' || !input.b64.trim()) {
+      return null;
+    }
+
+    const mimeType = typeof input.mimeType === 'string' && input.mimeType.trim()
+      ? input.mimeType.trim()
+      : 'application/octet-stream';
+    const source = input.b64.startsWith('data:')
+      ? input.b64
+      : `data:${mimeType};base64,${input.b64}`;
+    const image = nativeImage.createFromDataURL(source);
+    if (image.isEmpty()) {
+      return null;
+    }
+
+    const pngBuffer = image.toPNG();
+    if (!pngBuffer || pngBuffer.length === 0) {
+      return null;
+    }
+
+    return {
+      b64: pngBuffer.toString('base64'),
+      mimeType: 'image/png'
+    };
+  } catch {
+    return null;
   }
 }
 
@@ -654,10 +685,14 @@ async function initializeServices() {
       llmService,
       templateManager,
       historyManager,
-      createImageUnderstandingService(),
+      createImageUnderstandingService({
+        imageInputConverter: convertImageInputWithElectronNativeImage,
+      }),
     );
     console.log('[DESKTOP] Creating Image service...');
-    imageService = createImageService(imageModelManager, imageAdapterRegistry);
+    imageService = createImageService(imageModelManager, imageAdapterRegistry, {
+      imageInputConverter: convertImageInputWithElectronNativeImage,
+    });
     
     console.log('[DESKTOP] Creating Context repository...');
     contextRepo = createContextRepo(storageProvider);

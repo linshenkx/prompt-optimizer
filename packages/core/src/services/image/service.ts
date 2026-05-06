@@ -11,6 +11,7 @@ import {
   MultiImageRequest,
   MultiImageGenerationRequest,
   ImageInputRef,
+  ImageInputCompatibilityOptions,
 } from './types'
 import { createImageAdapterRegistry } from './adapters/registry'
 import { BaseError } from '../llm/errors'
@@ -18,6 +19,7 @@ import { IMAGE_ERROR_CODES } from '../../constants/error-codes'
 import { mergeOverrides } from '../model/parameter-utils'
 import { ImageError } from './errors'
 import { toErrorWithCode } from '../../utils/error'
+import { normalizeImageInputForLlm, normalizeImageInputsForLlm } from './input-normalizer'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -26,10 +28,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export class ImageService implements IImageService {
   private readonly registry: IImageAdapterRegistry
   private readonly imageModelManager: IImageModelManager
+  private readonly imageInputOptions: ImageInputCompatibilityOptions
 
-  constructor(imageModelManager: IImageModelManager, registry?: IImageAdapterRegistry) {
+  constructor(
+    imageModelManager: IImageModelManager,
+    registry?: IImageAdapterRegistry,
+    imageInputOptions: ImageInputCompatibilityOptions = {}
+  ) {
     this.imageModelManager = imageModelManager
     this.registry = registry ?? createImageAdapterRegistry()
+    this.imageInputOptions = imageInputOptions
   }
 
   async validateRequest(request: ImageRequest): Promise<void> {
@@ -198,12 +206,7 @@ export class ImageService implements IImageService {
       throw new ImageError(IMAGE_ERROR_CODES.INPUT_IMAGE_INVALID_FORMAT)
     }
 
-    // 验证输入图像 MIME 类型和大小
-    const mime = (inputImage.mimeType || '').toLowerCase()
-    if (mime && mime !== 'image/png' && mime !== 'image/jpeg') {
-      throw new ImageError(IMAGE_ERROR_CODES.INPUT_IMAGE_UNSUPPORTED_MIME, undefined, { mimeType: inputImage.mimeType })
-    }
-
+    // 非标准 MIME 由 LLM 请求前的兼容层尽力转成 PNG；转换失败时保留原格式交给 provider。
     // 估算 base64 大小：每4字符≈3字节，去除末尾填充
     const len = inputImage.b64.length
     const padding = (inputImage.b64.endsWith('==') ? 2 : inputImage.b64.endsWith('=') ? 1 : 0)
@@ -245,7 +248,7 @@ export class ImageService implements IImageService {
     // 获取适配器
     const adapter = this.registry.getAdapter(config.providerId)
     const runtimeConfig = this.prepareRuntimeConfig(config)
-    const runtimeRequest = this.prepareRuntimeRequest(request, runtimeConfig)
+    const runtimeRequest = await this.prepareRuntimeRequest(request, runtimeConfig)
 
     try {
       // 调用适配器生成
@@ -318,7 +321,7 @@ export class ImageService implements IImageService {
       }
     }
 
-    const runtimeRequest = this.prepareRuntimeRequest(request, runtimeConfig)
+    const runtimeRequest = await this.prepareRuntimeRequest(request, runtimeConfig)
     // 直接调用适配器，绕过 imageModelManager 的存储查找
     try {
       return await adapter.generate(runtimeRequest, runtimeConfig)
@@ -357,7 +360,7 @@ export class ImageService implements IImageService {
     }
   }
 
-  private prepareRuntimeRequest(request: ImageRequest, config: ImageModelConfig): ImageRequest {
+  private async prepareRuntimeRequest(request: ImageRequest, config: ImageModelConfig): Promise<ImageRequest> {
     // 最终兜底：不允许把 url 输入图透传给适配器。
     const unsafeInputImage = (request as unknown as { inputImage?: unknown }).inputImage
     if (isRecord(unsafeInputImage) && typeof unsafeInputImage.url === 'string' && unsafeInputImage.url.trim()) {
@@ -378,6 +381,14 @@ export class ImageService implements IImageService {
         })
       : undefined
 
+    const normalizedLlmInputImages = await normalizeImageInputsForLlm(
+      normalizedInputImages,
+      this.imageInputOptions,
+    )
+    const normalizedLlmInputImage = request.inputImage
+      ? await normalizeImageInputForLlm(request.inputImage, this.imageInputOptions)
+      : undefined
+
     const schema = config.model?.parameterDefinitions ?? []
 
     // 请求级别的参数覆盖，同样需要考虑旧格式
@@ -396,14 +407,18 @@ export class ImageService implements IImageService {
     return {
       ...request,
       inputImage:
-        request.inputImage ??
-        (normalizedInputImages && normalizedInputImages.length === 1
-          ? normalizedInputImages[0]
+        normalizedLlmInputImage ??
+        (normalizedLlmInputImages && normalizedLlmInputImages.length === 1
+          ? normalizedLlmInputImages[0]
           : undefined),
-      inputImages: normalizedInputImages,
+      inputImages: normalizedLlmInputImages,
       paramOverrides: normalizedOverrides
     }
   }
 }
 
-export const createImageService = (imageModelManager: IImageModelManager, registry?: IImageAdapterRegistry) => new ImageService(imageModelManager, registry)
+export const createImageService = (
+  imageModelManager: IImageModelManager,
+  registry?: IImageAdapterRegistry,
+  imageInputOptions: ImageInputCompatibilityOptions = {}
+) => new ImageService(imageModelManager, registry, imageInputOptions)

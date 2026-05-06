@@ -75,6 +75,14 @@ export interface ImageInputRef {
   mimeType?: string
 }
 
+export type ImageInputConverter = (
+  input: ImageInputRef
+) => ImageInputRef | null | undefined | Promise<ImageInputRef | null | undefined>
+
+export interface ImageInputCompatibilityOptions {
+  imageInputConverter?: ImageInputConverter
+}
+
 export interface ImageRequest {
   prompt: string
   configId: string                        // 直接使用配置ID，简化调用

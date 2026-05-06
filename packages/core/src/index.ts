@@ -94,6 +94,8 @@ export type {
   ImageStorageConfig,
   IImageStorageService,
   ImageInputRef,
+  ImageInputConverter,
+  ImageInputCompatibilityOptions,
 } from './services/image/types'
 // 导出图像存储相关函数和类型
 export { isImageRef, createImageRef } from './services/image/types'
