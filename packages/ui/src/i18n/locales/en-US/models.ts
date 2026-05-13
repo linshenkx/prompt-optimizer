@@ -68,7 +68,11 @@ const messages = {
         "belowMin": "Value cannot be less than {min}",
         "aboveMax": "Value cannot be greater than {max}",
         "mustBeInteger": "Must be an integer"
-      }
+      },
+      "formatJson": "JSON",
+      "formatString": "String",
+      "parsedAsObject": "Parsed as Object ✓",
+      "invalidJson": "Invalid JSON, will be sent as string"
     },
     "modelKeyPlaceholder": "Enter model key",
     "displayNamePlaceholder": "Enter display name",

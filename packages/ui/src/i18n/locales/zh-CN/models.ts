@@ -69,7 +69,11 @@ const messages = {
         "belowMin": "参数值不能小于 {min}",
         "aboveMax": "参数值不能大于 {max}",
         "mustBeInteger": "参数值必须是整数"
-      }
+      },
+      "formatJson": "JSON",
+      "formatString": "字符串",
+      "parsedAsObject": "已解析为 Object ✓",
+      "invalidJson": "无效 JSON，将作为字符串发送"
     },
     "modelKeyPlaceholder": "请输入模型标识",
     "displayNamePlaceholder": "请输入显示名称",

@@ -68,7 +68,11 @@ const messages = {
         "belowMin": "參數值不能小於 {min}",
         "aboveMax": "參數值不能大於 {max}",
         "mustBeInteger": "參數值必須是整數"
-      }
+      },
+      "formatJson": "JSON",
+      "formatString": "字串",
+      "parsedAsObject": "已解析為 Object ✓",
+      "invalidJson": "無效 JSON，將作為字串發送"
     },
     "modelKeyPlaceholder": "請輸入模型標識",
     "displayNamePlaceholder": "請輸入顯示名稱",
