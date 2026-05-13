@@ -119,15 +119,49 @@
               </NButton>
             </NSpace>
           </template>
-          <NInput
-            type="textarea"
-            size="small"
-            :autosize="{ minRows: 1, maxRows: 3 }"
-            :value="String(paramOverrides[entry.key] ?? '')"
-            data-test="custom-param-input"
-            class="advanced-control"
-            @update:value="value => handleCustomValueChange(entry.key, value)"
-          />
+          <NSpace vertical :size="4" style="width: 100%; max-width: 320px;">
+            <NSpace :size="4">
+              <NButton
+                size="tiny"
+                :type="(customParamFormats[entry.key] ?? 'string') === 'json' ? 'primary' : 'default'"
+                @click="handleCustomFormatToggle(entry.key, 'json')"
+              >
+                {{ t('modelManager.advancedParameters.formatJson') }}
+              </NButton>
+              <NButton
+                size="tiny"
+                :type="(customParamFormats[entry.key] ?? 'string') === 'string' ? 'primary' : 'default'"
+                @click="handleCustomFormatToggle(entry.key, 'string')"
+              >
+                {{ t('modelManager.advancedParameters.formatString') }}
+              </NButton>
+            </NSpace>
+            <NInput
+              type="textarea"
+              size="small"
+              :autosize="{ minRows: 1, maxRows: 6 }"
+              :value="getCustomDisplayValue(entry.key)"
+              data-test="custom-param-input"
+              class="advanced-control"
+              @update:value="value => handleCustomValueChange(entry.key, value)"
+            />
+            <NText
+              v-if="(customParamFormats[entry.key] ?? 'string') === 'json'"
+              :depth="paramOverrides[entry.key] !== null && typeof paramOverrides[entry.key] === 'object' ? 3 : undefined"
+              :style="{
+                fontSize: '12px',
+                color: paramOverrides[entry.key] !== null && typeof paramOverrides[entry.key] === 'object'
+                  ? undefined
+                  : 'var(--n-color-error, #d03050)'
+              }"
+            >
+              {{
+                paramOverrides[entry.key] !== null && typeof paramOverrides[entry.key] === 'object'
+                  ? t('modelManager.advancedParameters.parsedAsObject')
+                  : t('modelManager.advancedParameters.invalidJson')
+              }}
+            </NText>
+          </NSpace>
         </NFormItem>
       </NForm>
     </template>
@@ -241,13 +275,49 @@
               </NButton>
             </NSpace>
           </template>
-          <NInput
-            size="small"
-            :value="String(paramOverrides[entry.key] ?? '')"
-            data-test="custom-param-input"
-            class="advanced-control"
-            @update:value="value => handleCustomValueChange(entry.key, value)"
-          />
+          <NSpace vertical :size="4" style="width: 100%; max-width: 320px;">
+            <NSpace :size="4">
+              <NButton
+                size="tiny"
+                :type="(customParamFormats[entry.key] ?? 'string') === 'json' ? 'primary' : 'default'"
+                @click="handleCustomFormatToggle(entry.key, 'json')"
+              >
+                {{ t('modelManager.advancedParameters.formatJson') }}
+              </NButton>
+              <NButton
+                size="tiny"
+                :type="(customParamFormats[entry.key] ?? 'string') === 'string' ? 'primary' : 'default'"
+                @click="handleCustomFormatToggle(entry.key, 'string')"
+              >
+                {{ t('modelManager.advancedParameters.formatString') }}
+              </NButton>
+            </NSpace>
+            <NInput
+              type="textarea"
+              size="small"
+              :autosize="{ minRows: 1, maxRows: 6 }"
+              :value="getCustomDisplayValue(entry.key)"
+              data-test="custom-param-input"
+              class="advanced-control"
+              @update:value="value => handleCustomValueChange(entry.key, value)"
+            />
+            <NText
+              v-if="(customParamFormats[entry.key] ?? 'string') === 'json'"
+              :depth="paramOverrides[entry.key] !== null && typeof paramOverrides[entry.key] === 'object' ? 3 : undefined"
+              :style="{
+                fontSize: '12px',
+                color: paramOverrides[entry.key] !== null && typeof paramOverrides[entry.key] === 'object'
+                  ? undefined
+                  : 'var(--n-color-error, #d03050)'
+              }"
+            >
+              {{
+                paramOverrides[entry.key] !== null && typeof paramOverrides[entry.key] === 'object'
+                  ? t('modelManager.advancedParameters.parsedAsObject')
+                  : t('modelManager.advancedParameters.invalidJson')
+              }}
+            </NText>
+          </NSpace>
         </NFormItem>
       </NForm>
     </template>
@@ -255,7 +325,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, type PropType } from 'vue'
+import { computed, ref, watch, type PropType } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import { useMessage, createDiscreteApi, NAlert, NButton, NCheckbox, NForm, NFormItem, NInput, NInputNumber, NSelect, NSpace, NTag, NText } from 'naive-ui'
@@ -294,6 +364,21 @@ const schemaMap = computed(() => {
   }
   return map
 })
+
+const customParamFormats = ref<Record<string, 'json' | 'string'>>({})
+
+watch(
+  () => props.paramOverrides,
+  (overrides) => {
+    for (const key of Object.keys(overrides)) {
+      if (!schemaMap.value.has(key) && !(key in customParamFormats.value)) {
+        const val = overrides[key]
+        customParamFormats.value[key] = (val !== null && typeof val === 'object') ? 'json' : 'string'
+      }
+    }
+  },
+  { immediate: true }
+)
 
 // 区分已定义参数和自定义参数
 const definedEntries = computed(() => {
@@ -382,15 +467,51 @@ const handleCustomValueChange = (key: string, value: string) => {
   if (trimmed === '') {
     delete next[key]
   } else {
-    next[key] = parseCustomValue(trimmed)
+    const format = customParamFormats.value[key] ?? 'string'
+    if (format === 'json') {
+      next[key] = parseCustomValue(trimmed)
+    } else {
+      next[key] = trimmed
+    }
   }
   emit('update:paramOverrides', next)
+}
+
+const getCustomDisplayValue = (key: string): string => {
+  const val = props.paramOverrides[key]
+  if (val !== null && typeof val === 'object') {
+    return JSON.stringify(val, null, 2)
+  }
+  return val === undefined ? '' : String(val)
+}
+
+const handleCustomFormatToggle = (key: string, format: 'json' | 'string') => {
+  if (format === 'json') {
+    const currentText = getCustomDisplayValue(key)
+    const parsed = parseCustomValue(currentText)
+    if (parsed !== null && typeof parsed === 'object') {
+      customParamFormats.value[key] = 'json'
+      const next = { ...props.paramOverrides, [key]: parsed }
+      emit('update:paramOverrides', next)
+    } else {
+      message.error(t('modelManager.advancedParameters.invalidJson'))
+    }
+  } else {
+    customParamFormats.value[key] = 'string'
+    const next = { ...props.paramOverrides }
+    const val = next[key]
+    if (val !== null && typeof val === 'object') {
+      next[key] = JSON.stringify(val)
+    }
+    emit('update:paramOverrides', next)
+  }
 }
 
 defineExpose({
   handleAddDefinition,
   handleValueChange,
-  handleCustomValueChange
+  handleCustomValueChange,
+  handleCustomFormatToggle
 })
 
 function normalizeValue(definition: UnifiedParameterDefinition, rawValue: unknown): unknown {
