@@ -458,6 +458,7 @@ const handleValueChange = (definition: UnifiedParameterDefinition, rawValue: unk
 const handleRemove = (key: string) => {
   const next = { ...props.paramOverrides }
   delete next[key]
+  delete customParamFormats.value[key]
   emit('update:paramOverrides', next)
 }
 
@@ -489,7 +490,7 @@ const handleCustomFormatToggle = (key: string, format: 'json' | 'string') => {
   if (format === 'json') {
     const currentText = getCustomDisplayValue(key)
     const parsed = parseCustomValue(currentText)
-    if (parsed !== null && typeof parsed === 'object') {
+    if (parsed !== currentText) {
       customParamFormats.value[key] = 'json'
       const next = { ...props.paramOverrides, [key]: parsed }
       emit('update:paramOverrides', next)
