@@ -5,6 +5,13 @@ import {
   isValueEmpty
 } from './parameter-schema'
 
+function normalizePythonLiterals(input: string): string {
+  return input
+    .replace(/\bTrue\b/g, 'true')
+    .replace(/\bFalse\b/g, 'false')
+    .replace(/\bNone\b/g, 'null')
+}
+
 /**
  * 智能解析自定义参数值，自动推断类型
  * - true/false -> boolean
@@ -41,6 +48,11 @@ export function parseCustomValue(value: string): unknown {
       (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
     try {
       return JSON.parse(trimmed)
+    } catch {
+      // 尝试规范化 Python 风格字面量后重试
+    }
+    try {
+      return JSON.parse(normalizePythonLiterals(trimmed))
     } catch {
       // 解析失败，作为字符串处理
     }

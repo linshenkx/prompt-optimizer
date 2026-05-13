@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   mergeOverrides,
+  parseCustomValue,
   splitOverridesBySchema,
   validateOverrides
 } from '../../src/services/model/parameter-utils'
@@ -85,5 +86,43 @@ describe('parameter-utils', () => {
     })
     expect(errors.length).toBe(1)
     expect(errors[0].parameterName).toBe('apiKey')
+  })
+
+  describe('parseCustomValue', () => {
+    it('parses standard JSON object', () => {
+      expect(parseCustomValue('{"key": "value"}')).toEqual({ key: 'value' })
+    })
+
+    it('parses Python-style False/True/None in JSON object', () => {
+      expect(parseCustomValue('{"enable_thinking": False}')).toEqual({ enable_thinking: false })
+      expect(parseCustomValue('{"flag": True}')).toEqual({ flag: true })
+      expect(parseCustomValue('{"val": None}')).toEqual({ val: null })
+    })
+
+    it('parses mixed Python/JSON literals', () => {
+      expect(parseCustomValue('{"a": True, "b": False, "c": None}')).toEqual({
+        a: true, b: false, c: null
+      })
+    })
+
+    it('returns string when content is not valid JSON even after normalization', () => {
+      expect(parseCustomValue('{broken')).toBe('{broken')
+    })
+
+    it('parses JSON array', () => {
+      expect(parseCustomValue('[1, 2, 3]')).toEqual([1, 2, 3])
+    })
+
+    it('parses booleans, null, integers, floats', () => {
+      expect(parseCustomValue('true')).toBe(true)
+      expect(parseCustomValue('false')).toBe(false)
+      expect(parseCustomValue('null')).toBe(null)
+      expect(parseCustomValue('42')).toBe(42)
+      expect(parseCustomValue('3.14')).toBe(3.14)
+    })
+
+    it('returns plain string for non-special input', () => {
+      expect(parseCustomValue('hello world')).toBe('hello world')
+    })
   })
 })
