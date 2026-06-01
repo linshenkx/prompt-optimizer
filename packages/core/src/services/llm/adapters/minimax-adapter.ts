@@ -11,9 +11,19 @@ interface ModelOverride {
 
 const MINIMAX_STATIC_MODELS: ModelOverride[] = [
   {
+    id: 'MiniMax-M3',
+    name: 'MiniMax M3',
+    description: 'Latest flagship model with enhanced reasoning and coding',
+    capabilities: {
+      supportsTools: true,
+      supportsReasoning: false,
+      maxContextLength: 1000000
+    }
+  },
+  {
     id: 'MiniMax-M2.7',
     name: 'MiniMax M2.7',
-    description: 'Latest flagship model with enhanced reasoning and coding',
+    description: 'Previous flagship model retained for compatibility',
     capabilities: {
       supportsTools: true,
       supportsReasoning: false,
@@ -24,26 +34,6 @@ const MINIMAX_STATIC_MODELS: ModelOverride[] = [
     id: 'MiniMax-M2.7-highspeed',
     name: 'MiniMax M2.7 HighSpeed',
     description: 'High-speed version of M2.7 for low-latency scenarios',
-    capabilities: {
-      supportsTools: true,
-      supportsReasoning: false,
-      maxContextLength: 1000000
-    }
-  },
-  {
-    id: 'MiniMax-M2.5',
-    name: 'MiniMax M2.5',
-    description: 'MiniMax flagship model with advanced capabilities',
-    capabilities: {
-      supportsTools: true,
-      supportsReasoning: false,
-      maxContextLength: 1000000
-    }
-  },
-  {
-    id: 'MiniMax-M2.5-highspeed',
-    name: 'MiniMax M2.5 HighSpeed',
-    description: 'MiniMax high-speed model optimized for fast inference',
     capabilities: {
       supportsTools: true,
       supportsReasoning: false,

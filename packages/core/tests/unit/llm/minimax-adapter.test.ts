@@ -40,8 +40,8 @@ describe('MinimaxAdapter', () => {
       }
     },
     modelMeta: {
-      id: 'MiniMax-M2.7',
-      name: 'MiniMax M2.7',
+      id: 'MiniMax-M3',
+      name: 'MiniMax M3',
       description: 'Latest flagship model with enhanced reasoning and coding',
       providerId: 'minimax',
       capabilities: {
@@ -119,29 +119,30 @@ describe('MinimaxAdapter', () => {
       expect(Array.isArray(models)).toBe(true);
       expect(models.length).toBeGreaterThan(0);
 
-      const m27 = models.find(m => m.id === 'MiniMax-M2.7');
-      expect(m27).toBeDefined();
-      expect(m27?.name).toBe('MiniMax M2.7');
-      expect(m27?.providerId).toBe('minimax');
-      expect(m27?.capabilities.supportsTools).toBe(true);
+      const m3 = models.find(m => m.id === 'MiniMax-M3');
+      expect(m3).toBeDefined();
+      expect(m3?.name).toBe('MiniMax M3');
+      expect(m3?.providerId).toBe('minimax');
+      expect(m3?.capabilities.supportsTools).toBe(true);
     });
 
     it('should include all expected models', () => {
       const models = adapter.getModels();
       const modelIds = models.map(m => m.id);
 
+      expect(modelIds).toContain('MiniMax-M3');
       expect(modelIds).toContain('MiniMax-M2.7');
       expect(modelIds).toContain('MiniMax-M2.7-highspeed');
-      expect(modelIds).toContain('MiniMax-M2.5');
-      expect(modelIds).toContain('MiniMax-M2.5-highspeed');
-      expect(models.length).toBe(4);
+      expect(modelIds).not.toContain('MiniMax-M2.5');
+      expect(modelIds).not.toContain('MiniMax-M2.5-highspeed');
+      expect(models.length).toBe(3);
     });
 
-    it('should have M2.7 as the first model', () => {
+    it('should have M3 as the first model', () => {
       const models = adapter.getModels();
 
-      expect(models[0].id).toBe('MiniMax-M2.7');
-      expect(models[1].id).toBe('MiniMax-M2.7-highspeed');
+      expect(models[0].id).toBe('MiniMax-M3');
+      expect(models[1].id).toBe('MiniMax-M2.7');
     });
 
     it('should have capabilities for each model', () => {
@@ -172,7 +173,7 @@ describe('MinimaxAdapter', () => {
         id: 'chatcmpl-minimax-123',
         object: 'chat.completion',
         created: Date.now(),
-        model: 'MiniMax-M2.7',
+        model: 'MiniMax-M3',
         choices: [{
           index: 0,
           message: {
@@ -194,7 +195,7 @@ describe('MinimaxAdapter', () => {
 
       expect(response.content).toBe('Hello from MiniMax!');
       expect(response.metadata).toEqual({
-        model: 'MiniMax-M2.7',
+        model: 'MiniMax-M3',
         finishReason: 'stop'
       });
     });
