@@ -262,7 +262,7 @@ describe('remote backup settings', () => {
     const settings = normalizeRemoteBackupSettings({
       provider: {
         kind: 'google-drive',
-        folderName: 'Prompt Optimizer Backups',
+        folderName: 'GlobalCloud XiaoC Backups',
       },
     }, 'web')
 

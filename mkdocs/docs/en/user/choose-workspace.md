@@ -1,6 +1,6 @@
 # Choose Workspace
 
-If this is your first time opening Prompt Optimizer, do not start with every feature. Start by choosing the right workspace.
+If this is your first time opening GlobalCloud XiaoC, do not start with every feature. Start by choosing the right workspace.
 
 The simplest rule is:
 

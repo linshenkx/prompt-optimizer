@@ -83,7 +83,7 @@ When the `ACCESS_PASSWORD` environment variable is configured, your site will en
 
 ### About built-in proxy functionality
 
-Prompt Optimizer had Vercel / Docker built-in proxy support in early versions, but current versions have removed built-in model proxy endpoints because of SSRF security risk.
+GlobalCloud XiaoC had Vercel / Docker built-in proxy support in early versions, but current versions have removed built-in model proxy endpoints because of SSRF security risk.
 
 The Web version is still a pure frontend application:
 

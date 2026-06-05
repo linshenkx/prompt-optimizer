@@ -48,7 +48,7 @@
     "markdown-it": "^14.1.1",
     "naive-ui": "^2.44.1",
     "pinia": "^3.0.4",
-    "uuid": "^13.0.0",
+    "uuid": "^13.0.1",
     "vue": "^3.5.31",
     "vue-i18n": "^11.3.0",
     "vue-router": "^5.0.4"
@@ -68,10 +68,10 @@
     "eslint-plugin-vue": "^10.8.0",
     "globals": "^17.4.0",
     "jsdom": "^29.0.1",
-    "postcss": "^8.5.8",
+    "postcss": "^8.5.15",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
-    "vite": "^8.0.3",
+    "vite": "^8.0.16",
     "vitest": "^4.1.2",
     "vue-eslint-parser": "^10.4.0",
     "vue-tsc": "^3.2.6"

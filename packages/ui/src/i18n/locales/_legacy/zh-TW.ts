@@ -1789,10 +1789,10 @@ export default {
       smart: { name: "智慧識別", description: "自動偵測格式並轉換" },
       openai: { name: "OpenAI", description: "OpenAI API 請求格式" },
       langfuse: { name: "LangFuse", description: "LangFuse 追蹤資料格式" },
-      conversation: { name: "內部格式", description: "Prompt Optimizer 內部標準 JSON 結構" },
+      conversation: { name: "內部格式", description: "GlobalCloud XiaoC 內部標準 JSON 結構" },
     },
     exportFormats: {
-      standard: { name: "內部格式", description: "Prompt Optimizer 內部標準資料格式" },
+      standard: { name: "內部格式", description: "GlobalCloud XiaoC 內部標準資料格式" },
       openai: { name: "OpenAI", description: "OpenAI API 相容格式" },
     },
 

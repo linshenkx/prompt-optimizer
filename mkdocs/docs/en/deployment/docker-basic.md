@@ -1,13 +1,13 @@
 # Docker Basic Deployment
 
-This guide shows how to run Prompt Optimizer with Docker and how to configure custom OpenAI-compatible models with runtime environment variables.
+This guide shows how to run GlobalCloud XiaoC with Docker and how to configure custom OpenAI-compatible models with runtime environment variables.
 
 ## Quick Start
 
 ```bash
 docker run -d -p 8081:80 \
   --restart unless-stopped \
-  --name prompt-optimizer \
+  --name globalcloud-xiaoc \
   linshen/prompt-optimizer:latest
 ```
 
@@ -40,7 +40,7 @@ docker run -d -p 8081:80 \
   -e VITE_CUSTOM_API_MODEL_nvidia=qwen/qwen3.5-397b-a17b \
   -e 'VITE_CUSTOM_API_PARAMS_nvidia={"chat_template_kwargs":{"enable_thinking":true},"temperature":0.6,"top_p":0.95,"max_tokens":16384}' \
   --restart unless-stopped \
-  --name prompt-optimizer \
+  --name globalcloud-xiaoc \
   linshen/prompt-optimizer:latest
 ```
 
@@ -54,7 +54,7 @@ This is useful for:
 
 ```yaml
 services:
-  prompt-optimizer:
+  globalcloud-xiaoc:
     image: linshen/prompt-optimizer:latest
     ports:
       - "8081:80"

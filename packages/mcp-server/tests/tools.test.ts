@@ -6,6 +6,12 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { CoreServicesManager } from '../src/adapters/core-services.js';
 import { ParameterValidator } from '../src/adapters/parameter-adapter.js';
 import { MCPErrorHandler, MCP_ERROR_CODES } from '../src/adapters/error-handler.js';
+import {
+  buildPromptWithXCContext,
+  buildWikiPromptGoal,
+  getXCContextSchemaProperties,
+  validateXCContext
+} from '../src/adapters/xc-context.js';
 
 describe('MCP Server Tools', () => {
   let coreServices: CoreServicesManager;
@@ -83,6 +89,65 @@ describe('MCP Server Tools', () => {
 
       expect(mcpError.code).toBe(MCP_ERROR_CODES.INTERNAL_ERROR);
       expect(mcpError.message).toContain('Internal failure');
+    });
+  });
+
+  describe('XC context adapter', () => {
+    it('validates supported caller systems and wiki source refs', () => {
+      expect(() => validateXCContext({
+        caller_system: 'feishu',
+        wiki_context: {
+          query: 'SOP',
+          scope: 'factory/wiki',
+          chunks: ['Use approved wiki procedures only.'],
+          source_refs: [{
+            title: 'SOP page',
+            url: 'https://example.com/wiki/sop',
+            excerpt: 'Approved procedure excerpt'
+          }]
+        }
+      })).not.toThrow();
+
+      expect(() => validateXCContext({ caller_system: 'unknown-system' }))
+        .toThrow('caller_system must be one of');
+      expect(() => validateXCContext({
+        wiki_context: { chunks: Array.from({ length: 21 }, (_, index) => `chunk ${index}`) }
+      })).toThrow('wiki_context.chunks must not exceed 20 items');
+    });
+
+    it('injects XC context into prompts', () => {
+      const prompt = buildPromptWithXCContext('Summarize this process.', {
+        caller_system: 'hermes',
+        task_type: 'wiki_summary',
+        output_contract: 'Return Chinese bullet points.',
+        wiki_context: {
+          scope: 'operations',
+          chunks: ['Only cite confirmed wiki facts.']
+        }
+      });
+
+      expect(prompt).toContain('[XC Context]');
+      expect(prompt).toContain('Caller System: hermes');
+      expect(prompt).toContain('Output Contract:');
+      expect(prompt).toContain('[Original Prompt]');
+    });
+
+    it('builds wiki prompt generation goals with source boundaries', () => {
+      const prompt = buildWikiPromptGoal('Create a Feishu embedded prompt.', {
+        caller_system: 'feishu',
+        source_refs: [{ id: 'wiki-1', title: 'Feishu SOP' }]
+      });
+
+      expect(prompt).toContain('Create a production-ready prompt for GlobalCloud XiaoC (XC).');
+      expect(prompt).toContain('source boundaries');
+      expect(prompt).toContain('id=wiki-1');
+    });
+
+    it('exposes XC context fields in tool schemas', () => {
+      const schema = getXCContextSchemaProperties();
+      expect(schema).toHaveProperty('caller_system');
+      expect(schema).toHaveProperty('wiki_context');
+      expect(schema).toHaveProperty('source_refs');
     });
   });
 });

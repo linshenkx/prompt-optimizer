@@ -209,13 +209,13 @@ const messages = {
       },
       "conversation": {
         "name": "Internal Format",
-        "description": "Prompt Optimizer internal JSON structure"
+        "description": "GlobalCloud XiaoC internal JSON structure"
       }
     },
     "exportFormats": {
       "standard": {
         "name": "Internal Format",
-        "description": "Prompt Optimizer internal standard format"
+        "description": "GlobalCloud XiaoC internal standard format"
       },
       "openai": {
         "name": "OpenAI",

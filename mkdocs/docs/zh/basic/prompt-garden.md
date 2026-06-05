@@ -1,10 +1,10 @@
 # Prompt Garden 提示词库
 
-Prompt Garden 是一个可选的提示词库，用于发现可导入的提示词、示例和媒体素材。通过导入码，你可以快速将提示词库中的内容引入 Prompt Optimizer 使用或收藏。
+Prompt Garden 是一个可选的提示词库，用于发现可导入的提示词、示例和媒体素材。通过导入码，你可以快速将提示词库中的内容引入 GlobalCloud XiaoC 使用或收藏。
 
 访问入口：[https://garden.always200.com](https://garden.always200.com)
 
-你也可以不使用 Prompt Garden 提示词库，直接手写提示词、使用模板或导入本地内容。Prompt Optimizer 的优化、测试、评估和收藏能力不依赖某一种提示词来源。
+你也可以不使用 Prompt Garden 提示词库，直接手写提示词、使用模板或导入本地内容。GlobalCloud XiaoC 的优化、测试、评估和收藏能力不依赖某一种提示词来源。
 
 ## 导入码格式
 
@@ -32,7 +32,7 @@ NB-001@ex-2
 
 1. 在 Prompt Garden 提示词库找到想要的提示词
 2. 复制其导入码
-3. 在 Prompt Optimizer 中点击顶部工具栏的 **导入** 按钮
+3. 在 GlobalCloud XiaoC 中点击顶部工具栏的 **导入** 按钮
 4. 粘贴导入码
 5. 选择目标工作区（可选）
 6. 确认导入

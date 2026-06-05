@@ -1,11 +1,11 @@
 {
   "extName": {
-    "message": "Prompt Optimizer"
+    "message": "GlobalCloud XiaoC"
   },
   "extDesc": {
-    "message": "Large Language Model Prompt Optimization Tool: One-click prompt optimization with multi-round iterative improvements and version tracking. Supports major AI models (OpenAI/Gemini/DeepSeek etc.), fully open-source, client-side processing ensures data security."
+    "message": "Wiki-driven prompt engineering tool for prompt generation, optimization, iterative refinement, testing, and evaluation. It can serve Feishu, XGD, GPC, Hermes, OpenClaw, and other systems through MCP, or be used directly as a client."
   },
   "extShortName": {
-    "message": "Prompt Optimizer"
+    "message": "GlobalCloud XiaoC"
   }
-} 
+}

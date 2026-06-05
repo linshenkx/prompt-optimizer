@@ -2,7 +2,7 @@
 
 ## 概述
 
-本文档说明Prompt Optimizer的LLM服务架构重构,从单体Service转变为**Provider-Adapter-Registry**三层架构,实现了更高的模块化、可扩展性和可维护性。
+本文档说明GlobalCloud XiaoC的LLM服务架构重构,从单体Service转变为**Provider-Adapter-Registry**三层架构,实现了更高的模块化、可扩展性和可维护性。
 
 ## 重构目标
 

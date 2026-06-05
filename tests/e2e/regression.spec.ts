@@ -347,7 +347,7 @@ test.describe('关键功能持续性测试', () => {
     await expect(app).toBeAttached();
 
     // 验证页面标题
-    await expect(page).toHaveTitle(/提示词优化器|Prompt Optimizer/i);
+    await expect(page).toHaveTitle(/小词|GlobalCloud XiaoC/i);
   });
 
   test('本地存储功能保持可用', async ({ page }) => {

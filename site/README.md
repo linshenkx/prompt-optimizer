@@ -1,4 +1,4 @@
-# Prompt Optimizer 官网
+# GlobalCloud XiaoC 官网
 
 本目录是 `always200.com` 对应的独立官网工程。
 

@@ -414,7 +414,7 @@ await db.users.put({ id: 2, name: 'Bob' })    // 1 KB
 ### 你的应用
 
 ```typescript
-// ❌ Prompt Optimizer 的情况
+// ❌ GlobalCloud XiaoC 的情况
 await db.storage.put({
   key: 'session/v1/basic-system',
   value: JSON.stringify({

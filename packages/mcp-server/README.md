@@ -1,14 +1,25 @@
-# 提示词优化器 MCP 服务器
+# 小词 MCP 服务器
 
-为提示词优化器项目提供的 MCP (Model Context Protocol) 服务器。提供提示词优化工具，支持通过 HTTP 协议连接，可被任何 MCP 兼容客户端使用。
+为小词（XC）项目提供的 MCP (Model Context Protocol) 服务器。XC 面向飞书、XGD、GPC、Hermes、OpenClaw 等系统提供基于 wiki 体系的提示词生成、优化和迭代服务，支持通过 HTTP 协议连接，可被任何 MCP 兼容客户端使用。
 
 > **用户部署和使用指南**：请查看 [MCP 服务器用户指南](../../docs/user/mcp-server.md)
 
 ## 功能特性
 
-- **optimize-user-prompt**: 优化用户提示词以提升 LLM 性能
-- **optimize-system-prompt**: 优化系统提示词以提升 LLM 性能
+- **optimize-user-prompt**: 结合任务目标和 wiki 语境优化用户提示词以提升 LLM 性能
+- **optimize-system-prompt**: 结合角色、流程和系统规范优化系统提示词以提升 LLM 性能
 - **iterate-prompt**: 基于特定需求迭代改进成熟的提示词
+- **generate-wiki-prompt**: 根据业务目标、调用方系统和 wiki 上下文生成可嵌入的生产级提示词
+- **evaluate-prompt-fit**: 评估提示词是否适配 XC 的 MCP/Web/Desktop 嵌入式使用场景，返回评分、风险和改进建议
+
+所有工具都支持可选 XC 上下文字段：
+
+- `caller_system`: 调用方系统，如 `feishu`、`xgd`、`gpc`、`hermes`、`openclaw`、`web`、`desktop`
+- `task_type`: 任务类型，如 `wiki_summary`、`workflow_agent`、`qa`、`report`
+- `business_context`: 业务背景、流程边界、受众或系统约束
+- `output_contract`: 输出格式、字段、语言、语气和校验规则
+- `wiki_context`: 调用方提供的 wiki 查询、范围、片段或纯文本上下文
+- `source_refs`: 需要保留的 wiki 页面、文档链接或来源摘录
 
 ## 快速开始
 
@@ -69,6 +80,19 @@ pnpm mcp:test
 VITE_OPENAI_API_KEY=your-openai-key
 MCP_DEFAULT_MODEL_PROVIDER=openai
 MCP_LOG_LEVEL=debug
+```
+
+可选生产配置：
+
+```bash
+# 配置后 /mcp 需要 Authorization: Bearer <token> 或 X-XC-MCP-Token
+MCP_AUTH_TOKEN=replace-with-at-least-16-characters
+
+# 浏览器型 MCP 客户端来源白名单，逗号分隔；默认 *
+MCP_ALLOWED_ORIGINS=http://localhost:3000,https://your-domain.example
+
+# 专用健康检查端点
+# http://localhost:3000/healthz
 ```
 
 ## 日志配置
@@ -134,7 +158,7 @@ npx @modelcontextprotocol/inspector
 1. 选择传输方式：`Streamable HTTP`
 2. 服务器 URL：`http://localhost:3000/mcp`
 3. 点击 "Connect" 连接服务器
-4. 测试可用的工具：`optimize-user-prompt`、`optimize-system-prompt`、`iterate-prompt`
+4. 测试可用的工具：`optimize-user-prompt`、`optimize-system-prompt`、`iterate-prompt`、`generate-wiki-prompt`、`evaluate-prompt-fit`
 
 #### 其他测试方法
 

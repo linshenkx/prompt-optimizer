@@ -76,7 +76,7 @@
 
 ### 关于内置代理功能
 
-Prompt Optimizer 早期版本曾提供 Vercel / Docker 内置代理能力，但由于 SSRF 安全风险，当前版本已经移除内置模型代理端点。
+GlobalCloud XiaoC 早期版本曾提供 Vercel / Docker 内置代理能力，但由于 SSRF 安全风险，当前版本已经移除内置模型代理端点。
 
 当前 Web 版仍是纯前端应用：
 

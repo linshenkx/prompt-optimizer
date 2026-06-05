@@ -1,7 +1,23 @@
-import * as fs from 'fs/promises';
-import * as path from 'path';
 import { IStorageProvider } from './types';
 import { StorageError } from './errors';
+
+type FsPromises = typeof import('fs/promises');
+
+let fsPromisesModule: Promise<FsPromises> | null = null;
+
+function getFsPromises(): Promise<FsPromises> {
+  fsPromisesModule ||= new Function('specifier', 'return import(specifier)')('fs/promises') as Promise<FsPromises>;
+  return fsPromisesModule;
+}
+
+function joinStoragePath(basePath: string, fileName: string): string {
+  return `${basePath.replace(/[\\/]+$/, '')}/${fileName}`;
+}
+
+function getStorageDir(filePath: string): string {
+  const lastSeparator = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
+  return lastSeparator > 0 ? filePath.slice(0, lastSeparator) : '.';
+}
 
 /**
  * 基于文件的存储提供器 - 增强版
@@ -39,8 +55,8 @@ export class FileStorageProvider implements IStorageProvider {
       throw new StorageError('FileStorageProvider requires userDataPath parameter', 'read');
     }
 
-    this.filePath = path.join(userDataPath, 'prompt-optimizer-data.json');
-    this.backupPath = path.join(userDataPath, 'prompt-optimizer-data.json' + this.BACKUP_FILE_SUFFIX);
+    this.filePath = joinStoragePath(userDataPath, 'prompt-optimizer-data.json');
+    this.backupPath = joinStoragePath(userDataPath, 'prompt-optimizer-data.json' + this.BACKUP_FILE_SUFFIX);
   }
   
   /**
@@ -149,6 +165,7 @@ export class FileStorageProvider implements IStorageProvider {
     error?: string;
   }> {
     try {
+      const fs = await getFsPromises();
       // 检查文件是否存在
       await fs.access(filePath);
 
@@ -193,6 +210,7 @@ export class FileStorageProvider implements IStorageProvider {
    */
   private async fileExists(filePath: string): Promise<boolean> {
     try {
+      const fs = await getFsPromises();
       await fs.access(filePath);
       return true;
     } catch {
@@ -205,6 +223,7 @@ export class FileStorageProvider implements IStorageProvider {
    */
   private async createBackup(): Promise<void> {
     try {
+      const fs = await getFsPromises();
       if (await this.fileExists(this.filePath)) {
         await fs.copyFile(this.filePath, this.backupPath);
         console.log('[FileStorage] Backup created successfully');
@@ -267,8 +286,9 @@ export class FileStorageProvider implements IStorageProvider {
     const tempPath = this.filePath + this.TEMP_FILE_SUFFIX;
     
     try {
+      const fs = await getFsPromises();
       // 确保目录存在
-      await fs.mkdir(path.dirname(this.filePath), { recursive: true });
+      await fs.mkdir(getStorageDir(this.filePath), { recursive: true });
       
       // 1. 写入临时文件
       await fs.writeFile(tempPath, data, 'utf8');
@@ -284,6 +304,7 @@ export class FileStorageProvider implements IStorageProvider {
     } catch (error) {
       // 清理临时文件
       try {
+        const fs = await getFsPromises();
         await fs.unlink(tempPath);
       } catch {}
       

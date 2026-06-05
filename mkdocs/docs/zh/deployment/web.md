@@ -98,12 +98,12 @@ ACCESS_PASSWORD=your_password
 1. Fork 本仓库
 2. 在 Cloudflare Dashboard 中进入 **Workers & Pages**
 3. 选择通过 GitHub/Git 仓库创建应用
-4. 选择你 fork 后的 `prompt-optimizer` 仓库
+4. 选择你 fork 后的 `globalcloud-xiaoc` 仓库
 5. 如果界面显示“创建 Worker”，大多数配置保持默认：
 
 | 配置项 | 推荐值 |
 | --- | --- |
-| Worker name | 如果自动填入 `prompt-optimizer`，保持不变；否则改成 `prompt-optimizer` |
+| Worker name | 如果自动填入 `globalcloud-xiaoc`，保持不变；否则改成 `globalcloud-xiaoc` |
 | Root directory / Path | 保持默认，通常是 `/` 或留空 |
 | Build command | 清空；如果自动填入 `pnpm run build`，请删除。`wrangler.jsonc` 已配置构建命令 |
 | Deploy command | 保持默认 `npx wrangler deploy` |

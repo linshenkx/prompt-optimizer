@@ -1,6 +1,6 @@
 # 桌面应用
 
-桌面版是最适合长期使用 Prompt Optimizer 的版本，尤其适合连接本地模型、自定义网关和企业内网接口。
+桌面版是最适合长期使用 GlobalCloud XiaoC 的版本，尤其适合连接本地模型、自定义网关和企业内网接口。
 
 ## 为什么优先推荐桌面版
 
@@ -14,18 +14,18 @@
 
 GitHub Releases：<https://github.com/linshenkx/prompt-optimizer/releases>
 
-当前桌面应用的产品名是 **`PromptOptimizer`**。构建产物命名模式为：
+当前桌面应用的产品名是 **`GlobalCloud XiaoC`**。构建产物命名模式为：
 
 ```text
-PromptOptimizer-<version>-<os>-<arch>.<ext>
+GlobalCloud XiaoC-<version>-<os>-<arch>.<ext>
 ```
 
 常见示例：
 
-- Windows 安装包：`PromptOptimizer-<version>-win-x64.exe`
-- Windows 压缩包：`PromptOptimizer-<version>-win-x64.zip`
-- macOS 磁盘镜像：`PromptOptimizer-<version>-mac-arm64.dmg`
-- Linux AppImage：`PromptOptimizer-<version>-linux-x64.AppImage`
+- Windows 安装包：`GlobalCloud XiaoC-<version>-win-x64.exe`
+- Windows 压缩包：`GlobalCloud XiaoC-<version>-win-x64.zip`
+- macOS 磁盘镜像：`GlobalCloud XiaoC-<version>-mac-arm64.dmg`
+- Linux AppImage：`GlobalCloud XiaoC-<version>-linux-x64.AppImage`
 
 ## 安装说明
 
@@ -47,7 +47,7 @@ PromptOptimizer-<version>-<os>-<arch>.<ext>
 2. 若使用 AppImage，先执行：
 
 ```bash
-chmod +x PromptOptimizer-<version>-linux-x64.AppImage
+chmod +x "GlobalCloud XiaoC-<version>-linux-x64.AppImage"
 ```
 
 3. 再运行该文件
@@ -95,20 +95,20 @@ API Key：任意非空字符串
 
 ## 数据和日志位置
 
-桌面版使用系统标准应用目录，目录名会跟随产品名 `PromptOptimizer`。
+桌面版使用系统标准应用目录，目录名会跟随产品名 `GlobalCloud XiaoC`。
 
 常见位置：
 
 ```text
-Windows: %APPDATA%\PromptOptimizer\
-macOS: ~/Library/Application Support/PromptOptimizer/
-Linux: ~/.config/PromptOptimizer/
+Windows: %APPDATA%\GlobalCloud XiaoC\
+macOS: ~/Library/Application Support/GlobalCloud XiaoC/
+Linux: ~/.config/GlobalCloud XiaoC/
 ```
 
 如果你主要关心日志，通常可以在以下目录找到：
 
 ```text
-%APPDATA%\PromptOptimizer\logs\
+%APPDATA%\GlobalCloud XiaoC\logs\
 ```
 
 ## 什么时候不必使用桌面版

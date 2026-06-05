@@ -4,7 +4,7 @@
 
 先记住一句话：
 
-**MCP 是给客户端接入 Prompt Optimizer 核心能力的接口层，不是 Web 前端页面。**
+**MCP 是给客户端接入 GlobalCloud XiaoC 核心能力的接口层，不是 Web 前端页面。**
 
 ## 它和 Web、Docker 是什么关系
 
@@ -37,7 +37,7 @@
 - `optimize-system-prompt`
 - `iterate-prompt`
 
-它们直接复用 Prompt Optimizer 的核心提示词处理能力。
+它们直接复用 GlobalCloud XiaoC 的核心提示词处理能力。
 
 ### 工具分别适合什么
 
@@ -79,7 +79,7 @@
 docker run -d -p 8081:80 \
   -e VITE_OPENAI_API_KEY=your-openai-key \
   -e MCP_DEFAULT_MODEL_PROVIDER=openai \
-  --name prompt-optimizer \
+  --name globalcloud-xiaoc \
   linshen/prompt-optimizer
 ```
 

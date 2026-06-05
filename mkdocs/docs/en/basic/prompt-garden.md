@@ -1,10 +1,10 @@
 # Prompt Garden
 
-Prompt Garden is an optional prompt source for discovering importable prompts, examples, and media assets. Through import codes, you can quickly bring prompts from Garden into Prompt Optimizer for use or collection.
+Prompt Garden is an optional prompt source for discovering importable prompts, examples, and media assets. Through import codes, you can quickly bring prompts from Garden into GlobalCloud XiaoC for use or collection.
 
 Entry point: [https://garden.always200.com](https://garden.always200.com)
 
-You can also use Prompt Optimizer without Prompt Garden by writing prompts manually, using templates, or importing local content. Optimization, testing, evaluation, and favorites do not depend on one specific prompt source.
+You can also use GlobalCloud XiaoC without Prompt Garden by writing prompts manually, using templates, or importing local content. Optimization, testing, evaluation, and favorites do not depend on one specific prompt source.
 
 ## Import Code Format
 
@@ -32,7 +32,7 @@ Append `@` and an example ID after the import code. The system will fill variabl
 
 1. Find the desired prompt on the Prompt Garden website
 2. Copy its import code
-3. Click the **Import** button in the top toolbar of Prompt Optimizer
+3. Click the **Import** button in the top toolbar of GlobalCloud XiaoC
 4. Paste the import code
 5. Select target workspace (optional)
 6. Confirm import

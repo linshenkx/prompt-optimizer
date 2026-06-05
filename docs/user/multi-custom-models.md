@@ -2,7 +2,7 @@
 
 ## 概述
 
-Prompt Optimizer 现在支持配置无限数量的自定义模型，让您可以同时使用多个本地模型或自建API服务。
+GlobalCloud XiaoC 现在支持配置无限数量的自定义模型，让您可以同时使用多个本地模型或自建API服务。
 
 ## 功能特性
 
@@ -196,7 +196,7 @@ docker run -d -p 8081:80 \
   -e VITE_CUSTOM_API_MODEL_qwen3=qwen3:8b \
   -e 'VITE_CUSTOM_API_PARAMS_qwen3={"temperature":0.6,"top_p":0.95}' \
   --restart unless-stopped \
-  --name prompt-optimizer \
+  --name globalcloud-xiaoc \
   linshen/prompt-optimizer
 ```
 
@@ -221,7 +221,7 @@ VITE_CUSTOM_API_PARAMS_qwen3={"temperature":0.6,"top_p":0.95}
 ```bash
 docker run -d -p 8081:80 --env-file .env \
   --restart unless-stopped \
-  --name prompt-optimizer \
+  --name globalcloud-xiaoc \
   linshen/prompt-optimizer
 ```
 
@@ -231,7 +231,7 @@ docker run -d -p 8081:80 --env-file .env \
 
 ```yaml
 services:
-  prompt-optimizer:
+  globalcloud-xiaoc:
     image: linshen/prompt-optimizer:latest
     env_file:
       - .env  # 从 .env 文件读取环境变量

@@ -3,7 +3,7 @@
         PromptOptimizerApp - 主应用组件
 
         职责:
-        - 提供完整的 Prompt Optimizer 应用功能
+        - 提供完整的 GlobalCloud XiaoC 应用功能
         - 统一 web 和 extension 应用的核心逻辑
         - 管理所有状态、composables 和事件处理
 
@@ -995,7 +995,7 @@ const basicSessionVersionId = computed<string>({
     set: (value) => patchActiveBasicOptimizedResult({ versionId: value || "" }),
 });
 
-// 提示词优化器
+// 小词
 const optimizer = usePromptOptimizer(
     services,
     selectedOptimizationMode,

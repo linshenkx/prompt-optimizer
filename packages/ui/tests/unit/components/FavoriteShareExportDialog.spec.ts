@@ -125,9 +125,9 @@ vi.mock('vue-i18n', async (importOriginal) => {
           'favorites.share.cancel': 'Cancel',
           'favorites.share.exportHtml': 'Export HTML',
           'favorites.share.exportPng': 'Export PNG',
-          'favorites.share.document.titleSuffix': i18nLocale.value === 'zh-CN' ? 'Prompt Optimizer 收藏分享' : 'Prompt Optimizer Favorite Share',
-          'favorites.share.document.eyebrow': i18nLocale.value === 'zh-CN' ? 'Prompt Optimizer 收藏分享' : 'Prompt Optimizer Favorite Share',
-          'favorites.share.document.metaPrefix': i18nLocale.value === 'zh-CN' ? '收藏分享' : 'Prompt Optimizer favorite share',
+          'favorites.share.document.titleSuffix': i18nLocale.value === 'zh-CN' ? 'GlobalCloud XiaoC 收藏分享' : 'GlobalCloud XiaoC Favorite Share',
+          'favorites.share.document.eyebrow': i18nLocale.value === 'zh-CN' ? 'GlobalCloud XiaoC 收藏分享' : 'GlobalCloud XiaoC Favorite Share',
+          'favorites.share.document.metaPrefix': i18nLocale.value === 'zh-CN' ? '收藏分享' : 'GlobalCloud XiaoC favorite share',
           'favorites.share.document.headerImportNote': i18nLocale.value === 'zh-CN' ? '导入：访问 https://prompt.always200.com/ → 收藏夹 → 导入 → 上传此 HTML 文件。' : 'Import: open https://prompt.always200.com/ -> Favorites -> Import -> upload this HTML file.',
           'favorites.share.document.copy': i18nLocale.value === 'zh-CN' ? '复制' : 'Copy',
           'favorites.share.document.copied': i18nLocale.value === 'zh-CN' ? '已复制' : 'Copied',
@@ -261,7 +261,7 @@ describe('FavoriteShareExportDialog', () => {
         watermark: true,
       }),
       branding: {
-        projectName: 'Prompt Optimizer',
+        projectName: 'GlobalCloud XiaoC',
         projectUrl: 'https://prompt.always200.com/',
       },
     }))

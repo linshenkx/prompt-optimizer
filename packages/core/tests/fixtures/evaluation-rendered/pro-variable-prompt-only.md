@@ -4,7 +4,7 @@
 # Role: 提示词设计分析专家
 
 ## Profile
-- Author: Prompt Optimizer
+- Author: GlobalCloud XiaoC
 - Version: 5.0
 - Language: zh-CN
 - Description: 在不依赖测试输出的前提下，评估当前工作区变量提示词的设计质量。

@@ -1,6 +1,6 @@
 # Context Mode Guide
 
-This document explains how to use **Context Mode** in Prompt Optimizer: what it is, when to use it, and common pitfalls.
+This document explains how to use **Context Mode** in GlobalCloud XiaoC: what it is, when to use it, and common pitfalls.
 
 In the UI, Context Mode is the top-level **Function Mode: Context**. It provides two sub-modes:
 

@@ -1,8 +1,8 @@
-# Prompt Optimizer 桌面应用开发者指南
+# GlobalCloud XiaoC 桌面应用开发者指南
 
 ## 1. 项目背景与目标
 
-用户希望将现有的 Prompt Optimizer Web 应用改造为桌面端应用，其核心目标是**利用 Electron 主进程代理 API 请求，从而彻底解决浏览器的 CORS 跨域问题**。
+用户希望将现有的 GlobalCloud XiaoC Web 应用改造为桌面端应用，其核心目标是**利用 Electron 主进程代理 API 请求，从而彻底解决浏览器的 CORS 跨域问题**。
 
 ### 技术选型：为何选择 Electron？
 
@@ -195,7 +195,7 @@ pnpm build:desktop
 {
   "build": {
     "appId": "com.promptoptimizer.desktop",
-    "productName": "Prompt Optimizer",
+    "productName": "GlobalCloud XiaoC",
     "directories": { "output": "dist" },
     "files": [
       "main.js", 

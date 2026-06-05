@@ -112,7 +112,7 @@ function createPromptServiceHarness(provider: RealVisionProvider) {
             {
               role: 'system',
               content:
-                '你是多模态图像提示词优化器。图片已随请求附带，请直接观察图片，不要假设图片内容来自文本。输出自然语言，不要 JSON，不要 Markdown。必须写出至少一个可见视觉事实（颜色或形状）。',
+                '你是多模态图像小词。图片已随请求附带，请直接观察图片，不要假设图片内容来自文本。输出自然语言，不要 JSON，不要 Markdown。必须写出至少一个可见视觉事实（颜色或形状）。',
             },
             {
               role: 'user',
@@ -136,7 +136,7 @@ function createPromptServiceHarness(provider: RealVisionProvider) {
             {
               role: 'system',
               content:
-                '你是多图提示词优化器。多张图片已随请求附带，请按顺序理解它们。只输出三行纯文本：第一行以“图1:”开头，第二行以“图2:”开头，第三行以“融合指令:”开头。第三行必须同时出现“图1”和“图2”。不要输出 JSON 或 Markdown。',
+                '你是多图小词。多张图片已随请求附带，请按顺序理解它们。只输出三行纯文本：第一行以“图1:”开头，第二行以“图2:”开头，第三行以“融合指令:”开头。第三行必须同时出现“图1”和“图2”。不要输出 JSON 或 Markdown。',
             },
             {
               role: 'user',

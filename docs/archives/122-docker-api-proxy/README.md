@@ -154,6 +154,6 @@ packages/ui/src/
 
 ## 📈 项目影响
 
-这个项目成功实现了Prompt Optimizer在三种部署方式（Vercel、Desktop、Docker）下的统一跨域代理解决方案，为用户提供了一致且优秀的使用体验，是项目基础设施的重要完善。
+这个项目成功实现了GlobalCloud XiaoC在三种部署方式（Vercel、Desktop、Docker）下的统一跨域代理解决方案，为用户提供了一致且优秀的使用体验，是项目基础设施的重要完善。
 
 **项目状态：✅ 100%完成，生产就绪！**

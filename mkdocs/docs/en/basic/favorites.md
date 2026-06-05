@@ -68,14 +68,14 @@ If you only want to share one favorite, you do not need to export the whole coll
 
 From the favorite detail view, use the share action to export the current favorite as:
 
-- **HTML**: a single-file page that can be opened directly, copied from, and imported back into Prompt Optimizer.
+- **HTML**: a single-file page that can be opened directly, copied from, and imported back into GlobalCloud XiaoC.
 - **PNG**: a polished long image for visual sharing; the original PNG file also carries import data.
 
 Both formats are generated from the visible export preview. Cover image, description, prompt body, tags, variables, and the product watermark are kept by default; examples and version history can be included or omitted before export. Before sharing, review the prompt, examples, images, and notes for private or sensitive information.
 
 ### Importing a shared file
 
-Open [Prompt Optimizer](https://prompt.always200.com/), go to **Favorites -> Import**, and upload the file through the same import entry.
+Open [GlobalCloud XiaoC](https://prompt.always200.com/), go to **Favorites -> Import**, and upload the file through the same import entry.
 
 Supported files:
 
@@ -102,7 +102,7 @@ If a favorite was saved from the multi-image workflow, `Use now` also tries to r
 
 ## Applying examples to workspaces
 
-Favorites can also carry reproducible examples. When an example is applied, Prompt Optimizer restores the prompt together with the values, parameters, input images, or media that belong to that example.
+Favorites can also carry reproducible examples. When an example is applied, GlobalCloud XiaoC restores the prompt together with the values, parameters, input images, or media that belong to that example.
 
 Supported targets include:
 

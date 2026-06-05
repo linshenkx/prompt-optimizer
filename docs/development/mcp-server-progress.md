@@ -8,7 +8,7 @@
 
 ## 项目概述
 
-MCP (Model Context Protocol) Server 是提示词优化器项目的核心组件之一，为 Claude Desktop 等 MCP 兼容客户端提供提示词优化服务。
+MCP (Model Context Protocol) Server 是小词项目的核心组件之一，为 Claude Desktop 等 MCP 兼容客户端提供提示词优化服务。
 
 ## 开发里程碑
 

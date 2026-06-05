@@ -34,13 +34,13 @@ interface AdvancedContextPayload {
 }
 
 /**
- * 提示词优化器Hook
+ * 小词Hook
  * @param services 服务实例引用
  * @param optimizationMode 当前优化模式（从 basicSubMode/proSubMode 计算得出的 computed）
  * @param selectedOptimizeModel 优化模型选择
  * @param selectedTestModel 测试模型选择
  * @param contextMode 上下文模式（用于变量替换策略，兼容性保留）
- * @returns 提示词优化器接口
+ * @returns 小词接口
  * @deprecated optimizationMode 参数建议传入 computed 值（从 basicSubMode/proSubMode 动态计算）
  */
 type OptimizationModeSource = Ref<OptimizationMode> | ComputedRef<OptimizationMode>

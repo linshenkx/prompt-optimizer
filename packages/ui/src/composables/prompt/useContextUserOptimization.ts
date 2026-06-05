@@ -37,7 +37,7 @@ export interface ContextUserOptimizationBindings {
 }
 
 /**
- * ContextUser 模式提示词优化器接口
+ * ContextUser 模式小词接口
  */
 export interface UseContextUserOptimization {
   // 状态
@@ -64,7 +64,7 @@ export interface UseContextUserOptimization {
 }
 
 /**
- * ContextUser 模式提示词优化器 Composable
+ * ContextUser 模式小词 Composable
  *
  * 专门用于 ContextUserWorkspace 的优化逻辑，特点：
  * - 只处理单条用户消息优化

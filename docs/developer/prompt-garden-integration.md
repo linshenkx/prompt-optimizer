@@ -1,17 +1,17 @@
-# Prompt Garden -> Prompt Optimizer 导入契约（External Import Contract）
+# Prompt Garden -> GlobalCloud XiaoC 导入契约（External Import Contract）
 
-本文档描述当前代码中已经落地的 Prompt Garden 外部导入行为，目标是让 Garden 侧和 Prompt Optimizer 侧按同一套实际契约对接。
+本文档描述当前代码中已经落地的 Prompt Garden 外部导入行为，目标是让 Garden 侧和 GlobalCloud XiaoC 侧按同一套实际契约对接。
 
 设计目标：
 
-- URL 只携带少量路由参数，由 Prompt Optimizer 自己去 Garden 拉完整内容
-- Prompt Optimizer 固定从 `VITE_PROMPT_GARDEN_BASE_URL` 拉取内容，不接受 URL 参数覆盖
-- Garden API 返回统一的 v1 schema；普通导入会由 Prompt Optimizer 按子模式写入不同 session store
+- URL 只携带少量路由参数，由 GlobalCloud XiaoC 自己去 Garden 拉完整内容
+- GlobalCloud XiaoC 固定从 `VITE_PROMPT_GARDEN_BASE_URL` 拉取内容，不接受 URL 参数覆盖
+- Garden API 返回统一的 v1 schema；普通导入会由 GlobalCloud XiaoC 按子模式写入不同 session store
 - Garden 的扩展元数据和素材快照可以跟随收藏一起保存，便于后续预览和复用
 
-## 1. Prompt Optimizer 侧：导入触发与 URL 参数
+## 1. GlobalCloud XiaoC 侧：导入触发与 URL 参数
 
-Prompt Optimizer 在应用初始 session 恢复完成后检查当前路由 query。
+GlobalCloud XiaoC 在应用初始 session 恢复完成后检查当前路由 query。
 
 - 如果存在 `importCode`，则触发一次导入
 - 导入成功后会清理导入相关 query，避免刷新重复导入
@@ -22,7 +22,7 @@ Prompt Optimizer 在应用初始 session 恢复完成后检查当前路由 query
 - `importCode`（必填）
   - 外部提示词的唯一标识，例如 `NB-001`
   - 可在导入码后追加示例选择后缀，例如 `NB-001@ex-2`
-  - 追加后缀时，Prompt Optimizer 仍请求 `GET /api/public/prompt-source/NB-001`，并把 `ex-2` 当作本次导入的示例选择；旧路径 `/api/prompt-source/NB-001` 由 Garden 侧做 `307` 兼容跳转
+  - 追加后缀时，GlobalCloud XiaoC 仍请求 `GET /api/public/prompt-source/NB-001`，并把 `ex-2` 当作本次导入的示例选择；旧路径 `/api/prompt-source/NB-001` 由 Garden 侧做 `307` 兼容跳转
 - `subModeKey`（可选）
   - 显式指定导入目标工作区
   - 若未提供，则优先使用 Garden 返回的 `optimizerTarget.subModeKey`
@@ -73,13 +73,13 @@ Prompt Optimizer 在应用初始 session 恢复完成后检查当前路由 query
 
 ## 2. Prompt Garden 侧：必须提供的 API
 
-Prompt Optimizer 会调用：
+GlobalCloud XiaoC 会调用：
 
 `GET {gardenBaseUrl}/api/public/prompt-source/{encodeURIComponent(importCode)}`
 
 其中：
 
-- `gardenBaseUrl` 固定来自 Prompt Optimizer 的环境变量 `VITE_PROMPT_GARDEN_BASE_URL`
+- `gardenBaseUrl` 固定来自 GlobalCloud XiaoC 的环境变量 `VITE_PROMPT_GARDEN_BASE_URL`
 - 请求头固定包含 `Accept: application/json`
 - 当前实现使用浏览器端 `fetch`
 - 当前实现不会附加自定义认证头，也不会为跨站请求显式开启 `credentials`
@@ -112,7 +112,7 @@ Prompt Optimizer 会调用：
   "variables": [
     {
       "name": "product_name",
-      "defaultValue": "Prompt Optimizer",
+      "defaultValue": "GlobalCloud XiaoC",
       "description": "产品名称",
       "type": "string",
       "required": true
@@ -139,7 +139,7 @@ Prompt Optimizer 会调用：
       {
         "id": "ex-1",
         "parameters": {
-          "product_name": "Prompt Optimizer",
+          "product_name": "GlobalCloud XiaoC",
           "audience": "founders"
         }
       }
@@ -163,7 +163,7 @@ Prompt Optimizer 会调用：
 - `prompt`：必填
 - `variables`：必填，允许为空数组 `[]`
 - `importCode`：可选但推荐返回
-  - 若返回空值，Prompt Optimizer 会回退到 URL 中的 `importCode`
+  - 若返回空值，GlobalCloud XiaoC 会回退到 URL 中的 `importCode`
 - `assets`：可选
   - 用于收藏快照、示例参数和素材预览
 - `meta`：可选
@@ -266,7 +266,7 @@ Prompt Optimizer 会调用：
 
 字段约束：
 
-- `name`：必填，必须符合 Prompt Optimizer 的变量命名规则
+- `name`：必填，必须符合 GlobalCloud XiaoC 的变量命名规则
   - 推荐：`[a-zA-Z_][a-zA-Z0-9_]*`
 - `defaultValue`：可选，字符串
 - `description`：可选，字符串
@@ -356,7 +356,7 @@ Prompt Optimizer 会调用：
   - 收藏标签预填充
 - `categoryPath`
   - 收藏分类树导入的首选字段
-  - Prompt Optimizer 会按路径逐级复用或创建分类节点，并将收藏挂到最后一个叶子节点
+  - GlobalCloud XiaoC 会按路径逐级复用或创建分类节点，并将收藏挂到最后一个叶子节点
 - `categoryPathKey`
   - `categoryPath` 的兼容回退
   - 用法与 `categoryPath` 一致
@@ -366,20 +366,20 @@ Prompt Optimizer 会调用：
 - `category`
   - 旧版单分类兼容字段，作为 `categoryKey` 的回退
 
-Prompt Optimizer 当前的分类提取优先级为：
+GlobalCloud XiaoC 当前的分类提取优先级为：
 
 1. `meta.categoryPath`
 2. `meta.categoryPathKey`
 3. 旧字段组合 `[meta.category, meta.subcategory]`
 4. `meta.categoryKey`
 
-如果 `meta.title` 缺失，Prompt Optimizer 会退回到 prompt 内容首行生成收藏标题。
+如果 `meta.title` 缺失，GlobalCloud XiaoC 会退回到 prompt 内容首行生成收藏标题。
 
 ## 7. 示例选择与 image2image 输入图
 
 ### 7.1 `exampleId` 行为
 
-导入时，Prompt Optimizer 会从 `assets.examples` 中选择一个示例：
+导入时，GlobalCloud XiaoC 会从 `assets.examples` 中选择一个示例：
 
 - 若 URL 提供了 `exampleId`，优先按 `id` 精确匹配
 - 若未提供或未匹配到，则回退到第一个示例
@@ -398,7 +398,7 @@ Prompt Optimizer 当前的分类提取优先级为：
 
 - 如果目标子模式是 `image-image2image`
 - 且选中的示例包含 `inputImages`
-- Prompt Optimizer 会尝试读取第一个 `inputImages[0]`，并加载为当前工作区的输入图
+- GlobalCloud XiaoC 会尝试读取第一个 `inputImages[0]`，并加载为当前工作区的输入图
 
 如果图片读取失败：
 
@@ -414,7 +414,7 @@ Prompt Optimizer 当前的分类提取优先级为：
 
 当 `saveToFavorites=1|true|auto` 时：
 
-- Prompt Optimizer 会尝试自动保存到收藏
+- GlobalCloud XiaoC 会尝试自动保存到收藏
 - 收藏内容来自 Garden 返回的 prompt
 - `meta` 和 `assets` 会作为 `gardenSnapshot` 一起写入收藏 metadata
 - 如果 `meta.categoryPath/categoryPathKey` 存在，会自动创建或复用分类树，并保存到叶子分类
@@ -424,7 +424,7 @@ Prompt Optimizer 当前的分类提取优先级为：
 
 当 `saveToFavorites=confirm|dialog|manual` 时：
 
-- Prompt Optimizer 会打开“保存收藏”对话框
+- GlobalCloud XiaoC 会打开“保存收藏”对话框
 - 自动带入标题、描述、标签、分类、模式信息和 `gardenSnapshot`
 - 若分类树节点尚不存在，不会在弹窗打开时提前创建；只有用户真正点击保存时才会补建缺失节点
 - 不会写入或覆盖当前工作区
@@ -443,7 +443,7 @@ Garden 联动保存收藏时，不按收藏内容去重，而按下面的组合�
 
 ## 9. 工作区写入时会被重置的状态
 
-当 URL 不带 `saveToFavorites` 时，导入成功后 Prompt Optimizer 不只是更新 prompt，还会清理与旧工作区状态绑定的内容。
+当 URL 不带 `saveToFavorites` 时，导入成功后 GlobalCloud XiaoC 不只是更新 prompt，还会清理与旧工作区状态绑定的内容。
 
 例如：
 
@@ -461,7 +461,7 @@ Garden 联动保存收藏时，不按收藏内容去重，而按下面的组合�
 
 ## 10. 占位符语法（强制）
 
-Prompt Optimizer 仅支持 Mustache 风格变量占位符：
+GlobalCloud XiaoC 仅支持 Mustache 风格变量占位符：
 
 - `{{variable_name}}`
 - `{{ variable_name }}`
@@ -474,7 +474,7 @@ Prompt Optimizer 仅支持 Mustache 风格变量占位符：
 
 - `prompt.text` 和 `prompt.messages[].content` 中出现的变量占位符都必须使用 `{{...}}`
 - Prompt Garden 不应返回 `{var}` 风格占位符
-- Prompt Optimizer 不会在导入时做占位符归一化
+- GlobalCloud XiaoC 不会在导入时做占位符归一化
 
 ## 11. 失败语义
 
@@ -486,7 +486,7 @@ Prompt Optimizer 仅支持 Mustache 风格变量占位符：
 - `404`：`importCode` 不存在
 - `500`：服务端错误
 
-对 Prompt Optimizer 而言：
+对 GlobalCloud XiaoC 而言：
 
 - 任意非 2xx 都会视为导入失败
 - 用户侧只会看到通用失败提示
@@ -507,7 +507,7 @@ Prompt Optimizer 仅支持 Mustache 风格变量占位符：
 
 ## 12. CORS / 静态素材建议
 
-由于 Prompt Optimizer（Web/Extension）是纯前端应用，Garden 侧必须正确配置跨域。
+由于 GlobalCloud XiaoC（Web/Extension）是纯前端应用，Garden 侧必须正确配置跨域。
 
 至少需要覆盖两类资源：
 
@@ -525,7 +525,7 @@ Prompt Optimizer 仅支持 Mustache 风格变量占位符：
 
 ## 13. 环境变量
 
-Prompt Optimizer 侧：
+GlobalCloud XiaoC 侧：
 
 - `VITE_ENABLE_PROMPT_GARDEN_IMPORT=1` 或 `true`
   - 产品内建默认值为 `1`
@@ -544,7 +544,7 @@ Prompt Optimizer 侧：
 
 ## 14. 可选集成（Integrations）机制
 
-Prompt Optimizer 使用“可选集成”机制来实现低入侵扩展：
+GlobalCloud XiaoC 使用“可选集成”机制来实现低入侵扩展：
 
 - 集成模块位于 `packages/ui/src/integrations/`
 - 文件命名为 `*.integration.ts`
@@ -558,7 +558,7 @@ Prompt Garden 相关文件：
 
 ## 15. 参考实现
 
-Prompt Optimizer 侧核心实现：
+GlobalCloud XiaoC 侧核心实现：
 
 - `packages/ui/src/composables/app/useAppPromptGardenImport.ts`
 - `packages/ui/src/components/PromptGardenFavoritePreviewPanel.vue`

@@ -31,8 +31,8 @@ Full release narratives now live in versioned files under `releases/`. This file
 - 中文：本次补丁新增 LLM 输入图片格式兼容层，在不改变已保存素材的前提下，尽力将非标准输入格式转为 PNG 后再请求模型。参见 [版本说明（中文）](releases/v2.10.3.zh-CN.md)。
 
 ## [2.10.2] - 2026-05-06
-- EN: This patch clarifies Prompt Optimizer and Prompt Garden positioning, adds a bilingual Prompt Garden image workflow tutorial, and fixes optional prompt-asset variable handling. See [Release Notes (EN)](releases/v2.10.2.en.md).
-- 中文：本次补丁澄清 Prompt Optimizer 与 Prompt Garden 的产品定位，新增双语 Prompt Garden 图像工作流教程，并修复可选提示词资产变量处理。参见 [版本说明（中文）](releases/v2.10.2.zh-CN.md)。
+- EN: This patch clarifies GlobalCloud XiaoC and Prompt Garden positioning, adds a bilingual Prompt Garden image workflow tutorial, and fixes optional prompt-asset variable handling. See [Release Notes (EN)](releases/v2.10.2.en.md).
+- 中文：本次补丁澄清 GlobalCloud XiaoC 与 Prompt Garden 的产品定位，新增双语 Prompt Garden 图像工作流教程，并修复可选提示词资产变量处理。参见 [版本说明（中文）](releases/v2.10.2.zh-CN.md)。
 
 ## [2.10.1] - 2026-05-04
 - EN: This patch adds a comprehensive MkDocs documentation site with bilingual support, fixes Pro workspace actions broken by RouterView refactoring, corrects Prompt Garden nav paths, and updates project landing page copy. See [Release Notes (EN)](releases/v2.10.1.en.md).

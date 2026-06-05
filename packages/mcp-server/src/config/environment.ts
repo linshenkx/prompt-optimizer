@@ -83,6 +83,9 @@ export interface MCPServerConfig {
   logLevel: 'debug' | 'info' | 'warn' | 'error';
   defaultLanguage: string;
   preferredModelProvider?: string;
+  authToken?: string;
+  allowedOrigins: string[];
+  enableDnsRebindingProtection: boolean;
 }
 
 export function loadConfig(): MCPServerConfig {
@@ -90,7 +93,10 @@ export function loadConfig(): MCPServerConfig {
     httpPort: parseInt(process.env.MCP_HTTP_PORT || '3000'),
     logLevel: (process.env.MCP_LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') || 'debug',
     defaultLanguage: process.env.MCP_DEFAULT_LANGUAGE || 'en-US',
-    preferredModelProvider: process.env.MCP_DEFAULT_MODEL_PROVIDER
+    preferredModelProvider: process.env.MCP_DEFAULT_MODEL_PROVIDER,
+    authToken: process.env.MCP_AUTH_TOKEN || process.env.XC_MCP_TOKEN,
+    allowedOrigins: parseAllowedOrigins(process.env.MCP_ALLOWED_ORIGINS),
+    enableDnsRebindingProtection: process.env.MCP_ENABLE_DNS_REBINDING_PROTECTION === 'true'
   };
 }
 
@@ -103,4 +109,19 @@ export function validateConfig(config: MCPServerConfig): void {
   if (!validLogLevels.includes(config.logLevel)) {
     throw new Error(`Log level must be one of: ${validLogLevels.join(', ')}`);
   }
+
+  if (config.authToken !== undefined && config.authToken.trim().length < 16) {
+    throw new Error('MCP auth token must be at least 16 characters when configured');
+  }
+}
+
+function parseAllowedOrigins(raw?: string): string[] {
+  if (!raw || raw.trim().length === 0) {
+    return ['*'];
+  }
+
+  return raw
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(origin => origin.length > 0);
 }

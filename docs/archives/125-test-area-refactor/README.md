@@ -145,4 +145,4 @@ interface TestAreaPanelProps {
 **项目完成度**: 100%  
 **质量评估**: 优秀 ⭐⭐⭐⭐⭐
 
-*注: 本项目严格遵循工程师专业版输出样式，应用SOLID、KISS、DRY、YAGNI原则，为Prompt Optimizer平台的用户体验和技术架构做出了重要贡献。*
+*注: 本项目严格遵循工程师专业版输出样式，应用SOLID、KISS、DRY、YAGNI原则，为GlobalCloud XiaoC平台的用户体验和技术架构做出了重要贡献。*

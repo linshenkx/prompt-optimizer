@@ -11,9 +11,9 @@ const THEME_MODES = ['system', 'dark', 'light']
 const translations = {
   'zh-CN': {
     htmlLang: 'zh-CN',
-    title: 'Prompt Optimizer | 提示词优化，应该基于真实结果',
-    description: '在一个工作台里完成提示词优化、真实测试、结果评估与建议应用。',
-    brandAriaLabel: 'Prompt Optimizer 官网首页',
+    title: 'GlobalCloud XiaoC | XC wiki 提示词工程服务',
+    description: '为飞书、XGD、GPC、Hermes、OpenClaw 等系统提供基于 wiki 体系的提示词生成、优化和嵌入式 MCP 服务。',
+    brandAriaLabel: 'GlobalCloud XiaoC 官网首页',
     nav: {
       product: '优化器',
       garden: '提示词库',
@@ -31,54 +31,54 @@ const translations = {
       menuAria: '切换导航菜单'
     },
     hero: {
-      eyebrow: '开源提示词工作台',
-      titleTop: '基于真实结果',
+      eyebrow: 'XC · wiki 提示词工程服务',
+      titleTop: '基于 wiki 体系',
       titleMid: '',
-      titleBottom: '优化提示词',
-      lead: '在一个工作台里完成优化、测试、评估，让建议回到当前提示词。',
+      titleBottom: '生成和优化提示词',
+      lead: '为飞书、XGD、GPC、Hermes、OpenClaw 等系统提供可嵌入的提示词工程服务，也支持 Web 和桌面端直接使用。',
       primary: '打开产品',
       secondary: '查看文档',
       stats: [
-        { value: '真实测试', label: '先看结果' },
-        { value: '提示词库', label: '可选来源' },
-        { value: '智能收藏', label: '复用资产' }
+        { value: 'wiki 体系', label: '知识来源' },
+        { value: 'MCP 服务', label: '系统嵌入' },
+        { value: 'Web / 桌面', label: '人工工作台' }
       ],
       visualLabel: '结果闭环',
       visualTitle: '优化、测试、评估在同一界面',
       screenshotBadge: '工作台预览',
-      screenshotAlt: 'Prompt Optimizer 工作台截图'
+      screenshotAlt: 'GlobalCloud XiaoC 工作台截图'
     },
     workflow: {
       kicker: '工作流',
       title: '从来源到复用，一条闭环',
-      lead: '少解释，多验证。提示词进入优化器后，用真实结果决定下一步。',
+      lead: '从 wiki 语境生成提示词，再用真实结果验证和沉淀，最后通过 MCP 或客户端进入业务流程。',
       steps: [
         {
           label: '来源',
-          title: '任意提示词',
-          body: '手写、模板、本地导入或提示词库。'
+          title: 'wiki 与业务语境',
+          body: '知识、流程、角色、规范和系统上下文。'
         },
         {
           label: '核心',
-          title: '优化器',
-          body: '改写、变量、上下文和图像提示词。'
+          title: '生成与优化',
+          body: '生成提示词、改写变量模板、处理上下文和图像提示词。'
         },
         {
           label: '判断',
-          title: '真实测试',
-          body: '用输出、评估和对比决定是否有效。'
+          title: '测试与评估',
+          body: '用输出、评估和对比决定是否适合真实流程。'
         },
         {
           label: '沉淀',
-          title: '智能收藏',
-          body: '保存版本、示例、媒体和来源信息。'
+          title: '嵌入与复用',
+          body: '通过 MCP 服务系统，或沉淀为客户端里的可复用资产。'
         }
       ]
     },
     scenario: {
       kicker: '工作区覆盖',
-      title: '覆盖多类提示词',
-      lead: '四类结构都能进入同一套测试评估流程。',
+      title: '服务多类应用入口',
+      lead: '既能嵌入业务系统，也能作为人工提示词工作台使用。',
       columns: {
         type: '结构类型',
         fit: '适用内容',
@@ -86,28 +86,28 @@ const translations = {
       },
       cards: [
         {
-          label: '单条提示词',
-          title: 'system / user 单提示词',
-          body: '适合优化角色、规则与输出格式。',
-          tags: ['system', 'user', '聚焦分析']
+          label: '业务系统',
+          title: '飞书 / XGD / GPC',
+          body: '把 wiki 语境转成可执行的任务提示词，嵌入协作和业务流程。',
+          tags: ['飞书', 'XGD', 'GPC']
         },
         {
-          label: '变量模板',
-          title: '变量模板',
-          body: '把主题、语气和角色收进模板后再验证。',
-          tags: ['占位变量', '真实输入', '模板复用']
+          label: '治理系统',
+          title: 'Hermes / OpenClaw',
+          body: '围绕项目状态、规则和证据链生成稳定的提示词工程能力。',
+          tags: ['Hermes', 'OpenClaw', '治理']
         },
         {
-          label: '上下文链路',
-          title: '多消息上下文',
-          body: '当 system、user 与上下文共同影响结果时仍可分析。',
-          tags: ['system + user', '上下文', '多消息']
+          label: 'MCP 服务',
+          title: '嵌入式提示词工程',
+          body: '通过 MCP 暴露生成、优化和迭代工具，供外部系统调用。',
+          tags: ['MCP', 'HTTP', '工具调用']
         },
         {
-          label: '图像生成',
-          title: '文生图 / 图生图 / 多图',
-          body: '用真实图像生成结果比较不同提示词的效果，支持多图输入和风格迁移。',
-          tags: ['T2I', 'I2I', '多图生图', '风格迁移']
+          label: '客户端',
+          title: 'Web / 桌面工作台',
+          body: '人工生成、优化、测试、评估和沉淀提示词资产。',
+          tags: ['Web', 'Desktop', '资产复用']
         }
       ]
     },
@@ -147,8 +147,8 @@ const translations = {
       ]
     },
     footer: {
-      title: 'Prompt Optimizer',
-      body: '让提示词优化回到真实结果。',
+      title: 'GlobalCloud XiaoC',
+      body: '基于 wiki 体系提供提示词工程服务。',
       product: '产品',
       docs: '文档',
       github: 'GitHub'
@@ -156,9 +156,9 @@ const translations = {
   },
   en: {
     htmlLang: 'en',
-    title: 'Prompt Optimizer | Prompt optimization should follow real outputs',
-    description: 'One workspace for prompt iteration, real testing, result evaluation, and applying improvements.',
-    brandAriaLabel: 'Prompt Optimizer website home',
+    title: 'GlobalCloud XiaoC | XC wiki-driven prompt engineering service',
+    description: 'Wiki-driven prompt generation, optimization, and embedded MCP services for Feishu, XGD, GPC, Hermes, OpenClaw, and other systems.',
+    brandAriaLabel: 'GlobalCloud XiaoC website home',
     nav: {
       product: 'Optimizer',
       garden: 'Prompt Library',
@@ -176,54 +176,54 @@ const translations = {
       menuAria: 'Toggle navigation menu'
     },
     hero: {
-      eyebrow: 'Open-source prompt workspace',
-      titleTop: 'Real outputs first',
+      eyebrow: 'XC · wiki-driven prompt engineering service',
+      titleTop: 'Generate and optimize prompts',
       titleMid: '',
-      titleBottom: 'Prompt optimization',
-      lead: 'Iterate, test, evaluate, and return changes in one workspace.',
+      titleBottom: 'from the wiki system',
+      lead: 'Provide embedded prompt engineering services for Feishu, XGD, GPC, Hermes, OpenClaw, and other systems, while still supporting direct Web and desktop use.',
       primary: 'Open Product',
       secondary: 'Read Docs',
       stats: [
-        { value: 'Real Tests', label: 'see outputs first' },
-        { value: 'Prompt Library', label: 'optional source' },
-        { value: 'Smart Favorites', label: 'reusable assets' }
+        { value: 'Wiki System', label: 'knowledge source' },
+        { value: 'MCP Service', label: 'system embedding' },
+        { value: 'Web / Desktop', label: 'human workspace' }
       ],
       visualLabel: 'Closed Loop',
       visualTitle: 'Optimize, test, and evaluate in one interface',
       screenshotBadge: 'Workspace preview',
-      screenshotAlt: 'Prompt Optimizer workspace screenshot'
+      screenshotAlt: 'GlobalCloud XiaoC workspace screenshot'
     },
     workflow: {
       kicker: 'Workflow',
       title: 'From source to reuse in one loop',
-      lead: 'Less explanation, more validation. Once a prompt enters Optimizer, real outputs decide what changes.',
+      lead: 'Generate from wiki context, validate against real outputs, then deliver through MCP or client workflows.',
       steps: [
         {
           label: 'Source',
-          title: 'Any prompt',
-          body: 'Drafts, templates, local imports, or Prompt Garden.'
+          title: 'Wiki and business context',
+          body: 'Knowledge, workflows, roles, rules, and system context.'
         },
         {
           label: 'Core',
-          title: 'Optimizer',
-          body: 'Rewrite text, variables, context, and image prompts.'
+          title: 'Generation and optimization',
+          body: 'Generate prompts, rewrite variable templates, and handle context or image prompts.'
         },
         {
           label: 'Judge',
-          title: 'Real tests',
-          body: 'Use outputs, evaluation, and comparison to decide.'
+          title: 'Testing and evaluation',
+          body: 'Use outputs, evaluation, and comparison to decide whether prompts fit real workflows.'
         },
         {
           label: 'Keep',
-          title: 'Smart Favorites',
-          body: 'Save versions, examples, media, and source details.'
+          title: 'Embedding and reuse',
+          body: 'Serve systems through MCP, or save reusable prompt assets in the client.'
         }
       ]
     },
     scenario: {
       kicker: 'Workspace coverage',
-      title: 'Handle different prompt structures',
-      lead: 'Single prompts, variable templates, context chains, and image generation all fit into the same validation loop.',
+      title: 'Serve multiple application entry points',
+      lead: 'XC works as both an embedded service and a human prompt engineering workspace.',
       columns: {
         type: 'Structure',
         fit: 'Best for',
@@ -231,28 +231,28 @@ const translations = {
       },
       cards: [
         {
-          label: 'Single prompt',
-          title: 'System / user single prompt',
-          body: 'Best for roles, rules, and output instructions.',
-          tags: ['system', 'user', 'focused analysis']
+          label: 'Business systems',
+          title: 'Feishu / XGD / GPC',
+          body: 'Turn wiki context into executable prompts for collaboration and business workflows.',
+          tags: ['Feishu', 'XGD', 'GPC']
         },
         {
-          label: 'Variables',
-          title: 'Variable templates',
-          body: 'Validate reusable templates with real values.',
-          tags: ['variables', 'real input', 'reuse']
+          label: 'Governance systems',
+          title: 'Hermes / OpenClaw',
+          body: 'Generate stable prompt engineering capabilities around project state, rules, and evidence chains.',
+          tags: ['Hermes', 'OpenClaw', 'governance']
         },
         {
-          label: 'Context chain',
-          title: 'Multi-message context',
-          body: 'Useful when system, user, and context all affect the result.',
-          tags: ['system + user', 'context', 'multi-message']
+          label: 'MCP service',
+          title: 'Embedded prompt engineering',
+          body: 'Expose generation, optimization, and iteration tools for external systems.',
+          tags: ['MCP', 'HTTP', 'tools']
         },
         {
-          label: 'Image generation',
-          title: 'Text-to-image / Image-to-image / Multi-image',
-          body: 'Compare different prompts through real image generation, with multi-image input and style transfer support.',
-          tags: ['T2I', 'I2I', 'multi-image', 'style transfer']
+          label: 'Clients',
+          title: 'Web / desktop workspace',
+          body: 'Generate, optimize, test, evaluate, and preserve prompt assets manually.',
+          tags: ['Web', 'Desktop', 'reuse']
         }
       ]
     },
@@ -292,8 +292,8 @@ const translations = {
       ]
     },
     footer: {
-      title: 'Prompt Optimizer',
-      body: 'Bring prompt optimization back to real outputs.',
+      title: 'GlobalCloud XiaoC',
+      body: 'Wiki-driven prompt engineering for systems and clients.',
       product: 'Product',
       docs: 'Docs',
       github: 'GitHub'
@@ -458,7 +458,7 @@ function renderApp(locale, themeMode) {
       <header class="site-header">
         <a class="site-brand" href="/" aria-label="${copy.brandAriaLabel}">
           <img src="/images/logo.png" alt="" class="site-brand__logo" />
-          <span class="site-brand__text">Prompt Optimizer</span>
+          <span class="site-brand__text">GlobalCloud XiaoC</span>
         </a>
         <button class="site-menu-button" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="${copy.nav.menuAria}">
           <span></span>

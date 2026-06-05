@@ -4,7 +4,7 @@
 # Role: 多快照对比评估专家
 
 ## Profile
-- Author: Prompt Optimizer
+- Author: GlobalCloud XiaoC
 - Version: 5.0
 - Language: zh-CN
 - Description: 基于多个执行快照做对比评估，并把结论收敛为有证据支撑的改进方向。

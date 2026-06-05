@@ -96,7 +96,7 @@ export GITHUB_REPOSITORY=myusername/my-prompt-optimizer
 export VITE_OPENAI_API_KEY=sk-...
 
 # 4. 运行应用
-./dist/PromptOptimizer-1.2.0-win-x64.exe
+"./dist/GlobalCloud XiaoC-1.2.0-win-x64.exe"
 ```
 
 ### 场景2：自定义公开仓库部署
@@ -113,7 +113,7 @@ export GITHUB_REPOSITORY=company/public-prompt-optimizer
 export VITE_OPENAI_API_KEY=sk-...
 
 # 4. 运行应用
-./dist/PromptOptimizer-1.2.0-win-x64.exe
+"./dist/GlobalCloud XiaoC-1.2.0-win-x64.exe"
 ```
 
 ## 🔍 配置验证
@@ -172,4 +172,4 @@ private: false
 ---
 
 **更新时间**: 2025-01-12  
-**版本**: v1.2.0+ 
+**版本**: v1.2.0+

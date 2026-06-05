@@ -66,7 +66,7 @@ describe('AppHeaderActions about menu layout hooks', () => {
               'nav.variableManager': 'Variable Manager',
               'nav.about': 'About',
               'updater.viewOnGitHub': 'View on GitHub',
-              'about.title': 'Prompt Optimizer',
+              'about.title': 'GlobalCloud XiaoC',
               'about.website': 'Website',
               'about.websiteLabel': 'always200.com',
               'about.documentation': 'Docs',

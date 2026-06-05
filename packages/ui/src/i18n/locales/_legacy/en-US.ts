@@ -63,7 +63,7 @@ export default {
     context: "Context",
     copySuccess: "Copied to clipboard",
     copyFailed: "Copy Failed",
-    appName: "Prompt Optimizer",
+    appName: "GlobalCloud XiaoC",
     selectFile: "Select File",
     exporting: "Exporting...",
     importing: "Importing...",
@@ -111,7 +111,7 @@ export default {
   nav: {
     home: "Home",
     dashboard: "Dashboard",
-    promptOptimizer: "Prompt Optimizer",
+    promptOptimizer: "GlobalCloud XiaoC",
     modelManager: "Model Manager",
     history: "History",
     templates: "Templates",
@@ -125,7 +125,7 @@ export default {
     imageMode: "Image",
   },
   about: {
-    title: "Prompt Optimizer",
+    title: "GlobalCloud XiaoC",
     website: "Website",
     websiteLabel: "always200.com",
     documentation: "Docs",
@@ -506,7 +506,7 @@ export default {
     },
   },
   promptOptimizer: {
-    title: "Prompt Optimizer",
+    title: "GlobalCloud XiaoC",
     inputPlaceholder: "Enter your prompt to optimize...",
     optimize: "Optimize",
     analyze: "Analyze",
@@ -1873,10 +1873,10 @@ export default {
       smart: { name: "Smart Detection", description: "Auto-detect format and convert" },
       openai: { name: "OpenAI", description: "OpenAI API request format" },
       langfuse: { name: "LangFuse", description: "LangFuse tracking data format" },
-      conversation: { name: "Internal Format", description: "Prompt Optimizer internal JSON structure" },
+      conversation: { name: "Internal Format", description: "GlobalCloud XiaoC internal JSON structure" },
     },
     exportFormats: {
-      standard: { name: "Internal Format", description: "Prompt Optimizer internal standard format" },
+      standard: { name: "Internal Format", description: "GlobalCloud XiaoC internal standard format" },
       openai: { name: "OpenAI", description: "OpenAI API compatible format" },
     },
 

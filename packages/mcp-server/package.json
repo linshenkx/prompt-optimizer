@@ -1,7 +1,7 @@
 {
   "name": "@prompt-optimizer/mcp-server",
   "version": "0.1.0",
-  "description": "MCP (Model Context Protocol) server for prompt-optimizer",
+  "description": "MCP server for GlobalCloud XiaoC wiki-driven prompt engineering services",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -10,7 +10,7 @@
   },
   "scripts": {
     "build": "tsup src/index.ts src/start.ts --format cjs,esm --dts --clean",
-    "dev": "node -r ./preload-env.js dist/start.js --transport=http",
+    "dev": "pnpm run build && node -r ./preload-env.js dist/start.js --transport=http",
     "start": "node -r ./preload-env.cjs dist/start.cjs --transport=http",
     "test": "vitest run",
     "lint": "eslint src --ext .ts",
@@ -23,7 +23,7 @@
     "llm",
     "ai"
   ],
-  "author": "Prompt Optimizer Team",
+  "author": "GlobalCloud XiaoC Team",
   "license": "AGPL-3.0-only",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.28.0",

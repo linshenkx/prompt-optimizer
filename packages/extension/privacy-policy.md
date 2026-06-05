@@ -1,10 +1,10 @@
-# Prompt Optimizer - Privacy Policy
+# GlobalCloud XiaoC - Privacy Policy
 
 *Last Updated: February 1, 2025*
 
 ## Introduction
 
-Thank you for using the "Prompt Optimizer" Chrome extension (hereinafter referred to as "this extension"). This privacy policy explains how we collect, use, store, and protect your information. We highly value your privacy and are committed to protecting your personal data.
+Thank you for using the "GlobalCloud XiaoC" Chrome extension (hereinafter referred to as "this extension"). This privacy policy explains how we collect, use, store, and protect your information. We highly value your privacy and are committed to protecting your personal data.
 
 **Important Note: This extension is a pure client-side application with no backend server. All data storage and management is performed locally in your browser. However, please note that the prompt optimization feature requires calling third-party AI service provider APIs.**
 
@@ -96,13 +96,13 @@ By installing and using this extension, you confirm that you have read and agree
 
 ---
 
-# 提示词优化器 - 隐私政策
+# 小词 - 隐私政策
 
 *最后更新日期：2025年2月1日*
 
 ## 引言
 
-感谢您使用"提示词优化器"Chrome扩展（以下简称"本扩展"）。本隐私政策旨在向您说明我们如何收集、使用、存储和保护您的信息。我们高度重视您的隐私，并致力于保护您的个人数据安全。
+感谢您使用"小词"Chrome扩展（以下简称"本扩展"）。本隐私政策旨在向您说明我们如何收集、使用、存储和保护您的信息。我们高度重视您的隐私，并致力于保护您的个人数据安全。
 
 **特别说明：本扩展是一个纯客户端应用程序，没有后端服务器，所有数据存储和管理均在您的本地浏览器中完成。但请注意，提示词优化功能需要调用第三方AI服务提供商的API。**
 

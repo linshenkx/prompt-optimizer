@@ -52,7 +52,7 @@ docker build -t linshen/prompt-optimizer:$VERSION .
 docker tag linshen/prompt-optimizer:$VERSION linshen/prompt-optimizer:latest
 
 # 运行容器
-docker run -d -p 80:80 --restart unless-stopped --name prompt-optimizer -e ACCESS_PASSWORD=1234!@#$  linshen/prompt-optimizer:$VERSION
+docker run -d -p 80:80 --restart unless-stopped --name globalcloud-xiaoc -e ACCESS_PASSWORD=1234!@#$  linshen/prompt-optimizer:$VERSION
 
 
 # 推送
@@ -65,7 +65,7 @@ docker本地构建测试
 ```shell
 docker build -t linshen/prompt-optimizer:test .
 docker rm -f prompt-optimizer
-docker run -d -p 80:80 --restart unless-stopped --name prompt-optimizer -e VITE_GEMINI_API_KEY=111 linshen/prompt-optimizer:test
+docker run -d -p 80:80 --restart unless-stopped --name globalcloud-xiaoc -e VITE_GEMINI_API_KEY=111 linshen/prompt-optimizer:test
 
 ```
 
@@ -417,12 +417,12 @@ git push origin main
 docker logs -f prompt-optimizer
 
 # 进入容器
-docker exec -it prompt-optimizer sh
+docker exec -it globalcloud-xiaoc sh
 
 # 容器管理
 docker stop prompt-optimizer
 docker start prompt-optimizer
-docker restart prompt-optimizer
+docker restart globalcloud-xiaoc
 
 # 清理资源
 docker rm prompt-optimizer
@@ -548,5 +548,5 @@ pnpm install
 
 ### 容器运行问题
 1. 检查端口占用：`netstat -ano | findstr :80`
-2. 检查容器日志：`docker logs prompt-optimizer`
+2. 检查容器日志：`docker logs globalcloud-xiaoc`
 3. 检查容器状态：`docker ps -a`

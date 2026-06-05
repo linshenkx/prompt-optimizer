@@ -1,5 +1,5 @@
 /*
- * Prompt Optimizer - AI提示词优化工具
+ * GlobalCloud XiaoC - AI提示词优化工具
  * Copyright (C) 2025 linshenkx
  *
  * This program is free software: you can redistribute it and/or modify

@@ -2,7 +2,7 @@
 
 This page answers the most practical first-time question:
 
-what do you need to configure first so Prompt Optimizer can actually run?
+what do you need to configure first so GlobalCloud XiaoC can actually run?
 
 If you are still going through first-time setup, read this together with [Quick Start](../user/quick-start.md).
 

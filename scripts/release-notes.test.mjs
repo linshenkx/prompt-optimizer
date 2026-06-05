@@ -67,7 +67,7 @@ function buildValidEnglishReleaseNotes(version, options = {}) {
 
 `;
 
-  return `# Prompt Optimizer v${version}
+  return `# GlobalCloud XiaoC v${version}
 
 ${summary}## Highlights
 - Faster image prompt evaluation with clearer outputs.
@@ -103,7 +103,7 @@ function buildValidChineseReleaseNotes(version, options = {}) {
 
 `;
 
-  return `# Prompt Optimizer v${version}
+  return `# GlobalCloud XiaoC v${version}
 
 ${summary}## 亮点
 - 图像提示词评估更快，结果表达也更清晰。
@@ -136,7 +136,7 @@ test('buildReleaseNotesTemplate creates the English release note skeleton with s
     commitDraft: ['- feat(ui): polish release notes', '- fix(ci): validate note files'],
   });
 
-  assert.match(template, /^# Prompt Optimizer v2\.8\.0/m);
+  assert.match(template, /^# GlobalCloud XiaoC v2\.8\.0/m);
   assert.match(template, /^## Summary$/m);
   assert.match(template, /^## Highlights$/m);
   assert.match(template, /^### Desktop$/m);
@@ -151,7 +151,7 @@ test('buildReleaseNotesTemplate creates the Chinese release note skeleton with �
     commitDraft: ['- feat(core): ship bilingual release notes'],
   });
 
-  assert.match(template, /^# Prompt Optimizer v2\.8\.0/m);
+  assert.match(template, /^# GlobalCloud XiaoC v2\.8\.0/m);
   assert.match(template, /^## 概括$/m);
   assert.match(template, /^## 亮点$/m);
   assert.match(template, /^### Desktop$/m);
@@ -365,7 +365,7 @@ test('renderGitHubReleaseBody renders English first, then Chinese, with final ma
   assert.match(body, /^### Product Updates$/m);
   assert.match(body, /^#### Web$/m);
   assert.match(body, /^### Fixes$/m);
-  assert.doesNotMatch(body, /^# Prompt Optimizer v2\.8\.0$/m);
+  assert.doesNotMatch(body, /^# GlobalCloud XiaoC v2\.8\.0$/m);
   assert.match(body, /^Installation guide: \[English\]\(https:\/\/github\.com\/linshenkx\/prompt-optimizer\/blob\/v2\.8\.0\/mkdocs\/docs\/en\/deployment\/desktop\.md\) \| \[中文\]\(https:\/\/github\.com\/linshenkx\/prompt-optimizer\/blob\/v2\.8\.0\/mkdocs\/docs\/zh\/deployment\/desktop\.md\)$/m);
   assert.match(body, /\[Source release notes \(EN\)\]\(https:\/\/github\.com\/linshenkx\/prompt-optimizer\/blob\/v2\.8\.0\/releases\/v2\.8\.0\.en\.md\)/);
   assert.match(body, /^---$/m);
@@ -400,7 +400,7 @@ test('renderGitHubReleaseBody renders full text even when summaries are absent',
   assert.match(body, /^### Highlights$/m);
   assert.match(body, /^## 中文$/m);
   assert.match(body, /^### 亮点$/m);
-  assert.doesNotMatch(body, /^# Prompt Optimizer v2\.8\.0/m);
+  assert.doesNotMatch(body, /^# GlobalCloud XiaoC v2\.8\.0/m);
   assert.doesNotMatch(body, /^\[Full release notes \(EN\)\]/m);
 });
 

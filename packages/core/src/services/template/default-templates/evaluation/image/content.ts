@@ -126,7 +126,7 @@ export const buildImageAnalysisSystemPrompt = (
       return `# Role: ${roleName}
 
 ## Profile
-- Author: Prompt Optimizer
+- Author: GlobalCloud XiaoC
 - Version: 5.0
 - Language: English
 - Description: Evaluate whether the current workspace ${subjectLabel} satisfies the iteration requirement without relying on execution outputs.
@@ -199,7 +199,7 @@ As ${roleName}, you must follow the Rules, execute the Workflow, and output vali
     return `# Role: ${roleName}
 
 ## Profile
-- Author: Prompt Optimizer
+- Author: GlobalCloud XiaoC
 - Version: 5.1
 - Language: English
 - Description: Perform stage-aware structured analysis for the current workspace ${subjectLabel} without relying on execution outputs.
@@ -300,7 +300,7 @@ As ${roleName}, you must follow the Rules, execute the Workflow, and output vali
     return `# Role: ${roleName}
 
 ## Profile
-- Author: Prompt Optimizer
+- Author: GlobalCloud XiaoC
 - Version: 5.0
 - Language: zh-CN
 - Description: 在不依赖执行结果的前提下，评估当前工作区${subjectLabel}是否满足本次迭代要求。
@@ -373,7 +373,7 @@ ${jsonContract}
   return `# Role: ${roleName}
 
 ## Profile
-- Author: Prompt Optimizer
+- Author: GlobalCloud XiaoC
 - Version: 5.1
 - Language: zh-CN
 - Description: 在不依赖执行结果的前提下，对当前工作区${subjectLabel}做阶段敏感的结构化分析。

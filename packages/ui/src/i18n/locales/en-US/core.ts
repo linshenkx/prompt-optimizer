@@ -80,7 +80,7 @@ const messages = {
     "context": "Context",
     "copySuccess": "Copied to clipboard",
     "copyFailed": "Copy Failed",
-    "appName": "Prompt Optimizer",
+    "appName": "GlobalCloud XiaoC",
     "selectFile": "Select File",
     "exporting": "Exporting...",
     "importing": "Importing...",
@@ -139,7 +139,7 @@ const messages = {
   "nav": {
     "home": "Home",
     "dashboard": "Dashboard",
-    "promptOptimizer": "Prompt Optimizer",
+    "promptOptimizer": "GlobalCloud XiaoC",
     "modelManager": "Model Manager",
     "history": "History",
     "templates": "Templates",
@@ -153,7 +153,7 @@ const messages = {
     "imageMode": "Image"
   },
   "about": {
-    "title": "Prompt Optimizer",
+    "title": "GlobalCloud XiaoC",
     "website": "Website",
     "websiteLabel": "always200.com",
     "documentation": "Docs",

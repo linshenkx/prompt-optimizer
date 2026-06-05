@@ -96,12 +96,12 @@ Manual import is useful for private repositories, organization repositories, str
 1. Fork this repository
 2. In the Cloudflare Dashboard, open **Workers & Pages**
 3. Create an application from your GitHub/Git repository
-4. Choose your forked `prompt-optimizer` repository
+4. Choose your forked `globalcloud-xiaoc` repository
 5. If the screen says "Create Worker", keep most settings at their defaults:
 
 | Setting | Recommended value |
 | --- | --- |
-| Worker name | Keep `prompt-optimizer` if it is auto-filled; otherwise change it to `prompt-optimizer` |
+| Worker name | Keep `globalcloud-xiaoc` if it is auto-filled; otherwise change it to `globalcloud-xiaoc` |
 | Root directory / Path | Keep the default, usually `/` or empty |
 | Build command | Clear it; if Cloudflare auto-fills `pnpm run build`, delete it. `wrangler.jsonc` already configures the build command |
 | Deploy command | Keep the default `npx wrangler deploy` |

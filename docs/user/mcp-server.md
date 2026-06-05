@@ -1,12 +1,16 @@
 # MCP 服务器用户指南
 
-Prompt Optimizer 支持 Model Context Protocol (MCP) 协议，可以与 Claude Desktop 等支持 MCP 的 AI 应用集成。
+GlobalCloud XiaoC（简称 XC，小词）支持 Model Context Protocol (MCP) 协议，可以向飞书、XGD、GPC、Hermes、OpenClaw、Claude Desktop 等支持 MCP 的应用系统提供嵌入式提示词工程服务。XC 以 wiki 体系为知识和规范来源，提供提示词生成、优化、迭代、测试和评估能力。
 
 ## 🎯 功能特性
 
-- **optimize-user-prompt**: 优化用户提示词以提升 LLM 性能
-- **optimize-system-prompt**: 优化系统提示词以提升 LLM 性能
+- **optimize-user-prompt**: 结合任务目标和 wiki 语境优化用户提示词以提升 LLM 性能
+- **optimize-system-prompt**: 结合角色、流程和系统规范优化系统提示词以提升 LLM 性能
 - **iterate-prompt**: 基于特定需求迭代改进成熟的提示词
+- **generate-wiki-prompt**: 根据业务目标、调用方系统和 wiki 上下文生成可嵌入的生产级提示词
+- **evaluate-prompt-fit**: 评估提示词是否适配 XC 的 MCP/Web/Desktop 嵌入式使用场景
+
+所有工具均支持可选 XC 上下文字段：`caller_system`、`task_type`、`business_context`、`output_contract`、`wiki_context`、`source_refs`。调用方可以把飞书、XGD、GPC、Hermes、OpenClaw 等系统检索到的 wiki 片段和来源引用传入 MCP，XC 会将其作为提示词生成、优化和评估的上下文。
 
 ## 🚀 快速开始
 
@@ -19,7 +23,7 @@ Docker 是最简单的部署方式，Web 界面和 MCP 服务器会同时启动�
 docker run -d -p 8081:80 \
   -e VITE_OPENAI_API_KEY=your-openai-key \
   -e MCP_DEFAULT_MODEL_PROVIDER=openai \
-  --name prompt-optimizer \
+  --name globalcloud-xiaoc \
   linshen/prompt-optimizer
 
 # 访问地址
@@ -86,7 +90,15 @@ MCP_HTTP_PORT=3000
 # 默认语言（可选，默认 zh）
 # 可选值：zh, en
 MCP_DEFAULT_LANGUAGE=zh
+
+# MCP 鉴权 token（可选；配置后 /mcp 必须携带 Authorization: Bearer <token> 或 X-XC-MCP-Token）
+MCP_AUTH_TOKEN=replace-with-at-least-16-characters
+
+# 浏览器型 MCP 客户端来源白名单（可选，逗号分隔，默认 *）
+MCP_ALLOWED_ORIGINS=http://localhost:3000,https://your-domain.example
 ```
+
+MCP 专用健康检查端点为 `http://localhost:3000/healthz`。请不要用 `/mcp` 做普通 HTTP 健康检查，因为 `/mcp` 是 MCP 协议端点，需要会话初始化和 `mcp-session-id`。
 
 ## 🔗 客户端连接
 
@@ -106,7 +118,7 @@ MCP_DEFAULT_LANGUAGE=zh
 {
   "services": [
     {
-      "name": "Prompt Optimizer",
+      "name": "GlobalCloud XiaoC",
       "url": "http://localhost:8081/mcp"
     }
   ]

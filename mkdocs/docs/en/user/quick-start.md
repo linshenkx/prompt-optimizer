@@ -3,7 +3,7 @@
 This page has one job: help you complete one real workflow with the shortest possible path.
 
 !!! warning
-    Prompt Optimizer does not include a ready-to-use model by default. Before your first run, configure at least one text model in **Model Management**, or analysis, optimization, testing, and evaluation will not work.
+    GlobalCloud XiaoC does not include a ready-to-use model by default. Before your first run, configure at least one text model in **Model Management**, or analysis, optimization, testing, and evaluation will not work.
 
 ## First-time users: only do these 4 steps
 

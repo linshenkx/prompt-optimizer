@@ -1,6 +1,6 @@
 ## Cloudflare 部署说明
 
-Cloudflare 适合部署 Prompt Optimizer 的 **Web 前端**。当前 Cloudflare Dashboard 可能会把 GitHub 仓库导入到 **Workers Static Assets** 流程，而不是旧版 **Pages** 表单。两种方式都能部署静态前端，但如果你的界面出现“创建 Worker”“部署命令 `npx wrangler deploy`”，请优先按下面的 Workers 流程配置。
+Cloudflare 适合部署 GlobalCloud XiaoC 的 **Web 前端**。当前 Cloudflare Dashboard 可能会把 GitHub 仓库导入到 **Workers Static Assets** 流程，而不是旧版 **Pages** 表单。两种方式都能部署静态前端，但如果你的界面出现“创建 Worker”“部署命令 `npx wrangler deploy`”，请优先按下面的 Workers 流程配置。
 
 ### 推荐方式：一键部署
 
@@ -28,7 +28,7 @@ Cloudflare 适合部署 Prompt Optimizer 的 **Web 前端**。当前 Cloudflare 
    - 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)
    - 进入 **Workers & Pages**
    - 选择通过 GitHub/Git 仓库创建应用
-   - 选择你 fork 后的 `prompt-optimizer` 仓库
+   - 选择你 fork 后的 `globalcloud-xiaoc` 仓库
 
 3. **确认 Worker 设置**
 
@@ -36,7 +36,7 @@ Cloudflare 适合部署 Prompt Optimizer 的 **Web 前端**。当前 Cloudflare 
 
    | 配置项 | 推荐值 |
    | --- | --- |
-   | Worker name | 如果自动填入 `prompt-optimizer`，保持不变；否则改成 `prompt-optimizer` |
+   | Worker name | 如果自动填入 `globalcloud-xiaoc`，保持不变；否则改成 `globalcloud-xiaoc` |
    | Root directory / Path | 保持默认，通常是 `/` 或留空 |
    | Build command | 清空；如果自动填入 `pnpm run build`，请删除。`wrangler.jsonc` 已配置构建命令 |
    | Deploy command | 保持默认 `npx wrangler deploy` |
@@ -93,7 +93,7 @@ Cloudflare 部署不使用 Vercel 的 `ACCESS_PASSWORD`、`middleware.js` 或 `a
 
 Cloudflare Web Analytics 可以在 Cloudflare 控制台启用，不需要安装类似 `@vercel/analytics` 的前端依赖。
 
-需要注意：Prompt Optimizer 当前使用 hash 路由，因此 Cloudflare Web Analytics 可以统计站点访问和性能数据，但不会自动把 `/#/xxx` 这类 hash 内页面切换当作独立页面浏览。
+需要注意：GlobalCloud XiaoC 当前使用 hash 路由，因此 Cloudflare Web Analytics 可以统计站点访问和性能数据，但不会自动把 `/#/xxx` 这类 hash 内页面切换当作独立页面浏览。
 
 ### 和 Vercel 部署的区别
 

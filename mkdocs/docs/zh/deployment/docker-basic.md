@@ -38,7 +38,7 @@ Docker 版最值得先记住的一句话：
 直接运行官方镜像：
 
 ```bash
-docker run -d -p 8081:80 --restart unless-stopped --name prompt-optimizer \
+docker run -d -p 8081:80 --restart unless-stopped --name globalcloud-xiaoc \
   linshen/prompt-optimizer:latest
 ```
 

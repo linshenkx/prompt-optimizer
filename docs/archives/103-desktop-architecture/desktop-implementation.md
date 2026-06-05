@@ -2,7 +2,7 @@
 
 ## 📋 任务概述
 
-将现有的 Prompt Optimizer Web 应用改造为桌面端应用，解决 API 调用的 CORS 跨域问题。
+将现有的 GlobalCloud XiaoC Web 应用改造为桌面端应用，解决 API 调用的 CORS 跨域问题。
 
 ## 🎯 目标
 

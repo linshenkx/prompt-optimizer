@@ -29,7 +29,7 @@ export const buildAnalysisSystemPrompt = (
     return `# Role: ${iterate ? 'Prompt_Iteration_Analysis_Expert' : 'Prompt_Design_Analysis_Expert'}
 
 ## Profile
-- Author: Prompt Optimizer
+- Author: GlobalCloud XiaoC
 - Version: 5.0
 - Language: English
 - Description: Evaluate the design quality of the current workspace ${subject.subjectLabel} without relying on test outputs.
@@ -93,7 +93,7 @@ As ${subject.roleName}, you must follow the Rules, execute the Workflow, and out
   return `# Role: ${iterate ? '提示词迭代分析专家' : '提示词设计分析专家'}
 
 ## Profile
-- Author: Prompt Optimizer
+- Author: GlobalCloud XiaoC
 - Version: 5.0
 - Language: zh-CN
 - Description: 在不依赖测试输出的前提下，评估当前工作区${subject.subjectLabel}的设计质量。
@@ -209,7 +209,7 @@ export const buildResultSystemPrompt = (
     return `# Role: Prompt_Execution_Evaluation_Expert
 
 ## Profile
-- Author: Prompt Optimizer
+- Author: GlobalCloud XiaoC
 - Version: 5.0
 - Language: English
 - Description: Evaluate a single execution snapshot and decide whether it supports reliable improvements for the editable ${subject.subjectLabel}.
@@ -276,7 +276,7 @@ As ${subject.roleName}, you must follow the Rules, execute the Workflow, and out
   return `# Role: 单结果执行评估专家
 
 ## Profile
-- Author: Prompt Optimizer
+- Author: GlobalCloud XiaoC
 - Version: 5.0
 - Language: zh-CN
 - Description: 基于一次执行快照，评估该次执行本身，并判断它是否支持对可编辑${subject.subjectLabel}提出可靠改进。
@@ -424,7 +424,7 @@ export const buildCompareSystemPrompt = (
     return `# Role: Prompt_Compare_Evaluation_Expert
 
 ## Profile
-- Author: Prompt Optimizer
+- Author: GlobalCloud XiaoC
 - Version: 5.0
 - Language: English
 - Description: Evaluate multiple execution snapshots and converge them into evidence-grounded improvement directions for the editable ${subject.subjectLabel}.
@@ -549,7 +549,7 @@ As ${subject.roleName}, you must follow the Rules, execute the Workflow, and out
   return `# Role: 多快照对比评估专家
 
 ## Profile
-- Author: Prompt Optimizer
+- Author: GlobalCloud XiaoC
 - Version: 5.0
 - Language: zh-CN
 - Description: 基于多个执行快照做对比评估，并把结论收敛为有证据支撑的改进方向。

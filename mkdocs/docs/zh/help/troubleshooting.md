@@ -105,7 +105,7 @@ Windows 常见日志目录：
 
 去 `chrome://extensions/`：
 
-1. 找到 Prompt Optimizer
+1. 找到 GlobalCloud XiaoC
 2. 点击“重新加载”
 3. 再次点击工具栏图标
 

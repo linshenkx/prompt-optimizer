@@ -1,5 +1,5 @@
 {
-  "name": "prompt-optimizer",
+  "name": "globalcloud-xiaoc",
   "version": "2.11.5",
   "private": true,
   "packageManager": "pnpm@10.6.1",
@@ -84,6 +84,25 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "electron"
-    ]
+    ],
+    "overrides": {
+      "@xmldom/xmldom": "0.9.10",
+      "@hono/node-server": "1.19.13",
+      "@protobufjs/utf8": "1.1.1",
+      "brace-expansion@>=2.0.0 <2.0.3": "2.0.3",
+      "brace-expansion@>=5.0.0 <5.0.6": "5.0.6",
+      "dompurify": "3.4.8",
+      "fast-uri": "3.1.2",
+      "hono": "4.12.23",
+      "ip-address": "10.1.1",
+      "js-cookie": "3.0.8",
+      "lodash": "4.18.1",
+      "lodash-es": "4.18.1",
+      "plist": "3.1.1",
+      "protobufjs": "7.6.2",
+      "qs": "6.15.2",
+      "tmp": "0.2.7",
+      "ws": "8.21.0"
+    }
   }
 }

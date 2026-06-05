@@ -10,7 +10,7 @@ import * as os from 'node:os';
 const E2E_PORT = process.env.E2E_PORT || 15555;
 const BASE_URL = `http://localhost:${E2E_PORT}`;
 const E2E_VCR_MODE = process.env.E2E_VCR_MODE || 'auto';
-const USE_VCR_PLACEHOLDER_KEYS = E2E_VCR_MODE === 'replay';
+const USE_VCR_PLACEHOLDER_KEYS = E2E_VCR_MODE === 'auto' || E2E_VCR_MODE === 'replay';
 
 export default defineConfig({
   // 测试目录

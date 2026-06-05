@@ -98,7 +98,7 @@ const messages = {
         "resourcesCorrupt": "{count} 个图片资源损坏",
         "resourcesFailed": "{count} 个图片资源恢复失败",
         "sharePngMissingData": "该 PNG 未检测到可导入的收藏分享数据，请使用原始导出的 PNG 文件；截图、压缩或格式转换后的图片无法导入。",
-        "shareHtmlMissingData": "该 HTML 未检测到可导入的收藏分享数据，请使用 Prompt Optimizer 导出的分享 HTML 文件。",
+        "shareHtmlMissingData": "该 HTML 未检测到可导入的收藏分享数据，请使用 GlobalCloud XiaoC 导出的分享 HTML 文件。",
         "readFileFailed": "读取文件失败",
         "noFileSize": "未知大小"
       },
@@ -320,7 +320,7 @@ const messages = {
       "projectNamePlaceholder": "项目名称",
       "projectUrlPlaceholder": "项目地址",
       "fixedSectionsHint": "封面图、描述、提示词正文、标签、变量和项目水印会默认包含。",
-      "watermarkHint": "水印固定显示 Prompt Optimizer 和官网地址。",
+      "watermarkHint": "水印固定显示 GlobalCloud XiaoC 和官网地址。",
       "previewTitle": "导出预览",
       "previewHtml": "HTML",
       "previewPng": "PNG",
@@ -348,9 +348,9 @@ const messages = {
         "watermark": "项目水印"
       },
       "document": {
-        "titleSuffix": "Prompt Optimizer 收藏分享",
-        "eyebrow": "Prompt Optimizer 收藏分享",
-        "metaPrefix": "Prompt Optimizer 收藏分享",
+        "titleSuffix": "GlobalCloud XiaoC 收藏分享",
+        "eyebrow": "GlobalCloud XiaoC 收藏分享",
+        "metaPrefix": "GlobalCloud XiaoC 收藏分享",
         "headerImportNote": "导入：访问 https://prompt.always200.com/ → 收藏夹 → 导入 → 上传此 HTML 文件。",
         "copy": "复制",
         "copied": "已复制",

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /*
- * Prompt Optimizer - AI prompt optimization toolkit
+ * GlobalCloud XiaoC - wiki-driven prompt engineering service
  * Copyright (C) 2025 linshenkx
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,12 +18,10 @@
  */
 
 /**
- * MCP Server for Prompt Optimizer
+ * MCP Server for GlobalCloud XiaoC
  *
- * Provides 3 core tools:
- * - optimize-user-prompt: optimize user prompts
- * - optimize-system-prompt: optimize system prompts
- * - iterate-prompt: iterate on existing prompts
+ * Provides wiki-context prompt engineering tools for Feishu, XGD, GPC,
+ * Hermes, OpenClaw, and other MCP-compatible systems.
  *
  * Supports both stdio and HTTP transports
  *
@@ -35,18 +33,28 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { ListToolsRequestSchema, CallToolRequestSchema, isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { CoreServicesManager } from './adapters/core-services.js';
-import { loadConfig, type MCPServerConfig } from './config/environment.js';
+import { loadConfig, validateConfig, type MCPServerConfig } from './config/environment.js';
 import * as logger from './utils/logging.js';
 import { ParameterValidator } from './adapters/parameter-adapter.js';
+import {
+  buildPromptFitEvaluationPrompt,
+  buildPromptWithXCContext,
+  buildRequirementsWithXCContext,
+  buildWikiPromptGoal,
+  buildXCAdvancedVariables,
+  getXCContextSchemaProperties,
+  validateXCContext,
+  type XCContextArgs
+} from './adapters/xc-context.js';
 import { getTemplateOptions, getDefaultTemplateId } from './config/templates.js';
-import { randomUUID } from 'node:crypto';
-import express from 'express';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
+import express, { type NextFunction, type Request, type Response } from 'express';
 
 // 创建服务器实例的工厂函数
 async function createServerInstance(config: MCPServerConfig) {
   // 创建 MCP Server 实例 - 使用正确的 API
   const server = new Server({
-    name: 'prompt-optimizer-mcp-server',
+    name: 'globalcloud-xiaoc-mcp-server',
     version: '0.1.0'
   }, {
     capabilities: {
@@ -59,6 +67,92 @@ async function createServerInstance(config: MCPServerConfig) {
   await coreServices.initialize(config);
 
   return { server, coreServices };
+}
+
+const xcContextSchemaProperties = getXCContextSchemaProperties();
+
+function mergeProperties(...groups: Record<string, unknown>[]): Record<string, unknown> {
+  return Object.assign({}, ...groups);
+}
+
+function textResult(text: string) {
+  return {
+    content: [{
+      type: "text" as const,
+      text
+    }]
+  };
+}
+
+function errorResult(message: string) {
+  return {
+    isError: true,
+    content: [{
+      type: "text" as const,
+      text: message
+    }]
+  };
+}
+
+async function ensureMCPModel(coreServices: CoreServicesManager): Promise<void> {
+  const modelManager = coreServices.getModelManager();
+  const mcpModel = await modelManager.getModel('mcp-default');
+  if (!mcpModel || !mcpModel.enabled) {
+    throw new Error('The MCP default model is not configured or not enabled. Check the environment configuration.');
+  }
+}
+
+function getXCContextArgs(args: Record<string, unknown>): XCContextArgs {
+  return {
+    caller_system: args.caller_system as string | undefined,
+    task_type: args.task_type as string | undefined,
+    business_context: args.business_context as string | undefined,
+    output_contract: args.output_contract as string | undefined,
+    wiki_context: args.wiki_context as XCContextArgs['wiki_context'],
+    source_refs: args.source_refs as XCContextArgs['source_refs']
+  };
+}
+
+function createMCPAuthMiddleware(config: MCPServerConfig) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!config.authToken || req.method === 'OPTIONS') {
+      next();
+      return;
+    }
+
+    const bearerToken = extractBearerToken(req.headers.authorization);
+    const headerToken = req.headers['x-xc-mcp-token'];
+    const candidate = bearerToken || (typeof headerToken === 'string' ? headerToken : undefined);
+
+    if (!candidate || !constantTimeEqual(candidate, config.authToken)) {
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Missing or invalid MCP auth token'
+      });
+      return;
+    }
+
+    next();
+  };
+}
+
+function extractBearerToken(value?: string): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const match = value.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1] : undefined;
+}
+
+function constantTimeEqual(left: string, right: string): boolean {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  if (leftBuffer.length !== rightBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(leftBuffer, rightBuffer);
 }
 
 // 设置服务器工具和处理器的函数
@@ -83,13 +177,13 @@ async function setupServerHandlers(server: Server, coreServices: CoreServicesMan
       tools: [
         {
           name: "optimize-user-prompt",
-          description: "Optimize a user prompt to improve clarity, specificity, and overall response quality. Best for everyday chat, Q&A, writing, and task-oriented requests.\n\nKey capabilities:\n- Make the request clearer and more specific\n- Add missing context when useful\n- Improve wording and logical structure\n- Help the model understand the goal more accurately\n\nTypical use cases:\n- Turn a vague question into a concrete request\n- Add detailed constraints to a creative task\n- Improve the framing of a technical question",
+          description: "Optimize a user prompt with task goals, wiki context, and business-system usage in mind. Best for prompts embedded in Feishu, XGD, GPC, Hermes, OpenClaw, or similar systems, as well as everyday chat, Q&A, writing, and task-oriented requests.\n\nKey capabilities:\n- Make the request clearer and more specific\n- Add missing wiki or business context when useful\n- Improve wording and logical structure\n- Help the model understand the goal more accurately\n\nTypical use cases:\n- Turn a vague business request into a concrete prompt\n- Convert wiki rules or procedures into executable task instructions\n- Add detailed constraints to a creative or technical task\n- Improve the framing of a question before sending it to an LLM",
           inputSchema: {
             type: "object",
-            properties: {
+            properties: mergeProperties({
               prompt: {
                 type: "string",
-                description: "The user prompt to optimize. For example: 'Help me write an article' or 'Explain machine learning'."
+                description: "The user prompt to optimize. It may include wiki excerpts, business context, or a plain request. For example: 'Help me write an article', 'Explain machine learning', or 'Generate a Feishu task summary from this wiki procedure'."
               },
               template: {
                 type: "string",
@@ -97,19 +191,19 @@ async function setupServerHandlers(server: Server, coreServices: CoreServicesMan
                 enum: userOptimizeOptions.map(opt => opt.value),
                 default: userDefaultId
               }
-            },
+            }, xcContextSchemaProperties),
             required: ["prompt"]
           }
         },
         {
           name: "optimize-system-prompt",
-          description: "Optimize a system prompt to improve role definition, instruction quality, and behavior control. Best for custom assistants, expert roles, and structured dialogue systems.\n\nKey capabilities:\n- Strengthen role definition and professionalism\n- Improve behavioral guidance and constraints\n- Refine instruction structure and hierarchy\n- Add missing domain context when needed\n\nTypical use cases:\n- Turn a simple role description into a professional system prompt\n- Add clearer operating rules for an AI assistant\n- Improve a domain-specific expert prompt",
+          description: "Optimize a system prompt to improve role definition, instruction quality, and behavior control with wiki-derived rules and system context. Best for embedded assistants, expert roles, workflow agents, and structured dialogue systems.\n\nKey capabilities:\n- Strengthen role definition and professionalism\n- Convert wiki rules, procedures, and boundaries into operating instructions\n- Refine instruction structure and hierarchy\n- Add missing domain context when needed\n\nTypical use cases:\n- Turn a simple role description into a professional system prompt\n- Add clearer operating rules for a Feishu, XGD, GPC, Hermes, or OpenClaw assistant\n- Improve a domain-specific expert prompt",
           inputSchema: {
             type: "object",
-            properties: {
+            properties: mergeProperties({
               prompt: {
                 type: "string",
-                description: "The system prompt to optimize. For example: 'You are a helpful assistant' or 'You are a medical advisor'."
+                description: "The system prompt to optimize. It may include a role, system boundary, wiki rule, workflow policy, or assistant operating contract."
               },
               template: {
                 type: "string",
@@ -117,7 +211,7 @@ async function setupServerHandlers(server: Server, coreServices: CoreServicesMan
                 enum: systemOptimizeOptions.map(opt => opt.value),
                 default: systemDefaultId
               }
-            },
+            }, xcContextSchemaProperties),
             required: ["prompt"]
           }
         },
@@ -126,7 +220,7 @@ async function setupServerHandlers(server: Server, coreServices: CoreServicesMan
           description: "Iteratively improve an existing prompt based on concrete requirements. Best when you already have a usable prompt but need targeted refinements.\n\nKey capabilities:\n- Preserve the prompt's core intent\n- Improve it against specific requirements\n- Address known weaknesses or output issues\n- Adapt it to new scenarios or constraints\n\nTypical use cases:\n- Improve a prompt that is close but not good enough\n- Adapt a prompt to new business or product needs\n- Fix output formatting or content issues\n- Strengthen a specific aspect of performance",
           inputSchema: {
             type: "object",
-            properties: {
+            properties: mergeProperties({
               prompt: {
                 type: "string",
                 description: "The existing prompt to refine. This should be a complete prompt that is already in use but needs improvement."
@@ -141,8 +235,46 @@ async function setupServerHandlers(server: Server, coreServices: CoreServicesMan
                 enum: iterateOptions.map(opt => opt.value),
                 default: iterateDefaultId
               }
-            },
+            }, xcContextSchemaProperties),
             required: ["prompt", "requirements"]
+          }
+        },
+        {
+          name: "generate-wiki-prompt",
+          description: "Generate a production-ready prompt from a business goal, caller-system contract, and supplied wiki context. Use this when Feishu, XGD, GPC, Hermes, OpenClaw, Web, or Desktop clients need an embedded prompt asset grounded in wiki rules and source boundaries.",
+          inputSchema: {
+            type: "object",
+            properties: mergeProperties({
+              goal: {
+                type: "string",
+                description: "The prompt engineering goal or business workflow to support."
+              },
+              template: {
+                type: "string",
+                description: `Choose a user prompt generation/optimization template:\n${userOptimizeOptions.map(opt => `- ${opt.label}: ${opt.description}`).join('\n')}`,
+                enum: userOptimizeOptions.map(opt => opt.value),
+                default: userDefaultId
+              }
+            }, xcContextSchemaProperties),
+            required: ["goal"]
+          }
+        },
+        {
+          name: "evaluate-prompt-fit",
+          description: "Evaluate whether a prompt is fit for an XC embedded prompt engineering use case. Returns a concise score, risks, missing context, and improvement plan grounded in the supplied wiki/caller context.",
+          inputSchema: {
+            type: "object",
+            properties: mergeProperties({
+              prompt: {
+                type: "string",
+                description: "The prompt to evaluate."
+              },
+              expected_use: {
+                type: "string",
+                description: "Expected business use, target system, or workflow where this prompt will run."
+              }
+            }, xcContextSchemaProperties),
+            required: ["prompt"]
           }
         }
       ]
@@ -152,21 +284,17 @@ async function setupServerHandlers(server: Server, coreServices: CoreServicesMan
   // 注册工具调用处理器
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
+    const toolArgs = (args || {}) as Record<string, unknown>;
     logger.info(`Handling tool call request: ${name}`);
 
     try {
       switch (name) {
         case "optimize-user-prompt": {
-          const { prompt, template } = args as { prompt?: string; template?: string };
+          const { prompt, template } = toolArgs as { prompt?: string; template?: string };
+          const xcContext = getXCContextArgs(toolArgs);
 
           if (!prompt) {
-            return {
-              isError: true,
-              content: [{
-                type: "text",
-                text: "Error: Missing required parameter 'prompt'"
-              }]
-            };
+            return errorResult("Error: Missing required parameter 'prompt'");
           }
 
           // 参数验证
@@ -174,51 +302,34 @@ async function setupServerHandlers(server: Server, coreServices: CoreServicesMan
           if (template) {
             ParameterValidator.validateTemplate(template);
           }
+          validateXCContext(xcContext);
 
           // 调用 Core 服务
           const promptService = coreServices.getPromptService();
-          const modelManager = coreServices.getModelManager();
           const templateManager = coreServices.getTemplateManager();
-
-          // 检查 MCP 默认模型是否可用
-          const mcpModel = await modelManager.getModel('mcp-default');
-          if (!mcpModel || !mcpModel.enabled) {
-            return {
-              isError: true,
-              content: [{
-                type: "text",
-                text: "Error: The MCP default model is not configured or not enabled. Check the environment configuration."
-              }]
-            };
-          }
+          await ensureMCPModel(coreServices);
 
           const templateId = template || await getDefaultTemplateId(templateManager, 'user');
+          const targetPrompt = buildPromptWithXCContext(prompt, xcContext);
           const result = await promptService.optimizePrompt({
-            targetPrompt: prompt,
+            targetPrompt,
             modelKey: 'mcp-default',
             optimizationMode: 'user',
-            templateId
+            templateId,
+            advancedContext: {
+              variables: buildXCAdvancedVariables(xcContext)
+            }
           });
 
-          return {
-            content: [{
-              type: "text",
-              text: result
-            }]
-          };
+          return textResult(result);
         }
 
         case "optimize-system-prompt": {
-          const { prompt, template } = args as { prompt?: string; template?: string };
+          const { prompt, template } = toolArgs as { prompt?: string; template?: string };
+          const xcContext = getXCContextArgs(toolArgs);
 
           if (!prompt) {
-            return {
-              isError: true,
-              content: [{
-                type: "text",
-                text: "Error: Missing required parameter 'prompt'"
-              }]
-            };
+            return errorResult("Error: Missing required parameter 'prompt'");
           }
 
           // 参数验证
@@ -226,65 +337,42 @@ async function setupServerHandlers(server: Server, coreServices: CoreServicesMan
           if (template) {
             ParameterValidator.validateTemplate(template);
           }
+          validateXCContext(xcContext);
 
           // 调用 Core 服务
           const promptService = coreServices.getPromptService();
-          const modelManager = coreServices.getModelManager();
           const templateManager = coreServices.getTemplateManager();
-
-          // 检查 MCP 默认模型是否可用
-          const mcpModel = await modelManager.getModel('mcp-default');
-          if (!mcpModel || !mcpModel.enabled) {
-            return {
-              isError: true,
-              content: [{
-                type: "text",
-                text: "Error: The MCP default model is not configured or not enabled. Check the environment configuration."
-              }]
-            };
-          }
+          await ensureMCPModel(coreServices);
 
           const templateId = template || await getDefaultTemplateId(templateManager, 'system');
+          const targetPrompt = buildPromptWithXCContext(prompt, xcContext);
           const result = await promptService.optimizePrompt({
-            targetPrompt: prompt,
+            targetPrompt,
             modelKey: 'mcp-default',
             optimizationMode: 'system',
-            templateId
+            templateId,
+            advancedContext: {
+              variables: buildXCAdvancedVariables(xcContext)
+            }
           });
 
-          return {
-            content: [{
-              type: "text",
-              text: result
-            }]
-          };
+          return textResult(result);
         }
 
         case "iterate-prompt": {
-          const { prompt, requirements, template } = args as {
+          const { prompt, requirements, template } = toolArgs as {
             prompt?: string;
             requirements?: string;
             template?: string
           };
+          const xcContext = getXCContextArgs(toolArgs);
 
           if (!prompt) {
-            return {
-              isError: true,
-              content: [{
-                type: "text",
-                text: "Error: Missing required parameter 'prompt'"
-              }]
-            };
+            return errorResult("Error: Missing required parameter 'prompt'");
           }
 
           if (!requirements) {
-            return {
-              isError: true,
-              content: [{
-                type: "text",
-                text: "Error: Missing required parameter 'requirements'"
-              }]
-            };
+            return errorResult("Error: Missing required parameter 'requirements'");
           }
 
           // 参数验证
@@ -293,59 +381,95 @@ async function setupServerHandlers(server: Server, coreServices: CoreServicesMan
           if (template) {
             ParameterValidator.validateTemplate(template);
           }
+          validateXCContext(xcContext);
 
           // 调用 Core 服务
           const promptService = coreServices.getPromptService();
-          const modelManager = coreServices.getModelManager();
           const templateManager = coreServices.getTemplateManager();
-
-          // 检查 MCP 默认模型是否可用
-          const mcpModel = await modelManager.getModel('mcp-default');
-          if (!mcpModel || !mcpModel.enabled) {
-            return {
-              isError: true,
-              content: [{
-                type: "text",
-                text: "Error: The MCP default model is not configured or not enabled. Check the environment configuration."
-              }]
-            };
-          }
+          await ensureMCPModel(coreServices);
 
           const templateId = template || await getDefaultTemplateId(templateManager, 'iterate');
+          const originalPrompt = buildPromptWithXCContext(prompt, xcContext);
+          const iterateInput = buildRequirementsWithXCContext(requirements, xcContext);
           const result = await promptService.iteratePrompt(
-            prompt,
-            prompt, // 使用原始提示词作为上次优化的提示词
-            requirements,
+            originalPrompt,
+            originalPrompt,
+            iterateInput,
             'mcp-default',
-            templateId
+            templateId,
+            {
+              variables: buildXCAdvancedVariables(xcContext)
+            }
           );
 
-          return {
-            content: [{
-              type: "text",
-              text: result
-            }]
-          };
+          return textResult(result);
+        }
+
+        case "generate-wiki-prompt": {
+          const { goal, template } = toolArgs as { goal?: string; template?: string };
+          const xcContext = getXCContextArgs(toolArgs);
+
+          if (!goal) {
+            return errorResult("Error: Missing required parameter 'goal'");
+          }
+
+          ParameterValidator.validatePrompt(goal);
+          if (template) {
+            ParameterValidator.validateTemplate(template);
+          }
+          validateXCContext(xcContext);
+
+          const promptService = coreServices.getPromptService();
+          const templateManager = coreServices.getTemplateManager();
+          await ensureMCPModel(coreServices);
+
+          const templateId = template || await getDefaultTemplateId(templateManager, 'user');
+          const result = await promptService.optimizePrompt({
+            targetPrompt: buildWikiPromptGoal(goal, xcContext),
+            modelKey: 'mcp-default',
+            optimizationMode: 'user',
+            templateId,
+            advancedContext: {
+              variables: buildXCAdvancedVariables(xcContext)
+            }
+          });
+
+          return textResult(result);
+        }
+
+        case "evaluate-prompt-fit": {
+          const { prompt, expected_use } = toolArgs as { prompt?: string; expected_use?: string };
+          const xcContext = getXCContextArgs(toolArgs);
+
+          if (!prompt) {
+            return errorResult("Error: Missing required parameter 'prompt'");
+          }
+
+          ParameterValidator.validatePrompt(prompt);
+          if (expected_use) {
+            ParameterValidator.validateRequirements(expected_use);
+          }
+          validateXCContext(xcContext);
+          await ensureMCPModel(coreServices);
+
+          const promptService = coreServices.getPromptService();
+          const systemPrompt = [
+            'You are GlobalCloud XiaoC (XC), a wiki-driven prompt engineering evaluator.',
+            'Evaluate prompts for embedded MCP, Web, and Desktop usage across Feishu, XGD, GPC, Hermes, OpenClaw, and similar systems.',
+            'Return valid compact JSON only. Do not include markdown fences.'
+          ].join('\n');
+          const userPrompt = buildPromptFitEvaluationPrompt(prompt, expected_use, xcContext);
+          const result = await promptService.testPrompt(systemPrompt, userPrompt, 'mcp-default');
+
+          return textResult(result);
         }
 
         default:
-          return {
-            isError: true,
-            content: [{
-              type: "text",
-              text: `Error: Unknown tool '${name}'`
-            }]
-          };
+          return errorResult(`Error: Unknown tool '${name}'`);
       }
     } catch (error) {
       logger.error(`Tool execution error ${name}:`, error as Error);
-      return {
-        isError: true,
-        content: [{
-          type: "text",
-          text: `Tool execution error: ${(error as Error).message}`
-        }]
-      };
+      return errorResult(`Tool execution error: ${(error as Error).message}`);
     }
   });
 
@@ -354,6 +478,7 @@ async function setupServerHandlers(server: Server, coreServices: CoreServicesMan
 
 async function main() {
   const config = loadConfig();
+  validateConfig(config);
   logger.setLogLevel(config.logLevel);
 
   try {
@@ -362,7 +487,7 @@ async function main() {
     const transport = args.find(arg => arg.startsWith('--transport='))?.split('=')[1] || 'stdio';
     const port = parseInt(args.find(arg => arg.startsWith('--port='))?.split('=')[1] || config.httpPort.toString());
 
-    logger.info('Starting MCP Server for Prompt Optimizer');
+    logger.info('Starting MCP Server for GlobalCloud XiaoC');
     logger.info(`Transport: ${transport}, Port: ${port}`);
 
     // 初始化 Core 服务（一次性，用于验证配置）
@@ -382,6 +507,29 @@ async function main() {
       // 存储每个会话的传输实例
       const transports: { [sessionId: string]: StreamableHTTPServerTransport } = {};
 
+      app.get('/healthz', async (_req, res) => {
+        const health = await coreServices.getHealthStatus();
+        res.status(health.initialized ? 200 : 503).json({
+          status: health.initialized ? 'ok' : 'degraded',
+          service: 'GlobalCloud XiaoC MCP',
+          version: '0.1.0',
+          transport: 'http',
+          authRequired: Boolean(config.authToken),
+          activeSessions: Object.keys(transports).length,
+          ...health
+        });
+      });
+
+      app.use('/mcp', createMCPAuthMiddleware(config));
+
+      app.options('/mcp', (_req, res) => {
+        res.setHeader('Access-Control-Allow-Origin', config.allowedOrigins.includes('*') ? '*' : config.allowedOrigins[0] || '');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, mcp-session-id, X-XC-MCP-Token');
+        res.setHeader('Access-Control-Max-Age', '1728000');
+        res.status(204).end();
+      });
+
       // 处理 POST 请求（客户端到服务器通信）
       app.post('/mcp', async (req, res) => {
         // 检查现有会话ID
@@ -399,9 +547,8 @@ async function main() {
               // 存储传输实例
               transports[sessionId] = httpTransport;
             },
-            // MCP 协议不需要复杂的 CORS 配置，允许所有来源
-            allowedOrigins: ['*'],
-            enableDnsRebindingProtection: false
+            allowedOrigins: config.allowedOrigins,
+            enableDnsRebindingProtection: config.enableDnsRebindingProtection
           });
 
           // 清理传输实例

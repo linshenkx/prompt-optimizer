@@ -21,7 +21,7 @@
     "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitejs/plugin-vue": "^6.0.5",
     "@vue/tsconfig": "^0.9.1",
-    "vite": "^8.0.3",
+    "vite": "^8.0.16",
     "vitest": "^4.1.2"
   }
 }

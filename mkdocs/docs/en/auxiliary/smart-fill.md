@@ -73,7 +73,7 @@ Smart fill: audience = Tech enthusiasts, style = Professional but easy to unders
 ```
 Prompt: Write launch copy for {{product}}, targeting {{user_group}}, emphasizing {{core_selling_point}}
 
-Manually fill: product = Prompt Optimizer
+Manually fill: product = GlobalCloud XiaoC
 Smart fill: user_group = AI developers and prompt engineers, core_selling_point = One-click prompt optimization
 ```
 

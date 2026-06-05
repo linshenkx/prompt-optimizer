@@ -136,7 +136,7 @@ docker compose --env-file .env -f docker/docker-compose.yml exec prompt-optimize
 
 ```yaml
 services:
-  prompt-optimizer:
+  globalcloud-xiaoc:
     build:
       context: ..
       dockerfile: Dockerfile

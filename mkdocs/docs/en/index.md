@@ -5,7 +5,7 @@ hide:
 
 <div class="po-docs-home">
   <section class="po-docs-hero">
-    <div class="po-docs-badge">Prompt Optimizer Docs</div>
+    <div class="po-docs-badge">GlobalCloud XiaoC Docs</div>
     <div class="po-docs-hero-main">
       <div class="po-docs-hero-copy">
         <h1>Set up a model,<br>then run a workflow</h1>
@@ -202,7 +202,7 @@ hide:
       <a class="po-docs-link-tile" href="user/mcp-server/">
         <div class="po-docs-link-meta">Integrate</div>
         <h3>MCP Server</h3>
-        <p>Expose Prompt Optimizer to external clients and automation workflows.</p>
+        <p>Expose GlobalCloud XiaoC to external clients and automation workflows.</p>
       </a>
     </div>
   </section>

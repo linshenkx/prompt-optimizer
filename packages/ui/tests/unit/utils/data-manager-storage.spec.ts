@@ -46,7 +46,7 @@ const createServices = () => ({
 
 describe('data-manager storage helpers', () => {
   it('estimates bytes from minified JSON instead of formatted JSON', () => {
-    const payload = { nested: { title: '提示词优化器', count: 2 } }
+    const payload = { nested: { title: '小词', count: 2 } }
 
     const minifiedBytes = new TextEncoder().encode(JSON.stringify(payload)).byteLength
     const prettyBytes = new TextEncoder().encode(JSON.stringify(payload, null, 2)).byteLength

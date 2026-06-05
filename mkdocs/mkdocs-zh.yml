@@ -1,7 +1,7 @@
 # 中文专版配置（不启用 i18n，直接指向 zh 目录）
-site_name: Prompt Optimizer 文档（中文）
+site_name: GlobalCloud XiaoC 文档（中文）
 site_url: https://docs.always200.com
-site_description: Prompt Optimizer 中文文档与部署指南
+site_description: GlobalCloud XiaoC 中文文档与部署指南
 site_author: linshenkx
 
 docs_dir: docs/zh
@@ -113,7 +113,7 @@ edit_uri: edit/main/mkdocs/docs/zh/
 
 # 页脚与构建
 strict: true
-copyright: "© 2025 Prompt Optimizer"
+copyright: "© 2025 GlobalCloud XiaoC"
 
 extra:
   website_url: https://always200.com

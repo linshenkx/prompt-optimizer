@@ -60,8 +60,8 @@ export default function middleware(request) {
 function generateAuthPage(isChinese = true) {
   // 语言文本对象
   const text = {
-    title: isChinese ? '访问验证 - Prompt Optimizer' : 'Access Verification - Prompt Optimizer',
-    heading: 'Prompt Optimizer',
+    title: isChinese ? '访问验证 - GlobalCloud XiaoC' : 'Access Verification - GlobalCloud XiaoC',
+    heading: 'GlobalCloud XiaoC',
     subtitle: isChinese ? '此站点受密码保护' : 'This site is password protected',
     passwordLabel: isChinese ? '访问密码' : 'Access Password',
     passwordPlaceholder: isChinese ? '请输入访问密码' : 'Enter access password',

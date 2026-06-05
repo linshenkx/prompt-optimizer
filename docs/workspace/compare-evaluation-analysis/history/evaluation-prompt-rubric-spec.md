@@ -30,7 +30,7 @@
 # Role: <Role_Name>
 
 ## Profile
-- Author: Prompt Optimizer
+- Author: GlobalCloud XiaoC
 - Version: <version>
 - Language: zh-CN
 - Description: <角色描述>

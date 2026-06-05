@@ -1,11 +1,11 @@
 services:
-  prompt-optimizer:
+  globalcloud-xiaoc:
     # 开发模式：从源码构建
     build:
        context: ..
        dockerfile: Dockerfile
     image: linshen/prompt-optimizer:dev
-    container_name: prompt-optimizer-dev
+    container_name: globalcloud-xiaoc-dev
     restart: unless-stopped
     ports:
       - "28082:${NGINX_PORT:-80}"      # Web应用端口（包含MCP服务器，通过/mcp路径访问）
@@ -14,7 +14,7 @@ services:
     env_file:
       - ../.env.local     # 读取仓库根目录的本地环境变量文件
     healthcheck:
-      test: ["CMD", "sh", "-c", "curl -f http://localhost:${NGINX_PORT:-80}/ && curl -f http://localhost:${NGINX_PORT:-80}/mcp"]
+      test: ["CMD", "sh", "-c", "curl -f http://localhost:${NGINX_PORT:-80}/ && curl -f http://localhost:3000/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -29,8 +29,9 @@ services:
       # - MCP_LOG_LEVEL=${MCP_LOG_LEVEL:-debug}
       # - MCP_DEFAULT_LANGUAGE=${MCP_DEFAULT_LANGUAGE:-zh}
       # - MCP_DEFAULT_MODEL_PROVIDER=${MCP_DEFAULT_MODEL_PROVIDER:-openai}
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN:-}
+      - MCP_ALLOWED_ORIGINS=${MCP_ALLOWED_ORIGINS:-*}
 
       # Basic认证配置（可选）
       - ACCESS_USERNAME=${ACCESS_USERNAME:-admin}
       - ACCESS_PASSWORD=${ACCESS_PASSWORD:-123456}
-

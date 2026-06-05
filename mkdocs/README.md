@@ -1,4 +1,4 @@
-# Prompt Optimizer 文档站
+# GlobalCloud XiaoC 文档站
 
 本目录是独立的文档工程。
 

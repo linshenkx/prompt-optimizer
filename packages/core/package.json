@@ -34,14 +34,14 @@
     "vitest": "^4.1.2"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.80.0",
+    "@anthropic-ai/sdk": "^0.91.1",
     "@google/genai": "^1.46.0",
     "dexie": "^4.4.1",
     "diff": "^8.0.4",
     "jsonrepair": "^3.13.3",
     "mustache": "^4.2.0",
     "openai": "^6.33.0",
-    "uuid": "^13.0.0",
+    "uuid": "^13.0.1",
     "zod": "^4.3.6"
   }
 }

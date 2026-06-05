@@ -22,10 +22,10 @@
 建议先按这个顺序来：
 
 1. `docker ps -a`
-2. `docker logs prompt-optimizer`
+2. `docker logs globalcloud-xiaoc`
 3. `curl http://localhost:<你的端口>/`
 4. `curl http://localhost:<你的端口>/mcp`
-5. `docker exec -it prompt-optimizer cat /usr/share/nginx/html/config.js`
+5. `docker exec -it globalcloud-xiaoc cat /usr/share/nginx/html/config.js`
 
 大多数问题到这一步就能定位。
 
@@ -35,7 +35,7 @@
 
 ```bash
 docker ps -a
-docker logs prompt-optimizer
+docker logs globalcloud-xiaoc
 ```
 
 如果你用的是仓库自带 compose，再看：
@@ -93,7 +93,7 @@ curl http://localhost:8081/mcp
 可以直接检查：
 
 ```bash
-docker exec -it prompt-optimizer cat /usr/share/nginx/html/config.js
+docker exec -it globalcloud-xiaoc cat /usr/share/nginx/html/config.js
 ```
 
 常见原因：
@@ -115,7 +115,7 @@ ACCESS_PASSWORD
 可以检查生成结果：
 
 ```bash
-docker exec -it prompt-optimizer cat /etc/nginx/conf.d/auth.conf
+docker exec -it globalcloud-xiaoc cat /etc/nginx/conf.d/auth.conf
 ```
 
 如果你不想启用这层认证，去掉 `ACCESS_PASSWORD` 后重启容器即可。
@@ -163,7 +163,7 @@ docker compose --env-file .env -f docker/docker-compose.yml up -d
 或者：
 
 ```bash
-docker restart prompt-optimizer
+docker restart globalcloud-xiaoc
 ```
 
 然后浏览器强制刷新。
@@ -175,8 +175,8 @@ docker restart prompt-optimizer
 可以检查：
 
 ```bash
-docker logs prompt-optimizer
-docker exec -it prompt-optimizer sh
+docker logs globalcloud-xiaoc
+docker exec -it globalcloud-xiaoc sh
 ps aux
 cat /etc/supervisor/conf.d/supervisord.conf
 ```

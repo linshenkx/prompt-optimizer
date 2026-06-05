@@ -1,12 +1,12 @@
-# 提示词优化器 - Chrome插件上架材料
+# 小词 - Chrome插件上架材料
 
-本文档包含将"提示词优化器"上架到Chrome应用商店所需的所有材料和文案。
+本文档包含将"小词"上架到Chrome应用商店所需的所有材料和文案。
 
 ## 基本信息
 
 ### 插件名称
-- **中文**：提示词优化器
-- **英文**：Prompt Optimizer
+- **中文**：小词
+- **英文**：GlobalCloud XiaoC
 
 ### 插件简短描述（132字符以内）
 - **中文**：智能提示词增强工具：一键优化、改进提示词质量，提升AI回复准确度。多模型支持(OpenAI/Gemini/DeepSeek)，纯客户端处理确保数据安全，无需中间服务器。
@@ -22,7 +22,7 @@
 ## 详细描述
 
 ### 中文详细描述
-提示词优化器是一款专为AI对话体验提升设计的Chrome扩展，让您能够轻松优化提示词，获得更精准的AI回复。作为纯客户端应用，它不依赖任何自有服务器，所有数据存储和处理都在您的浏览器本地完成，仅在优化提示词时直接从您的浏览器调用AI服务提供商的API。
+小词是一款专为AI对话体验提升设计的Chrome扩展，让您能够轻松优化提示词，获得更精准的AI回复。作为纯客户端应用，它不依赖任何自有服务器，所有数据存储和处理都在您的浏览器本地完成，仅在优化提示词时直接从您的浏览器调用AI服务提供商的API。
 
 **核心功能：**
 
@@ -45,7 +45,7 @@
 **如何使用：**
 
 1. 在任意网页中选中您想优化的提示词文本
-2. 点击右键，选择"提示词优化器"
+2. 点击右键，选择"小词"
 3. 在弹出窗口中查看优化结果
 4. 一键复制优化后的提示词
 
@@ -62,7 +62,7 @@
 虽然本扩展是纯客户端应用，但优化提示词的功能需要调用第三方AI服务提供商的API。这些API调用直接从您的浏览器发起，不经过我们的服务器，但会将您的提示词内容发送到相应的AI服务提供商（如OpenAI、Google等）。
 
 ### 英文详细描述
-Prompt Optimizer is a Chrome extension designed to enhance your AI conversation experience, allowing you to easily optimize prompts for more accurate AI responses. As a pure client-side application, it operates without any proprietary servers, with all data storage and processing done locally in your browser, only directly calling AI service providers' APIs from your browser when optimizing prompts.
+GlobalCloud XiaoC is a Chrome extension designed to enhance your AI conversation experience, allowing you to easily optimize prompts for more accurate AI responses. As a pure client-side application, it operates without any proprietary servers, with all data storage and processing done locally in your browser, only directly calling AI service providers' APIs from your browser when optimizing prompts.
 
 **Core Features:**
 
@@ -86,7 +86,7 @@ Prompt Optimizer is a Chrome extension designed to enhance your AI conversation 
 **How to Use:**
 
 1. Select the prompt text you want to optimize on any webpage
-2. Right-click and select "Prompt Optimizer"
+2. Right-click and select "GlobalCloud XiaoC"
 3. View the optimized result in the popup window
 4. Copy the optimized prompt with one click
 

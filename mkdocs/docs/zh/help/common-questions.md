@@ -19,7 +19,7 @@
 | 页面空白、按钮不可用、数据像丢了一样 | [故障排除](troubleshooting.md) |
 | 我想提交 Issue 或反馈文档错误 | [技术支持](support.md) |
 
-## Prompt Optimizer 会把我的提示词上传到你们服务器吗？
+## GlobalCloud XiaoC 会把我的提示词上传到你们服务器吗？
 
 默认不会。
 
@@ -84,7 +84,7 @@
 
 - 一个轻量入口
 - 点击图标后打开独立扩展页
-- 在浏览器环境里使用 Prompt Optimizer
+- 在浏览器环境里使用 GlobalCloud XiaoC
 
 ## 如何备份数据？
 

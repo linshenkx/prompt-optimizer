@@ -217,7 +217,7 @@ describe('favorite share export', () => {
         versions: false,
       },
       branding: {
-        projectName: 'Prompt Optimizer',
+        projectName: 'GlobalCloud XiaoC',
         projectUrl: 'https://example.test',
       },
       imageStorageServices: [],
@@ -225,7 +225,7 @@ describe('favorite share export', () => {
 
     const html = await blob.text()
     expect(html).toContain('Private image prompt')
-    expect(html).toContain('Prompt Optimizer')
+    expect(html).toContain('GlobalCloud XiaoC')
     expect(html).toContain('https://prompt.always200.com/')
     expect(html).toContain('Favorites -&gt; Import -&gt; upload this HTML file')
 
@@ -248,8 +248,8 @@ describe('favorite share export', () => {
       },
       labels: {
         htmlLang: 'zh-CN',
-        documentTitleSuffix: 'Prompt Optimizer 收藏分享',
-        eyebrow: 'Prompt Optimizer 收藏分享',
+        documentTitleSuffix: 'GlobalCloud XiaoC 收藏分享',
+        eyebrow: 'GlobalCloud XiaoC 收藏分享',
         metaPrefix: '收藏分享',
         headerImportNote: '导入：访问 https://prompt.always200.com/ → 收藏夹 → 导入 → 上传此 HTML 文件。',
         copyButton: '复制',
@@ -269,7 +269,7 @@ describe('favorite share export', () => {
 
     const html = await blob.text()
     expect(html).toContain('<html lang="zh-CN">')
-    expect(html).toContain('Prompt Optimizer 收藏分享')
+    expect(html).toContain('GlobalCloud XiaoC 收藏分享')
     expect(html).toContain('<h2>导入说明</h2>')
     expect(html).toContain('导入：访问 https://prompt.always200.com/ → 收藏夹 → 导入 → 上传此 HTML 文件。')
     expect(html).toContain('data-copy-button>复制</button>')
@@ -434,7 +434,7 @@ describe('favorite share export', () => {
         examples: false,
       },
       labels: {
-        pngHeaderBadge: 'Prompt Optimizer 收藏分享',
+        pngHeaderBadge: 'GlobalCloud XiaoC 收藏分享',
         descriptionTitle: '描述',
         promptTitle: '提示词正文',
         tagsTitle: '标签',
@@ -447,7 +447,7 @@ describe('favorite share export', () => {
       canvasFactory: () => canvas,
     })
 
-    expect(fillText).toHaveBeenCalledWith('Prompt Optimizer 收藏分享', expect.any(Number), expect.any(Number))
+    expect(fillText).toHaveBeenCalledWith('GlobalCloud XiaoC 收藏分享', expect.any(Number), expect.any(Number))
     expect(fillText).toHaveBeenCalledWith('导入说明', expect.any(Number), expect.any(Number))
     expect(fillText).toHaveBeenCalledWith(
       expect.stringContaining('上传原始 PNG 文件'),

@@ -1,12 +1,16 @@
 # MCP Server User Guide
 
-Prompt Optimizer supports the Model Context Protocol (MCP), enabling integration with AI applications that support MCP such as Claude Desktop.
+GlobalCloud XiaoC, abbreviated as XC and named 小词 in Chinese, supports the Model Context Protocol (MCP). It can provide embedded prompt engineering services to Feishu, XGD, GPC, Hermes, OpenClaw, Claude Desktop, and other MCP-compatible systems. XC uses the wiki system as the source of knowledge and operating rules, then provides prompt generation, optimization, iteration, testing, and evaluation capabilities.
 
 ## 🎯 Features
 
-- **optimize-user-prompt**: Optimize user prompts to improve LLM performance
-- **optimize-system-prompt**: Optimize system prompts to improve LLM performance
+- **optimize-user-prompt**: Optimize user prompts with task goals and wiki context to improve LLM performance
+- **optimize-system-prompt**: Optimize system prompts with roles, workflows, and system rules to improve LLM performance
 - **iterate-prompt**: Iteratively improve mature prompts based on specific requirements
+- **generate-wiki-prompt**: Generate production-ready embedded prompts from business goals, caller systems, and supplied wiki context
+- **evaluate-prompt-fit**: Evaluate whether a prompt fits XC MCP/Web/Desktop embedded usage
+
+All tools support optional XC context fields: `caller_system`, `task_type`, `business_context`, `output_contract`, `wiki_context`, and `source_refs`. Callers can pass wiki chunks and source references retrieved by Feishu, XGD, GPC, Hermes, OpenClaw, or other systems. XC uses that supplied context for prompt generation, optimization, and evaluation.
 
 ## 🚀 Quick Start
 
@@ -19,7 +23,7 @@ Docker is the simplest deployment method, with both Web interface and MCP server
 docker run -d -p 8081:80 \
   -e VITE_OPENAI_API_KEY=your-openai-key \
   -e MCP_DEFAULT_MODEL_PROVIDER=openai \
-  --name prompt-optimizer \
+  --name globalcloud-xiaoc \
   linshen/prompt-optimizer
 
 # Access URLs
@@ -86,7 +90,15 @@ MCP_HTTP_PORT=3000
 # Default language (optional, default: zh)
 # Options: zh, en
 MCP_DEFAULT_LANGUAGE=zh
+
+# MCP auth token (optional; when set, /mcp requires Authorization: Bearer <token> or X-XC-MCP-Token)
+MCP_AUTH_TOKEN=replace-with-at-least-16-characters
+
+# Browser MCP client origin allowlist (optional, comma-separated, default: *)
+MCP_ALLOWED_ORIGINS=http://localhost:3000,https://your-domain.example
 ```
+
+The dedicated MCP health endpoint is `http://localhost:3000/healthz`. Do not use `/mcp` as a plain HTTP health check because `/mcp` is the MCP protocol endpoint and requires session initialization plus `mcp-session-id`.
 
 ## 🔗 Client Connections
 
@@ -106,7 +118,7 @@ Create or edit the `services.json` file:
 {
   "services": [
     {
-      "name": "Prompt Optimizer",
+      "name": "GlobalCloud XiaoC",
       "url": "http://localhost:8081/mcp"
     }
   ]

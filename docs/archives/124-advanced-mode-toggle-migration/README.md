@@ -6,7 +6,7 @@
 
 ## 📋 项目概述
 
-这是 Prompt Optimizer 项目中最后一个需要从原生HTML组件迁移到 Naive UI 的组件。AdvancedModeToggle 组件负责控制应用的高级模式开关，是用户界面中的重要交互元素。
+这是 GlobalCloud XiaoC 项目中最后一个需要从原生HTML组件迁移到 Naive UI 的组件。AdvancedModeToggle 组件负责控制应用的高级模式开关，是用户界面中的重要交互元素。
 
 通过完成此迁移，项目实现了 **100% Naive UI 组件覆盖率**，完成了整个UI框架现代化升级的最后一环。
 

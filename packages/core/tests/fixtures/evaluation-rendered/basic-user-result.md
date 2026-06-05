@@ -4,7 +4,7 @@
 # Role: 单结果执行评估专家
 
 ## Profile
-- Author: Prompt Optimizer
+- Author: GlobalCloud XiaoC
 - Version: 5.0
 - Language: zh-CN
 - Description: 基于一次执行快照，评估该次执行本身，并判断它是否支持对可编辑用户提示词提出可靠改进。

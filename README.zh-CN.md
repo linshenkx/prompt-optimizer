@@ -1,4 +1,4 @@
-# Prompt Optimizer (提示词优化器) 🚀
+# GlobalCloud XiaoC (小词) 🚀
 
 <div align="center">
 
@@ -22,9 +22,9 @@
 
 ## 📖 项目简介
 
-Prompt Optimizer是一个强大的AI提示词优化工具，帮助你编写更好的AI提示词，提升AI输出质量。支持Web应用、桌面应用、Chrome插件和Docker部署四种使用方式。
+GlobalCloud XiaoC（简称 XC，中文名小词）是面向飞书及其他业务系统的提示词工程服务。它以 wiki 体系为知识和规范来源，为应用系统提供提示词生成、优化、测试和评估能力。
 
-提示词可以来自手写、模板、本地导入，也可以来自 [Prompt Garden 提示词库](https://garden.always200.com) 这样的来源。Prompt Optimizer 负责把这些提示词继续优化、测试、评估，并沉淀为可复用的提示词资产。
+XC 可以通过 MCP 服务向飞书、XGD、GPC、Hermes、OpenClaw 等系统提供嵌入式提示词工程能力，也可以作为 Web 或桌面客户端直接使用。提示词可以来自 wiki、手写、模板、本地导入，也可以来自 [Prompt Garden 提示词库](https://garden.always200.com) 这样的来源。GlobalCloud XiaoC 负责把这些提示词继续生成、优化、测试、评估，并沉淀为可复用的提示词资产。
 
 ### 🎥 功能演示
 
@@ -50,12 +50,14 @@ Prompt Optimizer是一个强大的AI提示词优化工具，帮助你编写更�
 - 🤖 **多模型集成**：支持OpenAI、Gemini、DeepSeek、Grok、智谱AI、SiliconFlow、MiniMax等主流AI模型
 - 🖼️ **图像生成**：支持文生图（T2I）、图生图（I2I）和多图生图，集成Gemini、Seedream、Grok等图像模型
 - 🌱 **提示词来源**：可从手写、模板、本地导入或提示词库导入码开始
+- 📚 **wiki 体系驱动**：围绕 wiki 中的知识、流程、角色和规范生成可落地的提示词
+- 🧩 **系统嵌入服务**：通过 MCP 向飞书、XGD、GPC、Hermes、OpenClaw 等系统提供提示词工程服务
 - ⭐ **智能收藏**：资源感知的提示词资产，支持版本历史、可复现示例、媒体支持、来源绑定和工作区应用
 - 📊 **高级测试模式**：上下文变量管理、多轮会话测试、工具调用（Function Calling）支持
 - 🔒 **安全架构**：纯客户端处理，数据直接与AI服务商交互，不经过中间服务器
 - 📱 **多端支持**：同时提供Web应用、桌面应用、Chrome插件和Docker部署四种使用方式
 - 🔐 **访问控制**：支持密码保护功能，保障部署安全
-- 🧩 **MCP协议支持**：支持Model Context Protocol (MCP) 协议，可与Claude Desktop等MCP兼容应用集成
+- 🧩 **MCP协议支持**：支持Model Context Protocol (MCP) 协议，可与飞书、XGD、GPC、Hermes、OpenClaw、Claude Desktop 等 MCP 兼容应用集成
 
 ## 🚀 高级功能
 
@@ -130,7 +132,7 @@ Cloudflare 上的访问控制和访问分析建议分别使用 Cloudflare Access
 
 ### 4. 安装Chrome插件
 1. 从Chrome商店安装（由于审批较慢，可能不是最新的）：[Chrome商店地址](https://chromewebstore.google.com/detail/prompt-optimizer/cakkkhboolfnadechdlgdcnjammejlna)
-2. 点击图标即可打开提示词优化器
+2. 点击图标即可打开小词
 
 ### 5. Docker部署
 <details>
@@ -138,7 +140,7 @@ Cloudflare 上的访问控制和访问分析建议分别使用 Cloudflare Access
 
 ```bash
 # 运行容器（默认配置）
-docker run -d -p 8081:80 --restart unless-stopped --name prompt-optimizer linshen/prompt-optimizer
+docker run -d -p 8081:80 --restart unless-stopped --name globalcloud-xiaoc linshen/prompt-optimizer
 
 # 运行容器（配置API密钥和访问密码）
 docker run -d -p 8081:80 \
@@ -146,7 +148,7 @@ docker run -d -p 8081:80 \
   -e ACCESS_USERNAME=your_username \  # 可选，默认为"admin"
   -e ACCESS_PASSWORD=your_password \  # 设置访问密码
   --restart unless-stopped \
-  --name prompt-optimizer \
+  --name globalcloud-xiaoc \
   linshen/prompt-optimizer
 ```
 </details>
@@ -185,12 +187,12 @@ MCP 服务器：http://localhost:8081/mcp
 
 ```yaml
 services:
-  prompt-optimizer:
+  globalcloud-xiaoc:
     # 使用Docker Hub镜像
     image: linshen/prompt-optimizer:latest
     # 或使用阿里云镜像（国内用户推荐）
     # image: registry.cn-guangzhou.aliyuncs.com/prompt-optimizer/prompt-optimizer:latest
-    container_name: prompt-optimizer
+    container_name: globalcloud-xiaoc
     restart: unless-stopped
     ports:
       - "8081:80"  # Web应用端口（包含MCP服务器，通过/mcp路径访问）
@@ -209,7 +211,7 @@ services:
 <details>
 <summary>点击查看 MCP Server 使用说明</summary>
 
-Prompt Optimizer 现在支持 Model Context Protocol (MCP) 协议，可以与 Claude Desktop 等支持 MCP 的 AI 应用集成。
+GlobalCloud XiaoC 现在支持 Model Context Protocol (MCP) 协议，可以与 Claude Desktop 等支持 MCP 的 AI 应用集成。
 
 当通过 Docker 运行时，MCP Server 会自动启动，并可通过 `http://ip:port/mcp` 访问。
 
@@ -232,7 +234,7 @@ MCP_LOG_LEVEL=info                 # 日志级别
 docker run -d -p 8081:80 \
   -e VITE_OPENAI_API_KEY=your-openai-key \
   -e MCP_DEFAULT_MODEL_PROVIDER=openai \
-  --name prompt-optimizer \
+  --name globalcloud-xiaoc \
   linshen/prompt-optimizer
 ```
 
@@ -240,7 +242,7 @@ docker run -d -p 8081:80 \
 
 #### Claude Desktop 集成示例
 
-要在 Claude Desktop 中使用 Prompt Optimizer，您需要在 Claude Desktop 的配置文件中添加服务配置。
+要在 Claude Desktop 中使用 GlobalCloud XiaoC，您需要在 Claude Desktop 的配置文件中添加服务配置。
 
 1. 找到 Claude Desktop 的配置目录：
    - Windows: `%APPDATA%\Claude\services`
@@ -253,14 +255,14 @@ docker run -d -p 8081:80 \
 {
   "services": [
     {
-      "name": "Prompt Optimizer",
+      "name": "GlobalCloud XiaoC",
       "url": "http://localhost:8081/mcp"
     }
   ]
 }
 ```
 
-请确保将 `localhost:8081` 替换为您实际部署 Prompt Optimizer 的地址和端口。
+请确保将 `localhost:8081` 替换为您实际部署 GlobalCloud XiaoC 的地址和端口。
 
 #### 可用工具
 
@@ -424,10 +426,10 @@ pnpm dev:fresh        # 完整重置并重新启动开发环境
 
 ```bash
 # 对于已安装的应用
-xattr -rd com.apple.quarantine /Applications/PromptOptimizer.app
+xattr -rd com.apple.quarantine "/Applications/GlobalCloud XiaoC.app"
 
 # 对于下载的 .dmg 文件（安装前执行）
-xattr -rd com.apple.quarantine ~/Downloads/PromptOptimizer-*.dmg
+xattr -rd com.apple.quarantine ~/Downloads/GlobalCloud\ XiaoC-*.dmg
 ```
 
 执行后重新打开应用即可正常使用。

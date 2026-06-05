@@ -40,7 +40,7 @@
 如果你要把自建或第三方 OpenAI 兼容接口放进 Docker 运行环境，可以直接传环境变量：
 
 ```bash
-docker run -d -p 8081:80 --restart unless-stopped --name prompt-optimizer \
+docker run -d -p 8081:80 --restart unless-stopped --name globalcloud-xiaoc \
   -e VITE_CUSTOM_API_KEY=your_key \
   -e VITE_CUSTOM_API_BASE_URL=https://api.example.com/v1 \
   -e VITE_CUSTOM_API_MODEL=your-model \
@@ -109,7 +109,7 @@ http://host.docker.internal:11434/v1
 容器内部默认使用 `80`，对外端口你可以自己映射：
 
 ```bash
-docker run -d -p 3000:80 --name prompt-optimizer linshen/prompt-optimizer:latest
+docker run -d -p 3000:80 --name globalcloud-xiaoc linshen/prompt-optimizer:latest
 ```
 
 ### 从源码构建镜像
@@ -117,8 +117,8 @@ docker run -d -p 3000:80 --name prompt-optimizer linshen/prompt-optimizer:latest
 如果你不是直接用 Docker Hub 镜像，而是要在本地构建：
 
 ```bash
-docker build -t prompt-optimizer:local .
-docker run -d -p 8081:80 --name prompt-optimizer-local prompt-optimizer:local
+docker build -t globalcloud-xiaoc:local .
+docker run -d -p 8081:80 --name globalcloud-xiaoc-local globalcloud-xiaoc:local
 ```
 
 ## 更适合放进 `.env.local` 的内容

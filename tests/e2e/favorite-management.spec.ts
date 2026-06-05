@@ -199,7 +199,7 @@ test.describe('收藏管理基础功能', () => {
 
   test('应用能够正常加载', async ({ page }) => {
     // 验证页面标题
-    await expect(page).toHaveTitle(/提示词优化器|Prompt Optimizer/i);
+    await expect(page).toHaveTitle(/小词|GlobalCloud XiaoC/i);
 
     // 验证主要元素存在
     const mainContent = page.locator('main, #app, [role="main"]');

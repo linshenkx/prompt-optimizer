@@ -2,7 +2,7 @@
 
 ## Overview
 
-Prompt Optimizer now supports configuring unlimited number of custom models, allowing you to use multiple local models or self-hosted API services simultaneously.
+GlobalCloud XiaoC now supports configuring unlimited number of custom models, allowing you to use multiple local models or self-hosted API services simultaneously.
 
 ## Features
 
@@ -158,7 +158,7 @@ docker run -d -p 8081:80 \
   -e VITE_CUSTOM_API_MODEL_claude=claude-3-sonnet \
   -e 'VITE_CUSTOM_API_PARAMS_claude={"temperature":0.3,"top_p":0.8}' \
   --restart unless-stopped \
-  --name prompt-optimizer \
+  --name globalcloud-xiaoc \
   linshen/prompt-optimizer
 ```
 
@@ -183,7 +183,7 @@ Run with environment file:
 ```bash
 docker run -d -p 8081:80 --env-file .env \
   --restart unless-stopped \
-  --name prompt-optimizer \
+  --name globalcloud-xiaoc \
   linshen/prompt-optimizer
 ```
 
@@ -193,7 +193,7 @@ Modify `docker/docker-compose.yml` to add `env_file` configuration:
 
 ```yaml
 services:
-  prompt-optimizer:
+  globalcloud-xiaoc:
     image: linshen/prompt-optimizer:latest
     env_file:
       - .env  # Read environment variables from .env file

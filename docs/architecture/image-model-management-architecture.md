@@ -2,7 +2,7 @@
 
 ## 概述
 
-本文档描述了 Prompt Optimizer 中图像模型管理的新架构设计，该架构采用了组件分离和职责明确的设计原则，通过 `ImageModelManager` + `ModelManager.vue` 的组合方式来替代原有的单一模型管理方案。
+本文档描述了 GlobalCloud XiaoC 中图像模型管理的新架构设计，该架构采用了组件分离和职责明确的设计原则，通过 `ImageModelManager` + `ModelManager.vue` 的组合方式来替代原有的单一模型管理方案。
 
 ## 架构设计原则
 
@@ -306,4 +306,4 @@ export class ImageModelManager implements IImageModelManager {
 
 ## 总结
 
-ImageModelManager + ModelManager.vue 架构通过关注点分离和组件专业化的设计，为 Prompt Optimizer 提供了一个可扩展、易维护的模型管理解决方案。该架构不仅解决了当前图像模型管理的需求，也为未来的功能扩展奠定了坚实的基础。
+ImageModelManager + ModelManager.vue 架构通过关注点分离和组件专业化的设计，为 GlobalCloud XiaoC 提供了一个可扩展、易维护的模型管理解决方案。该架构不仅解决了当前图像模型管理的需求，也为未来的功能扩展奠定了坚实的基础。

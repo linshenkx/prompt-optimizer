@@ -5,7 +5,7 @@ hide:
 
 <div class="po-docs-home">
   <section class="po-docs-hero">
-    <div class="po-docs-badge">Prompt Optimizer Docs</div>
+    <div class="po-docs-badge">GlobalCloud XiaoC Docs</div>
     <div class="po-docs-hero-main">
       <div class="po-docs-hero-copy">
         <h1>先配模型，<br>再跑工作流</h1>
@@ -202,7 +202,7 @@ hide:
       <a class="po-docs-link-tile" href="user/mcp-server/">
         <div class="po-docs-link-meta">集成</div>
         <h3>MCP 服务器</h3>
-        <p>了解如何把 Prompt Optimizer 能力暴露给外部客户端或自动化流程。</p>
+        <p>了解如何把 GlobalCloud XiaoC 能力暴露给外部客户端或自动化流程。</p>
       </a>
     </div>
   </section>

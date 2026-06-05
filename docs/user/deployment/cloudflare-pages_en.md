@@ -1,6 +1,6 @@
 ## Cloudflare Deployment Guide
 
-Cloudflare is suitable for deploying the Prompt Optimizer **Web frontend**. The current Cloudflare Dashboard may import GitHub repositories through the **Workers Static Assets** flow instead of the older **Pages** form. Both can deploy the static frontend, but if your screen says "Create Worker" and shows a deploy command like `npx wrangler deploy`, use the Workers settings below.
+Cloudflare is suitable for deploying the GlobalCloud XiaoC **Web frontend**. The current Cloudflare Dashboard may import GitHub repositories through the **Workers Static Assets** flow instead of the older **Pages** form. Both can deploy the static frontend, but if your screen says "Create Worker" and shows a deploy command like `npx wrangler deploy`, use the Workers settings below.
 
 ### Recommended method: one-click deploy
 
@@ -28,7 +28,7 @@ Manual import is useful for private repositories, organization repositories, str
    - Log in to the [Cloudflare Dashboard](https://dash.cloudflare.com/)
    - Open **Workers & Pages**
    - Create an application from your GitHub/Git repository
-   - Choose your forked `prompt-optimizer` repository
+   - Choose your forked `globalcloud-xiaoc` repository
 
 3. **Review Worker settings**
 
@@ -36,7 +36,7 @@ Manual import is useful for private repositories, organization repositories, str
 
    | Setting | Recommended value |
    | --- | --- |
-   | Worker name | Keep `prompt-optimizer` if it is auto-filled; otherwise change it to `prompt-optimizer` |
+   | Worker name | Keep `globalcloud-xiaoc` if it is auto-filled; otherwise change it to `globalcloud-xiaoc` |
    | Root directory / Path | Keep the default, usually `/` or empty |
    | Build command | Clear it; if Cloudflare auto-fills `pnpm run build`, delete it. `wrangler.jsonc` already configures the build command |
    | Deploy command | Keep the default `npx wrangler deploy` |
@@ -93,7 +93,7 @@ Requests will pass through Cloudflare Access before reaching the static site, wi
 
 Cloudflare Web Analytics can be enabled from the Cloudflare dashboard, so you do not need a frontend dependency like `@vercel/analytics`.
 
-Note that Prompt Optimizer currently uses hash routing. Cloudflare Web Analytics can track overall site visits and performance, but it will not automatically treat `/#/xxx` hash route changes as separate page views.
+Note that GlobalCloud XiaoC currently uses hash routing. Cloudflare Web Analytics can track overall site visits and performance, but it will not automatically treat `/#/xxx` hash route changes as separate page views.
 
 ### Differences from Vercel deployment
 

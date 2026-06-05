@@ -238,7 +238,7 @@ function validateReleaseNotesContent(content, version, locale, options = {}) {
   const requireSummary = options.requireSummary !== false;
   const errors = [];
   const normalizedContent = stripHtmlComments(content).replace(/\r\n/g, '\n');
-  const expectedTitle = `# Prompt Optimizer ${getTagVersion(version)}`;
+  const expectedTitle = `# GlobalCloud XiaoC ${getTagVersion(version)}`;
 
   if (!new RegExp(`^${escapeRegExp(expectedTitle)}\\s*$`, 'm').test(normalizedContent)) {
     errors.push(`Release notes title must be "${expectedTitle}" in ${locale}.`);
@@ -434,7 +434,7 @@ function buildReleaseNotesTemplate({ version, locale, commitDraft = [] }) {
       : '- No commit draft available. You can still write the notes manually.';
 
   if (locale === 'en') {
-    return `# Prompt Optimizer ${getTagVersion(normalizedVersion)}
+    return `# GlobalCloud XiaoC ${getTagVersion(normalizedVersion)}
 
 ## Summary
 - TODO: Add 2-4 concise bullets for the GitHub Release summary.
@@ -469,7 +469,7 @@ ${draftingLines}
 `;
   }
 
-  return `# Prompt Optimizer ${getTagVersion(normalizedVersion)}
+  return `# GlobalCloud XiaoC ${getTagVersion(normalizedVersion)}
 
 ## 概括
 - TODO: 用 2-4 条简短要点概括本次发布，供 GitHub Release 直接引用。
@@ -554,7 +554,7 @@ function renderMacSecurityNote(locale) {
 }
 
 function prepareReleaseNotesForGitHubBody(content, version, cwd = process.cwd()) {
-  const expectedTitle = `# Prompt Optimizer ${getTagVersion(version, cwd)}`;
+  const expectedTitle = `# GlobalCloud XiaoC ${getTagVersion(version, cwd)}`;
   return stripHtmlComments(content)
     .replace(new RegExp(`^${escapeRegExp(expectedTitle)}\\s*\\n+`, 'm'), '')
     .replace(/^###\s+/gm, '#### ')

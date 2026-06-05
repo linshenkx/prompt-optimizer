@@ -1,4 +1,4 @@
-# Prompt Optimizer 🚀
+# GlobalCloud XiaoC 🚀
 
 <div align="center">
 
@@ -22,9 +22,9 @@
 
 ## 📖 Project Introduction
 
-Prompt Optimizer is a powerful AI prompt optimization tool that helps you write better AI prompts and improve the quality of AI outputs. It supports four usage methods: web application, desktop application, Chrome extension, and Docker deployment.
+GlobalCloud XiaoC, abbreviated as XC and named 小词 in Chinese, is a prompt engineering service for Feishu and other business systems. It uses the wiki system as the source of knowledge and operating rules, then provides prompt generation, optimization, testing, and evaluation capabilities to application systems.
 
-Prompts can start from manual writing, templates, local imports, or sources such as [Prompt Garden](https://garden.always200.com). Prompt Optimizer is where those prompts are optimized, tested, evaluated, and saved as reusable prompt assets.
+XC can serve embedded prompt engineering capabilities through MCP for Feishu, XGD, GPC, Hermes, OpenClaw, and other systems. It can also be used directly through the Web or desktop clients. Prompts can start from wiki content, manual writing, templates, local imports, or sources such as [Prompt Garden](https://garden.always200.com). GlobalCloud XiaoC is where those prompts are generated, optimized, tested, evaluated, and saved as reusable prompt assets.
 
 ### 🎥 Feature Demonstration
 
@@ -38,7 +38,7 @@ Prompts can start from manual writing, templates, local imports, or sources such
   <img src="images/demo/pro-variable-bargaining-reply-en.png" alt="Marketplace bargaining reply variable-mode demo" width="85%">
   <br>
   <p><b>3. Text-to-Image: Optimize a One-Line Idea into a More Directable Key Visual Prompt</b></p>
-  <p>This is not just prompt expansion. Starting from a vague one-line idea, Prompt Optimizer adds clearer subject cues, spatial relationships, and mood anchors. The left side is simply “a floating library in the night sky,” while the optimized version gives the model a more directed fantasy composition that feels closer to a reusable key visual than a lucky generic image.</p>
+  <p>This is not just prompt expansion. Starting from a vague one-line idea, GlobalCloud XiaoC adds clearer subject cues, spatial relationships, and mood anchors. The left side is simply “a floating library in the night sky,” while the optimized version gives the model a more directed fantasy composition that feels closer to a reusable key visual than a lucky generic image.</p>
   <img src="images/demo/text2image-floating-library-creative-en.png" alt="Floating library text-to-image demo" width="85%">
 </div>
 
@@ -50,12 +50,14 @@ Prompts can start from manual writing, templates, local imports, or sources such
 - 🤖 **Multi-model Integration**: Support for mainstream AI models including OpenAI, Gemini, DeepSeek, Grok, Zhipu AI, SiliconFlow, MiniMax, etc.
 - 🖼️ **Image Generation**: Support for Text-to-Image (T2I), Image-to-Image (I2I), and Multi-Image generation with models like Gemini, Seedream, Grok
 - 🌱 **Prompt Sources**: Start from manual writing, templates, local imports, or Prompt Garden import codes
+- 📚 **Wiki-driven Prompting**: Generate usable prompts from wiki knowledge, workflows, roles, and operating rules
+- 🧩 **Embedded System Service**: Provide prompt engineering services to Feishu, XGD, GPC, Hermes, OpenClaw, and other systems through MCP
 - ⭐ **Smart Favorites**: Resource-aware prompt assets with version history, reproducible examples, media support, source binding, and workspace application
 - 📊 **Advanced Testing Mode**: Context variable management, multi-turn conversation testing, Function Calling support
 - 🔒 **Secure Architecture**: Pure client-side processing with direct data interaction with AI service providers, bypassing intermediate servers
 - 📱 **Multi-platform Support**: Available as web application, desktop application, Chrome extension, and Docker deployment
 - 🔐 **Access Control**: Password protection feature for secure deployment
-- 🧩 **MCP Protocol Support**: Supports Model Context Protocol (MCP), enabling integration with MCP-compatible AI applications like Claude Desktop
+- 🧩 **MCP Protocol Support**: Supports Model Context Protocol (MCP), enabling integration with Feishu, XGD, GPC, Hermes, OpenClaw, Claude Desktop, and other MCP-compatible applications
 
 ## 🚀 Advanced Features
 
@@ -130,14 +132,14 @@ Download the latest version from [GitHub Releases](https://github.com/linshenkx/
 
 ### 4. Install Chrome Extension
 1. Install from Chrome Web Store (may not be the latest version due to approval delays): [Chrome Web Store](https://chromewebstore.google.com/detail/prompt-optimizer/cakkkhboolfnadechdlgdcnjammejlna)
-2. Click the icon to open the Prompt Optimizer
+2. Click the icon to open the GlobalCloud XiaoC
 
 ### 5. Docker Deployment
 <details>
 <summary>Click to view Docker deployment commands</summary>
 ```bash
 # Run container (default configuration)
-docker run -d -p 8081:80 --restart unless-stopped --name prompt-optimizer linshen/prompt-optimizer
+docker run -d -p 8081:80 --restart unless-stopped --name globalcloud-xiaoc linshen/prompt-optimizer
 
 # Run container (with API key configuration and password protection)
 docker run -d -p 8081:80 \
@@ -145,7 +147,7 @@ docker run -d -p 8081:80 \
   -e ACCESS_USERNAME=your_username \  # Optional, defaults to "admin"
   -e ACCESS_PASSWORD=your_password \  # Set access password
   --restart unless-stopped \
-  --name prompt-optimizer \
+  --name globalcloud-xiaoc \
   linshen/prompt-optimizer
 ```
 </details>
@@ -193,10 +195,10 @@ You can also directly edit the docker/docker-compose.yml file to customize your 
 
 ```yaml
 services:
-  prompt-optimizer:
+  globalcloud-xiaoc:
     # Use Docker Hub image
     image: linshen/prompt-optimizer:latest
-    container_name: prompt-optimizer
+    container_name: globalcloud-xiaoc
     restart: unless-stopped
     ports:
       - "8081:80"  # Web application port (MCP server accessible via /mcp path)
@@ -214,7 +216,7 @@ services:
 <details>
 <summary>Click to view MCP Server usage instructions</summary>
 
-Prompt Optimizer now supports the Model Context Protocol (MCP), enabling integration with AI applications that support MCP such as Claude Desktop.
+GlobalCloud XiaoC now supports the Model Context Protocol (MCP), enabling integration with AI applications that support MCP such as Claude Desktop.
 
 When running via Docker, the MCP Server automatically starts and can be accessed via `http://ip:port/mcp`.
 
@@ -237,7 +239,7 @@ For example, if you map the container's port 80 to port 8081 on the host:
 docker run -d -p 8081:80 \
   -e VITE_OPENAI_API_KEY=your-openai-key \
   -e MCP_DEFAULT_MODEL_PROVIDER=openai \
-  --name prompt-optimizer \
+  --name globalcloud-xiaoc \
   linshen/prompt-optimizer
 ```
 
@@ -245,7 +247,7 @@ The MCP Server will then be accessible at `http://localhost:8081/mcp`.
 
 #### Claude Desktop Integration Example
 
-To use Prompt Optimizer in Claude Desktop, you need to add the service configuration to Claude Desktop's configuration file.
+To use GlobalCloud XiaoC in Claude Desktop, you need to add the service configuration to Claude Desktop's configuration file.
 
 1. Find Claude Desktop's configuration directory:
    - Windows: `%APPDATA%\Claude\services`
@@ -258,14 +260,14 @@ To use Prompt Optimizer in Claude Desktop, you need to add the service configura
 {
   "services": [
     {
-      "name": "Prompt Optimizer",
+      "name": "GlobalCloud XiaoC",
       "url": "http://localhost:8081/mcp"
     }
   ]
 }
 ```
 
-Make sure to replace `localhost:8081` with the actual address and port where you've deployed Prompt Optimizer.
+Make sure to replace `localhost:8081` with the actual address and port where you've deployed GlobalCloud XiaoC.
 
 #### Available Tools
 
@@ -429,10 +431,10 @@ Run the following command in Terminal to remove the quarantine attribute:
 
 ```bash
 # For installed applications
-xattr -rd com.apple.quarantine /Applications/PromptOptimizer.app
+xattr -rd com.apple.quarantine "/Applications/GlobalCloud XiaoC.app"
 
 # For downloaded .dmg files (run before installation)
-xattr -rd com.apple.quarantine ~/Downloads/PromptOptimizer-*.dmg
+xattr -rd com.apple.quarantine ~/Downloads/GlobalCloud\ XiaoC-*.dmg
 ```
 
 After running the command, you can open the application normally.

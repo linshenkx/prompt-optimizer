@@ -1,6 +1,6 @@
 # Desktop App
 
-The desktop app is the best fit for long-term Prompt Optimizer usage, especially when you need local models, custom gateways, or internal enterprise APIs.
+The desktop app is the best fit for long-term GlobalCloud XiaoC usage, especially when you need local models, custom gateways, or internal enterprise APIs.
 
 ## Why We Recommend The Desktop App First
 
@@ -14,18 +14,18 @@ The desktop app is the best fit for long-term Prompt Optimizer usage, especially
 
 GitHub Releases: <https://github.com/linshenkx/prompt-optimizer/releases>
 
-The current desktop product name is **`PromptOptimizer`**. Build artifacts follow this naming pattern:
+The current desktop product name is **`GlobalCloud XiaoC`**. Build artifacts follow this naming pattern:
 
 ```text
-PromptOptimizer-<version>-<os>-<arch>.<ext>
+GlobalCloud XiaoC-<version>-<os>-<arch>.<ext>
 ```
 
 Common examples:
 
-- Windows installer: `PromptOptimizer-<version>-win-x64.exe`
-- Windows archive: `PromptOptimizer-<version>-win-x64.zip`
-- macOS disk image: `PromptOptimizer-<version>-mac-arm64.dmg`
-- Linux AppImage: `PromptOptimizer-<version>-linux-x64.AppImage`
+- Windows installer: `GlobalCloud XiaoC-<version>-win-x64.exe`
+- Windows archive: `GlobalCloud XiaoC-<version>-win-x64.zip`
+- macOS disk image: `GlobalCloud XiaoC-<version>-mac-arm64.dmg`
+- Linux AppImage: `GlobalCloud XiaoC-<version>-linux-x64.AppImage`
 
 ## Installation
 
@@ -47,7 +47,7 @@ Common examples:
 2. If you use the AppImage build, run:
 
 ```bash
-chmod +x PromptOptimizer-<version>-linux-x64.AppImage
+chmod +x "GlobalCloud XiaoC-<version>-linux-x64.AppImage"
 ```
 
 3. Then launch the file.
@@ -95,20 +95,20 @@ For `localhost`, private-network, and LAN OpenAI-compatible endpoints, the deskt
 
 ## Data And Logs
 
-The desktop app uses the standard OS application-data directory, and the folder name follows the product name `PromptOptimizer`.
+The desktop app uses the standard OS application-data directory, and the folder name follows the product name `GlobalCloud XiaoC`.
 
 Common locations:
 
 ```text
-Windows: %APPDATA%\PromptOptimizer\
-macOS: ~/Library/Application Support/PromptOptimizer/
-Linux: ~/.config/PromptOptimizer/
+Windows: %APPDATA%\GlobalCloud XiaoC\
+macOS: ~/Library/Application Support/GlobalCloud XiaoC/
+Linux: ~/.config/GlobalCloud XiaoC/
 ```
 
 If you mainly need logs, they are typically under:
 
 ```text
-%APPDATA%\PromptOptimizer\logs\
+%APPDATA%\GlobalCloud XiaoC\logs\
 ```
 
 ## When You Probably Do Not Need The Desktop App

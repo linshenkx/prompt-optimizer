@@ -1,11 +1,11 @@
 {
   "extName": {
-    "message": "提示词优化器"
+    "message": "小词"
   },
   "extDesc": {
-    "message": "大模型提示词优化工具：一键优化提示词并支持多轮迭代改进测试，支持版本回溯。支持主流AI模型(OpenAI/Gemini/DeepSeek等)，完全开源，纯客户端处理保障数据安全。"
+    "message": "基于 wiki 体系的提示词工程工具：支持提示词生成、优化、多轮迭代和测试评估，可通过 MCP 嵌入飞书、XGD、GPC、Hermes、OpenClaw 等系统，也可作为客户端直接使用。"
   },
   "extShortName": {
-    "message": "提示词优化器"
+    "message": "小词"
   }
-} 
+}

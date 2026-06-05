@@ -1,6 +1,6 @@
 # @prompt-optimizer/ui
 
-Prompt Optimizer的Vue 3用户界面组件库，基于Naive UI设计系统构建的现代化UI组件集合。
+GlobalCloud XiaoC的Vue 3用户界面组件库，基于Naive UI设计系统构建的现代化UI组件集合。
 
 ## 特性
 

@@ -14,7 +14,7 @@ Example:
 
 ```yaml
 services:
-  prompt-optimizer:
+  globalcloud-xiaoc:
     image: linshen/prompt-optimizer:latest
     environment:
       VITE_CUSTOM_API_KEY_nvidia: nvapi-xxx

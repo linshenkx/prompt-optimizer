@@ -19,7 +19,7 @@
    - 必须分别链接到 `releases/vX.Y.Z.en.md` 和 `releases/vX.Y.Z.zh-CN.md`
 
 2. `releases/vX.Y.Z.en.md`
-   - 标题固定为 `# Prompt Optimizer vX.Y.Z`
+   - 标题固定为 `# GlobalCloud XiaoC vX.Y.Z`
    - 必须包含 `## Summary`
    - 必须包含以下完整栏目：
      - `## Highlights`
@@ -29,7 +29,7 @@
      - `## Developer Notes`
 
 3. `releases/vX.Y.Z.zh-CN.md`
-   - 标题固定为 `# Prompt Optimizer vX.Y.Z`
+   - 标题固定为 `# GlobalCloud XiaoC vX.Y.Z`
    - 必须包含 `## 概括`
    - 必须包含以下完整栏目：
      - `## 亮点`

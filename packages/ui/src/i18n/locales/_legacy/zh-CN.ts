@@ -62,7 +62,7 @@ export default {
     context: "上下文",
     copySuccess: "复制成功",
     copyFailed: "复制失败",
-    appName: "提示词优化器",
+    appName: "小词",
     selectFile: "选择文件",
     exporting: "导出中...",
     importing: "导入中...",
@@ -110,7 +110,7 @@ export default {
   nav: {
     home: "首页",
     dashboard: "仪表盘",
-    promptOptimizer: "提示词优化器",
+    promptOptimizer: "小词",
     modelManager: "模型管理",
     history: "历史记录",
     templates: "功能提示词",
@@ -124,7 +124,7 @@ export default {
     imageMode: "图像",
   },
   about: {
-    title: "提示词优化器",
+    title: "小词",
     website: "官网",
     websiteLabel: "always200.com",
     documentation: "文档站",
@@ -493,7 +493,7 @@ export default {
     },
   },
   promptOptimizer: {
-    title: "提示词优化器",
+    title: "小词",
     inputPlaceholder: "请输入需要优化的prompt...",
     optimize: "优化",
     analyze: "分析",
@@ -1809,10 +1809,10 @@ export default {
       smart: { name: "智能识别", description: "自动检测格式并转换" },
       openai: { name: "OpenAI", description: "OpenAI API 请求格式" },
       langfuse: { name: "LangFuse", description: "LangFuse 追踪数据格式" },
-      conversation: { name: "内部格式", description: "Prompt Optimizer 内部标准 JSON 结构" },
+      conversation: { name: "内部格式", description: "GlobalCloud XiaoC 内部标准 JSON 结构" },
     },
     exportFormats: {
-      standard: { name: "内部格式", description: "Prompt Optimizer 内部标准数据格式" },
+      standard: { name: "内部格式", description: "GlobalCloud XiaoC 内部标准数据格式" },
       openai: { name: "OpenAI", description: "OpenAI API 兼容格式" },
     },
 

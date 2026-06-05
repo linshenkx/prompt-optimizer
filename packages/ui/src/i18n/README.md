@@ -58,7 +58,7 @@ export default {
   
   // 功能模块
   promptOptimizer: {
-    title: '提示词优化器',
+    title: '小词',
     form: {
       inputPlaceholder: '请输入需要优化的prompt...',
       templateLabel: '优化提示词',

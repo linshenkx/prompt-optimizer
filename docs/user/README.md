@@ -1,6 +1,6 @@
 # 用户文档
 
-欢迎使用Prompt Optimizer！这里包含了所有面向最终用户的文档。
+欢迎使用GlobalCloud XiaoC！这里包含了所有面向最终用户的文档。
 
 ## 📖 用户手册
 

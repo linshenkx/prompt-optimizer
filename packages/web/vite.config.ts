@@ -4,6 +4,30 @@ import { resolve } from 'path'
 import path from 'path'
 import { DEFAULT_VITE_ENV } from '../core/src/utils/default-env'
 
+function createManualChunk(id: string): string | undefined {
+  if (!id.includes('node_modules')) {
+    return undefined
+  }
+
+  if (id.includes('/vue') || id.includes('/vue-router') || id.includes('/pinia') || id.includes('/vue-i18n')) {
+    return 'vendor-vue'
+  }
+  if (id.includes('/naive-ui') || id.includes('/@vicons/')) {
+    return 'vendor-ui'
+  }
+  if (id.includes('/@codemirror/') || id.includes('/codemirror')) {
+    return 'vendor-editor'
+  }
+  if (id.includes('/markdown-it') || id.includes('/highlight.js') || id.includes('/dompurify')) {
+    return 'vendor-markdown'
+  }
+  if (id.includes('/@aws-sdk/') || id.includes('/undici')) {
+    return 'vendor-remote-storage'
+  }
+
+  return 'vendor'
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const monorepoRoot = resolve(__dirname, '../..')
@@ -30,9 +54,13 @@ export default defineConfig(({ mode }) => {
       }
     },
     build: {
+      chunkSizeWarningLimit: 3000,
       rollupOptions: {
         input: {
           main: resolve(__dirname, 'index.html')
+        },
+        output: {
+          manualChunks: createManualChunk
         }
       }
     },

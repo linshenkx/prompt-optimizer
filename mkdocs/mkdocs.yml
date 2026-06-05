@@ -1,7 +1,7 @@
 # 站点信息
-site_name: Prompt Optimizer 文档
+site_name: GlobalCloud XiaoC 文档
 site_url: https://docs.always200.com
-site_description: Prompt Optimizer 使用文档与部署指南
+site_description: GlobalCloud XiaoC 使用文档与部署指南
 site_author: linshenkx
 
 # 源与产物目录（与外层项目解耦）
@@ -120,8 +120,8 @@ plugins:
         - locale: en
           name: English
           build: true
-          site_name: Prompt Optimizer Docs
-          site_description: Prompt Optimizer documentation and deployment guide
+          site_name: GlobalCloud XiaoC Docs
+          site_description: GlobalCloud XiaoC documentation and deployment guide
           theme:
             palette:
               - toggle:
@@ -231,4 +231,4 @@ edit_uri: edit/main/mkdocs/docs/
 strict: true
 
 # 版权信息（页脚显示）
-copyright: "© 2025 Prompt Optimizer"
+copyright: "© 2025 GlobalCloud XiaoC"

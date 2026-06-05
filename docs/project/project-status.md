@@ -2,7 +2,7 @@
 
 ## 1. 项目概述
 
-Prompt Optimizer 是一个强大的 AI 提示词优化工具，帮助用户编写更好的 AI 提示词，提升 AI 输出质量。支持 Web 应用、桌面应用、Chrome 插件、Docker 部署和 MCP 协议集成五种使用方式，采用 monorepo 结构进行开发。
+GlobalCloud XiaoC 是一个强大的 AI 提示词优化工具，帮助用户编写更好的 AI 提示词，提升 AI 输出质量。支持 Web 应用、桌面应用、Chrome 插件、Docker 部署和 MCP 协议集成五种使用方式，采用 monorepo 结构进行开发。
 
 ## 2. 总体进度
 - 项目完成度：98%
