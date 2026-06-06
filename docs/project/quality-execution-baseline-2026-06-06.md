@@ -208,6 +208,18 @@ R16 变化依据：
 - MCP 覆盖率从 60.55% statements / 58.75% branches 提升到 82.35% statements / 81.00% branches；`environment.ts`、`templates.ts`、`models.ts` 均达到 100% statements，`core-services.ts` 达到 95.95%，`xc-context.ts` 达到 99.11%。
 - `XC-P2-004` 仍未关闭：MCP 覆盖率已有明显提升，但 core 67.18%、UI 42.57%、Web 61.53% 仍低于 90% 目标，且 MCP `index.ts` 的启动/session 主路径仍只有 56.56% statements。
 
+第十七轮复评快照（2026-06-06）：
+
+| 项目 | 当前总分 | 健康度 | 功能完整性 | 软件测试 | 中文化 | 治理成熟度 | 当前状态 | P0 数量 | P1 数量 | 结论日期 | 复评版本 |
+|---|---:|---:|---:|---:|---:|---:|---|---:|---:|---|---|
+| XC | 91.2 | 90 | 90 | 94 | 92 | 90 | B 类：继续开发，但先补短板 | 0 | 0 | 2026-06-06 | XC-QG-20260606-R17 / package 2.11.5 / R17 local commit / origin sync pending |
+
+R17 变化依据：
+
+- 软件测试从 93 提升到 94：MCP HTTP app、invalid session、auth、process handler、工具缺参、非法 template、模型 provider fallback 等边界已补自动化；MCP 单包测试从 61 条提升到 82 条。
+- MCP 覆盖率四项均超过 90%：91.93% statements、90.50% branches、93.22% functions、92.17% lines；`index.ts` 从 56.56% statements（R15）提升到 81.85% statements。
+- `XC-P2-004` 仍未关闭：MCP 包已达到单包覆盖率目标，但全项目 core 67.18%、UI 42.57%、Web 61.53% 仍低于 90%，不能把 MCP 单包达标误判为全项目测试证明力充分。
+
 当前执行状态（2026-06-06）：
 
 - 初始 P1：5 个。
@@ -232,9 +244,9 @@ R16 变化依据：
 | XC-P2-001 | XC | 英文兜底错误和导出分享英文残留 | 中文化 | 中 | 中文化评估定位 `Unknown error`、导入导出错误、分享导出默认英文标签；R14 新增 zh-CN 页面级 E2E smoke | 中文主路径错误和主页面文案可理解 | 已完成：`Unknown error` 源码兜底已基本清零，导入/导出、公共错误工具、收藏分享导出入口和主路径页面均有中文化自动化证据 | 前端 | P2 | closed |
 | XC-P2-002 | XC | 风险台账缺少 owner、等级、处置状态 | 风险治理 | 中 | 项目状态风险章节曾缺少负责人、风险等级、处置状态和复评日期 | 建立可追踪风险台账 | 已完成：项目状态风险章节已升级为统一风险台账，包含风险ID、等级、Owner、当前状态、当前证据、处置建议、下一步和复评日期 | PM | P2 | closed |
 | XC-P2-003 | XC | MCP smoke 尚未覆盖真实 LLM 成功调用 | 功能/交付 | 中 | R15 已在有效 `DEEPSEEK_API_KEY` 环境下执行 `pnpm mcp:smoke:real`，通过 HTTP MCP 连接、tools/list 和 `generate-wiki-prompt` 真实调用，返回 `provider=deepseek`、5 个 tools、`textLength=963` | 补真实模型环境下的成功调用验收 | 已完成：真实 MCP LLM 成功路径有可复现脚本、真实 provider 和输出摘要证据 | 开发/集成方 | P2 | closed |
-| XC-P2-004 | XC | 覆盖率体系不足，无法证明全项目质量 | 软件测试 | 中 | core 覆盖率 67.18% 语句/56.63% 分支；UI 覆盖率 42.57% 语句/34.7% 分支；Web 覆盖率 61.53% 语句/50% 分支；Extension 覆盖率 100% 语句/50% 分支；MCP 覆盖率已提升到 82.35% 语句/81.00% 分支 | 建立可持续覆盖率门禁 | 部分完成：core/UI/Web/Extension/MCP 覆盖率命令均已稳定可运行，MCP 真实 smoke、核心工具、core services、auth、动态环境变量、XC context、模型和模板边界已纳入测试；仍需提升 core/UI/Web/MCP 覆盖率到交付目标 | 开发 | P2 | in_progress |
+| XC-P2-004 | XC | 覆盖率体系不足，无法证明全项目质量 | 软件测试 | 中 | core 覆盖率 67.18% 语句/56.63% 分支；UI 覆盖率 42.57% 语句/34.7% 分支；Web 覆盖率 61.53% 语句/50% 分支；Extension 覆盖率 100% 语句/50% 分支；MCP 覆盖率已提升到 91.93% 语句/90.50% 分支/93.22% 函数/92.17% 行 | 建立可持续覆盖率门禁 | 部分完成：MCP 单包覆盖率已达到 90% 目标；core/UI/Web 覆盖率仍需提升到交付目标，MCP `main` 启动分支仍可继续补 smoke | 开发 | P2 | in_progress |
 | XC-P2-005 | XC | 全仓递归单元测试入口存在资源稳定性问题 | 软件测试 | 中 | `pnpm test:unit` 曾在 core、mcp-server、UI 测试通过后，启动 Web/Extension 子进程时失败：`spawn sh EAGAIN`；串行后又暴露 core/UI 时间敏感测试 | 让全仓单元测试入口可重复运行 | 已通过：`pnpm test:unit` 串行执行 core、mcp-server、UI、Extension、Web 全部通过 | 开发 | P2 | closed |
-| XC-P2-006 | XC | 本地提交尚未同步到远端并缺少远端 CI/PR 证明 | 治理/交付 | 中 | R16 提交后 `git status --short --branch` 显示 `develop...origin/develop [ahead 5]`；本轮按本地可追踪基线收口，未执行 push | 形成共享交付基线 | 推送到远端分支或打开 PR，并通过远端 CI/代码评审门禁 | 开发/发布负责人 | P2 | open |
+| XC-P2-006 | XC | 本地提交尚未同步到远端并缺少远端 CI/PR 证明 | 治理/交付 | 中 | R17 提交后 `git status --short --branch` 显示 `develop...origin/develop [ahead 6]`，且存在未归属 Harness 未跟踪文件；本轮按本地可追踪基线收口，未执行 push | 形成共享交付基线 | 推送到远端分支或打开 PR，并通过远端 CI/代码评审门禁；另行确认 Harness 文件归属 | 开发/发布负责人 | P2 | open |
 
 ## 4. 三类专项行动
 
@@ -306,7 +318,7 @@ R16 变化依据：
 
 - 剩余 P1（`XC-P1-001`）关闭或降级。（已完成 R13）
 - 健康度、功能完整性、软件测试三项完成复核。（已完成第一轮）
-- 生成可计算总分。（已完成第一轮，R16 当前 91.0）
+- 生成可计算总分。（已完成第一轮，R17 当前 91.2）
 - 项目状态从“B 类待补短板”升级为“可继续开发，具备交付准备入口”，或明确降级原因。
 
 ## 7. 复评机制
@@ -343,6 +355,7 @@ git status --short --branch
 | XC | 88.4 | 89.0 | `XC-P2-001` | 无新增 P1；`XC-P2-003`、`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（中文 P2 关闭） | 补真实 MCP smoke；提升覆盖率；推送/PR 后获取远端 CI 证明 |
 | XC | 89.0 | 90.6 | `XC-P2-003` | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（真实 MCP smoke 关闭） | 提升 core/UI/Web/MCP 覆盖率；推送/PR 后获取远端 CI 证明 |
 | XC | 90.6 | 91.0 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（MCP 覆盖率提升） | 继续提升 MCP `index.ts`、core/UI/Web 覆盖率；推送/PR 后获取远端 CI 证明 |
+| XC | 91.0 | 91.2 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（MCP 单包覆盖率达 90%） | 转向 core/UI/Web 覆盖率补强；推送/PR 后获取远端 CI 证明 |
 
 ## 8. 项目组合决策表
 
@@ -452,6 +465,13 @@ git status --short --branch
 | 2026-06-06 | 全仓单元测试 R16 | `pnpm test:unit` | 通过，core 1173 passed / 152 skipped；mcp-server 61 passed；UI 887 passed / 1 todo；Extension 2 passed；Web 2 passed | R16 新增 MCP 测试已进入全仓单元测试入口 |
 | 2026-06-06 | Lint/Typecheck R16 | `pnpm lint` | 通过 | R16 MCP 导出和测试补强后，UI/MCP lint 与 core/UI/MCP/Web/Extension typecheck 仍通过 |
 | 2026-06-06 | 工作区格式 R16 | `git diff --check` | 通过 | R16 提交前改动无空白错误 |
+| 2026-06-06 | MCP 覆盖率 R17 | `pnpm -F @prompt-optimizer/mcp-server test --run --coverage` | 通过，12 test files passed，82 tests passed；覆盖率 91.93% statements、90.50% branches、93.22% functions、92.17% lines | MCP 单包四项覆盖率均达到 90% 以上 |
+| 2026-06-06 | MCP typecheck R17 | `pnpm -F @prompt-optimizer/mcp-server type-check` | 通过 | R17 HTTP app refactor、process handler 导出和新增测试类型兼容 |
+| 2026-06-06 | MCP 构建 R17 | `pnpm mcp:build` | 通过 | R17 HTTP app refactor 和 process handler 导出未破坏 MCP CJS/ESM/DTS 构建 |
+| 2026-06-06 | 根仓库治理门禁 R17 | `pnpm test:repo` | 通过，34 个 node:test 子测试通过，locale parity 通过，no-Chinese-runtime 通过 | R17 测试补强未破坏仓库治理门禁 |
+| 2026-06-06 | 全仓单元测试 R17 | `pnpm test:unit` | 通过，core 1173 passed / 152 skipped；mcp-server 82 passed；UI 887 passed / 1 todo；Extension 2 passed；Web 2 passed | R17 新增 MCP 测试已进入全仓单元测试入口 |
+| 2026-06-06 | Lint/Typecheck R17 | `pnpm lint` | 通过 | R17 MCP refactor 和测试补强后，UI/MCP lint 与 core/UI/MCP/Web/Extension typecheck 仍通过 |
+| 2026-06-06 | 工作区格式 R17 | `git diff --check` | 通过 | R17 提交前改动无空白错误 |
 
 ## 10. 当前工作区改动归属
 
@@ -479,3 +499,4 @@ git status --short --branch
 | `packages/mcp-server/tests/config-and-logging.test.ts`、`packages/mcp-server/tests/tool-success-path.test.ts` | 本轮 MCP 覆盖率修复 | 已确认 | MCP 配置、日志、参数错误、XC context 校验、默认模型禁用和真实集成前置错误路径已有自动化证明 |
 | `packages/mcp-server/src/index.ts`、`packages/mcp-server/tests/index-auth.test.ts` | 本轮 MCP 覆盖率修复 | 已确认 | MCP HTTP auth helper、Bearer token、XC token header、OPTIONS 和 401 分支已有单元测试证明 |
 | `packages/mcp-server/tests/core-services.test.ts`、`packages/mcp-server/tests/environment-import.test.ts`、`packages/mcp-server/tests/xc-context.test.ts` | 本轮 MCP 覆盖率修复 | 已确认 | CoreServicesManager、导入期环境变量映射、XC context 边界和敏感信息不泄露已有自动化证明 |
+| `packages/mcp-server/src/index.ts`、`packages/mcp-server/tests/index-http-app.test.ts`、`packages/mcp-server/tests/index-process-handlers.test.ts` | 本轮 MCP 覆盖率修复 | 已确认 | HTTP app healthz/CORS/auth/session、startup error、uncaught rejection 和 shutdown signal 处理已有自动化证明 |

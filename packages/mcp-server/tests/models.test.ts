@@ -100,6 +100,35 @@ describe('MCP default model setup', () => {
     expect(modelManager.addModel).not.toHaveBeenCalled();
   });
 
+  it('matches preferred providers by model provider id and config id fallbacks', async () => {
+    coreMock.defaultModels.providerIdOnly = {
+      id: 'providerIdOnly',
+      name: 'Provider ID only',
+      enabled: true,
+      modelMeta: { id: 'provider-model', providerId: 'provider-only' }
+    };
+    coreMock.defaultModels.configIdOnly = {
+      id: 'config-id-only',
+      name: 'Config ID only',
+      enabled: true,
+      modelMeta: { id: 'config-model' }
+    };
+    const providerIdManager = createModelManager();
+    const configIdManager = createModelManager();
+
+    await setupDefaultModel(providerIdManager as never, 'provider-only');
+    await setupDefaultModel(configIdManager as never, 'config-id-only');
+
+    expect(providerIdManager.updateModel).toHaveBeenCalledWith('mcp-default', expect.objectContaining({
+      id: 'providerIdOnly',
+      enabled: true
+    }));
+    expect(configIdManager.updateModel).toHaveBeenCalledWith('mcp-default', expect.objectContaining({
+      id: 'config-id-only',
+      enabled: true
+    }));
+  });
+
   it('throws when no enabled default models are available', async () => {
     resetDefaultModels();
     coreMock.defaultModels.disabled = {

@@ -272,6 +272,60 @@ describe('MCP tool success paths', () => {
     expect(promptService.iteratePrompt).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['optimize-user-prompt', "Missing required parameter 'prompt'"],
+    ['optimize-system-prompt', "Missing required parameter 'prompt'"],
+    ['iterate-prompt', "Missing required parameter 'prompt'"],
+    ['generate-wiki-prompt', "Missing required parameter 'goal'"],
+    ['evaluate-prompt-fit', "Missing required parameter 'prompt'"]
+  ])('returns required-parameter errors for %s', async (name, expectedMessage) => {
+    const { server, handlers } = createFakeServer();
+    const { coreServices, promptService, modelManager } = createFakeCoreServices();
+
+    await setupServerHandlers(server, coreServices);
+
+    const callTool = handlers.get(CallToolRequestSchema.shape.method.value)!;
+    const result = await callTool({
+      params: {
+        name,
+        arguments: {}
+      }
+    }) as { isError: boolean; content: Array<{ type: string; text: string }> };
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain(expectedMessage);
+    expect(modelManager.getModel).not.toHaveBeenCalled();
+    expect(promptService.optimizePrompt).not.toHaveBeenCalled();
+    expect(promptService.iteratePrompt).not.toHaveBeenCalled();
+    expect(promptService.testPrompt).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['optimize-user-prompt', { prompt: 'Improve this.', template: '   ' }],
+    ['optimize-system-prompt', { prompt: 'You are an assistant.', template: '   ' }],
+    ['iterate-prompt', { prompt: 'Improve this.', requirements: 'Make it stricter.', template: '   ' }],
+    ['generate-wiki-prompt', { goal: 'Create a wiki prompt.', template: '   ' }]
+  ])('returns validation errors for invalid template values in %s', async (name, args) => {
+    const { server, handlers } = createFakeServer();
+    const { coreServices, promptService, modelManager } = createFakeCoreServices();
+
+    await setupServerHandlers(server, coreServices);
+
+    const callTool = handlers.get(CallToolRequestSchema.shape.method.value)!;
+    const result = await callTool({
+      params: {
+        name,
+        arguments: args
+      }
+    }) as { isError: boolean; content: Array<{ type: string; text: string }> };
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('Template must be a non-empty string');
+    expect(modelManager.getModel).not.toHaveBeenCalled();
+    expect(promptService.optimizePrompt).not.toHaveBeenCalled();
+    expect(promptService.iteratePrompt).not.toHaveBeenCalled();
+  });
+
   it('returns validation errors for invalid XC context before model execution', async () => {
     const { server, handlers } = createFakeServer();
     const { coreServices, modelManager, promptService } = createFakeCoreServices();

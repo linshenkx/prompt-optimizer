@@ -48,7 +48,7 @@ import {
 } from './adapters/xc-context.js';
 import { getTemplateOptions, getDefaultTemplateId } from './config/templates.js';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
-import express, { type NextFunction, type Request, type Response } from 'express';
+import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 
 // 创建服务器实例的工厂函数
 async function createServerInstance(config: MCPServerConfig) {
@@ -153,6 +153,105 @@ export function constantTimeEqual(left: string, right: string): boolean {
   }
 
   return timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+export function createHttpApp(config: MCPServerConfig, coreServices: CoreServicesManager): {
+  app: Express;
+  transports: Record<string, StreamableHTTPServerTransport>;
+} {
+  const app = express();
+  app.use(express.json());
+  logger.info('Express app configured');
+
+  const transports: Record<string, StreamableHTTPServerTransport> = {};
+
+  app.get('/healthz', async (_req, res) => {
+    const health = await coreServices.getHealthStatus();
+    res.status(health.initialized ? 200 : 503).json({
+      status: health.initialized ? 'ok' : 'degraded',
+      service: 'GlobalCloud XiaoC MCP',
+      version: '0.1.0',
+      transport: 'http',
+      authRequired: Boolean(config.authToken),
+      activeSessions: Object.keys(transports).length,
+      ...health
+    });
+  });
+
+  app.use('/mcp', createMCPAuthMiddleware(config));
+
+  app.options('/mcp', (_req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', config.allowedOrigins.includes('*') ? '*' : config.allowedOrigins[0] || '');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, mcp-session-id, X-XC-MCP-Token');
+    res.setHeader('Access-Control-Max-Age', '1728000');
+    res.status(204).end();
+  });
+
+  app.post('/mcp', async (req, res) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    let httpTransport: StreamableHTTPServerTransport;
+
+    if (sessionId && transports[sessionId]) {
+      httpTransport = transports[sessionId];
+    } else if (!sessionId && isInitializeRequest(req.body)) {
+      httpTransport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => randomUUID(),
+        onsessioninitialized: (sessionId) => {
+          transports[sessionId] = httpTransport;
+        },
+        allowedOrigins: config.allowedOrigins,
+        enableDnsRebindingProtection: config.enableDnsRebindingProtection
+      });
+
+      httpTransport.onclose = () => {
+        if (httpTransport.sessionId) {
+          delete transports[httpTransport.sessionId];
+        }
+      };
+
+      const { server } = await createServerInstance(config);
+      await setupServerHandlers(server, coreServices);
+
+      await server.connect(httpTransport);
+    } else {
+      res.status(400).json({
+        jsonrpc: '2.0',
+        error: {
+          code: -32000,
+          message: 'Bad Request: No valid session ID provided',
+        },
+        id: null,
+      });
+      return;
+    }
+
+    await httpTransport.handleRequest(req, res, req.body);
+  });
+
+  app.get('/mcp', async (req, res) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    if (!sessionId || !transports[sessionId]) {
+      res.status(400).send('Invalid or missing session ID');
+      return;
+    }
+
+    const httpTransport = transports[sessionId];
+    await httpTransport.handleRequest(req, res);
+  });
+
+  app.delete('/mcp', async (req, res) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    if (!sessionId || !transports[sessionId]) {
+      res.status(400).send('Invalid or missing session ID');
+      return;
+    }
+
+    const httpTransport = transports[sessionId];
+    await httpTransport.handleRequest(req, res);
+  });
+
+  return { app, transports };
 }
 
 // 设置服务器工具和处理器的函数
@@ -499,111 +598,7 @@ async function main() {
     // 启动传输层
     if (transport === 'http') {
       logger.info('Starting HTTP server with session management...');
-      // 使用 Express 和会话管理支持多客户端连接
-      const app = express();
-      app.use(express.json());
-      logger.info('Express app configured');
-
-      // 存储每个会话的传输实例
-      const transports: { [sessionId: string]: StreamableHTTPServerTransport } = {};
-
-      app.get('/healthz', async (_req, res) => {
-        const health = await coreServices.getHealthStatus();
-        res.status(health.initialized ? 200 : 503).json({
-          status: health.initialized ? 'ok' : 'degraded',
-          service: 'GlobalCloud XiaoC MCP',
-          version: '0.1.0',
-          transport: 'http',
-          authRequired: Boolean(config.authToken),
-          activeSessions: Object.keys(transports).length,
-          ...health
-        });
-      });
-
-      app.use('/mcp', createMCPAuthMiddleware(config));
-
-      app.options('/mcp', (_req, res) => {
-        res.setHeader('Access-Control-Allow-Origin', config.allowedOrigins.includes('*') ? '*' : config.allowedOrigins[0] || '');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, mcp-session-id, X-XC-MCP-Token');
-        res.setHeader('Access-Control-Max-Age', '1728000');
-        res.status(204).end();
-      });
-
-      // 处理 POST 请求（客户端到服务器通信）
-      app.post('/mcp', async (req, res) => {
-        // 检查现有会话ID
-        const sessionId = req.headers['mcp-session-id'] as string | undefined;
-        let httpTransport: StreamableHTTPServerTransport;
-
-        if (sessionId && transports[sessionId]) {
-          // 重用现有传输
-          httpTransport = transports[sessionId];
-        } else if (!sessionId && isInitializeRequest(req.body)) {
-          // 新的初始化请求 - 为每个会话创建独立的服务器实例
-          httpTransport = new StreamableHTTPServerTransport({
-            sessionIdGenerator: () => randomUUID(),
-            onsessioninitialized: (sessionId) => {
-              // 存储传输实例
-              transports[sessionId] = httpTransport;
-            },
-            allowedOrigins: config.allowedOrigins,
-            enableDnsRebindingProtection: config.enableDnsRebindingProtection
-          });
-
-          // 清理传输实例
-          httpTransport.onclose = () => {
-            if (httpTransport.sessionId) {
-              delete transports[httpTransport.sessionId];
-            }
-          };
-
-          // 为每个会话创建独立的服务器实例
-          const { server } = await createServerInstance(config);
-          await setupServerHandlers(server, coreServices);
-
-          // 连接到 MCP 服务器
-          await server.connect(httpTransport);
-        } else {
-          // 无效请求
-          res.status(400).json({
-            jsonrpc: '2.0',
-            error: {
-              code: -32000,
-              message: 'Bad Request: No valid session ID provided',
-            },
-            id: null,
-          });
-          return;
-        }
-
-        // 处理请求
-        await httpTransport.handleRequest(req, res, req.body);
-      });
-
-      // 处理 GET 请求（服务器到客户端通知，通过 SSE）
-      app.get('/mcp', async (req, res) => {
-        const sessionId = req.headers['mcp-session-id'] as string | undefined;
-        if (!sessionId || !transports[sessionId]) {
-          res.status(400).send('Invalid or missing session ID');
-          return;
-        }
-
-        const httpTransport = transports[sessionId];
-        await httpTransport.handleRequest(req, res);
-      });
-
-      // 处理 DELETE 请求（会话终止）
-      app.delete('/mcp', async (req, res) => {
-        const sessionId = req.headers['mcp-session-id'] as string | undefined;
-        if (!sessionId || !transports[sessionId]) {
-          res.status(400).send('Invalid or missing session ID');
-          return;
-        }
-
-        const httpTransport = transports[sessionId];
-        await httpTransport.handleRequest(req, res);
-      });
+      const { app } = createHttpApp(config, coreServices);
 
       logger.info('Setting up HTTP server listener...');
       app.listen(port, () => {
@@ -621,37 +616,52 @@ async function main() {
     }
 
   } catch (error) {
-    // 确保错误信息始终显示，即使没有启用 DEBUG
-    console.error('❌ MCP Server startup failed:');
-    console.error('   ', (error as Error).message);
-
-    // 同时使用 debug 库记录详细信息
-    logger.error('Failed to start MCP Server', error as Error);
-
-    process.exit(1);
+    handleStartupError(error as Error);
   }
+}
+
+export function handleStartupError(error: Error): never {
+  // 确保错误信息始终显示，即使没有启用 DEBUG
+  console.error('❌ MCP Server startup failed:');
+  console.error('   ', error.message);
+
+  // 同时使用 debug 库记录详细信息
+  logger.error('Failed to start MCP Server', error);
+
+  process.exit(1);
+}
+
+export function handleUncaughtException(error: Error): never {
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
+}
+
+export function handleUnhandledRejection(reason: unknown, promise: Promise<unknown>): never {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+}
+
+export function handleShutdownSignal(signal: 'SIGINT' | 'SIGTERM'): never {
+  console.log(`Received ${signal}, shutting down gracefully...`);
+  process.exit(0);
 }
 
 // 处理未捕获的异常
 process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-  process.exit(1);
+  handleUncaughtException(error);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);
+  handleUnhandledRejection(reason, promise);
 });
 
 // 优雅关闭
 process.on('SIGINT', () => {
-  console.log('Received SIGINT, shutting down gracefully...');
-  process.exit(0);
+  handleShutdownSignal('SIGINT');
 });
 
 process.on('SIGTERM', () => {
-  console.log('Received SIGTERM, shutting down gracefully...');
-  process.exit(0);
+  handleShutdownSignal('SIGTERM');
 });
 
 // 导出 main 函数供外部调用
