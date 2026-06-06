@@ -184,6 +184,18 @@ R14 变化依据：
 - 软件测试从 88 提升到 89：中文页面 smoke 已加入 `test:e2e:gate`，完整 gate 从 35 条提升到 36 条并通过；新增 `language-switch` test id，后续语言切换测试有稳定定位入口。
 - `XC-P2-001` 已关闭：英文兜底错误、导入/导出、收藏分享导出和中文主路径页面 smoke 均已有自动化证据。仍不能评为中文化 100，因为尚未覆盖所有弹窗、所有异常场景和导出内容的页面级抽查。
 
+第十五轮复评快照（2026-06-06）：
+
+| 项目 | 当前总分 | 健康度 | 功能完整性 | 软件测试 | 中文化 | 治理成熟度 | 当前状态 | P0 数量 | P1 数量 | 结论日期 | 复评版本 |
+|---|---:|---:|---:|---:|---:|---:|---|---:|---:|---|---|
+| XC | 90.6 | 90 | 90 | 91 | 92 | 90 | B 类：继续开发，但先补短板 | 0 | 0 | 2026-06-06 | XC-QG-20260606-R15 / package 2.11.5 / R15 local commit / origin sync pending |
+
+R15 变化依据：
+
+- 功能完整性从 84 提升到 90：新增可复现真实 MCP smoke 脚本 `pnpm mcp:smoke:real`，在有效 `DEEPSEEK_API_KEY` 环境下通过 HTTP MCP 连接、`/healthz`、tools/list 和 `generate-wiki-prompt` 真实 LLM 调用；输出 `healthStatus=ok`、5 个 MCP tools、`provider=deepseek`、`textLength=963`。
+- 软件测试从 89 提升到 91：MCP 单包测试从 29 条提升到 40 条；新增配置、日志、参数错误、XC context 校验和默认模型禁用场景测试；MCP 覆盖率从 53.11% statements / 51.33% branches 提升到 60.55% statements / 58.75% branches。
+- `XC-P2-003` 已关闭：真实模型环境下的 MCP 成功调用已有可重复脚本和命令证据。仍不能评为 100，因为 core/UI/Web/MCP 覆盖率仍低于 90% 目标，且本地提交仍未推送远端、没有远端 CI/PR 证明。
+
 当前执行状态（2026-06-06）：
 
 - 初始 P1：5 个。
@@ -194,7 +206,7 @@ R14 变化依据：
 
 | 项目 | 决策等级 | 硬结论 | 下一阶段允许动作 | 下一阶段禁止动作 |
 |---|---|---|---|---|
-| XC | B 类：继续开发，但先补短板 | 当前不建议上线；原因是交付基线不干净，软件测试证明力不足，MCP 真实 LLM 成功路径和覆盖率体系仍有缺口。下一阶段先关闭剩余 P1 并补 P2 测试证明，不新增业务功能。 | 基线清理、覆盖率门禁修复、MCP 真实成功 smoke、核心流程补测、风险台账 owner 化 | 新增功能、宣布可交付、跳过复评直接提版 |
+| XC | B 类：继续开发，但先补短板 | 当前不建议上线；原因是覆盖率体系仍低于交付目标，且本地提交尚未形成远端 CI/PR 证明。下一阶段只允许补测试证明力、远端同步和真实集成验收，不新增业务功能。 | 覆盖率门禁提升、核心流程补测、远端 PR/CI 证明、真实集成补充验收 | 新增功能、宣布可交付、跳过复评直接提版 |
 
 ## 3. 执行 Backlog
 
@@ -203,14 +215,14 @@ R14 变化依据：
 | XC-P1-001 | XC | 当前 `develop` ahead 1 且工作区不干净 | 治理/交付 | 高 | `git status --short --branch` 曾显示 ahead 1 和多文件修改；R13 已形成本地提交并复跑 install/build/lint/test/e2e | 形成可追踪交付基线 | 已完成：已提交为本地可追踪基线，工作区清洁；远端同步另列为 P2 持续项 | 开发 | P1 | closed |
 | XC-P1-002 | XC | 健康度、功能完整性、软件测试三项缺少当前证据校准 | 决策治理 | 高 | 当前执行台账只能确认中文化 84、治理 76 | 完成三项复核并生成可追踪分数 | 已完成：已基于 install/build/lint/test gate/E2E/MCP smoke/覆盖率命令生成第一轮五项复评分数，当前总分 79.8 | 项目负责人/开发 | P1 | closed |
 | XC-P1-003 | XC | 发布文档命令与实际脚本不一致 | 版本治理 | 中高 | `pnpm release:notes:check` 不存在；`node scripts/release-notes.js check v2.11.5` 通过 | 人工发布流程可按文档执行 | 已通过：`pnpm release:notes:check v2.11.5`、`pnpm release:notes:check:entry v2.11.5`、`node --test scripts/package-scripts.test.mjs`、`pnpm test:repo` | 开发 | P1 | closed |
-| XC-P1-004 | XC | 项目状态文档滞后于当前版本 | 治理 | 中高 | `docs/project/project-status.md` 仍写主要版本 v2.10.0；当前 package 为 2.11.5 | 项目状态成为当前事实入口 | 已完成：项目状态与项目管理入口同步到 v2.11.5、质量执行闭环、P1 修复冲刺和待复核指标 | PM/开发 | P1 | closed |
+| XC-P1-004 | XC | 项目状态文档滞后于当前版本 | 治理 | 中高 | `docs/project/project-status.md` 仍写主要版本 v2.10.0；当前 package 为 2.11.5 | 项目状态成为当前事实入口 | 已完成：项目状态与项目管理入口同步到 v2.11.5、质量执行闭环状态和待复核指标 | PM/开发 | P1 | closed |
 | XC-P1-005 | XC | MCP 生产就绪仍有集成测试、日志、稳定性待办 | 功能/交付 | 中高 | `docs/developer/todo.md` 记录 MCP 集成测试、日志、稳定性测试待办 | MCP 达到可验收 smoke 水平 | 已通过：MCP server 本地 HTTP 启动；`/healthz` 返回 200；tools/list 返回 5 个工具；`optimize-user-prompt`、`generate-wiki-prompt`、`evaluate-prompt-fit` 参数校验 smoke 返回预期错误；启动与请求日志可见 | 开发/集成方 | P1 | closed |
 | XC-P2-001 | XC | 英文兜底错误和导出分享英文残留 | 中文化 | 中 | 中文化评估定位 `Unknown error`、导入导出错误、分享导出默认英文标签；R14 新增 zh-CN 页面级 E2E smoke | 中文主路径错误和主页面文案可理解 | 已完成：`Unknown error` 源码兜底已基本清零，导入/导出、公共错误工具、收藏分享导出入口和主路径页面均有中文化自动化证据 | 前端 | P2 | closed |
 | XC-P2-002 | XC | 风险台账缺少 owner、等级、处置状态 | 风险治理 | 中 | 项目状态风险章节曾缺少负责人、风险等级、处置状态和复评日期 | 建立可追踪风险台账 | 已完成：项目状态风险章节已升级为统一风险台账，包含风险ID、等级、Owner、当前状态、当前证据、处置建议、下一步和复评日期 | PM | P2 | closed |
-| XC-P2-003 | XC | MCP smoke 尚未覆盖真实 LLM 成功调用 | 功能/交付 | 中 | 本轮使用假 `VITE_OPENAI_API_KEY=test-key`，只验证协议、健康检查、工具枚举和参数校验路径；MCP 5 个 handler 成功路径已有注入式自动化 | 补真实模型环境下的成功调用验收 | 部分完成：已新增 MCP 5 个核心工具 handler 级成功路径自动化；仍需有效 API key 下的真实 LLM smoke | 开发/集成方 | P2 | in_progress |
-| XC-P2-004 | XC | 覆盖率体系不足，无法证明全项目质量 | 软件测试 | 中 | core 覆盖率 67.18% 语句/56.63% 分支；UI 覆盖率 42.57% 语句/34.7% 分支；Web 覆盖率 61.53% 语句/50% 分支；Extension 覆盖率 100% 语句/50% 分支；MCP 覆盖率 53.11% 语句/51.33% 分支 | 建立可持续覆盖率门禁 | 部分完成：core/UI/Web/Extension/MCP 覆盖率命令均已稳定可运行，MCP 5 个工具 handler、环境配置和默认模型选择已纳入单元测试；仍需提升 core/UI/Web 覆盖率并补真实 MCP 成功 smoke | 开发 | P2 | in_progress |
+| XC-P2-003 | XC | MCP smoke 尚未覆盖真实 LLM 成功调用 | 功能/交付 | 中 | R15 已在有效 `DEEPSEEK_API_KEY` 环境下执行 `pnpm mcp:smoke:real`，通过 HTTP MCP 连接、tools/list 和 `generate-wiki-prompt` 真实调用，返回 `provider=deepseek`、5 个 tools、`textLength=963` | 补真实模型环境下的成功调用验收 | 已完成：真实 MCP LLM 成功路径有可复现脚本、真实 provider 和输出摘要证据 | 开发/集成方 | P2 | closed |
+| XC-P2-004 | XC | 覆盖率体系不足，无法证明全项目质量 | 软件测试 | 中 | core 覆盖率 67.18% 语句/56.63% 分支；UI 覆盖率 42.57% 语句/34.7% 分支；Web 覆盖率 61.53% 语句/50% 分支；Extension 覆盖率 100% 语句/50% 分支；MCP 覆盖率已提升到 60.55% 语句/58.75% 分支 | 建立可持续覆盖率门禁 | 部分完成：core/UI/Web/Extension/MCP 覆盖率命令均已稳定可运行，MCP 真实 smoke、5 个工具 handler、环境配置、默认模型选择、配置和日志路径已纳入测试；仍需提升 core/UI/Web/MCP 覆盖率到交付目标 | 开发 | P2 | in_progress |
 | XC-P2-005 | XC | 全仓递归单元测试入口存在资源稳定性问题 | 软件测试 | 中 | `pnpm test:unit` 曾在 core、mcp-server、UI 测试通过后，启动 Web/Extension 子进程时失败：`spawn sh EAGAIN`；串行后又暴露 core/UI 时间敏感测试 | 让全仓单元测试入口可重复运行 | 已通过：`pnpm test:unit` 串行执行 core、mcp-server、UI、Extension、Web 全部通过 | 开发 | P2 | closed |
-| XC-P2-006 | XC | 本地提交尚未同步到远端并缺少远端 CI/PR 证明 | 治理/交付 | 中 | `git status --short --branch` 显示 `develop...origin/develop [ahead 3]`；本轮按本地可追踪基线收口，未执行 push | 形成共享交付基线 | 推送到远端分支或打开 PR，并通过远端 CI/代码评审门禁 | 开发/发布负责人 | P2 | open |
+| XC-P2-006 | XC | 本地提交尚未同步到远端并缺少远端 CI/PR 证明 | 治理/交付 | 中 | R15 提交后 `git status --short --branch` 显示 `develop...origin/develop [ahead 4]`；本轮按本地可追踪基线收口，未执行 push | 形成共享交付基线 | 推送到远端分支或打开 PR，并通过远端 CI/代码评审门禁 | 开发/发布负责人 | P2 | open |
 
 ## 4. 三类专项行动
 
@@ -282,7 +294,7 @@ R14 变化依据：
 
 - 剩余 P1（`XC-P1-001`）关闭或降级。（已完成 R13）
 - 健康度、功能完整性、软件测试三项完成复核。（已完成第一轮）
-- 生成可计算总分。（已完成第一轮，当前 79.8）
+- 生成可计算总分。（已完成第一轮，R15 当前 90.6）
 - 项目状态从“B 类待补短板”升级为“可继续开发，具备交付准备入口”，或明确降级原因。
 
 ## 7. 复评机制
@@ -317,12 +329,13 @@ git status --short --branch
 | XC | 85.6 | 86.0 | 无 | 无新增 P1；`XC-P2-001` 仍未关闭 | B 类待补短板 -> B 类待补短板 | 做中文主路径页面抽查；继续补真实 MCP smoke 和覆盖率；关闭交付基线 P1 |
 | XC | 86.0 | 88.4 | `XC-P1-001` | 新增 `XC-P2-006`：本地提交尚未同步远端 | B 类待补短板 -> B 类待补短板（P1 清零） | 推送/PR 后获取远端 CI 证明；补真实 MCP smoke、覆盖率和中文页面抽查 |
 | XC | 88.4 | 89.0 | `XC-P2-001` | 无新增 P1；`XC-P2-003`、`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（中文 P2 关闭） | 补真实 MCP smoke；提升覆盖率；推送/PR 后获取远端 CI 证明 |
+| XC | 89.0 | 90.6 | `XC-P2-003` | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（真实 MCP smoke 关闭） | 提升 core/UI/Web/MCP 覆盖率；推送/PR 后获取远端 CI 证明 |
 
 ## 8. 项目组合决策表
 
 | 项目 | 当前等级 | 是否继续投入 | 投入优先级 | 下一阶段目标 | 不做事项 | 退出条件 |
 |---|---|---|---|---|---|---|
-| XC | B 类 | 是 | 高 | 补真实 MCP 成功 smoke，把测试证明力从 88 提升到 90+，完成远端 CI/PR 证明 | 不新增业务功能、不跳过复评上线 | 复评出现不可关闭 P0，或核心流程无法闭环且无明确修复路径 |
+| XC | B 类 | 是 | 高 | 把 core/UI/Web/MCP 覆盖率提升到交付目标，完成远端 CI/PR 证明，补齐权限/异常/真实集成验收 | 不新增业务功能、不跳过复评上线 | 复评出现不可关闭 P0，或核心流程无法闭环且无明确修复路径 |
 
 ## 9. 验证记录
 
@@ -412,6 +425,13 @@ git status --short --branch
 | 2026-06-06 | E2E gate R14 | `pnpm test:e2e:gate` | 通过，36 passed | 中文主路径页面 smoke 已进入日常 E2E gate |
 | 2026-06-06 | 根仓库治理门禁 R14 | `pnpm test:repo` | 通过，34 个 node:test 子测试通过，locale parity 通过，no-Chinese-runtime 通过 | R14 中文页面 smoke 与 test id 改动未破坏仓库治理门禁 |
 | 2026-06-06 | Lint/Typecheck R14 | `pnpm lint` | 通过 | R14 语言按钮 test id 与 E2E 分组改动未破坏 lint/typecheck |
+| 2026-06-06 | MCP 构建 R15 | `pnpm mcp:build` | 通过 | MCP server 可在真实 smoke 前独立构建 |
+| 2026-06-06 | MCP 真实 LLM smoke R15 | `pnpm mcp:smoke:real` | 通过，`provider=deepseek`，`healthStatus=ok`，5 个 tools，`generate-wiki-prompt` 返回 `textLength=963` | `XC-P2-003` 关闭，真实模型环境下的 MCP 成功调用有可复现脚本和输出摘要 |
+| 2026-06-06 | MCP 覆盖率 R15 | `pnpm -F @prompt-optimizer/mcp-server test --run --coverage` | 通过，6 test files passed，40 tests passed；覆盖率 60.55% statements、58.75% branches、70.79% functions、60.52% lines | MCP 配置、日志、参数错误、XC context 校验和默认模型禁用场景已补测试 |
+| 2026-06-06 | 根仓库治理门禁 R15 | `pnpm test:repo` | 通过，34 个 node:test 子测试通过，locale parity 通过，no-Chinese-runtime 通过 | R15 新增 smoke 脚本和 MCP 测试未破坏仓库治理门禁 |
+| 2026-06-06 | 全仓单元测试 R15 | `pnpm test:unit` | 通过，core 1173 passed / 152 skipped；mcp-server 40 passed；UI 887 passed / 1 todo；Extension 2 passed；Web 2 passed | R15 新增 MCP 测试已进入全仓单元测试入口 |
+| 2026-06-06 | Lint/Typecheck R15 | `pnpm lint` | 通过 | R15 smoke 脚本和 MCP 测试改动未破坏 lint/typecheck |
+| 2026-06-06 | 工作区格式 R15 | `git diff --check` | 通过 | R15 提交前改动无空白错误 |
 
 ## 10. 当前工作区改动归属
 
@@ -435,3 +455,5 @@ git status --short --branch
 | `packages/mcp-server/tests/environment.test.ts`、`packages/mcp-server/tests/models.test.ts` | 本轮 MCP 覆盖率修复 | 已确认 | MCP 环境配置、配置校验和默认模型选择路径已补单元测试 |
 | `packages/mcp-server/tests/tool-success-path.test.ts` | 本轮 MCP 功能闭环修复 | 已确认 | MCP 5 个核心工具 handler 成功路径已全部覆盖 |
 | `packages/ui/tests/unit/components/FavoriteShareExportDialog.spec.ts` | 本轮中文化修复 | 已确认 | 收藏分享导出入口 zh-CN labels、导入提示、复制状态和失败提示已有组件级自动化证明 |
+| `scripts/mcp-real-smoke.mjs`、`package.json` | 本轮 MCP 真实集成验收 | 已确认 | 新增 `pnpm mcp:smoke:real`，在有效 API key 环境下验证 HTTP MCP、tools/list 和真实 `generate-wiki-prompt` 调用 |
+| `packages/mcp-server/tests/config-and-logging.test.ts`、`packages/mcp-server/tests/tool-success-path.test.ts` | 本轮 MCP 覆盖率修复 | 已确认 | MCP 配置、日志、参数错误、XC context 校验、默认模型禁用和真实集成前置错误路径已有自动化证明 |

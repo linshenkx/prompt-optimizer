@@ -23,7 +23,7 @@ function createFakeServer() {
   };
 }
 
-function createFakeCoreServices() {
+function createFakeCoreServices(options?: { modelEnabled?: boolean }) {
   const templateManager = {
     listTemplatesByType: vi.fn(async (type: string) => [{
       id: `${type}-default`,
@@ -40,7 +40,7 @@ function createFakeCoreServices() {
   };
 
   const modelManager = {
-    getModel: vi.fn(async () => ({ id: 'mcp-default', enabled: true }))
+    getModel: vi.fn(async () => ({ id: 'mcp-default', enabled: options?.modelEnabled ?? true }))
   };
 
   const coreServices = {
@@ -228,5 +228,92 @@ describe('MCP tool success paths', () => {
       expect.stringContaining('Feishu embedded prompt'),
       'mcp-default'
     );
+  });
+
+  it('returns an error for unknown tools without calling prompt services', async () => {
+    const { server, handlers } = createFakeServer();
+    const { coreServices, promptService } = createFakeCoreServices();
+
+    await setupServerHandlers(server, coreServices);
+
+    const callTool = handlers.get(CallToolRequestSchema.shape.method.value)!;
+    const result = await callTool({
+      params: {
+        name: 'unknown-tool',
+        arguments: {}
+      }
+    }) as { isError: boolean; content: Array<{ type: string; text: string }> };
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("Unknown tool 'unknown-tool'");
+    expect(promptService.optimizePrompt).not.toHaveBeenCalled();
+    expect(promptService.iteratePrompt).not.toHaveBeenCalled();
+    expect(promptService.testPrompt).not.toHaveBeenCalled();
+  });
+
+  it('returns parameter errors for missing iterate requirements', async () => {
+    const { server, handlers } = createFakeServer();
+    const { coreServices, promptService } = createFakeCoreServices();
+
+    await setupServerHandlers(server, coreServices);
+
+    const callTool = handlers.get(CallToolRequestSchema.shape.method.value)!;
+    const result = await callTool({
+      params: {
+        name: 'iterate-prompt',
+        arguments: {
+          prompt: 'Improve this prompt.'
+        }
+      }
+    }) as { isError: boolean; content: Array<{ type: string; text: string }> };
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("Missing required parameter 'requirements'");
+    expect(promptService.iteratePrompt).not.toHaveBeenCalled();
+  });
+
+  it('returns validation errors for invalid XC context before model execution', async () => {
+    const { server, handlers } = createFakeServer();
+    const { coreServices, modelManager, promptService } = createFakeCoreServices();
+
+    await setupServerHandlers(server, coreServices);
+
+    const callTool = handlers.get(CallToolRequestSchema.shape.method.value)!;
+    const result = await callTool({
+      params: {
+        name: 'optimize-user-prompt',
+        arguments: {
+          prompt: 'Summarize this.',
+          caller_system: 'not-a-supported-system'
+        }
+      }
+    }) as { isError: boolean; content: Array<{ type: string; text: string }> };
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('caller_system must be one of');
+    expect(modelManager.getModel).not.toHaveBeenCalled();
+    expect(promptService.optimizePrompt).not.toHaveBeenCalled();
+  });
+
+  it('returns a model configuration error when the MCP default model is disabled', async () => {
+    const { server, handlers } = createFakeServer();
+    const { coreServices, modelManager, promptService } = createFakeCoreServices({ modelEnabled: false });
+
+    await setupServerHandlers(server, coreServices);
+
+    const callTool = handlers.get(CallToolRequestSchema.shape.method.value)!;
+    const result = await callTool({
+      params: {
+        name: 'generate-wiki-prompt',
+        arguments: {
+          goal: 'Create a prompt from wiki rules.'
+        }
+      }
+    }) as { isError: boolean; content: Array<{ type: string; text: string }> };
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('MCP default model is not configured or not enabled');
+    expect(modelManager.getModel).toHaveBeenCalledWith('mcp-default');
+    expect(promptService.optimizePrompt).not.toHaveBeenCalled();
   });
 });

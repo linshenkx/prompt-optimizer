@@ -62,6 +62,7 @@
     "mcp:build": "pnpm --filter @prompt-optimizer/mcp-server build",
     "mcp:dev": "pnpm --filter @prompt-optimizer/mcp-server dev",
     "mcp:start": "pnpm --filter @prompt-optimizer/mcp-server start",
+    "mcp:smoke:real": "node scripts/mcp-real-smoke.mjs",
     "mcp:test": "pnpm --filter @prompt-optimizer/mcp-server test",
     "lint": "node scripts/run-many.js lint:ui typecheck:ui lint:mcp-server typecheck:core typecheck:mcp-server build:ui-types typecheck:web typecheck:extension",
     "lint:ui": "pnpm -F @prompt-optimizer/ui lint",
