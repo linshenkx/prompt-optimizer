@@ -293,6 +293,19 @@ R23 变化依据：
 - 治理成熟度从 90 提升到 92：已创建上游 PR #311（`https://github.com/linshenkx/prompt-optimizer/pull/311`），`gh pr view` 显示 `state=OPEN`、`mergeable=MERGEABLE`、base=`develop`、head=`Jiumilu:codex/xiaoc-quality-baseline`。
 - `XC-P2-006` 从 open 调整为 in_progress：上游直推 `git push origin develop` 失败，GitHub 返回 403，账号 `Jiumilu` 对上游仓库只有 READ；PR #311 的 3 个 Vercel checks 均失败，失败原因均为 `Authorization required to deploy`。因此远端评审入口已建立，但远端 CI/部署授权仍未通过，不能关闭该风险。
 
+第二十四轮复评快照（2026-06-06）：
+
+| 项目 | 当前总分 | 健康度 | 功能完整性 | 软件测试 | 中文化 | 治理成熟度 | 当前状态 | P0 数量 | P1 数量 | 结论日期 | 复评版本 |
+|---|---:|---:|---:|---:|---:|---:|---|---:|---:|---|---|
+| XC | 93.0 | 91 | 91 | 99 | 92 | 92 | B 类：继续开发，但先补短板 | 0 | 0 | 2026-06-06 | XC-QG-20260606-R24 / package 2.11.5 / PR #311 updated / Vercel auth pending |
+
+R24 变化依据：
+
+- 功能完整性从 90 提升到 91：新增 `FavoriteListItem` 和 `EvaluateButton` 用户入口行为测试，覆盖收藏条目的内容展示、分类/标签/使用次数、选择、复制、使用、编辑、分享、分类切换、删除，以及评估按钮的禁用态、单结果评估、对比评估和加载态。
+- UI 覆盖率从 42.57% statements / 34.7% branches 提升到 43.01% statements / 35.07% branches / 39% functions / 44.22% lines；`FavoriteListItem.vue` 达到 87.17% statements / 88.88% branches，`EvaluateButton.vue` 达到 100% 四项覆盖。
+- 软件测试维持 99 而不升到 100：目标测试、UI 覆盖率、全仓单元测试、仓库治理门禁、lint/typecheck 和空白检查均通过；但 core 69.99% statements / 58.55% branches、UI 43.01% statements / 35.07% branches 仍明显低于 90% 交付目标，`XC-P2-004` 不能关闭。
+- 治理成熟度维持 92：R24 已推送到 fork 分支并更新 PR #311，`gh pr checks` 显示 3 个 Vercel checks 仍因 `Authorization required to deploy` 失败；远端评审入口可追踪，但 `XC-P2-006` 不能关闭。
+
 当前执行状态（2026-06-06）：
 
 - 初始 P1：5 个。
@@ -317,7 +330,7 @@ R23 变化依据：
 | XC-P2-001 | XC | 英文兜底错误和导出分享英文残留 | 中文化 | 中 | 中文化评估定位 `Unknown error`、导入导出错误、分享导出默认英文标签；R14 新增 zh-CN 页面级 E2E smoke | 中文主路径错误和主页面文案可理解 | 已完成：`Unknown error` 源码兜底已基本清零，导入/导出、公共错误工具、收藏分享导出入口和主路径页面均有中文化自动化证据 | 前端 | P2 | closed |
 | XC-P2-002 | XC | 风险台账缺少 owner、等级、处置状态 | 风险治理 | 中 | 项目状态风险章节曾缺少负责人、风险等级、处置状态和复评日期 | 建立可追踪风险台账 | 已完成：项目状态风险章节已升级为统一风险台账，包含风险ID、等级、Owner、当前状态、当前证据、处置建议、下一步和复评日期 | PM | P2 | closed |
 | XC-P2-003 | XC | MCP smoke 尚未覆盖真实 LLM 成功调用 | 功能/交付 | 中 | R15 已在有效 `DEEPSEEK_API_KEY` 环境下执行 `pnpm mcp:smoke:real`，通过 HTTP MCP 连接、tools/list 和 `generate-wiki-prompt` 真实调用，返回 `provider=deepseek`、5 个 tools、`textLength=963` | 补真实模型环境下的成功调用验收 | 已完成：真实 MCP LLM 成功路径有可复现脚本、真实 provider 和输出摘要证据 | 开发/集成方 | P2 | closed |
-| XC-P2-004 | XC | 覆盖率体系不足，无法证明全项目质量 | 软件测试 | 中 | core 覆盖率 69.99% 语句/58.55% 分支；UI 覆盖率 42.57% 语句/34.7% 分支；Web 覆盖率 100% 语句/75% 分支/100% 函数/100% 行；Extension 覆盖率 100% 语句/50% 分支；MCP 覆盖率已提升到 91.93% 语句/90.50% 分支/93.22% 函数/92.17% 行 | 建立可持续覆盖率门禁 | 部分完成：MCP 单包覆盖率已达到 90% 目标，Web 入口覆盖率已大幅提升，core compare/model validation/prompt factory/IPC serialization/model errors/image input normalizer 已补测试；core/UI 覆盖率仍需提升到交付目标 | 开发 | P2 | in_progress |
+| XC-P2-004 | XC | 覆盖率体系不足，无法证明全项目质量 | 软件测试 | 中 | core 覆盖率 69.99% 语句/58.55% 分支；UI 覆盖率 43.01% 语句/35.07% 分支；Web 覆盖率 100% 语句/75% 分支/100% 函数/100% 行；Extension 覆盖率 100% 语句/50% 分支；MCP 覆盖率已提升到 91.93% 语句/90.50% 分支/93.22% 函数/92.17% 行 | 建立可持续覆盖率门禁 | 部分完成：MCP 单包覆盖率已达到 90% 目标，Web 入口覆盖率已大幅提升，core compare/model validation/prompt factory/IPC serialization/model errors/image input normalizer 已补测试，UI FavoriteListItem/EvaluateButton 用户入口已有行为测试；core/UI 覆盖率仍需提升到交付目标 | 开发 | P2 | in_progress |
 | XC-P2-005 | XC | 全仓递归单元测试入口存在资源稳定性问题 | 软件测试 | 中 | `pnpm test:unit` 曾在 core、mcp-server、UI 测试通过后，启动 Web/Extension 子进程时失败：`spawn sh EAGAIN`；串行后又暴露 core/UI 时间敏感测试 | 让全仓单元测试入口可重复运行 | 已通过：`pnpm test:unit` 串行执行 core、mcp-server、UI、Extension、Web 全部通过 | 开发 | P2 | closed |
 | XC-P2-006 | XC | 远端 CI/PR 证明未完全通过 | 治理/交付 | 中 | 上游直推失败：GitHub 403，账号 `Jiumilu` 对上游只有 READ；已创建 fork `Jiumilu/prompt-optimizer`、推送 `codex/xiaoc-quality-baseline` 并创建上游 PR #311；PR 为 open/mergeable；3 个 Vercel checks 均失败，原因是 `Authorization required to deploy` | 形成共享交付基线 | 获取 Vercel 授权或由上游维护者批准/重跑 checks，并通过远端 CI/代码评审门禁；另行确认 Harness 文件归属 | 开发/发布负责人 | P2 | in_progress |
 
@@ -391,7 +404,7 @@ R23 变化依据：
 
 - 剩余 P1（`XC-P1-001`）关闭或降级。（已完成 R13）
 - 健康度、功能完整性、软件测试三项完成复核。（已完成第一轮）
-- 生成可计算总分。（已完成第一轮，R23 当前 92.8）
+- 生成可计算总分。（已完成第一轮，R24 当前 93.0）
 - 项目状态从“B 类待补短板”升级为“可继续开发，具备交付准备入口”，或明确降级原因。
 
 ## 7. 复评机制
@@ -435,6 +448,7 @@ git status --short --branch
 | XC | 91.8 | 92.0 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core IPC/model error 补测） | 继续提升 core/UI 覆盖率；推送/PR 后获取远端 CI 证明 |
 | XC | 92.0 | 92.2 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core image input normalizer 补测，UI 慢用例稳定） | 继续提升 core/UI 覆盖率；推送/PR 后获取远端 CI 证明 |
 | XC | 92.2 | 92.8 | 无 | 无新增 P1；`XC-P2-004` 仍未关闭；`XC-P2-006` 从 open 变为 in_progress，Vercel 授权阻塞 | B 类待补短板 -> B 类待补短板（远端 PR 入口已建立，CI 授权待处理） | 获取 Vercel 授权或维护者批准 checks；继续提升 core/UI 覆盖率 |
+| XC | 92.8 | 93.0 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（UI 用户入口测试和覆盖率提升） | 获取 Vercel 授权或维护者批准 checks；继续提升 core/UI 覆盖率 |
 
 ## 8. 项目组合决策表
 
@@ -589,10 +603,18 @@ git status --short --branch
 | 2026-06-06 | Fork 分支 R23 | `gh repo fork linshenkx/prompt-optimizer --clone=false --remote=false`、`git push fork develop:codex/xiaoc-quality-baseline` | 通过，创建 `https://github.com/Jiumilu/prompt-optimizer`，推送 fork 分支成功 | 本地质量基线提交已有可共享远端分支 |
 | 2026-06-06 | 上游 PR R23 | `gh pr create --repo linshenkx/prompt-optimizer --base develop --head Jiumilu:codex/xiaoc-quality-baseline` | 通过，创建 PR #311 | 远端评审入口已建立 |
 | 2026-06-06 | PR 状态 R23 | `gh pr view 311 --repo linshenkx/prompt-optimizer --json ...` | 通过，`state=OPEN`、`mergeable=MERGEABLE`；3 个 Vercel checks 为 failure | PR 可合并性初步成立，但远端部署 checks 因 Vercel 授权阻塞 |
+| 2026-06-06 | UI 目标测试 R24 | `pnpm -F @prompt-optimizer/ui exec vitest run tests/unit/components/FavoriteListItem.spec.ts tests/unit/components/EvaluateButton.spec.ts` | 通过，2 files passed，8 tests passed | 收藏条目和评估按钮入口行为已有组件级自动化证明 |
+| 2026-06-06 | UI 覆盖率 R24 | `pnpm -F @prompt-optimizer/ui test:coverage` | 通过，152 passed / 1 skipped，895 passed / 1 todo；覆盖率 43.01% statements、35.07% branches、39% functions、44.22% lines | UI 覆盖率可持续生成，`FavoriteListItem.vue` 和 `EvaluateButton.vue` 已从低覆盖入口补强 |
+| 2026-06-06 | 全仓单元测试 R24 | `pnpm test:unit` | 通过，core 1220 passed / 152 skipped；mcp-server 82 passed；UI 895 passed / 1 todo；Extension 2 passed；Web 4 passed | R24 新增 UI 测试已进入全仓单元测试入口 |
+| 2026-06-06 | 根仓库治理门禁 R24 | `pnpm test:repo` | 通过，34 个 node:test 子测试通过，locale parity 通过，no-Chinese-runtime 通过 | R24 测试补强未破坏仓库治理门禁 |
+| 2026-06-06 | Lint/Typecheck R24 | `pnpm lint` | 通过 | R24 新增 UI 测试和文档更新后，UI/MCP lint 与 core/UI/MCP/Web/Extension typecheck 仍通过 |
+| 2026-06-06 | 工作区格式 R24 | `git diff --check` | 通过 | R24 改动无空白错误 |
+| 2026-06-06 | Fork 分支 R24 | `git push fork develop:codex/xiaoc-quality-baseline` | 通过，fork 分支从 `c7f644f6` 更新到 R24 | PR #311 的 head 已同步 R24 改动 |
+| 2026-06-06 | PR 状态 R24 | `gh pr view 311 --repo linshenkx/prompt-optimizer --json ...`、`gh pr checks 311 --repo linshenkx/prompt-optimizer` | PR `state=OPEN`、`mergeable=MERGEABLE`；3 个 Vercel checks 失败，原因均为 `Authorization required to deploy` | 远端评审入口仍可用，但部署授权阻塞未解除 |
 
 ## 10. 当前工作区改动归属
 
-`XC-P1-001` 已在 R13 关闭。当前工作区已从 dirty 状态收口为本地可追踪提交；R23 已建立 fork 分支和上游 PR #311。远端 CI/部署授权仍列为 `XC-P2-006`。
+`XC-P1-001` 已在 R13 关闭。当前工作区已从 dirty 状态收口为本地可追踪提交；R24 已推送到 fork 分支并更新上游 PR #311。远端 CI/部署授权仍列为 `XC-P2-006`。
 
 | 文件/范围 | 归属 | 状态 | 说明 |
 |---|---|---|---|
@@ -618,6 +640,8 @@ git status --short --branch
 | `packages/mcp-server/tests/core-services.test.ts`、`packages/mcp-server/tests/environment-import.test.ts`、`packages/mcp-server/tests/xc-context.test.ts` | 本轮 MCP 覆盖率修复 | 已确认 | CoreServicesManager、导入期环境变量映射、XC context 边界和敏感信息不泄露已有自动化证明 |
 | `packages/mcp-server/src/index.ts`、`packages/mcp-server/tests/index-http-app.test.ts`、`packages/mcp-server/tests/index-process-handlers.test.ts` | 本轮 MCP 覆盖率修复 | 已确认 | HTTP app healthz/CORS/auth/session、startup error、uncaught rejection 和 shutdown signal 处理已有自动化证明 |
 | `packages/web/tests/unit/main-entry.spec.ts` | 本轮 Web 覆盖率修复 | 已确认 | Web 入口的 locale watcher、英文 lang 分支和 Vercel Analytics 加载成功/失败分支已有自动化证明 |
+| `packages/ui/tests/unit/components/FavoriteListItem.spec.ts` | 本轮 UI 测试证明力修复 | 已确认 | 收藏条目的内容展示、分类/标签/使用次数、选择、复制、使用、编辑、分享、分类切换和删除行为已有组件级自动化证明 |
+| `packages/ui/tests/unit/components/EvaluateButton.spec.ts` | 本轮 UI 测试证明力修复 | 已确认 | 评估按钮入口的禁用态、单结果评估、对比评估和加载态已有组件级自动化证明 |
 | `packages/core/tests/unit/variable-extraction/service.spec.ts`、`packages/core/tests/unit/utils/error.spec.ts` | 本轮 core 覆盖率修复 | 已确认 | 变量提取服务请求校验、模型/模板校验、JSON 修复解析、去重过滤、执行错误和公共错误归一化已有离线测试证明 |
 | `packages/core/tests/unit/compare/service.spec.ts`、`packages/core/tests/unit/model/validation.spec.ts` | 本轮 core 覆盖率修复 | 已确认 | compare 服务词级/字符级/空白大小写对比和模型参数类型、范围、未知参数、危险参数、provider 过滤已有离线测试证明 |
 | `packages/core/tests/unit/prompt/factory-errors.spec.ts` | 本轮 core 覆盖率修复 | 已确认 | PromptService factory、错误对象、依赖检查、history 代理、迭代错误包装和 test stream 基础分支已有离线测试证明 |
