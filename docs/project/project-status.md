@@ -5,12 +5,12 @@
 GlobalCloud XiaoC 是一个强大的 AI 提示词优化工具，帮助用户编写更好的 AI 提示词，提升 AI 输出质量。支持 Web 应用、桌面应用、Chrome 插件、Docker 部署和 MCP 协议集成五种使用方式，采用 monorepo 结构进行开发。
 
 ## 2. 总体进度
-- 项目完成度：88.4（第十三轮五项质量复评总分；上一版 98% 不再作为质量状态使用）
+- 项目完成度：89.0（第十四轮五项质量复评总分；上一版 98% 不再作为质量状态使用）
 - 当前阶段：质量执行闭环与 P1 修复冲刺
 - 主要版本：v2.11.5
 - 最新更新：2026年6月6日
 - 当前质量基线：`XC-QG-20260606-001`
-- 当前复评版本：`XC-QG-20260606-R13`
+- 当前复评版本：`XC-QG-20260606-R14`
 - 当前处置决策：B 类（继续开发，但先补短板；不建议上线）
 - 质量执行入口：[质量执行闭环基线](./quality-execution-baseline-2026-06-06.md)
 
@@ -199,12 +199,12 @@ GlobalCloud XiaoC 是一个强大的 AI 提示词优化工具，帮助用户编�
 - Lint/Typecheck：已验证通过（`pnpm lint`）
 - 测试门禁：已验证通过（`pnpm test:gate`，repo 34 tests、core 21 tests、UI 879 passed / 1 todo / 1 skipped）
 - 全仓单元测试：已验证通过（`pnpm test:unit`，core 1173 passed / 152 skipped；mcp-server 29 passed；UI 887 passed / 1 todo；Extension 2 passed；Web 2 passed）
-- E2E gate：已验证通过（`pnpm test:e2e:gate`，35 passed）
+- E2E gate：已验证通过（`pnpm test:e2e:gate`，36 passed，含 zh-CN 主路径页面 smoke）
 - 代码测试覆盖率：core 67.18% statements / 56.63% branches；UI 42.57% statements / 34.7% branches；Web 61.53% statements / 50% branches；Extension 100% statements / 50% branches；MCP 53.11% statements / 51.33% branches
 - 页面加载时间：待复核
 - API 响应时间：待复核
 - 首次内容渲染：待复核
-- 五项质量评分：总分 88.4；健康度 90、功能完整性 84、软件测试 88、中文化 90、治理成熟度 90
+- 五项质量评分：总分 89.0；健康度 90、功能完整性 84、软件测试 89、中文化 92、治理成熟度 90
 
 ### 6.2 目标指标
 - 代码测试覆盖率：>90%
@@ -235,9 +235,9 @@ GlobalCloud XiaoC 是一个强大的 AI 提示词优化工具，帮助用户编�
 | XC-P1-001 | 交付基线不干净 | 高 | 开发负责人 | closed | 已形成 R13 本地提交基线，工作区从 dirty 收口为 clean；install/build/lint/test/e2e 已复跑通过 | 保持本地基线可追踪；远端同步另列为 P2 | 后续只跟踪远端 CI/PR 证明 | 2026-06-06 |
 | XC-P1-002 | 决策证据不足 | 高 | 项目负责人 | closed | 已完成健康度、功能完整性、软件测试三项证据化复核，生成 R1-R13 复评 | 保持每轮修复后更新质量基线 | 后续只对变化项复评 | 2026-06-06 |
 | XC-P2-004 | 测试证明力不足 | 中 | 测试负责人 | in_progress | core/UI/Web/Extension/MCP 覆盖率命令均可运行，MCP 5 个工具 handler、环境配置和默认模型选择已补自动化；core/UI/Web 覆盖率仍低于交付目标 | 继续补核心流程单元/集成/E2E，建立覆盖率阈值 | 优先补 core/UI 高频模块和真实 MCP smoke | 2026-06-06 |
-| XC-P2-001 | 中文化残留 | 中 | 前端负责人 | in_progress | `Unknown error` 源码兜底已基本清零；导入/导出、转换器、公共错误工具和收藏分享导出入口均有中文化单测 | 对中文主路径做页面抽查，复核页面级文案和术语一致性 | 补页面级中文化 smoke 或组件断言 | 2026-06-06 |
+| XC-P2-001 | 中文化残留 | 中 | 前端负责人 | closed | `Unknown error` 源码兜底已基本清零；导入/导出、转换器、公共错误工具、收藏分享导出入口和 zh-CN 主路径页面 smoke 均有自动化证明 | 保持中文化 smoke 进入 gate | 后续发现零散文案问题按 P3 处理 | 2026-06-06 |
 | XC-P2-003 | MCP 真实 LLM 成功调用未验收 | 中 | 集成负责人 | in_progress | 本地 HTTP、`/healthz`、tools/list、参数校验和 5 个工具 handler 级成功路径已验证；缺少有效 API key 下真实调用 | 准备有效测试 key 和模型，记录输入、输出摘要、失败降级行为 | 跑真实 `generate-wiki-prompt` 或 `optimize-user-prompt` smoke | 2026-06-06 |
-| XC-P2-006 | 远端同步与 CI/PR 证明缺失 | 中 | 开发/发布负责人 | open | 本地基线已提交但 `develop` 仍领先 `origin/develop`，本轮未执行 push | 形成共享交付基线 | 推送远端分支或打开 PR，并通过远端 CI/评审门禁 | 2026-06-06 |
+| XC-P2-006 | 远端同步与 CI/PR 证明缺失 | 中 | 开发/发布负责人 | open | 本地基线已提交但 `develop` 仍领先 `origin/develop` 3 个提交，本轮未执行 push | 形成共享交付基线 | 推送远端分支或打开 PR，并通过远端 CI/评审门禁 | 2026-06-06 |
 | XC-P2-005 | 全仓测试入口不稳定 | 中 | 测试负责人 | closed | `pnpm test:unit` 已改为 workspace 串行执行，core、mcp-server、UI、Extension、Web 全部通过 | 保持串行入口，后续再评估是否恢复有限并发 | 保持在回归门禁中 | 2026-06-06 |
 | REL-001 | 发布流程入口不一致 | 中 | 发布负责人 | closed | 已补齐 `release:notes:*` package 入口，并验证 release note check 和 package script 测试通过 | 发布前固定跑 release note check | 纳入发版 checklist | 2026-06-06 |
 | DOC-001 | 项目状态文档滞后 | 中 | PM | closed | 项目状态和项目管理入口已同步到 v2.11.5、质量执行闭环和 P1/P2 状态 | 每轮复评同步状态页和质量基线 | 保持状态页为事实入口 | 2026-06-06 |
@@ -274,7 +274,7 @@ GlobalCloud XiaoC 是一个强大的 AI 提示词优化工具，帮助用户编�
 1. 推送远端分支或打开 PR，补远端 CI/评审证明：`XC-P2-006`
 2. 修复覆盖率证明力短板：`XC-P2-004`
 3. 补真实 LLM 环境下的 MCP 成功调用 smoke：`XC-P2-003`
-4. 完成中文主路径页面抽查：`XC-P2-001`
+4. 继续补充非主路径弹窗、导出内容和异常提示中文抽查
 
 ### 9.2 中期计划（1-2月）
 1. 工作区/项目管理支持
@@ -318,6 +318,7 @@ GlobalCloud XiaoC 是一个强大的 AI 提示词优化工具，帮助用户编�
 - 2026-06-06: 完成第十一轮复评 `XC-QG-20260606-R11`，当前总分 85.6，MCP 5 个核心工具 handler 成功路径已全部覆盖，MCP 覆盖率提升到 53.11%
 - 2026-06-06: 完成第十二轮复评 `XC-QG-20260606-R12`，当前总分 86.0，收藏分享导出入口 zh-CN labels 与失败提示已有自动化证明
 - 2026-06-06: 完成第十三轮复评 `XC-QG-20260606-R13`，当前总分 88.4，剩余 P1 `XC-P1-001` 已通过本地提交基线关闭
+- 2026-06-06: 完成第十四轮复评 `XC-QG-20260606-R14`，当前总分 89.0，zh-CN 主路径页面 smoke 已进入 E2E gate，`XC-P2-001` 关闭
 
 ### 2026年5月 (v2.10.0-v2.11.5)
 - 2026-05-28: v2.11.5，新增 Xiaomi MiMo Token Plan provider，扩展部署说明并加固异常模型配置处理

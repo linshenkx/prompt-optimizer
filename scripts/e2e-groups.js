@@ -4,6 +4,7 @@ const groups = {
     'tests/e2e/regression/root-route-bootstrap.spec.ts',
     'tests/e2e/optimize/basic-user.spec.ts',
     'tests/e2e/test/image-text2image-generate.spec.ts',
+    'tests/e2e/localization/zh-cn-main-path.spec.ts',
     'tests/e2e/favorite-management.spec.ts',
     'tests/e2e/tag-autocomplete.spec.ts',
     'tests/e2e/tag-management.spec.ts',

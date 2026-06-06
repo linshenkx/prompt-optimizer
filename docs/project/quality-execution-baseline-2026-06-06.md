@@ -172,6 +172,18 @@ R13 变化依据：
 - 治理成熟度从 84 提升到 90：`XC-P1-001` 已关闭，当前质量执行闭环、风险台账、验证记录和提交基线一致；剩余远端同步、真实 MCP LLM smoke 和覆盖率目标降为 P2/P3 级持续改进，不再阻塞本地继续开发。
 - 仍不能评为 100：当前分支仍领先 `origin/develop`，未完成远端 CI/PR 证明；真实 MCP LLM 成功调用缺少有效 API key；core/UI/Web/MCP 覆盖率仍低于 90% 目标；中文主路径页面抽查尚未完成。
 
+第十四轮复评快照（2026-06-06）：
+
+| 项目 | 当前总分 | 健康度 | 功能完整性 | 软件测试 | 中文化 | 治理成熟度 | 当前状态 | P0 数量 | P1 数量 | 结论日期 | 复评版本 |
+|---|---:|---:|---:|---:|---:|---:|---|---:|---:|---|---|
+| XC | 89.0 | 90 | 84 | 89 | 92 | 90 | B 类：继续开发，但先补短板 | 0 | 0 | 2026-06-06 | XC-QG-20260606-R14 / package 2.11.5 / R14 local commit / origin sync pending |
+
+R14 变化依据：
+
+- 中文化从 90 提升到 92：新增页面级 zh-CN E2E smoke，验证主工作区和收藏页在简体中文浏览器语言下展示“小词”“基础”“上下文”“图像”“收藏夹”“功能提示词”“历史记录”“模型管理”“返回工作区”“收藏列表”“还没有收藏任何提示词”等用户可见中文文案。
+- 软件测试从 88 提升到 89：中文页面 smoke 已加入 `test:e2e:gate`，完整 gate 从 35 条提升到 36 条并通过；新增 `language-switch` test id，后续语言切换测试有稳定定位入口。
+- `XC-P2-001` 已关闭：英文兜底错误、导入/导出、收藏分享导出和中文主路径页面 smoke 均已有自动化证据。仍不能评为中文化 100，因为尚未覆盖所有弹窗、所有异常场景和导出内容的页面级抽查。
+
 当前执行状态（2026-06-06）：
 
 - 初始 P1：5 个。
@@ -193,12 +205,12 @@ R13 变化依据：
 | XC-P1-003 | XC | 发布文档命令与实际脚本不一致 | 版本治理 | 中高 | `pnpm release:notes:check` 不存在；`node scripts/release-notes.js check v2.11.5` 通过 | 人工发布流程可按文档执行 | 已通过：`pnpm release:notes:check v2.11.5`、`pnpm release:notes:check:entry v2.11.5`、`node --test scripts/package-scripts.test.mjs`、`pnpm test:repo` | 开发 | P1 | closed |
 | XC-P1-004 | XC | 项目状态文档滞后于当前版本 | 治理 | 中高 | `docs/project/project-status.md` 仍写主要版本 v2.10.0；当前 package 为 2.11.5 | 项目状态成为当前事实入口 | 已完成：项目状态与项目管理入口同步到 v2.11.5、质量执行闭环、P1 修复冲刺和待复核指标 | PM/开发 | P1 | closed |
 | XC-P1-005 | XC | MCP 生产就绪仍有集成测试、日志、稳定性待办 | 功能/交付 | 中高 | `docs/developer/todo.md` 记录 MCP 集成测试、日志、稳定性测试待办 | MCP 达到可验收 smoke 水平 | 已通过：MCP server 本地 HTTP 启动；`/healthz` 返回 200；tools/list 返回 5 个工具；`optimize-user-prompt`、`generate-wiki-prompt`、`evaluate-prompt-fit` 参数校验 smoke 返回预期错误；启动与请求日志可见 | 开发/集成方 | P1 | closed |
-| XC-P2-001 | XC | 英文兜底错误和导出分享英文残留 | 中文化 | 中 | 中文化评估定位 `Unknown error`、导入导出错误、分享导出默认英文标签 | 中文主路径错误可理解 | 部分完成：`Unknown error` 源码兜底已基本清零，导入/导出、公共错误工具和收藏分享导出入口均有中文化单测；仍需 UI 页面抽查和术语一致性检查 | 前端 | P2 | in_progress |
+| XC-P2-001 | XC | 英文兜底错误和导出分享英文残留 | 中文化 | 中 | 中文化评估定位 `Unknown error`、导入导出错误、分享导出默认英文标签；R14 新增 zh-CN 页面级 E2E smoke | 中文主路径错误和主页面文案可理解 | 已完成：`Unknown error` 源码兜底已基本清零，导入/导出、公共错误工具、收藏分享导出入口和主路径页面均有中文化自动化证据 | 前端 | P2 | closed |
 | XC-P2-002 | XC | 风险台账缺少 owner、等级、处置状态 | 风险治理 | 中 | 项目状态风险章节曾缺少负责人、风险等级、处置状态和复评日期 | 建立可追踪风险台账 | 已完成：项目状态风险章节已升级为统一风险台账，包含风险ID、等级、Owner、当前状态、当前证据、处置建议、下一步和复评日期 | PM | P2 | closed |
 | XC-P2-003 | XC | MCP smoke 尚未覆盖真实 LLM 成功调用 | 功能/交付 | 中 | 本轮使用假 `VITE_OPENAI_API_KEY=test-key`，只验证协议、健康检查、工具枚举和参数校验路径；MCP 5 个 handler 成功路径已有注入式自动化 | 补真实模型环境下的成功调用验收 | 部分完成：已新增 MCP 5 个核心工具 handler 级成功路径自动化；仍需有效 API key 下的真实 LLM smoke | 开发/集成方 | P2 | in_progress |
 | XC-P2-004 | XC | 覆盖率体系不足，无法证明全项目质量 | 软件测试 | 中 | core 覆盖率 67.18% 语句/56.63% 分支；UI 覆盖率 42.57% 语句/34.7% 分支；Web 覆盖率 61.53% 语句/50% 分支；Extension 覆盖率 100% 语句/50% 分支；MCP 覆盖率 53.11% 语句/51.33% 分支 | 建立可持续覆盖率门禁 | 部分完成：core/UI/Web/Extension/MCP 覆盖率命令均已稳定可运行，MCP 5 个工具 handler、环境配置和默认模型选择已纳入单元测试；仍需提升 core/UI/Web 覆盖率并补真实 MCP 成功 smoke | 开发 | P2 | in_progress |
 | XC-P2-005 | XC | 全仓递归单元测试入口存在资源稳定性问题 | 软件测试 | 中 | `pnpm test:unit` 曾在 core、mcp-server、UI 测试通过后，启动 Web/Extension 子进程时失败：`spawn sh EAGAIN`；串行后又暴露 core/UI 时间敏感测试 | 让全仓单元测试入口可重复运行 | 已通过：`pnpm test:unit` 串行执行 core、mcp-server、UI、Extension、Web 全部通过 | 开发 | P2 | closed |
-| XC-P2-006 | XC | 本地提交尚未同步到远端并缺少远端 CI/PR 证明 | 治理/交付 | 中 | `git status --short --branch` 显示 `develop...origin/develop [ahead 2]`；本轮按本地可追踪基线收口，未执行 push | 形成共享交付基线 | 推送到远端分支或打开 PR，并通过远端 CI/代码评审门禁 | 开发/发布负责人 | P2 | open |
+| XC-P2-006 | XC | 本地提交尚未同步到远端并缺少远端 CI/PR 证明 | 治理/交付 | 中 | `git status --short --branch` 显示 `develop...origin/develop [ahead 3]`；本轮按本地可追踪基线收口，未执行 push | 形成共享交付基线 | 推送到远端分支或打开 PR，并通过远端 CI/代码评审门禁 | 开发/发布负责人 | P2 | open |
 
 ## 4. 三类专项行动
 
@@ -304,6 +316,7 @@ git status --short --branch
 | XC | 84.8 | 85.6 | 无 | 无新增 P1；`XC-P2-003` 仍未关闭 | B 类待补短板 -> B 类待补短板 | 补真实 MCP LLM smoke；继续提升 core/UI/Web 覆盖率；关闭交付基线 P1 |
 | XC | 85.6 | 86.0 | 无 | 无新增 P1；`XC-P2-001` 仍未关闭 | B 类待补短板 -> B 类待补短板 | 做中文主路径页面抽查；继续补真实 MCP smoke 和覆盖率；关闭交付基线 P1 |
 | XC | 86.0 | 88.4 | `XC-P1-001` | 新增 `XC-P2-006`：本地提交尚未同步远端 | B 类待补短板 -> B 类待补短板（P1 清零） | 推送/PR 后获取远端 CI 证明；补真实 MCP smoke、覆盖率和中文页面抽查 |
+| XC | 88.4 | 89.0 | `XC-P2-001` | 无新增 P1；`XC-P2-003`、`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（中文 P2 关闭） | 补真实 MCP smoke；提升覆盖率；推送/PR 后获取远端 CI 证明 |
 
 ## 8. 项目组合决策表
 
@@ -395,6 +408,10 @@ git status --short --branch
 | 2026-06-06 | 全仓单元测试 R13 | `pnpm test:unit` | 通过，core 1173 passed / 152 skipped；mcp-server 29 passed；UI 887 passed / 1 todo；Extension 2 passed；Web 2 passed | 全仓单元测试入口在 R13 基线稳定通过 |
 | 2026-06-06 | E2E gate R13 | `pnpm test:e2e:gate` | 通过，35 passed | 路由、基础优化、图像生成、收藏 CRUD、标签自动完成、标签管理等核心路径可由 Playwright gate 验证 |
 | 2026-06-06 | 工作区格式 R13 | `git diff --check` | 通过 | R13 提交前改动无空白错误 |
+| 2026-06-06 | 中文主路径页面 smoke R14 | `pnpm exec playwright test tests/e2e/localization/zh-cn-main-path.spec.ts --project=chromium` | 通过，1 passed | 主工作区和收藏页 zh-CN 用户可见文案有页面级证明 |
+| 2026-06-06 | E2E gate R14 | `pnpm test:e2e:gate` | 通过，36 passed | 中文主路径页面 smoke 已进入日常 E2E gate |
+| 2026-06-06 | 根仓库治理门禁 R14 | `pnpm test:repo` | 通过，34 个 node:test 子测试通过，locale parity 通过，no-Chinese-runtime 通过 | R14 中文页面 smoke 与 test id 改动未破坏仓库治理门禁 |
+| 2026-06-06 | Lint/Typecheck R14 | `pnpm lint` | 通过 | R14 语言按钮 test id 与 E2E 分组改动未破坏 lint/typecheck |
 
 ## 10. 当前工作区改动归属
 

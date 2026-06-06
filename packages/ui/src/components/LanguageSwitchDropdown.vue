@@ -9,6 +9,7 @@
       quaternary 
       size="small"
       class="flex items-center justify-center"
+      data-testid="language-switch"
       :title="currentLanguageLabel"
       :aria-label="currentLanguageLabel"
     >
