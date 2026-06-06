@@ -5,12 +5,12 @@
 GlobalCloud XiaoC 是一个强大的 AI 提示词优化工具，帮助用户编写更好的 AI 提示词，提升 AI 输出质量。支持 Web 应用、桌面应用、Chrome 插件、Docker 部署和 MCP 协议集成五种使用方式，采用 monorepo 结构进行开发。
 
 ## 2. 总体进度
-- 项目完成度：93.8（第二十八轮五项质量复评总分；上一版 98% 不再作为质量状态使用）
+- 项目完成度：94.0（第二十九轮五项质量复评总分；上一版 98% 不再作为质量状态使用）
 - 当前阶段：质量执行闭环与 P2 补强冲刺
 - 主要版本：v2.11.5
 - 最新更新：2026年6月6日
 - 当前质量基线：`XC-QG-20260606-001`
-- 当前复评版本：`XC-QG-20260606-R28`
+- 当前复评版本：`XC-QG-20260606-R29`
 - 当前处置决策：B 类（继续开发，但先补短板；不建议上线）
 - 质量执行入口：[质量执行闭环基线](./quality-execution-baseline-2026-06-06.md)
 
@@ -198,14 +198,14 @@ GlobalCloud XiaoC 是一个强大的 AI 提示词优化工具，帮助用户编�
 - 构建健康：已验证通过（`pnpm build`，覆盖 core、UI、Web、Extension）
 - Lint/Typecheck：已验证通过（`pnpm lint`）
 - 测试门禁：已验证通过（`pnpm test:gate`，repo 34 tests、core 21 tests、UI 879 passed / 1 todo / 1 skipped）
-- 全仓单元测试：已验证通过（`pnpm test:unit`，core 1247 passed / 152 skipped；mcp-server 82 passed；UI 906 passed / 1 todo；Extension 2 passed；Web 4 passed）
+- 全仓单元测试：已验证通过（`pnpm test:unit`，core 1257 passed / 152 skipped；mcp-server 82 passed；UI 906 passed / 1 todo；Extension 2 passed；Web 4 passed）
 - E2E gate：已验证通过（`pnpm test:e2e:gate`，36 passed，含 zh-CN 主路径页面 smoke）
 - MCP 真实 LLM smoke：已验证通过（`pnpm mcp:smoke:real`，`provider=deepseek`，`healthStatus=ok`，5 个 tools，`generate-wiki-prompt` 返回 `textLength=963`）
-- 代码测试覆盖率：core 70.41% statements / 58.94% branches / 73.98% functions / 71.03% lines；UI 43.22% statements / 35.25% branches / 39.34% functions / 44.43% lines；Web 100% statements / 75% branches / 100% functions / 100% lines；Extension 100% statements / 50% branches；MCP 91.93% statements / 90.50% branches / 93.22% functions / 92.17% lines
+- 代码测试覆盖率：core 71.02% statements / 59.37% branches / 74.54% functions / 71.65% lines；UI 43.22% statements / 35.25% branches / 39.34% functions / 44.43% lines；Web 100% statements / 75% branches / 100% functions / 100% lines；Extension 100% statements / 50% branches；MCP 91.93% statements / 90.50% branches / 93.22% functions / 92.17% lines
 - 页面加载时间：待复核
 - API 响应时间：待复核
 - 首次内容渲染：待复核
-- 五项质量评分：总分 93.8；健康度 91、功能完整性 95、软件测试 99、中文化 92、治理成熟度 92
+- 五项质量评分：总分 94.0；健康度 91、功能完整性 96、软件测试 99、中文化 92、治理成熟度 92
 
 ### 6.2 目标指标
 - 代码测试覆盖率：>90%
@@ -235,7 +235,7 @@ GlobalCloud XiaoC 是一个强大的 AI 提示词优化工具，帮助用户编�
 |---|---|---|---|---|---|---|---|---|
 | XC-P1-001 | 交付基线不干净 | 高 | 开发负责人 | closed | 已形成 R13 本地提交基线，工作区从 dirty 收口为 clean；install/build/lint/test/e2e 已复跑通过 | 保持本地基线可追踪；远端同步另列为 P2 | 后续只跟踪远端 CI/PR 证明 | 2026-06-06 |
 | XC-P1-002 | 决策证据不足 | 高 | 项目负责人 | closed | 已完成健康度、功能完整性、软件测试三项证据化复核，生成 R1-R13 复评 | 保持每轮修复后更新质量基线 | 后续只对变化项复评 | 2026-06-06 |
-| XC-P2-004 | 测试证明力不足 | 中 | 测试负责人 | in_progress | core/UI/Web/Extension/MCP 覆盖率命令均可运行，MCP 单包覆盖率四项均已超过 90%；Web 已提升到 100% statements / 75% branches；core 提升到 70.41% statements / 58.94% branches，变量提取、变量值生成、图像理解、compare、模型参数验证、prompt factory/error、IPC 序列化、模型错误和图像输入归一化路径已有离线测试；UI 覆盖率提升到 43.22% statements / 35.25% branches，`FavoriteListItem.vue`、`EvaluateButton.vue`、`FeedbackEditor.vue` 和 `FocusAnalyzeButton.vue` 用户入口已有行为测试；全仓单元入口慢用例已补局部超时并复跑通过；UI 和 core 总覆盖仍低于 90% 交付目标 | 建立可持续覆盖率门禁 | 继续补 core 高频业务服务和 UI 主路径测试，避免把局部包达标误判为全项目达标 | 2026-06-06 |
+| XC-P2-004 | 测试证明力不足 | 中 | 测试负责人 | in_progress | core/UI/Web/Extension/MCP 覆盖率命令均可运行，MCP 单包覆盖率四项均已超过 90%；Web 已提升到 100% statements / 75% branches；core 提升到 71.02% statements / 59.37% branches，变量提取、变量值生成、图像理解、PromptService 多轮消息优化、compare、模型参数验证、prompt factory/error、IPC 序列化、模型错误和图像输入归一化路径已有离线测试；UI 覆盖率提升到 43.22% statements / 35.25% branches，`FavoriteListItem.vue`、`EvaluateButton.vue`、`FeedbackEditor.vue` 和 `FocusAnalyzeButton.vue` 用户入口已有行为测试；全仓单元入口慢用例已补局部超时并复跑通过；UI 和 core 总覆盖仍低于 90% 交付目标 | 建立可持续覆盖率门禁 | 继续补 core 高频业务服务和 UI 主路径测试，避免把局部包达标误判为全项目达标 | 2026-06-06 |
 | XC-P2-001 | 中文化残留 | 中 | 前端负责人 | closed | `Unknown error` 源码兜底已基本清零；导入/导出、转换器、公共错误工具、收藏分享导出入口和 zh-CN 主路径页面 smoke 均有自动化证明 | 保持中文化 smoke 进入 gate | 后续发现零散文案问题按 P3 处理 | 2026-06-06 |
 | XC-P2-003 | MCP 真实 LLM 成功调用未验收 | 中 | 集成负责人 | closed | `pnpm mcp:smoke:real` 已在有效 `DEEPSEEK_API_KEY` 环境下通过 HTTP MCP、tools/list 和 `generate-wiki-prompt` 真实调用，返回 `provider=deepseek`、5 个 tools、`textLength=963` | 保留脚本作为后续真实集成 smoke | 后续 provider 或模型变更时复跑 | 2026-06-06 |
 | XC-P2-006 | 远端同步与 CI/PR 证明缺失 | 中 | 开发/发布负责人 | in_progress | 上游 `origin/develop` 直推失败：GitHub 403，账号 `Jiumilu` 对 `linshenkx/prompt-optimizer` 只有 READ；已创建 fork `Jiumilu/prompt-optimizer`，推送 `codex/xiaoc-quality-baseline` 并创建上游 PR #311；PR 状态 open/mergeable；3 个 Vercel checks 失败，原因均为 `Authorization required to deploy` | 形成共享交付基线 | 获取 Vercel 授权或由上游维护者触发/批准 checks，并通过远端 CI/评审门禁；另行确认 Harness 文件归属 | 2026-06-06 |
@@ -334,6 +334,7 @@ GlobalCloud XiaoC 是一个强大的 AI 提示词优化工具，帮助用户编�
 - 2026-06-06: 完成第二十六轮复评 `XC-QG-20260606-R26`，当前总分 93.4，焦点评估按钮直接评估、带反馈评估、空反馈回退和禁用阻断路径补齐 UI 行为测试，UI 覆盖率提升到 43.22% statements / 35.25% branches
 - 2026-06-06: 完成第二十七轮复评 `XC-QG-20260606-R27`，当前总分 93.6，变量值生成服务输入校验、模型/模板失败、结构化错误保真、LLM 执行异常、JSON 修复解析和非法响应形态补齐 core 单元测试，core 覆盖率提升到 70.36% statements / 58.88% branches
 - 2026-06-06: 完成第二十八轮复评 `XC-QG-20260606-R28`，当前总分 93.8，图像理解服务工厂注入、请求校验、模型禁用和 streaming 前置阻断补齐 core 单元测试，core 覆盖率提升到 70.41% statements / 58.94% branches
+- 2026-06-06: 完成第二十九轮复评 `XC-QG-20260606-R29`，当前总分 94.0，PromptService 多轮消息优化 selected message、上下文渲染、工具变量、输入校验和 streaming 空结果兜底补齐 core 单元测试，core 覆盖率提升到 71.02% statements / 59.37% branches
 
 ### 2026年5月 (v2.10.0-v2.11.5)
 - 2026-05-28: v2.11.5，新增 Xiaomi MiMo Token Plan provider，扩展部署说明并加固异常模型配置处理

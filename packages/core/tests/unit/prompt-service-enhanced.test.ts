@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { PromptService } from '../../src/services/prompt/service'
-import type { OptimizationRequest } from '../../src/services/prompt/types'
+import type {
+  ConversationMessage,
+  OptimizationRequest,
+  ToolDefinition,
+} from '../../src/services/prompt/types'
 
 describe('PromptService Enhanced Features', () => {
   let promptService: PromptService
@@ -221,6 +225,253 @@ describe('PromptService Enhanced Features', () => {
 
       await expect(promptService.optimizePrompt(request))
         .rejects.toThrow('Model key is required')
+    })
+  })
+
+  describe('optimizeMessage', () => {
+    const conversationMessages: ConversationMessage[] = [
+      { id: 'system-1', role: 'system', content: 'You are concise.' },
+      { id: 'user-1', role: 'user', content: 'Draft a launch announcement.' },
+      {
+        id: 'assistant-1',
+        role: 'assistant',
+        content: `${'Detailed answer. '.repeat(16)}Add a stronger call to action.`,
+      },
+    ]
+
+    const tools: ToolDefinition[] = [
+      {
+        type: 'function',
+        function: {
+          name: 'query_wiki',
+          description: 'Search internal wiki',
+          parameters: {
+            type: 'object',
+            properties: {
+              query: { type: 'string' },
+            },
+          },
+        },
+      },
+    ]
+
+    beforeEach(() => {
+      mockTemplateManager.getTemplate.mockImplementation((id: string) => {
+        if (id === 'context-message-optimize') {
+          return {
+            id,
+            content: [
+              {
+                role: 'system',
+                content: 'role={{messageRole}}\ntools={{{toolsContext}}}\ntone={{customVariables.tone}}',
+              },
+              {
+                role: 'user',
+                content:
+                  'selected={{selectedMessage.index}}/{{selectedMessage.roleLabel}} tooLong={{selectedMessage.contentTooLong}} preview={{selectedMessage.contentPreview}}\n{{#conversationMessages}}{{index}}:{{roleLabel}}:{{isSelected}}:{{content}}\n{{/conversationMessages}}',
+              },
+            ],
+            metadata: {
+              templateType: 'conversationMessageOptimize',
+              version: '1.0',
+              lastModified: Date.now(),
+              language: 'zh',
+            },
+          }
+        }
+
+        return null
+      })
+    })
+
+    it('optimizes the selected conversation message with context, variables, and tools', async () => {
+      mockLLMService.sendMessage.mockResolvedValue('rewritten selected message')
+
+      const result = await promptService.optimizeMessage({
+        selectedMessageId: 'assistant-1',
+        messages: conversationMessages,
+        modelKey: 'test-model',
+        variables: { tone: 'executive' },
+        tools,
+      })
+
+      expect(result).toBe('rewritten selected message')
+      expect(mockTemplateManager.getTemplate).toHaveBeenCalledWith('context-message-optimize')
+      expect(mockLLMService.sendMessage).toHaveBeenCalledWith(
+        [
+          expect.objectContaining({
+            role: 'system',
+            content: expect.stringContaining('role=assistant'),
+          }),
+          expect.objectContaining({
+            role: 'user',
+            content: expect.stringContaining('selected=3/ASSISTANT tooLong=true'),
+          }),
+        ],
+        'test-model',
+      )
+
+      const renderedMessages = mockLLMService.sendMessage.mock.calls[0][0]
+      expect(renderedMessages[0].content).toContain('query_wiki')
+      expect(renderedMessages[0].content).toContain('tone=executive')
+      expect(renderedMessages[1].content).toContain('1:SYSTEM:false:You are concise.')
+      expect(renderedMessages[1].content).toContain('2:USER:false:Draft a launch announcement.')
+      expect(renderedMessages[1].content).toContain('3:ASSISTANT:true:Detailed answer.')
+    })
+
+    it.each([
+      [
+        'missing selected message id',
+        { selectedMessageId: '', messages: conversationMessages, modelKey: 'test-model' },
+        'Selected message ID is required',
+      ],
+      [
+        'empty messages',
+        { selectedMessageId: 'assistant-1', messages: [], modelKey: 'test-model' },
+        'Messages array is required and cannot be empty',
+      ],
+      [
+        'missing model key',
+        { selectedMessageId: 'assistant-1', messages: conversationMessages, modelKey: '' },
+        'Model key is required',
+      ],
+      [
+        'selected message not found',
+        { selectedMessageId: 'missing', messages: conversationMessages, modelKey: 'test-model' },
+        'Message with ID missing not found in messages array',
+      ],
+      [
+        'empty selected content',
+        {
+          selectedMessageId: 'assistant-1',
+          messages: conversationMessages.map((message) =>
+            message.id === 'assistant-1' ? { ...message, content: '   ' } : message,
+          ),
+          modelKey: 'test-model',
+        },
+        'Selected message content cannot be empty',
+      ],
+    ])('rejects invalid message optimization requests: %s', async (_caseName, request, expectedMessage) => {
+      await expect(promptService.optimizeMessage(request as any)).rejects.toThrow(expectedMessage)
+      expect(mockLLMService.sendMessage).not.toHaveBeenCalled()
+    })
+
+    it('rejects message optimization when model is missing', async () => {
+      mockModelManager.getModel.mockResolvedValueOnce(null)
+
+      await expect(
+        promptService.optimizeMessage({
+          selectedMessageId: 'assistant-1',
+          messages: conversationMessages,
+          modelKey: 'missing-model',
+        }),
+      ).rejects.toThrow('Model not found')
+
+      expect(mockTemplateManager.getTemplate).not.toHaveBeenCalled()
+      expect(mockLLMService.sendMessage).not.toHaveBeenCalled()
+    })
+
+    it('rejects message optimization when the template is missing', async () => {
+      mockTemplateManager.getTemplate.mockResolvedValueOnce(null)
+
+      await expect(
+        promptService.optimizeMessage({
+          selectedMessageId: 'assistant-1',
+          messages: conversationMessages,
+          modelKey: 'test-model',
+        }),
+      ).rejects.toThrow('Template not found or invalid')
+
+      expect(mockLLMService.sendMessage).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('optimizeMessageStream', () => {
+    const messages: ConversationMessage[] = [
+      { id: 'user-1', role: 'user', content: 'Summarize the plan.' },
+      { id: 'assistant-1', role: 'assistant', content: 'Initial summary.' },
+    ]
+
+    beforeEach(() => {
+      mockTemplateManager.getTemplate.mockResolvedValue({
+        id: 'context-message-optimize',
+        content: [
+          { role: 'system', content: 'stream role={{messageRole}}' },
+          { role: 'user', content: '{{selectedMessage.content}}' },
+        ],
+        metadata: {
+          templateType: 'conversationMessageOptimize',
+          version: '1.0',
+          lastModified: Date.now(),
+          language: 'zh',
+        },
+      })
+    })
+
+    it('streams optimized conversation message tokens and completion', async () => {
+      const callbacks = {
+        onToken: vi.fn(),
+        onReasoningToken: vi.fn(),
+        onComplete: vi.fn(),
+        onError: vi.fn(),
+      }
+
+      mockLLMService.sendMessageStream.mockImplementation(async (_messages: any, _modelKey: string, streamCallbacks: any) => {
+        streamCallbacks.onToken('streamed')
+        streamCallbacks.onReasoningToken?.('reasoning')
+        await streamCallbacks.onComplete({ content: 'streamed selected message' })
+      })
+
+      await promptService.optimizeMessageStream(
+        {
+          selectedMessageId: 'assistant-1',
+          messages,
+          modelKey: 'test-model',
+        },
+        callbacks,
+      )
+
+      expect(mockLLMService.sendMessageStream).toHaveBeenCalledWith(
+        [
+          { role: 'system', content: 'stream role=assistant' },
+          { role: 'user', content: 'Initial summary.' },
+        ],
+        'test-model',
+        expect.objectContaining({
+          onToken: callbacks.onToken,
+          onReasoningToken: callbacks.onReasoningToken,
+          onError: callbacks.onError,
+        }),
+      )
+      expect(callbacks.onToken).toHaveBeenCalledWith('streamed')
+      expect(callbacks.onReasoningToken).toHaveBeenCalledWith('reasoning')
+      expect(callbacks.onComplete).toHaveBeenCalledWith({ content: 'streamed selected message' })
+      expect(callbacks.onError).not.toHaveBeenCalled()
+    })
+
+    it('routes empty streamed completion content to onError', async () => {
+      const callbacks = {
+        onToken: vi.fn(),
+        onComplete: vi.fn(),
+        onError: vi.fn(),
+      }
+
+      mockLLMService.sendMessageStream.mockImplementation(async (_messages: any, _modelKey: string, streamCallbacks: any) => {
+        await streamCallbacks.onComplete({ content: '   ' })
+      })
+
+      await promptService.optimizeMessageStream(
+        {
+          selectedMessageId: 'assistant-1',
+          messages,
+          modelKey: 'test-model',
+        },
+        callbacks,
+      )
+
+      expect(callbacks.onComplete).not.toHaveBeenCalled()
+      expect(callbacks.onError).toHaveBeenCalledWith(expect.any(Error))
+      expect(callbacks.onError.mock.calls[0][0].message).toContain('LLM service returned empty result')
     })
   })
 
