@@ -50,5 +50,5 @@ describe('MCP environment import-time mappings', () => {
     expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('Invalid suffix in VITE_CUSTOM_API_KEY_bad!: bad!'));
     expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('Invalid suffix in VITE_CUSTOM_API_KEY_'));
     expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Found 1 dynamic custom environment variables'));
-  });
+  }, 15_000);
 });

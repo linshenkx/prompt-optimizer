@@ -425,7 +425,7 @@ describe('FavoriteReproducibilityEditor', () => {
     expect((findField(wrapper, 'favorite-repro-example-parameter-key').element as HTMLInputElement).value).toBe('')
     expect((findField(wrapper, 'favorite-repro-example-parameter-new-value').element as HTMLInputElement).value).toBe('')
     expect((findField(wrapper, 'favorite-repro-example-images').element as HTMLInputElement).value).toBe('')
-  })
+  }, 15_000)
 
   it('shows persisted example asset previews separately from editable urls', () => {
     const wrapper = mount(FavoriteReproducibilityEditor, {

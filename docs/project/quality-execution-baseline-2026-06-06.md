@@ -244,6 +244,18 @@ R19 变化依据：
 - `pnpm -F @prompt-optimizer/core test:coverage` 从 126 files / 1185 tests / 68.23% statements / 57.56% branches 提升到 128 files / 1196 tests / 69.13% statements / 58.02% branches；`services/compare` 从约 6.32% statements / 0% branches 提升到 94.93% statements / 75% branches，`services/model/validation.ts` 从 0% 提升到 100%。
 - `XC-P2-004` 仍未关闭：core 覆盖率仍只有 69.13% statements / 58.02% branches，UI 仍为 42.57% statements / 34.7% branches；不能把 compare/model 局部达标误判为全项目测试证明力充分。
 
+第二十轮复评快照（2026-06-06）：
+
+| 项目 | 当前总分 | 健康度 | 功能完整性 | 软件测试 | 中文化 | 治理成熟度 | 当前状态 | P0 数量 | P1 数量 | 结论日期 | 复评版本 |
+|---|---:|---:|---:|---:|---:|---:|---|---:|---:|---|---|
+| XC | 91.8 | 90 | 90 | 97 | 92 | 90 | B 类：继续开发，但先补短板 | 0 | 0 | 2026-06-06 | XC-QG-20260606-R20 / package 2.11.5 / R20 local commit / origin sync pending |
+
+R20 变化依据：
+
+- 软件测试从 96 提升到 97：core 新增 prompt factory/error 基础路径离线单元测试，覆盖 `createPromptService` 依赖注入、四类 prompt 错误元数据、构造依赖缺失、history/iteration-chain 代理、迭代模板加载错误包装和 test stream 无 system prompt 分支；`pnpm -F @prompt-optimizer/core exec vitest run tests/unit/prompt/factory-errors.spec.ts` 通过，1 file / 6 tests。
+- `pnpm -F @prompt-optimizer/core test:coverage` 从 128 files / 1196 tests / 69.13% statements / 58.02% branches 提升到 129 files / 1202 tests / 69.22% statements / 58.07% branches；`services/prompt/factory.ts` 和 `services/prompt/errors.ts` 达到 100%，`services/prompt` 模块从 44.60% statements / 31.89% branches 提升到 47.15% statements / 33.62% branches。
+- `XC-P2-004` 仍未关闭：core 覆盖率仍只有 69.22% statements / 58.07% branches，UI 仍为 42.57% statements / 34.7% branches；不能把 prompt factory/error 局部达标误判为全项目测试证明力充分。
+
 当前执行状态（2026-06-06）：
 
 - 初始 P1：5 个。
@@ -268,9 +280,9 @@ R19 变化依据：
 | XC-P2-001 | XC | 英文兜底错误和导出分享英文残留 | 中文化 | 中 | 中文化评估定位 `Unknown error`、导入导出错误、分享导出默认英文标签；R14 新增 zh-CN 页面级 E2E smoke | 中文主路径错误和主页面文案可理解 | 已完成：`Unknown error` 源码兜底已基本清零，导入/导出、公共错误工具、收藏分享导出入口和主路径页面均有中文化自动化证据 | 前端 | P2 | closed |
 | XC-P2-002 | XC | 风险台账缺少 owner、等级、处置状态 | 风险治理 | 中 | 项目状态风险章节曾缺少负责人、风险等级、处置状态和复评日期 | 建立可追踪风险台账 | 已完成：项目状态风险章节已升级为统一风险台账，包含风险ID、等级、Owner、当前状态、当前证据、处置建议、下一步和复评日期 | PM | P2 | closed |
 | XC-P2-003 | XC | MCP smoke 尚未覆盖真实 LLM 成功调用 | 功能/交付 | 中 | R15 已在有效 `DEEPSEEK_API_KEY` 环境下执行 `pnpm mcp:smoke:real`，通过 HTTP MCP 连接、tools/list 和 `generate-wiki-prompt` 真实调用，返回 `provider=deepseek`、5 个 tools、`textLength=963` | 补真实模型环境下的成功调用验收 | 已完成：真实 MCP LLM 成功路径有可复现脚本、真实 provider 和输出摘要证据 | 开发/集成方 | P2 | closed |
-| XC-P2-004 | XC | 覆盖率体系不足，无法证明全项目质量 | 软件测试 | 中 | core 覆盖率 69.13% 语句/58.02% 分支；UI 覆盖率 42.57% 语句/34.7% 分支；Web 覆盖率 100% 语句/75% 分支/100% 函数/100% 行；Extension 覆盖率 100% 语句/50% 分支；MCP 覆盖率已提升到 91.93% 语句/90.50% 分支/93.22% 函数/92.17% 行 | 建立可持续覆盖率门禁 | 部分完成：MCP 单包覆盖率已达到 90% 目标，Web 入口覆盖率已大幅提升，core compare/model validation 已补测试；core/UI 覆盖率仍需提升到交付目标 | 开发 | P2 | in_progress |
+| XC-P2-004 | XC | 覆盖率体系不足，无法证明全项目质量 | 软件测试 | 中 | core 覆盖率 69.22% 语句/58.07% 分支；UI 覆盖率 42.57% 语句/34.7% 分支；Web 覆盖率 100% 语句/75% 分支/100% 函数/100% 行；Extension 覆盖率 100% 语句/50% 分支；MCP 覆盖率已提升到 91.93% 语句/90.50% 分支/93.22% 函数/92.17% 行 | 建立可持续覆盖率门禁 | 部分完成：MCP 单包覆盖率已达到 90% 目标，Web 入口覆盖率已大幅提升，core compare/model validation/prompt factory 已补测试；core/UI 覆盖率仍需提升到交付目标 | 开发 | P2 | in_progress |
 | XC-P2-005 | XC | 全仓递归单元测试入口存在资源稳定性问题 | 软件测试 | 中 | `pnpm test:unit` 曾在 core、mcp-server、UI 测试通过后，启动 Web/Extension 子进程时失败：`spawn sh EAGAIN`；串行后又暴露 core/UI 时间敏感测试 | 让全仓单元测试入口可重复运行 | 已通过：`pnpm test:unit` 串行执行 core、mcp-server、UI、Extension、Web 全部通过 | 开发 | P2 | closed |
-| XC-P2-006 | XC | 本地提交尚未同步到远端并缺少远端 CI/PR 证明 | 治理/交付 | 中 | R19 收口前 `develop` 仍领先 `origin/develop`，且存在未归属 Harness 未跟踪文件；本轮未执行 push | 形成共享交付基线 | 推送到远端分支或打开 PR，并通过远端 CI/代码评审门禁；另行确认 Harness 文件归属 | 开发/发布负责人 | P2 | open |
+| XC-P2-006 | XC | 本地提交尚未同步到远端并缺少远端 CI/PR 证明 | 治理/交付 | 中 | R20 收口前 `develop` 仍领先 `origin/develop`，且存在未归属 Harness 未跟踪文件；本轮未执行 push | 形成共享交付基线 | 推送到远端分支或打开 PR，并通过远端 CI/代码评审门禁；另行确认 Harness 文件归属 | 开发/发布负责人 | P2 | open |
 
 ## 4. 三类专项行动
 
@@ -342,7 +354,7 @@ R19 变化依据：
 
 - 剩余 P1（`XC-P1-001`）关闭或降级。（已完成 R13）
 - 健康度、功能完整性、软件测试三项完成复核。（已完成第一轮）
-- 生成可计算总分。（已完成第一轮，R19 当前 91.6）
+- 生成可计算总分。（已完成第一轮，R20 当前 91.8）
 - 项目状态从“B 类待补短板”升级为“可继续开发，具备交付准备入口”，或明确降级原因。
 
 ## 7. 复评机制
@@ -382,6 +394,7 @@ git status --short --branch
 | XC | 91.0 | 91.2 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（MCP 单包覆盖率达 90%） | 转向 core/UI/Web 覆盖率补强；推送/PR 后获取远端 CI 证明 |
 | XC | 91.2 | 91.4 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（Web 覆盖率提升，core 变量提取服务补测） | 继续提升 core/UI 覆盖率；推送/PR 后获取远端 CI 证明 |
 | XC | 91.4 | 91.6 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core compare/model validation 补测） | 继续提升 core/UI 覆盖率；推送/PR 后获取远端 CI 证明 |
+| XC | 91.6 | 91.8 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core prompt factory/error 补测） | 继续提升 core/UI 覆盖率；推送/PR 后获取远端 CI 证明 |
 
 ## 8. 项目组合决策表
 
@@ -511,6 +524,14 @@ git status --short --branch
 | 2026-06-06 | 全仓单元测试 R19 | `pnpm test:unit` | 通过，core 1196 passed / 152 skipped；mcp-server 82 passed；UI 887 passed / 1 todo；Extension 2 passed；Web 4 passed | R19 新增 core 测试已进入全仓单元测试入口 |
 | 2026-06-06 | Lint/Typecheck R19 | `pnpm lint` | 通过 | R19 测试补强后，UI/MCP lint 与 core/UI/MCP/Web/Extension typecheck 仍通过 |
 | 2026-06-06 | 工作区格式 R19 | `git diff --check` | 通过 | R19 改动无空白错误 |
+| 2026-06-06 | Core 局部测试 R20 | `pnpm -F @prompt-optimizer/core exec vitest run tests/unit/prompt/factory-errors.spec.ts` | 通过，1 file passed，6 tests passed | prompt factory、错误元数据、构造依赖检查、history 代理和 test stream 无 system prompt 分支已有离线测试证明 |
+| 2026-06-06 | Core 覆盖率 R20 | `pnpm -F @prompt-optimizer/core test:coverage` | 通过，129 files passed / 18 skipped，1202 tests passed / 152 skipped；覆盖率 69.22% statements、58.07% branches、73.07% functions、69.83% lines | core 总覆盖率继续提升，prompt factory/errors 达到 100%，prompt 模块覆盖率提升到 47.15% statements |
+| 2026-06-06 | UI 慢用例稳定性 R20 | `pnpm -F @prompt-optimizer/ui exec vitest run tests/unit/components/DataManager.spec.ts tests/unit/components/FavoriteReproducibilityEditor.spec.ts` | 通过，2 files passed，25 tests passed | 全仓负载下曾 5s 超时的两个 UI 用例已设置局部超时并单独复跑通过 |
+| 2026-06-06 | MCP 慢用例稳定性 R20 | `pnpm -F @prompt-optimizer/mcp-server test --run --passWithNoTests` | 通过，12 files passed，82 tests passed | 全仓负载下曾 5s 超时的动态环境导入用例已设置局部超时并单包复跑通过 |
+| 2026-06-06 | 根仓库治理门禁 R20 | `pnpm test:repo` | 通过，34 个 node:test 子测试通过，locale parity 通过，no-Chinese-runtime 通过 | R20 测试补强未破坏仓库治理门禁 |
+| 2026-06-06 | 全仓单元测试 R20 | `pnpm test:unit` | 通过，core 1202 passed / 152 skipped；mcp-server 82 passed；UI 887 passed / 1 todo；Extension 2 passed；Web 4 passed | R20 新增 core 测试和慢用例稳定性修复已进入全仓单元测试入口 |
+| 2026-06-06 | Lint/Typecheck R20 | `pnpm lint` | 通过 | R20 测试补强后，UI/MCP lint 与 core/UI/MCP/Web/Extension typecheck 仍通过 |
+| 2026-06-06 | 工作区格式 R20 | `git diff --check` | 通过 | R20 改动无空白错误 |
 
 ## 10. 当前工作区改动归属
 
@@ -542,3 +563,5 @@ git status --short --branch
 | `packages/web/tests/unit/main-entry.spec.ts` | 本轮 Web 覆盖率修复 | 已确认 | Web 入口的 locale watcher、英文 lang 分支和 Vercel Analytics 加载成功/失败分支已有自动化证明 |
 | `packages/core/tests/unit/variable-extraction/service.spec.ts`、`packages/core/tests/unit/utils/error.spec.ts` | 本轮 core 覆盖率修复 | 已确认 | 变量提取服务请求校验、模型/模板校验、JSON 修复解析、去重过滤、执行错误和公共错误归一化已有离线测试证明 |
 | `packages/core/tests/unit/compare/service.spec.ts`、`packages/core/tests/unit/model/validation.spec.ts` | 本轮 core 覆盖率修复 | 已确认 | compare 服务词级/字符级/空白大小写对比和模型参数类型、范围、未知参数、危险参数、provider 过滤已有离线测试证明 |
+| `packages/core/tests/unit/prompt/factory-errors.spec.ts` | 本轮 core 覆盖率修复 | 已确认 | PromptService factory、错误对象、依赖检查、history 代理、迭代错误包装和 test stream 基础分支已有离线测试证明 |
+| `packages/ui/tests/unit/components/DataManager.spec.ts`、`packages/ui/tests/unit/components/FavoriteReproducibilityEditor.spec.ts`、`packages/mcp-server/tests/environment-import.test.ts` | 本轮测试稳定性修复 | 已确认 | 全仓负载下出现 5s 超时的既有慢用例已设置局部超时，单包/全仓复跑均通过 |

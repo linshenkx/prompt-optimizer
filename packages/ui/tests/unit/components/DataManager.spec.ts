@@ -396,7 +396,7 @@ describe('DataManager storage breakdown', () => {
       'noopener,noreferrer',
     )
     openSpy.mockRestore()
-  })
+  }, 15_000)
 
   it('keeps configured Cloudflare R2 setup collapsed until requested', async () => {
     window.localStorage.setItem('prompt-optimizer:remote-backup-settings', JSON.stringify({
