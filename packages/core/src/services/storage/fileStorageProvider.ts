@@ -6,7 +6,7 @@ type FsPromises = typeof import('fs/promises');
 let fsPromisesModule: Promise<FsPromises> | null = null;
 
 function getFsPromises(): Promise<FsPromises> {
-  fsPromisesModule ||= new Function('specifier', 'return import(specifier)')('fs/promises') as Promise<FsPromises>;
+  fsPromisesModule ||= import(/* @vite-ignore */ 'fs/promises');
   return fsPromisesModule;
 }
 

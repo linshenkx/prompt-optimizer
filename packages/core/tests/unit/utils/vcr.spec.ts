@@ -125,6 +125,10 @@ describe('StreamSimulator 类', () => {
     { content: '!', timestamp: 150 }
   ]
 
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   describe('构造函数', () => {
     it('应该使用默认配置', () => {
       const simulator = new StreamSimulator(chunks)
@@ -178,17 +182,25 @@ describe('StreamSimulator 类', () => {
     })
 
     it('应该正确应用时间缩放', async () => {
+      vi.useFakeTimers()
       const simulator = new StreamSimulator(chunks, { timeScale: 0.5 })
-      const startTime = Date.now()
+      const iterator = simulator.generate()
 
-      for await (const _ of simulator.generate()) {
-        // 等待所有 chunks
-      }
+      await expect(iterator.next()).resolves.toEqual({ value: chunks[0], done: false })
 
-      const duration = Date.now() - startTime
-      // 原始 150ms，缩放后应该是 ~75ms
-      expect(duration).toBeGreaterThan(50)
-      expect(duration).toBeLessThan(150)
+      const second = iterator.next()
+      await vi.advanceTimersByTimeAsync(25)
+      await expect(second).resolves.toEqual({ value: chunks[1], done: false })
+
+      const third = iterator.next()
+      await vi.advanceTimersByTimeAsync(25)
+      await expect(third).resolves.toEqual({ value: chunks[2], done: false })
+
+      const fourth = iterator.next()
+      await vi.advanceTimersByTimeAsync(25)
+      await expect(fourth).resolves.toEqual({ value: chunks[3], done: false })
+
+      await expect(iterator.next()).resolves.toEqual({ value: undefined, done: true })
     })
   })
 

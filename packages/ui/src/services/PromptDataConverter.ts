@@ -13,6 +13,16 @@ import type {
 } from '../types'
 
 export class PromptDataConverter implements DataConverter {
+  private getErrorDetail(error: unknown, fallback = 'No additional details'): string {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message
+    }
+    if (typeof error === 'string' && error.trim()) {
+      return error
+    }
+    return fallback
+  }
+
   /**
    * 从LangFuse trace数据转换为标准格式
    * 支持多种LangFuse数据结构：
@@ -195,7 +205,7 @@ export class PromptDataConverter implements DataConverter {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to convert LangFuse data: ${error instanceof Error ? error.message : 'Unknown error'}`
+        error: `Failed to convert LangFuse data: ${this.getErrorDetail(error)}`
       }
     }
   }
@@ -236,7 +246,7 @@ export class PromptDataConverter implements DataConverter {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to convert OpenAI data: ${error instanceof Error ? error.message : 'Unknown error'}`
+        error: `Failed to convert OpenAI data: ${this.getErrorDetail(error)}`
       }
     }
   }
@@ -311,7 +321,7 @@ export class PromptDataConverter implements DataConverter {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to convert conversation messages: ${error instanceof Error ? error.message : 'Unknown error'}`
+        error: `Failed to convert conversation messages: ${this.getErrorDetail(error)}`
       }
     }
   }
@@ -360,7 +370,7 @@ export class PromptDataConverter implements DataConverter {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to convert to OpenAI format: ${error instanceof Error ? error.message : 'Unknown error'}`
+        error: `Failed to convert to OpenAI format: ${this.getErrorDetail(error)}`
       }
     }
   }
@@ -414,7 +424,7 @@ export class PromptDataConverter implements DataConverter {
     } catch (error) {
       return {
         success: false,
-        error: `Failed to convert to conversation messages: ${error instanceof Error ? error.message : 'Unknown error'}`
+        error: `Failed to convert to conversation messages: ${this.getErrorDetail(error)}`
       }
     }
   }
@@ -442,7 +452,7 @@ export class PromptDataConverter implements DataConverter {
     } catch (error) {
       return {
         success: false,
-        error: `Validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        error: `Validation failed: ${this.getErrorDetail(error)}`
       }
     }
   }

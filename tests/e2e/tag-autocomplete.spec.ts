@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { openFavoritesPage } from './helpers/common';
 
 /**
  * 标签自动完成功能 E2E 测试
@@ -6,26 +7,11 @@ import { test, expect } from './fixtures';
  */
 test.describe('标签自动完成功能', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await openFavoritesPage(page);
   });
 
   test('标签自动完成建议能够正常显示', async ({ page }) => {
-    // 1. 打开收藏管理器
-    const favoriteButton = page.getByRole('button', { name: /收藏|favorite/i });
-    if (await favoriteButton.count() === 0) {
-      test.skip();
-      return;
-    }
-    await favoriteButton.first().click();
-
-    const managerDialog = page.locator('[role="dialog"]').filter({ hasText: /收藏|Favorites/i }).first();
-    await expect(managerDialog).toBeVisible();
-
-    // 2. 点击添加收藏按钮
-    const addButton = managerDialog.getByRole('button', { name: /添加|创建|新建|add|create/i }).first();
-    await addButton.click();
-    await page.waitForTimeout(500);
+    await page.getByTestId('favorites-manager-add').click();
 
     // 3. 定位到编辑对话框
     const editDialog = page.locator('[role="dialog"]').last();
@@ -59,21 +45,7 @@ test.describe('标签自动完成功能', () => {
   });
 
   test('可以通过手动输入添加标签', async ({ page }) => {
-    // 1. 打开收藏管理器
-    const favoriteButton = page.getByRole('button', { name: /收藏|favorite/i });
-    if (await favoriteButton.count() === 0) {
-      test.skip();
-      return;
-    }
-    await favoriteButton.first().click();
-
-    const managerDialog = page.locator('[role="dialog"]').filter({ hasText: /收藏|Favorites/i }).first();
-    await expect(managerDialog).toBeVisible();
-
-    // 2. 点击添加收藏按钮
-    const addButton = managerDialog.getByRole('button', { name: /添加|创建|新建|add|create/i }).first();
-    await addButton.click();
-    await page.waitForTimeout(500);
+    await page.getByTestId('favorites-manager-add').click();
 
     // 3. 定位到编辑对话框
     const editDialog = page.locator('[role="dialog"]').last();
@@ -104,21 +76,7 @@ test.describe('标签自动完成功能', () => {
   });
 
   test('可以删除已添加的标签', async ({ page }) => {
-    // 1. 打开收藏管理器
-    const favoriteButton = page.getByRole('button', { name: /收藏|favorite/i });
-    if (await favoriteButton.count() === 0) {
-      test.skip();
-      return;
-    }
-    await favoriteButton.first().click();
-
-    const managerDialog = page.locator('[role="dialog"]').filter({ hasText: /收藏|Favorites/i }).first();
-    await expect(managerDialog).toBeVisible();
-
-    // 2. 点击添加收藏按钮
-    const addButton = managerDialog.getByRole('button', { name: /添加|创建|新建|add|create/i }).first();
-    await addButton.click();
-    await page.waitForTimeout(500);
+    await page.getByTestId('favorites-manager-add').click();
 
     // 3. 定位到编辑对话框
     const editDialog = page.locator('[role="dialog"]').last();
@@ -154,21 +112,7 @@ test.describe('标签自动完成功能', () => {
   });
 
   test('标签输入框支持多个标签添加', async ({ page }) => {
-    // 1. 打开收藏管理器
-    const favoriteButton = page.getByRole('button', { name: /收藏|favorite/i });
-    if (await favoriteButton.count() === 0) {
-      test.skip();
-      return;
-    }
-    await favoriteButton.first().click();
-
-    const managerDialog = page.locator('[role="dialog"]').filter({ hasText: /收藏|Favorites/i }).first();
-    await expect(managerDialog).toBeVisible();
-
-    // 2. 点击添加收藏按钮
-    const addButton = managerDialog.getByRole('button', { name: /添加|创建|新建|add|create/i }).first();
-    await addButton.click();
-    await page.waitForTimeout(500);
+    await page.getByTestId('favorites-manager-add').click();
 
     // 3. 定位到编辑对话框
     const editDialog = page.locator('[role="dialog"]').last();
@@ -202,27 +146,14 @@ test.describe('标签自动完成功能', () => {
  */
 test.describe('标签自动完成建议', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await openFavoritesPage(page);
   });
 
   test('输入时显示匹配的标签建议', async ({ page }) => {
     // 注意：这个测试需要数据库中已经有一些标签
     // 如果是全新安装，可能不会有建议
 
-    const favoriteButton = page.getByRole('button', { name: /收藏|favorite/i });
-    if (await favoriteButton.count() === 0) {
-      test.skip();
-      return;
-    }
-    await favoriteButton.first().click();
-
-    const managerDialog = page.locator('[role="dialog"]').filter({ hasText: /收藏|Favorites/i }).first();
-    await expect(managerDialog).toBeVisible();
-
-    const addButton = managerDialog.getByRole('button', { name: /添加|创建|新建|add|create/i }).first();
-    await addButton.click();
-    await page.waitForTimeout(500);
+    await page.getByTestId('favorites-manager-add').click();
 
     const editDialog = page.locator('[role="dialog"]').last();
     const tagInput = editDialog.getByPlaceholder(/标签|tag/i);

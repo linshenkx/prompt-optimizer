@@ -116,7 +116,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
           'favorites.share.previewHtml': 'HTML',
           'favorites.share.previewPng': 'PNG',
           'favorites.share.previewLoading': 'Generating preview',
-          'favorites.share.previewFailed': 'Preview failed',
+          'favorites.share.previewFailed': i18nLocale.value === 'zh-CN' ? '预览生成失败' : 'Preview failed',
           'favorites.share.previewEmpty': 'No preview',
           'favorites.share.previewHint': 'Preview matches export',
           'favorites.share.previewPngAlt': 'PNG preview',
@@ -148,15 +148,17 @@ vi.mock('vue-i18n', async (importOriginal) => {
           'favorites.share.document.parameterSummary': i18nLocale.value === 'zh-CN' ? `${params?.count ?? 0} 个参数` : `${params?.count ?? 0} parameter(s)`,
           'favorites.share.document.outputImageSummary': i18nLocale.value === 'zh-CN' ? `${params?.count ?? 0} 张输出图` : `${params?.count ?? 0} output image(s)`,
           'favorites.share.document.inputImageSummary': i18nLocale.value === 'zh-CN' ? `${params?.count ?? 0} 张输入图` : `${params?.count ?? 0} input image(s)`,
-          'favorites.share.sections.description': 'Description',
-          'favorites.share.sections.content': 'Prompt content',
-          'favorites.share.sections.tags': 'Tags/category',
-          'favorites.share.sections.media': 'Image resources',
-          'favorites.share.sections.variables': 'Variables',
-          'favorites.share.sections.examples': 'Examples',
-          'favorites.share.sections.versions': 'Version history',
-          'favorites.share.sections.watermark': 'Project watermark',
-          'common.error': 'Error',
+          'favorites.share.exportFailed': i18nLocale.value === 'zh-CN' ? '分享导出失败' : 'Share export failed',
+          'favorites.share.exportSuccess': i18nLocale.value === 'zh-CN' ? '分享文件已导出' : 'Share file exported',
+          'favorites.share.sections.description': i18nLocale.value === 'zh-CN' ? '描述' : 'Description',
+          'favorites.share.sections.content': i18nLocale.value === 'zh-CN' ? '提示词正文' : 'Prompt content',
+          'favorites.share.sections.tags': i18nLocale.value === 'zh-CN' ? '标签/分类' : 'Tags/category',
+          'favorites.share.sections.media': i18nLocale.value === 'zh-CN' ? '图片资源' : 'Image resources',
+          'favorites.share.sections.variables': i18nLocale.value === 'zh-CN' ? '变量' : 'Variables',
+          'favorites.share.sections.examples': i18nLocale.value === 'zh-CN' ? '示例' : 'Examples',
+          'favorites.share.sections.versions': i18nLocale.value === 'zh-CN' ? '版本历史' : 'Version history',
+          'favorites.share.sections.watermark': i18nLocale.value === 'zh-CN' ? '项目水印' : 'Project watermark',
+          'common.error': i18nLocale.value === 'zh-CN' ? '错误' : 'Error',
         }
         return messages[key] ?? key
       },
@@ -308,9 +310,39 @@ describe('FavoriteShareExportDialog', () => {
     expect(exportMocks.createFavoriteShareHtml).toHaveBeenCalledWith(expect.objectContaining({
       labels: expect.objectContaining({
         htmlLang: 'zh-CN',
+        documentTitleSuffix: 'GlobalCloud XiaoC 收藏分享',
+        headerImportNote: '导入：访问 https://prompt.always200.com/ → 收藏夹 → 导入 → 上传此 HTML 文件。',
         copyButton: '复制',
+        copiedButton: '已复制',
+        copyFailedButton: '复制失败',
+        descriptionTitle: '描述',
+        promptTitle: '提示词正文',
+        tagsTitle: '标签/分类',
+        variablesTitle: '变量',
+        examplesTitle: '示例',
+        versionsTitle: '版本历史',
         importNoteTitle: '导入说明',
+        htmlImportNoteBody1: '导入：访问 https://prompt.always200.com/ → 收藏夹 → 导入 → 上传此 HTML 文件。',
+        htmlImportNoteBody2: '请使用原始 HTML 文件恢复数据。',
+        pngImportNoteText: '导入：访问 https://prompt.always200.com/ → 收藏夹 → 导入 → 上传原始 PNG 文件。\n必须使用原图。',
       }),
     }))
+  })
+
+  it('keeps preview and export failures localized in zh-CN', async () => {
+    i18nLocale.value = 'zh-CN'
+    exportMocks.createFavoriteShareHtml.mockRejectedValueOnce(new Error('磁盘不可写'))
+    const wrapper = mountDialog()
+
+    await vi.advanceTimersByTimeAsync(400)
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="favorite-share-preview-error"]').text()).toContain('预览生成失败: 磁盘不可写')
+
+    exportMocks.createFavoriteShareHtml.mockRejectedValueOnce(new Error('磁盘不可写'))
+    await wrapper.find('[data-testid="favorite-share-export-html"]').trigger('click')
+    await flushPromises()
+
+    expect(toastMock.error).toHaveBeenCalledWith('分享导出失败: 磁盘不可写')
   })
 })

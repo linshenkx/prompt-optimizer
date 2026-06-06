@@ -27,16 +27,11 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
+      include: ['src/**/*.{ts,vue}'],
       exclude: [
         'coverage/**',
         'dist/**',
-        '**/[.]**',
-        'packages/*/test?(s)/**',
         '**/*.d.ts',
-        '**/virtual:*',
-        '**/__x00__*',
-        '**/\x00*',
-        'cypress/**',
       ],
     },
   },

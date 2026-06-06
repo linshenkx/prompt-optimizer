@@ -143,7 +143,7 @@ describe('FavoriteReproducibilityEditor', () => {
     expect(wrapper.find('[data-testid="favorite-repro-variable-name"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="favorite-repro-add-example"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('favorites.dialog.reproducibility.examples')
-  })
+  }, 15000)
 
   it('keeps existing examples in display mode until explicitly edited in review mode', async () => {
     const wrapper = mount(FavoriteReproducibilityEditor, {

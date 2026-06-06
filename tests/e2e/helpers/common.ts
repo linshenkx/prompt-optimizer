@@ -9,6 +9,17 @@ export async function waitForAppReady(page: Page): Promise<void> {
 }
 
 /**
+ * 导航到收藏工作台页面。
+ */
+export async function openFavoritesPage(page: Page): Promise<void> {
+  await page.goto('/#/favorites', { waitUntil: 'domcontentloaded' })
+  await waitForAppReady(page)
+  await expect(page.getByTestId('favorites-page')).toBeVisible({ timeout: 20000 })
+  await expect(page.getByTestId('favorites-manager-workspace')).toBeVisible({ timeout: 20000 })
+  await expect(page.getByTestId('favorites-manager-add')).toBeVisible({ timeout: 20000 })
+}
+
+/**
  * 导航到指定模式
  * @description 先访问根路径等待应用初始化，再导航到目标路由
  */

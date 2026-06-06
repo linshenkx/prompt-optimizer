@@ -20,7 +20,7 @@ type EditableImageModelConfig = Omit<ImageModelConfig, 'provider' | 'model'> & {
   model?: ImageModel
 }
 
-const toOptionalErrorDetail = (error: unknown, fallback = 'Unknown error'): string | undefined => {
+const toOptionalErrorDetail = (error: unknown, fallback = ''): string | undefined => {
   const detail = getI18nErrorMessage(error, fallback)
   return detail === fallback ? undefined : detail
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 
 import { i18n } from '../../../src/plugins/i18n'
-import { formatErrorSummary, getI18nErrorMessage } from '../../../src/utils/error'
+import { formatErrorSummary, getErrorMessage, getI18nErrorMessage } from '../../../src/utils/error'
 
 function setLocale(locale: 'zh-CN' | 'zh-TW' | 'en-US') {
   i18n.global.locale.value = locale
@@ -59,13 +59,21 @@ describe('getI18nErrorMessage', () => {
     expect(msg).toBe('RAW_MESSAGE')
   })
 
+  it('默认兜底文案随当前语言返回，不暴露英文 Unknown error', () => {
+    setLocale('zh-CN')
+
+    expect(getErrorMessage(undefined)).toBe('错误')
+    expect(getI18nErrorMessage({ foo: 'bar' })).toBe('错误')
+    expect(formatErrorSummary('保存失败', { foo: 'bar' })).toBe('保存失败')
+  })
+
   it('formatErrorSummary 在只有英文 fallback 时不重复拼接详情', () => {
-    const result = formatErrorSummary('Failed to save configuration', { foo: 'bar' }, 'Unknown error')
+    const result = formatErrorSummary('Failed to save configuration', { foo: 'bar' }, 'Error')
     expect(result).toBe('Failed to save configuration')
   })
 
   it('formatErrorSummary 在有具体详情时拼接概要与详情', () => {
-    const result = formatErrorSummary('Failed to save configuration', new Error('Network timeout'), 'Unknown error')
+    const result = formatErrorSummary('Failed to save configuration', new Error('Network timeout'), 'Error')
     expect(result).toBe('Failed to save configuration: Network timeout')
   })
 })

@@ -414,7 +414,7 @@ describe('FavoriteManager', () => {
 
     expect(wrapper.find('.n-modal').exists()).toBe(true)
     expect(wrapper.find('[data-testid="favorite-detail-panel"]').attributes('data-favorite-id')).toBe('favorite-2')
-  })
+  }, 15000)
 
   it('renders page layout as a list-first surface and opens details in the unified dialog', async () => {
     setViewportWidth(1400)

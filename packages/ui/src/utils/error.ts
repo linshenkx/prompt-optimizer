@@ -6,6 +6,17 @@
 import { useToast } from '../composables/ui/useToast'
 import { i18n } from '../plugins/i18n'
 
+const DEFAULT_ERROR_FALLBACK_KEY = 'common.error'
+
+function getDefaultErrorFallback(): string {
+  try {
+    const message = String(i18n.global.t(DEFAULT_ERROR_FALLBACK_KEY)).trim()
+    return message || 'Error'
+  } catch {
+    return 'Error'
+  }
+}
+
 /**
  * 扩展错误类型，支持更详细的错误信息
  */
@@ -42,7 +53,7 @@ export class AppError extends Error {
  * @param fallback - 默认错误消息
  * @returns 错误消息字符串
  */
-export function getErrorMessage(error: unknown, fallback = 'Unknown error'): string {
+export function getErrorMessage(error: unknown, fallback = getDefaultErrorFallback()): string {
   if (error instanceof Error) {
     return error.message
   }
@@ -59,6 +70,7 @@ export function getErrorMessage(error: unknown, fallback = 'Unknown error'): str
     if (typeof maybeMessage === 'string' && maybeMessage.trim()) {
       return maybeMessage
     }
+    return fallback
   }
 
   try {
@@ -79,7 +91,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * - 不解析 error.message（避免把 `[error.xxx] ...` 暴露给用户）
  * - 只有在 i18n 存在该 key 时才使用翻译，否则回退到 getErrorMessage
  */
-export function getI18nErrorMessage(error: unknown, fallback = 'Unknown error'): string {
+export function getI18nErrorMessage(error: unknown, fallback = getDefaultErrorFallback()): string {
   if (!isRecord(error)) {
     return getErrorMessage(error, fallback)
   }
@@ -108,7 +120,7 @@ export function getI18nErrorMessage(error: unknown, fallback = 'Unknown error'):
   return message
 }
 
-export function formatErrorSummary(summary: string, error: unknown, fallback = 'Unknown error'): string {
+export function formatErrorSummary(summary: string, error: unknown, fallback = getDefaultErrorFallback()): string {
   const normalizedSummary = summary.trim()
   const detail = getI18nErrorMessage(error, fallback).trim()
   const hasMeaningfulDetail =
@@ -159,7 +171,7 @@ export function asExtendedError(error: unknown): ExtendedError | null {
  * @param fallback - 默认错误消息
  * @returns 详细的错误消息字符串
  */
-export function getDetailedErrorMessage(error: unknown, fallback = 'Unknown error'): string {
+export function getDetailedErrorMessage(error: unknown, fallback = getDefaultErrorFallback()): string {
   const extendedError = asExtendedError(error)
 
   if (extendedError) {

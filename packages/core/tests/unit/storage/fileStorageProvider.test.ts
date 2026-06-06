@@ -1,16 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs/promises';
-import * as path from 'path';
 import { FileStorageProvider } from '../../../src/services/storage/fileStorageProvider';
 import { StorageError } from '../../../src/services/storage/errors';
 
 // Mock fs module
 vi.mock('fs/promises');
 const mockFs = vi.mocked(fs);
-
-// Mock path module
-vi.mock('path');
-const mockPath = vi.mocked(path);
 
 describe('FileStorageProvider', () => {
   let provider: FileStorageProvider;
@@ -22,11 +17,7 @@ describe('FileStorageProvider', () => {
     
     mockUserDataPath = '/mock/user/data';
     mockFilePath = '/mock/user/data/prompt-optimizer-data.json';
-    
-    // Setup path mocks
-    mockPath.join.mockReturnValue(mockFilePath);
-    mockPath.dirname.mockReturnValue(mockUserDataPath);
-    
+
     provider = new FileStorageProvider(mockUserDataPath);
   });
 
@@ -36,7 +27,11 @@ describe('FileStorageProvider', () => {
 
   describe('constructor', () => {
     it('should create instance with provided user data path', () => {
-      expect(mockPath.join).toHaveBeenCalledWith(mockUserDataPath, 'prompt-optimizer-data.json');
+      expect(provider.getCapabilities()).toEqual({
+        supportsAtomic: true,
+        supportsBatch: true,
+        maxStorageSize: undefined
+      });
     });
 
     it('should throw error when no path provided', () => {

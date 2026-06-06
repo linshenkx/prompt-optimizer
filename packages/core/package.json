@@ -25,8 +25,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "@types/node": "^22.19.15",
     "@types/mustache": "^4.2.6",
+    "@types/node": "^22.19.15",
+    "@vitest/coverage-v8": "4.1.2",
     "dotenv": "^17.3.1",
     "msw": "^2.12.14",
     "tsup": "^8.5.1",

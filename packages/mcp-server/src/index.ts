@@ -156,7 +156,7 @@ function constantTimeEqual(left: string, right: string): boolean {
 }
 
 // 设置服务器工具和处理器的函数
-async function setupServerHandlers(server: Server, coreServices: CoreServicesManager) {
+export async function setupServerHandlers(server: Server, coreServices: CoreServicesManager) {
 
   // 获取模板选项和默认模板ID用于工具定义
   logger.info('Loading template options...');

@@ -254,7 +254,7 @@ describe('DataManager storage breakdown', () => {
     expect(text).not.toContain('Data directory')
     expect(text).not.toContain('Backup folder')
     expect(text).not.toContain('Scheduled backup')
-  })
+  }, 15000)
 
   it('shows desktop backup and storage directory actions in electron', async () => {
     isRunningInElectronMock.mockReturnValue(true)

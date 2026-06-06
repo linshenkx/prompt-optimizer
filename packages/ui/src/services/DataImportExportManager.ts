@@ -9,6 +9,16 @@ import { scanVariableNames } from '../utils/prompt-variables'
 export class DataImportExportManager implements DataImportExport {
   private converter = new PromptDataConverter()
 
+  private getErrorDetail(error: unknown, fallback = 'No additional details'): string {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message
+    }
+    if (typeof error === 'string' && error.trim()) {
+      return error
+    }
+    return fallback
+  }
+
   private isOpenAIRequest(value: unknown): value is OpenAIRequest {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false
     const record = value as Record<string, unknown>
@@ -47,7 +57,7 @@ export class DataImportExportManager implements DataImportExport {
       } catch (parseError) {
         return {
           success: false,
-          error: `Invalid JSON format: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`
+          error: `Invalid JSON format: ${this.getErrorDetail(parseError, 'Please check the file content')}`
         }
       }
 
@@ -56,7 +66,7 @@ export class DataImportExportManager implements DataImportExport {
     } catch (error) {
       return {
         success: false,
-        error: `File import failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        error: `File import failed: ${this.getErrorDetail(error, 'Please choose a readable JSON file')}`
       }
     }
   }
@@ -80,7 +90,7 @@ export class DataImportExportManager implements DataImportExport {
       } catch (parseError) {
         return {
           success: false,
-          error: `Invalid JSON format: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`
+          error: `Invalid JSON format: ${this.getErrorDetail(parseError, 'Please check the pasted JSON')}`
         }
       }
 
@@ -89,7 +99,7 @@ export class DataImportExportManager implements DataImportExport {
     } catch (error) {
       return {
         success: false,
-        error: `Clipboard import failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        error: `Clipboard import failed: ${this.getErrorDetail(error, 'Please paste valid JSON data')}`
       }
     }
   }
@@ -126,7 +136,7 @@ export class DataImportExportManager implements DataImportExport {
     } catch (error) {
       console.error('Export to file failed:', error)
       throw new Error(
-        `Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Export failed: ${this.getErrorDetail(error, 'Please check the data and try again')}`,
         { cause: error }
       )
     }

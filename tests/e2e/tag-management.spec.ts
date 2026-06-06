@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { openFavoritesPage } from './helpers/common';
 
 /**
  * 标签管理完整 CRUD 流程 E2E 测试
@@ -11,8 +12,7 @@ import { test, expect } from './fixtures';
  */
 test.describe('标签管理完整流程', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await openFavoritesPage(page);
   });
 
   /**
@@ -53,29 +53,21 @@ test.describe('标签管理完整流程', () => {
   async function openTagManager(page: any) {
     // 等待任何现有对话框完全关闭
     await waitForModalClose(page);
+    await openFavoritesPage(page);
 
-    // 1. 打开收藏管理器
-    const favoriteButton = page.getByRole('button', { name: /收藏|favorite/i }).first();
-    await expect(favoriteButton).toBeVisible();
-    await favoriteButton.click();
-    await page.waitForTimeout(500);
-
-    const managerDialog = page.locator('[role="dialog"]').filter({ hasText: /收藏|Favorites/i }).first();
-    await expect(managerDialog).toBeVisible();
-
-    // 2. 打开更多菜单
-    const moreButton = managerDialog.getByTestId('favorites-manager-actions');
+    // 1. 打开更多菜单
+    const moreButton = page.getByTestId('favorites-manager-actions');
     await expect(moreButton).toBeVisible();
     await moreButton.click();
     await page.waitForTimeout(300);
 
-    // 3. 点击标签管理选项
+    // 2. 点击标签管理选项
     const tagManagerOption = page.getByTestId('favorites-manager-action-manage-tags');
     await expect(tagManagerOption).toBeVisible();
     await tagManagerOption.click();
     await page.waitForTimeout(500);
 
-    // 4. 返回标签管理器对话框
+    // 3. 返回标签管理器对话框
     const tagDialog = page
       .locator('[role="dialog"]')
       .filter({ hasText: /标签管理|Tag Manager|Tag Management/i })
@@ -89,42 +81,23 @@ test.describe('标签管理完整流程', () => {
     await page.waitForSelector('.n-modal-mask', { state: 'hidden', timeout: 2000 }).catch(() => {});
 
     // 先创建一个带标签的收藏
-    const favoriteButton = page.getByRole('button', { name: /收藏|favorite/i }).first();
-    await expect(favoriteButton).toBeVisible();
-    await favoriteButton.click();
-    const managerDialog = page.locator('[role="dialog"]').filter({ hasText: /收藏|Favorites/i }).first();
-    await expect(managerDialog).toBeVisible();
-
-    // 创建收藏并添加标签
-    const addButton = managerDialog.getByRole('button', { name: /添加|创建|新建|add|create/i }).first();
-    await addButton.click();
-    await page.waitForTimeout(500);
+    await page.getByTestId('favorites-manager-add').click();
 
     const createDialog = page.locator('[role="dialog"]').last();
-    const titleInput = createDialog.getByPlaceholder(/标题|title/i);
-    if (await titleInput.count() > 0) {
-      await titleInput.fill('标签重命名测试收藏');
+    await expect(createDialog).toBeVisible();
+    await createDialog.locator('[data-testid="favorite-editor-title"] input').fill('标签重命名测试收藏');
+    await createDialog.locator('[data-testid="favorite-editor-content"] textarea').fill('用于测试标签重命名功能');
 
-      const contentInput = createDialog.locator('textarea').first();
-      if (await contentInput.count() > 0) {
-        await contentInput.fill('用于测试标签重命名功能');
-      }
+    // 添加标签
+    const tagInput = createDialog.getByPlaceholder(/标签|tag/i);
+    await expect(tagInput).toBeVisible();
+    await tagInput.fill('旧标签名');
+    await tagInput.press('Enter');
+    await page.waitForTimeout(300);
 
-      // 添加标签
-      const tagInput = createDialog.getByPlaceholder(/标签|tag/i);
-      if (await tagInput.count() > 0) {
-        await tagInput.fill('旧标签名');
-        await tagInput.press('Enter');
-        await page.waitForTimeout(300);
-      }
-
-      // 保存收藏
-      const saveButton = createDialog.getByRole('button', { name: /保存|save|确定|ok/i });
-      if (await saveButton.count() > 0) {
-        await saveButton.click();
-        await page.waitForTimeout(1000);
-      }
-    }
+    // 保存收藏
+    await page.getByTestId('favorite-editor-save').click();
+    await expect(page.getByTestId('favorite-detail-panel')).toContainText('标签重命名测试收藏', { timeout: 15000 });
 
     // 打开标签管理器
     const tagDialog = await openTagManager(page);
