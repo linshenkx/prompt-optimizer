@@ -384,6 +384,19 @@ R30 变化依据：
 - 软件测试维持 99 而不升到 100：目标测试、core 覆盖率、全仓单元测试、仓库治理门禁、lint/typecheck、build 和空白检查均通过；但 core 总覆盖率 72.40% statements / 59.68% branches、UI 43.22% statements / 35.25% branches 仍明显低于 90% 交付目标，`XC-P2-004` 不能关闭。
 - 治理成熟度维持 92：R30 已推送到 fork 分支并更新 PR #311，PR 状态 `OPEN` / `MERGEABLE`；3 个 Vercel checks 仍因 `Authorization required to deploy` 失败，`XC-P2-006` 不能关闭。
 
+第三十一轮复评快照（2026-06-06）：
+
+| 项目 | 当前总分 | 健康度 | 功能完整性 | 软件测试 | 中文化 | 治理成熟度 | 当前状态 | P0 数量 | P1 数量 | 结论日期 | 复评版本 |
+|---|---:|---:|---:|---:|---:|---:|---|---:|---:|---|---|
+| XC | 94.4 | 91 | 98 | 99 | 92 | 92 | B 类：继续开发，但先补短板 | 0 | 0 | 2026-06-06 | XC-QG-20260606-R31 / package 2.11.5 / PR #311 updated / Vercel auth pending |
+
+R31 变化依据：
+
+- 功能完整性从 97 提升到 98：继续补齐桌面端 runtime proxy 单元测试，覆盖 `data`、`LLM`、`image`、`imageModel`、`favorite` 代理的 IPC 转发、复杂 payload 安全序列化、LLM streaming callback 适配、tools streaming 专用通道和旧 preload fallback、图片生成/校验/动态模型、图片模型 CRUD/导入导出、收藏全方法转发、结构化错误透传、传统错误映射和缺失 preload bridge 错误。
+- core 覆盖率从 72.40% statements / 59.68% branches / 79.04% functions / 73.07% lines 提升到 73.50% statements / 60.17% branches / 82.23% functions / 74.22% lines；`services/data/electron-proxy.ts`、`services/image/electron-proxy.ts`、`services/llm/electron-proxy.ts` 达到 100% statements，`services/favorite/electron-proxy.ts` 从 12.28% statements 提升到 71.92% statements。
+- 软件测试维持 99 而不升到 100：目标测试、core 覆盖率、仓库治理门禁、lint/typecheck、build 和空白检查均通过；core、mcp-server、UI、Extension、Web 已拆包复跑通过。受限沙箱下根 `pnpm test:unit` 会在 MCP/UI 本地监听用例处触发 `EPERM 127.0.0.1` 或执行器中断，因此 R31 不把根入口作为完整通过证据；core 总覆盖率 73.50% statements / 60.17% branches、UI 43.22% statements / 35.25% branches 仍明显低于 90% 交付目标，`XC-P2-004` 不能关闭。
+- 治理成熟度维持 92：R31 已推送到 fork 分支并更新 PR #311，PR 状态 `OPEN` / `MERGEABLE`；3 个 Vercel checks 仍因 `Authorization required to deploy` 失败，`XC-P2-006` 不能关闭。
+
 当前执行状态（2026-06-06）：
 
 - 初始 P1：5 个。
@@ -408,7 +421,7 @@ R30 变化依据：
 | XC-P2-001 | XC | 英文兜底错误和导出分享英文残留 | 中文化 | 中 | 中文化评估定位 `Unknown error`、导入导出错误、分享导出默认英文标签；R14 新增 zh-CN 页面级 E2E smoke | 中文主路径错误和主页面文案可理解 | 已完成：`Unknown error` 源码兜底已基本清零，导入/导出、公共错误工具、收藏分享导出入口和主路径页面均有中文化自动化证据 | 前端 | P2 | closed |
 | XC-P2-002 | XC | 风险台账缺少 owner、等级、处置状态 | 风险治理 | 中 | 项目状态风险章节曾缺少负责人、风险等级、处置状态和复评日期 | 建立可追踪风险台账 | 已完成：项目状态风险章节已升级为统一风险台账，包含风险ID、等级、Owner、当前状态、当前证据、处置建议、下一步和复评日期 | PM | P2 | closed |
 | XC-P2-003 | XC | MCP smoke 尚未覆盖真实 LLM 成功调用 | 功能/交付 | 中 | R15 已在有效 `DEEPSEEK_API_KEY` 环境下执行 `pnpm mcp:smoke:real`，通过 HTTP MCP 连接、tools/list 和 `generate-wiki-prompt` 真实调用，返回 `provider=deepseek`、5 个 tools、`textLength=963` | 补真实模型环境下的成功调用验收 | 已完成：真实 MCP LLM 成功路径有可复现脚本、真实 provider 和输出摘要证据 | 开发/集成方 | P2 | closed |
-| XC-P2-004 | XC | 覆盖率体系不足，无法证明全项目质量 | 软件测试 | 中 | core 覆盖率 72.40% 语句/59.68% 分支；UI 覆盖率 43.22% 语句/35.25% 分支；Web 覆盖率 100% 语句/75% 分支/100% 函数/100% 行；Extension 覆盖率 100% 语句/50% 分支；MCP 覆盖率已提升到 91.93% 语句/90.50% 分支/93.22% 函数/92.17% 行 | 建立可持续覆盖率门禁 | 部分完成：MCP 单包覆盖率已达到 90% 目标，Web 入口覆盖率已大幅提升，core variable extraction/variable value generation/image understanding/PromptService message optimization/Electron proxy IPC forwarding/compare/model validation/prompt factory/IPC serialization/model errors/image input normalizer 已补测试，UI FavoriteListItem/EvaluateButton/FeedbackEditor/FocusAnalyzeButton 用户入口已有行为测试；core/UI 覆盖率仍需提升到交付目标 | 开发 | P2 | in_progress |
+| XC-P2-004 | XC | 覆盖率体系不足，无法证明全项目质量 | 软件测试 | 中 | core 覆盖率 73.50% 语句/60.17% 分支；UI 覆盖率 43.22% 语句/35.25% 分支；Web 覆盖率 100% 语句/75% 分支/100% 函数/100% 行；Extension 覆盖率 100% 语句/50% 分支；MCP 覆盖率已提升到 91.93% 语句/90.50% 分支/93.22% 函数/92.17% 行 | 建立可持续覆盖率门禁 | 部分完成：MCP 单包覆盖率已达到 90% 目标，Web 入口覆盖率已大幅提升，core variable extraction/variable value generation/image understanding/PromptService message optimization/Electron proxy IPC forwarding/compare/model validation/prompt factory/IPC serialization/model errors/image input normalizer 已补测试，UI FavoriteListItem/EvaluateButton/FeedbackEditor/FocusAnalyzeButton 用户入口已有行为测试；core/UI 覆盖率仍需提升到交付目标 | 开发 | P2 | in_progress |
 | XC-P2-005 | XC | 全仓递归单元测试入口存在资源稳定性问题 | 软件测试 | 中 | `pnpm test:unit` 曾在 core、mcp-server、UI 测试通过后，启动 Web/Extension 子进程时失败：`spawn sh EAGAIN`；串行后又暴露 core/UI 时间敏感测试 | 让全仓单元测试入口可重复运行 | 已通过：`pnpm test:unit` 串行执行 core、mcp-server、UI、Extension、Web 全部通过 | 开发 | P2 | closed |
 | XC-P2-006 | XC | 远端 CI/PR 证明未完全通过 | 治理/交付 | 中 | 上游直推失败：GitHub 403，账号 `Jiumilu` 对上游只有 READ；已创建 fork `Jiumilu/prompt-optimizer`、推送 `codex/xiaoc-quality-baseline` 并创建上游 PR #311；PR 为 open/mergeable；3 个 Vercel checks 均失败，原因是 `Authorization required to deploy` | 形成共享交付基线 | 获取 Vercel 授权或由上游维护者批准/重跑 checks，并通过远端 CI/代码评审门禁；另行确认 Harness 文件归属 | 开发/发布负责人 | P2 | in_progress |
 
@@ -482,7 +495,7 @@ R30 变化依据：
 
 - 剩余 P1（`XC-P1-001`）关闭或降级。（已完成 R13）
 - 健康度、功能完整性、软件测试三项完成复核。（已完成第一轮）
-- 生成可计算总分。（已完成第一轮，R30 当前 94.2）
+- 生成可计算总分。（已完成第一轮，R31 当前 94.4）
 - 项目状态从“B 类待补短板”升级为“可继续开发，具备交付准备入口”，或明确降级原因。
 
 ## 7. 复评机制
@@ -533,6 +546,7 @@ git status --short --branch
 | XC | 93.6 | 93.8 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core 图像理解边界补测和覆盖率提升） | 获取 Vercel 授权或维护者批准 checks；继续提升 core/UI 覆盖率 |
 | XC | 93.8 | 94.0 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core PromptService 多轮消息优化补测和覆盖率提升） | 获取 Vercel 授权或维护者批准 checks；继续提升 core/UI 覆盖率 |
 | XC | 94.0 | 94.2 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core Electron 代理 runtime 补测和覆盖率提升） | 获取 Vercel 授权或维护者批准 checks；继续提升 core/UI 覆盖率 |
+| XC | 94.2 | 94.4 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core Electron 代理 runtime 补测和覆盖率提升） | 获取 Vercel 授权或维护者批准 checks；继续提升 core/UI 覆盖率 |
 
 ## 8. 项目组合决策表
 
@@ -747,10 +761,20 @@ git status --short --branch
 | 2026-06-06 | 工作区格式 R30 | `git diff --check` | 通过 | R30 改动无空白错误 |
 | 2026-06-06 | Fork 分支 R30 | `git push fork develop:codex/xiaoc-quality-baseline` | 通过，fork 分支从 R29 更新到 R30 | PR #311 的 head 已同步 R30 改动 |
 | 2026-06-06 | PR 状态 R30 | `gh pr view 311 --repo linshenkx/prompt-optimizer --json ...`、`gh pr checks 311 --repo linshenkx/prompt-optimizer` | PR `state=OPEN`、`mergeable=MERGEABLE`；3 个 Vercel checks 失败，原因均为 `Authorization required to deploy` | 远端评审入口仍可用，但部署授权阻塞未解除 |
+| 2026-06-06 | Core 目标测试 R31 | `pnpm -F @prompt-optimizer/core exec vitest run tests/unit/services/electron-proxies-runtime.test.ts` | 通过，1 file passed，18 tests passed | Electron data/LLM/image/imageModel/favorite runtime 代理转发、序列化、stream callback、fallback 和错误映射已有离线单元测试证明 |
+| 2026-06-06 | Core 覆盖率 R31 | `pnpm -F @prompt-optimizer/core test:coverage` | 通过，133 passed / 18 skipped，1275 passed / 152 skipped；覆盖率 73.50% statements、60.17% branches、82.23% functions、74.22% lines | core 覆盖率继续提升，data/image/LLM Electron 代理达到 100% statements，favorite Electron 代理提升到 71.92% statements |
+| 2026-06-06 | 根单元入口 R31 | `pnpm test:unit` | 受限沙箱下失败/中断：MCP/UI 本地监听用例触发 `EPERM 127.0.0.1` 或执行器在 UI 阶段中断；升级后 core 1275 passed、mcp-server 82 passed | 当前环境限制本地监听，不能把根入口作为完整通过证据 |
+| 2026-06-06 | 拆包单元测试 R31 | `pnpm -F @prompt-optimizer/ui test --run --passWithNoTests`、`pnpm -F @prompt-optimizer/extension test --run --passWithNoTests`、`pnpm -F @prompt-optimizer/web test --run --passWithNoTests`；core/mcp 由根入口输出确认 | 通过：UI 153 files passed / 1 skipped，906 passed / 1 todo；Extension 2 passed；Web 4 passed；core 1275 passed / 152 skipped；mcp-server 82 passed | R31 新增 core 测试未破坏各包单元测试；受限沙箱监听限制通过升级权限和拆包验证规避 |
+| 2026-06-06 | 根仓库治理门禁 R31 | `pnpm test:repo` | 通过，34 个 node:test 子测试通过，locale parity 通过，no-Chinese-runtime 通过 | R31 测试补强未破坏仓库治理门禁 |
+| 2026-06-06 | Lint/Typecheck R31 | `pnpm lint` | 通过 | R31 新增 core 测试和文档更新后，UI/MCP lint 与 core/UI/MCP/Web/Extension typecheck 仍通过 |
+| 2026-06-06 | 构建 R31 | `pnpm build` | 通过 | R31 新增测试和文档更新后，core、UI、Web、Extension 仍可构建 |
+| 2026-06-06 | 工作区格式 R31 | `git diff --check` | 通过 | R31 改动无空白错误 |
+| 2026-06-06 | Fork 分支 R31 | `git push fork develop:codex/xiaoc-quality-baseline` | 通过，fork 分支从 R30 更新到 R31 | PR #311 的 head 已同步 R31 改动 |
+| 2026-06-06 | PR 状态 R31 | `gh pr view 311 --repo linshenkx/prompt-optimizer --json ...`、`gh pr checks 311 --repo linshenkx/prompt-optimizer` | PR `state=OPEN`、`mergeable=MERGEABLE`；3 个 Vercel checks 失败，原因均为 `Authorization required to deploy` | 远端评审入口仍可用，但部署授权阻塞未解除 |
 
 ## 10. 当前工作区改动归属
 
-`XC-P1-001` 已在 R13 关闭。当前工作区已从 dirty 状态收口为本地可追踪提交；R30 已推送到 fork 分支并更新上游 PR #311。远端 CI/部署授权仍列为 `XC-P2-006`。
+`XC-P1-001` 已在 R13 关闭。当前工作区已从 dirty 状态收口为本地可追踪提交；R31 已推送到 fork 分支并更新上游 PR #311。远端 CI/部署授权仍列为 `XC-P2-006`。
 
 | 文件/范围 | 归属 | 状态 | 说明 |
 |---|---|---|---|
@@ -790,5 +814,6 @@ git status --short --branch
 | `packages/core/tests/unit/image-understanding/service.test.ts` | 本轮 core 覆盖率修复 | 已确认 | 图像理解服务工厂注入、请求校验、模型禁用和 streaming 前置阻断已有离线测试证明 |
 | `packages/core/tests/unit/prompt-service-enhanced.test.ts` | 本轮 core 覆盖率和功能闭环修复 | 已确认 | PromptService 多轮消息优化 selected message、对话上下文、工具变量、输入校验、模型/模板失败和 streaming 空结果兜底已有离线测试证明 |
 | `packages/core/tests/unit/services/electron-proxies-runtime.test.ts` | 本轮 core 覆盖率和桌面端功能闭环修复 | 已确认 | Electron prompt/model/template/history/preference/context runtime 代理 IPC 转发、序列化、缺失桥接和导入校验错误已有离线测试证明 |
+| `packages/core/tests/unit/services/electron-proxies-runtime.test.ts` | 本轮 core 覆盖率和桌面端功能闭环修复 | 已确认 | Electron data/LLM/image/imageModel/favorite runtime 代理 IPC 转发、序列化、stream callback、fallback、错误映射和缺失桥接已有离线测试证明 |
 | `packages/ui/tests/unit/components/FavoriteManager.spec.ts` | 本轮测试稳定性修复 | 已确认 | 全仓负载下出现 5s 超时的两个外部刷新重交互用例已设置局部超时，单包/全仓复跑均通过 |
-| Fork remote `fork`、PR #311 | 本轮治理/交付补强 | 已确认 | fork 分支 `codex/xiaoc-quality-baseline` 已推送到 R30；上游 PR #311 已 open/mergeable；Vercel checks 因授权失败未通过 |
+| Fork remote `fork`、PR #311 | 本轮治理/交付补强 | 已确认 | fork 分支 `codex/xiaoc-quality-baseline` 已推送到 R31；上游 PR #311 已 open/mergeable；Vercel checks 因授权失败未通过 |

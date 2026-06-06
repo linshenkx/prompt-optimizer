@@ -13,11 +13,11 @@
 ## 📊 项目状态
 
 - **当前版本**：v2.11.5
-- **项目完成度**：94.2（第三十轮五项质量复评总分；上一版 98% 不再作为质量状态使用）
+- **项目完成度**：94.4（第三十一轮五项质量复评总分；上一版 98% 不再作为质量状态使用）
 - **当前阶段**：质量执行闭环与 P2 补强冲刺
 - **最新更新**：2026年6月6日
 - **当前质量基线**：`XC-QG-20260606-001`
-- **当前复评版本**：`XC-QG-20260606-R30`
+- **当前复评版本**：`XC-QG-20260606-R31`
 
 ## 🎯 功能规划
 
@@ -47,6 +47,7 @@
 
 ## 📈 里程碑
 
+- **2026-06-06**：第三十一轮质量复评 XC-QG-20260606-R31，总分 94.4，桌面端 Electron 代理继续补齐 data/LLM/image/imageModel/favorite IPC 转发、stream callback 适配、工具流回退、错误映射和缺失桥接测试，core 覆盖率提升到 73.50% statements / 60.17% branches
 - **2026-06-06**：第三十轮质量复评 XC-QG-20260606-R30，总分 94.2，桌面端 Electron 代理补齐 prompt/model/template/history/preference/context IPC 转发、序列化和缺失桥接测试，core 覆盖率提升到 72.40% statements / 59.68% branches
 - **2026-06-06**：第二十九轮质量复评 XC-QG-20260606-R29，总分 94.0，PromptService 多轮消息优化补齐 selected message、上下文渲染、tools/custom variables、输入校验、模型/模板失败和 streaming 空结果兜底测试，core 覆盖率提升到 71.02% statements / 59.37% branches
 - **2026-06-06**：第二十八轮质量复评 XC-QG-20260606-R28，总分 93.8，图像理解服务补齐工厂注入、请求校验、模型禁用和 streaming 前置阻断测试，core 覆盖率提升到 70.41% statements / 58.94% branches
