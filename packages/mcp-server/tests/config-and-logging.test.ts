@@ -69,6 +69,23 @@ describe('MCP template config', () => {
     expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('Failed to get template options for iterate:'), expect.any(Error));
     consoleError.mockRestore();
   });
+
+  it('uses the user-template description fallback for custom templates without metadata descriptions', async () => {
+    const templateManager = {
+      listTemplatesByType: vi.fn(async () => [{
+        id: 'custom-without-description',
+        name: 'Custom without description',
+        isBuiltin: false,
+        metadata: {}
+      }])
+    };
+
+    await expect(getTemplateOptions(templateManager as never, 'iterate')).resolves.toEqual([{
+      value: 'custom-without-description',
+      label: 'Custom without description',
+      description: 'User template'
+    }]);
+  });
 });
 
 describe('MCP simple language service', () => {

@@ -88,6 +88,18 @@ describe('MCP default model setup', () => {
     }));
   });
 
+  it('falls back to the first enabled model when no preferred provider matches', async () => {
+    const modelManager = createModelManager();
+
+    await setupDefaultModel(modelManager as never, 'missing-provider');
+
+    expect(modelManager.updateModel).toHaveBeenCalledWith('mcp-default', expect.objectContaining({
+      id: 'openai',
+      enabled: true
+    }));
+    expect(modelManager.addModel).not.toHaveBeenCalled();
+  });
+
   it('throws when no enabled default models are available', async () => {
     resetDefaultModels();
     coreMock.defaultModels.disabled = {

@@ -113,7 +113,7 @@ function getXCContextArgs(args: Record<string, unknown>): XCContextArgs {
   };
 }
 
-function createMCPAuthMiddleware(config: MCPServerConfig) {
+export function createMCPAuthMiddleware(config: MCPServerConfig) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!config.authToken || req.method === 'OPTIONS') {
       next();
@@ -136,7 +136,7 @@ function createMCPAuthMiddleware(config: MCPServerConfig) {
   };
 }
 
-function extractBearerToken(value?: string): string | undefined {
+export function extractBearerToken(value?: string): string | undefined {
   if (!value) {
     return undefined;
   }
@@ -145,7 +145,7 @@ function extractBearerToken(value?: string): string | undefined {
   return match ? match[1] : undefined;
 }
 
-function constantTimeEqual(left: string, right: string): boolean {
+export function constantTimeEqual(left: string, right: string): boolean {
   const leftBuffer = Buffer.from(left);
   const rightBuffer = Buffer.from(right);
   if (leftBuffer.length !== rightBuffer.length) {
