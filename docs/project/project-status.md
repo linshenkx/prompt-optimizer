@@ -5,12 +5,12 @@
 GlobalCloud XiaoC 是一个强大的 AI 提示词优化工具，帮助用户编写更好的 AI 提示词，提升 AI 输出质量。支持 Web 应用、桌面应用、Chrome 插件、Docker 部署和 MCP 协议集成五种使用方式，采用 monorepo 结构进行开发。
 
 ## 2. 总体进度
-- 项目完成度：92.2（第二十二轮五项质量复评总分；上一版 98% 不再作为质量状态使用）
+- 项目完成度：92.8（第二十三轮五项质量复评总分；上一版 98% 不再作为质量状态使用）
 - 当前阶段：质量执行闭环与 P2 补强冲刺
 - 主要版本：v2.11.5
 - 最新更新：2026年6月6日
 - 当前质量基线：`XC-QG-20260606-001`
-- 当前复评版本：`XC-QG-20260606-R22`
+- 当前复评版本：`XC-QG-20260606-R23`
 - 当前处置决策：B 类（继续开发，但先补短板；不建议上线）
 - 质量执行入口：[质量执行闭环基线](./quality-execution-baseline-2026-06-06.md)
 
@@ -205,7 +205,7 @@ GlobalCloud XiaoC 是一个强大的 AI 提示词优化工具，帮助用户编�
 - 页面加载时间：待复核
 - API 响应时间：待复核
 - 首次内容渲染：待复核
-- 五项质量评分：总分 92.2；健康度 90、功能完整性 90、软件测试 99、中文化 92、治理成熟度 90
+- 五项质量评分：总分 92.8；健康度 91、功能完整性 90、软件测试 99、中文化 92、治理成熟度 92
 
 ### 6.2 目标指标
 - 代码测试覆盖率：>90%
@@ -238,7 +238,7 @@ GlobalCloud XiaoC 是一个强大的 AI 提示词优化工具，帮助用户编�
 | XC-P2-004 | 测试证明力不足 | 中 | 测试负责人 | in_progress | core/UI/Web/Extension/MCP 覆盖率命令均可运行，MCP 单包覆盖率四项均已超过 90%；Web 已提升到 100% statements / 75% branches；core 提升到 69.99% statements / 58.55% branches，变量提取、compare、模型参数验证、prompt factory/error、IPC 序列化、模型错误和图像输入归一化路径已有离线测试；全仓单元入口慢用例已补局部超时并复跑通过；UI 和 core 总覆盖仍低于 90% 交付目标 | 建立可持续覆盖率门禁 | 继续补 core 高频业务服务和 UI 主路径测试，避免把局部包达标误判为全项目达标 | 2026-06-06 |
 | XC-P2-001 | 中文化残留 | 中 | 前端负责人 | closed | `Unknown error` 源码兜底已基本清零；导入/导出、转换器、公共错误工具、收藏分享导出入口和 zh-CN 主路径页面 smoke 均有自动化证明 | 保持中文化 smoke 进入 gate | 后续发现零散文案问题按 P3 处理 | 2026-06-06 |
 | XC-P2-003 | MCP 真实 LLM 成功调用未验收 | 中 | 集成负责人 | closed | `pnpm mcp:smoke:real` 已在有效 `DEEPSEEK_API_KEY` 环境下通过 HTTP MCP、tools/list 和 `generate-wiki-prompt` 真实调用，返回 `provider=deepseek`、5 个 tools、`textLength=963` | 保留脚本作为后续真实集成 smoke | 后续 provider 或模型变更时复跑 | 2026-06-06 |
-| XC-P2-006 | 远端同步与 CI/PR 证明缺失 | 中 | 开发/发布负责人 | open | R22 收口前 `develop` 仍领先 `origin/develop`，且存在未归属 Harness 未跟踪文件；本轮未执行 push | 形成共享交付基线 | 推送远端分支或打开 PR，并通过远端 CI/评审门禁；另行确认 Harness 文件归属 | 2026-06-06 |
+| XC-P2-006 | 远端同步与 CI/PR 证明缺失 | 中 | 开发/发布负责人 | in_progress | 上游 `origin/develop` 直推失败：GitHub 403，账号 `Jiumilu` 对 `linshenkx/prompt-optimizer` 只有 READ；已创建 fork `Jiumilu/prompt-optimizer`，推送 `codex/xiaoc-quality-baseline` 并创建上游 PR #311；PR 状态 open/mergeable；3 个 Vercel checks 失败，原因均为 `Authorization required to deploy` | 形成共享交付基线 | 获取 Vercel 授权或由上游维护者触发/批准 checks，并通过远端 CI/评审门禁；另行确认 Harness 文件归属 | 2026-06-06 |
 | XC-P2-005 | 全仓测试入口不稳定 | 中 | 测试负责人 | closed | `pnpm test:unit` 已改为 workspace 串行执行，core、mcp-server、UI、Extension、Web 全部通过 | 保持串行入口，后续再评估是否恢复有限并发 | 保持在回归门禁中 | 2026-06-06 |
 | REL-001 | 发布流程入口不一致 | 中 | 发布负责人 | closed | 已补齐 `release:notes:*` package 入口，并验证 release note check 和 package script 测试通过 | 发布前固定跑 release note check | 纳入发版 checklist | 2026-06-06 |
 | DOC-001 | 项目状态文档滞后 | 中 | PM | closed | 项目状态和项目管理入口已同步到 v2.11.5、质量执行闭环和 P1/P2 状态 | 每轮复评同步状态页和质量基线 | 保持状态页为事实入口 | 2026-06-06 |
@@ -272,7 +272,7 @@ GlobalCloud XiaoC 是一个强大的 AI 提示词优化工具，帮助用户编�
 ## 9. 后续计划
 
 ### 9.1 近期计划（1-2周）
-1. 推送远端分支或打开 PR，补远端 CI/评审证明：`XC-P2-006`
+1. 处理 PR #311 的 Vercel 授权/远端 checks 阻塞，补远端 CI/评审通过证明：`XC-P2-006`
 2. 修复覆盖率证明力短板：`XC-P2-004`
 3. 补权限、异常和更多真实集成验收，防止核心流程只停留在 happy path
 4. 继续补充非主路径弹窗、导出内容和异常提示中文抽查
@@ -328,6 +328,7 @@ GlobalCloud XiaoC 是一个强大的 AI 提示词优化工具，帮助用户编�
 - 2026-06-06: 完成第二十轮复评 `XC-QG-20260606-R20`，当前总分 91.8，core prompt factory/error 基础路径补齐离线单元测试
 - 2026-06-06: 完成第二十一轮复评 `XC-QG-20260606-R21`，当前总分 92.0，core IPC 序列化和模型错误结构化路径补齐离线单元测试
 - 2026-06-06: 完成第二十二轮复评 `XC-QG-20260606-R22`，当前总分 92.2，core 图像输入归一化和 UI 慢用例稳定性补强
+- 2026-06-06: 完成第二十三轮复评 `XC-QG-20260606-R23`，当前总分 92.8，已创建 fork 分支和上游 PR #311，远端 Vercel checks 因授权阻塞
 
 ### 2026年5月 (v2.10.0-v2.11.5)
 - 2026-05-28: v2.11.5，新增 Xiaomi MiMo Token Plan provider，扩展部署说明并加固异常模型配置处理

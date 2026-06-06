@@ -281,6 +281,18 @@ R22 变化依据：
 - 全仓 `pnpm test:unit` 首次在 R22 运行时暴露 `FavoriteManager.spec.ts` 两个外部刷新重交互用例 5s 超时；已仅对这两个既有慢用例加 15s 局部 timeout，并通过 `pnpm -F @prompt-optimizer/ui exec vitest run tests/unit/components/FavoriteManager.spec.ts` 和全仓 `pnpm test:unit` 复验。
 - `XC-P2-004` 仍未关闭：core 覆盖率仍只有 69.99% statements / 58.55% branches，UI 仍为 42.57% statements / 34.7% branches；不能把 input-normalizer 局部达标误判为全项目测试证明力充分。
 
+第二十三轮复评快照（2026-06-06）：
+
+| 项目 | 当前总分 | 健康度 | 功能完整性 | 软件测试 | 中文化 | 治理成熟度 | 当前状态 | P0 数量 | P1 数量 | 结论日期 | 复评版本 |
+|---|---:|---:|---:|---:|---:|---:|---|---:|---:|---|---|
+| XC | 92.8 | 91 | 90 | 99 | 92 | 92 | B 类：继续开发，但先补短板 | 0 | 0 | 2026-06-06 | XC-QG-20260606-R23 / package 2.11.5 / PR #311 open, mergeable / Vercel auth pending |
+
+R23 变化依据：
+
+- 健康度从 90 提升到 91：`git fetch origin` 通过，上游 `develop` 无新增提交；本地 11 个质量基线提交已推送到 fork 分支 `Jiumilu/prompt-optimizer:codex/xiaoc-quality-baseline`，不再只有本地提交证据。
+- 治理成熟度从 90 提升到 92：已创建上游 PR #311（`https://github.com/linshenkx/prompt-optimizer/pull/311`），`gh pr view` 显示 `state=OPEN`、`mergeable=MERGEABLE`、base=`develop`、head=`Jiumilu:codex/xiaoc-quality-baseline`。
+- `XC-P2-006` 从 open 调整为 in_progress：上游直推 `git push origin develop` 失败，GitHub 返回 403，账号 `Jiumilu` 对上游仓库只有 READ；PR #311 的 3 个 Vercel checks 均失败，失败原因均为 `Authorization required to deploy`。因此远端评审入口已建立，但远端 CI/部署授权仍未通过，不能关闭该风险。
+
 当前执行状态（2026-06-06）：
 
 - 初始 P1：5 个。
@@ -307,7 +319,7 @@ R22 变化依据：
 | XC-P2-003 | XC | MCP smoke 尚未覆盖真实 LLM 成功调用 | 功能/交付 | 中 | R15 已在有效 `DEEPSEEK_API_KEY` 环境下执行 `pnpm mcp:smoke:real`，通过 HTTP MCP 连接、tools/list 和 `generate-wiki-prompt` 真实调用，返回 `provider=deepseek`、5 个 tools、`textLength=963` | 补真实模型环境下的成功调用验收 | 已完成：真实 MCP LLM 成功路径有可复现脚本、真实 provider 和输出摘要证据 | 开发/集成方 | P2 | closed |
 | XC-P2-004 | XC | 覆盖率体系不足，无法证明全项目质量 | 软件测试 | 中 | core 覆盖率 69.99% 语句/58.55% 分支；UI 覆盖率 42.57% 语句/34.7% 分支；Web 覆盖率 100% 语句/75% 分支/100% 函数/100% 行；Extension 覆盖率 100% 语句/50% 分支；MCP 覆盖率已提升到 91.93% 语句/90.50% 分支/93.22% 函数/92.17% 行 | 建立可持续覆盖率门禁 | 部分完成：MCP 单包覆盖率已达到 90% 目标，Web 入口覆盖率已大幅提升，core compare/model validation/prompt factory/IPC serialization/model errors/image input normalizer 已补测试；core/UI 覆盖率仍需提升到交付目标 | 开发 | P2 | in_progress |
 | XC-P2-005 | XC | 全仓递归单元测试入口存在资源稳定性问题 | 软件测试 | 中 | `pnpm test:unit` 曾在 core、mcp-server、UI 测试通过后，启动 Web/Extension 子进程时失败：`spawn sh EAGAIN`；串行后又暴露 core/UI 时间敏感测试 | 让全仓单元测试入口可重复运行 | 已通过：`pnpm test:unit` 串行执行 core、mcp-server、UI、Extension、Web 全部通过 | 开发 | P2 | closed |
-| XC-P2-006 | XC | 本地提交尚未同步到远端并缺少远端 CI/PR 证明 | 治理/交付 | 中 | R22 收口前 `develop` 仍领先 `origin/develop`，且存在未归属 Harness 未跟踪文件；本轮未执行 push | 形成共享交付基线 | 推送到远端分支或打开 PR，并通过远端 CI/代码评审门禁；另行确认 Harness 文件归属 | 开发/发布负责人 | P2 | open |
+| XC-P2-006 | XC | 远端 CI/PR 证明未完全通过 | 治理/交付 | 中 | 上游直推失败：GitHub 403，账号 `Jiumilu` 对上游只有 READ；已创建 fork `Jiumilu/prompt-optimizer`、推送 `codex/xiaoc-quality-baseline` 并创建上游 PR #311；PR 为 open/mergeable；3 个 Vercel checks 均失败，原因是 `Authorization required to deploy` | 形成共享交付基线 | 获取 Vercel 授权或由上游维护者批准/重跑 checks，并通过远端 CI/代码评审门禁；另行确认 Harness 文件归属 | 开发/发布负责人 | P2 | in_progress |
 
 ## 4. 三类专项行动
 
@@ -379,7 +391,7 @@ R22 变化依据：
 
 - 剩余 P1（`XC-P1-001`）关闭或降级。（已完成 R13）
 - 健康度、功能完整性、软件测试三项完成复核。（已完成第一轮）
-- 生成可计算总分。（已完成第一轮，R22 当前 92.2）
+- 生成可计算总分。（已完成第一轮，R23 当前 92.8）
 - 项目状态从“B 类待补短板”升级为“可继续开发，具备交付准备入口”，或明确降级原因。
 
 ## 7. 复评机制
@@ -422,6 +434,7 @@ git status --short --branch
 | XC | 91.6 | 91.8 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core prompt factory/error 补测） | 继续提升 core/UI 覆盖率；推送/PR 后获取远端 CI 证明 |
 | XC | 91.8 | 92.0 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core IPC/model error 补测） | 继续提升 core/UI 覆盖率；推送/PR 后获取远端 CI 证明 |
 | XC | 92.0 | 92.2 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core image input normalizer 补测，UI 慢用例稳定） | 继续提升 core/UI 覆盖率；推送/PR 后获取远端 CI 证明 |
+| XC | 92.2 | 92.8 | 无 | 无新增 P1；`XC-P2-004` 仍未关闭；`XC-P2-006` 从 open 变为 in_progress，Vercel 授权阻塞 | B 类待补短板 -> B 类待补短板（远端 PR 入口已建立，CI 授权待处理） | 获取 Vercel 授权或维护者批准 checks；继续提升 core/UI 覆盖率 |
 
 ## 8. 项目组合决策表
 
@@ -572,10 +585,14 @@ git status --short --branch
 | 2026-06-06 | 根仓库治理门禁 R22 | `pnpm test:repo` | 通过，34 个 node:test 子测试通过，locale parity 通过，no-Chinese-runtime 通过 | R22 测试补强未破坏仓库治理门禁 |
 | 2026-06-06 | Lint/Typecheck R22 | `pnpm lint` | 通过 | R22 测试补强后，UI/MCP lint 与 core/UI/MCP/Web/Extension typecheck 仍通过 |
 | 2026-06-06 | 工作区格式 R22 | `git diff --check` | 通过 | R22 改动无空白错误 |
+| 2026-06-06 | 远端同步 R23 | `git push origin develop` | 失败，GitHub 403：`Permission to linshenkx/prompt-optimizer.git denied to Jiumilu` | 当前账号不能直接写入上游 `develop`，需 fork/PR 或上游授权 |
+| 2026-06-06 | Fork 分支 R23 | `gh repo fork linshenkx/prompt-optimizer --clone=false --remote=false`、`git push fork develop:codex/xiaoc-quality-baseline` | 通过，创建 `https://github.com/Jiumilu/prompt-optimizer`，推送 fork 分支成功 | 本地质量基线提交已有可共享远端分支 |
+| 2026-06-06 | 上游 PR R23 | `gh pr create --repo linshenkx/prompt-optimizer --base develop --head Jiumilu:codex/xiaoc-quality-baseline` | 通过，创建 PR #311 | 远端评审入口已建立 |
+| 2026-06-06 | PR 状态 R23 | `gh pr view 311 --repo linshenkx/prompt-optimizer --json ...` | 通过，`state=OPEN`、`mergeable=MERGEABLE`；3 个 Vercel checks 为 failure | PR 可合并性初步成立，但远端部署 checks 因 Vercel 授权阻塞 |
 
 ## 10. 当前工作区改动归属
 
-`XC-P1-001` 已在 R13 关闭。当前工作区已从 dirty 状态收口为本地可追踪提交；远端同步和 CI/PR 证明另列为 `XC-P2-006`。
+`XC-P1-001` 已在 R13 关闭。当前工作区已从 dirty 状态收口为本地可追踪提交；R23 已建立 fork 分支和上游 PR #311。远端 CI/部署授权仍列为 `XC-P2-006`。
 
 | 文件/范围 | 归属 | 状态 | 说明 |
 |---|---|---|---|
@@ -608,3 +625,4 @@ git status --short --branch
 | `packages/core/tests/unit/utils/ipc-serialization.spec.ts`、`packages/core/tests/unit/model/model-errors.spec.ts` | 本轮 core 覆盖率修复 | 已确认 | IPC 序列化成功/失败路径、debug 诊断、批量参数和模型错误结构化字段已有离线测试证明 |
 | `packages/core/tests/unit/image/input-normalizer.spec.ts` | 本轮 core 覆盖率修复 | 已确认 | 图像输入归一化、浏览器转换和降级路径已有离线测试证明 |
 | `packages/ui/tests/unit/components/FavoriteManager.spec.ts` | 本轮测试稳定性修复 | 已确认 | 全仓负载下出现 5s 超时的两个外部刷新重交互用例已设置局部超时，单包/全仓复跑均通过 |
+| Fork remote `fork`、PR #311 | 本轮治理/交付补强 | 已确认 | fork 分支 `codex/xiaoc-quality-baseline` 已推送；上游 PR #311 已 open/mergeable；Vercel checks 因授权失败未通过 |
