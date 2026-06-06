@@ -29,6 +29,7 @@
     "@types/node": "^22.19.15",
     "@vitest/coverage-v8": "4.1.2",
     "dotenv": "^17.3.1",
+    "fake-indexeddb": "^6.2.5",
     "msw": "^2.12.14",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",

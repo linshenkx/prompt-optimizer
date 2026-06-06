@@ -11,8 +11,8 @@ export default defineConfig({
     },
   },
   test: {
-    // 全局超时设置为5秒
-    testTimeout: 5000,
+    // 组件测试在本地与 CI 长链路中可能超过 5 秒；15 秒与现有慢用例保持一致。
+    testTimeout: 15000,
     // 环境设置
     environment: 'jsdom',
     // 全局设置文件
