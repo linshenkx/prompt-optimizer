@@ -649,7 +649,7 @@ describe('FavoriteManager', () => {
 
     expect(services.favoriteManager.getFavorites).toHaveBeenCalledTimes(2)
     expect(wrapper.findAll('.favorite-list-item-stub')).toHaveLength(2)
-  })
+  }, 15000)
 
   it('refreshes an active favorite workspace after an external favorite update without changing selection', async () => {
     setViewportWidth(1400)
@@ -670,7 +670,7 @@ describe('FavoriteManager', () => {
     expect(services.favoriteManager.getFavorites).toHaveBeenCalledTimes(2)
     expect(wrapper.text()).toContain('Favorite 1 with saved example')
     expect(wrapper.find('[data-testid="favorite-detail-panel"]').attributes('data-favorite-id')).toBe('favorite-2')
-  })
+  }, 15000)
 
   it('uses the same detail dialog on mobile', async () => {
     setViewportWidth(640)

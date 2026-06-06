@@ -268,6 +268,19 @@ R21 变化依据：
 - `pnpm -F @prompt-optimizer/core test:coverage` 从 129 files / 1202 tests / 69.22% statements / 58.07% branches 提升到 131 files / 1209 tests / 69.43% statements / 58.20% branches；`utils/ipc-serialization.ts` 达到 100% statements / 88.88% branches / 100% functions / 100% lines，`services/model/errors.ts` 达到 100%。
 - `XC-P2-004` 仍未关闭：core 覆盖率仍只有 69.43% statements / 58.20% branches，UI 仍为 42.57% statements / 34.7% branches；不能把 IPC/model error 局部达标误判为全项目测试证明力充分。
 
+第二十二轮复评快照（2026-06-06）：
+
+| 项目 | 当前总分 | 健康度 | 功能完整性 | 软件测试 | 中文化 | 治理成熟度 | 当前状态 | P0 数量 | P1 数量 | 结论日期 | 复评版本 |
+|---|---:|---:|---:|---:|---:|---:|---|---:|---:|---|---|
+| XC | 92.2 | 90 | 90 | 99 | 92 | 90 | B 类：继续开发，但先补短板 | 0 | 0 | 2026-06-06 | XC-QG-20260606-R22 / package 2.11.5 / R22 local commit / origin sync pending |
+
+R22 变化依据：
+
+- 软件测试从 98 提升到 99：core 新增图像输入归一化离线单元测试，覆盖标准 MIME 判断、`image/jpg` 归一化、自定义转换器、data URL stripping、转换失败/空结果/超限降级、批量输入、无浏览器转换能力降级、document canvas 转 PNG、OffscreenCanvas 转 PNG、无 atob/btoa 和 canvas context 缺失降级；`pnpm -F @prompt-optimizer/core exec vitest run tests/unit/image/input-normalizer.spec.ts` 通过，1 file / 11 tests。
+- `pnpm -F @prompt-optimizer/core test:coverage` 从 131 files / 1209 tests / 69.43% statements / 58.20% branches 提升到 132 files / 1220 tests / 69.99% statements / 58.55% branches；`services/image/input-normalizer.ts` 提升到 96.38% statements / 88.88% branches / 100% functions / 96.20% lines。
+- 全仓 `pnpm test:unit` 首次在 R22 运行时暴露 `FavoriteManager.spec.ts` 两个外部刷新重交互用例 5s 超时；已仅对这两个既有慢用例加 15s 局部 timeout，并通过 `pnpm -F @prompt-optimizer/ui exec vitest run tests/unit/components/FavoriteManager.spec.ts` 和全仓 `pnpm test:unit` 复验。
+- `XC-P2-004` 仍未关闭：core 覆盖率仍只有 69.99% statements / 58.55% branches，UI 仍为 42.57% statements / 34.7% branches；不能把 input-normalizer 局部达标误判为全项目测试证明力充分。
+
 当前执行状态（2026-06-06）：
 
 - 初始 P1：5 个。
@@ -292,9 +305,9 @@ R21 变化依据：
 | XC-P2-001 | XC | 英文兜底错误和导出分享英文残留 | 中文化 | 中 | 中文化评估定位 `Unknown error`、导入导出错误、分享导出默认英文标签；R14 新增 zh-CN 页面级 E2E smoke | 中文主路径错误和主页面文案可理解 | 已完成：`Unknown error` 源码兜底已基本清零，导入/导出、公共错误工具、收藏分享导出入口和主路径页面均有中文化自动化证据 | 前端 | P2 | closed |
 | XC-P2-002 | XC | 风险台账缺少 owner、等级、处置状态 | 风险治理 | 中 | 项目状态风险章节曾缺少负责人、风险等级、处置状态和复评日期 | 建立可追踪风险台账 | 已完成：项目状态风险章节已升级为统一风险台账，包含风险ID、等级、Owner、当前状态、当前证据、处置建议、下一步和复评日期 | PM | P2 | closed |
 | XC-P2-003 | XC | MCP smoke 尚未覆盖真实 LLM 成功调用 | 功能/交付 | 中 | R15 已在有效 `DEEPSEEK_API_KEY` 环境下执行 `pnpm mcp:smoke:real`，通过 HTTP MCP 连接、tools/list 和 `generate-wiki-prompt` 真实调用，返回 `provider=deepseek`、5 个 tools、`textLength=963` | 补真实模型环境下的成功调用验收 | 已完成：真实 MCP LLM 成功路径有可复现脚本、真实 provider 和输出摘要证据 | 开发/集成方 | P2 | closed |
-| XC-P2-004 | XC | 覆盖率体系不足，无法证明全项目质量 | 软件测试 | 中 | core 覆盖率 69.43% 语句/58.20% 分支；UI 覆盖率 42.57% 语句/34.7% 分支；Web 覆盖率 100% 语句/75% 分支/100% 函数/100% 行；Extension 覆盖率 100% 语句/50% 分支；MCP 覆盖率已提升到 91.93% 语句/90.50% 分支/93.22% 函数/92.17% 行 | 建立可持续覆盖率门禁 | 部分完成：MCP 单包覆盖率已达到 90% 目标，Web 入口覆盖率已大幅提升，core compare/model validation/prompt factory/IPC serialization/model errors 已补测试；core/UI 覆盖率仍需提升到交付目标 | 开发 | P2 | in_progress |
+| XC-P2-004 | XC | 覆盖率体系不足，无法证明全项目质量 | 软件测试 | 中 | core 覆盖率 69.99% 语句/58.55% 分支；UI 覆盖率 42.57% 语句/34.7% 分支；Web 覆盖率 100% 语句/75% 分支/100% 函数/100% 行；Extension 覆盖率 100% 语句/50% 分支；MCP 覆盖率已提升到 91.93% 语句/90.50% 分支/93.22% 函数/92.17% 行 | 建立可持续覆盖率门禁 | 部分完成：MCP 单包覆盖率已达到 90% 目标，Web 入口覆盖率已大幅提升，core compare/model validation/prompt factory/IPC serialization/model errors/image input normalizer 已补测试；core/UI 覆盖率仍需提升到交付目标 | 开发 | P2 | in_progress |
 | XC-P2-005 | XC | 全仓递归单元测试入口存在资源稳定性问题 | 软件测试 | 中 | `pnpm test:unit` 曾在 core、mcp-server、UI 测试通过后，启动 Web/Extension 子进程时失败：`spawn sh EAGAIN`；串行后又暴露 core/UI 时间敏感测试 | 让全仓单元测试入口可重复运行 | 已通过：`pnpm test:unit` 串行执行 core、mcp-server、UI、Extension、Web 全部通过 | 开发 | P2 | closed |
-| XC-P2-006 | XC | 本地提交尚未同步到远端并缺少远端 CI/PR 证明 | 治理/交付 | 中 | R21 收口前 `develop` 仍领先 `origin/develop`，且存在未归属 Harness 未跟踪文件；本轮未执行 push | 形成共享交付基线 | 推送到远端分支或打开 PR，并通过远端 CI/代码评审门禁；另行确认 Harness 文件归属 | 开发/发布负责人 | P2 | open |
+| XC-P2-006 | XC | 本地提交尚未同步到远端并缺少远端 CI/PR 证明 | 治理/交付 | 中 | R22 收口前 `develop` 仍领先 `origin/develop`，且存在未归属 Harness 未跟踪文件；本轮未执行 push | 形成共享交付基线 | 推送到远端分支或打开 PR，并通过远端 CI/代码评审门禁；另行确认 Harness 文件归属 | 开发/发布负责人 | P2 | open |
 
 ## 4. 三类专项行动
 
@@ -366,7 +379,7 @@ R21 变化依据：
 
 - 剩余 P1（`XC-P1-001`）关闭或降级。（已完成 R13）
 - 健康度、功能完整性、软件测试三项完成复核。（已完成第一轮）
-- 生成可计算总分。（已完成第一轮，R21 当前 92.0）
+- 生成可计算总分。（已完成第一轮，R22 当前 92.2）
 - 项目状态从“B 类待补短板”升级为“可继续开发，具备交付准备入口”，或明确降级原因。
 
 ## 7. 复评机制
@@ -408,6 +421,7 @@ git status --short --branch
 | XC | 91.4 | 91.6 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core compare/model validation 补测） | 继续提升 core/UI 覆盖率；推送/PR 后获取远端 CI 证明 |
 | XC | 91.6 | 91.8 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core prompt factory/error 补测） | 继续提升 core/UI 覆盖率；推送/PR 后获取远端 CI 证明 |
 | XC | 91.8 | 92.0 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core IPC/model error 补测） | 继续提升 core/UI 覆盖率；推送/PR 后获取远端 CI 证明 |
+| XC | 92.0 | 92.2 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core image input normalizer 补测，UI 慢用例稳定） | 继续提升 core/UI 覆盖率；推送/PR 后获取远端 CI 证明 |
 
 ## 8. 项目组合决策表
 
@@ -551,6 +565,13 @@ git status --short --branch
 | 2026-06-06 | 根仓库治理门禁 R21 | `pnpm test:repo` | 通过，34 个 node:test 子测试通过，locale parity 通过，no-Chinese-runtime 通过 | R21 测试补强未破坏仓库治理门禁 |
 | 2026-06-06 | Lint/Typecheck R21 | `pnpm lint` | 通过 | R21 测试补强后，UI/MCP lint 与 core/UI/MCP/Web/Extension typecheck 仍通过 |
 | 2026-06-06 | 工作区格式 R21 | `git diff --check` | 通过 | R21 改动无空白错误 |
+| 2026-06-06 | Core 局部测试 R22 | `pnpm -F @prompt-optimizer/core exec vitest run tests/unit/image/input-normalizer.spec.ts` | 通过，1 file passed，11 tests passed | 图像输入 MIME 归一化、转换器、浏览器 canvas/OffscreenCanvas 转换和降级路径已有离线测试证明 |
+| 2026-06-06 | Core 覆盖率 R22 | `pnpm -F @prompt-optimizer/core test:coverage` | 通过，132 files passed / 18 skipped，1220 tests passed / 152 skipped；覆盖率 69.99% statements、58.55% branches、73.73% functions、70.60% lines | core 总覆盖率继续提升，input-normalizer 提升到 96.38% statements / 88.88% branches |
+| 2026-06-06 | UI 慢用例稳定性 R22 | `pnpm -F @prompt-optimizer/ui exec vitest run tests/unit/components/FavoriteManager.spec.ts` | 通过，1 file passed，15 tests passed | 全仓负载下超时的 FavoriteManager 外部刷新场景已设置局部超时并单包复跑通过 |
+| 2026-06-06 | 全仓单元测试 R22 | `pnpm test:unit` | 通过，core 1220 passed / 152 skipped；mcp-server 82 passed；UI 887 passed / 1 todo；Extension 2 passed；Web 4 passed | R22 新增 core 测试和 UI 慢用例稳定性修复已进入全仓单元测试入口 |
+| 2026-06-06 | 根仓库治理门禁 R22 | `pnpm test:repo` | 通过，34 个 node:test 子测试通过，locale parity 通过，no-Chinese-runtime 通过 | R22 测试补强未破坏仓库治理门禁 |
+| 2026-06-06 | Lint/Typecheck R22 | `pnpm lint` | 通过 | R22 测试补强后，UI/MCP lint 与 core/UI/MCP/Web/Extension typecheck 仍通过 |
+| 2026-06-06 | 工作区格式 R22 | `git diff --check` | 通过 | R22 改动无空白错误 |
 
 ## 10. 当前工作区改动归属
 
@@ -585,3 +606,5 @@ git status --short --branch
 | `packages/core/tests/unit/prompt/factory-errors.spec.ts` | 本轮 core 覆盖率修复 | 已确认 | PromptService factory、错误对象、依赖检查、history 代理、迭代错误包装和 test stream 基础分支已有离线测试证明 |
 | `packages/ui/tests/unit/components/DataManager.spec.ts`、`packages/ui/tests/unit/components/FavoriteReproducibilityEditor.spec.ts`、`packages/mcp-server/tests/environment-import.test.ts` | 本轮测试稳定性修复 | 已确认 | 全仓负载下出现 5s 超时的既有慢用例已设置局部超时，单包/全仓复跑均通过 |
 | `packages/core/tests/unit/utils/ipc-serialization.spec.ts`、`packages/core/tests/unit/model/model-errors.spec.ts` | 本轮 core 覆盖率修复 | 已确认 | IPC 序列化成功/失败路径、debug 诊断、批量参数和模型错误结构化字段已有离线测试证明 |
+| `packages/core/tests/unit/image/input-normalizer.spec.ts` | 本轮 core 覆盖率修复 | 已确认 | 图像输入归一化、浏览器转换和降级路径已有离线测试证明 |
+| `packages/ui/tests/unit/components/FavoriteManager.spec.ts` | 本轮测试稳定性修复 | 已确认 | 全仓负载下出现 5s 超时的两个外部刷新重交互用例已设置局部超时，单包/全仓复跑均通过 |
