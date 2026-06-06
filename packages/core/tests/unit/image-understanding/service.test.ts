@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { ImageUnderstandingService } from '../../../src/services/image-understanding/service'
+import {
+  ImageUnderstandingService,
+  createImageUnderstandingService,
+} from '../../../src/services/image-understanding/service'
+import { RequestConfigError } from '../../../src/services/llm/errors'
 import type { ITextAdapterRegistry } from '../../../src/services/llm/types'
 
 describe('ImageUnderstandingService', () => {
@@ -55,6 +59,95 @@ describe('ImageUnderstandingService', () => {
     } as unknown as ITextAdapterRegistry
 
     service = new ImageUnderstandingService({ registry })
+  })
+
+  it('creates a service through the factory with injected dependencies', async () => {
+    const factoryService = createImageUnderstandingService({ registry })
+
+    await factoryService.understand(request as any)
+
+    expect(registry.getAdapter).toHaveBeenCalledWith('openai')
+    expect(adapter.sendImageUnderstanding).toHaveBeenCalledWith(request, request.modelConfig)
+  })
+
+  it.each([
+    ['empty request', undefined, 'Image understanding request cannot be empty'],
+    ['missing model config', { ...request, modelConfig: undefined }, 'Model config cannot be empty'],
+    [
+      'missing provider metadata',
+      {
+        ...request,
+        modelConfig: { ...request.modelConfig, providerMeta: undefined },
+      },
+      'Model provider metadata cannot be empty',
+    ],
+    [
+      'missing provider id',
+      {
+        ...request,
+        modelConfig: {
+          ...request.modelConfig,
+          providerMeta: { ...request.modelConfig.providerMeta, id: '' },
+        },
+      },
+      'Model provider metadata cannot be empty',
+    ],
+    [
+      'missing model metadata',
+      {
+        ...request,
+        modelConfig: { ...request.modelConfig, modelMeta: undefined },
+      },
+      'Model metadata cannot be empty',
+    ],
+    [
+      'missing model id',
+      {
+        ...request,
+        modelConfig: {
+          ...request.modelConfig,
+          modelMeta: { ...request.modelConfig.modelMeta, id: '' },
+        },
+      },
+      'Model metadata cannot be empty',
+    ],
+    [
+      'disabled model',
+      {
+        ...request,
+        modelConfig: { ...request.modelConfig, enabled: false },
+      },
+      'Model is not enabled',
+    ],
+  ])('rejects invalid image understanding requests: %s', async (_caseName, invalidRequest, expectedMessage) => {
+    const generation = service.understand(invalidRequest as any)
+
+    await expect(generation).rejects.toMatchObject({
+      name: 'RequestConfigError',
+      message: expect.stringContaining(expectedMessage),
+    })
+    await expect(generation).rejects.toBeInstanceOf(RequestConfigError)
+    expect(registry.getAdapter).not.toHaveBeenCalled()
+    expect(adapter.sendImageUnderstanding).not.toHaveBeenCalled()
+  })
+
+  it('rejects invalid streaming requests before adapter lookup', async () => {
+    const callbacks = {
+      onToken: vi.fn(),
+      onComplete: vi.fn(),
+      onError: vi.fn(),
+    }
+    const generation = service.understandStream(
+      {
+        ...request,
+        modelConfig: { ...request.modelConfig, enabled: false },
+      } as any,
+      callbacks,
+    )
+
+    await expect(generation).rejects.toBeInstanceOf(RequestConfigError)
+    expect(registry.getAdapter).not.toHaveBeenCalled()
+    expect(adapter.sendImageUnderstandingStream).not.toHaveBeenCalled()
   })
 
   it('converts non-standard inputs before delegating understand to the adapter', async () => {
