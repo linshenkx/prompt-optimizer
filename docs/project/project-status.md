@@ -5,12 +5,12 @@
 GlobalCloud XiaoC 是一个强大的 AI 提示词优化工具，帮助用户编写更好的 AI 提示词，提升 AI 输出质量。支持 Web 应用、桌面应用、Chrome 插件、Docker 部署和 MCP 协议集成五种使用方式，采用 monorepo 结构进行开发。
 
 ## 2. 总体进度
-- 项目完成度：91.2（第十七轮五项质量复评总分；上一版 98% 不再作为质量状态使用）
+- 项目完成度：91.4（第十八轮五项质量复评总分；上一版 98% 不再作为质量状态使用）
 - 当前阶段：质量执行闭环与 P2 补强冲刺
 - 主要版本：v2.11.5
 - 最新更新：2026年6月6日
 - 当前质量基线：`XC-QG-20260606-001`
-- 当前复评版本：`XC-QG-20260606-R17`
+- 当前复评版本：`XC-QG-20260606-R18`
 - 当前处置决策：B 类（继续开发，但先补短板；不建议上线）
 - 质量执行入口：[质量执行闭环基线](./quality-execution-baseline-2026-06-06.md)
 
@@ -198,14 +198,14 @@ GlobalCloud XiaoC 是一个强大的 AI 提示词优化工具，帮助用户编�
 - 构建健康：已验证通过（`pnpm build`，覆盖 core、UI、Web、Extension）
 - Lint/Typecheck：已验证通过（`pnpm lint`）
 - 测试门禁：已验证通过（`pnpm test:gate`，repo 34 tests、core 21 tests、UI 879 passed / 1 todo / 1 skipped）
-- 全仓单元测试：已验证通过（`pnpm test:unit`，core 1173 passed / 152 skipped；mcp-server 82 passed；UI 887 passed / 1 todo；Extension 2 passed；Web 2 passed）
+- 全仓单元测试：已验证通过（`pnpm test:unit`，core 1185 passed / 152 skipped；mcp-server 82 passed；UI 887 passed / 1 todo；Extension 2 passed；Web 4 passed）
 - E2E gate：已验证通过（`pnpm test:e2e:gate`，36 passed，含 zh-CN 主路径页面 smoke）
 - MCP 真实 LLM smoke：已验证通过（`pnpm mcp:smoke:real`，`provider=deepseek`，`healthStatus=ok`，5 个 tools，`generate-wiki-prompt` 返回 `textLength=963`）
-- 代码测试覆盖率：core 67.18% statements / 56.63% branches；UI 42.57% statements / 34.7% branches；Web 61.53% statements / 50% branches；Extension 100% statements / 50% branches；MCP 91.93% statements / 90.50% branches / 93.22% functions / 92.17% lines
+- 代码测试覆盖率：core 68.23% statements / 57.56% branches / 72.06% functions / 68.81% lines；UI 42.57% statements / 34.7% branches；Web 100% statements / 75% branches / 100% functions / 100% lines；Extension 100% statements / 50% branches；MCP 91.93% statements / 90.50% branches / 93.22% functions / 92.17% lines
 - 页面加载时间：待复核
 - API 响应时间：待复核
 - 首次内容渲染：待复核
-- 五项质量评分：总分 91.2；健康度 90、功能完整性 90、软件测试 94、中文化 92、治理成熟度 90
+- 五项质量评分：总分 91.4；健康度 90、功能完整性 90、软件测试 95、中文化 92、治理成熟度 90
 
 ### 6.2 目标指标
 - 代码测试覆盖率：>90%
@@ -235,10 +235,10 @@ GlobalCloud XiaoC 是一个强大的 AI 提示词优化工具，帮助用户编�
 |---|---|---|---|---|---|---|---|---|
 | XC-P1-001 | 交付基线不干净 | 高 | 开发负责人 | closed | 已形成 R13 本地提交基线，工作区从 dirty 收口为 clean；install/build/lint/test/e2e 已复跑通过 | 保持本地基线可追踪；远端同步另列为 P2 | 后续只跟踪远端 CI/PR 证明 | 2026-06-06 |
 | XC-P1-002 | 决策证据不足 | 高 | 项目负责人 | closed | 已完成健康度、功能完整性、软件测试三项证据化复核，生成 R1-R13 复评 | 保持每轮修复后更新质量基线 | 后续只对变化项复评 | 2026-06-06 |
-| XC-P2-004 | 测试证明力不足 | 中 | 测试负责人 | in_progress | core/UI/Web/Extension/MCP 覆盖率命令均可运行，MCP 单包覆盖率四项均已超过 90%；core/UI/Web 仍低于 90% 交付目标 | 继续补核心流程单元/集成/E2E，建立覆盖率阈值 | 优先转向 core/UI 高频模块和 Web 核心路径 | 2026-06-06 |
+| XC-P2-004 | 测试证明力不足 | 中 | 测试负责人 | in_progress | core/UI/Web/Extension/MCP 覆盖率命令均可运行，MCP 单包覆盖率四项均已超过 90%；Web 已提升到 100% statements / 75% branches；core 提升到 68.23% statements / 57.56% branches，变量提取服务已有离线测试；UI 和 core 总覆盖仍低于 90% 交付目标 | 建立可持续覆盖率门禁 | 继续补 core 高频业务服务和 UI 主路径测试，避免把局部包达标误判为全项目达标 | 2026-06-06 |
 | XC-P2-001 | 中文化残留 | 中 | 前端负责人 | closed | `Unknown error` 源码兜底已基本清零；导入/导出、转换器、公共错误工具、收藏分享导出入口和 zh-CN 主路径页面 smoke 均有自动化证明 | 保持中文化 smoke 进入 gate | 后续发现零散文案问题按 P3 处理 | 2026-06-06 |
 | XC-P2-003 | MCP 真实 LLM 成功调用未验收 | 中 | 集成负责人 | closed | `pnpm mcp:smoke:real` 已在有效 `DEEPSEEK_API_KEY` 环境下通过 HTTP MCP、tools/list 和 `generate-wiki-prompt` 真实调用，返回 `provider=deepseek`、5 个 tools、`textLength=963` | 保留脚本作为后续真实集成 smoke | 后续 provider 或模型变更时复跑 | 2026-06-06 |
-| XC-P2-006 | 远端同步与 CI/PR 证明缺失 | 中 | 开发/发布负责人 | open | R17 提交后 `develop` 仍领先 `origin/develop` 6 个提交，且存在未归属 Harness 未跟踪文件；本轮未执行 push | 形成共享交付基线 | 推送远端分支或打开 PR，并通过远端 CI/评审门禁；另行确认 Harness 文件归属 | 2026-06-06 |
+| XC-P2-006 | 远端同步与 CI/PR 证明缺失 | 中 | 开发/发布负责人 | open | R18 收口前 `develop` 仍领先 `origin/develop` 6 个提交，且存在未归属 Harness 未跟踪文件；本轮未执行 push | 形成共享交付基线 | 推送远端分支或打开 PR，并通过远端 CI/评审门禁；另行确认 Harness 文件归属 | 2026-06-06 |
 | XC-P2-005 | 全仓测试入口不稳定 | 中 | 测试负责人 | closed | `pnpm test:unit` 已改为 workspace 串行执行，core、mcp-server、UI、Extension、Web 全部通过 | 保持串行入口，后续再评估是否恢复有限并发 | 保持在回归门禁中 | 2026-06-06 |
 | REL-001 | 发布流程入口不一致 | 中 | 发布负责人 | closed | 已补齐 `release:notes:*` package 入口，并验证 release note check 和 package script 测试通过 | 发布前固定跑 release note check | 纳入发版 checklist | 2026-06-06 |
 | DOC-001 | 项目状态文档滞后 | 中 | PM | closed | 项目状态和项目管理入口已同步到 v2.11.5、质量执行闭环和 P1/P2 状态 | 每轮复评同步状态页和质量基线 | 保持状态页为事实入口 | 2026-06-06 |
@@ -323,6 +323,7 @@ GlobalCloud XiaoC 是一个强大的 AI 提示词优化工具，帮助用户编�
 - 2026-06-06: 完成第十五轮复评 `XC-QG-20260606-R15`，当前总分 90.6，真实 MCP LLM smoke 已可复现通过，`XC-P2-003` 关闭
 - 2026-06-06: 完成第十六轮复评 `XC-QG-20260606-R16`，当前总分 91.0，MCP 覆盖率提升到 82.35%，测试数提升到 61
 - 2026-06-06: 完成第十七轮复评 `XC-QG-20260606-R17`，当前总分 91.2，MCP 单包四项覆盖率均超过 90%，测试数提升到 82
+- 2026-06-06: 完成第十八轮复评 `XC-QG-20260606-R18`，当前总分 91.4，Web 单包覆盖率提升到 100% statements / 75% branches，core 变量提取服务补齐离线单元测试
 
 ### 2026年5月 (v2.10.0-v2.11.5)
 - 2026-05-28: v2.11.5，新增 Xiaomi MiMo Token Plan provider，扩展部署说明并加固异常模型配置处理
