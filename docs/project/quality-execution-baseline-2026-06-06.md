@@ -232,6 +232,18 @@ R18 变化依据：
 - core 新增变量提取服务离线单元测试和公共错误归一化工具测试，`pnpm -F @prompt-optimizer/core test:coverage` 从 124 files / 1173 tests / 67.18% statements / 56.63% branches 提升到 126 files / 1185 tests / 68.23% statements / 57.56% branches；`variable-extraction/service.ts` 从 0% 覆盖提升到 88.23% statements / 76.56% branches / 100% functions / 88.88% lines。
 - `XC-P2-004` 仍未关闭：Web 包已达到较高覆盖率，MCP 包已达 90% 目标，但 core 总覆盖率仍只有 68.23% statements / 57.56% branches，UI 仍为 42.57% statements / 34.7% branches；不能把局部包达标误判为全项目测试证明力充分。
 
+第十九轮复评快照（2026-06-06）：
+
+| 项目 | 当前总分 | 健康度 | 功能完整性 | 软件测试 | 中文化 | 治理成熟度 | 当前状态 | P0 数量 | P1 数量 | 结论日期 | 复评版本 |
+|---|---:|---:|---:|---:|---:|---:|---|---:|---:|---|---|
+| XC | 91.6 | 90 | 90 | 96 | 92 | 90 | B 类：继续开发，但先补短板 | 0 | 0 | 2026-06-06 | XC-QG-20260606-R19 / package 2.11.5 / R19 local commit / origin sync pending |
+
+R19 变化依据：
+
+- 软件测试从 95 提升到 96：core 新增 compare 服务和模型参数验证离线单元测试，覆盖用户可见提示词对比能力和模型参数安全边界；`pnpm -F @prompt-optimizer/core exec vitest run tests/unit/compare/service.spec.ts tests/unit/model/validation.spec.ts` 通过，2 files / 11 tests。
+- `pnpm -F @prompt-optimizer/core test:coverage` 从 126 files / 1185 tests / 68.23% statements / 57.56% branches 提升到 128 files / 1196 tests / 69.13% statements / 58.02% branches；`services/compare` 从约 6.32% statements / 0% branches 提升到 94.93% statements / 75% branches，`services/model/validation.ts` 从 0% 提升到 100%。
+- `XC-P2-004` 仍未关闭：core 覆盖率仍只有 69.13% statements / 58.02% branches，UI 仍为 42.57% statements / 34.7% branches；不能把 compare/model 局部达标误判为全项目测试证明力充分。
+
 当前执行状态（2026-06-06）：
 
 - 初始 P1：5 个。
@@ -256,9 +268,9 @@ R18 变化依据：
 | XC-P2-001 | XC | 英文兜底错误和导出分享英文残留 | 中文化 | 中 | 中文化评估定位 `Unknown error`、导入导出错误、分享导出默认英文标签；R14 新增 zh-CN 页面级 E2E smoke | 中文主路径错误和主页面文案可理解 | 已完成：`Unknown error` 源码兜底已基本清零，导入/导出、公共错误工具、收藏分享导出入口和主路径页面均有中文化自动化证据 | 前端 | P2 | closed |
 | XC-P2-002 | XC | 风险台账缺少 owner、等级、处置状态 | 风险治理 | 中 | 项目状态风险章节曾缺少负责人、风险等级、处置状态和复评日期 | 建立可追踪风险台账 | 已完成：项目状态风险章节已升级为统一风险台账，包含风险ID、等级、Owner、当前状态、当前证据、处置建议、下一步和复评日期 | PM | P2 | closed |
 | XC-P2-003 | XC | MCP smoke 尚未覆盖真实 LLM 成功调用 | 功能/交付 | 中 | R15 已在有效 `DEEPSEEK_API_KEY` 环境下执行 `pnpm mcp:smoke:real`，通过 HTTP MCP 连接、tools/list 和 `generate-wiki-prompt` 真实调用，返回 `provider=deepseek`、5 个 tools、`textLength=963` | 补真实模型环境下的成功调用验收 | 已完成：真实 MCP LLM 成功路径有可复现脚本、真实 provider 和输出摘要证据 | 开发/集成方 | P2 | closed |
-| XC-P2-004 | XC | 覆盖率体系不足，无法证明全项目质量 | 软件测试 | 中 | core 覆盖率 68.23% 语句/57.56% 分支；UI 覆盖率 42.57% 语句/34.7% 分支；Web 覆盖率 100% 语句/75% 分支/100% 函数/100% 行；Extension 覆盖率 100% 语句/50% 分支；MCP 覆盖率已提升到 91.93% 语句/90.50% 分支/93.22% 函数/92.17% 行 | 建立可持续覆盖率门禁 | 部分完成：MCP 单包覆盖率已达到 90% 目标，Web 入口覆盖率已大幅提升；core/UI 覆盖率仍需提升到交付目标 | 开发 | P2 | in_progress |
+| XC-P2-004 | XC | 覆盖率体系不足，无法证明全项目质量 | 软件测试 | 中 | core 覆盖率 69.13% 语句/58.02% 分支；UI 覆盖率 42.57% 语句/34.7% 分支；Web 覆盖率 100% 语句/75% 分支/100% 函数/100% 行；Extension 覆盖率 100% 语句/50% 分支；MCP 覆盖率已提升到 91.93% 语句/90.50% 分支/93.22% 函数/92.17% 行 | 建立可持续覆盖率门禁 | 部分完成：MCP 单包覆盖率已达到 90% 目标，Web 入口覆盖率已大幅提升，core compare/model validation 已补测试；core/UI 覆盖率仍需提升到交付目标 | 开发 | P2 | in_progress |
 | XC-P2-005 | XC | 全仓递归单元测试入口存在资源稳定性问题 | 软件测试 | 中 | `pnpm test:unit` 曾在 core、mcp-server、UI 测试通过后，启动 Web/Extension 子进程时失败：`spawn sh EAGAIN`；串行后又暴露 core/UI 时间敏感测试 | 让全仓单元测试入口可重复运行 | 已通过：`pnpm test:unit` 串行执行 core、mcp-server、UI、Extension、Web 全部通过 | 开发 | P2 | closed |
-| XC-P2-006 | XC | 本地提交尚未同步到远端并缺少远端 CI/PR 证明 | 治理/交付 | 中 | R18 收口前 `develop` 仍领先 `origin/develop`，且存在未归属 Harness 未跟踪文件；本轮未执行 push | 形成共享交付基线 | 推送到远端分支或打开 PR，并通过远端 CI/代码评审门禁；另行确认 Harness 文件归属 | 开发/发布负责人 | P2 | open |
+| XC-P2-006 | XC | 本地提交尚未同步到远端并缺少远端 CI/PR 证明 | 治理/交付 | 中 | R19 收口前 `develop` 仍领先 `origin/develop`，且存在未归属 Harness 未跟踪文件；本轮未执行 push | 形成共享交付基线 | 推送到远端分支或打开 PR，并通过远端 CI/代码评审门禁；另行确认 Harness 文件归属 | 开发/发布负责人 | P2 | open |
 
 ## 4. 三类专项行动
 
@@ -330,7 +342,7 @@ R18 变化依据：
 
 - 剩余 P1（`XC-P1-001`）关闭或降级。（已完成 R13）
 - 健康度、功能完整性、软件测试三项完成复核。（已完成第一轮）
-- 生成可计算总分。（已完成第一轮，R18 当前 91.4）
+- 生成可计算总分。（已完成第一轮，R19 当前 91.6）
 - 项目状态从“B 类待补短板”升级为“可继续开发，具备交付准备入口”，或明确降级原因。
 
 ## 7. 复评机制
@@ -369,6 +381,7 @@ git status --short --branch
 | XC | 90.6 | 91.0 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（MCP 覆盖率提升） | 继续提升 MCP `index.ts`、core/UI/Web 覆盖率；推送/PR 后获取远端 CI 证明 |
 | XC | 91.0 | 91.2 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（MCP 单包覆盖率达 90%） | 转向 core/UI/Web 覆盖率补强；推送/PR 后获取远端 CI 证明 |
 | XC | 91.2 | 91.4 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（Web 覆盖率提升，core 变量提取服务补测） | 继续提升 core/UI 覆盖率；推送/PR 后获取远端 CI 证明 |
+| XC | 91.4 | 91.6 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core compare/model validation 补测） | 继续提升 core/UI 覆盖率；推送/PR 后获取远端 CI 证明 |
 
 ## 8. 项目组合决策表
 
@@ -492,6 +505,12 @@ git status --short --branch
 | 2026-06-06 | 全仓单元测试 R18 | `pnpm test:unit` | 通过，core 1185 passed / 152 skipped；mcp-server 82 passed；UI 887 passed / 1 todo；Extension 2 passed；Web 4 passed | R18 新增 core/web 测试已进入全仓单元测试入口 |
 | 2026-06-06 | Lint/Typecheck R18 | `pnpm lint` | 通过 | R18 测试补强后，UI/MCP lint 与 core/UI/MCP/Web/Extension typecheck 仍通过 |
 | 2026-06-06 | 工作区格式 R18 | `git diff --check` | 通过 | R18 改动无空白错误 |
+| 2026-06-06 | Core 局部测试 R19 | `pnpm -F @prompt-optimizer/core exec vitest run tests/unit/compare/service.spec.ts tests/unit/model/validation.spec.ts` | 通过，2 files passed，11 tests passed | compare 服务和模型参数验证边界已有离线单元测试证明 |
+| 2026-06-06 | Core 覆盖率 R19 | `pnpm -F @prompt-optimizer/core test:coverage` | 通过，128 files passed / 18 skipped，1196 tests passed / 152 skipped；覆盖率 69.13% statements、58.02% branches、72.92% functions、69.73% lines | core 总覆盖率继续提升，compare 服务提升到 94.93% statements，model validation 提升到 100% |
+| 2026-06-06 | 根仓库治理门禁 R19 | `pnpm test:repo` | 通过，34 个 node:test 子测试通过，locale parity 通过，no-Chinese-runtime 通过 | R19 测试补强未破坏仓库治理门禁 |
+| 2026-06-06 | 全仓单元测试 R19 | `pnpm test:unit` | 通过，core 1196 passed / 152 skipped；mcp-server 82 passed；UI 887 passed / 1 todo；Extension 2 passed；Web 4 passed | R19 新增 core 测试已进入全仓单元测试入口 |
+| 2026-06-06 | Lint/Typecheck R19 | `pnpm lint` | 通过 | R19 测试补强后，UI/MCP lint 与 core/UI/MCP/Web/Extension typecheck 仍通过 |
+| 2026-06-06 | 工作区格式 R19 | `git diff --check` | 通过 | R19 改动无空白错误 |
 
 ## 10. 当前工作区改动归属
 
@@ -522,3 +541,4 @@ git status --short --branch
 | `packages/mcp-server/src/index.ts`、`packages/mcp-server/tests/index-http-app.test.ts`、`packages/mcp-server/tests/index-process-handlers.test.ts` | 本轮 MCP 覆盖率修复 | 已确认 | HTTP app healthz/CORS/auth/session、startup error、uncaught rejection 和 shutdown signal 处理已有自动化证明 |
 | `packages/web/tests/unit/main-entry.spec.ts` | 本轮 Web 覆盖率修复 | 已确认 | Web 入口的 locale watcher、英文 lang 分支和 Vercel Analytics 加载成功/失败分支已有自动化证明 |
 | `packages/core/tests/unit/variable-extraction/service.spec.ts`、`packages/core/tests/unit/utils/error.spec.ts` | 本轮 core 覆盖率修复 | 已确认 | 变量提取服务请求校验、模型/模板校验、JSON 修复解析、去重过滤、执行错误和公共错误归一化已有离线测试证明 |
+| `packages/core/tests/unit/compare/service.spec.ts`、`packages/core/tests/unit/model/validation.spec.ts` | 本轮 core 覆盖率修复 | 已确认 | compare 服务词级/字符级/空白大小写对比和模型参数类型、范围、未知参数、危险参数、provider 过滤已有离线测试证明 |
