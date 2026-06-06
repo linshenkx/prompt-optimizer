@@ -13,11 +13,11 @@
 ## 📊 项目状态
 
 - **当前版本**：v2.11.5
-- **项目完成度**：94.8（第三十二轮五项质量复评总分；上一版 98% 不再作为质量状态使用）
+- **项目完成度**：94.8（第三十三轮五项质量复评总分；上一版 98% 不再作为质量状态使用）
 - **当前阶段**：质量执行闭环与 P2 补强冲刺
 - **最新更新**：2026年6月6日
 - **当前质量基线**：`XC-QG-20260606-001`
-- **当前复评版本**：`XC-QG-20260606-R32`
+- **当前复评版本**：`XC-QG-20260606-R33`
 
 ## 🎯 功能规划
 
@@ -47,6 +47,7 @@
 
 ## 📈 里程碑
 
+- **2026-06-06**：第三十三轮质量复评 XC-QG-20260606-R33，总分 94.8，Dexie 存储 provider 补齐 CRUD、原子更新、并发锁、批量事务、导入导出、统计、fallback 和错误包装测试，core 覆盖率提升到 75.67% statements / 61.14% branches
 - **2026-06-06**：第三十二轮质量复评 XC-QG-20260606-R32，总分 94.8，图像存储服务补齐 IndexedDB/Dexie CRUD、统计、批量删除、过期清理、reject/evict 配额和工厂函数测试，core 覆盖率提升到 74.63% statements / 60.82% branches；UI 全局测试超时调整到 15s，根级 `pnpm test:unit` 恢复完整通过
 - **2026-06-06**：第三十一轮质量复评 XC-QG-20260606-R31，总分 94.4，桌面端 Electron 代理继续补齐 data/LLM/image/imageModel/favorite IPC 转发、stream callback 适配、工具流回退、错误映射和缺失桥接测试，core 覆盖率提升到 73.50% statements / 60.17% branches
 - **2026-06-06**：第三十轮质量复评 XC-QG-20260606-R30，总分 94.2，桌面端 Electron 代理补齐 prompt/model/template/history/preference/context IPC 转发、序列化和缺失桥接测试，core 覆盖率提升到 72.40% statements / 59.68% branches

@@ -411,6 +411,20 @@ R32 变化依据：
 - 软件测试维持 99 而不升到 100：目标测试、core 覆盖率、根级单元测试、仓库治理门禁、lint/typecheck、build 和空白检查均通过；但 core 总覆盖率 74.63% statements / 60.82% branches、UI 43.22% statements / 35.25% branches 仍明显低于 90% 交付目标，`XC-P2-004` 不能关闭。
 - 治理成熟度维持 92：PR #311 仍受 Vercel 授权阻塞，3 个 checks 失败原因仍为 `Authorization required to deploy`，`XC-P2-006` 不能关闭。
 
+第三十三轮复评快照（2026-06-06）：
+
+| 项目 | 当前总分 | 健康度 | 功能完整性 | 软件测试 | 中文化 | 治理成熟度 | 当前状态 | P0 数量 | P1 数量 | 结论日期 | 复评版本 |
+|---|---:|---:|---:|---:|---:|---:|---|---:|---:|---|---|
+| XC | 94.8 | 92 | 99 | 99 | 92 | 92 | B 类：继续开发，但先补短板 | 0 | 0 | 2026-06-06 | XC-QG-20260606-R33 / package 2.11.5 / local validation passed / Vercel auth pending |
+
+R33 变化依据：
+
+- 新增 Dexie 存储 provider 离线单元测试，覆盖 `setItem/getItem/removeItem/clearAll`、JSON 数据保存、`updateData/atomicUpdate`、同 key 并发原子更新、混合 `batchUpdate`、`exportAll/importAll`、`getStorageInfo`、事务降级 fallback 和表操作失败后的 `StorageError` 包装。
+- core 覆盖率从 74.63% statements / 60.82% branches / 83.70% functions / 75.35% lines 提升到 75.67% statements / 61.14% branches / 84.81% functions / 76.40% lines；core 测试从 134 files / 1283 tests 提升到 135 files / 1291 tests。
+- 本地验证已通过：`pnpm test:unit`、`pnpm test:repo`、`pnpm lint`、`pnpm build`、`git diff --check` 均成功。
+- 软件测试维持 99 而不升到 100：Dexie 持久化数据闭环已从“集成测试中禁用”转为可重复 fake IndexedDB 单元证明，但 core 总覆盖率 75.67% statements / 61.14% branches、UI 43.22% statements / 35.25% branches 仍明显低于 90% 交付目标，`XC-P2-004` 不能关闭。
+- 健康度、功能完整性、中文化、治理成熟度暂不调整：本轮降低的是 core 持久化测试风险；PR #311 的 Vercel 授权阻塞仍未解除，`XC-P2-006` 不能关闭。
+
 当前执行状态（2026-06-06）：
 
 - 初始 P1：5 个。
@@ -435,7 +449,7 @@ R32 变化依据：
 | XC-P2-001 | XC | 英文兜底错误和导出分享英文残留 | 中文化 | 中 | 中文化评估定位 `Unknown error`、导入导出错误、分享导出默认英文标签；R14 新增 zh-CN 页面级 E2E smoke | 中文主路径错误和主页面文案可理解 | 已完成：`Unknown error` 源码兜底已基本清零，导入/导出、公共错误工具、收藏分享导出入口和主路径页面均有中文化自动化证据 | 前端 | P2 | closed |
 | XC-P2-002 | XC | 风险台账缺少 owner、等级、处置状态 | 风险治理 | 中 | 项目状态风险章节曾缺少负责人、风险等级、处置状态和复评日期 | 建立可追踪风险台账 | 已完成：项目状态风险章节已升级为统一风险台账，包含风险ID、等级、Owner、当前状态、当前证据、处置建议、下一步和复评日期 | PM | P2 | closed |
 | XC-P2-003 | XC | MCP smoke 尚未覆盖真实 LLM 成功调用 | 功能/交付 | 中 | R15 已在有效 `DEEPSEEK_API_KEY` 环境下执行 `pnpm mcp:smoke:real`，通过 HTTP MCP 连接、tools/list 和 `generate-wiki-prompt` 真实调用，返回 `provider=deepseek`、5 个 tools、`textLength=963` | 补真实模型环境下的成功调用验收 | 已完成：真实 MCP LLM 成功路径有可复现脚本、真实 provider 和输出摘要证据 | 开发/集成方 | P2 | closed |
-| XC-P2-004 | XC | 覆盖率体系不足，无法证明全项目质量 | 软件测试 | 中 | core 覆盖率 74.63% 语句/60.82% 分支；UI 覆盖率 43.22% 语句/35.25% 分支；Web 覆盖率 100% 语句/75% 分支/100% 函数/100% 行；Extension 覆盖率 100% 语句/50% 分支；MCP 覆盖率已提升到 91.93% 语句/90.50% 分支/93.22% 函数/92.17% 行 | 建立可持续覆盖率门禁 | 部分完成：MCP 单包覆盖率已达到 90% 目标，Web 入口覆盖率已大幅提升，core variable extraction/variable value generation/image understanding/image storage/PromptService message optimization/Electron proxy IPC forwarding/compare/model validation/prompt factory/IPC serialization/model errors/image input normalizer 已补测试，UI FavoriteListItem/EvaluateButton/FeedbackEditor/FocusAnalyzeButton 用户入口已有行为测试；根级 `pnpm test:unit` 已恢复完整通过；core/UI 覆盖率仍需提升到交付目标 | 开发 | P2 | in_progress |
+| XC-P2-004 | XC | 覆盖率体系不足，无法证明全项目质量 | 软件测试 | 中 | core 覆盖率 75.67% 语句/61.14% 分支；UI 覆盖率 43.22% 语句/35.25% 分支；Web 覆盖率 100% 语句/75% 分支/100% 函数/100% 行；Extension 覆盖率 100% 语句/50% 分支；MCP 覆盖率已提升到 91.93% 语句/90.50% 分支/93.22% 函数/92.17% 行 | 建立可持续覆盖率门禁 | 部分完成：MCP 单包覆盖率已达到 90% 目标，Web 入口覆盖率已大幅提升，core variable extraction/variable value generation/image understanding/image storage/Dexie storage provider/PromptService message optimization/Electron proxy IPC forwarding/compare/model validation/prompt factory/IPC serialization/model errors/image input normalizer 已补测试，UI FavoriteListItem/EvaluateButton/FeedbackEditor/FocusAnalyzeButton 用户入口已有行为测试；根级 `pnpm test:unit` 已恢复完整通过；core/UI 覆盖率仍需提升到交付目标 | 开发 | P2 | in_progress |
 | XC-P2-005 | XC | 全仓递归单元测试入口存在资源稳定性问题 | 软件测试 | 中 | `pnpm test:unit` 曾在 core、mcp-server、UI 测试通过后，启动 Web/Extension 子进程时失败：`spawn sh EAGAIN`；串行后又暴露 core/UI 时间敏感测试 | 让全仓单元测试入口可重复运行 | 已通过：`pnpm test:unit` 串行执行 core、mcp-server、UI、Extension、Web 全部通过 | 开发 | P2 | closed |
 | XC-P2-006 | XC | 远端 CI/PR 证明未完全通过 | 治理/交付 | 中 | 上游直推失败：GitHub 403，账号 `Jiumilu` 对上游只有 READ；已创建 fork `Jiumilu/prompt-optimizer`、推送 `codex/xiaoc-quality-baseline` 并创建上游 PR #311；PR 为 open/mergeable；3 个 Vercel checks 均失败，原因是 `Authorization required to deploy` | 形成共享交付基线 | 获取 Vercel 授权或由上游维护者批准/重跑 checks，并通过远端 CI/代码评审门禁；另行确认 Harness 文件归属 | 开发/发布负责人 | P2 | in_progress |
 
@@ -562,6 +576,7 @@ git status --short --branch
 | XC | 94.0 | 94.2 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core Electron 代理 runtime 补测和覆盖率提升） | 获取 Vercel 授权或维护者批准 checks；继续提升 core/UI 覆盖率 |
 | XC | 94.2 | 94.4 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core Electron 代理 runtime 补测和覆盖率提升） | 获取 Vercel 授权或维护者批准 checks；继续提升 core/UI 覆盖率 |
 | XC | 94.4 | 94.8 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core 图像存储补测，根单元入口恢复完整通过） | 获取 Vercel 授权或维护者批准 checks；继续提升 core/UI 覆盖率 |
+| XC | 94.8 | 94.8 | 无 | 无新增 P1；`XC-P2-004`、`XC-P2-006` 仍未关闭 | B 类待补短板 -> B 类待补短板（core Dexie provider 数据闭环补测，覆盖率提升但未达标） | 获取 Vercel 授权或维护者批准 checks；继续提升 core/UI 覆盖率 |
 
 ## 8. 项目组合决策表
 
@@ -795,6 +810,13 @@ git status --short --branch
 | 2026-06-06 | Lint/Typecheck R32 | `pnpm lint` | 通过 | R32 新增 core 测试、UI 测试配置和文档更新后，UI/MCP lint 与 core/UI/MCP/Web/Extension typecheck 仍通过 |
 | 2026-06-06 | 构建 R32 | `pnpm build` | 通过 | R32 新增测试依赖和测试配置后，core、UI、Web、Extension 仍可构建 |
 | 2026-06-06 | 工作区格式 R32 | `git diff --check` | 通过 | R32 改动无空白错误 |
+| 2026-06-06 | Core 目标测试 R33 | `pnpm -F @prompt-optimizer/core exec vitest run tests/unit/storage/dexieStorageProvider.test.ts` | 通过，1 file passed，8 tests passed | Dexie 存储 provider CRUD、JSON 数据、原子更新、并发锁、批量事务、导入导出、统计信息、fallback 和错误包装已有离线单元测试证明 |
+| 2026-06-06 | Core 覆盖率 R33 | `pnpm -F @prompt-optimizer/core test:coverage` | 通过，135 passed / 18 skipped，1291 passed / 152 skipped；覆盖率 75.67% statements、61.14% branches、84.81% functions、76.40% lines | core 覆盖率继续提升，Dexie 持久化 provider 从集成测试禁用状态转为可重复 fake IndexedDB 自动化证明 |
+| 2026-06-06 | 全仓单元测试 R33 | `pnpm test:unit` | 通过，core 1291 passed / 152 skipped；mcp-server 82 passed；UI 906 passed / 1 todo；Extension 2 passed；Web 4 passed | R33 新增 core Dexie provider 测试已进入根级单元测试入口 |
+| 2026-06-06 | 根仓库治理门禁 R33 | `pnpm test:repo` | 通过，34 个 node:test 子测试通过，locale parity 通过，no-Chinese-runtime 通过 | R33 测试补强未破坏仓库治理门禁 |
+| 2026-06-06 | Lint/Typecheck R33 | `pnpm lint` | 通过 | R33 新增 core 测试和文档更新后，UI/MCP lint 与 core/UI/MCP/Web/Extension typecheck 仍通过 |
+| 2026-06-06 | 构建 R33 | `pnpm build` | 通过 | R33 新增测试和文档更新后，core、UI、Web、Extension 仍可构建 |
+| 2026-06-06 | 工作区格式 R33 | `git diff --check` | 通过 | R33 改动无空白错误 |
 
 ## 10. 当前工作区改动归属
 
@@ -841,5 +863,6 @@ git status --short --branch
 | `packages/core/tests/unit/services/electron-proxies-runtime.test.ts` | 本轮 core 覆盖率和桌面端功能闭环修复 | 已确认 | Electron data/LLM/image/imageModel/favorite runtime 代理 IPC 转发、序列化、stream callback、fallback、错误映射和缺失桥接已有离线测试证明 |
 | `packages/ui/tests/unit/components/FavoriteManager.spec.ts` | 本轮测试稳定性修复 | 已确认 | 全仓负载下出现 5s 超时的两个外部刷新重交互用例已设置局部超时，单包/全仓复跑均通过 |
 | `packages/core/tests/unit/image/storage.test.ts`、`packages/core/package.json`、`pnpm-lock.yaml` | 本轮 core 覆盖率和图像数据闭环修复 | 已确认 | 图像存储服务 IndexedDB/Dexie CRUD、统计、删除、过期清理、reject/evict 配额和工厂函数已有离线测试证明；新增 `fake-indexeddb` 仅作为 core 测试期依赖 |
+| `packages/core/tests/unit/storage/dexieStorageProvider.test.ts` | 本轮 core 覆盖率和持久化数据闭环修复 | 已确认 | Dexie 存储 provider 的 CRUD、原子更新、并发锁、批量事务、导入导出、统计、fallback 和错误包装已有 fake IndexedDB 离线测试证明 |
 | `packages/ui/vitest.config.ts` | 本轮测试稳定性修复 | 已确认 | UI 组件测试全局 timeout 从 5s 调整到 15s；标准 UI 包测试和根级 `pnpm test:unit` 均已通过 |
-| Fork remote `fork`、PR #311 | 本轮治理/交付补强 | 已确认 | fork 分支 `codex/xiaoc-quality-baseline` 已推送到 R32；上游 PR #311 已 open/mergeable；Vercel checks 因授权失败未通过 |
+| Fork remote `fork`、PR #311 | 本轮治理/交付补强 | 已确认 | fork 分支 `codex/xiaoc-quality-baseline` 已推送到 R33；上游 PR #311 已 open/mergeable；Vercel checks 因授权失败未通过 |
