@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { OpenAIAdapter } from '../../../src/services/llm/adapters/openai-adapter';
 import { OpenAICompatibleAdapter } from '../../../src/services/llm/adapters/openai-compatible-adapter';
 import type { TextModelConfig, Message } from '../../../src/services/llm/types';
+import { normalizeCustomRequestHeaders } from '../../../src/utils/custom-request-headers';
 
 // 创建 mock OpenAI 实例
 let mockOpenAIInstance: any;
@@ -462,6 +463,94 @@ describe('OpenAIAdapter', () => {
       expect(mockOpenAIConfig?.defaultHeaders).toEqual({
         'x-auth-token': 'gateway-token'
       });
+    });
+
+    it('should route browser openai-compatible requests through same-origin proxy', async () => {
+      const originalWindow = (globalThis as any).window;
+      const originalFetch = (globalThis as any).fetch;
+      const runtimeFetch = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));
+
+      (globalThis as any).window = {
+        location: {
+          origin: 'http://localhost:8085',
+          href: 'http://localhost:8085/#/basic/system'
+        }
+      };
+      (globalThis as any).fetch = runtimeFetch;
+
+      mockOpenAIInstance.chat.completions.create.mockResolvedValue({
+        id: 'chatcmpl-custom',
+        object: 'chat.completion',
+        created: Date.now(),
+        model: 'custom-model',
+        choices: [{
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: 'ok'
+          },
+          finish_reason: 'stop'
+        }]
+      });
+
+      const compatibleConfig: TextModelConfig = {
+        ...mockConfig,
+        id: 'openai-compatible',
+        name: 'OpenAI Compatible (Custom)',
+        providerMeta: openAICompatibleAdapter.getProvider(),
+        modelMeta: openAICompatibleAdapter.buildDefaultModel('gpt-5.5'),
+        connectionConfig: {
+          baseURL: 'https://gateway.example.com/v1',
+          apiKey: 'gateway-key',
+          requestStyle: 'chat_completions',
+          customHeaders: [
+            { key: 'x-auth-token', value: 'gateway-token' }
+          ]
+        }
+      };
+
+      try {
+        await openAICompatibleAdapter.sendMessage(mockMessages, compatibleConfig);
+
+        expect(mockOpenAIConfig?.baseURL).toBe('http://localhost:8085/api/openai-compatible-proxy');
+        expect(mockOpenAIConfig?.dangerouslyAllowBrowser).toBe(true);
+        expect(typeof mockOpenAIConfig?.fetch).toBe('function');
+        expect(mockOpenAIConfig?.defaultHeaders).toBeUndefined();
+
+        await mockOpenAIConfig.fetch('http://localhost:8085/api/openai-compatible-proxy/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer gateway-key',
+            'Content-Type': 'application/json',
+            'x-auth-token': 'gateway-token'
+          },
+          body: JSON.stringify({ model: 'gpt-5.5', messages: [{ role: 'user', content: 'Hello, world!' }] })
+        });
+
+        const [input, requestInit] = runtimeFetch.mock.calls[0];
+        expect(input).toBe('http://localhost:8085/api/openai-compatible-proxy/chat/completions');
+        expect(requestInit.credentials).toBeUndefined();
+
+        const outgoingHeaders = new Headers(requestInit.headers);
+        expect(outgoingHeaders.get('authorization')).toBe('Bearer gateway-key');
+        expect(outgoingHeaders.get('content-type')).toBe('application/json');
+        expect(outgoingHeaders.get('x-po-target-base-url')).toBe('https://gateway.example.com/v1');
+        expect(outgoingHeaders.get('x-po-custom-headers')).toBe(
+          JSON.stringify(normalizeCustomRequestHeaders(compatibleConfig.connectionConfig.customHeaders as any))
+        );
+      } finally {
+        if (originalWindow === undefined) {
+          delete (globalThis as any).window;
+        } else {
+          (globalThis as any).window = originalWindow;
+        }
+
+        if (originalFetch === undefined) {
+          delete (globalThis as any).fetch;
+        } else {
+          (globalThis as any).fetch = originalFetch;
+        }
+      }
     });
 
     it('should not apply custom request headers to the official OpenAI provider', async () => {
