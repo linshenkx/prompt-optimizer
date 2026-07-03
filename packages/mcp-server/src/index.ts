@@ -43,6 +43,187 @@ import { registerHealthzRoute } from './health.js';
 import { randomUUID } from 'node:crypto';
 import express from 'express';
 
+const OPENAI_COMPATIBLE_PROXY_PATH = '/api/openai-compatible-proxy';
+const OPENAI_PROXY_BASE_URL_HEADER = 'x-po-target-base-url';
+const OPENAI_PROXY_CUSTOM_HEADERS_HEADER = 'x-po-custom-headers';
+const HOP_BY_HOP_HEADERS = new Set([
+  'connection',
+  'content-length',
+  'host',
+  'keep-alive',
+  'proxy-authenticate',
+  'proxy-authorization',
+  'te',
+  'trailer',
+  'transfer-encoding',
+  'upgrade',
+  'content-encoding'
+]);
+
+function parseProxyJsonHeader(value: string | undefined): Record<string, string> | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return undefined;
+    }
+
+    const result: Record<string, string> = {};
+    Object.entries(parsed).forEach(([key, rawValue]) => {
+      if (typeof rawValue === 'string') {
+        result[key] = rawValue;
+      }
+    });
+
+    return Object.keys(result).length > 0 ? result : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function isAllowedProxyTarget(baseURL: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(baseURL);
+  } catch {
+    return false;
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return false;
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+  if (['localhost', '127.0.0.1', '0.0.0.0', '::1'].includes(hostname)) {
+    return false;
+  }
+
+  return true;
+}
+
+function extractJsonRpcId(body: unknown): string | number | null {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return null;
+  }
+
+  const candidate = (body as { id?: unknown }).id;
+  if (typeof candidate === 'string' || typeof candidate === 'number' || candidate === null) {
+    return candidate;
+  }
+
+  return null;
+}
+
+async function proxyOpenAICompatibleRequest(
+  req: express.Request,
+  res: express.Response,
+  upstreamPath: string
+): Promise<void> {
+  const targetBaseURL = String(req.header(OPENAI_PROXY_BASE_URL_HEADER) || '').trim();
+  if (!targetBaseURL || !isAllowedProxyTarget(targetBaseURL)) {
+    res.status(400).json({ error: 'Invalid upstream base URL' });
+    return;
+  }
+
+  const normalizedBase = targetBaseURL.endsWith('/') ? targetBaseURL : `${targetBaseURL}/`;
+  const cleanPath = upstreamPath.startsWith('/') ? upstreamPath.slice(1) : upstreamPath;
+  const targetURL = new URL(cleanPath, normalizedBase);
+
+  const headers = new Headers();
+  const authorization = req.header('authorization');
+  if (authorization) {
+    headers.set('authorization', authorization);
+  }
+
+  const contentType = req.header('content-type');
+  if (contentType) {
+    headers.set('content-type', contentType);
+  }
+
+  const customHeaders = parseProxyJsonHeader(req.header(OPENAI_PROXY_CUSTOM_HEADERS_HEADER));
+  if (customHeaders) {
+    Object.entries(customHeaders).forEach(([key, value]) => {
+      headers.set(key, value);
+    });
+  }
+
+  logger.info(`Proxying openai-compatible request to ${targetURL.origin}${targetURL.pathname}`);
+
+  const upstreamResponse = await fetch(targetURL, {
+    method: req.method,
+    headers,
+    body: req.method === 'GET' ? undefined : JSON.stringify(req.body),
+    signal: AbortSignal.timeout(300000)
+  });
+
+  logger.info(`Upstream response status: ${upstreamResponse.status} ${upstreamResponse.statusText}`);
+
+  res.status(upstreamResponse.status);
+  upstreamResponse.headers.forEach((value, key) => {
+    if (!HOP_BY_HOP_HEADERS.has(key.toLowerCase())) {
+      res.setHeader(key, value);
+    }
+  });
+
+  const body = upstreamResponse.body;
+  if (!body) {
+    res.end();
+    return;
+  }
+
+  const reader = body.getReader();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    if (value) {
+      res.write(Buffer.from(value));
+    }
+  }
+
+  res.end();
+}
+
+function registerOpenAICompatibleProxyRoutes(app: express.Express): void {
+  app.post(`${OPENAI_COMPATIBLE_PROXY_PATH}/chat/completions`, async (req, res) => {
+    try {
+      await proxyOpenAICompatibleRequest(req, res, '/chat/completions');
+    } catch (error) {
+      logger.error('OpenAI-compatible proxy request failed', error as Error);
+      if (!res.headersSent) {
+        res.status(502).json({ error: (error as Error).message || 'Proxy request failed' });
+      }
+    }
+  });
+
+  app.post(`${OPENAI_COMPATIBLE_PROXY_PATH}/responses`, async (req, res) => {
+    try {
+      await proxyOpenAICompatibleRequest(req, res, '/responses');
+    } catch (error) {
+      logger.error('OpenAI-compatible proxy request failed', error as Error);
+      if (!res.headersSent) {
+        res.status(502).json({ error: (error as Error).message || 'Proxy request failed' });
+      }
+    }
+  });
+
+  app.get(`${OPENAI_COMPATIBLE_PROXY_PATH}/models`, async (req, res) => {
+    try {
+      await proxyOpenAICompatibleRequest(req, res, '/models');
+    } catch (error) {
+      logger.error('OpenAI-compatible proxy request failed', error as Error);
+      if (!res.headersSent) {
+        res.status(502).json({ error: (error as Error).message || 'Proxy request failed' });
+      }
+    }
+  });
+}
+
 // 创建服务器实例的工厂函数
 async function createServerInstance(config: MCPServerConfig) {
   // 创建 MCP Server 实例 - 使用正确的 API
@@ -366,19 +547,29 @@ async function main() {
     logger.info('Starting MCP Server for Prompt Optimizer');
     logger.info(`Transport: ${transport}, Port: ${port}`);
 
-    // 初始化 Core 服务（一次性，用于验证配置）
-    logger.info('Initializing Core services...');
-    const coreServices = CoreServicesManager.getInstance();
-    await coreServices.initialize(config);
-    logger.info('Core services initialized successfully');
-
     // 启动传输层
     if (transport === 'http') {
       logger.info('Starting HTTP server with session management...');
-      // 使用 Express 和会话管理支持多客户端连接
       const app = express();
       app.use(express.json());
-      registerHealthzRoute(app, coreServices);
+
+      // 代理路由不依赖 Core 服务，优先注册
+      registerOpenAICompatibleProxyRoutes(app);
+
+      // 初始化 Core 服务（需要 API Key，失败不影响代理功能）
+      let coreServices: CoreServicesManager | null = null;
+      try {
+        logger.info('Initializing Core services...');
+        coreServices = CoreServicesManager.getInstance();
+        await coreServices.initialize(config);
+        logger.info('Core services initialized successfully');
+      } catch (initError) {
+        logger.warn('Core services initialization failed, MCP tools unavailable', initError as Error);
+      }
+
+      if (coreServices) {
+        registerHealthzRoute(app, coreServices);
+      }
       logger.info('Express app configured');
 
       // 存储每个会话的传输实例
@@ -394,6 +585,18 @@ async function main() {
           // 重用现有传输
           httpTransport = transports[sessionId];
         } else if (!sessionId && isInitializeRequest(req.body)) {
+          if (!coreServices) {
+            res.status(503).json({
+              jsonrpc: '2.0',
+              error: {
+                code: -32000,
+                message: 'MCP tools are unavailable because Core services failed to initialize',
+              },
+              id: extractJsonRpcId(req.body),
+            });
+            return;
+          }
+
           // 新的初始化请求 - 为每个会话创建独立的服务器实例
           httpTransport = new StreamableHTTPServerTransport({
             sessionIdGenerator: () => randomUUID(),
@@ -467,7 +670,7 @@ async function main() {
       logger.info('HTTP server setup completed');
     } else {
       // stdio 模式 - 创建单个服务器实例
-      const { server } = await createServerInstance(config);
+      const { server, coreServices } = await createServerInstance(config);
       await setupServerHandlers(server, coreServices);
 
       const stdioTransport = new StdioServerTransport();

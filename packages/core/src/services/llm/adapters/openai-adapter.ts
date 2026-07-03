@@ -2,6 +2,11 @@ import OpenAI from 'openai'
 import { AbstractTextProviderAdapter } from './abstract-adapter'
 import { APIError } from '../errors'
 import { normalizeCustomRequestHeaders } from '../../../utils/custom-request-headers'
+
+const OPENAI_COMPATIBLE_PROXY_PATH = '/api/openai-compatible-proxy'
+const OPENAI_PROXY_BASE_URL_HEADER = 'x-po-target-base-url'
+const OPENAI_PROXY_REQUEST_STYLE_HEADER = 'x-po-request-style'
+const OPENAI_PROXY_CUSTOM_HEADERS_HEADER = 'x-po-custom-headers'
 import type {
   TextProvider,
   TextModel,
@@ -732,16 +737,54 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     return sanitized
   }
 
-  private getCustomDefaultHeaders(config: TextModelConfig): Record<string, string> | undefined {
-    const isCustomOpenAICompatible =
-      this.getProvider().id === 'openai-compatible' ||
-      config.providerMeta?.id === 'openai-compatible'
+  private isCustomOpenAICompatibleProvider(config: TextModelConfig): boolean {
+    return this.getProvider().id === 'openai-compatible' || config.providerMeta?.id === 'openai-compatible'
+  }
 
-    if (!isCustomOpenAICompatible) {
+  private shouldUseSameOriginProxy(config: TextModelConfig): boolean {
+    if (typeof window === 'undefined') {
+      return false
+    }
+
+    return this.isCustomOpenAICompatibleProvider(config)
+  }
+
+  private getSameOriginProxyBaseURL(): string | undefined {
+    if (typeof window === 'undefined' || !window.location?.origin) {
+      return undefined
+    }
+
+    return `${window.location.origin}${OPENAI_COMPATIBLE_PROXY_PATH}`
+  }
+
+  private getCustomDefaultHeaders(config: TextModelConfig): Record<string, string> | undefined {
+    if (!this.isCustomOpenAICompatibleProvider(config) || this.shouldUseSameOriginProxy(config)) {
       return undefined
     }
 
     return normalizeCustomRequestHeaders(config.connectionConfig?.customHeaders as any)
+  }
+
+  private appendSameOriginProxyHeaders(
+    config: TextModelConfig,
+    headers: Headers
+  ): Headers {
+    const baseURL = typeof config.connectionConfig?.baseURL === 'string'
+      ? config.connectionConfig.baseURL.trim()
+      : ''
+
+    if (baseURL) {
+      headers.set(OPENAI_PROXY_BASE_URL_HEADER, baseURL)
+    }
+
+    headers.set(OPENAI_PROXY_REQUEST_STYLE_HEADER, this.getRequestStyle(config))
+
+    const customHeaders = normalizeCustomRequestHeaders(config.connectionConfig?.customHeaders as any)
+    if (customHeaders) {
+      headers.set(OPENAI_PROXY_CUSTOM_HEADERS_HEADER, JSON.stringify(customHeaders))
+    }
+
+    return headers
   }
 
   // ===== SDK实例创建（从service.ts迁移） =====
@@ -766,6 +809,11 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       processedBaseURL = processedBaseURL.slice(0, -'/chat/completions'.length)
     }
 
+    const useSameOriginProxy = this.shouldUseSameOriginProxy(config)
+    if (useSameOriginProxy) {
+      processedBaseURL = this.getSameOriginProxyBaseURL() || processedBaseURL
+    }
+
     // 创建OpenAI实例配置
     const defaultTimeout = isStream ? 90000 : 60000
     const timeout =
@@ -788,15 +836,18 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     const runtimeFetch =
       typeof globalThis.fetch === 'function' ? globalThis.fetch.bind(globalThis) : undefined
 
-    if (runtimeFetch && (!hasApiKey || typeof window !== 'undefined')) {
+    if (runtimeFetch && (useSameOriginProxy || !hasApiKey || typeof window !== 'undefined')) {
       sdkConfig.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
         let headers = init?.headers
 
-        if (!hasApiKey) {
+        if (useSameOriginProxy) {
+          const proxyHeaders = new Headers(headers)
+          headers = this.appendSameOriginProxyHeaders(config, proxyHeaders)
+        } else if (!hasApiKey) {
           headers = this.stripAuthorizationHeader(headers)
         }
 
-        if (typeof window !== 'undefined' && this.shouldForceCrossOriginCredentialOmit(input)) {
+        if (!useSameOriginProxy && typeof window !== 'undefined' && this.shouldForceCrossOriginCredentialOmit(input)) {
           const sanitizedHeaders = this.sanitizeCrossOriginHeaders(headers)
 
           return runtimeFetch(input, {
