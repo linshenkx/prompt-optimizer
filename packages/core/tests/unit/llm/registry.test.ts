@@ -35,6 +35,13 @@ describe('TextAdapterRegistry', () => {
       expect(adapter.getProvider().id).toBe('deepseek');
     });
 
+    it('should return Atlas Cloud adapter for "atlascloud" provider', () => {
+      const adapter = registry.getAdapter('atlascloud');
+
+      expect(adapter).toBeDefined();
+      expect(adapter.getProvider().id).toBe('atlascloud');
+    });
+
     it('should return Ollama adapter for "ollama" provider', () => {
       const adapter = registry.getAdapter('ollama');
 
@@ -118,11 +125,11 @@ describe('TextAdapterRegistry', () => {
       const providers = registry.getAllProviders();
 
       expect(Array.isArray(providers)).toBe(true);
-      expect(providers.length).toBe(16);
+      expect(providers.length).toBe(17);
 
       const providerIds = providers.map(p => p.id);
       expect(providerIds).toEqual(
-        expect.arrayContaining(['openai', 'openai-compatible', 'deepseek', 'siliconflow', 'zhipu', 'gemini', 'anthropic', 'dashscope', 'openrouter', 'modelscope', 'ollama', 'minimax', 'cloudflare', 'grok', 'chrome-built-in', 'xiaomi-mimo-token-plan'])
+        expect.arrayContaining(['openai', 'openai-compatible', 'deepseek', 'atlascloud', 'siliconflow', 'zhipu', 'gemini', 'anthropic', 'dashscope', 'openrouter', 'modelscope', 'ollama', 'minimax', 'cloudflare', 'grok', 'chrome-built-in', 'xiaomi-mimo-token-plan'])
       );
     });
 

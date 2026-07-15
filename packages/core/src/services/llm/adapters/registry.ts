@@ -11,6 +11,7 @@ import { OpenAICompatibleAdapter } from './openai-compatible-adapter';
 import { AnthropicAdapter } from './anthropic-adapter';
 import { GeminiAdapter } from './gemini-adapter';
 import { DeepseekAdapter } from './deepseek-adapter';
+import { AtlasCloudAdapter } from './atlascloud-adapter';
 import { SiliconflowAdapter } from './siliconflow-adapter';
 import { ZhipuAdapter } from './zhipu-adapter';
 import { DashScopeAdapter } from './dashscope-adapter';
@@ -57,6 +58,7 @@ export class TextAdapterRegistry
     const openaiAdapter = new OpenAIAdapter();
     const openaiCompatibleAdapter = new OpenAICompatibleAdapter();
     const deepseekAdapter = new DeepseekAdapter();
+    const atlasCloudAdapter = new AtlasCloudAdapter();
     const siliconflowAdapter = new SiliconflowAdapter();
     const zhipuAdapter = new ZhipuAdapter();
     const anthropicAdapter = new AnthropicAdapter();
@@ -74,6 +76,7 @@ export class TextAdapterRegistry
     this.adapters.set('openai', openaiAdapter);
     this.adapters.set('openai-compatible', openaiCompatibleAdapter);
     this.adapters.set('deepseek', deepseekAdapter);
+    this.adapters.set('atlascloud', atlasCloudAdapter);
     this.adapters.set('siliconflow', siliconflowAdapter);
     this.adapters.set('zhipu', zhipuAdapter);
     this.adapters.set('anthropic', anthropicAdapter);
