@@ -35,13 +35,50 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { ListToolsRequestSchema, CallToolRequestSchema, isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { CoreServicesManager } from './adapters/core-services.js';
-import { loadConfig, type MCPServerConfig } from './config/environment.js';
+import { loadConfig, validateConfig, type MCPServerConfig } from './config/environment.js';
 import * as logger from './utils/logging.js';
 import { ParameterValidator } from './adapters/parameter-adapter.js';
 import { getTemplateOptions, getDefaultTemplateId } from './config/templates.js';
 import { registerHealthzRoute } from './health.js';
 import { randomUUID } from 'node:crypto';
+import type { Server as HttpServer } from 'node:http';
 import express from 'express';
+import {
+  createHttpSecurityMiddleware,
+  HttpSessionRegistry,
+  type SessionReservation
+} from './http-security.js';
+
+let closeActiveTransport: (() => Promise<void>) | undefined;
+let shutdownStarted = false;
+
+async function closeHttpServer(server: HttpServer): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+async function shutdownGracefully(signal: string): Promise<void> {
+  if (shutdownStarted) {
+    return;
+  }
+  shutdownStarted = true;
+
+  console.log(`Received ${signal}, shutting down gracefully...`);
+  try {
+    await closeActiveTransport?.();
+    process.exit(0);
+  } catch (error) {
+    console.error('Graceful shutdown failed:', (error as Error).message);
+    process.exit(1);
+  }
+}
 
 // 创建服务器实例的工厂函数
 async function createServerInstance(config: MCPServerConfig) {
@@ -355,16 +392,28 @@ async function setupServerHandlers(server: Server, coreServices: CoreServicesMan
 
 async function main() {
   const config = loadConfig();
-  logger.setLogLevel(config.logLevel);
 
   try {
     // 解析命令行参数
     const args = process.argv.slice(2);
     const transport = args.find(arg => arg.startsWith('--transport='))?.split('=')[1] || 'stdio';
-    const port = parseInt(args.find(arg => arg.startsWith('--port='))?.split('=')[1] || config.httpPort.toString());
+    const portOverride = args.find(arg => arg.startsWith('--port='))?.split('=')[1];
+    const hostOverride = args.find(arg => arg.startsWith('--host='))?.split('=')[1];
+    if (!['stdio', 'http'].includes(transport)) {
+      throw new Error(`Unsupported transport: ${transport}`);
+    }
+    if (portOverride !== undefined) {
+      config.httpPort = /^\d+$/.test(portOverride) ? Number(portOverride) : Number.NaN;
+    }
+    if (hostOverride !== undefined) {
+      config.httpHost = hostOverride;
+    }
+
+    validateConfig(config);
+    logger.setLogLevel(config.logLevel);
 
     logger.info('Starting MCP Server for Prompt Optimizer');
-    logger.info(`Transport: ${transport}, Port: ${port}`);
+    logger.info(`Transport: ${transport}, Host: ${config.httpHost}, Port: ${config.httpPort}`);
 
     // 初始化 Core 服务（一次性，用于验证配置）
     logger.info('Initializing Core services...');
@@ -375,52 +424,41 @@ async function main() {
     // 启动传输层
     if (transport === 'http') {
       logger.info('Starting HTTP server with session management...');
-      // 使用 Express 和会话管理支持多客户端连接
       const app = express();
-      app.use(express.json());
       registerHealthzRoute(app, coreServices);
+      app.use('/mcp', createHttpSecurityMiddleware(config));
+      app.use('/mcp', express.json({ limit: config.httpBodyLimitBytes }));
       logger.info('Express app configured');
 
-      // 存储每个会话的传输实例
-      const transports: { [sessionId: string]: StreamableHTTPServerTransport } = {};
+      const transports = new HttpSessionRegistry<StreamableHTTPServerTransport>(
+        config.httpMaxSessions,
+        config.httpSessionTtlMs,
+        Date.now,
+        (error, sessionId) => {
+          logger.warn(`Failed to close expired MCP session ${sessionId}`, error);
+        }
+      );
+      transports.startCleanup();
 
       // 处理 POST 请求（客户端到服务器通信）
       app.post('/mcp', async (req, res) => {
-        // 检查现有会话ID
         const sessionId = req.headers['mcp-session-id'] as string | undefined;
-        let httpTransport: StreamableHTTPServerTransport;
+        if (sessionId) {
+          const existingTransport = transports.get(sessionId);
+          if (!existingTransport) {
+            res.status(404).json({
+              jsonrpc: '2.0',
+              error: { code: -32001, message: 'Session not found' },
+              id: null
+            });
+            return;
+          }
 
-        if (sessionId && transports[sessionId]) {
-          // 重用现有传输
-          httpTransport = transports[sessionId];
-        } else if (!sessionId && isInitializeRequest(req.body)) {
-          // 新的初始化请求 - 为每个会话创建独立的服务器实例
-          httpTransport = new StreamableHTTPServerTransport({
-            sessionIdGenerator: () => randomUUID(),
-            onsessioninitialized: (sessionId) => {
-              // 存储传输实例
-              transports[sessionId] = httpTransport;
-            },
-            // MCP 协议不需要复杂的 CORS 配置，允许所有来源
-            allowedOrigins: ['*'],
-            enableDnsRebindingProtection: false
-          });
+          await existingTransport.handleRequest(req, res, req.body);
+          return;
+        }
 
-          // 清理传输实例
-          httpTransport.onclose = () => {
-            if (httpTransport.sessionId) {
-              delete transports[httpTransport.sessionId];
-            }
-          };
-
-          // 为每个会话创建独立的服务器实例
-          const { server } = await createServerInstance(config);
-          await setupServerHandlers(server, coreServices);
-
-          // 连接到 MCP 服务器
-          await server.connect(httpTransport);
-        } else {
-          // 无效请求
+        if (!isInitializeRequest(req.body)) {
           res.status(400).json({
             jsonrpc: '2.0',
             error: {
@@ -432,38 +470,92 @@ async function main() {
           return;
         }
 
-        // 处理请求
-        await httpTransport.handleRequest(req, res, req.body);
+        let reservation: SessionReservation | undefined = transports.reserve();
+        if (!reservation) {
+          res.status(429).json({
+            jsonrpc: '2.0',
+            error: { code: -32002, message: 'Too many active sessions' },
+            id: null
+          });
+          return;
+        }
+
+        let httpTransport: StreamableHTTPServerTransport | undefined;
+        try {
+          httpTransport = new StreamableHTTPServerTransport({
+            sessionIdGenerator: () => randomUUID(),
+            onsessioninitialized: (sessionId) => {
+              if (!reservation || !httpTransport) {
+                throw new Error('MCP session initialized without a reservation');
+              }
+              transports.register(sessionId, httpTransport, reservation);
+              reservation = undefined;
+            }
+          });
+
+          const registeredTransport = httpTransport;
+          registeredTransport.onclose = () => {
+            if (registeredTransport.sessionId) {
+              transports.delete(registeredTransport.sessionId);
+            }
+          };
+
+          const { server } = await createServerInstance(config);
+          await setupServerHandlers(server, coreServices);
+          await server.connect(httpTransport);
+          await httpTransport.handleRequest(req, res, req.body);
+        } finally {
+          if (reservation) {
+            transports.release(reservation);
+            if (httpTransport) {
+              try {
+                await httpTransport.close();
+              } catch (error) {
+                logger.warn('Failed to close an uninitialized MCP transport', error);
+              }
+            }
+          }
+        }
       });
 
       // 处理 GET 请求（服务器到客户端通知，通过 SSE）
       app.get('/mcp', async (req, res) => {
         const sessionId = req.headers['mcp-session-id'] as string | undefined;
-        if (!sessionId || !transports[sessionId]) {
-          res.status(400).send('Invalid or missing session ID');
+        const httpTransport = sessionId ? transports.get(sessionId) : undefined;
+        if (!httpTransport) {
+          res.status(404).send('Invalid or missing session ID');
           return;
         }
 
-        const httpTransport = transports[sessionId];
         await httpTransport.handleRequest(req, res);
       });
 
       // 处理 DELETE 请求（会话终止）
       app.delete('/mcp', async (req, res) => {
         const sessionId = req.headers['mcp-session-id'] as string | undefined;
-        if (!sessionId || !transports[sessionId]) {
-          res.status(400).send('Invalid or missing session ID');
+        const httpTransport = sessionId ? transports.get(sessionId) : undefined;
+        if (!httpTransport) {
+          res.status(404).send('Invalid or missing session ID');
           return;
         }
 
-        const httpTransport = transports[sessionId];
         await httpTransport.handleRequest(req, res);
       });
 
       logger.info('Setting up HTTP server listener...');
-      app.listen(port, () => {
-        logger.info(`MCP Server running on HTTP port ${port} with session management`);
+      const httpServer = await new Promise<HttpServer>((resolve, reject) => {
+        const server = app.listen(config.httpPort, config.httpHost, () => {
+          server.off('error', reject);
+          resolve(server);
+        });
+        server.once('error', reject);
       });
+      closeActiveTransport = async () => {
+        const closingServer = closeHttpServer(httpServer);
+        await transports.closeAll();
+        await closingServer;
+      };
+      logger.info(`MCP Server running on http://${config.httpHost}:${config.httpPort}/mcp with session management`);
       logger.info('HTTP server setup completed');
     } else {
       // stdio 模式 - 创建单个服务器实例
@@ -500,13 +592,11 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // 优雅关闭
 process.on('SIGINT', () => {
-  console.log('Received SIGINT, shutting down gracefully...');
-  process.exit(0);
+  void shutdownGracefully('SIGINT');
 });
 
 process.on('SIGTERM', () => {
-  console.log('Received SIGTERM, shutting down gracefully...');
-  process.exit(0);
+  void shutdownGracefully('SIGTERM');
 });
 
 // 导出 main 函数供外部调用

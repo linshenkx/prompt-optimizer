@@ -99,8 +99,6 @@ export { default as CategoryManagerUI } from "./components/CategoryManager.vue";
 export { default as SaveFavoriteDialog } from "./components/SaveFavoriteDialog.vue";
 export { default as ContextModeActions } from "./components/context-mode/ContextModeActions.vue";
 export { default as PromptPreviewPanel } from "./components/PromptPreviewPanel.vue";
-export { default as ContextSystemWorkspace } from "./components/context-mode/ContextSystemWorkspace.vue";
-export { default as ContextUserWorkspace } from "./components/context-mode/ContextUserWorkspace.vue";
 export { default as ContextUserTestPanel } from "./components/context-mode/ContextUserTestPanel.vue";
 export { default as ConversationTestPanel } from "./components/context-mode/ConversationTestPanel.vue";
 export { default as FunctionModelManagerUI } from "./components/FunctionModelManager.vue";
@@ -111,6 +109,10 @@ export { default as AppPreviewImageGroup } from "./components/media/AppPreviewIm
 // 如需直接使用，请在应用层通过 router 注册或按需动态导入
 // export { default as BasicSystemWorkspace } from "./components/basic-mode/BasicSystemWorkspace.vue";
 // export { default as BasicUserWorkspace } from "./components/basic-mode/BasicUserWorkspace.vue";
+
+// Pro 工作区同样只由 router 动态导入，避免进入应用首屏 bundle。
+// export { default as ContextSystemWorkspace } from "./components/context-mode/ContextSystemWorkspace.vue";
+// export { default as ContextUserWorkspace } from "./components/context-mode/ContextUserWorkspace.vue";
 
 // App 布局组件
 export { AppHeaderActions, AppCoreNav, PromptOptimizerApp } from "./components/app-layout";
@@ -166,31 +168,20 @@ export {
   DexieStorageProvider,
   ModelManager,
   createModelManager,
-  ElectronModelManagerProxy,
   TemplateManager,
   createTemplateManager,
-  ElectronTemplateManagerProxy,
   createTemplateLanguageService,
-  ElectronTemplateLanguageServiceProxy,
   HistoryManager,
   createHistoryManager,
-  ElectronHistoryManagerProxy,
   DataManager,
   createDataManager,
-  ElectronDataManagerProxy,
   createLLMService,
-  ElectronLLMProxy,
   createPromptService,
-  ElectronPromptServiceProxy,
   createPreferenceService,
-  ElectronPreferenceServiceProxy,
   createCompareService,
   createContextRepo,
-  ElectronContextRepoProxy,
   FavoriteManager,
-  FavoriteManagerElectronProxy,
   isRunningInElectron,
-  waitForElectronApi,
   // 评估服务
   EvaluationService,
   createEvaluationService,
@@ -199,6 +190,22 @@ export {
   // 🆕 变量值生成服务
   createVariableValueGenerationService,
 } from "@prompt-optimizer/core";
+
+export {
+  ElectronContextRepoProxy,
+  ElectronDataManagerProxy,
+  ElectronHistoryManagerProxy,
+  ElectronImageModelManagerProxy,
+  ElectronImageServiceProxy,
+  ElectronLLMProxy,
+  ElectronModelManagerProxy,
+  ElectronPreferenceServiceProxy,
+  ElectronPromptServiceProxy,
+  ElectronTemplateLanguageServiceProxy,
+  ElectronTemplateManagerProxy,
+  FavoriteManagerElectronProxy,
+  waitForElectronApi,
+} from "@prompt-optimizer/core/electron";
 
 // 导出类型
 export type {

@@ -1,9 +1,16 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { readFileSync, readdirSync } from 'node:fs'
-import { join, relative } from 'node:path'
-import { ElectronPromptServiceProxy } from '../../../src/services/prompt/electron-proxy'
+import { describe, expect, it } from 'vitest'
+import { readFileSync, readdirSync, existsSync } from 'node:fs'
+import { dirname, join, relative } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const servicesDir = join(process.cwd(), 'src', 'services')
+/** 兼容 monorepo 根目录或 packages/core 作为 cwd 的两种启动方式。 */
+const servicesDirCandidates = [
+  join(dirname(fileURLToPath(import.meta.url)), '../../../src/services'),
+  join(process.cwd(), 'src', 'services'),
+  join(process.cwd(), 'packages', 'core', 'src', 'services'),
+]
+const servicesDir = servicesDirCandidates.find((candidate) => existsSync(candidate))
+  ?? servicesDirCandidates[0]
 
 const findElectronProxyFiles = (dir: string): string[] => {
   const entries = readdirSync(dir, { withFileTypes: true })
@@ -38,10 +45,6 @@ const SERIALIZATION_REQUIRED = [
 const SAFE_SERIALIZATION = /safeSerializeForIPC|safeSerializeArgs/
 
 describe('Electron proxy IPC serialization guard', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
   it('uses shared IPC serialization in proxies that accept complex payloads', () => {
     const offenders = findElectronProxyFiles(servicesDir)
       .map((path) => ({
@@ -53,39 +56,5 @@ describe('Electron proxy IPC serialization guard', () => {
       .map(({ path }) => relative(process.cwd(), path))
 
     expect(offenders).toEqual([])
-  })
-
-  it('serializes optional test images without changing their raw base64 shape', async () => {
-    const testPrompt = vi.fn(async (..._args: unknown[]) => 'answer')
-    const testPromptStream = vi.fn(async (..._args: unknown[]) => {})
-    vi.stubGlobal('window', {
-      electronAPI: {
-        prompt: {
-          testPrompt,
-          testPromptStream,
-        },
-      },
-    })
-
-    const proxy = new ElectronPromptServiceProxy()
-    const inputImages = [{ b64: 'RAW_IMAGE_PAYLOAD', mimeType: 'image/jpeg' }]
-    const callbacks = {
-      onToken: vi.fn(),
-      onComplete: vi.fn(),
-      onError: vi.fn(),
-    }
-
-    await expect(proxy.testPrompt('system', 'question', 'model', inputImages))
-      .resolves.toBe('answer')
-    await proxy.testPromptStream('system', 'question', 'model', callbacks, inputImages)
-
-    const serializedNonStream = testPrompt.mock.calls[0][3] as Array<{ b64: string; mimeType?: string }>
-    const serializedStream = testPromptStream.mock.calls[0][4] as Array<{ b64: string; mimeType?: string }>
-    expect(serializedNonStream).toEqual(inputImages)
-    expect(serializedStream).toEqual(inputImages)
-    expect(serializedNonStream).not.toBe(inputImages)
-    expect(serializedStream).not.toBe(inputImages)
-    expect(serializedNonStream[0].b64).toBe('RAW_IMAGE_PAYLOAD')
-    expect(serializedStream[0].b64).not.toMatch(/^data:/)
   })
 })

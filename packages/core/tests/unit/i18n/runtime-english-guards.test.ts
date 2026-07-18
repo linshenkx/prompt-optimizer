@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+/** 相对本测试文件定位 packages/core/src，不依赖 process.cwd()。 */
+const corePackageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 
 const readCoreSource = (relativePath: string) =>
-  readFileSync(resolve(process.cwd(), relativePath), 'utf8')
+  readFileSync(resolve(corePackageRoot, relativePath), 'utf8')
 
 describe('core runtime english guards', () => {
   it('keeps prompt and template services free of hardcoded chinese runtime defaults', () => {

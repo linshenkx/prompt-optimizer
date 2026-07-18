@@ -19,6 +19,7 @@ Docker is the simplest deployment method, with both Web interface and MCP server
 docker run -d -p 8081:80 \
   -e VITE_OPENAI_API_KEY=your-openai-key \
   -e MCP_DEFAULT_MODEL_PROVIDER=openai \
+  -e MCP_AUTH_TOKEN=replace-with-a-long-random-token \
   --name prompt-optimizer \
   linshen/prompt-optimizer
 
@@ -83,9 +84,24 @@ MCP_LOG_LEVEL=info
 # HTTP port (optional, default: 3000, not needed for Docker deployment)
 MCP_HTTP_PORT=3000
 
-# Default language (optional, default: zh)
-# Options: zh, en
-MCP_DEFAULT_LANGUAGE=zh
+# HTTP bind host (optional, default: 127.0.0.1)
+# MCP_AUTH_TOKEN is required for every non-loopback host
+MCP_HTTP_HOST=127.0.0.1
+
+# Bearer token (required for Docker; use a long random value)
+MCP_AUTH_TOKEN=replace-with-a-long-random-token
+
+# Browser Origin allowlist (optional, comma-separated; wildcard is rejected)
+MCP_ALLOWED_ORIGINS=https://app.example.com,http://localhost:5173
+
+# Request and session limits (optional)
+MCP_HTTP_BODY_LIMIT=256kb
+MCP_MAX_SESSIONS=100
+MCP_SESSION_TTL_MS=1800000
+
+# Default language (optional, default: en-US)
+# Options: zh-CN, en-US
+MCP_DEFAULT_LANGUAGE=en-US
 ```
 
 ## 🔗 Client Connections
@@ -107,13 +123,16 @@ Create or edit the `services.json` file:
   "services": [
     {
       "name": "Prompt Optimizer",
-      "url": "http://localhost:8081/mcp"
+      "url": "http://localhost:8081/mcp",
+      "headers": {
+        "Authorization": "Bearer replace-with-a-long-random-token"
+      }
     }
   ]
 }
 ```
 
-> **Note**: If you are using developer local deployment (port 3000), please change the URL to `http://localhost:3000/mcp`.
+> **Note**: Docker clients must send the Bearer token configured in `MCP_AUTH_TOKEN`. For local development on the default loopback host without a token, omit `headers` and use `http://localhost:3000/mcp`.
 
 
 
@@ -186,21 +205,14 @@ MCP_DEFAULT_MODEL_PROVIDER=openai  # not OpenAI
 
 #### 4. Docker Deployment 401 Authentication Error
 
-**Issue**: After enabling `ACCESS_PASSWORD` in Docker deployment, MCP Inspector connection fails with 401 error
-
-**Cause**: When password protection is enabled in Docker deployment, Nginx enables Basic authentication for all routes, including the `/mcp` route
+**Cause**: Docker requires Bearer authentication on `/mcp`. The client omitted the token or it does not match `MCP_AUTH_TOKEN`.
 
 **Solutions**:
-- **Fixed (v1.4.0+)**: The `/mcp` route is now configured to bypass Basic authentication
-- **Workarounds for older versions**:
-  1. Don't set the `ACCESS_PASSWORD` environment variable
-  2. Use network isolation (e.g., internal network only)
-  3. Expose port 3000 directly: `docker run -p 3000:3000 ...`
+1. Set a long random `MCP_AUTH_TOKEN`; the container refuses to start without it.
+2. Configure the MCP client to send `Authorization: Bearer <token>`.
+3. Do not use `ACCESS_PASSWORD` as the MCP token; it protects only the Web interface.
 
-**Technical Details**:
-- The MCP protocol itself doesn't support HTTP Basic authentication
-- The new version adds `auth_basic off;` for the `/mcp` route in `docker/nginx.conf`
-- Web application access remains password-protected
+`/healthz` remains unauthenticated for container health checks. Browser clients must also add their Origin to `MCP_ALLOWED_ORIGINS`.
 
 #### 5. Claude Desktop Connection Failure
 

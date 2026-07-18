@@ -7,6 +7,7 @@ import type {
   ImageUnderstandingRequest,
   LLMResponse,
   StreamHandlers,
+  StreamRequestOptions,
   ToolDefinition,
   ParameterDefinition
 } from '../types'
@@ -56,7 +57,8 @@ export abstract class AbstractTextProviderAdapter implements ITextProviderAdapte
   protected abstract doSendMessageStream(
     messages: Message[],
     config: TextModelConfig,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void>
 
   /**
@@ -93,7 +95,8 @@ export abstract class AbstractTextProviderAdapter implements ITextProviderAdapte
   protected async doSendImageUnderstandingStream(
     _request: ImageUnderstandingRequest,
     _config: TextModelConfig,
-    _callbacks: StreamHandlers
+    _callbacks: StreamHandlers,
+    _options?: StreamRequestOptions
   ): Promise<void> {
     throw new RequestConfigError(
       `${this.getProvider().name} does not support streaming image understanding requests`
@@ -124,13 +127,15 @@ export abstract class AbstractTextProviderAdapter implements ITextProviderAdapte
   public async sendMessageStream(
     messages: Message[],
     config: TextModelConfig,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
+    options?.signal?.throwIfAborted()
     // 1. 验证消息数组
     this.validateMessages(messages)
 
     // 2. 调用具体实现
-    await this.doSendMessageStream(messages, config, callbacks)
+    await this.doSendMessageStream(messages, config, callbacks, options)
   }
 
   /**
@@ -141,14 +146,16 @@ export abstract class AbstractTextProviderAdapter implements ITextProviderAdapte
     messages: Message[],
     config: TextModelConfig,
     _tools: ToolDefinition[],
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
+    options?.signal?.throwIfAborted()
     // 验证消息数组
     this.validateMessages(messages)
 
     // 默认实现：工具参数传递给具体实现处理
     // 子类应该覆盖此方法以处理工具调用
-    await this.doSendMessageStream(messages, config, callbacks)
+    await this.doSendMessageStream(messages, config, callbacks, options)
   }
 
   public async sendImageUnderstanding(
@@ -162,10 +169,12 @@ export abstract class AbstractTextProviderAdapter implements ITextProviderAdapte
   public async sendImageUnderstandingStream(
     request: ImageUnderstandingRequest,
     config: TextModelConfig,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
+    options?.signal?.throwIfAborted()
     this.validateImageUnderstandingRequest(request)
-    await this.doSendImageUnderstandingStream(request, config, callbacks)
+    await this.doSendImageUnderstandingStream(request, config, callbacks, options)
   }
 
   // ===== 公共验证方法 =====

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { CloudflareAdapter } from '../../../src/services/llm/adapters/cloudflare-adapter'
 import type { Message, TextModelConfig } from '../../../src/services/llm/types'
 

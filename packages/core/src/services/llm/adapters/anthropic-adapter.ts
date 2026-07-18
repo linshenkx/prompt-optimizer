@@ -1,5 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk'
+import type Anthropic from '@anthropic-ai/sdk'
 import { AbstractTextProviderAdapter } from './abstract-adapter'
+import { loadAnthropicSdk } from './sdk-loaders'
 import { APIError } from '../errors'
 import type {
   TextProvider,
@@ -9,6 +10,7 @@ import type {
   ImageUnderstandingRequest,
   LLMResponse,
   StreamHandlers,
+  StreamRequestOptions,
   ParameterDefinition,
   ToolDefinition
 } from '../types'
@@ -100,7 +102,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
    * @returns 动态获取的模型列表
    */
   public async getModelsAsync(config: TextModelConfig): Promise<TextModel[]> {
-    const client = this.createClient(config)
+    const client = await this.createClient(config)
 
     try {
       const response = await client.models.list()
@@ -237,7 +239,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
     messages: Message[],
     config: TextModelConfig
   ): Promise<LLMResponse> {
-    const client = this.createClient(config)
+    const client = await this.createClient(config)
 
     try {
       // 提取已知参数和自定义参数
@@ -307,7 +309,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
     request: ImageUnderstandingRequest,
     config: TextModelConfig
   ): Promise<LLMResponse> {
-    const client = this.createClient(config)
+    const client = await this.createClient(config)
 
     try {
       const mergedParams = {
@@ -387,12 +389,20 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
     }
   }
 
+  /**
+   * 将可选 AbortSignal 转为 Anthropic SDK stream 的第二参 request options。
+   */
+  private buildAnthropicRequestOptions(options?: StreamRequestOptions) {
+    return options?.signal ? { signal: options.signal } : undefined
+  }
+
   protected async doSendImageUnderstandingStream(
     request: ImageUnderstandingRequest,
     config: TextModelConfig,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
-    const client = this.createClient(config)
+    const client = await this.createClient(config)
     const thinkState = { isInThinkMode: false, buffer: '' }
 
     try {
@@ -456,7 +466,10 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
 
       Object.assign(requestParams, otherParams)
 
-      const stream = await client.messages.stream(requestParams)
+      const stream = await client.messages.stream(
+        requestParams,
+        this.buildAnthropicRequestOptions(options)
+      )
 
       let accumulatedReasoning = ''
 
@@ -500,9 +513,10 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
   protected async doSendMessageStream(
     messages: Message[],
     config: TextModelConfig,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
-    const client = this.createClient(config)
+    const client = await this.createClient(config)
     const thinkState = { isInThinkMode: false, buffer: '' }
 
     try {
@@ -550,7 +564,10 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
       // 添加其他参数（包括自定义参数）
       Object.assign(requestParams, otherParams)
 
-      const stream = await client.messages.stream(requestParams)
+      const stream = await client.messages.stream(
+        requestParams,
+        this.buildAnthropicRequestOptions(options)
+      )
 
       let accumulatedReasoning = ''
 
@@ -601,9 +618,11 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
     messages: Message[],
     config: TextModelConfig,
     tools: ToolDefinition[],
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
-    const client = this.createClient(config)
+    options?.signal?.throwIfAborted()
+    const client = await this.createClient(config)
     const thinkState = { isInThinkMode: false, buffer: '' }
 
     try {
@@ -652,7 +671,10 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
       // 添加其他参数（包括自定义参数）
       Object.assign(requestParams, otherParams)
 
-      const stream = await client.messages.stream(requestParams)
+      const stream = await client.messages.stream(
+        requestParams,
+        this.buildAnthropicRequestOptions(options)
+      )
 
       let accumulatedContent = ''
       let accumulatedReasoning = ''
@@ -739,7 +761,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
   /**
    * 创建配置好的客户端实例
    */
-  private createClient(config: TextModelConfig): Anthropic {
+  private async createClient(config: TextModelConfig): Promise<Anthropic> {
     const options: any = {
       apiKey: config.connectionConfig?.apiKey || '',
       dangerouslyAllowBrowser: true // 根据实际环境配置
@@ -758,6 +780,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
       options.timeout = config.connectionConfig.timeout
     }
 
+    const Anthropic = await loadAnthropicSdk()
     return new Anthropic(options)
   }
 

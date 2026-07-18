@@ -224,6 +224,34 @@ describe('PromptService Enhanced Features', () => {
     })
   })
 
+  describe('stream cancellation', () => {
+    it('forwards AbortSignal from PromptService to LLMService', async () => {
+      const controller = new AbortController()
+      const callbacks = {
+        onToken: vi.fn(),
+        onComplete: vi.fn(),
+        onError: vi.fn(),
+      }
+
+      mockLLMService.sendMessageStream.mockImplementation(
+        async (_messages: unknown, _modelKey: string, handlers: any, options: any) => {
+          expect(options?.signal).toBe(controller.signal)
+          handlers.onComplete({ content: 'ok' })
+        },
+      )
+
+      await promptService.testPromptStream(
+        '',
+        'test user prompt',
+        'test-model',
+        callbacks,
+        { signal: controller.signal },
+      )
+
+      expect(mockLLMService.sendMessageStream).toHaveBeenCalledTimes(1)
+    })
+  })
+
   describe('testPrompt', () => {
     it('should test prompts with proper context', async () => {
       const result = await promptService.testPrompt(
@@ -240,7 +268,6 @@ describe('PromptService Enhanced Features', () => {
         ],
         'test-model'
       )
-      expect(mockImageUnderstandingService.understand).not.toHaveBeenCalled()
     })
 
     it('should test user prompt without system prompt', async () => {
@@ -257,68 +284,6 @@ describe('PromptService Enhanced Features', () => {
         ],
         'test-model'
       )
-    })
-
-    it('should route image-aware prompt testing through image understanding service', async () => {
-      const inputImages = [
-        {
-          b64: 'dGVzdC1pbWFnZQ==',
-          mimeType: 'image/png',
-        },
-      ]
-      mockImageUnderstandingService.understand.mockResolvedValue({
-        content: 'image-aware test result',
-      })
-
-      const result = await promptService.testPrompt(
-        'system prompt',
-        'what is in this image?',
-        'test-model',
-        inputImages,
-      )
-
-      expect(result).toBe('image-aware test result')
-      expect(mockLLMService.sendMessage).not.toHaveBeenCalled()
-      expect(mockImageUnderstandingService.understand).toHaveBeenCalledWith({
-        modelConfig: expect.objectContaining({ id: 'test-model' }),
-        systemPrompt: 'system prompt',
-        userPrompt: 'what is in this image?',
-        images: inputImages,
-      })
-    })
-
-    it('should preserve provider error details for image-aware prompt testing', async () => {
-      mockImageUnderstandingService.understand.mockRejectedValue(
-        new Error('provider rejected image input'),
-      )
-
-      await expect(
-        promptService.testPrompt(
-          '',
-          'describe this image',
-          'test-model',
-          [{ b64: 'dGVzdA==', mimeType: 'image/jpeg' }],
-        ),
-      ).rejects.toThrow('provider rejected image input')
-    })
-
-    it('should redact echoed image payloads while preserving provider error details', async () => {
-      const imagePayload = 'U0VDUkVUX0lNQUdFX1BBWUxPQUQ='
-      mockImageUnderstandingService.understand.mockRejectedValue(
-        new Error(`provider rejected data:image/jpeg;base64,${imagePayload} for this model`),
-      )
-
-      const promise = promptService.testPrompt(
-        '',
-        'describe this image',
-        'test-model',
-        [{ b64: imagePayload, mimeType: 'image/jpeg' }],
-      )
-
-      await expect(promise).rejects.toThrow(
-        'provider rejected [redacted-image] for this model',
-      )
-      await expect(promise).rejects.not.toThrow(imagePayload)
     })
 
     it('should throw error for empty user prompt', async () => {
@@ -507,67 +472,13 @@ describe('PromptService Enhanced Features', () => {
           { role: 'user', content: 'user prompt' }
         ],
         'test-model',
-        callbacks
-      )
-      expect(mockImageUnderstandingService.understandStream).not.toHaveBeenCalled()
-    })
-
-    it('should stream image-aware prompt testing through image understanding service', async () => {
-      const callbacks = {
-        onToken: vi.fn(),
-        onReasoningToken: vi.fn(),
-        onComplete: vi.fn(),
-        onError: vi.fn()
-      }
-      const inputImages = [
-        {
-          b64: 'c3RyZWFtLXRlc3Q=',
-          mimeType: 'image/jpeg',
-        },
-      ]
-
-      mockImageUnderstandingService.understandStream.mockImplementation(
-        async (_request: any, streamCallbacks: any) => {
-          streamCallbacks.onToken('image ')
-          streamCallbacks.onReasoningToken?.('reasoning')
-          streamCallbacks.onToken('result')
-          await streamCallbacks.onComplete({
-            content: 'image result',
-            reasoning: 'reasoning',
-          })
-        },
-      )
-
-      await promptService.testPromptStream(
-        '',
-        'describe this image',
-        'test-model',
-        callbacks,
-        inputImages,
-      )
-
-      expect(mockLLMService.sendMessageStream).not.toHaveBeenCalled()
-      expect(mockImageUnderstandingService.understandStream).toHaveBeenCalledWith(
-        {
-          modelConfig: expect.objectContaining({ id: 'test-model' }),
-          systemPrompt: undefined,
-          userPrompt: 'describe this image',
-          images: inputImages,
-        },
         expect.objectContaining({
           onToken: callbacks.onToken,
-          onReasoningToken: callbacks.onReasoningToken,
-          onComplete: callbacks.onComplete,
+          onComplete: expect.any(Function),
           onError: callbacks.onError,
         }),
+        undefined,
       )
-      expect(callbacks.onToken).toHaveBeenNthCalledWith(1, 'image ')
-      expect(callbacks.onToken).toHaveBeenNthCalledWith(2, 'result')
-      expect(callbacks.onReasoningToken).toHaveBeenCalledWith('reasoning')
-      expect(callbacks.onComplete).toHaveBeenCalledWith({
-        content: 'image result',
-        reasoning: 'reasoning',
-      })
     })
   })
 

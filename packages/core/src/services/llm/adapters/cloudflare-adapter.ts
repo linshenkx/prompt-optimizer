@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+import type OpenAI from 'openai';
 import type { TextModel, TextModelConfig, TextProvider } from '../types';
 import { APIError, RequestConfigError } from '../errors';
 import { OpenAIAdapter } from './openai-adapter';
@@ -111,7 +111,10 @@ export class CloudflareAdapter extends OpenAIAdapter {
     });
   }
 
-  protected createOpenAIInstance(config: TextModelConfig, isStream: boolean = false): OpenAI {
+  protected async createOpenAIInstance(
+    config: TextModelConfig,
+    isStream: boolean = false
+  ): Promise<OpenAI> {
     const accountId = this.getAccountId(config);
 
     const normalizedConfig: TextModelConfig = {
@@ -122,7 +125,7 @@ export class CloudflareAdapter extends OpenAIAdapter {
       }
     };
 
-    return super.createOpenAIInstance(normalizedConfig, isStream);
+    return await super.createOpenAIInstance(normalizedConfig, isStream);
   }
 
   private getAccountId(config: TextModelConfig): string {

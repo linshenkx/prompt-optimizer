@@ -113,7 +113,11 @@
       :mask-closable="false"
       @positive-click="handleConfirmDelete"
     >
-      <p v-html="t('favorites.categoryManager.deleteWarning', { name: deletingCategory?.name })"></p>
+      <i18n-t tag="p" keypath="favorites.categoryManager.deleteWarning" scope="global">
+        <template #name>
+          <strong>{{ deletingCategory?.name }}</strong>
+        </template>
+      </i18n-t>
       <p v-if="deletingCategoryHasChildren" style="color: var(--n-color-error)">
         {{ t('favorites.categoryManager.deleteChildrenWarning', { count: deletingCategoryChildCount }) }}
       </p>
@@ -518,31 +522,35 @@ watch(() => services?.value?.favoriteManager, (favoriteManager) => {
 </script>
 
 <style scoped>
-@reference "../styles/index.css";
-
 .category-manager {
-  @apply flex flex-col h-full;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .toolbar {
-  @apply p-4;
+  padding: 1rem;
   border-bottom: 1px solid var(--n-border-color);
 }
 
 .tree-container {
-  @apply flex-1 p-4 overflow-y-auto;
+  flex: 1 1 0%;
+  padding: 1rem;
+  overflow-y: auto;
 }
 
 .tree-label {
-  @apply font-medium;
+  font-weight: 500;
 }
 
 .tree-suffix {
-  @apply flex items-center gap-2;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 :deep(.n-tree-node-content) {
-  @apply py-1;
+  padding-block: 0.25rem;
 }
 
 :deep(.n-tree-node-content:hover) {

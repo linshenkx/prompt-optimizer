@@ -39,8 +39,19 @@ export default defineConfig(({ mode }) => {
     publicDir: 'public',
     resolve: {
       preserveSymlinks: true,
+      // CodeMirror relies on instanceof checks between its packages. pnpm
+      // symlinks can otherwise make Vite bundle more than one state runtime.
+      dedupe: [
+        '@codemirror/autocomplete',
+        '@codemirror/language',
+        '@codemirror/state',
+        '@codemirror/view',
+        'codemirror'
+      ],
       alias: {
         '@': resolve(__dirname, 'src'),
+        '@prompt-optimizer/ui/app': path.resolve(__dirname, '../ui/src/app-entry.ts'),
+        '@prompt-optimizer/core/electron': path.resolve(__dirname, '../core/src/electron.ts'),
         '@prompt-optimizer/core': path.resolve(__dirname, '../core'),
         '@prompt-optimizer/ui': path.resolve(__dirname, '../ui'),
         '@prompt-optimizer/web': path.resolve(__dirname, '../web'),

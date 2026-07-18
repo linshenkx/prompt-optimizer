@@ -535,7 +535,7 @@ const messages = {
       "parentCategoryPlaceholder": "选择父分类（不选则为根分类）",
       "categoryColor": "分类颜色",
       "confirmDelete": "确认删除",
-      "deleteWarning": "确定要删除分类 <strong>{name}</strong> 吗？",
+      "deleteWarning": "确定要删除分类 {name} 吗？",
       "deleteChildrenWarning": "警告：该分类下还有 {count} 个子分类，将一并删除！",
       "deleteUsageWarning": "提示：该分类已被 {count} 个收藏使用，删除后这些收藏将变为未分类。",
       "deleteSuccess": "删除成功",

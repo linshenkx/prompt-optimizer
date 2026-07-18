@@ -1,5 +1,6 @@
-import OpenAI from 'openai'
+import type OpenAI from 'openai'
 import { AbstractTextProviderAdapter } from './abstract-adapter'
+import { loadOpenAISdk } from './sdk-loaders'
 import { APIError } from '../errors'
 import { normalizeCustomRequestHeaders } from '../../../utils/custom-request-headers'
 import type {
@@ -10,6 +11,7 @@ import type {
   ImageUnderstandingRequest,
   LLMResponse,
   StreamHandlers,
+  StreamRequestOptions,
   ToolDefinition,
   ParameterDefinition
 } from '../types'
@@ -122,7 +124,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     // 验证baseURL以/v1结尾
     const baseURL = config.connectionConfig.baseURL || this.getProvider().defaultBaseURL
 
-    const openai = this.createOpenAIInstance(config, false)
+    const openai = await this.createOpenAIInstance(config, false)
 
     try {
       const response = await openai.models.list()
@@ -354,49 +356,6 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     })
   }
 
-  private buildImageDataUrl(image: ImageUnderstandingRequest['images'][number]): string {
-    const imageData = image.b64.trim()
-    if (/^data:/i.test(imageData)) {
-      return imageData
-    }
-
-    return `data:${image.mimeType || 'image/png'};base64,${imageData}`
-  }
-
-  private buildResponsesImageUnderstandingInput(
-    request: ImageUnderstandingRequest
-  ): any[] {
-    const input: any[] = []
-
-    if (request.systemPrompt?.trim()) {
-      input.push({
-        role: 'system',
-        content: [
-          {
-            type: 'input_text',
-            text: request.systemPrompt
-          }
-        ]
-      })
-    }
-
-    input.push({
-      role: 'user',
-      content: [
-        {
-          type: 'input_text',
-          text: request.userPrompt
-        },
-        ...request.images.map((image) => ({
-          type: 'input_image',
-          image_url: this.buildImageDataUrl(image)
-        }))
-      ]
-    })
-
-    return input
-  }
-
   private normalizeResponsesParams(paramOverrides: Record<string, unknown> | undefined): Record<string, unknown> {
     const {
       timeout: _timeout,
@@ -411,7 +370,6 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       n: _n,
       seed: _seed,
       logprobs,
-      responseMimeType: _responseMimeType,
       ...restParams
     } = (paramOverrides || {}) as Record<string, unknown>
 
@@ -433,18 +391,24 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
   private async sendResponsesMessage(
     openai: OpenAI,
     messages: Message[],
-    config: TextModelConfig,
-    inputOverride?: any[],
-    paramOverrides?: Record<string, unknown>
+    config: TextModelConfig
   ): Promise<LLMResponse> {
     const responsesConfig: any = {
       model: config.modelMeta.id,
-      input: inputOverride ?? this.buildResponsesInput(messages),
-      ...this.normalizeResponsesParams(paramOverrides ?? config.paramOverrides)
+      input: this.buildResponsesInput(messages),
+      ...this.normalizeResponsesParams(config.paramOverrides)
     }
 
     const response: any = await openai.responses.create(responsesConfig)
     return this.parseResponsesResponse(response, config.modelMeta.id)
+  }
+
+  /**
+   * 将可选 AbortSignal 转为 OpenAI SDK 第二参 request options。
+   * 取消时 SDK 会中止底层网络请求，而不仅是停止上层转发。
+   */
+  private buildOpenAIRequestOptions(options?: StreamRequestOptions) {
+    return options?.signal ? { signal: options.signal } : undefined
   }
 
   private async sendResponsesMessageStream(
@@ -453,21 +417,23 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     config: TextModelConfig,
     callbacks: StreamHandlers,
     tools?: ToolDefinition[],
-    inputOverride?: any[],
-    paramOverrides?: Record<string, unknown>
+    options?: StreamRequestOptions
   ): Promise<void> {
     const responsesConfig: any = {
       model: config.modelMeta.id,
-      input: inputOverride ?? this.buildResponsesInput(messages),
+      input: this.buildResponsesInput(messages),
       stream: true,
-      ...this.normalizeResponsesParams(paramOverrides ?? config.paramOverrides)
+      ...this.normalizeResponsesParams(config.paramOverrides)
     }
 
     if (tools?.length) {
       responsesConfig.tools = tools
     }
 
-    const stream = await openai.responses.create(responsesConfig)
+    const stream = await openai.responses.create(
+      responsesConfig,
+      this.buildOpenAIRequestOptions(options)
+    )
     let accumulatedContent = ''
     let accumulatedReasoning = ''
     const thinkState = { isInThinkMode: false, buffer: '' }
@@ -804,7 +770,10 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
    */
   // NOTE: protected so OpenAI-compatible providers (e.g. Ollama) can tweak auth/baseURL
   // without re-implementing the whole chat/stream/tool plumbing.
-  protected createOpenAIInstance(config: TextModelConfig, isStream: boolean = false): OpenAI {
+  protected async createOpenAIInstance(
+    config: TextModelConfig,
+    isStream: boolean = false
+  ): Promise<OpenAI> {
     const apiKey = config.connectionConfig.apiKey || ''
     const hasApiKey = typeof apiKey === 'string' && apiKey.trim().length > 0
 
@@ -873,6 +842,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       console.log('[OpenAIAdapter] Browser environment detected. Setting dangerouslyAllowBrowser=true.')
     }
 
+    const OpenAI = await loadOpenAISdk()
     const instance = new OpenAI(sdkConfig)
 
     return instance
@@ -890,7 +860,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
    * @throws SDK原始错误（保留完整堆栈）
    */
   protected async doSendMessage(messages: Message[], config: TextModelConfig): Promise<LLMResponse> {
-    const openai = this.createOpenAIInstance(config, false)
+    const openai = await this.createOpenAIInstance(config, false)
     if (this.getRequestStyle(config) === 'responses') {
       try {
         return await this.sendResponsesMessage(openai, messages, config)
@@ -933,21 +903,11 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     request: ImageUnderstandingRequest,
     config: TextModelConfig
   ): Promise<LLMResponse> {
-    const openai = this.createOpenAIInstance(config, false)
+    const openai = await this.createOpenAIInstance(config, false)
     const mergedParams = {
       ...(config.paramOverrides || {}),
       ...(request.paramOverrides || {})
     } as Record<string, unknown>
-
-    if (this.getRequestStyle(config) === 'responses') {
-      return await this.sendResponsesMessage(
-        openai,
-        [],
-        config,
-        this.buildResponsesImageUnderstandingInput(request),
-        mergedParams
-      )
-    }
 
     const {
       timeout,
@@ -966,7 +926,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       ...request.images.map((image) => ({
         type: 'image_url',
         image_url: {
-          url: this.buildImageDataUrl(image)
+          url: `data:${image.mimeType || 'image/png'};base64,${image.b64}`
         }
       }))
     ]
@@ -990,34 +950,27 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       ...restParams
     }
 
-    const response: any = await openai.chat.completions.create(completionConfig)
-    return await this.parseCompletionResponse(response, config.modelMeta.id)
+    try {
+      const response: any = await openai.chat.completions.create(completionConfig)
+      return await this.parseCompletionResponse(response, config.modelMeta.id)
+    } catch (error) {
+      console.error('[OpenAIAdapter] Image understanding request failed:', error)
+      throw error
+    }
   }
 
   protected async doSendImageUnderstandingStream(
     request: ImageUnderstandingRequest,
     config: TextModelConfig,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
     try {
-      const openai = this.createOpenAIInstance(config, true)
+    const openai = await this.createOpenAIInstance(config, true)
       const mergedParams = {
         ...(config.paramOverrides || {}),
         ...(request.paramOverrides || {})
       } as Record<string, unknown>
-
-      if (this.getRequestStyle(config) === 'responses') {
-        await this.sendResponsesMessageStream(
-          openai,
-          [],
-          config,
-          callbacks,
-          undefined,
-          this.buildResponsesImageUnderstandingInput(request),
-          mergedParams
-        )
-        return
-      }
 
       const {
         timeout,
@@ -1036,7 +989,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         ...request.images.map((image) => ({
           type: 'image_url',
           image_url: {
-            url: this.buildImageDataUrl(image)
+            url: `data:${image.mimeType || 'image/png'};base64,${image.b64}`
           }
         }))
       ]
@@ -1061,7 +1014,10 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         ...restParams
       }
 
-      const stream = await openai.chat.completions.create(completionConfig)
+      const stream = await openai.chat.completions.create(
+        completionConfig,
+        this.buildOpenAIRequestOptions(options)
+      )
 
       let accumulatedReasoning = ''
       let accumulatedContent = ''
@@ -1089,6 +1045,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         }
       })
     } catch (error) {
+      console.error('[OpenAIAdapter] Image understanding stream failed:', error)
       callbacks.onError(error instanceof Error ? error : new Error(String(error)))
       throw error
     }
@@ -1311,13 +1268,14 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
   protected async doSendMessageStream(
     messages: Message[],
     config: TextModelConfig,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
     try {
       // 获取流式OpenAI实例
-      const openai = this.createOpenAIInstance(config, true)
+    const openai = await this.createOpenAIInstance(config, true)
       if (this.getRequestStyle(config) === 'responses') {
-        await this.sendResponsesMessageStream(openai, messages, config, callbacks)
+        await this.sendResponsesMessageStream(openai, messages, config, callbacks, undefined, options)
         return
       }
 
@@ -1341,8 +1299,11 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         ...restParams // 用户自定义参数
       }
 
-      // 直接使用流式响应
-      const stream = await openai.chat.completions.create(completionConfig)
+      // 直接使用流式响应；第二参 signal 负责中止底层 HTTP
+      const stream = await openai.chat.completions.create(
+        completionConfig,
+        this.buildOpenAIRequestOptions(options)
+      )
 
       // 累积内容
       let accumulatedReasoning = ''
@@ -1404,13 +1365,15 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     messages: Message[],
     config: TextModelConfig,
     tools: ToolDefinition[],
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
     try {
+      options?.signal?.throwIfAborted()
       // 获取流式OpenAI实例
-      const openai = this.createOpenAIInstance(config, true)
+    const openai = await this.createOpenAIInstance(config, true)
       if (this.getRequestStyle(config) === 'responses') {
-        await this.sendResponsesMessageStream(openai, messages, config, callbacks, tools)
+        await this.sendResponsesMessageStream(openai, messages, config, callbacks, tools, options)
         return
       }
 
@@ -1437,7 +1400,10 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         ...restParams
       }
 
-      const stream = await openai.chat.completions.create(completionConfig)
+      const stream = await openai.chat.completions.create(
+        completionConfig,
+        this.buildOpenAIRequestOptions(options)
+      )
 
       let accumulatedReasoning = ''
       let accumulatedContent = ''

@@ -24,7 +24,8 @@ interface Window {
           onToolCall?: (toolCall: any) => void;
           onFinish?: () => void;
           onError?: (error: Error) => void;
-        }
+        },
+        signal?: AbortSignal
       ) => Promise<void>;
       sendMessageStreamWithTools?: (
         messages: any[],
@@ -36,8 +37,10 @@ interface Window {
           onToolCall?: (toolCall: any) => void;
           onFinish?: () => void;
           onError?: (error: Error) => void;
-        }
+        },
+        signal?: AbortSignal
       ) => Promise<void>;
+      cancelStream: (streamId: string) => Promise<{ cancelled: boolean }>;
       testConnection: (provider: string) => Promise<void>;
       fetchModelList: (provider: string, customConfig?: any) => Promise<Array<{value: string, label: string}>>;
     };

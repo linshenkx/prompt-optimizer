@@ -1,5 +1,5 @@
-import { GoogleGenAI } from '@google/genai'
 import { AbstractImageProviderAdapter } from './abstract-adapter'
+import { loadGoogleGenAISdk } from '../../llm/adapters/sdk-loaders'
 import { ImageError } from '../errors'
 import type {
   ImageProvider,
@@ -78,6 +78,7 @@ export class GeminiImageAdapter extends AbstractImageProviderAdapter {
       const apiKey = connectionConfig.apiKey || ''
       const customBaseURL = connectionConfig.baseURL?.trim()
 
+      const GoogleGenAI = await loadGoogleGenAISdk()
       const genAI = customBaseURL
         ? new GoogleGenAI({ apiKey, httpOptions: { baseUrl: this.normalizeBaseUrl(customBaseURL) } })
         : new GoogleGenAI({ apiKey })
@@ -149,6 +150,7 @@ export class GeminiImageAdapter extends AbstractImageProviderAdapter {
     const rawBaseUrl = config.connectionConfig?.baseURL?.trim() || ''
     const normalizedBaseUrl = rawBaseUrl ? this.normalizeBaseUrl(rawBaseUrl) : ''
 
+    const GoogleGenAI = await loadGoogleGenAISdk()
     const genAI = normalizedBaseUrl
       ? new GoogleGenAI({
           apiKey: config.connectionConfig?.apiKey,

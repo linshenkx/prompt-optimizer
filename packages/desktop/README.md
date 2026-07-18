@@ -73,11 +73,13 @@ npm start
 [Main Process] .env.local file loaded from project root
 [Main Process] .env file loaded from desktop directory
 [Main Process] Checking environment variables...
-[Main Process] Found VITE_OPENAI_API_KEY: sk-1234567...
-[Main Process] Found VITE_GEMINI_API_KEY: AIzaSyA...
+[Main Process] Found VITE_OPENAI_API_KEY: [CONFIGURED]
+[Main Process] Found VITE_GEMINI_API_KEY: [CONFIGURED]
 ```
 
 如果看到 `Missing VITE_XXX_API_KEY`，说明对应的环境变量未设置。
+
+> 安全说明：API 密钥仅保留在 Electron 主进程。渲染进程不会获得 `VITE_*` 密钥、token 或自定义请求 headers；如果需要公开非敏感标识，请使用不含敏感字段的 `VITE_PUBLIC_*` 或 `VITE_APP_*` 变量。
 
 ## 常见问题
 
@@ -97,4 +99,4 @@ A: 可以。dotenv会按加载顺序合并配置，后加载的不会覆盖已�
 
 - 永远不要将包含API密钥的文件提交到Git仓库
 - `.env.local`已在`.gitignore`中排除
-- 如果使用`.env`文件，请手动添加到`.gitignore` 
+- 如果使用`.env`文件，请手动添加到`.gitignore`

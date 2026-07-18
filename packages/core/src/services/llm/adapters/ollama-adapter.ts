@@ -1,4 +1,4 @@
-import OpenAI from 'openai'
+import type OpenAI from 'openai'
 import type { TextModel, TextModelConfig, TextProvider } from '../types'
 import { OpenAIAdapter } from './openai-adapter'
 
@@ -34,7 +34,10 @@ export class OllamaAdapter extends OpenAIAdapter {
     return []
   }
 
-  protected createOpenAIInstance(config: TextModelConfig, isStream: boolean = false): OpenAI {
+  protected async createOpenAIInstance(
+    config: TextModelConfig,
+    isStream: boolean = false
+  ): Promise<OpenAI> {
     const rawApiKey = typeof config.connectionConfig.apiKey === 'string' ? config.connectionConfig.apiKey : ''
     const apiKey = rawApiKey.trim() ? rawApiKey : OLLAMA_FALLBACK_API_KEY
 
@@ -50,7 +53,7 @@ export class OllamaAdapter extends OpenAIAdapter {
       }
     }
 
-    return super.createOpenAIInstance(normalizedConfig, isStream)
+    return await super.createOpenAIInstance(normalizedConfig, isStream)
   }
 
   private normalizeBaseURL(baseURL: string): string {

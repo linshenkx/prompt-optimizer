@@ -324,8 +324,8 @@ export class FileStorageProvider implements IStorageProvider {
           });
         } catch (error) {
           console.error('[FileStorage] Scheduled write failed:', error);
-          // 重置isDirty标志以避免无限重试
-          this.isDirty = false;
+          // Keep the pending snapshot retryable by an explicit flush or app shutdown.
+          this.isDirty = true;
         }
       }
       this.writeTimeout = null;
@@ -348,8 +348,7 @@ export class FileStorageProvider implements IStorageProvider {
 
     // 检查重试次数限制
     if (this.flushAttempts >= this.MAX_FLUSH_ATTEMPTS) {
-      console.error('[FileStorage] Max flush attempts reached, forcing isDirty to false');
-      this.isDirty = false;
+      console.error('[FileStorage] Max flush attempts reached; data remains pending');
       this.flushAttempts = 0;
       throw new StorageError('Max flush attempts exceeded', 'write');
     }
@@ -371,12 +370,12 @@ export class FileStorageProvider implements IStorageProvider {
       ]);
     } catch (error) {
       console.error('[FileStorage] Failed to save data during flush:', error);
+      this.isDirty = true;
 
-      // 如果达到最大重试次数或者是超时错误，强制重置状态
+      // Reset the attempt window without discarding the pending snapshot.
       if (this.flushAttempts >= this.MAX_FLUSH_ATTEMPTS ||
           (error instanceof StorageError && error.operation === 'write' && error.params?.details === 'Flush timeout')) {
-        console.warn('[FileStorage] Forcing isDirty to false to prevent infinite loop');
-        this.isDirty = false;
+        console.warn('[FileStorage] Resetting flush attempts; data remains pending');
         this.flushAttempts = 0;
       }
 
@@ -540,7 +539,8 @@ export class FileStorageProvider implements IStorageProvider {
           this.data.delete(op.key);
         }
       }
-      
+
+      this.isDirty = true;
       await this.flush(); // 批量操作后立即写入
       
     } catch (error) {

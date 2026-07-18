@@ -314,7 +314,8 @@ describe('AnthropicAdapter', () => {
               ]
             }
           ]
-        })
+        }),
+        undefined,
       );
       expect(callbacks.onReasoningToken).toHaveBeenCalledWith('先观察参考图。');
       expect(callbacks.onToken).toHaveBeenCalledWith('视觉');

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { FileStorageProvider } from '../../src/services/storage/fileStorageProvider';
@@ -19,6 +19,9 @@ describe('FileStorageProvider - Real File System Integration', () => {
   });
 
   afterEach(async () => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+
     try {
       await provider.flush();
     } catch {
@@ -107,8 +110,51 @@ describe('FileStorageProvider - Real File System Integration', () => {
       expect(await provider.getItem('batch-key-2')).toBe('batch-value-2');
       expect(await provider.getItem('batch-key-3')).toBe('batch-value-3');
 
-      // 验证文件存在
-      await expect(fs.access(storageFile)).resolves.toBeUndefined();
+      // Reopen from disk to prove batchUpdate persisted the values, not just the in-memory map.
+      const reloadedProvider = new FileStorageProvider(testDir);
+      expect(await reloadedProvider.getItem('batch-key-1')).toBe('batch-value-1');
+      expect(await reloadedProvider.getItem('batch-key-2')).toBe('batch-value-2');
+      expect(await reloadedProvider.getItem('batch-key-3')).toBe('batch-value-3');
+    });
+
+    it('should retry pending data after a scheduled write fails', async () => {
+      await provider.getItem('initialize-storage');
+      vi.useFakeTimers();
+
+      try {
+        const saveSpy = vi
+          .spyOn(provider as unknown as { saveToFile: () => Promise<void> }, 'saveToFile')
+          .mockRejectedValueOnce(new Error('transient write failure'));
+
+        await provider.setItem('retry-key', 'retry-value');
+        await vi.advanceTimersByTimeAsync(500);
+        saveSpy.mockRestore();
+
+        await provider.flush();
+      } finally {
+        vi.useRealTimers();
+      }
+
+      const reloadedProvider = new FileStorageProvider(testDir);
+      expect(await reloadedProvider.getItem('retry-key')).toBe('retry-value');
+    });
+
+    it('should keep pending data retryable after the flush attempt limit', async () => {
+      await provider.getItem('initialize-storage');
+      const saveSpy = vi
+        .spyOn(provider as unknown as { saveToFile: () => Promise<void> }, 'saveToFile')
+        .mockRejectedValue(new Error('persistent write failure'));
+
+      await provider.setItem('eventual-key', 'eventual-value');
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        await expect(provider.flush()).rejects.toThrow('persistent write failure');
+      }
+
+      saveSpy.mockRestore();
+      await provider.flush();
+
+      const reloadedProvider = new FileStorageProvider(testDir);
+      expect(await reloadedProvider.getItem('eventual-key')).toBe('eventual-value');
     });
 
     it('should handle clearAll with real files', async () => {

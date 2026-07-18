@@ -64,6 +64,13 @@ export VITE_CUSTOM_API_BASE_URL=https://api.example.com
 export VITE_CUSTOM_API_MODEL=custom-model-name
 ```
 
+### 渲染进程安全边界
+
+- API 密钥、`VITE_CUSTOM_API_HEADERS` 及其他敏感配置仅由 Electron 主进程读取，用于主进程中的模型和 LLM 服务；不会注入 `window.runtime_config`，也不会通过 preload 返回给渲染进程。
+- 如确有需要向界面公开非敏感运行时标识，只能使用 `VITE_PUBLIC_*` 或 `VITE_APP_*`。名称中包含 `API_KEY`、`TOKEN`、`SECRET`、`PASSWORD`、`HEADERS` 等敏感字段的变量会被拒绝。
+- 外部 HTTP(S) 链接会在系统浏览器中打开；主窗口只允许加载开发服务器同源页面或生产包内的 `web-dist` 文件。
+- 不要把密钥、Authorization header 或自定义 provider 凭据放入任何 `VITE_PUBLIC_*` / `VITE_APP_*` 变量。
+
 ### 动态更新源配置
 应用支持运行时动态切换更新源：
 
@@ -172,4 +179,4 @@ private: false
 ---
 
 **更新时间**: 2025-01-12  
-**版本**: v1.2.0+ 
+**版本**: v1.2.0+

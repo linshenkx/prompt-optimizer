@@ -3,6 +3,7 @@ import type {
   Message,
   ParameterDefinition,
   StreamHandlers,
+  StreamRequestOptions,
   TextModel,
   TextModelConfig,
   TextProvider
@@ -75,14 +76,17 @@ export class ChromeBuiltInAdapter extends AbstractTextProviderAdapter {
   protected async doSendMessageStream(
     messages: Message[],
     _config: TextModelConfig,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
     const { initialPrompts, prompt } = this.buildPrompt(messages)
     const session = await this.createReadySession(initialPrompts)
     let content = ''
 
     try {
-      const stream = await session.promptStreaming(prompt)
+      // 将 AbortSignal 交给 Prompt API；结束/取消后都销毁 session 释放本地资源
+      const streamOptions = options?.signal ? { signal: options.signal } : undefined
+      const stream = await session.promptStreaming(prompt, streamOptions)
       for await (const token of stream) {
         content += token
         callbacks.onToken(token)

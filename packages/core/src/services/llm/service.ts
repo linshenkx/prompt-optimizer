@@ -6,7 +6,8 @@ import type {
   ModelOption,
   ToolDefinition,
   TextModel,
-  ITextAdapterRegistry
+  ITextAdapterRegistry,
+  StreamRequestOptions
 } from './types';
 import type { TextModelConfig, ModelConfig } from '../model/types';
 import { ModelManager } from '../model/manager';
@@ -126,9 +127,11 @@ export class LLMService implements ILLMService {
   async sendMessageStream(
     messages: Message[],
     provider: string,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
     try {
+      options?.signal?.throwIfAborted();
       this.validateMessages(messages);
 
       const modelConfig = await this.modelManager.getModel(provider);
@@ -144,7 +147,7 @@ export class LLMService implements ILLMService {
       const runtimeConfig = this.prepareRuntimeConfig(modelConfig);
 
       // 使用 Adapter 发送流式消息
-      await adapter.sendMessageStream(messages, runtimeConfig, callbacks);
+      await adapter.sendMessageStream(messages, runtimeConfig, callbacks, options);
 
     } catch (error) {
       console.error('Stream request failed:', error);
@@ -161,9 +164,11 @@ export class LLMService implements ILLMService {
     messages: Message[],
     provider: string,
     tools: ToolDefinition[],
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
     try {
+      options?.signal?.throwIfAborted();
       this.validateMessages(messages);
 
       const modelConfig = await this.modelManager.getModel(provider);
@@ -179,7 +184,7 @@ export class LLMService implements ILLMService {
       const runtimeConfig = this.prepareRuntimeConfig(modelConfig);
 
       // 使用 Adapter 发送带工具的流式消息
-      await adapter.sendMessageStreamWithTools(messages, runtimeConfig, tools, callbacks);
+      await adapter.sendMessageStreamWithTools(messages, runtimeConfig, tools, callbacks, options);
 
     } catch (error) {
       console.error('Stream request with tools failed:', error);

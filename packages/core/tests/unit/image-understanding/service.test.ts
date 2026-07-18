@@ -124,6 +124,7 @@ describe('ImageUnderstandingService', () => {
       request,
       request.modelConfig,
       callbacks,
+      undefined,
     )
   })
 
@@ -155,6 +156,7 @@ describe('ImageUnderstandingService', () => {
       }),
       request.modelConfig,
       callbacks,
+      undefined,
     )
   })
 })

@@ -19,6 +19,7 @@ Docker 是最简单的部署方式，Web 界面和 MCP 服务器会同时启动�
 docker run -d -p 8081:80 \
   -e VITE_OPENAI_API_KEY=your-openai-key \
   -e MCP_DEFAULT_MODEL_PROVIDER=openai \
+  -e MCP_AUTH_TOKEN=replace-with-a-long-random-token \
   --name prompt-optimizer \
   linshen/prompt-optimizer
 
@@ -83,9 +84,24 @@ MCP_LOG_LEVEL=info
 # HTTP 端口（可选，默认 3000，Docker 部署时无需设置）
 MCP_HTTP_PORT=3000
 
-# 默认语言（可选，默认 zh）
-# 可选值：zh, en
-MCP_DEFAULT_LANGUAGE=zh
+# HTTP 监听地址（可选，默认 127.0.0.1）
+# 使用非回环地址时必须配置 MCP_AUTH_TOKEN
+MCP_HTTP_HOST=127.0.0.1
+
+# Bearer 令牌（Docker 部署必填；请使用长随机值）
+MCP_AUTH_TOKEN=replace-with-a-long-random-token
+
+# 浏览器 Origin 白名单（可选，逗号分隔，不支持 *）
+MCP_ALLOWED_ORIGINS=https://app.example.com,http://localhost:5173
+
+# 请求体、会话容量和空闲回收（均为可选）
+MCP_HTTP_BODY_LIMIT=256kb
+MCP_MAX_SESSIONS=100
+MCP_SESSION_TTL_MS=1800000
+
+# 默认语言（可选，默认 en-US）
+# 可选值：zh-CN, en-US
+MCP_DEFAULT_LANGUAGE=zh-CN
 ```
 
 ## 🔗 客户端连接
@@ -107,13 +123,16 @@ MCP_DEFAULT_LANGUAGE=zh
   "services": [
     {
       "name": "Prompt Optimizer",
-      "url": "http://localhost:8081/mcp"
+      "url": "http://localhost:8081/mcp",
+      "headers": {
+        "Authorization": "Bearer replace-with-a-long-random-token"
+      }
     }
   ]
 }
 ```
 
-> **注意**：如果你使用的是开发者本地部署（端口 3000），请将 URL 改为 `http://localhost:3000/mcp`。
+> **注意**：Docker 客户端必须发送与 `MCP_AUTH_TOKEN` 一致的 Bearer 令牌。本地开发使用默认回环监听且未设置令牌时，可省略 `headers`。
 
 
 
@@ -186,21 +205,14 @@ MCP_DEFAULT_MODEL_PROVIDER=openai  # 不是 OpenAI
 
 #### 4. Docker 部署时 401 认证错误
 
-**问题**: 使用 Docker 部署并启用了 `ACCESS_PASSWORD` 后，MCP Inspector 连接失败，返回 401 错误
+**原因**：Docker 的 `/mcp` 端点强制使用 Bearer 认证，客户端未发送令牌或令牌与 `MCP_AUTH_TOKEN` 不一致。
 
-**原因**: Docker 部署启用密码保护后，Nginx 会对所有路由启用 Basic 认证，包括 `/mcp` 路由
+**解决方案**：
+1. 为容器设置长随机 `MCP_AUTH_TOKEN`；缺少该变量时容器会拒绝启动。
+2. 在 MCP 客户端中设置 `Authorization: Bearer <token>` 请求头。
+3. 不要把 `ACCESS_PASSWORD` 当作 MCP 令牌；它只保护 Web 界面。
 
-**解决方案**:
-- **已修复（v1.4.0+）**：`/mcp` 路由已配置为绕过 Basic 认证
-- **旧版本临时方案**：
-  1. 不设置 `ACCESS_PASSWORD` 环境变量
-  2. 或使用网络隔离（如仅在内网使用）
-  3. 或直接暴露 3000 端口：`docker run -p 3000:3000 ...`
-
-**技术说明**:
-- MCP 协议本身不支持 HTTP Basic 认证
-- 新版本在 `docker/nginx.conf` 中为 `/mcp` 路由添加了 `auth_basic off;`
-- Web 应用访问仍然受密码保护
+`/healthz` 保持无认证，供容器健康检查使用。浏览器客户端还必须把自身 Origin 加入 `MCP_ALLOWED_ORIGINS`。
 
 #### 5. Claude Desktop 连接失败
 

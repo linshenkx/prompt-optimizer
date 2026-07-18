@@ -15,9 +15,12 @@ export default defineConfig({
   },
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/index.ts'),
+      entry: {
+        index: resolve(__dirname, 'src/index.ts'),
+        app: resolve(__dirname, 'src/app-entry.ts')
+      },
       name: 'PromptOptimizerUI',
-      fileName: (format) => `index.${format === 'es' ? 'js' : 'cjs'}`,
+      fileName: (format, entryName) => `${entryName}.${format === 'es' ? 'js' : 'cjs'}`,
       formats: ['es', 'cjs']
     },
     watch: process.env.NODE_ENV === 'development' ? {
@@ -27,12 +30,19 @@ export default defineConfig({
     } : null,
     sourcemap: true,
     rollupOptions: {
-      external: ['vue', 'vue-router', '@prompt-optimizer/core', 'uuid'],
+      external: [
+        'vue',
+        'vue-router',
+        '@prompt-optimizer/core',
+        '@prompt-optimizer/core/electron',
+        'uuid'
+      ],
       output: {
         globals: {
           vue: 'Vue',
           'vue-router': 'VueRouter',
           '@prompt-optimizer/core': 'PromptOptimizerCore',
+          '@prompt-optimizer/core/electron': 'PromptOptimizerCoreElectron',
           'uuid': 'uuid'
         },
         assetFileNames: 'style.css'

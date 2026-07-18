@@ -38,13 +38,7 @@ export class ElectronConfigManager {
       this.initialized = true;
       console.log('[ElectronConfigManager] Environment variables synced successfully');
 
-      // 调试输出
-      Object.keys(this.envVars).forEach(key => {
-        const value = this.envVars[key];
-        if (value) {
-          console.log(`[ElectronConfigManager] ${key}: ${value.substring(0, 10)}...`);
-        }
-      });
+      console.log(`[ElectronConfigManager] Synced ${Object.keys(this.envVars).length} public runtime configuration entries`);
     } catch (error) {
       console.error('[ElectronConfigManager] Failed to sync environment variables:', error);
       throw error;

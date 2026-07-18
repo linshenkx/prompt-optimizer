@@ -590,7 +590,8 @@ describe('OpenAIAdapter', () => {
           model: 'gpt-5-mini',
           input: [{ role: 'user', content: 'Hello, world!' }],
           stream: true
-        })
+        }),
+        undefined,
       );
       expect(callbacks.onToken).toHaveBeenCalledWith('Hello');
       expect(callbacks.onToken).toHaveBeenCalledWith(' Responses');
@@ -716,7 +717,8 @@ describe('OpenAIAdapter', () => {
           input: [{ role: 'user', content: 'Hello, world!' }],
           stream: true,
           tools
-        })
+        }),
+        undefined,
       );
       expect(callbacks.onToolCall).toHaveBeenCalledWith({
         id: 'call_123',
@@ -749,113 +751,7 @@ describe('OpenAIAdapter', () => {
     // 删除"should call onError with preserved stack" - 这是过度测试错误堆栈保留的内部实现细节
   });
 
-  describe('image understanding request styles', () => {
-    it('should send Chat Completions image_url payloads for non-streaming requests', async () => {
-      mockOpenAIInstance.chat.completions.create.mockResolvedValue({
-        model: 'gpt-5-mini',
-        choices: [{
-          message: { content: '视觉结果' },
-          finish_reason: 'stop'
-        }]
-      });
-
-      const response = await adapter.sendImageUnderstanding(
-        {
-          systemPrompt: 'system prompt',
-          userPrompt: 'describe this image',
-          images: [{ b64: 'ZmFrZQ==', mimeType: 'image/png' }]
-        },
-        mockConfig
-      );
-
-      expect(mockOpenAIInstance.chat.completions.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          model: 'gpt-5-mini',
-          messages: [
-            { role: 'system', content: 'system prompt' },
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: 'describe this image' },
-                {
-                  type: 'image_url',
-                  image_url: { url: 'data:image/png;base64,ZmFrZQ==' }
-                }
-              ]
-            }
-          ]
-        })
-      );
-      expect(mockOpenAIInstance.responses.create).not.toHaveBeenCalled();
-      expect(response.content).toBe('视觉结果');
-    });
-
-    it('should send Responses API input_image payloads for non-streaming requests', async () => {
-      const responsesConfig: TextModelConfig = {
-        ...mockConfig,
-        connectionConfig: {
-          ...mockConfig.connectionConfig,
-          requestStyle: 'responses'
-        }
-      };
-      mockOpenAIInstance.responses.create.mockResolvedValue({
-        id: 'resp_image',
-        output_text: 'Responses 视觉结果'
-      });
-
-      const response = await adapter.sendImageUnderstanding(
-        {
-          systemPrompt: 'system prompt',
-          userPrompt: 'describe this image',
-          images: [{ b64: 'ZmFrZQ==', mimeType: 'image/jpeg' }],
-          paramOverrides: { max_tokens: 64 }
-        },
-        responsesConfig
-      );
-
-      expect(mockOpenAIInstance.responses.create).toHaveBeenCalledWith({
-        model: 'gpt-5-mini',
-        input: [
-          {
-            role: 'system',
-            content: [{ type: 'input_text', text: 'system prompt' }]
-          },
-          {
-            role: 'user',
-            content: [
-              { type: 'input_text', text: 'describe this image' },
-              {
-                type: 'input_image',
-                image_url: 'data:image/jpeg;base64,ZmFrZQ=='
-              }
-            ]
-          }
-        ],
-        max_output_tokens: 64
-      });
-      expect(mockOpenAIInstance.chat.completions.create).not.toHaveBeenCalled();
-      expect(response.content).toBe('Responses 视觉结果');
-    });
-
-    it('should not add a second data URL prefix when an IPC caller already supplied one', async () => {
-      mockOpenAIInstance.chat.completions.create.mockResolvedValue({
-        choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }]
-      });
-
-      await adapter.sendImageUnderstanding(
-        {
-          userPrompt: 'describe this image',
-          images: [{ b64: 'data:image/png;base64,ZmFrZQ==', mimeType: 'image/png' }]
-        },
-        mockConfig
-      );
-
-      const request = mockOpenAIInstance.chat.completions.create.mock.calls[0][0];
-      const imageUrl = request.messages[0].content[1].image_url.url;
-      expect(imageUrl).toBe('data:image/png;base64,ZmFrZQ==');
-      expect(imageUrl.match(/data:image\/png;base64,/g)).toHaveLength(1);
-    });
-
+  describe('sendImageUnderstandingStream', () => {
     it('should stream multimodal content with image_url payloads', async () => {
       const mockStream = {
         [Symbol.asyncIterator]: async function* () {
@@ -916,105 +812,13 @@ describe('OpenAIAdapter', () => {
               ])
             })
           ])
-        })
+        }),
+        undefined,
       );
       expect(callbacks.onToken).toHaveBeenCalledWith('视觉');
       expect(callbacks.onToken).toHaveBeenCalledWith('结果');
       expect(callbacks.onComplete).toHaveBeenCalled();
       expect(callbacks.onError).not.toHaveBeenCalled();
-    });
-
-    it('should stream image understanding through Responses API when configured', async () => {
-      const responsesConfig: TextModelConfig = {
-        ...mockConfig,
-        connectionConfig: {
-          ...mockConfig.connectionConfig,
-          requestStyle: 'responses'
-        }
-      };
-      const mockStream = {
-        [Symbol.asyncIterator]: async function* () {
-          yield { type: 'response.output_text.delta', delta: '视觉' };
-          yield { type: 'response.output_text.delta', delta: '结果' };
-          yield {
-            type: 'response.completed',
-            response: { output_text: '视觉结果' }
-          };
-        }
-      };
-      mockOpenAIInstance.responses.create.mockResolvedValue(mockStream);
-
-      const callbacks = {
-        onToken: vi.fn(),
-        onReasoningToken: vi.fn(),
-        onComplete: vi.fn(),
-        onError: vi.fn()
-      };
-
-      await adapter.sendImageUnderstandingStream(
-        {
-          userPrompt: 'describe this image',
-          images: [{ b64: 'ZmFrZQ==', mimeType: 'image/png' }]
-        },
-        responsesConfig,
-        callbacks
-      );
-
-      expect(mockOpenAIInstance.responses.create).toHaveBeenCalledWith({
-        model: 'gpt-5-mini',
-        input: [
-          {
-            role: 'user',
-            content: [
-              { type: 'input_text', text: 'describe this image' },
-              {
-                type: 'input_image',
-                image_url: 'data:image/png;base64,ZmFrZQ=='
-              }
-            ]
-          }
-        ],
-        stream: true
-      });
-      expect(mockOpenAIInstance.chat.completions.create).not.toHaveBeenCalled();
-      expect(callbacks.onToken).toHaveBeenNthCalledWith(1, '视觉');
-      expect(callbacks.onToken).toHaveBeenNthCalledWith(2, '结果');
-      expect(callbacks.onComplete).toHaveBeenCalledWith({
-        content: '视觉结果',
-        reasoning: undefined,
-        metadata: { model: 'gpt-5-mini' }
-      });
-      expect(callbacks.onError).not.toHaveBeenCalled();
-    });
-
-    it('should propagate image provider errors without logging echoed payloads', async () => {
-      const responsesConfig: TextModelConfig = {
-        ...mockConfig,
-        connectionConfig: {
-          ...mockConfig.connectionConfig,
-          requestStyle: 'responses'
-        }
-      };
-      const providerError = new Error(
-        'provider rejected data:image/png;base64,U0VDUkVUX0lNQUdF'
-      );
-      mockOpenAIInstance.responses.create.mockRejectedValue(providerError);
-      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      try {
-        await expect(
-          adapter.sendImageUnderstanding(
-            {
-              userPrompt: 'describe this image',
-              images: [{ b64: 'U0VDUkVUX0lNQUdF', mimeType: 'image/png' }]
-            },
-            responsesConfig
-          )
-        ).rejects.toBe(providerError);
-        expect(consoleError).not.toHaveBeenCalled();
-      } finally {
-        consoleError.mockRestore();
-      }
     });
   });
 

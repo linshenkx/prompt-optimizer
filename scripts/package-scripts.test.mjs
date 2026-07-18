@@ -35,12 +35,84 @@ test('repo checks execute package script coverage tests', () => {
   assert.match(rootPackage.scripts['test:repo'], /scripts\/package-scripts\.test\.mjs/)
 })
 
+test('web build enforces the initial bundle budget', () => {
+  const rootPackage = readJson('package.json')
+
+  assert.equal(typeof rootPackage.scripts?.['build:web'], 'string')
+  assert.match(rootPackage.scripts['build:web'], /\bbuild:web:bundle\b/)
+  assert.match(rootPackage.scripts['build:web'], /\bcheck:bundle-budget\b/)
+  assert.equal(typeof rootPackage.scripts?.['check:bundle-budget'], 'string')
+  assert.match(rootPackage.scripts['test:repo'], /scripts\/check-bundle-budget\.test\.mjs/)
+})
+
 test('core package exposes a dedicated typecheck script', () => {
   const corePackage = readJson(path.join('packages', 'core', 'package.json'))
 
   assert.equal(typeof corePackage.scripts?.typecheck, 'string')
   assert.match(corePackage.scripts.typecheck, /\btsc\b/)
   assert.match(corePackage.scripts.typecheck, /--noEmit/)
+})
+
+test('electron adapters use a dedicated core subpath and build entry', () => {
+  const corePackage = readJson(path.join('packages', 'core', 'package.json'))
+  const electronExport = corePackage.exports?.['./electron']
+  const coreIndex = fs.readFileSync(
+    path.join(process.cwd(), 'packages', 'core', 'src', 'index.ts'),
+    'utf8',
+  )
+  const electronEntry = fs.readFileSync(
+    path.join(process.cwd(), 'packages', 'core', 'src', 'electron.ts'),
+    'utf8',
+  )
+  const appInitializer = fs.readFileSync(
+    path.join(process.cwd(), 'packages', 'ui', 'src', 'composables', 'system', 'useAppInitializer.ts'),
+    'utf8',
+  )
+
+  assert.equal(electronExport?.types, './dist/electron.d.ts')
+  assert.equal(electronExport?.import, './dist/electron.js')
+  assert.equal(electronExport?.require, './dist/electron.cjs')
+  assert.match(corePackage.scripts.build, /src\/electron\.ts/)
+  assert.doesNotMatch(coreIndex, /export\s+\{\s*ElectronModelManagerProxy/)
+  assert.match(electronEntry, /ElectronModelManagerProxy/)
+  assert.match(electronEntry, /FavoriteManagerElectronProxy/)
+  assert.match(electronEntry, /waitForElectronApi/)
+  assert.match(appInitializer, /import\('@prompt-optimizer\/core\/electron'\)/)
+})
+
+test('provider SDKs load through the retryable adapter loader', () => {
+  const loader = fs.readFileSync(
+    path.join(
+      process.cwd(),
+      'packages',
+      'core',
+      'src',
+      'services',
+      'llm',
+      'adapters',
+      'sdk-loaders.ts',
+    ),
+    'utf8',
+  )
+  const adapterPaths = [
+    ['llm', 'adapters', 'openai-adapter.ts'],
+    ['llm', 'adapters', 'anthropic-adapter.ts'],
+    ['llm', 'adapters', 'gemini-adapter.ts'],
+    ['image', 'adapters', 'gemini.ts'],
+  ]
+  const adapterSources = adapterPaths.map((segments) => fs.readFileSync(
+    path.join(process.cwd(), 'packages', 'core', 'src', 'services', ...segments),
+    'utf8',
+  ))
+
+  assert.match(loader, /import\('openai'\)/)
+  assert.match(loader, /import\('@anthropic-ai\/sdk'\)/)
+  assert.match(loader, /import\('@google\/genai'\)/)
+  assert.match(loader, /pending = undefined/)
+
+  for (const source of adapterSources) {
+    assert.doesNotMatch(source, /^import (?!type ).* from ['"](?:openai|@anthropic-ai\/sdk|@google\/genai)['"]/m)
+  }
 })
 
 test('web and extension package typecheck scripts use isolated tsconfig files', () => {
