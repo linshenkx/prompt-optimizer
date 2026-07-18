@@ -51,11 +51,11 @@ async function main() {
   }
 
   const startedAt = Date.now();
-  await new Promise((resolve) => setTimeout(resolve, 10000));
-
-  const out = fs.existsSync(outLog) ? fs.readFileSync(outLog, 'utf8') : '';
-  const err = fs.existsSync(errLog) ? fs.readFileSync(errLog, 'utf8') : '';
-  const combined = `${out}\n${err}`;
+  const waitMs = Number(process.env.DESKTOP_E2E_WAIT_MS || 25000);
+  const pollMs = 1000;
+  let out = '';
+  let err = '';
+  let ok = false;
 
   const checks = [
     { name: 'core-services-init', re: /Core services initialized successfully/i },
@@ -63,7 +63,21 @@ async function main() {
     { name: 'web-dist-loaded', re: /Loading web app from:.*web-dist[\\/]+index\.html/i },
   ];
 
-  let ok = true;
+  // 冷启动在 Windows 上常超过 10s；轮询日志直到通过或超时。
+  while (Date.now() - startedAt < waitMs) {
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+    out = fs.existsSync(outLog) ? fs.readFileSync(outLog, 'utf8') : '';
+    err = fs.existsSync(errLog) ? fs.readFileSync(errLog, 'utf8') : '';
+    const combined = `${out}\n${err}`;
+    ok = checks.every((check) => check.re.test(combined));
+    if (ok) break;
+  }
+
+  out = fs.existsSync(outLog) ? fs.readFileSync(outLog, 'utf8') : '';
+  err = fs.existsSync(errLog) ? fs.readFileSync(errLog, 'utf8') : '';
+  const combined = `${out}\n${err}`;
+
+  ok = true;
   for (const check of checks) {
     if (check.re.test(combined)) {
       console.log(`[desktop-local-e2e] PASS ${check.name}`);
