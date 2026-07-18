@@ -98,8 +98,9 @@ export default defineConfig({
           }
         : {}),
     },
-    // 为了保证每次测试都使用最新构建产物，默认不复用已有 server。
-    reuseExistingServer: false,
+    // 本地可复用已有 server，避免 Windows 上端口残留导致无法启动；
+    // CI 仍强制拉起干净实例（CI 下 reuseExistingServer 必须为 false）。
+    reuseExistingServer: !process.env.CI,
     // Windows 本地冷启动时，core + ui 构建本身就可能超过 120s，
     // 给到 3 分钟窗口，避免把“构建偏慢”误判成 E2E 失败。
     timeout: 180 * 1000,
