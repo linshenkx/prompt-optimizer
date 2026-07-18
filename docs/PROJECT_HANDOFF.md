@@ -2,11 +2,13 @@
 
 > 单一真相入口。更新代码后优先改本文相关章节；安装侧见 `D:\PromtOptimizer\README.md`。
 
-**最后更新：** 2026-07-18  
-**产品版本：** Desktop 2.11.7（热替换构建）  
-**维护分支：** `work/desktop-hardening`  
+**最后更新：** 2026-07-18 收口  
+**产品版本：** Desktop 2.11.7  
+**维护分支：** `work/desktop-hardening-on-develop` / fork `develop` @ `f6747be8`  
 **Fork：** https://github.com/xvyimu/prompt-optimizer  
-**上游：** https://github.com/linshenkx/prompt-optimizer（`upstream`，默认 `develop`）
+**上游：** https://github.com/linshenkx/prompt-optimizer（`upstream`，默认 `develop`）  
+**上游 PR：** https://github.com/linshenkx/prompt-optimizer/pull/324  
+**本机收口：** `D:\PromtOptimizer\CLOSEOUT.md`
 
 ---
 
@@ -16,7 +18,8 @@
 |--------|--------|
 | 改代码 | 源码 worktree（见 §1.1） |
 | 打开软件 | `D:\PromtOptimizer\PromptOptimizer\PromptOptimizer.exe` |
-| 看本轮改了什么 | §2 + `.pipeline/` |
+| 安装包 | `D:\PromtOptimizer\nsis-2026-07-18\PromptOptimizer-2.11.7-win-x64.exe` |
+| 看本轮改了什么 | §2 + `.pipeline/` + `D:\PromtOptimizer\CLOSEOUT.md` |
 | 跑测试 | §5 |
 | 推送到 GitHub | §6 |
 | 清理垃圾 | §7 |
@@ -49,26 +52,23 @@ C:\Users\yuanjia\Documents\Codex\2026-07-17\dui\work\source-extract\prompt-optim
 
 ```
 D:\PromtOptimizer\
-├── README.md                          # 安装侧入口（本整理新增）
+├── CLOSEOUT.md                        # 收口清单（终态入口）
+├── README.md                          # 安装侧入口
+├── overview.md                        # 短状态
+├── nsis-2026-07-18\                   # NSIS 安装包（未签名）
+├── archive-delivery-2026-07-18\       # 归档（含 nsis 副本）
 ├── PromptOptimizer\                   # 可执行安装树
 │   ├── PromptOptimizer.exe
 │   └── resources\
 │       ├── app\                       # 热替换后的业务代码（无 app.asar）
-│       │   ├── main.js
-│       │   ├── preload.js
-│       │   ├── remote-storage.js
-│       │   ├── package.json
-│       │   ├── config\                # 含 ipc/*、security、stream-registry
-│       │   ├── icons\                 # app-icon.ico 等
-│       │   ├── web-dist\
+│       │   ├── main.js / preload.js / config/ipc/*
+│       │   ├── icons\ / web-dist\
 │       │   └── node_modules\@prompt-optimizer\core\dist\
-│       ├── app-update.yml
-│       └── elevate.exe
-├── PromptOptimizer-app-overlay.zip    # 仅 app 层覆盖包
-├── PROJECT_STATUS_REPORT.md           # 长审计/推进报告
-├── overview.md                        # 短状态
+│       └── app-update.yml
+├── PromptOptimizer-app-overlay.zip
+├── PROJECT_STATUS_REPORT.md           # 长审计（历史）
 ├── audit\                             # 历史审计
-└── custom-templates\                  # 用户模板数据（勿当代码删）
+└── custom-templates\                  # 用户模板（勿删）
 ```
 
 **重要：** 用户曾要求删除升级备份；本机**没有** pre-upgrade / asar.bak 回滚副本。恢复靠源码/fork。
@@ -80,22 +80,27 @@ D:\PromtOptimizer\
 | origin | https://github.com/xvyimu/prompt-optimizer.git | 你的 fork |
 | upstream | https://github.com/linshenkx/prompt-optimizer.git | 官方 |
 
-- 开发分支：`work/desktop-hardening`
+- 开发分支：`work/desktop-hardening-on-develop`
+- 集成分支：fork `develop`（已含 hardening + upstream merge）
 - 勿 force 推 `develop`/`main`
-- 本机 git 可能配置 `http.proxy=http://127.0.0.1:7897`；代理挂了 push 失败时用：
+- 本机 GitHub 代理常用 `http://127.0.0.1:7890`（7897 常关）
 
 ```powershell
-git -c http.proxy= -c https.proxy= push origin work/desktop-hardening
+$env:HTTP_PROXY='http://127.0.0.1:7890'; $env:HTTPS_PROXY='http://127.0.0.1:7890'
+git push origin work/desktop-hardening-on-develop
+git push origin develop
 ```
 
 ### 1.4 提交历史（关键）
 
 | Commit | 说明 |
 |--------|------|
-| `90adf6d` | feat: IPC 拆分、stream cancel、provider abort（已 push 时） |
-| `9e6d896` | fix: vitest 入口、update package.json 路径、icons 文档等（可能仅本地） |
+| `38da09d4` | merge upstream develop：image-understanding + macOS update policy |
+| `f6747be8` | fork develop 同步 work 分支 |
+| `8770419f` | desktop smoke 冷启动轮询至 30s |
+| `eeb7708d` | Playwright 允许复用本地 webServer |
 
-以 `git log -3 --oneline` 为准。
+以 `git log -5 --oneline` 为准。
 
 ---
 
@@ -224,12 +229,28 @@ node scripts/desktop-local-e2e-smoke.cjs --source # 源码 electron
 node scripts/write-release-traceability.cjs
 ```
 
-### 5.5 已知坑
+### 5.5 Playwright gate（VCR）
+
+```powershell
+# Node 22；浏览器 chromium-1208
+$env:PLAYWRIGHT_BROWSERS_PATH='D:\ms-playwright'
+$env:NO_PROXY='localhost,127.0.0.1'
+# 只开 DeepSeek + SiliconFlow，勿开 OpenAI
+$env:VITE_DEEPSEEK_API_KEY='vcr'
+$env:VITE_SILICONFLOW_API_KEY='vcr'
+# 先起 web（packages/web）:15555，再：
+$env:E2E_VCR_MODE='replay'
+node scripts/run-e2e-group.js gate
+```
+
+### 5.6 已知坑
 
 | 错误入口 | 现象 |
 |----------|------|
 | 根目录 vitest 不带 core config（旧配置） | `vi is not defined`、ENOENT `src/...`、MSW 超时 |
 | update-handlers 用 `./package.json` | 更新检查 MODULE_NOT_FOUND（已修为 `../../package.json`） |
+| gate 启用 `VITE_OPENAI_API_KEY` | 默认模型变 openai，VCR hash 对不上 DeepSeek fixture |
+| 系统代理未设 `NO_PROXY=localhost` | Playwright 访问 127.0.0.1 失败 / 假 502 |
 
 ---
 
@@ -237,13 +258,15 @@ node scripts/write-release-traceability.cjs
 
 ```powershell
 cd C:\Users\yuanjia\Documents\Codex\2026-07-17\dui\work\source-extract\prompt-optimizer-develop
+$env:HTTP_PROXY='http://127.0.0.1:7890'; $env:HTTPS_PROXY='http://127.0.0.1:7890'
 git status -sb
-git log -3 --oneline
-# 提交后：
-git -c http.proxy= -c https.proxy= push origin work/desktop-hardening
+git log -5 --oneline
+git push origin work/desktop-hardening-on-develop
+git push origin develop
 ```
 
-PR：https://github.com/xvyimu/prompt-optimizer/pull/new/work/desktop-hardening  
+- 上游 PR：https://github.com/linshenkx/prompt-optimizer/pull/324  
+- fork 已合 PR：#1 #2  
 
 ---
 
@@ -256,7 +279,8 @@ PR：https://github.com/xvyimu/prompt-optimizer/pull/new/work/desktop-hardening
 | `D:\PromtOptimizer\portable-build\` | 失败整壳拷贝 |
 | `D:\PromtOptimizer\portable-app-overlay\` | 已有 zip |
 | `.pipeline/core-unit-report.json` | 可重跑生成 |
-| `packages/desktop/dist/win-unpacked\` | builder 半成品 |
+| `packages/desktop/dist/win-unpacked\` | builder 半成品（保留亦可） |
+| `test-results/` / `playwright-report/` | e2e 产物 |
 | `%TEMP%\po-local-e2e-*.log` | 烟测日志 |
 
 ### 7.2 禁止删除
@@ -264,8 +288,11 @@ PR：https://github.com/xvyimu/prompt-optimizer/pull/new/work/desktop-hardening
 | 路径 | 说明 |
 |------|------|
 | 源码 worktree 业务代码 | 真相源 |
-| `.pipeline/*.md` | 过程文档 |
+| `.pipeline/*.md` / `docs/PROJECT_HANDOFF.md` | 过程与交接 |
 | `D:\PromtOptimizer\PromptOptimizer\` | 可运行安装 |
+| `D:\PromtOptimizer\nsis-2026-07-18\` | NSIS 安装包 |
+| `D:\PromtOptimizer\CLOSEOUT.md` | 收口清单 |
+| `archive-delivery-2026-07-18\` | 归档 |
 | `PromptOptimizer-app-overlay.zip` | 分发 |
 | `custom-templates\` | 用户数据 |
 | 历史 audit / PROJECT_STATUS_REPORT | 审计上下文 |
@@ -276,6 +303,7 @@ PR：https://github.com/xvyimu/prompt-optimizer/pull/new/work/desktop-hardening
 Test-Path D:\PromtOptimizer\PromptOptimizer\resources\app\main.js
 Test-Path D:\PromtOptimizer\PromptOptimizer\resources\app\config\ipc\update-handlers.js
 Test-Path D:\PromtOptimizer\PromptOptimizer\resources\app\icons\app-icon.ico
+Test-Path D:\PromtOptimizer\nsis-2026-07-18\PromptOptimizer-2.11.7-win-x64.exe
 node scripts/desktop-local-e2e-smoke.cjs
 ```
 
@@ -283,12 +311,12 @@ node scripts/desktop-local-e2e-smoke.cjs
 
 ## 8. 未决与可选债
 
-1. **push `9e6d896`**：网络 443 恢复后执行 §6  
-2. **electron-builder NSIS**：需稳定 builder/Node 环境；本机曾超时  
-3. **Playwright 全量 e2e**：非日常门禁  
-4. **API 密钥**：安装启动警告无 key，需用户配置模型  
+1. **上游 PR #324** 等待 review/merge  
+2. **代码签名 NSIS**：本机已能打未签名包；签名需证书/CI  
+3. **Playwright extended**：非日常门禁（gate 已 12/12）  
+4. **API 密钥**：安装启动无 key 仅警告，需用户配置模型  
 
-细节见 `.pipeline/OPTIMIZATION_PLAN.md` §8。
+细节见 `.pipeline/OPTIMIZATION_PLAN.md`、`D:\PromtOptimizer\CLOSEOUT.md`。
 
 ---
 
@@ -304,3 +332,4 @@ node scripts/desktop-local-e2e-smoke.cjs
 | 日期 | 变更 |
 |------|------|
 | 2026-07-18 | 初版：路径/能力/测试/清理/Git 全细节交接 |
+| 2026-07-18 晚 | 收口：upstream merge、PR#324、NSIS、gate 12/12、CLOSEOUT 入口 |
