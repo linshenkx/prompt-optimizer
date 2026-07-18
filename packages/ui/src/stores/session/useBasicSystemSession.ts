@@ -602,21 +602,31 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
           : ''
 
         if (savedTestImageAssetId) {
-          if (!$services.imageStorageService) {
-            throw new Error(
-              '[BasicSystemSession] ImageStorageService is unavailable; cannot restore test image',
-            )
-          }
+          try {
+            if (!$services.imageStorageService) {
+              throw new Error(
+                '[BasicSystemSession] ImageStorageService is unavailable; cannot restore test image',
+              )
+            }
 
-          const storedImage = await $services.imageStorageService.getImage(savedTestImageAssetId)
-          if (!storedImage?.data?.trim()) {
-            console.info('[BasicSystemSession] Test image asset is missing; restoring session without it')
+            const storedImage = await $services.imageStorageService.getImage(savedTestImageAssetId)
+            if (!storedImage?.data?.trim()) {
+              console.info('[BasicSystemSession] Test image asset is missing; restoring session without it')
+              restoredTestImageAssetId = null
+              restoredTestImageMimeType = ''
+              shouldRepairMissingTestImage = true
+            } else {
+              restoredTestImageB64 = storedImage.data
+              restoredTestImageMimeType = storedImage.metadata?.mimeType || restoredTestImageMimeType || 'image/png'
+            }
+          } catch (error) {
+            console.warn(
+              '[BasicSystemSession] Failed to restore test image; restoring text session without it:',
+              error,
+            )
             restoredTestImageAssetId = null
+            restoredTestImageB64 = null
             restoredTestImageMimeType = ''
-            shouldRepairMissingTestImage = true
-          } else {
-            restoredTestImageB64 = storedImage.data
-            restoredTestImageMimeType = storedImage.metadata?.mimeType || restoredTestImageMimeType || 'image/png'
           }
         }
 

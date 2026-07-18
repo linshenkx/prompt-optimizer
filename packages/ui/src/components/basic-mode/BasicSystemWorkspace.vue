@@ -410,7 +410,7 @@
                                                 :original-content="logic.prompt.value"
                                                 function-mode="basic"
                                                 optimization-mode="system"
-                                                :disabled="variantRunning[id]"
+                                                :disabled="variantRunning[id] || isVariantStale(id)"
                                                 :test-id="`save-test-example-basic-system-${id}`"
                                             />
                                             <EvaluationScoreBadge

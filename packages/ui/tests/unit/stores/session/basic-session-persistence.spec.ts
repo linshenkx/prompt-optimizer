@@ -191,6 +191,61 @@ describe('Session stores (basic) persistence', () => {
     expect(restored.testImageMimeType).toBe('image/jpeg')
   })
 
+  it('basic-system restores text when image storage access fails transiently', async () => {
+    const savedSession = {
+      prompt: 'persisted prompt',
+      optimizedPrompt: 'persisted optimized prompt',
+      reasoning: 'persisted reasoning',
+      chainId: 'persisted-chain',
+      versionId: 'persisted-version',
+      testContent: 'persisted test input',
+      testImageAssetId: 'temporarily-unavailable-image',
+      testImageMimeType: 'image/png',
+      layout: { mainSplitLeftPct: 40, testColumnCount: 2 },
+      testVariants: [],
+      testVariantResults: {},
+      testVariantLastRunFingerprint: {},
+      evaluationResults: {},
+      compareSnapshotRoles: {},
+      compareSnapshotRoleSignatures: {},
+      selectedOptimizeModelKey: 'opt-model',
+      selectedTestModelKey: 'test-model',
+      selectedTemplateId: 'opt-template',
+      selectedIterateTemplateId: 'iterate-template',
+      isCompareMode: false,
+      lastActiveAt: 1,
+    }
+    const set = vi.fn(async () => {})
+    const preferenceService = createPreferenceServiceStub({
+      get: vi.fn(async <T,>(key: string, defaultValue: T) =>
+        (key === 'session/v1/basic-system' ? savedSession : defaultValue) as T),
+      set,
+    })
+    const getImage = vi.fn().mockRejectedValue(new Error('IndexedDB temporarily unavailable'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { pinia } = createTestPinia({
+      preferenceService,
+      imageStorageService: { getImage } as any,
+    })
+
+    const restored = useBasicSystemSession(pinia)
+    await restored.restoreSession()
+
+    expect(restored.prompt).toBe('persisted prompt')
+    expect(restored.optimizedPrompt).toBe('persisted optimized prompt')
+    expect(restored.reasoning).toBe('persisted reasoning')
+    expect(restored.testContent).toBe('persisted test input')
+    expect(restored.testImageB64).toBeNull()
+    expect(restored.testImageMimeType).toBe('')
+    expect(restored.testImageAssetId).toBeNull()
+    expect(set).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledWith(
+      '[BasicSystemSession] Failed to restore test image; restoring text session without it:',
+      expect.any(Error),
+    )
+    warn.mockRestore()
+  })
+
   it('basic-system replacement clears the old asset id immediately and deletion clears all image state', async () => {
     const preferenceValues = new Map<string, unknown>()
     const storedImages = new Map<string, any>()

@@ -136,6 +136,10 @@ interface LlmAPI {
   fetchModelList(provider: string, customConfig?: unknown): Promise<Array<{ value: string; label: string }>>
 }
 
+interface ImageUnderstandingAPI {
+  understand(request: unknown): Promise<unknown>
+}
+
 // 图像生成API
 interface ImageAPI {
   generate(request: unknown): Promise<unknown>
@@ -214,6 +218,7 @@ interface ElectronAPI {
   updater: UpdaterAPI
   shell: ShellAPI
   llm: LlmAPI
+  imageUnderstanding: ImageUnderstandingAPI
   image: ImageAPI
   imageModel: ImageModelAPI
   context: ContextAPI

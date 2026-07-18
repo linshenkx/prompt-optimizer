@@ -1140,6 +1140,61 @@ describe('useAppFavorite', () => {
     dispatchSpy.mockRestore()
   })
 
+  it('restores the selected Basic/System example image from favorite storage', async () => {
+    const success = vi.fn(() => createReactive())
+    setGlobalMessageApi({
+      success,
+      error: vi.fn(() => createReactive()),
+      warning: vi.fn(() => createReactive()),
+      info: vi.fn(() => createReactive()),
+    })
+
+    const updateTestContent = vi.fn()
+    const updateTestImage = vi.fn()
+    const getImage = vi.fn(async (assetId: string) => assetId === 'basic-input-asset'
+      ? {
+          metadata: { id: assetId, mimeType: 'image/webp' },
+          data: 'BASIC_INPUT_IMAGE',
+        }
+      : null)
+
+    const { handleUseFavorite } = useAppFavorite({
+      navigateToSubModeKey: vi.fn(async () => {}),
+      handleContextModeChange: vi.fn(async () => {}),
+      optimizerPrompt: ref(''),
+      t: (key: string) => key,
+      isLoadingExternalData: ref(false),
+      basicSystemSession: {
+        clearContent: vi.fn(),
+        updatePrompt: vi.fn(),
+        updateTestContent,
+        updateTestImage,
+      },
+      getFavoriteImageStorageService: () => ({ getImage } as any),
+    })
+
+    const used = await handleUseFavorite({
+      content: 'Describe the image accurately',
+      functionMode: 'basic',
+      optimizationMode: 'system',
+      metadata: {
+        reproducibility: {
+          examples: [{
+            id: 'basic-image-example',
+            text: 'What is in this image?',
+            inputImageAssetIds: ['basic-input-asset'],
+          }],
+        },
+      },
+    }, { applyExample: true, exampleId: 'basic-image-example' })
+
+    expect(used).toBe(true)
+    expect(getImage).toHaveBeenCalledWith('basic-input-asset')
+    expect(updateTestContent).toHaveBeenCalledWith('What is in this image?')
+    expect(updateTestImage).toHaveBeenCalledWith('BASIC_INPUT_IMAGE', 'image/webp')
+    expect(success).toHaveBeenCalled()
+  })
+
   it('stops loading favorite data when workspace navigation rejects the target key', async () => {
     const success = vi.fn(() => createReactive())
     setGlobalMessageApi({

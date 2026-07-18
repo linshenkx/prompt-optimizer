@@ -14,6 +14,7 @@ import {
   createContextRepo,
   createEvaluationService,
   createImageUnderstandingService,
+  ElectronImageUnderstandingServiceProxy,
   createVariableExtractionService,
   createVariableValueGenerationService,
   isRunningInElectron,
@@ -216,9 +217,7 @@ export function useAppInitializer(): {
         // 🆕 创建评估服务（使用代理的 llmService, modelManager, templateManager）
         evaluationService = createEvaluationService(llmService, modelManager, templateManager, {
           imageStorageService,
-          imageUnderstandingService: createImageUnderstandingService({
-            registry: textAdapterRegistryInstance,
-          }),
+          imageUnderstandingService: new ElectronImageUnderstandingServiceProxy(),
         });
 
         // 🆕 创建变量提取服务（使用代理的 llmService, modelManager, templateManager）

@@ -117,6 +117,7 @@ type AssetBindingSessionApi = {
     assetBinding?: PromptAssetBinding
     origin?: PromptSessionOrigin
     updateTestContent?: (content: string) => void
+    updateTestImage?: (b64: string | null, mimeType?: string, assetId?: string | null) => void
 }
 
 type Image2ImageExampleSessionApi = TemporaryVariablesSessionApi & {
@@ -667,6 +668,13 @@ export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
 
         if (draft.selectedExampleText) {
             getExampleTextSession(targetKey)?.updateTestContent?.(draft.selectedExampleText)
+        }
+
+        if (targetKey === 'basic-system' && basicSystemSession?.updateTestImage) {
+            const [firstImage] = await resolveExampleInputImages(example)
+            if (firstImage) {
+                basicSystemSession.updateTestImage(firstImage.b64, firstImage.mimeType)
+            }
         }
 
         if (targetKey === 'image-image2image' && imageImage2ImageSession) {

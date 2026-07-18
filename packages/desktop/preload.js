@@ -360,6 +360,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   },
 
+  imageUnderstanding: {
+    understand: async (request) => {
+      const result = await ipcRenderer.invoke('image-understanding-understand', request);
+      if (!result.success) {
+        throw createIpcError(result.error);
+      }
+      return result.data;
+    }
+  },
+
   // Model Manager interface
   model: {
     ensureInitialized: async () => {

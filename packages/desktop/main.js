@@ -27,6 +27,7 @@ const { autoUpdater } = require('electron-updater');
 const {
   buildReleaseUrl,
   validateVersion,
+  getRepositoryInfo,
   IPC_EVENTS,
   PREFERENCE_KEYS,
   DEFAULT_CONFIG
@@ -176,7 +177,7 @@ async function convertImageInputWithElectronNativeImage(input) {
 
 let mainWindow;
 let modelManager, templateManager, historyManager, llmService, promptService, templateLanguageService, preferenceService, dataManager, contextRepo, favoriteManager;
-let imageModelManager, imageService;
+let imageModelManager, imageService, imageUnderstandingService;
 let imageAdapterRegistry; // 全局引用以供 IPC 处理器使用
 let storageProvider; // 全局存储提供器引用，用于退出时保存数据
 
@@ -665,15 +666,17 @@ async function initializeServices() {
     console.log('[DESKTOP] Creating LLM service...');
     llmService = createLLMService(modelManager);
 
+    imageUnderstandingService = createImageUnderstandingService({
+      imageInputConverter: convertImageInputWithElectronNativeImage,
+    });
+
     console.log('[DESKTOP] Creating Prompt service...');
     promptService = createPromptService(
       modelManager,
       llmService,
       templateManager,
       historyManager,
-      createImageUnderstandingService({
-        imageInputConverter: convertImageInputWithElectronNativeImage,
-      }),
+      imageUnderstandingService,
     );
     console.log('[DESKTOP] Creating Image service...');
     imageService = createImageService(imageModelManager, imageAdapterRegistry, {
@@ -824,6 +827,7 @@ const { setupUpdateHandlers } = createUpdateHandlers({
   PREFERENCE_KEYS,
   validateVersion,
   buildReleaseUrl,
+  getRepositoryInfo,
 });
 
 function setupIPC() {
@@ -870,6 +874,17 @@ function setupIPC() {
     createSuccessResponse,
     createErrorResponse,
   });
+
+  // multimodal evaluation：图像理解走主进程，避免 renderer 直连供应商。
+  ipcMain.handle('image-understanding-understand', async (_event, request) => {
+    try {
+      const result = await imageUnderstandingService.understand(safeSerialize(request));
+      return createSuccessResponse(result);
+    } catch (error) {
+      return createErrorResponse(error);
+    }
+  });
+
 
   // 在页面加载前拦截 /config.js 并注入运行时环境变量（双份键）
   try {
