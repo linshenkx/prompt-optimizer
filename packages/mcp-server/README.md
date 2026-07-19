@@ -71,6 +71,24 @@ MCP_DEFAULT_MODEL_PROVIDER=openai
 MCP_LOG_LEVEL=debug
 ```
 
+### HTTP 安全配置
+
+HTTP 模式默认只监听 `127.0.0.1`。使用非回环地址时必须配置 Bearer token；Docker 部署无论内部监听地址如何都必须配置 token，因为 Nginx 会对外暴露 `/mcp`。
+
+```bash
+MCP_HTTP_HOST=127.0.0.1
+MCP_AUTH_TOKEN=replace-with-a-long-random-token
+MCP_ALLOWED_ORIGINS=https://app.example.com,http://localhost:5173
+MCP_HTTP_BODY_LIMIT=256kb
+MCP_MAX_SESSIONS=100
+MCP_SESSION_TTL_MS=1800000
+```
+
+- `MCP_ALLOWED_ORIGINS` 仅用于浏览器客户端，不支持 `*`；不发送 `Origin` 的原生 MCP 客户端不受影响。
+- 设置 `MCP_AUTH_TOKEN` 后，客户端必须发送 `Authorization: Bearer <token>`。
+- `/healthz` 不要求认证，用于本地和容器健康检查。
+- token 不应写入仓库、日志或客户端公开配置。
+
 ## 日志配置
 
 MCP 服务器默认启用 `debug` 级别日志，可通过 `MCP_LOG_LEVEL` 环境变量调整：
@@ -133,8 +151,9 @@ npx @modelcontextprotocol/inspector
 然后在 Inspector Web UI 中：
 1. 选择传输方式：`Streamable HTTP`
 2. 服务器 URL：`http://localhost:3000/mcp`
-3. 点击 "Connect" 连接服务器
-4. 测试可用的工具：`optimize-user-prompt`、`optimize-system-prompt`、`iterate-prompt`
+3. 如果配置了 `MCP_AUTH_TOKEN`，添加 `Authorization: Bearer <token>` 请求头
+4. 点击 "Connect" 连接服务器
+5. 测试可用的工具：`optimize-user-prompt`、`optimize-system-prompt`、`iterate-prompt`
 
 #### 其他测试方法
 

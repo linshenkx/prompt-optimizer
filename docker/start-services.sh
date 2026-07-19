@@ -1,5 +1,10 @@
 #!/bin/sh
 
+if [ -z "${MCP_AUTH_TOKEN:-}" ]; then
+    echo "ERROR: MCP_AUTH_TOKEN is required for Docker deployments." >&2
+    exit 1
+fi
+
 # 创建日志目录
 mkdir -p /var/log/supervisor
 
