@@ -12,13 +12,38 @@ const JSON_MIME_TYPE = 'application/json';
 const CLOUDFLARE_R2_DEFAULT_BACKUP_PREFIX = 'prompt-optimizer-backups/';
 let webDavModulePromise = null;
 
-const joinRemotePath = (...parts) =>
-  parts
-    .map((part) => String(part || '').replace(/^\/+|\/+$/g, ''))
-    .filter(Boolean)
-    .join('/');
+const decodeRemotePathSegment = (segment) => {
+  let decoded = segment;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    let next;
+    try {
+      next = decodeURIComponent(decoded);
+    } catch {
+      throw new Error('Remote storage path contains invalid encoding');
+    }
+    if (next === decoded) break;
+    decoded = next;
+  }
+  return decoded;
+};
 
-const normalizeObjectPath = (path) => joinRemotePath(path);
+const normalizeObjectPath = (path) => {
+  const raw = String(path || '');
+  if (/[\\\u0000-\u001f\u007f]/.test(raw)) {
+    throw new Error('Remote storage path contains invalid characters');
+  }
+
+  const segments = raw.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
+  for (const segment of segments) {
+    const decoded = decodeRemotePathSegment(segment);
+    if (decoded === '.' || decoded === '..' || /[\\/\u0000-\u001f\u007f]/.test(decoded)) {
+      throw new Error('Remote storage path contains an unsafe segment');
+    }
+  }
+  return segments.join('/');
+};
+
+const joinRemotePath = (...parts) => parts.map(normalizeObjectPath).filter(Boolean).join('/');
 
 const parentPathOf = (path) => {
   const normalized = normalizeObjectPath(path);
@@ -292,6 +317,7 @@ class WebDavRemoteObjectStore {
   constructor(config, dependencies) {
     this.config = config;
     this.dependencies = dependencies;
+    this.rootDirectory = normalizeObjectPath(config.directory || 'prompt-optimizer-backups');
     this.clientPromise = null;
   }
 
@@ -411,7 +437,7 @@ class WebDavRemoteObjectStore {
   }
 
   directoryPath(path) {
-    return `/${joinRemotePath(this.config.directory || 'prompt-optimizer-backups', path)}`;
+    return `/${joinRemotePath(this.rootDirectory, path)}`;
   }
 
   filePath(path) {

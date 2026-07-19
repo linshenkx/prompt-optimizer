@@ -49,6 +49,13 @@ const {
   getPageZoomActionFromDirection,
 } = require('./config/page-zoom');
 const { setupRemoteStorageHandlers } = require('./remote-storage');
+const { getPublicRuntimeConfig } = require('./config/runtime-security');
+const { installMainFrameNavigationGuard, isSafeExternalUrl } = require('./config/window-security');
+const {
+  createIpcError,
+  registerSecureIpcHandler,
+} = require('./config/ipc-security');
+
 const path = require('path');
 
 // 确定正确的配置文件路径
@@ -67,6 +74,16 @@ const envPath = path.join(__dirname, '.env');
 // 加载环境变量
 require('dotenv').config({ path: envLocalPath });
 require('dotenv').config({ path: envPath });
+
+function getIpcSenderOptions() {
+  return {
+    isDevelopment: process.env.NODE_ENV === 'development',
+    packagedRoot: path.join(__dirname, 'web-dist'),
+    devServerUrl: 'http://localhost:18181',
+  };
+}
+
+
 
 
 const {
@@ -424,24 +441,15 @@ function setupPreferenceHandlers() {
 // 构建注入到渲染进程的运行时配置脚本（双份键：带前缀与不带前缀）
 function buildRuntimeConfigScriptFromEnv() {
   try {
-    const entries = Object.entries(process.env)
-      .filter(([k, v]) => k.startsWith('VITE_') && v !== undefined && v !== null && String(v).length > 0);
+    const publicConfig = getPublicRuntimeConfig(process.env);
+    const publicCount = Object.keys(publicConfig).filter((key) => key.startsWith('VITE_')).length;
 
-    const props = [];
-    for (const [k, v] of entries) {
-      const val = String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      const noPrefix = k.replace(/^VITE_/, '');
-      props.push([noPrefix, val]);
-      props.push([k, val]);
-    }
-
-    const body = props.map(([key, val]) => `  ${key}: "${val}"`).join(',\n');
-
-    return `// Injected by Electron main process\n`
-      + `window.runtime_config = Object.assign({}, (window.runtime_config || {}), {\n`
-      + `${body}\n`
-      + `});\n`
-      + `console.log('[Main Process] runtime_config injected with ${entries.length} VITE_* vars (dual keys)');\n`;
+    return `// Injected by Electron main process
+`
+      + `window.runtime_config = Object.assign({}, (window.runtime_config || {}), ${JSON.stringify(publicConfig)});
+`
+      + `console.log('[Main Process] runtime_config injected with ${publicCount} public VITE_* vars (dual keys)');
+`;
   } catch (e) {
     return `console.warn('[Main Process] Failed to build runtime_config:', ${JSON.stringify(String(e))});`;
   }
@@ -495,6 +503,12 @@ function createWindow() {
       })
     )
   );
+
+  installMainFrameNavigationGuard(mainWindow.webContents, {
+    ...getIpcSenderOptions(),
+    openExternal: (url) => shell.openExternal(url),
+  });
+
   mainWindow.webContents.setZoomLevel(DEFAULT_PAGE_ZOOM_LEVEL);
   void mainWindow.webContents
     .setVisualZoomLevelLimits(VISUAL_ZOOM_LIMITS.minimum, VISUAL_ZOOM_LIMITS.maximum)
@@ -2226,23 +2240,12 @@ function setupIPC() {
   // 环境配置同步 - 主进程作为唯一配置源
   ipcMain.handle('config-getEnvironmentVariables', async (event) => {
     try {
-      // 自动透传所有 VITE_* 变量并附加无前缀副本
-      const viteEnv = Object.fromEntries(
-        Object.entries(process.env)
-          .filter(([k, v]) => k.startsWith('VITE_') && v !== undefined)
-          .map(([k, v]) => [k, String(v)])
-      );
+      // Only expose explicitly public runtime config to the renderer.
+      const publicConfig = getPublicRuntimeConfig(process.env);
+      const publicCount = Object.keys(publicConfig).filter((key) => key.startsWith('VITE_')).length;
 
-      const noPrefixEnv = Object.fromEntries(
-        Object.entries(viteEnv).map(([k, v]) => [k.replace(/^VITE_/, ''), v])
-      );
-
-      const allEnvVars = { ...viteEnv, ...noPrefixEnv };
-
-      console.log('[Main Process] Environment variables requested by UI process');
-      console.log(`[Main Process] Returning ${Object.keys(viteEnv).length} VITE_* variables (with no-prefix duplicates)`);
-
-      return createSuccessResponse(allEnvVars);
+      console.log(`[Main Process] Returning ${publicCount} public VITE_* variables (with no-prefix duplicates)`);
+      return createSuccessResponse(publicConfig);
     } catch (error) {
       return createErrorResponse(error);
     }
@@ -2256,6 +2259,9 @@ function setupIPC() {
       const urlObj = new URL(url);
       if (!['http:', 'https:'].includes(urlObj.protocol)) {
         throw new Error(`Unsupported protocol: ${urlObj.protocol}`);
+      }
+      if (!isSafeExternalUrl(url)) {
+        throw createIpcError('IPC_UNSAFE_EXTERNAL_URL', 'Refusing to open unsafe external URL');
       }
       await shell.openExternal(url);
       return createSuccessResponse(true);
