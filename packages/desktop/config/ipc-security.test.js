@@ -55,6 +55,21 @@ test('IPC sender trust accepts only the app main frame', () => {
   );
 });
 
+test('IPC sender trust tolerates missing senderFrame metadata on packaged file URLs', () => {
+  const eventWithoutFrame = {
+    sender: {
+      id: 7,
+      getURL: () => 'file:///C:/app/web-dist/index.html',
+      isDestroyed: () => false,
+    },
+  };
+  assert.equal(isTrustedRendererSender(eventWithoutFrame, options), true);
+
+  const eventWithUnknownMainFrame = createEvent();
+  delete eventWithUnknownMainFrame.senderFrame.isMainFrame;
+  assert.equal(isTrustedRendererSender(eventWithUnknownMainFrame, options), true);
+});
+
 test('IPC sender trust accepts only the configured development origin', () => {
   const developmentOptions = { ...options, isDevelopment: true };
 
