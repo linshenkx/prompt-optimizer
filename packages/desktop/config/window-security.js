@@ -15,7 +15,11 @@ function isSafeExternalUrl(value) {
 function isPathWithin(candidatePath, rootPath) {
   const candidate = path.resolve(candidatePath);
   const root = path.resolve(rootPath);
-  return candidate === root || candidate.startsWith(`${root}${path.sep}`);
+  // Windows paths are case-insensitive; normalize to avoid false untrusted senders.
+  const norm = (value) => process.platform === 'win32' ? value.toLowerCase() : value;
+  const c = norm(candidate);
+  const r = norm(root);
+  return c === r || c.startsWith(`${r}${path.sep}`);
 }
 
 /** 校验主 frame 导航是否属于当前开发源或打包应用目录。 */
