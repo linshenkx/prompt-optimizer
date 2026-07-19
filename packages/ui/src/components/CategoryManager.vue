@@ -113,7 +113,11 @@
       :mask-closable="false"
       @positive-click="handleConfirmDelete"
     >
-      <p v-html="t('favorites.categoryManager.deleteWarning', { name: deletingCategory?.name })"></p>
+      <i18n-t tag="p" keypath="favorites.categoryManager.deleteWarning" scope="global">
+        <template #name>
+          <strong>{{ deletingCategory?.name }}</strong>
+        </template>
+      </i18n-t>
       <p v-if="deletingCategoryHasChildren" style="color: var(--n-color-error)">
         {{ t('favorites.categoryManager.deleteChildrenWarning', { count: deletingCategoryChildCount }) }}
       </p>
