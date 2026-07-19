@@ -6,6 +6,7 @@ import {
   type TextModelConfig
 } from '@prompt-optimizer/core'
 import { useTextModelManager } from '../../../src/composables/model/useTextModelManager'
+import { allowConsole } from '../../utils/error-detection'
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -204,3 +205,71 @@ describe('useTextModelManager', () => {
     expect(manager.canSaveForm.value).toBe(true)
   })
 })
+
+  it('falls back to saved/static models when provider blocks remote model list', async () => {
+    allowConsole(/Failed to fetch model list/i)
+    const registry = new TextAdapterRegistry()
+    const compatAdapter = registry.getAdapter('openai-compatible')
+    const config: TextModelConfig = {
+      id: 'ls',
+      name: 'ls',
+      enabled: true,
+      providerMeta: {
+        ...compatAdapter.getProvider(),
+        supportsDynamicModels: true,
+      },
+      modelMeta: compatAdapter.buildDefaultModel('grok-4.5'),
+      connectionConfig: {
+        apiKey: 'sk-test',
+        baseURL: 'http://216.195.211.206:8317/v1',
+      },
+      paramOverrides: {},
+    }
+
+    const modelManager = {
+      getAllModels: vi.fn().mockResolvedValue([config]),
+      getModel: vi.fn(async (id: string) => (id === 'ls' ? config : undefined)),
+      addModel: vi.fn().mockResolvedValue(undefined),
+      deleteModel: vi.fn().mockResolvedValue(undefined),
+      updateModel: vi.fn().mockResolvedValue(undefined),
+      enableModel: vi.fn().mockResolvedValue(undefined),
+      disableModel: vi.fn().mockResolvedValue(undefined),
+    }
+    const blockedError = Object.assign(new Error('403 Your request was blocked.'), { status: 403 })
+    const llmService = {
+      testConnection: vi.fn().mockResolvedValue(undefined),
+      fetchModelList: vi.fn().mockRejectedValue(blockedError),
+    }
+
+    const Harness = defineComponent({
+      setup() {
+        const manager = useTextModelManager()
+        return { manager }
+      },
+      template: '<div />',
+    })
+
+    const wrapper = mount(Harness, {
+      global: {
+        provide: {
+          services: ref({
+            modelManager,
+            llmService,
+            textAdapterRegistry: registry,
+          }),
+        },
+      },
+    })
+
+    const manager = (wrapper.vm as any).manager as ReturnType<typeof useTextModelManager>
+    await manager.prepareForEdit('ls')
+    manager.form.value.connectionConfig.baseURL = 'http://216.195.211.206:8317/v1'
+    manager.form.value.connectionConfig.apiKey = 'sk-test'
+    manager.form.value.modelId = 'grok-4.5'
+
+    await manager.refreshModelOptions(true)
+
+    expect(llmService.fetchModelList).toHaveBeenCalled()
+    expect(manager.modelOptions.value.some((item) => item.value === 'grok-4.5')).toBe(true)
+    expect(manager.form.value.modelId).toBe('grok-4.5')
+  })

@@ -149,6 +149,8 @@ const messages = {
     "noModelsAvailable": "沒有可用模型",
     "selectModel": "選擇一個模型",
     "fetchModelsFailed": "取得模型清單失敗：{error}",
+    "fetchModelsBlockedFallback": "取得模型清單被服務商攔截：{error}。已改用本地/已儲存的 {count} 個模型，可直接手填模型 ID 繼續使用。",
+    "fetchModelsBlockedFailed": "取得模型清單被服務商攔截：{error}。請手動填寫模型 ID（對話可用時不必依賴該清單）。",
     "fetchModelsFallback": "取得模型清單失敗：{error}（已回退到預設的 {count} 個模型）",
     "needApiKeyAndBaseUrl": "請先填寫API位址和金鑰",
     "needBaseUrl": "請先填寫API位址",

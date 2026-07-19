@@ -149,6 +149,8 @@ const messages = {
     "noModelsAvailable": "No models available",
     "selectModel": "Select a model",
     "fetchModelsFailed": "Failed to fetch models: {error}",
+    "fetchModelsBlockedFallback": "Model list request was blocked by the provider: {error}. Fell back to {count} local/saved models. You can still type a model ID manually.",
+    "fetchModelsBlockedFailed": "Model list request was blocked by the provider: {error}. Enter a model ID manually (chat may still work without the remote list).",
     "fetchModelsFallback": "Failed to fetch models: {error} (fell back to {count} default models)",
     "needApiKeyAndBaseUrl": "Please fill API key and base URL first",
     "needBaseUrl": "Please fill in API URL first",

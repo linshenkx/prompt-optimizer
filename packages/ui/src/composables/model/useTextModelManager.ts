@@ -678,6 +678,34 @@ export function useTextModelManager() {
     }
   }
 
+
+  const isModelListBlockedError = (error: unknown) => {
+    const message = getErrorDetail(error, '').toLowerCase()
+    const code = typeof (error as { code?: unknown })?.code === 'string'
+      ? String((error as { code?: string }).code).toLowerCase()
+      : ''
+    const status = (error as { status?: unknown; statusCode?: unknown })?.status
+      ?? (error as { statusCode?: unknown })?.statusCode
+      ?? (error as { response?: { status?: unknown } })?.response?.status
+
+    return status === 403
+      || message.includes('403')
+      || message.includes('blocked')
+      || message.includes('your request was blocked')
+      || code.includes('forbidden')
+  }
+
+  const ensureCurrentModelOption = () => {
+    const currentId = form.value.modelId?.trim()
+    if (!currentId) return
+    if (!modelOptions.value.some(option => option.value === currentId)) {
+      modelOptions.value = [
+        { value: currentId, label: currentId },
+        ...modelOptions.value,
+      ]
+    }
+  }
+
   const refreshModelOptions = async (showSuccess = true) => {
     if (!form.value.providerId) return
 
@@ -755,13 +783,14 @@ export function useTextModelManager() {
         form.value.defaultModel = fetchedModels[0].value
       }
     } catch (error: unknown) {
-      console.error('Failed to fetch model list:', error)
+      console.warn('Failed to fetch model list:', error)
 
-      // Keep UX consistent: if dynamic fetch fails, fall back to static models
-      // but surface the failure to avoid a misleading "success" toast.
+      // Keep UX consistent: if dynamic fetch fails, fall back to static/current models
+      // and explain gateway blocks (e.g. 403 on /v1/models) without blocking manual use.
       const errorMessage = getErrorDetail(error, t('modelManager.loadFailed'))
+      const blocked = isModelListBlockedError(error)
 
-      let staticCount: number
+      let staticCount = 0
       try {
         const staticModels = textAdapterRegistry.getStaticModels(providerTemplateId)
         staticCount = staticModels.length
@@ -770,11 +799,30 @@ export function useTextModelManager() {
       }
 
       loadStaticModelsForProvider(providerTemplateId)
+      ensureCurrentModelOption()
 
-      if (staticCount > 0) {
-        toast.warning(t('modelManager.fetchModelsFallback', { error: errorMessage, count: staticCount }))
+      const optionCount = modelOptions.value.length
+      if (optionCount > 0) {
+        toast.warning(
+          blocked
+            ? t('modelManager.fetchModelsBlockedFallback', {
+                error: errorMessage,
+                count: optionCount,
+              })
+            : t('modelManager.fetchModelsFallback', {
+                error: errorMessage,
+                count: optionCount,
+              }),
+        )
+      } else if (blocked) {
+        toast.error(t('modelManager.fetchModelsBlockedFailed', { error: errorMessage }))
       } else {
         toast.error(t('modelManager.fetchModelsFailed', { error: errorMessage }))
+      }
+
+      // Keep the currently saved model id so users can continue without remote list.
+      if (form.value.modelId?.trim()) {
+        form.value.defaultModel = form.value.modelId
       }
     } finally {
       isLoadingModelOptions.value = false

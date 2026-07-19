@@ -149,6 +149,8 @@ const messages = {
     "loadingModels": "正在加载模型选项...",
     "noModelsAvailable": "没有可用模型",
     "fetchModelsFailed": "获取模型列表失败：{error}",
+    "fetchModelsBlockedFallback": "获取模型列表被服务商拦截：{error}。已改用本地/已保存的 {count} 个模型，可直接手填模型 ID 继续使用。",
+    "fetchModelsBlockedFailed": "获取模型列表被服务商拦截：{error}。请手动填写模型 ID（对话可用时不必依赖该列表）。",
     "fetchModelsFallback": "获取模型列表失败：{error}（已回退到默认的 {count} 个模型）",
     "needApiKeyAndBaseUrl": "请先填写API地址和密钥",
     "needBaseUrl": "请先填写API地址",
