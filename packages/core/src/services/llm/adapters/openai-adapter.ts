@@ -1,4 +1,5 @@
-import OpenAI from 'openai'
+import type OpenAI from 'openai'
+import { loadOpenAISdk } from './sdk-loaders'
 import { AbstractTextProviderAdapter } from './abstract-adapter'
 import { APIError } from '../errors'
 import { normalizeCustomRequestHeaders } from '../../../utils/custom-request-headers'
@@ -122,7 +123,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     // 验证baseURL以/v1结尾
     const baseURL = config.connectionConfig.baseURL || this.getProvider().defaultBaseURL
 
-    const openai = this.createOpenAIInstance(config, false)
+    const openai = await this.createOpenAIInstance(config, false)
 
     try {
       const response = await openai.models.list()
@@ -804,7 +805,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
    */
   // NOTE: protected so OpenAI-compatible providers (e.g. Ollama) can tweak auth/baseURL
   // without re-implementing the whole chat/stream/tool plumbing.
-  protected createOpenAIInstance(config: TextModelConfig, isStream: boolean = false): OpenAI {
+  protected async createOpenAIInstance(config: TextModelConfig, isStream: boolean = false): Promise<OpenAI> {
     const apiKey = config.connectionConfig.apiKey || ''
     const hasApiKey = typeof apiKey === 'string' && apiKey.trim().length > 0
 
@@ -873,7 +874,8 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       console.log('[OpenAIAdapter] Browser environment detected. Setting dangerouslyAllowBrowser=true.')
     }
 
-    const instance = new OpenAI(sdkConfig)
+    const OpenAICtor = await loadOpenAISdk()
+    const instance = new OpenAICtor(sdkConfig)
 
     return instance
   }
@@ -890,7 +892,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
    * @throws SDK原始错误（保留完整堆栈）
    */
   protected async doSendMessage(messages: Message[], config: TextModelConfig): Promise<LLMResponse> {
-    const openai = this.createOpenAIInstance(config, false)
+    const openai = await this.createOpenAIInstance(config, false)
     if (this.getRequestStyle(config) === 'responses') {
       try {
         return await this.sendResponsesMessage(openai, messages, config)
@@ -933,7 +935,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     request: ImageUnderstandingRequest,
     config: TextModelConfig
   ): Promise<LLMResponse> {
-    const openai = this.createOpenAIInstance(config, false)
+    const openai = await this.createOpenAIInstance(config, false)
     const mergedParams = {
       ...(config.paramOverrides || {}),
       ...(request.paramOverrides || {})
@@ -1000,7 +1002,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     callbacks: StreamHandlers
   ): Promise<void> {
     try {
-      const openai = this.createOpenAIInstance(config, true)
+      const openai = await this.createOpenAIInstance(config, true)
       const mergedParams = {
         ...(config.paramOverrides || {}),
         ...(request.paramOverrides || {})
@@ -1315,7 +1317,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
   ): Promise<void> {
     try {
       // 获取流式OpenAI实例
-      const openai = this.createOpenAIInstance(config, true)
+      const openai = await this.createOpenAIInstance(config, true)
       if (this.getRequestStyle(config) === 'responses') {
         await this.sendResponsesMessageStream(openai, messages, config, callbacks)
         return
@@ -1408,7 +1410,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
   ): Promise<void> {
     try {
       // 获取流式OpenAI实例
-      const openai = this.createOpenAIInstance(config, true)
+      const openai = await this.createOpenAIInstance(config, true)
       if (this.getRequestStyle(config) === 'responses') {
         await this.sendResponsesMessageStream(openai, messages, config, callbacks, tools)
         return

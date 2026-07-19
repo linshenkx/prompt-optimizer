@@ -1,4 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk'
+import type Anthropic from '@anthropic-ai/sdk'
+import { loadAnthropicSdk } from './sdk-loaders'
 import { AbstractTextProviderAdapter } from './abstract-adapter'
 import { APIError } from '../errors'
 import type {
@@ -100,7 +101,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
    * @returns 动态获取的模型列表
    */
   public async getModelsAsync(config: TextModelConfig): Promise<TextModel[]> {
-    const client = this.createClient(config)
+    const client = await this.createClient(config)
 
     try {
       const response = await client.models.list()
@@ -237,7 +238,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
     messages: Message[],
     config: TextModelConfig
   ): Promise<LLMResponse> {
-    const client = this.createClient(config)
+    const client = await this.createClient(config)
 
     try {
       // 提取已知参数和自定义参数
@@ -307,7 +308,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
     request: ImageUnderstandingRequest,
     config: TextModelConfig
   ): Promise<LLMResponse> {
-    const client = this.createClient(config)
+    const client = await this.createClient(config)
 
     try {
       const mergedParams = {
@@ -392,7 +393,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
     config: TextModelConfig,
     callbacks: StreamHandlers
   ): Promise<void> {
-    const client = this.createClient(config)
+    const client = await this.createClient(config)
     const thinkState = { isInThinkMode: false, buffer: '' }
 
     try {
@@ -502,7 +503,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
     config: TextModelConfig,
     callbacks: StreamHandlers
   ): Promise<void> {
-    const client = this.createClient(config)
+    const client = await this.createClient(config)
     const thinkState = { isInThinkMode: false, buffer: '' }
 
     try {
@@ -603,7 +604,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
     tools: ToolDefinition[],
     callbacks: StreamHandlers
   ): Promise<void> {
-    const client = this.createClient(config)
+    const client = await this.createClient(config)
     const thinkState = { isInThinkMode: false, buffer: '' }
 
     try {
@@ -739,7 +740,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
   /**
    * 创建配置好的客户端实例
    */
-  private createClient(config: TextModelConfig): Anthropic {
+  private async createClient(config: TextModelConfig): Promise<Anthropic> {
     const options: any = {
       apiKey: config.connectionConfig?.apiKey || '',
       dangerouslyAllowBrowser: true // 根据实际环境配置
@@ -758,7 +759,8 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
       options.timeout = config.connectionConfig.timeout
     }
 
-    return new Anthropic(options)
+    const AnthropicCtor = await loadAnthropicSdk()
+    return new AnthropicCtor(options)
   }
 
   /**

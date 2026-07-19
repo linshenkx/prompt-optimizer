@@ -1,4 +1,5 @@
-import { GoogleGenAI } from '@google/genai'
+import type { GoogleGenAI } from '@google/genai'
+import { loadGoogleGenAISdk } from './sdk-loaders'
 import { AbstractTextProviderAdapter } from './abstract-adapter'
 import type {
   TextProvider,
@@ -137,7 +138,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
       const apiKey = config.connectionConfig.apiKey || ''
 
       const customBaseURL = config.connectionConfig.baseURL
-      const genAI = new GoogleGenAI(
+      const genAI = new (await loadGoogleGenAISdk())(
         customBaseURL
           ? {
               apiKey,
@@ -308,12 +309,13 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
    * @param config 模型配置
    * @returns GoogleGenAI实例
    */
-  private createClient(config: TextModelConfig): GoogleGenAI {
+  private async createClient(config: TextModelConfig): Promise<GoogleGenAI> {
     const apiKey = config.connectionConfig.apiKey || ''
 
     const customBaseURL = config.connectionConfig.baseURL
 
-    return new GoogleGenAI(
+    const GoogleGenAICtor = await loadGoogleGenAISdk()
+    return new GoogleGenAICtor(
       customBaseURL
         ? {
             apiKey,
@@ -500,7 +502,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
     }
 
     try {
-      const client = this.createClient(config)
+      const client = await this.createClient(config)
 
       // 构建配置（包含系统指令）
       const generationConfig = this.buildGenerationConfig(
@@ -529,7 +531,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
     config: TextModelConfig
   ): Promise<LLMResponse> {
     try {
-      const client = this.createClient(config)
+      const client = await this.createClient(config)
       const mergedParams = {
         ...(config.paramOverrides || {}),
         ...(request.paramOverrides || {})
@@ -578,7 +580,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
     callbacks: StreamHandlers
   ): Promise<void> {
     try {
-      const client = this.createClient(config)
+      const client = await this.createClient(config)
       const mergedParams = {
         ...(config.paramOverrides || {}),
         ...(request.paramOverrides || {})
@@ -740,7 +742,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
     }
 
     try {
-      const client = this.createClient(config)
+      const client = await this.createClient(config)
 
       // 构建配置（包含系统指令）
       const generationConfig = this.buildGenerationConfig(
@@ -847,7 +849,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
     }
 
     try {
-      const client = this.createClient(config)
+      const client = await this.createClient(config)
 
       // 构建配置（包含系统指令和工具）
       const generationConfig = this.buildGenerationConfig(
