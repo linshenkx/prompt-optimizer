@@ -26,11 +26,15 @@ services:
       # Web应用API配置（从 .env.local 读取，不在此处覆盖）
 
       # MCP服务器配置（Docker内部固定端口3000，忽略MCP_HTTP_PORT环境变量）
+      # MCP_AUTH_TOKEN is required in ../.env.local and is passed by env_file.
+      - MCP_ALLOWED_ORIGINS=${MCP_ALLOWED_ORIGINS:-}
+      - MCP_HTTP_BODY_LIMIT=${MCP_HTTP_BODY_LIMIT:-256kb}
+      - MCP_MAX_SESSIONS=${MCP_MAX_SESSIONS:-100}
+      - MCP_SESSION_TTL_MS=${MCP_SESSION_TTL_MS:-1800000}
       # - MCP_LOG_LEVEL=${MCP_LOG_LEVEL:-debug}
-      # - MCP_DEFAULT_LANGUAGE=${MCP_DEFAULT_LANGUAGE:-zh}
+      # - MCP_DEFAULT_LANGUAGE=${MCP_DEFAULT_LANGUAGE:-zh-CN}
       # - MCP_DEFAULT_MODEL_PROVIDER=${MCP_DEFAULT_MODEL_PROVIDER:-openai}
 
       # Basic认证配置（可选）
       - ACCESS_USERNAME=${ACCESS_USERNAME:-admin}
       - ACCESS_PASSWORD=${ACCESS_PASSWORD:-123456}
-

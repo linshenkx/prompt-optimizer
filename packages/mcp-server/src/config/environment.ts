@@ -6,6 +6,7 @@
  */
 
 import { config } from 'dotenv';
+import type { HttpSecurityConfig } from '../http-security.js';
 
 // 备用环境变量加载（preload-env.js 已经处理了主要加载）
 config();
@@ -78,16 +79,56 @@ Object.entries(allEnvMappings).forEach(([viteKey, mcpKey]) => {
   }
 });
 
-export interface MCPServerConfig {
+export interface MCPServerConfig extends HttpSecurityConfig {
   httpPort: number;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
   defaultLanguage: string;
   preferredModelProvider?: string;
 }
 
+function parseInteger(value: string | undefined, fallback: number): number {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  return /^\d+$/.test(value.trim()) ? Number(value) : Number.NaN;
+}
+
+function parseBodyLimit(value: string | undefined): number {
+  const raw = value?.trim() || '256kb';
+  const match = raw.match(/^(\d+)\s*(b|kb|mb)?$/i);
+  if (!match) {
+    return Number.NaN;
+  }
+
+  const amount = Number(match[1]);
+  const unit = match[2]?.toLowerCase() || 'b';
+  const multiplier = unit === 'mb' ? 1024 * 1024 : unit === 'kb' ? 1024 : 1;
+  return amount * multiplier;
+}
+
+function parseAllowedOrigins(value: string | undefined): string[] {
+  if (!value?.trim()) {
+    return [];
+  }
+
+  return value.split(',').map(origin => origin.trim()).filter(Boolean);
+}
+
+function isLoopbackHost(host: string): boolean {
+  const normalized = host.trim().toLowerCase();
+  return normalized === '127.0.0.1' || normalized === 'localhost' || normalized === '::1';
+}
+
 export function loadConfig(): MCPServerConfig {
   return {
-    httpPort: parseInt(process.env.MCP_HTTP_PORT || '3000'),
+    httpPort: parseInteger(process.env.MCP_HTTP_PORT, 3000),
+    httpHost: process.env.MCP_HTTP_HOST?.trim() || '127.0.0.1',
+    httpAuthToken: process.env.MCP_AUTH_TOKEN?.trim() || undefined,
+    httpAllowedOrigins: parseAllowedOrigins(process.env.MCP_ALLOWED_ORIGINS),
+    httpBodyLimitBytes: parseBodyLimit(process.env.MCP_HTTP_BODY_LIMIT),
+    httpMaxSessions: parseInteger(process.env.MCP_MAX_SESSIONS, 100),
+    httpSessionTtlMs: parseInteger(process.env.MCP_SESSION_TTL_MS, 30 * 60 * 1000),
     logLevel: (process.env.MCP_LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') || 'debug',
     defaultLanguage: process.env.MCP_DEFAULT_LANGUAGE || 'en-US',
     preferredModelProvider: process.env.MCP_DEFAULT_MODEL_PROVIDER
@@ -95,8 +136,43 @@ export function loadConfig(): MCPServerConfig {
 }
 
 export function validateConfig(config: MCPServerConfig): void {
-  if (config.httpPort < 1 || config.httpPort > 65535) {
+  if (!Number.isInteger(config.httpPort) || config.httpPort < 1 || config.httpPort > 65535) {
     throw new Error('HTTP port must be between 1 and 65535');
+  }
+
+  if (!config.httpHost.trim()) {
+    throw new Error('MCP_HTTP_HOST must not be empty');
+  }
+  if (!isLoopbackHost(config.httpHost) && !config.httpAuthToken) {
+    throw new Error('MCP_AUTH_TOKEN is required when MCP_HTTP_HOST is not loopback');
+  }
+  if (config.httpAuthToken && /\s/.test(config.httpAuthToken)) {
+    throw new Error('MCP_AUTH_TOKEN must not contain whitespace');
+  }
+
+  for (const origin of config.httpAllowedOrigins) {
+    if (origin === '*') {
+      throw new Error('MCP_ALLOWED_ORIGINS must not contain a wildcard');
+    }
+
+    try {
+      const url = new URL(origin);
+      if (!['http:', 'https:'].includes(url.protocol) || url.origin !== origin) {
+        throw new Error('invalid origin');
+      }
+    } catch {
+      throw new Error('MCP_ALLOWED_ORIGINS must contain only HTTP(S) origins without paths');
+    }
+  }
+
+  if (!Number.isSafeInteger(config.httpBodyLimitBytes) || config.httpBodyLimitBytes < 1) {
+    throw new Error('MCP_HTTP_BODY_LIMIT must be a positive byte value such as 256kb');
+  }
+  if (!Number.isSafeInteger(config.httpMaxSessions) || config.httpMaxSessions < 1) {
+    throw new Error('MCP_MAX_SESSIONS must be a positive integer');
+  }
+  if (!Number.isSafeInteger(config.httpSessionTtlMs) || config.httpSessionTtlMs < 1) {
+    throw new Error('MCP_SESSION_TTL_MS must be a positive integer');
   }
 
   const validLogLevels = ['debug', 'info', 'warn', 'error'];
