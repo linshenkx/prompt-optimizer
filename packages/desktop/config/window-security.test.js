@@ -61,3 +61,20 @@ test('navigation guard prevents untrusted top-level navigation and opens only sa
   await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(openedUrls, ['https://docs.example', 'https://docs.example/new']);
 });
+
+test('production file URL allowlist accepts mixed-case packaged paths', () => {
+  const options = {
+    isDevelopment: false,
+    packagedRoot: 'C:/app/web-dist',
+    devServerUrl: 'http://localhost:18181',
+  };
+  // Windows webContents may surface different drive-letter casing than packagedRoot.
+  assert.equal(
+    isAllowedMainFrameNavigation('file:///c:/APP/web-dist/index.html', options),
+    true,
+  );
+  assert.equal(
+    isAllowedMainFrameNavigation('file:///C:/app/web-dist/index.html', options),
+    true,
+  );
+});

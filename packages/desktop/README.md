@@ -84,7 +84,22 @@ npm start
 ### Q: 我的.env.local文件有效吗？
 A: **有效！** 桌面应用现在会自动加载项目根目录的`.env.local`文件。
 
+### Q: 连接测试报 `IPC request sender is not trusted`？
+
+这通常是桌面端 IPC 信任校验误杀，而不是 API Key/Base URL 本身错误。
+
+**常见原因（Windows 安装版）**
+1. `senderFrame.isMainFrame` 在部分 Electron/Windows 组合下为 `undefined`，旧逻辑会把它当成不可信；
+2. `file://` 路径大小写与 `web-dist` 根路径不一致。
+
+**处理**
+1. 确认已包含修复：`config/ipc-security.js` 仅拒绝明确 `isMainFrame === false`；
+2. 确认 `config/window-security.js` 在 win32 上对路径做大小写归一；
+3. 重启应用后再测；
+4. 若仍失败，查看 `AppData/Roaming/@prompt-optimizer/desktop/logs` 中是否仍有 `IPC_UNTRUSTED_SENDER`，并核对页面是否从 `resources/app/web-dist` 加载。
+
 ### Q: 为什么UI显示有API密钥，但测试连接失败？
+
 A: 这是因为UI进程和主进程环境隔离。确保：
 1. 环境变量正确设置在`.env.local`文件中
 2. 重启桌面应用以重新加载环境变量
