@@ -172,4 +172,10 @@ private: false
 ---
 
 **更新时间**: 2025-01-12  
-**版本**: v1.2.0+ 
+**版本**: v1.2.0+
+
+## 安全说明（Desktop hardening）
+
+- Renderer 仅接收明确 public 的 `VITE_APP_*` / `VITE_PUBLIC_*` 运行时配置；供应商 `VITE_*_API_KEY` 保留在主进程。
+- 自定义模型密钥请写入应用内模型配置（如 `ls`），不要依赖把 API Key 注入 `window.runtime_config`。
+- 若连接测试报 `IPC request sender is not trusted`，优先按 `README.md` 对应 FAQ 排查 Windows IPC 信任误杀。
