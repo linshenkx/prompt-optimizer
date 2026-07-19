@@ -1,3 +1,7 @@
+/** Runtime config exposed to renderer must be explicitly public.
+ * Supplier API keys (VITE_*_API_KEY) stay main-process-only and are never
+ * returned by getPublicRuntimeConfig / config-getEnvironmentVariables.
+ */
 const PUBLIC_RUNTIME_CONFIG_PATTERN = /^VITE_(?:APP|PUBLIC)_[A-Z0-9_]+$/;
 const SENSITIVE_RUNTIME_CONFIG_SEGMENT = /(?:^|_)(?:API_KEY|KEY|TOKEN|SECRET|PASSWORD|PASS|AUTHORIZATION|HEADERS|CREDENTIALS?|COOKIE|PRIVATE)(?:_|$)/i;
 

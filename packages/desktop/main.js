@@ -924,6 +924,16 @@ function createFavoriteErrorResponse(error) {
 // --- High-Level IPC Service Handlers ---
 function setupIPC() {
   console.log('[Main Process] Setting up high-level service IPC handlers...');
+  /** Trusted-sender IPC registration for high-sensitivity channels. */
+  const registerSensitiveIpc = (channel, handler, validateArgs) => {
+    registerSecureIpcHandler(ipcMain, channel, handler, {
+      senderOptions: getIpcSenderOptions(),
+      validateArgs,
+      createSuccess: createSuccessResponse,
+      createError: createErrorResponse,
+    });
+  };
+
   setupPreferenceHandlers();
   setupRemoteStorageHandlers(ipcMain, {
     createSuccessResponse,
@@ -2238,36 +2248,25 @@ function setupIPC() {
 
 
   // 环境配置同步 - 主进程作为唯一配置源
-  ipcMain.handle('config-getEnvironmentVariables', async (event) => {
-    try {
-      // Only expose explicitly public runtime config to the renderer.
-      const publicConfig = getPublicRuntimeConfig(process.env);
-      const publicCount = Object.keys(publicConfig).filter((key) => key.startsWith('VITE_')).length;
-
-      console.log(`[Main Process] Returning ${publicCount} public VITE_* variables (with no-prefix duplicates)`);
-      return createSuccessResponse(publicConfig);
-    } catch (error) {
-      return createErrorResponse(error);
-    }
+  // Secrets stay main-process-only; renderer receives explicit public keys only.
+  registerSensitiveIpc('config-getEnvironmentVariables', async () => {
+    const publicConfig = getPublicRuntimeConfig(process.env);
+    const publicCount = Object.keys(publicConfig).filter((key) => key.startsWith('VITE_')).length;
+    console.log(`[Main Process] Returning ${publicCount} public VITE_* variables (with no-prefix duplicates)`);
+    return publicConfig;
   });
 
   // 外部链接处理器
-  ipcMain.handle('shell-openExternal', async (event, url) => {
-    try {
-      console.log('[Main Process] Opening external URL:', url);
-      // 安全性检查：仅允许 http/https 协议
-      const urlObj = new URL(url);
-      if (!['http:', 'https:'].includes(urlObj.protocol)) {
-        throw new Error(`Unsupported protocol: ${urlObj.protocol}`);
-      }
-      if (!isSafeExternalUrl(url)) {
-        throw createIpcError('IPC_UNSAFE_EXTERNAL_URL', 'Refusing to open unsafe external URL');
-      }
-      await shell.openExternal(url);
-      return createSuccessResponse(true);
-    } catch (error) {
-      console.error('[Main Process] Failed to open external URL:', error);
-      return createErrorResponse(error);
+  registerSensitiveIpc('shell-openExternal', async (_event, url) => {
+    console.log('[Main Process] Opening external URL:', url);
+    if (!isSafeExternalUrl(url)) {
+      throw createIpcError('IPC_UNSAFE_EXTERNAL_URL', 'Refusing to open unsafe external URL');
+    }
+    await shell.openExternal(url);
+    return true;
+  }, ([url]) => {
+    if (typeof url !== 'string' || url.length === 0 || url.length > 2048) {
+      throw createIpcError('IPC_INVALID_ARGUMENT', 'Invalid external URL');
     }
   });
 
