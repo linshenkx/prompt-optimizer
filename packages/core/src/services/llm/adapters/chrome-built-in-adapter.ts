@@ -3,6 +3,7 @@ import type {
   Message,
   ParameterDefinition,
   StreamHandlers,
+  StreamRequestOptions,
   TextModel,
   TextModelConfig,
   TextProvider
@@ -75,14 +76,18 @@ export class ChromeBuiltInAdapter extends AbstractTextProviderAdapter {
   protected async doSendMessageStream(
     messages: Message[],
     _config: TextModelConfig,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
     const { initialPrompts, prompt } = this.buildPrompt(messages)
     const session = await this.createReadySession(initialPrompts)
     let content = ''
 
     try {
-      const stream = await session.promptStreaming(prompt)
+      const streamOptions = options?.signal ? { signal: options.signal } : undefined
+      const stream = streamOptions
+        ? await (session as any).promptStreaming(prompt, streamOptions)
+        : await session.promptStreaming(prompt)
       for await (const token of stream) {
         content += token
         callbacks.onToken(token)

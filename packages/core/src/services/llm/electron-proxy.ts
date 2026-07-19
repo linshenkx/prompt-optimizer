@@ -1,4 +1,4 @@
-import { ILLMService, Message, StreamHandlers, LLMResponse, ModelOption, ToolDefinition } from './types';
+import { ILLMService, Message, StreamHandlers, LLMResponse, ModelOption, ToolDefinition, StreamRequestOptions } from './types';
 import { safeSerializeForIPC } from '../../utils/ipc-serialization';
 import { InitializationError } from './errors';
 
@@ -36,7 +36,8 @@ export class ElectronLLMProxy implements ILLMService {
   async sendMessageStream(
     messages: Message[],
     provider: string,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
     // 自动序列化，防止Vue响应式对象IPC传递错误
     const safeMessages = safeSerializeForIPC(messages);
@@ -49,14 +50,15 @@ export class ElectronLLMProxy implements ILLMService {
       onError: callbacks.onError
     };
 
-    await this.electronAPI.llm.sendMessageStream(safeMessages, provider, adaptedCallbacks);
+    await this.electronAPI.llm.sendMessageStream(safeMessages, provider, adaptedCallbacks, options?.signal);
   }
 
   async sendMessageStreamWithTools(
     messages: Message[],
     provider: string,
     tools: ToolDefinition[],
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
     // 自动序列化，防止Vue响应式对象IPC传递错误
     const safeMessages = safeSerializeForIPC(messages);
@@ -74,12 +76,12 @@ export class ElectronLLMProxy implements ILLMService {
     // Prefer the dedicated tools-capable streaming channel when available.
     const maybe = this.electronAPI.llm.sendMessageStreamWithTools;
     if (typeof maybe === 'function') {
-      await maybe(safeMessages, provider, safeTools, adaptedCallbacks);
+      await maybe(safeMessages, provider, safeTools, adaptedCallbacks, options?.signal);
       return;
     }
 
     // Back-compat fallback (older preload/main): stream without tool-call events.
-    await this.electronAPI.llm.sendMessageStream(safeMessages, provider, adaptedCallbacks);
+    await this.electronAPI.llm.sendMessageStream(safeMessages, provider, adaptedCallbacks, options?.signal);
   }
 
   async fetchModelList(

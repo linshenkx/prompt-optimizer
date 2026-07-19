@@ -6,6 +6,7 @@ import type {
   ImageUnderstandingRequest,
   LLMResponse,
   StreamHandlers,
+  StreamRequestOptions,
   ToolDefinition,
   ParameterDefinition
 } from '../types'
@@ -238,16 +239,19 @@ export class DeepseekAdapter extends OpenAIAdapter {
   protected async doSendMessageStream(
     messages: Message[],
     config: TextModelConfig,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
-    await super.doSendMessageStream(messages, this.normalizeDeepseekConfig(config), callbacks)
+    options?.signal?.throwIfAborted()
+    await super.doSendMessageStream(messages, this.normalizeDeepseekConfig(config, options), callbacks)
   }
 
   public async sendMessageStreamWithTools(
     messages: Message[],
     config: TextModelConfig,
     tools: ToolDefinition[],
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
     await super.sendMessageStreamWithTools(
       messages,
