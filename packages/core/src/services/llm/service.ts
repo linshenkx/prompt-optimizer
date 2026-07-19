@@ -13,7 +13,6 @@ import { ModelManager } from '../model/manager';
 import { resolveTextModelMetadata } from '../model/metadata-resolver';
 import { APIError, RequestConfigError } from './errors';
 import { isRunningInElectron } from '../../utils/environment';
-import { ElectronLLMProxy } from './electron-proxy';
 import { TextAdapterRegistry } from './adapters/registry';
 import { mergeOverrides, splitOverridesBySchema } from '../model/parameter-utils';
 
@@ -385,9 +384,11 @@ export class LLMService implements ILLMService {
  * @returns LLM服务实例
  */
 export function createLLMService(modelManager: ModelManager): ILLMService {
-  // 在Electron环境中，返回代理实例
+  // 在Electron环境中，返回代理实例（延迟加载 electron-proxy，避免 web 入口静态依赖）
   if (isRunningInElectron()) {
     console.log('[LLM Service Factory] Electron environment detected, using proxy.');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { ElectronLLMProxy } = require('./electron-proxy') as typeof import('./electron-proxy');
     return new ElectronLLMProxy();
   }
 
