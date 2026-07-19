@@ -1194,22 +1194,44 @@ function setupIPC() {
   ipcMain.handle('prompt-iteratePromptStream', async (event, originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, streamId, contextData) => {
     const streamHandlers = createIpcStreamHandlers(mainWindow, streamId);
     try {
-      await promptService.iteratePromptStream(originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, streamHandlers, templateId, contextData);
+      const stream = streamRegistry.register(event.sender, streamId);
+      await promptService.iteratePromptStream(
+        originalPrompt,
+        lastOptimizedPrompt,
+        iterateInput,
+        modelKey,
+        streamHandlers,
+        templateId,
+        contextData,
+        { signal: stream.signal },
+      );
       return createSuccessResponse(null);
     } catch (error) {
       streamHandlers.onError(error);
       return createErrorResponse(error);
+    } finally {
+      streamRegistry.complete(event.sender, streamId);
     }
   });
 
   ipcMain.handle('prompt-testPromptStream', async (event, systemPrompt, userPrompt, modelKey, streamId, inputImages) => {
     const streamHandlers = createIpcStreamHandlers(mainWindow, streamId);
     try {
-      await promptService.testPromptStream(systemPrompt, userPrompt, modelKey, streamHandlers, inputImages);
+      const stream = streamRegistry.register(event.sender, streamId);
+      await promptService.testPromptStream(
+        systemPrompt,
+        userPrompt,
+        modelKey,
+        streamHandlers,
+        inputImages,
+        { signal: stream.signal },
+      );
       return createSuccessResponse(null);
     } catch (error) {
       streamHandlers.onError(error);
       return createErrorResponse(error);
+    } finally {
+      streamRegistry.complete(event.sender, streamId);
     }
   });
 
@@ -1236,11 +1258,18 @@ function setupIPC() {
   ipcMain.handle('prompt-testCustomConversationStream', async (event, request, streamId) => {
     const streamHandlers = createIpcStreamHandlers(mainWindow, streamId);
     try {
-      await promptService.testCustomConversationStream(request, streamHandlers);
+      const stream = streamRegistry.register(event.sender, streamId);
+      await promptService.testCustomConversationStream(
+        request,
+        streamHandlers,
+        { signal: stream.signal },
+      );
       return createSuccessResponse(null);
     } catch (error) {
       streamHandlers.onError(error);
       return createErrorResponse(error);
+    } finally {
+      streamRegistry.complete(event.sender, streamId);
     }
   });
 

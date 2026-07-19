@@ -1112,7 +1112,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
         cancellation.dispose();
       }
     },
-    testPromptStream: async (systemPrompt, userPrompt, modelKey, callbacks, signal) => {
+    testPromptStream: async (systemPrompt, userPrompt, modelKey, callbacks, inputImages, signal) => {
+      // Back-compat: allow (callbacks, signal) without images.
+      if (inputImages && typeof inputImages === 'object' && typeof inputImages.aborted === 'boolean' && signal === undefined) {
+        signal = inputImages;
+        inputImages = undefined;
+      }
       const streamId = generateStreamId();
 
       if (signal?.aborted) {
@@ -1157,6 +1162,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
           userPrompt,
           modelKey,
           streamId,
+          inputImages,
         );
         const result = cancellation.abortPromise
           ? await Promise.race([requestPromise, cancellation.abortPromise])
@@ -1237,8 +1243,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       }
       return result.data;
     },
-    testPrompt: async (systemPrompt, userPrompt, modelKey) => {
-      const result = await ipcRenderer.invoke('prompt-testPrompt', systemPrompt, userPrompt, modelKey);
+    testPrompt: async (systemPrompt, userPrompt, modelKey, inputImages) => {
+      const result = await ipcRenderer.invoke('prompt-testPrompt', systemPrompt, userPrompt, modelKey, inputImages);
       if (!result.success) {
         throw createIpcError(result.error);
       }

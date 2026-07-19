@@ -201,6 +201,7 @@ export interface IPromptService {
     userPrompt: string,
     modelKey: string,
     callbacks: StreamHandlers,
+    inputImages?: ImageInputRef[],
     options?: StreamRequestOptions,
   ): Promise<void>;
 

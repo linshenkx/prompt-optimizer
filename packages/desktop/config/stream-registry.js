@@ -42,11 +42,16 @@ function createStreamRegistry({ maxStreamsPerSender = 4 } = {}) {
   }
 
   /** 判断流是否属于指定 sender 且仍可向 renderer 转发事件。 */
-  function isActive(sender, streamId) {
+  function isOwned(sender, streamId) {
     const stream = streams.get(streamId);
     return Boolean(stream)
-      && stream.senderId === getSenderId(sender)
-      && !stream.signal.aborted;
+      && stream.senderId === getSenderId(sender);
+  }
+
+  /** 流仍归该 sender 且未取消时，才转发 token/tool 事件。 */
+  function isActive(sender, streamId) {
+    const stream = streams.get(streamId);
+    return isOwned(sender, streamId) && !stream.signal.aborted;
   }
 
   /** 由流所有者取消任务并触发对应 AbortSignal。 */
@@ -112,6 +117,7 @@ function createStreamRegistry({ maxStreamsPerSender = 4 } = {}) {
     complete,
     has,
     isActive,
+    isOwned,
     register,
   };
 }
@@ -137,18 +143,35 @@ function createOwnedStreamHandlers({ registry, sender, streamId, channels }) {
     return true;
   };
 
+  const sendOwned = function sendOwned(channel, payload) {
+    if (!channel || !registry.isOwned(sender, streamId)) {
+      return false;
+    }
+    if (typeof sender.isDestroyed === 'function' && sender.isDestroyed()) {
+      registry.complete(sender, streamId);
+      return false;
+    }
+    const eventName = `${channel}-${streamId}`;
+    if (arguments.length === 1) {
+      sender.send(eventName);
+    } else {
+      sender.send(eventName, payload);
+    }
+    return true;
+  };
+
   return {
     onToken: (token) => send(channels.token, token),
     onReasoningToken: (token) => send(channels.reasoning, token),
     onToolCall: (toolCall) => send(channels.toolCall, toolCall),
     onComplete: () => {
-      if (send(channels.finish)) {
+      if (sendOwned(channels.finish)) {
         registry.complete(sender, streamId);
       }
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : String(error);
-      if (send(channels.error, message)) {
+      if (sendOwned(channels.error, message)) {
         registry.complete(sender, streamId);
       }
     },

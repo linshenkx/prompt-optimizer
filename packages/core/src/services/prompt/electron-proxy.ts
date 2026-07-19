@@ -9,6 +9,7 @@ import { PromptRecord } from '../history/types';
 import { safeSerializeForIPC } from '../../utils/ipc-serialization';
 import { ServiceDependencyError } from './errors';
 import type { StreamRequestOptions } from '../llm/types';
+import type { ImageInputRef } from '../image/types';
 
 // Helper function to check if running in Electron renderer process
 function isRunningInElectron(): boolean {
@@ -120,9 +121,11 @@ export class ElectronPromptServiceProxy implements IPromptService {
     userPrompt: string,
     modelKey: string,
     callbacks: StreamHandlers,
+    inputImages?: ImageInputRef[],
     options?: StreamRequestOptions,
   ): Promise<void> {
-    await this.api.testPromptStream(systemPrompt, userPrompt, modelKey, callbacks, options?.signal);
+    const safeImages = inputImages ? safeSerializeForIPC(inputImages) : undefined;
+    await this.api.testPromptStream(systemPrompt, userPrompt, modelKey, callbacks, safeImages, options?.signal);
   }
 
   async testCustomConversationStream(
