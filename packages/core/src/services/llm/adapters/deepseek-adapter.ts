@@ -242,8 +242,12 @@ export class DeepseekAdapter extends OpenAIAdapter {
     callbacks: StreamHandlers,
     options?: StreamRequestOptions
   ): Promise<void> {
-    options?.signal?.throwIfAborted()
-    await super.doSendMessageStream(messages, this.normalizeDeepseekConfig(config, options), callbacks)
+    await super.doSendMessageStream(
+      messages,
+      this.normalizeDeepseekConfig(config),
+      callbacks,
+      options,
+    )
   }
 
   public async sendMessageStreamWithTools(
@@ -257,7 +261,8 @@ export class DeepseekAdapter extends OpenAIAdapter {
       messages,
       this.normalizeDeepseekConfig(config),
       tools,
-      callbacks
+      callbacks,
+      options,
     )
   }
 
