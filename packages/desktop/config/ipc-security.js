@@ -48,8 +48,9 @@ function isTrustedRendererSender(event, options) {
     return false;
   }
 
-  // IPC from subframes must never inherit the main renderer's privileged bridge.
-  if (event?.senderFrame?.isMainFrame !== true) {
+  // Reject known subframes. If senderFrame/isMainFrame is unavailable
+  // (common on some Windows/Electron builds), fall back to URL allowlist only.
+  if (event?.senderFrame && event.senderFrame.isMainFrame === false) {
     return false;
   }
 
