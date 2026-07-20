@@ -169,6 +169,14 @@ export interface StreamHandlers {
 }
 
 /**
+ * 流请求控制参数。AbortSignal 在当前进程内沿 service/adapter seam 传递；
+ * Electron renderer 中由 preload 将其转换为 IPC 取消请求，不直接序列化。
+ */
+export interface StreamRequestOptions {
+  signal?: AbortSignal;
+}
+
+/**
  * 模型信息接口
  */
 export interface ModelInfo {
@@ -213,7 +221,8 @@ export interface ILLMService {
   sendMessageStream(
     messages: Message[],
     provider: string,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void>;
 
   /**
@@ -225,7 +234,8 @@ export interface ILLMService {
     messages: Message[],
     provider: string,
     tools: ToolDefinition[],
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void>;
 
   /**
@@ -295,7 +305,8 @@ export interface ITextProviderAdapter {
   sendMessageStream(
     messages: Message[],
     config: TextModelConfig,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void>
 
   /**
@@ -310,7 +321,8 @@ export interface ITextProviderAdapter {
     messages: Message[],
     config: TextModelConfig,
     tools: ToolDefinition[],
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void>
 
   /**
@@ -329,7 +341,8 @@ export interface ITextProviderAdapter {
   sendImageUnderstandingStream(
     request: ImageUnderstandingRequest,
     config: TextModelConfig,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void>
 
   /**

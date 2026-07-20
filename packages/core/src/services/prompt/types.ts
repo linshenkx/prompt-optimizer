@@ -1,5 +1,5 @@
 import { PromptRecord } from "../history/types";
-import { StreamHandlers } from "../llm/types";
+import { StreamHandlers, StreamRequestOptions } from "../llm/types";
 import type { ImageInputRef } from "../image/types";
 
 /**
@@ -156,7 +156,6 @@ export interface IPromptService {
     systemPrompt: string,
     userPrompt: string,
     modelKey: string,
-    inputImages?: ImageInputRef[],
   ): Promise<string>;
 
   /** 获取历史记录 */
@@ -169,12 +168,14 @@ export interface IPromptService {
   optimizePromptStream(
     request: OptimizationRequest,
     callbacks: StreamHandlers,
+    options?: StreamRequestOptions,
   ): Promise<void>;
 
   /** 优化单条消息（流式）- 多轮对话模式专用 */
   optimizeMessageStream(
     request: MessageOptimizationRequest,
     callbacks: StreamHandlers,
+    options?: StreamRequestOptions,
   ): Promise<void>;
 
   /** 迭代优化提示词（流式） */
@@ -191,6 +192,7 @@ export interface IPromptService {
       variables?: Record<string, string>;
       tools?: ToolDefinition[];
     },
+    options?: StreamRequestOptions,
   ): Promise<void>;
 
   /** 测试提示词（流式）- 支持可选系统提示词 */
@@ -200,12 +202,14 @@ export interface IPromptService {
     modelKey: string,
     callbacks: StreamHandlers,
     inputImages?: ImageInputRef[],
+    options?: StreamRequestOptions,
   ): Promise<void>;
 
   /** 自定义会话测试（流式）- 高级模式功能 */
   testCustomConversationStream(
     request: CustomConversationRequest,
     callbacks: StreamHandlers,
+    options?: StreamRequestOptions,
   ): Promise<void>;
 }
 

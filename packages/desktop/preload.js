@@ -3,7 +3,6 @@ const { contextBridge, ipcRenderer } = require('electron');
 // IPC事件名称常量 - 直接内联避免沙箱环境的模块加载问题
 const IPC_EVENTS = {
   UPDATE_CHECK: 'updater-check-update',
-  UPDATE_OPEN_RELEASE_PAGE: 'updater-open-release-page',
   UPDATE_START_DOWNLOAD: 'updater-start-download',
   UPDATE_INSTALL: 'updater-install-update',
   UPDATE_IGNORE_VERSION: 'updater-ignore-version',
@@ -22,6 +21,7 @@ const IPC_EVENTS = {
 };
 
 const REMOTE_STORAGE_CHANNEL = 'remote-storage:invoke';
+const ipcListenerWrappers = new Map();
 
 // 简单的超时包装器，避免过度设计
 const withTimeout = (promise, timeoutMs = 30000) => {
@@ -80,6 +80,105 @@ function createIpcError(payload) {
   return new Error(String(payload));
 }
 
+/** 请求主进程取消当前 renderer 所拥有的流任务。 */
+async function cancelMainProcessStream(streamId) {
+  const result = await ipcRenderer.invoke('stream-cancel', streamId);
+  if (!result.success) {
+    throw createIpcError(result.error);
+  }
+  return result.data;
+}
+
+/** 将前端 AbortSignal 转换为 IPC 取消请求和可参与竞速的拒绝 Promise。 */
+function createStreamAbortRace(streamId, cleanup, signal) {
+  if (!signal) {
+    return { abortPromise: null, dispose: () => {} };
+  }
+
+  let rejectAbort;
+  let cancelled = false;
+  const abortPromise = new Promise((_, reject) => {
+    rejectAbort = reject;
+  });
+  const abortListener = () => {
+    if (cancelled) {
+      return;
+    }
+    cancelled = true;
+    cleanup();
+
+    void cancelMainProcessStream(streamId)
+      .catch(() => {})
+      .finally(() => {
+        rejectAbort(createIpcError({
+          code: 'IPC_STREAM_CANCELLED',
+          message: 'IPC stream was cancelled',
+        }));
+      });
+  };
+
+  if (signal.aborted) {
+    abortListener();
+  } else {
+    signal.addEventListener('abort', abortListener, { once: true });
+  }
+
+  return {
+    abortPromise,
+    dispose: () => signal.removeEventListener('abort', abortListener),
+  };
+}
+
+/**
+ * 为前端回调创建并保存唯一的 Electron 监听器包装，返回可重复调用的注销函数。
+ */
+function subscribeIpcEvent(channel, callback) {
+  if (typeof channel !== 'string' || typeof callback !== 'function') {
+    throw new TypeError('IPC event subscription requires a channel and callback');
+  }
+
+  let channelListeners = ipcListenerWrappers.get(channel);
+  if (!channelListeners) {
+    channelListeners = new Map();
+    ipcListenerWrappers.set(channel, channelListeners);
+  }
+
+  const existingListener = channelListeners.get(callback);
+  if (existingListener) {
+    ipcRenderer.removeListener(channel, existingListener);
+  }
+
+  /** 去除 Electron event 参数，仅向前端传递业务载荷。 */
+  const wrappedListener = (_event, ...args) => callback(...args);
+  channelListeners.set(callback, wrappedListener);
+  ipcRenderer.on(channel, wrappedListener);
+
+  let disposed = false;
+  return () => {
+    if (disposed) return;
+    disposed = true;
+    unsubscribeIpcEvent(channel, callback);
+  };
+}
+
+/**
+ * 使用注册时保存的同一函数引用移除 Electron 监听器，并清理空映射。
+ */
+function unsubscribeIpcEvent(channel, callback) {
+  const channelListeners = ipcListenerWrappers.get(channel);
+  const wrappedListener = channelListeners?.get(callback);
+  if (!wrappedListener) {
+    return false;
+  }
+
+  ipcRenderer.removeListener(channel, wrappedListener);
+  channelListeners.delete(callback);
+  if (channelListeners.size === 0) {
+    ipcListenerWrappers.delete(channel);
+  }
+  return true;
+}
+
 async function invokeFavorite(channel, ...args) {
   const result = await ipcRenderer.invoke(channel, ...args);
   if (!result.success) {
@@ -90,12 +189,8 @@ async function invokeFavorite(channel, ...args) {
 
 contextBridge.exposeInMainWorld('electronAPI', {
   // IPC event listeners
-  on: (channel, callback) => {
-    ipcRenderer.on(channel, (event, ...args) => callback(...args));
-  },
-  off: (channel, callback) => {
-    ipcRenderer.removeListener(channel, callback);
-  },
+  on: subscribeIpcEvent,
+  off: unsubscribeIpcEvent,
 
   // High-level LLM service interface
   llm: {
@@ -136,8 +231,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
 
     // Send streaming message
-    sendMessageStream: async (messages, provider, callbacks) => {
+    sendMessageStream: async (messages, provider, callbacks, signal) => {
       const streamId = generateStreamId();
+
+      if (signal?.aborted) {
+        throw createIpcError({
+          code: 'IPC_STREAM_CANCELLED',
+          message: 'IPC stream was cancelled',
+        });
+      }
       
       // Set up event listeners for streaming responses
       const contentListener = (event, content) => {
@@ -170,21 +272,31 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on(`stream-error-${streamId}`, errorListener);
 
       // Send the streaming request
+      const cancellation = createStreamAbortRace(streamId, cleanup, signal);
       try {
-        const result = await ipcRenderer.invoke('llm-sendMessageStream', messages, provider, streamId);
+        const request = ipcRenderer.invoke('llm-sendMessageStream', messages, provider, streamId);
+        const result = cancellation.abortPromise
+          ? await Promise.race([request, cancellation.abortPromise])
+          : await request;
         if (!result.success) {
-          cleanup();
           throw createIpcError(result.error);
         }
-      } catch (error) {
+      } finally {
         cleanup();
-        throw error;
+        cancellation.dispose();
       }
     },
 
     // Send streaming message with tools (supports tool-call events)
-    sendMessageStreamWithTools: async (messages, provider, tools, callbacks) => {
+    sendMessageStreamWithTools: async (messages, provider, tools, callbacks, signal) => {
       const streamId = generateStreamId();
+
+      if (signal?.aborted) {
+        throw createIpcError({
+          code: 'IPC_STREAM_CANCELLED',
+          message: 'IPC stream was cancelled',
+        });
+      }
 
       // Set up event listeners for streaming responses
       const contentListener = (event, content) => {
@@ -222,22 +334,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on(`stream-error-${streamId}`, errorListener);
 
       // Send the streaming request
+      const cancellation = createStreamAbortRace(streamId, cleanup, signal);
       try {
-        const result = await ipcRenderer.invoke(
+        const request = ipcRenderer.invoke(
           'llm-sendMessageStreamWithTools',
           messages,
           provider,
           tools,
           streamId
         );
+        const result = cancellation.abortPromise
+          ? await Promise.race([request, cancellation.abortPromise])
+          : await request;
         if (!result.success) {
-          cleanup();
           throw createIpcError(result.error);
         }
-      } catch (error) {
+      } finally {
         cleanup();
-        throw error;
+        cancellation.dispose();
       }
+    },
+
+    cancelStream: async (streamId) => {
+      return cancelMainProcessStream(streamId);
     }
   },
 
@@ -830,8 +949,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return result.data;
     },
     // 统一的流式封装（与 llm.sendMessageStream 同模式）
-    optimizePromptStream: async (request, callbacks) => {
+    // signal 为可选位置参数，保持既有调用方兼容
+    optimizePromptStream: async (request, callbacks, signal) => {
       const streamId = generateStreamId();
+
+      if (signal?.aborted) {
+        throw createIpcError({
+          code: 'IPC_STREAM_CANCELLED',
+          message: 'IPC stream was cancelled',
+        });
+      }
 
       const tokenListener = (event, token) => {
         if (callbacks?.onToken) callbacks.onToken(token);
@@ -860,14 +987,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on(`stream-finish-${streamId}`, finishListener);
       ipcRenderer.on(`stream-error-${streamId}`, errorListener);
 
-      const result = await ipcRenderer.invoke('prompt-optimizePromptStream', request, streamId);
-      if (!result.success) {
+      const cancellation = createStreamAbortRace(streamId, cleanup, signal);
+      try {
+        const requestPromise = ipcRenderer.invoke('prompt-optimizePromptStream', request, streamId);
+        const result = cancellation.abortPromise
+          ? await Promise.race([requestPromise, cancellation.abortPromise])
+          : await requestPromise;
+        if (!result.success) {
+          throw createIpcError(result.error);
+        }
+      } finally {
         cleanup();
-        throw createIpcError(result.error);
+        cancellation.dispose();
       }
     },
-    optimizeMessageStream: async (request, callbacks) => {
+    optimizeMessageStream: async (request, callbacks, signal) => {
       const streamId = generateStreamId();
+
+      if (signal?.aborted) {
+        throw createIpcError({
+          code: 'IPC_STREAM_CANCELLED',
+          message: 'IPC stream was cancelled',
+        });
+      }
 
       const tokenListener = (event, token) => {
         if (callbacks?.onToken) callbacks.onToken(token);
@@ -896,14 +1038,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on(`stream-finish-${streamId}`, finishListener);
       ipcRenderer.on(`stream-error-${streamId}`, errorListener);
 
-      const result = await ipcRenderer.invoke('prompt-optimizeMessageStream', request, streamId);
-      if (!result.success) {
+      const cancellation = createStreamAbortRace(streamId, cleanup, signal);
+      try {
+        const requestPromise = ipcRenderer.invoke('prompt-optimizeMessageStream', request, streamId);
+        const result = cancellation.abortPromise
+          ? await Promise.race([requestPromise, cancellation.abortPromise])
+          : await requestPromise;
+        if (!result.success) {
+          throw createIpcError(result.error);
+        }
+      } finally {
         cleanup();
-        throw createIpcError(result.error);
+        cancellation.dispose();
       }
     },
-    iteratePromptStream: async (originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, callbacks, contextData) => {
+    iteratePromptStream: async (originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, callbacks, contextData, signal) => {
       const streamId = generateStreamId();
+
+      if (signal?.aborted) {
+        throw createIpcError({
+          code: 'IPC_STREAM_CANCELLED',
+          message: 'IPC stream was cancelled',
+        });
+      }
 
       const tokenListener = (event, token) => {
         if (callbacks?.onToken) callbacks.onToken(token);
@@ -932,14 +1089,43 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on(`stream-finish-${streamId}`, finishListener);
       ipcRenderer.on(`stream-error-${streamId}`, errorListener);
 
-      const result = await ipcRenderer.invoke('prompt-iteratePromptStream', originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, streamId, contextData);
-      if (!result.success) {
+      const cancellation = createStreamAbortRace(streamId, cleanup, signal);
+      try {
+        const requestPromise = ipcRenderer.invoke(
+          'prompt-iteratePromptStream',
+          originalPrompt,
+          lastOptimizedPrompt,
+          iterateInput,
+          modelKey,
+          templateId,
+          streamId,
+          contextData,
+        );
+        const result = cancellation.abortPromise
+          ? await Promise.race([requestPromise, cancellation.abortPromise])
+          : await requestPromise;
+        if (!result.success) {
+          throw createIpcError(result.error);
+        }
+      } finally {
         cleanup();
-        throw createIpcError(result.error);
+        cancellation.dispose();
       }
     },
-    testPromptStream: async (systemPrompt, userPrompt, modelKey, callbacks, inputImages) => {
+    testPromptStream: async (systemPrompt, userPrompt, modelKey, callbacks, inputImages, signal) => {
+      // Back-compat: allow (callbacks, signal) without images.
+      if (inputImages && typeof inputImages === 'object' && typeof inputImages.aborted === 'boolean' && signal === undefined) {
+        signal = inputImages;
+        inputImages = undefined;
+      }
       const streamId = generateStreamId();
+
+      if (signal?.aborted) {
+        throw createIpcError({
+          code: 'IPC_STREAM_CANCELLED',
+          message: 'IPC stream was cancelled',
+        });
+      }
 
       const tokenListener = (event, token) => {
         if (callbacks?.onToken) callbacks.onToken(token);
@@ -968,15 +1154,37 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on(`stream-finish-${streamId}`, finishListener);
       ipcRenderer.on(`stream-error-${streamId}`, errorListener);
 
-      const result = await ipcRenderer.invoke('prompt-testPromptStream', systemPrompt, userPrompt, modelKey, streamId, inputImages);
-      if (!result.success) {
+      const cancellation = createStreamAbortRace(streamId, cleanup, signal);
+      try {
+        const requestPromise = ipcRenderer.invoke(
+          'prompt-testPromptStream',
+          systemPrompt,
+          userPrompt,
+          modelKey,
+          streamId,
+          inputImages,
+        );
+        const result = cancellation.abortPromise
+          ? await Promise.race([requestPromise, cancellation.abortPromise])
+          : await requestPromise;
+        if (!result.success) {
+          throw createIpcError(result.error);
+        }
+      } finally {
         cleanup();
-        throw createIpcError(result.error);
+        cancellation.dispose();
       }
     },
     // 自定义会话测试（支持工具调用）
-    testCustomConversationStream: async (request, callbacks) => {
+    testCustomConversationStream: async (request, callbacks, signal) => {
       const streamId = generateStreamId();
+
+      if (signal?.aborted) {
+        throw createIpcError({
+          code: 'IPC_STREAM_CANCELLED',
+          message: 'IPC stream was cancelled',
+        });
+      }
 
       const tokenListener = (event, token) => {
         if (callbacks?.onToken) callbacks.onToken(token);
@@ -1010,10 +1218,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on(`stream-finish-${streamId}`, finishListener);
       ipcRenderer.on(`stream-error-${streamId}`, errorListener);
 
-      const result = await ipcRenderer.invoke('prompt-testCustomConversationStream', request, streamId);
-      if (!result.success) {
+      const cancellation = createStreamAbortRace(streamId, cleanup, signal);
+      try {
+        const requestPromise = ipcRenderer.invoke(
+          'prompt-testCustomConversationStream',
+          request,
+          streamId,
+        );
+        const result = cancellation.abortPromise
+          ? await Promise.race([requestPromise, cancellation.abortPromise])
+          : await requestPromise;
+        if (!result.success) {
+          throw createIpcError(result.error);
+        }
+      } finally {
         cleanup();
-        throw createIpcError(result.error);
+        cancellation.dispose();
       }
     },
     iteratePrompt: async (originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, contextData) => {
@@ -1381,17 +1601,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
       }
       return result.data;
     },
-
-    openReleasePage: async (version) => {
-      const result = await withTimeout(
-        ipcRenderer.invoke(IPC_EVENTS.UPDATE_OPEN_RELEASE_PAGE, version),
-        10000
-      );
-      if (!result.success) {
-        throw createIpcError(result.error);
-      }
-      return result.data;
-    },
     
     startDownload: async () => {
       const result = await withTimeout(
@@ -1399,7 +1608,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
         10000 // 10秒超时，启动下载应该很快
       );
       if (!result.success) {
-        throw createIpcError(result.error);
+        // 保留完整的错误信息
+        const error = new Error(result.error);
+        error.originalError = result.error;
+        error.detailedMessage = result.error;
+        throw error;
       }
       return result.data;
     },
@@ -1409,7 +1622,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
         10000 // 10秒超时，安装启动应该很快
       );
       if (!result.success) {
-        throw createIpcError(result.error);
+        // 保留完整的错误信息
+        const error = new Error(result.error);
+        error.originalError = result.error;
+        error.detailedMessage = result.error;
+        throw error;
       }
       return result.data;
     },
@@ -1462,7 +1679,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
         30000 // 30秒超时，现在只等待下载启动，不等待完成，所以30秒足够
       );
       if (!result.success) {
-        throw createIpcError(result.error || 'Failed to download specific version');
+        const error = new Error(result.error || 'Failed to download specific version');
+        error.originalError = result.error;
+        error.detailedMessage = result.error;
+        throw error;
       }
       return result.data;
     },

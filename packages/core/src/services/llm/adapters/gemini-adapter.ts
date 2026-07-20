@@ -8,6 +8,7 @@ import type {
   ImageUnderstandingRequest,
   LLMResponse,
   StreamHandlers,
+  StreamRequestOptions,
   ParameterDefinition,
   ToolDefinition,
   ToolCall
@@ -308,7 +309,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
    * @param config 模型配置
    * @returns GoogleGenAI实例
    */
-  private createClient(config: TextModelConfig): GoogleGenAI {
+  private async createClient(config: TextModelConfig): Promise<GoogleGenAI >{
     const apiKey = config.connectionConfig.apiKey || ''
 
     const customBaseURL = config.connectionConfig.baseURL
@@ -500,13 +501,13 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
     }
 
     try {
-      const client = this.createClient(config)
+      const client = await this.createClient(config)
 
       // 构建配置（包含系统指令）
       const generationConfig = this.buildGenerationConfig(
-        config.paramOverrides || {},
-        systemInstruction
-      )
+          config.paramOverrides || {},
+          systemInstruction
+        )
 
       // 格式化消息
       const contents = this.formatMessages(conversationMessages)
@@ -529,7 +530,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
     config: TextModelConfig
   ): Promise<LLMResponse> {
     try {
-      const client = this.createClient(config)
+      const client = await this.createClient(config)
       const mergedParams = {
         ...(config.paramOverrides || {}),
         ...(request.paramOverrides || {})
@@ -575,18 +576,22 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
   protected async doSendImageUnderstandingStream(
     request: ImageUnderstandingRequest,
     config: TextModelConfig,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
     try {
-      const client = this.createClient(config)
+      const client = await this.createClient(config)
       const mergedParams = {
         ...(config.paramOverrides || {}),
         ...(request.paramOverrides || {})
       } as Record<string, unknown>
 
-      const generationConfig = this.buildGenerationConfig(
-        mergedParams,
-        request.systemPrompt
+      const generationConfig = this.attachAbortSignal(
+        this.buildGenerationConfig(
+          mergedParams,
+          request.systemPrompt
+        ),
+        options
       )
 
       if (request.responseMimeType) {
@@ -713,10 +718,22 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
    * @param callbacks 流式响应回调
    * @throws SDK原始错误（保留完整堆栈）
    */
+
+  /**
+   * Attach optional AbortSignal to Gemini generation config.
+   */
+  private attachAbortSignal(generationConfig: any, options?: StreamRequestOptions) {
+    if (options?.signal) {
+      ;(generationConfig as any).abortSignal = options.signal
+    }
+    return generationConfig
+  }
+
   protected async doSendMessageStream(
     messages: Message[],
     config: TextModelConfig,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
     // 提取系统消息
     const systemMessages = messages.filter((msg) => msg.role === 'system')
@@ -740,12 +757,15 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
     }
 
     try {
-      const client = this.createClient(config)
+      const client = await this.createClient(config)
 
       // 构建配置（包含系统指令）
-      const generationConfig = this.buildGenerationConfig(
-        config.paramOverrides || {},
-        systemInstruction
+      const generationConfig = this.attachAbortSignal(
+        this.buildGenerationConfig(
+          config.paramOverrides || {},
+          systemInstruction
+        ),
+        options
       )
 
       // 格式化消息
@@ -827,7 +847,8 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
     messages: Message[],
     config: TextModelConfig,
     tools: ToolDefinition[],
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ): Promise<void> {
     // 提取系统消息
     const systemMessages = messages.filter((msg) => msg.role === 'system')
@@ -847,12 +868,15 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
     }
 
     try {
-      const client = this.createClient(config)
+      const client = await this.createClient(config)
 
       // 构建配置（包含系统指令和工具）
-      const generationConfig = this.buildGenerationConfig(
-        config.paramOverrides || {},
-        systemInstruction
+      const generationConfig = this.attachAbortSignal(
+        this.buildGenerationConfig(
+          config.paramOverrides || {},
+          systemInstruction
+        ),
+        options
       )
 
       // 添加工具配置

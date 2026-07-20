@@ -55,6 +55,7 @@ const {
   createIpcError,
   registerSecureIpcHandler,
 } = require('./config/ipc-security');
+const { createStreamRegistry } = require('./config/stream-registry');
 
 const path = require('path');
 
@@ -82,6 +83,9 @@ function getIpcSenderOptions() {
     devServerUrl: 'http://localhost:18181',
   };
 }
+
+const streamRegistry = createStreamRegistry();
+
 
 
 
@@ -987,8 +991,19 @@ function setupIPC() {
   });
 
   // Streaming handler - more complex due to callbacks
+  
+  ipcMain.handle('stream-cancel', async (event, streamId) => {
+    try {
+      streamRegistry.cancel(event.sender, streamId);
+      return createSuccessResponse(true);
+    } catch (error) {
+      return createErrorResponse(error);
+    }
+  });
+
   ipcMain.handle('llm-sendMessageStream', async (event, messages, provider, streamId) => {
     try {
+      const stream = streamRegistry.register(event.sender, streamId);
       // 使用符合 StreamHandlers 接口的回调名称
       const callbacks = {
         onToken: (token) => {
@@ -1013,16 +1028,19 @@ function setupIPC() {
         }
       };
 
-      await llmService.sendMessageStream(messages, provider, callbacks);
+      await llmService.sendMessageStream(messages, provider, callbacks, { signal: stream.signal });
       return createSuccessResponse(null);
     } catch (error) {
       return createErrorResponse(error);
+    } finally {
+      streamRegistry.complete(event.sender, streamId);
     }
   });
 
   // Streaming handler with tools - supports tool-call events
   ipcMain.handle('llm-sendMessageStreamWithTools', async (event, messages, provider, tools, streamId) => {
     try {
+      const stream = streamRegistry.register(event.sender, streamId);
       const callbacks = {
         onToken: (token) => {
           if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1051,10 +1069,12 @@ function setupIPC() {
         }
       };
 
-      await llmService.sendMessageStreamWithTools(messages, provider, tools, callbacks);
+      await llmService.sendMessageStreamWithTools(messages, provider, tools, callbacks, { signal: stream.signal });
       return createSuccessResponse(null);
     } catch (error) {
       return createErrorResponse(error);
+    } finally {
+      streamRegistry.complete(event.sender, streamId);
     }
   });
 
@@ -1146,44 +1166,72 @@ function setupIPC() {
   ipcMain.handle('prompt-optimizePromptStream', async (event, request, streamId) => {
     const streamHandlers = createIpcStreamHandlers(mainWindow, streamId);
     try {
-      await promptService.optimizePromptStream(request, streamHandlers);
+      const stream = streamRegistry.register(event.sender, streamId);
+      await promptService.optimizePromptStream(request, streamHandlers, { signal: stream.signal });
       return createSuccessResponse(null);
     } catch (error) {
       streamHandlers.onError(error);
       return createErrorResponse(error);
+    } finally {
+      streamRegistry.complete(event.sender, streamId);
     }
   });
 
   ipcMain.handle('prompt-optimizeMessageStream', async (event, request, streamId) => {
     const streamHandlers = createIpcStreamHandlers(mainWindow, streamId);
     try {
-      await promptService.optimizeMessageStream(request, streamHandlers);
+      const stream = streamRegistry.register(event.sender, streamId);
+      await promptService.optimizeMessageStream(request, streamHandlers, { signal: stream.signal });
       return createSuccessResponse(null);
     } catch (error) {
       streamHandlers.onError(error);
       return createErrorResponse(error);
+    } finally {
+      streamRegistry.complete(event.sender, streamId);
     }
   });
 
   ipcMain.handle('prompt-iteratePromptStream', async (event, originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, streamId, contextData) => {
     const streamHandlers = createIpcStreamHandlers(mainWindow, streamId);
     try {
-      await promptService.iteratePromptStream(originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, streamHandlers, templateId, contextData);
+      const stream = streamRegistry.register(event.sender, streamId);
+      await promptService.iteratePromptStream(
+        originalPrompt,
+        lastOptimizedPrompt,
+        iterateInput,
+        modelKey,
+        streamHandlers,
+        templateId,
+        contextData,
+        { signal: stream.signal },
+      );
       return createSuccessResponse(null);
     } catch (error) {
       streamHandlers.onError(error);
       return createErrorResponse(error);
+    } finally {
+      streamRegistry.complete(event.sender, streamId);
     }
   });
 
   ipcMain.handle('prompt-testPromptStream', async (event, systemPrompt, userPrompt, modelKey, streamId, inputImages) => {
     const streamHandlers = createIpcStreamHandlers(mainWindow, streamId);
     try {
-      await promptService.testPromptStream(systemPrompt, userPrompt, modelKey, streamHandlers, inputImages);
+      const stream = streamRegistry.register(event.sender, streamId);
+      await promptService.testPromptStream(
+        systemPrompt,
+        userPrompt,
+        modelKey,
+        streamHandlers,
+        inputImages,
+        { signal: stream.signal },
+      );
       return createSuccessResponse(null);
     } catch (error) {
       streamHandlers.onError(error);
       return createErrorResponse(error);
+    } finally {
+      streamRegistry.complete(event.sender, streamId);
     }
   });
 
@@ -1210,11 +1258,18 @@ function setupIPC() {
   ipcMain.handle('prompt-testCustomConversationStream', async (event, request, streamId) => {
     const streamHandlers = createIpcStreamHandlers(mainWindow, streamId);
     try {
-      await promptService.testCustomConversationStream(request, streamHandlers);
+      const stream = streamRegistry.register(event.sender, streamId);
+      await promptService.testCustomConversationStream(
+        request,
+        streamHandlers,
+        { signal: stream.signal },
+      );
       return createSuccessResponse(null);
     } catch (error) {
       streamHandlers.onError(error);
       return createErrorResponse(error);
+    } finally {
+      streamRegistry.complete(event.sender, streamId);
     }
   });
 

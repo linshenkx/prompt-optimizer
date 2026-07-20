@@ -1,7 +1,7 @@
 import { TextAdapterRegistry } from '../llm/adapters/registry'
 import { RequestConfigError } from '../llm/errors'
 import type { IImageUnderstandingService, ImageUnderstandingExecutionRequest, CreateImageUnderstandingServiceOptions } from './types'
-import type { ITextAdapterRegistry, StreamHandlers } from '../llm/types'
+import type { ITextAdapterRegistry, StreamHandlers, StreamRequestOptions } from '../llm/types'
 import type { ImageInputCompatibilityOptions } from '../image/types'
 import { normalizeImageInputsForLlm } from '../image/input-normalizer'
 
@@ -26,15 +26,17 @@ export class ImageUnderstandingService implements IImageUnderstandingService {
 
   async understandStream(
     request: ImageUnderstandingExecutionRequest,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions
   ) {
+    options?.signal?.throwIfAborted()
     this.validateRequest(request)
 
     const providerId = request.modelConfig.providerMeta.id
     const adapter = this.registry.getAdapter(providerId)
     const runtimeRequest = await this.prepareRuntimeRequest(request)
 
-    await adapter.sendImageUnderstandingStream(runtimeRequest, request.modelConfig, callbacks)
+    await adapter.sendImageUnderstandingStream(runtimeRequest, request.modelConfig, callbacks, options)
   }
 
   private validateRequest(request: ImageUnderstandingExecutionRequest): void {

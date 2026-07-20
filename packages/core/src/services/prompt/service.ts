@@ -6,7 +6,7 @@ import {
   ConversationMessage,
   ToolDefinition,
 } from "./types";
-import { Message, StreamHandlers, ILLMService } from "../llm/types";
+import { Message, StreamHandlers, ILLMService, StreamRequestOptions } from "../llm/types";
 import { PromptRecord } from "../history/types";
 import { IModelManager } from "../model/types";
 import { ITemplateManager } from "../template/types";
@@ -401,11 +401,12 @@ export class PromptService implements IPromptService {
       }
 
       if (this.hasTestInputImages(inputImages)) {
+        const images = inputImages as ImageInputRef[];
         const result = await this.requireImageUnderstandingService().understand({
           modelConfig,
           systemPrompt: systemPrompt?.trim() ? systemPrompt : undefined,
           userPrompt,
-          images: inputImages,
+          images,
         });
 
         return result.content;
@@ -436,9 +437,6 @@ export class PromptService implements IPromptService {
     }
   }
 
-  /**
-   * 获取历史记录
-   */
   async getHistory(): Promise<PromptRecord[]> {
     return await this.historyManager.getRecords();
   }
@@ -459,8 +457,10 @@ export class PromptService implements IPromptService {
     modelKey: string,
     callbacks: StreamHandlers,
     inputImages?: ImageInputRef[],
+    options?: StreamRequestOptions,
   ): Promise<void> {
     try {
+      options?.signal?.throwIfAborted();
       // 对于用户提示词优化，systemPrompt 可以为空
       if (!userPrompt?.trim()) {
         throw new TestError(systemPrompt, userPrompt, "User prompt is required");
@@ -475,12 +475,13 @@ export class PromptService implements IPromptService {
       }
 
       if (this.hasTestInputImages(inputImages)) {
+        const images = inputImages as ImageInputRef[];
         await this.requireImageUnderstandingService().understandStream(
           {
             modelConfig,
             systemPrompt: systemPrompt?.trim() ? systemPrompt : undefined,
             userPrompt,
-            images: inputImages,
+            images,
           },
           {
             onToken: callbacks.onToken,
@@ -488,6 +489,7 @@ export class PromptService implements IPromptService {
             onComplete: callbacks.onComplete,
             onError: callbacks.onError,
           },
+          options,
         );
         return;
       }
@@ -507,7 +509,7 @@ export class PromptService implements IPromptService {
         onReasoningToken: callbacks.onReasoningToken, // 支持推理内容流
         onComplete: callbacks.onComplete,
         onError: callbacks.onError,
-      });
+      }, options);
     } catch (error) {
       const errorMessage = this.getSafeTestErrorMessage(error, inputImages);
       throw new TestError(
@@ -518,14 +520,13 @@ export class PromptService implements IPromptService {
     }
   }
 
-  /**
-   * 优化提示词（流式）- 支持提示词类型和增强功能
-   */
   async optimizePromptStream(
     request: OptimizationRequest,
     callbacks: StreamHandlers,
+    options?: StreamRequestOptions,
   ): Promise<void> {
     try {
+      options?.signal?.throwIfAborted();
       this.validateOptimizationRequest(request);
 
       const modelConfig = await this.modelManager.getModel(request.modelKey);
@@ -563,6 +564,7 @@ export class PromptService implements IPromptService {
             },
             onError: callbacks.onError,
           },
+          options,
         );
         return;
       }
@@ -591,7 +593,7 @@ export class PromptService implements IPromptService {
           }
         },
         onError: callbacks.onError,
-      });
+      }, options);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -608,8 +610,10 @@ export class PromptService implements IPromptService {
   async optimizeMessageStream(
     request: MessageOptimizationRequest,
     callbacks: StreamHandlers,
+    options?: StreamRequestOptions,
   ): Promise<void> {
     try {
+      options?.signal?.throwIfAborted();
       // 验证请求参数
       this.validateMessageOptimizationRequest(request);
 
@@ -704,7 +708,7 @@ export class PromptService implements IPromptService {
           }
         },
         onError: callbacks.onError,
-      });
+      }, options);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -731,8 +735,10 @@ export class PromptService implements IPromptService {
       variables?: Record<string, string>;
       tools?: ToolDefinition[];
     },
+    options?: StreamRequestOptions,
   ): Promise<void> {
     try {
+      options?.signal?.throwIfAborted();
       // 🔧 迭代模板只需要 lastOptimizedPrompt 和 iterateInput
       // originalPrompt 可以为空（用户直接在工作区编辑后迭代的场景）
       this.validateInput(lastOptimizedPrompt, modelKey);
@@ -827,7 +833,7 @@ export class PromptService implements IPromptService {
           }
         },
         onError: handlers.onError,
-      });
+      }, options);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -853,10 +859,6 @@ export class PromptService implements IPromptService {
     }
   }
 
-  private hasInputImages(request: OptimizationRequest): request is OptimizationRequest & { inputImages: NonNullable<OptimizationRequest["inputImages"]> } {
-    return Array.isArray(request.inputImages) && request.inputImages.length > 0;
-  }
-
   private hasTestInputImages(inputImages?: ImageInputRef[]): inputImages is ImageInputRef[] {
     return Array.isArray(inputImages) && inputImages.length > 0;
   }
@@ -880,6 +882,10 @@ export class PromptService implements IPromptService {
     }
 
     return message;
+  }
+
+  private hasInputImages(request: OptimizationRequest): request is OptimizationRequest & { inputImages: NonNullable<OptimizationRequest["inputImages"]> } {
+    return Array.isArray(request.inputImages) && request.inputImages.length > 0;
   }
 
   private requireImageUnderstandingService(): IImageUnderstandingService {
@@ -1103,8 +1109,10 @@ export class PromptService implements IPromptService {
   async testCustomConversationStream(
     request: CustomConversationRequest,
     callbacks: StreamHandlers,
+    options?: StreamRequestOptions,
   ): Promise<void> {
     try {
+      options?.signal?.throwIfAborted();
       // 验证请求
       if (!request.modelKey?.trim()) {
         throw new TestError("", "", "Model key is required");
@@ -1156,6 +1164,7 @@ export class PromptService implements IPromptService {
               callbacks.onError?.(error);
             },
           },
+          options,
         );
       } else {
         // 传统的流式发送（无工具）
@@ -1181,6 +1190,7 @@ export class PromptService implements IPromptService {
               callbacks.onError?.(error);
             },
           },
+          options,
         );
       }
     } catch (error) {

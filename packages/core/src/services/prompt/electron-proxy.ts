@@ -6,9 +6,10 @@ import {
   CustomConversationRequest,
 } from './types';
 import { PromptRecord } from '../history/types';
-import type { ImageInputRef } from '../image/types';
 import { safeSerializeForIPC } from '../../utils/ipc-serialization';
 import { ServiceDependencyError } from './errors';
+import type { StreamRequestOptions } from '../llm/types';
+import type { ImageInputRef } from '../image/types';
 
 // Helper function to check if running in Electron renderer process
 function isRunningInElectron(): boolean {
@@ -61,11 +62,9 @@ export class ElectronPromptServiceProxy implements IPromptService {
   async testPrompt(
     systemPrompt: string,
     userPrompt: string,
-    modelKey: string,
-    inputImages?: ImageInputRef[]
+    modelKey: string
   ): Promise<string> {
-    const safeInputImages = inputImages ? safeSerializeForIPC(inputImages) : undefined;
-    return this.api.testPrompt(systemPrompt, userPrompt, modelKey, safeInputImages);
+    return this.api.testPrompt(systemPrompt, userPrompt, modelKey);
   }
 
   async getHistory(): Promise<PromptRecord[]> {
@@ -78,16 +77,24 @@ export class ElectronPromptServiceProxy implements IPromptService {
 
   // Streaming methods are complex over IPC and are not implemented in the proxy for now.
   // They would require event-based communication rather than a simple invoke/handle.
-  async optimizePromptStream(request: OptimizationRequest, callbacks: StreamHandlers): Promise<void> {
+  async optimizePromptStream(
+    request: OptimizationRequest,
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions,
+  ): Promise<void> {
     // 自动序列化，防止Vue响应式对象IPC传递错误
     const safeRequest = safeSerializeForIPC(request);
-    await this.api.optimizePromptStream(safeRequest, callbacks);
+    await this.api.optimizePromptStream(safeRequest, callbacks, options?.signal);
   }
 
-  async optimizeMessageStream(request: MessageOptimizationRequest, callbacks: StreamHandlers): Promise<void> {
+  async optimizeMessageStream(
+    request: MessageOptimizationRequest,
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions,
+  ): Promise<void> {
     // 自动序列化，防止Vue响应式对象IPC传递错误
     const safeRequest = safeSerializeForIPC(request);
-    await this.api.optimizeMessageStream(safeRequest, callbacks);
+    await this.api.optimizeMessageStream(safeRequest, callbacks, options?.signal);
   }
 
   async iteratePromptStream(
@@ -102,10 +109,11 @@ export class ElectronPromptServiceProxy implements IPromptService {
       selectedMessageId?: string;
       variables?: Record<string, string>;
       tools?: any[];
-    }
+    },
+    options?: StreamRequestOptions,
   ): Promise<void> {
     const safeContextData = contextData ? safeSerializeForIPC(contextData) : undefined;
-    await this.api.iteratePromptStream(originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, callbacks, safeContextData);
+    await this.api.iteratePromptStream(originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, callbacks, safeContextData, options?.signal);
   }
 
   async testPromptStream(
@@ -113,18 +121,20 @@ export class ElectronPromptServiceProxy implements IPromptService {
     userPrompt: string,
     modelKey: string,
     callbacks: StreamHandlers,
-    inputImages?: ImageInputRef[]
+    inputImages?: ImageInputRef[],
+    options?: StreamRequestOptions,
   ): Promise<void> {
-    const safeInputImages = inputImages ? safeSerializeForIPC(inputImages) : undefined;
-    await this.api.testPromptStream(systemPrompt, userPrompt, modelKey, callbacks, safeInputImages);
+    const safeImages = inputImages ? safeSerializeForIPC(inputImages) : undefined;
+    await this.api.testPromptStream(systemPrompt, userPrompt, modelKey, callbacks, safeImages, options?.signal);
   }
 
   async testCustomConversationStream(
     request: CustomConversationRequest,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    options?: StreamRequestOptions,
   ): Promise<void> {
     // 自动序列化，防止Vue响应式对象IPC传递错误
     const safeRequest = safeSerializeForIPC(request);
-    await this.api.testCustomConversationStream(safeRequest, callbacks);
+    await this.api.testCustomConversationStream(safeRequest, callbacks, options?.signal);
   }
 }
