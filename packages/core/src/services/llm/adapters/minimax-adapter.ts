@@ -16,7 +16,7 @@ const MINIMAX_STATIC_MODELS: ModelOverride[] = [
     description: 'Latest flagship model with enhanced reasoning and coding',
     capabilities: {
       supportsTools: true,
-      supportsReasoning: false,
+      supportsReasoning: true,
       maxContextLength: 1000000
     }
   },
@@ -27,7 +27,7 @@ const MINIMAX_STATIC_MODELS: ModelOverride[] = [
     capabilities: {
       supportsTools: true,
       supportsReasoning: false,
-      maxContextLength: 1000000
+      maxContextLength: 204800
     }
   },
   {
@@ -37,7 +37,7 @@ const MINIMAX_STATIC_MODELS: ModelOverride[] = [
     capabilities: {
       supportsTools: true,
       supportsReasoning: false,
-      maxContextLength: 1000000
+      maxContextLength: 204800
     }
   }
 ]

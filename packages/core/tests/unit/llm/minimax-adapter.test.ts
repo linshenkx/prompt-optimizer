@@ -124,6 +124,12 @@ describe('MinimaxAdapter', () => {
       expect(m3?.name).toBe('MiniMax M3');
       expect(m3?.providerId).toBe('minimax');
       expect(m3?.capabilities.supportsTools).toBe(true);
+      expect(m3?.capabilities.maxContextLength).toBe(1000000);
+      expect(m3?.capabilities.supportsReasoning).toBe(true);
+
+      const m27 = models.find(m => m.id === 'MiniMax-M2.7');
+      expect(m27?.capabilities.supportsReasoning).toBe(false);
+      expect(m27?.capabilities.maxContextLength).toBe(204800);
     });
 
     it('should include all expected models', () => {
