@@ -51,6 +51,8 @@ export function useContextEditor() {
         return t('contextEditor.feedback.formatLabels.openai')
       case 'conversation':
         return t('contextEditor.feedback.formatLabels.conversation')
+      case 'standard':
+        return t('contextEditor.feedback.formatLabels.conversation')
       default:
         return format.toUpperCase()
     }
@@ -179,6 +181,13 @@ export function useContextEditor() {
         case 'conversation':
           result = converter.fromConversationMessages(data as Array<Partial<ConversationMessage>>)
           break
+        case 'standard': {
+          const validation = converter.validate(data, 'standard')
+          result = validation.success
+            ? { success: true, data: data as StandardPromptData }
+            : { success: false, error: validation.error }
+          break
+        }
         default:
           result = {
             success: false,

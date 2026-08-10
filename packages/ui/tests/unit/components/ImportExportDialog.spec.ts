@@ -150,6 +150,7 @@ describe('ImportExportDialog', () => {
     const preview = JSON.parse(wrapper.vm.exportPreviewData)
     expect(preview.messages).toHaveLength(1)
     expect(preview.tools).toHaveLength(1)
+    expect(preview.format).toBe('prompt-optimizer-standard')
     expect(preview.metadata.origin).toBe('import_export_dialog')
   })
 

@@ -127,7 +127,7 @@ export interface DataImportExport {
   /**
    * 自动检测数据格式
    */
-  detectFormat(data: unknown): 'langfuse' | 'openai' | 'conversation' | 'unknown'
+  detectFormat(data: unknown): 'standard' | 'langfuse' | 'openai' | 'conversation' | 'unknown'
 }
 
 // 模板化相关接口

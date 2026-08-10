@@ -459,13 +459,16 @@ export class PromptDataConverter implements DataConverter {
 
   // 私有方法：验证标准格式
   private validateStandardFormat(data: unknown): ConversionResult<boolean> {
-    if (!data || typeof data !== 'object') {
+    const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+      value !== null && typeof value === 'object' && !Array.isArray(value)
+
+    if (!isPlainObject(data)) {
       return { success: false, error: 'Data must be an object' }
     }
 
-    const payload = data as { messages?: unknown }
+    const payload = data
 
-    if (!payload.messages || !Array.isArray(payload.messages)) {
+    if (!Array.isArray(payload.messages)) {
       return { success: false, error: 'Messages must be an array' }
     }
 
@@ -474,13 +477,104 @@ export class PromptDataConverter implements DataConverter {
         return { success: false, error: `Invalid message at index ${index}` }
       }
 
-      const typedMessage = message as { role?: unknown; content?: unknown }
+      const typedMessage = message as Record<string, unknown>
 
       if (!typedMessage.role || !['system', 'user', 'assistant', 'tool'].includes(String(typedMessage.role))) {
         return { success: false, error: `Invalid role in message ${index}` }
       }
       if (typeof typedMessage.content !== 'string') {
         return { success: false, error: `Invalid content in message ${index}` }
+      }
+      if (typedMessage.name !== undefined && typeof typedMessage.name !== 'string') {
+        return { success: false, error: `Invalid name in message ${index}` }
+      }
+      if (typedMessage.tool_call_id !== undefined && typeof typedMessage.tool_call_id !== 'string') {
+        return { success: false, error: `Invalid tool_call_id in message ${index}` }
+      }
+      if (typedMessage.tool_calls !== undefined) {
+        if (!Array.isArray(typedMessage.tool_calls)) {
+          return { success: false, error: `Invalid tool_calls in message ${index}` }
+        }
+
+        for (const toolCall of typedMessage.tool_calls) {
+          if (!isPlainObject(toolCall) || typeof toolCall.id !== 'string' ||
+              toolCall.type !== 'function' || !isPlainObject(toolCall.function) ||
+              typeof toolCall.function.name !== 'string' ||
+              typeof toolCall.function.arguments !== 'string') {
+            return { success: false, error: `Invalid tool call in message ${index}` }
+          }
+        }
+      }
+    }
+
+    if (payload.tools !== undefined) {
+      if (!Array.isArray(payload.tools)) {
+        return { success: false, error: 'Tools must be an array' }
+      }
+
+      for (const [index, tool] of payload.tools.entries()) {
+        if (!isPlainObject(tool) || tool.type !== 'function' ||
+            !isPlainObject(tool.function) || typeof tool.function.name !== 'string' ||
+            (tool.function.description !== undefined && typeof tool.function.description !== 'string') ||
+            (tool.function.parameters !== undefined &&
+              (tool.function.parameters === null || typeof tool.function.parameters !== 'object'))) {
+          return { success: false, error: `Invalid tool at index ${index}` }
+        }
+      }
+    }
+
+    if (payload.model !== undefined && typeof payload.model !== 'string') {
+      return { success: false, error: 'Model must be a string' }
+    }
+
+    for (const field of ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty']) {
+      const value = payload[field]
+      if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value))) {
+        return { success: false, error: `${field} must be a finite number` }
+      }
+    }
+
+    if (payload.stop !== undefined &&
+        typeof payload.stop !== 'string' &&
+        (!Array.isArray(payload.stop) || !payload.stop.every(item => typeof item === 'string'))) {
+      return { success: false, error: 'Stop must be a string or an array of strings' }
+    }
+
+    if (payload.stream !== undefined && typeof payload.stream !== 'boolean') {
+      return { success: false, error: 'Stream must be a boolean' }
+    }
+
+    if (payload.metadata !== undefined) {
+      if (!isPlainObject(payload.metadata)) {
+        return { success: false, error: 'Metadata must be an object' }
+      }
+
+      const metadata = payload.metadata
+      const metadataSources = ['langfuse', 'openai', 'conversation', 'manual']
+      if (metadata.source !== undefined &&
+          (typeof metadata.source !== 'string' || !metadataSources.includes(metadata.source))) {
+        return { success: false, error: 'Invalid metadata source' }
+      }
+      if (metadata.timestamp !== undefined && typeof metadata.timestamp !== 'string') {
+        return { success: false, error: 'Metadata timestamp must be a string' }
+      }
+      if (metadata.template_info !== undefined) {
+        if (!isPlainObject(metadata.template_info)) {
+          return { success: false, error: 'Metadata template_info must be an object' }
+        }
+
+        const templateInfo = metadata.template_info
+        if (templateInfo.name !== undefined && typeof templateInfo.name !== 'string') {
+          return { success: false, error: 'Template name must be a string' }
+        }
+        if (templateInfo.version !== undefined && typeof templateInfo.version !== 'string') {
+          return { success: false, error: 'Template version must be a string' }
+        }
+        if (templateInfo.variables !== undefined &&
+            (!Array.isArray(templateInfo.variables) ||
+              !templateInfo.variables.every(variable => typeof variable === 'string'))) {
+          return { success: false, error: 'Template variables must be an array of strings' }
+        }
       }
     }
 

@@ -11,6 +11,7 @@ const serviceMocks = vi.hoisted(() => ({
     fromLangFuse: vi.fn(),
     fromOpenAI: vi.fn(),
     fromConversationMessages: vi.fn(),
+    validate: vi.fn(),
   },
   variableExtractor: {
     extractVariable: vi.fn(),
@@ -93,6 +94,25 @@ describe('useContextEditor i18n feedback', () => {
       'contextEditor.feedback.importSuccess:{"format":"contextEditor.feedback.formatLabels.langfuse"}',
     )
     expect(toastSpies.success).not.toHaveBeenCalledWith('LANGFUSE data imported successfully')
+  })
+
+  it('smart-imports the internal standard format without treating it as OpenAI', () => {
+    const data = {
+      messages: [{ role: 'user' as const, content: 'hello' }],
+      tools: [],
+      metadata: { source: 'manual' as const, origin: 'import_export_dialog' },
+    }
+    serviceMocks.importExportManager.detectFormat.mockReturnValue('standard')
+    serviceMocks.converter.validate.mockReturnValue({ success: true, data: true })
+
+    const editor = useContextEditor()
+    const result = editor.smartImport(data)
+
+    expect(result).toEqual({ success: true, data })
+    expect(editor.currentData.value).toEqual(data)
+    expect(toastSpies.success).toHaveBeenCalledWith(
+      'contextEditor.feedback.importSuccess:{"format":"contextEditor.feedback.formatLabels.conversation"}',
+    )
   })
 
   it('uses localized no-data-export feedback', async () => {
