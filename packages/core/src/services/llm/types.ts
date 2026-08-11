@@ -1,5 +1,8 @@
 import type { UnifiedParameterDefinition } from '../model/parameter-schema'
 import type { ModelConfig, TextModelConfig as ModelTextModelConfig } from '../model/types';
+import type { RegionalEndpoint } from '../shared/types'
+
+export type { RegionalEndpoint } from '../shared/types'
 
 // === 核心架构类型（三层分离：Provider → Model → Configuration） ===
 
@@ -37,6 +40,8 @@ export interface TextProvider {
   readonly requiresApiKey: boolean
   /** 默认 API 地址 */
   readonly defaultBaseURL: string
+  /** Optional region-specific API and documentation endpoints. */
+  readonly regionalEndpoints?: readonly RegionalEndpoint[]
   /** 是否支持动态获取模型列表 */
   readonly supportsDynamicModels: boolean
   /** 连接参数结构定义（如果支持动态获取） */
