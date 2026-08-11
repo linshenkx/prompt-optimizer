@@ -26,7 +26,7 @@ const MINIMAX_STATIC_MODELS: ModelOverride[] = [
     description: 'Previous flagship model retained for compatibility',
     capabilities: {
       supportsTools: true,
-      supportsReasoning: false,
+      supportsReasoning: true,
       maxContextLength: 204800
     }
   },
@@ -37,7 +37,7 @@ const MINIMAX_STATIC_MODELS: ModelOverride[] = [
     capabilities: {
       supportsTools: true,
       supportsReasoning: false,
-      maxContextLength: 204800
+      maxContextLength: 1000000
     }
   }
 ]
