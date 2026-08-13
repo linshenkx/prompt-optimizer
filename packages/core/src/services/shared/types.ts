@@ -16,6 +16,13 @@ export interface ConnectionSchema {
   fieldTypes: Record<string, 'string' | 'number' | 'boolean'>;
 }
 
+export interface RegionalEndpoint {
+  readonly region: string;
+  readonly openaiBaseURL?: string;
+  readonly anthropicBaseURL?: string;
+  readonly docsRoot?: string;
+}
+
 /**
  * 基础 Provider 接口
  * 定义所有服务提供商的共同属性
@@ -37,6 +44,8 @@ export interface BaseProvider {
   readonly requiresApiKey: boolean;
   /** 默认 API 地址 */
   readonly defaultBaseURL: string;
+  /** Optional region-specific API and documentation endpoints. */
+  readonly regionalEndpoints?: readonly RegionalEndpoint[];
   /** 是否支持动态获取模型列表 */
   readonly supportsDynamicModels: boolean;
   /** 连接参数结构定义 */
