@@ -240,6 +240,7 @@ import {
     NText,
 } from "naive-ui";
 import { useContextEditor } from '../../composables/context/useContextEditor';
+import { STANDARD_PROMPT_FORMAT } from '../../services/DataImportExportManager';
 import type { ConversationMessage, ToolDefinition } from "@prompt-optimizer/core";
 import type { StandardPromptData } from "../../types";
 
@@ -354,7 +355,8 @@ const IMPORT_JSON_SNIPPETS: Record<string, string> = {
 };
 
 // 导出预览数据
-const buildExportPayload = (): StandardPromptData => ({
+const buildExportPayload = (): StandardPromptData & { format: typeof STANDARD_PROMPT_FORMAT } => ({
+    format: STANDARD_PROMPT_FORMAT,
     messages: props.messages.map((msg) => ({
         role: msg.role,
         content: msg.content,

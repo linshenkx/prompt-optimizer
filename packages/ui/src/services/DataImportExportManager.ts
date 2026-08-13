@@ -6,6 +6,8 @@ import type { DataImportExport, StandardPromptData, ConversionResult, Conversati
 import { PromptDataConverter } from './PromptDataConverter'
 import { scanVariableNames } from '../utils/prompt-variables'
 
+export const STANDARD_PROMPT_FORMAT = 'prompt-optimizer-standard'
+
 export class DataImportExportManager implements DataImportExport {
   private converter = new PromptDataConverter()
 
@@ -159,7 +161,7 @@ export class DataImportExportManager implements DataImportExport {
   /**
    * 自动检测数据格式
    */
-  detectFormat(data: unknown): 'langfuse' | 'openai' | 'conversation' | 'unknown' {
+  detectFormat(data: unknown): 'standard' | 'langfuse' | 'openai' | 'conversation' | 'unknown' {
     if (!data || typeof data !== 'object') {
       return 'unknown'
     }
@@ -172,8 +174,21 @@ export class DataImportExportManager implements DataImportExport {
       return 'langfuse'
     }
 
+    const hasMessages = Array.isArray(dataObj.messages)
+    const metadata = dataObj.metadata
+    const isInternalStandard = metadata !== null && typeof metadata === 'object' &&
+      !Array.isArray(metadata) &&
+      (metadata as Record<string, unknown>).origin === 'import_export_dialog'
+
+    // StandardPromptData is an OpenAI-compatible superset. Preserve payloads
+    // carrying our export marker instead of converting them and losing metadata.
+    if (hasMessages &&
+        (!dataObj.model || dataObj.format === STANDARD_PROMPT_FORMAT || isInternalStandard)) {
+      return 'standard'
+    }
+
     // 检测OpenAI格式
-    if (dataObj.messages && Array.isArray(dataObj.messages) && dataObj.model) {
+    if (hasMessages && dataObj.model) {
       return 'openai'
     }
 
@@ -183,12 +198,6 @@ export class DataImportExportManager implements DataImportExport {
         (data[0] as Record<string, unknown>).role &&
         (data[0] as Record<string, unknown>).content) {
       return 'conversation'
-    }
-
-    // 检测标准格式
-    if (dataObj.messages && Array.isArray(dataObj.messages) &&
-        (!dataObj.model || typeof dataObj.model === 'string')) {
-      return 'openai' // 当作OpenAI格式处理
     }
 
     return 'unknown'
@@ -214,6 +223,14 @@ export class DataImportExportManager implements DataImportExport {
           detected_format: 'conversation'
         })
 
+      case 'standard': {
+        const validation = this.converter.validate(jsonData, 'standard')
+        if (!validation.success) {
+          return { success: false, error: validation.error }
+        }
+        return { success: true, data: jsonData as StandardPromptData }
+      }
+
       default:
         return {
           success: false,
@@ -226,7 +243,7 @@ export class DataImportExportManager implements DataImportExport {
   private prepareExportData(data: StandardPromptData, format: 'standard' | 'openai' | 'template'): StandardPromptData | Record<string, unknown> {
     switch (format) {
       case 'standard':
-        return data
+        return { ...data, format: STANDARD_PROMPT_FORMAT }
 
       case 'openai': {
         const openaiResult = this.converter.toOpenAI(data)
