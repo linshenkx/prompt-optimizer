@@ -54,20 +54,32 @@ describe('OpenAIImageAdapter', () => {
       })
     })
 
-    test('should include quality and size parameters', () => {
+    test('should expose supported GPT Image 2 parameters', () => {
       const models = adapter.getModels()
       const model = models.find(m => m.id === 'gpt-image-2')
 
       expect(model?.parameterDefinitions).toBeDefined()
       const qualityParam = model?.parameterDefinitions?.find(p => p.name === 'quality')
       const sizeParam = model?.parameterDefinitions?.find(p => p.name === 'size')
+      const backgroundParam = model?.parameterDefinitions?.find(p => p.name === 'background')
 
       expect(qualityParam).toBeDefined()
       expect(qualityParam?.type).toBe('string')
       expect(qualityParam?.allowedValues).toEqual(expect.arrayContaining(['auto', 'high', 'medium', 'low']))
 
       expect(sizeParam).toBeDefined()
-      expect(sizeParam?.allowedValues).toContain('1024x1024')
+      expect(sizeParam?.allowedValues).toEqual([
+        '1024x1024',
+        '1536x1024',
+        '1024x1536',
+        '2048x2048',
+        '2048x1152',
+        '3840x2160',
+        '2160x3840',
+        'auto'
+      ])
+
+      expect(backgroundParam?.allowedValues).toEqual(['auto', 'opaque'])
     })
   })
 
@@ -136,7 +148,7 @@ describe('OpenAIImageAdapter', () => {
         },
         paramOverrides: {
           quality: 'standard',
-          size: '1024x1024'
+          size: '3840x2160'
         }
       }
 
@@ -173,6 +185,7 @@ describe('OpenAIImageAdapter', () => {
 
       const [, options] = (global.fetch as any).mock.calls[0]
       const body = JSON.parse(options.body)
+      expect(body.size).toBe('3840x2160')
       expect(body.response_format).toBeUndefined()
     })
 

@@ -10,6 +10,19 @@ import type {
 import { ImageError } from '../errors'
 import { IMAGE_ERROR_CODES } from '../../../constants/error-codes'
 
+const GPT_IMAGE_2_SIZE_VALUES = [
+  '1024x1024',
+  '1536x1024',
+  '1024x1536',
+  '2048x2048',
+  '2048x1152',
+  '3840x2160',
+  '2160x3840',
+  'auto'
+] as const
+
+const GPT_IMAGE_2_BACKGROUND_VALUES = ['auto', 'opaque'] as const
+
 export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
   private static readonly FORCED_SINGLE_OUTPUT_PARAM_KEYS = ['n', 'batch_size', 'outputMimeType', 'response_format']
 
@@ -56,7 +69,7 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
             descriptionKey: 'image.params.size.description',
             type: 'string',
             defaultValue: '1024x1024',
-            allowedValues: ['1024x1024', '1536x1024', '1024x1536', 'auto']
+            allowedValues: [...GPT_IMAGE_2_SIZE_VALUES]
           },
           {
             name: 'quality',
@@ -72,7 +85,7 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
             descriptionKey: 'image.params.background.description',
             type: 'string',
             defaultValue: 'auto',
-            allowedValues: ['auto', 'transparent', 'opaque']
+            allowedValues: [...GPT_IMAGE_2_BACKGROUND_VALUES]
           }
         ],
         defaultParameterValues: {
@@ -145,7 +158,7 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
   }
 
   protected getParameterDefinitions(_modelId: string): readonly ImageParameterDefinition[] {
-    // GPT Image 1 使用统一的参数定义，n参数固定为1不暴露给用户
+    // GPT Image 2 使用统一的参数定义，n参数固定为1不暴露给用户
     return [
       {
         name: 'size',
@@ -153,7 +166,7 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
         descriptionKey: 'image.params.size.description',
         type: 'string',
         defaultValue: '1024x1024',
-        allowedValues: ['1024x1024', '1536x1024', '1024x1536', 'auto']
+        allowedValues: [...GPT_IMAGE_2_SIZE_VALUES]
       },
       {
         name: 'quality',
@@ -169,7 +182,7 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
         descriptionKey: 'image.params.background.description',
         type: 'string',
         defaultValue: 'auto',
-        allowedValues: ['auto', 'transparent', 'opaque']
+        allowedValues: [...GPT_IMAGE_2_BACKGROUND_VALUES]
       }
     ]
   }
