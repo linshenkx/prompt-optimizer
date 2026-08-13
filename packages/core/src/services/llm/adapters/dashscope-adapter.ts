@@ -14,6 +14,26 @@ interface ModelOverride {
  */
 const DASHSCOPE_STATIC_MODELS: ModelOverride[] = [
   {
+    id: 'qwen3.7-plus',
+    name: 'Qwen3.7 Plus',
+    description: 'Latest Qwen Plus model for complex reasoning and agentic workloads',
+    capabilities: {
+      supportsTools: true,
+      supportsReasoning: true,
+      maxContextLength: 1000000
+    }
+  },
+  {
+    id: 'qwen3.6-flash',
+    name: 'Qwen3.6 Flash',
+    description: 'Fast Qwen model for low-latency general-purpose workloads',
+    capabilities: {
+      supportsTools: true,
+      supportsReasoning: true,
+      maxContextLength: 1000000
+    }
+  },
+  {
     id: 'qwen3.5-27b',
     name: 'Qwen3.5-27B',
     description: 'Qwen3.5 27B model for DashScope text and vision understanding scenarios',

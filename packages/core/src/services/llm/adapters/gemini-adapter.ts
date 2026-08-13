@@ -33,19 +33,9 @@ interface ModelOverride {
  */
 const GEMINI_STATIC_MODELS: ModelOverride[] = [
   {
-    id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash',
-    description: 'Latest Gemini 2.5 Flash model, fast and efficient',
-    capabilities: {
-      supportsTools: true,
-      supportsReasoning: false,
-      maxContextLength: 1000000
-    }
-  },
-  {
-    id: 'gemini-2.5-pro',
-    name: 'Gemini 2.5 Pro',
-    description: 'Gemini 2.5 Pro model with enhanced reasoning capabilities',
+    id: 'gemini-3.6-flash',
+    name: 'Gemini 3.6 Flash',
+    description: 'Latest Gemini Flash model for fast multimodal reasoning and agentic workloads',
     capabilities: {
       supportsTools: true,
       supportsReasoning: true,
@@ -53,9 +43,19 @@ const GEMINI_STATIC_MODELS: ModelOverride[] = [
     }
   },
   {
-    id: 'gemini-3-pro-preview',
-    name: 'Gemini 3 Pro Preview',
-    description: 'Preview version of Gemini 3 Pro with cutting-edge capabilities',
+    id: 'gemini-3.5-flash-lite',
+    name: 'Gemini 3.5 Flash-Lite',
+    description: 'Efficient Gemini model for high-throughput, cost-sensitive workloads',
+    capabilities: {
+      supportsTools: true,
+      supportsReasoning: true,
+      maxContextLength: 1000000
+    }
+  },
+  {
+    id: 'gemini-3.1-pro-preview',
+    name: 'Gemini 3.1 Pro Preview',
+    description: 'Advanced Gemini Pro preview model for complex reasoning and coding',
     capabilities: {
       supportsTools: true,
       supportsReasoning: true,
@@ -188,8 +188,8 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
   /**
    * 获取参数定义
    */
-  protected getParameterDefinitions(_modelId: string): readonly ParameterDefinition[] {
-    return [
+  protected getParameterDefinitions(modelId: string): readonly ParameterDefinition[] {
+    const definitions: ParameterDefinition[] = [
       {
         name: 'temperature',
         labelKey: 'params.temperature.label',
@@ -290,6 +290,31 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
         defaultValue: false
       }
     ]
+
+    if (this.isGemini3Model(modelId)) {
+      const allowedValues = modelId.replace(/^models\//, '').startsWith('gemini-3.1-pro')
+        ? ['low', 'medium', 'high']
+        : ['minimal', 'low', 'medium', 'high']
+      return [
+        ...definitions.filter((definition) => {
+          if (definition.name === 'thinkingBudget') return false
+          if (this.usesDeprecatedSamplingParameters(modelId)) {
+            return !['temperature', 'topP', 'topK', 'candidateCount'].includes(definition.name)
+          }
+          return true
+        }),
+        {
+          name: 'thinkingLevel',
+          labelKey: 'params.reasoning_effort.label',
+          descriptionKey: 'params.reasoning_effort.description',
+          description: 'Dynamic thinking level for Gemini 3 models.',
+          type: 'string',
+          allowedValues
+        }
+      ]
+    }
+
+    return definitions
   }
 
   /**
@@ -334,6 +359,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
    * @returns GenerateContentConfig
    */
   private buildGenerationConfig(
+    modelId: string,
     params: Record<string, any> = {},
     systemInstruction?: string
   ): GenerateContentConfig {
@@ -345,6 +371,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
       candidateCount,
       stopSequences,
       thinkingBudget,      // 思考预算（token数）
+      thinkingLevel,       // Gemini 3 思考等级
       includeThoughts,      // 是否包含思考过程
       ...otherParams
     } = params
@@ -357,19 +384,21 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
     }
 
     // 添加已知参数
-    if (temperature !== undefined) {
+    const allowSamplingParameters = !this.usesDeprecatedSamplingParameters(modelId)
+
+    if (allowSamplingParameters && temperature !== undefined) {
       config.temperature = temperature
     }
     if (maxOutputTokens !== undefined) {
       config.maxOutputTokens = maxOutputTokens
     }
-    if (topP !== undefined) {
+    if (allowSamplingParameters && topP !== undefined) {
       config.topP = topP
     }
-    if (topK !== undefined) {
+    if (allowSamplingParameters && topK !== undefined) {
       config.topK = topK
     }
-    if (candidateCount !== undefined) {
+    if (!this.usesDeprecatedSamplingParameters(modelId) && candidateCount !== undefined) {
       config.candidateCount = candidateCount
     }
     if (stopSequences !== undefined && Array.isArray(stopSequences)) {
@@ -377,11 +406,15 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
     }
 
     // 添加思考配置（Gemini 2.5+ 支持）
-    if (thinkingBudget !== undefined || includeThoughts !== undefined) {
+    if (thinkingBudget !== undefined || thinkingLevel !== undefined || includeThoughts !== undefined) {
       ;(config as any).thinkingConfig = {}
 
-      if (thinkingBudget !== undefined) {
+      if (!this.isGemini3Model(modelId) && thinkingBudget !== undefined) {
         ;(config as any).thinkingConfig.thinkingBudget = thinkingBudget
+      }
+
+      if (this.isGemini3Model(modelId) && thinkingLevel !== undefined) {
+        ;(config as any).thinkingConfig.thinkingLevel = thinkingLevel
       }
 
       if (includeThoughts !== undefined) {
@@ -397,6 +430,15 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
     }
 
     return config
+  }
+
+  private usesDeprecatedSamplingParameters(modelId: string): boolean {
+    const normalizedModelId = modelId.replace(/^models\//, '')
+    return normalizedModelId.startsWith('gemini-3.5-') || normalizedModelId.startsWith('gemini-3.6-')
+  }
+
+  private isGemini3Model(modelId: string): boolean {
+    return modelId.replace(/^models\//, '').startsWith('gemini-3')
   }
 
   /**
@@ -504,6 +546,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
 
       // 构建配置（包含系统指令）
       const generationConfig = this.buildGenerationConfig(
+        config.modelMeta.id,
         config.paramOverrides || {},
         systemInstruction
       )
@@ -536,6 +579,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
       } as Record<string, unknown>
 
       const generationConfig = this.buildGenerationConfig(
+        config.modelMeta.id,
         mergedParams,
         request.systemPrompt
       )
@@ -585,6 +629,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
       } as Record<string, unknown>
 
       const generationConfig = this.buildGenerationConfig(
+        config.modelMeta.id,
         mergedParams,
         request.systemPrompt
       )
@@ -744,6 +789,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
 
       // 构建配置（包含系统指令）
       const generationConfig = this.buildGenerationConfig(
+        config.modelMeta.id,
         config.paramOverrides || {},
         systemInstruction
       )
@@ -851,6 +897,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
 
       // 构建配置（包含系统指令和工具）
       const generationConfig = this.buildGenerationConfig(
+        config.modelMeta.id,
         config.paramOverrides || {},
         systemInstruction
       )

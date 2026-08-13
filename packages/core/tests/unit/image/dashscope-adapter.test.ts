@@ -68,4 +68,47 @@ describe('DashScopeImageAdapter', () => {
       })
     )
   })
+
+  test('should route Qwen Image 2.0 with multiple inputs through the unified edit payload', async () => {
+    const model = adapter.getModels()[0]
+    const config: ImageModelConfig = {
+      id: 'test-qwen-image-2',
+      name: 'Qwen Image 2.0',
+      providerId: 'dashscope',
+      modelId: model.id,
+      enabled: true,
+      connectionConfig: {
+        apiKey: 'test-api-key',
+        baseURL: 'https://dashscope.aliyuncs.com'
+      },
+      paramOverrides: {},
+      provider: adapter.getProvider(),
+      model
+    }
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        output: { choices: [{ message: { content: [{ image: 'https://example.com/image.png' }] } }] }
+      })
+    })
+
+    await adapter.generate({
+      prompt: 'combine these images',
+      configId: config.id,
+      count: 1,
+      inputImages: [
+        { b64: 'aGVsbG8=', mimeType: 'image/png' },
+        { b64: 'd29ybGQ=', mimeType: 'image/jpeg' }
+      ]
+    }, config)
+
+    const [, init] = vi.mocked(fetch).mock.calls[0]!
+    const body = JSON.parse(String(init?.body))
+    expect(body.model).toBe('qwen-image-2.0')
+    expect(body.input.messages[0].content).toEqual([
+      { image: 'data:image/png;base64,aGVsbG8=' },
+      { image: 'data:image/jpeg;base64,d29ybGQ=' },
+      { text: 'combine these images' }
+    ])
+  })
 })

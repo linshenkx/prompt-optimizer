@@ -92,6 +92,11 @@ describe('AnthropicAdapter', () => {
       const claude4 = models.find(m => m.id.includes('claude-'));
       expect(claude4).toBeDefined();
       expect(claude4?.providerId).toBe('anthropic');
+      expect(models.map(model => model.id)).toEqual([
+        'claude-sonnet-5',
+        'claude-opus-5',
+        'claude-haiku-4-5-20251001'
+      ]);
     });
   });
 
@@ -122,6 +127,33 @@ describe('AnthropicAdapter', () => {
   });
 
   describe('sendMessage', () => {
+    it('should use adaptive thinking and effort for Claude 5', async () => {
+      const mockCreate = vi.fn().mockResolvedValue({
+        content: [{ type: 'text', text: 'ok' }],
+        model: 'claude-sonnet-5',
+        stop_reason: 'end_turn',
+        usage: { input_tokens: 1, output_tokens: 1 }
+      });
+      (Anthropic as any).prototype.messages = { create: mockCreate, stream: vi.fn() };
+
+      await adapter.sendMessage(mockMessages, {
+        ...mockConfig,
+        modelMeta: adapter.getModels()[0],
+        paramOverrides: {
+          max_tokens: 8192,
+          effort: 'medium',
+          temperature: 0.2
+        }
+      });
+
+      expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({
+        model: 'claude-sonnet-5',
+        thinking: { type: 'adaptive' },
+        output_config: { effort: 'medium' }
+      }));
+      expect(mockCreate.mock.calls[0][0].temperature).toBeUndefined();
+    });
+
     it('should return response content from Anthropic API', async () => {
       const anthropicResponse = {
         content: [

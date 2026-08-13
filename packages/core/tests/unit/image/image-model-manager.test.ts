@@ -98,6 +98,41 @@ describe('ImageModelManager initialization behavior', () => {
     expect(reloaded?.model.capabilities.multiImage).toBe(true)
   })
 
+  it('should migrate exact legacy builtin image model ids', async () => {
+    await modelManager.ensureInitialized()
+    const defaults = {
+      gemini: await modelManager.getConfig('image-gemini-nanobanana'),
+      dashscope: await modelManager.getConfig('image-dashscope'),
+      seedream: await modelManager.getConfig('image-seedream-50-lite')
+    }
+    expect(defaults.gemini && defaults.dashscope && defaults.seedream).toBeTruthy()
+
+    await storageProvider.setItem(CORE_SERVICE_KEYS.IMAGE_MODELS, JSON.stringify({
+      'image-gemini-nanobanana': {
+        ...defaults.gemini,
+        modelId: 'gemini-2.5-flash-image',
+        model: { ...defaults.gemini!.model, id: 'gemini-2.5-flash-image' }
+      },
+      'image-dashscope': {
+        ...defaults.dashscope,
+        modelId: 'qwen-image',
+        model: { ...defaults.dashscope!.model, id: 'qwen-image' }
+      },
+      'image-seedream-50-lite': {
+        ...defaults.seedream,
+        modelId: 'doubao-seedream-5-0-260128',
+        model: { ...defaults.seedream!.model, id: 'doubao-seedream-5-0-260128' }
+      }
+    }))
+
+    const reloadedManager = new ImageModelManager(storageProvider, new ImageAdapterRegistry())
+    await reloadedManager.ensureInitialized()
+
+    expect((await reloadedManager.getConfig('image-gemini-nanobanana'))?.modelId).toBe('gemini-3.1-flash-image')
+    expect((await reloadedManager.getConfig('image-dashscope'))?.modelId).toBe('qwen-image-2.0')
+    expect((await reloadedManager.getConfig('image-seedream-50-lite'))?.modelId).toBe('doubao-seedream-5-0-lite-260128')
+  })
+
   it('should refresh embedded provider and model metadata when providerId/modelId are updated directly', async () => {
     await modelManager.ensureInitialized()
     const existing = await modelManager.getConfig('image-seedream')

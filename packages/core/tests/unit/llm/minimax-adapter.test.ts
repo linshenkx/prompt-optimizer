@@ -146,7 +146,8 @@ describe('MinimaxAdapter', () => {
       expect(m27?.capabilities.maxContextLength).toBe(204800);
 
       const m27Highspeed = models.find(m => m.id === 'MiniMax-M2.7-highspeed');
-      expect(m27Highspeed?.capabilities.maxContextLength).toBe(1000000);
+      expect(m27Highspeed?.capabilities.maxContextLength).toBe(204800);
+      expect(m27Highspeed?.capabilities.supportsReasoning).toBe(true);
     });
 
     it('should include all expected models', () => {

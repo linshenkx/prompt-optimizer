@@ -74,10 +74,12 @@ describe('GeminiAdapter', () => {
       expect(Array.isArray(models)).toBe(true);
       expect(models.length).toBeGreaterThan(0);
 
-      // 更新为新版本的模型 ID
-      const gemini25Flash = models.find(m => m.id === 'gemini-2.5-flash');
-      expect(gemini25Flash).toBeDefined();
-      expect(gemini25Flash?.providerId).toBe('gemini');
+      expect(models.map(model => model.id)).toEqual([
+        'gemini-3.6-flash',
+        'gemini-3.5-flash-lite',
+        'gemini-3.1-pro-preview'
+      ]);
+      expect(models[0].providerId).toBe('gemini');
     });
   });
 
@@ -98,22 +100,19 @@ describe('GeminiAdapter', () => {
 
       const paramNames = model.parameterDefinitions.map(p => p.name);
 
-      // 验证基础参数存在
-      expect(paramNames).toContain('temperature');
-      expect(paramNames).toContain('topP');
+      // Gemini 3.5/3.6 已弃用这些采样参数
+      expect(paramNames).not.toContain('temperature');
+      expect(paramNames).not.toContain('topP');
+      expect(paramNames).not.toContain('topK');
       expect(paramNames).toContain('maxOutputTokens');
 
-      // 验证思考参数存在
-      expect(paramNames).toContain('thinkingBudget');
+      // Gemini 3 使用 thinkingLevel，不再使用 token budget
+      expect(paramNames).not.toContain('thinkingBudget');
+      expect(paramNames).toContain('thinkingLevel');
       expect(paramNames).toContain('includeThoughts');
 
-      // 验证思考参数定义
-      const thinkingBudget = model.parameterDefinitions.find(p => p.name === 'thinkingBudget');
-      expect(thinkingBudget).toBeDefined();
-      expect(thinkingBudget?.type).toBe('number');
-      expect(thinkingBudget?.min).toBe(0);  // 允许0来禁用思考功能
-      expect(thinkingBudget?.max).toBe(8192);
-      expect(thinkingBudget?.description).toContain('Gemini 2.5+');
+      const thinkingLevel = model.parameterDefinitions.find(p => p.name === 'thinkingLevel');
+      expect(thinkingLevel?.allowedValues).toEqual(['minimal', 'low', 'medium', 'high']);
 
       const includeThoughts = model.parameterDefinitions.find(p => p.name === 'includeThoughts');
       expect(includeThoughts).toBeDefined();
@@ -133,12 +132,42 @@ describe('GeminiAdapter', () => {
 
       // 验证参数定义中包含思考参数
       const paramNames = model.parameterDefinitions.map(p => p.name);
-      expect(paramNames).toContain('thinkingBudget');
+      expect(paramNames).toContain('thinkingLevel');
       expect(paramNames).toContain('includeThoughts');
     });
   });
 
   describe('error handling', () => {
+    it('filters deprecated sampling parameters for Gemini 3.6 requests', async () => {
+      const generateContent = vi.fn().mockResolvedValue({
+        text: 'ok',
+        candidates: [{ content: { parts: [{ text: 'ok' }] } }]
+      });
+      (adapter as any).createClient = () => ({ models: { generateContent } });
+
+      await adapter.sendMessage(mockMessages, {
+        ...mockConfig,
+        modelMeta: adapter.getModels()[0],
+        paramOverrides: {
+          temperature: 0.2,
+          topP: 0.8,
+          topK: 20,
+          candidateCount: 2,
+          thinkingBudget: 2000,
+          thinkingLevel: 'high',
+          maxOutputTokens: 2048
+        }
+      });
+
+      const requestConfig = generateContent.mock.calls[0][0].config;
+      expect(requestConfig.temperature).toBeUndefined();
+      expect(requestConfig.topP).toBeUndefined();
+      expect(requestConfig.topK).toBeUndefined();
+      expect(requestConfig.candidateCount).toBeUndefined();
+      expect(requestConfig.maxOutputTokens).toBe(2048);
+      expect(requestConfig.thinkingConfig).toEqual({ thinkingLevel: 'high' });
+    });
+
     it('should throw error when API key is missing', async () => {
       const configWithoutKey = {
         ...mockConfig,

@@ -62,7 +62,7 @@ describe('SeedreamImageAdapter', () => {
       expect(modelIds).toEqual(expect.arrayContaining([
         'doubao-seedream-4-0-250828',
         'doubao-seedream-4-5-251128',
-        'doubao-seedream-5-0-260128'
+        'doubao-seedream-5-0-lite-260128'
       ]))
     })
 
@@ -343,7 +343,7 @@ describe('SeedreamImageAdapter', () => {
         id: 'seedream-50-config',
         name: 'Seedream 5.0 Config',
         providerId: 'seedream',
-        modelId: 'doubao-seedream-5-0-260128',
+        modelId: 'doubao-seedream-5-0-lite-260128',
         enabled: true,
         connectionConfig: {
           apiKey: 'test-api-key',
@@ -421,7 +421,7 @@ describe('SeedreamImageAdapter', () => {
     })
 
     test('should expose Seedream 5.0 lite specific parameters', () => {
-      const model = adapter.getModels().find(item => item.id === 'doubao-seedream-5-0-260128')
+      const model = adapter.getModels().find(item => item.id === 'doubao-seedream-5-0-lite-260128')
       const parameterNames = model?.parameterDefinitions.map(p => p.name) || []
 
       expect(parameterNames).toEqual(expect.arrayContaining(['size', 'output_format', 'tools']))

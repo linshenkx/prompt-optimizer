@@ -11,6 +11,16 @@ interface ModelOverride {
 
 const ZHIPU_STATIC_MODELS: ModelOverride[] = [
   {
+    id: 'glm-5.2',
+    name: 'GLM-5.2',
+    description: 'Latest GLM flagship model for reasoning, coding, and agentic tasks',
+    capabilities: {
+      supportsTools: true,
+      supportsReasoning: true,
+      maxContextLength: 1000000
+    }
+  },
+  {
     id: 'glm-4.7',
     name: 'GLM-4.7',
     description: 'GLM-4.7 是最新的旗舰模型系列，专为智能体应用打造的基础模型',

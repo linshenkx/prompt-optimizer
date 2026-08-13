@@ -64,32 +64,44 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
     const providerId = 'anthropic'
 
     return [
-      // Claude 4.0 系列
       {
-        id: 'claude-opus-4-20250514',
-        name: 'Claude 4.0 Opus',
-        description: 'Most powerful Claude model for complex tasks',
+        id: 'claude-sonnet-5',
+        name: 'Claude Sonnet 5',
+        description: 'Balanced Claude 5 model for coding, agents, and general-purpose work',
         providerId,
         capabilities: {
-                    supportsTools: true,
-          supportsReasoning: false,
-          maxContextLength: 200000
+          supportsTools: true,
+          supportsReasoning: true,
+          maxContextLength: 1000000
         },
-        parameterDefinitions: this.getParameterDefinitions('claude-opus-4-20250514'),
-        defaultParameterValues: this.getDefaultParameterValues('claude-opus-4-20250514')
+        parameterDefinitions: this.getParameterDefinitions('claude-sonnet-5'),
+        defaultParameterValues: this.getDefaultParameterValues('claude-sonnet-5')
       },
       {
-        id: 'claude-sonnet-4-20250514',
-        name: 'Claude 4.0 Sonnet',
-        description: 'Balanced Claude model for most tasks',
+        id: 'claude-opus-5',
+        name: 'Claude Opus 5',
+        description: 'Most capable Claude model for complex reasoning and agentic tasks',
         providerId,
         capabilities: {
-                    supportsTools: true,
-          supportsReasoning: false,
+          supportsTools: true,
+          supportsReasoning: true,
+          maxContextLength: 1000000
+        },
+        parameterDefinitions: this.getParameterDefinitions('claude-opus-5'),
+        defaultParameterValues: this.getDefaultParameterValues('claude-opus-5')
+      },
+      {
+        id: 'claude-haiku-4-5-20251001',
+        name: 'Claude Haiku 4.5',
+        description: 'Fast, efficient Claude model for high-throughput workloads',
+        providerId,
+        capabilities: {
+          supportsTools: true,
+          supportsReasoning: true,
           maxContextLength: 200000
         },
-        parameterDefinitions: this.getParameterDefinitions('claude-sonnet-4-20250514'),
-        defaultParameterValues: this.getDefaultParameterValues('claude-sonnet-4-20250514')
+        parameterDefinitions: this.getParameterDefinitions('claude-haiku-4-5-20251001'),
+        defaultParameterValues: this.getDefaultParameterValues('claude-haiku-4-5-20251001')
       }
     ]
   }
@@ -150,8 +162,8 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
   /**
    * 获取参数定义
    */
-  protected getParameterDefinitions(_modelId: string): readonly ParameterDefinition[] {
-    return [
+  protected getParameterDefinitions(modelId: string): readonly ParameterDefinition[] {
+    const samplingDefinitions: ParameterDefinition[] = [
       {
         name: 'temperature',
         labelKey: 'params.temperature.label',
@@ -185,11 +197,13 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
         labelKey: 'params.top_k.label',
         descriptionKey: 'params.top_k.description',
         description: 'Top-k sampling parameter',
-        type: 'integer',
+        type: 'integer' as const,
         minValue: 1,
         min: 1,
         step: 1
       },
+    ]
+    const sharedDefinitions: ParameterDefinition[] = [
       {
         name: 'max_tokens',
         labelKey: 'params.max_tokens.label',
@@ -203,28 +217,71 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
         unitKey: 'params.tokens.unit',
         step: 1
       },
-      {
+      ...(this.isAdaptiveThinkingModel(modelId) ? [{
+        name: 'effort',
+        labelKey: 'params.reasoning_effort.label',
+        descriptionKey: 'params.reasoning_effort.description',
+        description: 'Adaptive reasoning effort for Claude 5.',
+        type: 'string' as const,
+        defaultValue: 'high',
+        default: 'high',
+        allowedValues: ['low', 'medium', 'high', 'xhigh', 'max']
+      }] : [{
         name: 'thinking_budget_tokens',
         labelKey: 'params.thinkingBudget.label',
         descriptionKey: 'params.thinkingBudget.description',
         description: 'Extended thinking budget in tokens (requires ≥1024)',
-        type: 'integer',
+        type: 'integer' as const,
         minValue: 1024,
         min: 1024,
         unitKey: 'params.tokens.unit',
         step: 1,
         tags: ['advanced']
-      }
+      }])
     ]
+
+    return this.isAdaptiveThinkingModel(modelId)
+      ? sharedDefinitions
+      : [...samplingDefinitions, ...sharedDefinitions]
   }
 
   /**
    * 获取默认参数值
    * 返回空对象,让服务器使用官方默认值,避免客户端错误默认值影响效果
    */
-  protected getDefaultParameterValues(_modelId: string): Record<string, unknown> {
+  protected getDefaultParameterValues(modelId: string): Record<string, unknown> {
     return {
       max_tokens: DEFAULT_MAX_TOKENS, // 8192 - Anthropic API 强制要求
+      ...(this.isAdaptiveThinkingModel(modelId) ? { effort: 'high' } : {})
+    }
+  }
+
+  private isAdaptiveThinkingModel(modelId: string): boolean {
+    return /^claude-(?:sonnet|opus)-5(?:-|$)/.test(modelId)
+  }
+
+  private applyThinkingConfig(
+    requestParams: Record<string, any>,
+    modelId: string,
+    thinkingBudgetTokens: unknown,
+    effort: unknown
+  ): void {
+    if (this.isAdaptiveThinkingModel(modelId)) {
+      requestParams.thinking = { type: 'adaptive' }
+      if (['low', 'medium', 'high', 'xhigh', 'max'].includes(String(effort))) {
+        requestParams.output_config = {
+          ...(requestParams.output_config || {}),
+          effort
+        }
+      }
+      return
+    }
+
+    if (typeof thinkingBudgetTokens === 'number' && thinkingBudgetTokens >= 1024) {
+      requestParams.thinking = {
+        type: 'enabled',
+        budget_tokens: thinkingBudgetTokens
+      }
     }
   }
 
@@ -247,6 +304,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
         top_p,
         top_k,
         thinking_budget_tokens,
+        effort,
         ...otherParams // 其他参数（包括自定义参数）
       } = (config.paramOverrides || {}) as any
 
@@ -257,13 +315,13 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
       }
 
       // 只在用户明确设置时才添加参数，避免使用客户端默认值
-      if (temperature !== undefined) {
+      if (!this.isAdaptiveThinkingModel(config.modelMeta.id) && temperature !== undefined) {
         requestParams.temperature = temperature
       }
-      if (top_p !== undefined) {
+      if (!this.isAdaptiveThinkingModel(config.modelMeta.id) && top_p !== undefined) {
         requestParams.top_p = top_p
       }
-      if (top_k !== undefined) {
+      if (!this.isAdaptiveThinkingModel(config.modelMeta.id) && top_k !== undefined) {
         requestParams.top_k = top_k
       }
 
@@ -273,16 +331,9 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
         requestParams.system = systemMessage
       }
 
-      // 添加 Extended Thinking 配置
-      if (thinking_budget_tokens !== undefined && thinking_budget_tokens >= 1024) {
-        requestParams.thinking = {
-          type: 'enabled',
-          budget_tokens: thinking_budget_tokens
-        }
-      }
-
       // 添加其他参数（包括自定义参数）
       Object.assign(requestParams, otherParams)
+      this.applyThinkingConfig(requestParams, config.modelMeta.id, thinking_budget_tokens, effort)
 
       const response = await client.messages.create(requestParams)
 
@@ -321,6 +372,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
         top_p,
         top_k,
         thinking_budget_tokens,
+        effort,
         responseMimeType: _responseMimeType,
         ...otherParams
       } = mergedParams as any
@@ -349,26 +401,20 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
         max_tokens: max_tokens ?? DEFAULT_MAX_TOKENS
       }
 
-      if (temperature !== undefined) {
+      if (!this.isAdaptiveThinkingModel(config.modelMeta.id) && temperature !== undefined) {
         requestParams.temperature = temperature
       }
-      if (top_p !== undefined) {
+      if (!this.isAdaptiveThinkingModel(config.modelMeta.id) && top_p !== undefined) {
         requestParams.top_p = top_p
       }
-      if (top_k !== undefined) {
+      if (!this.isAdaptiveThinkingModel(config.modelMeta.id) && top_k !== undefined) {
         requestParams.top_k = top_k
       }
       if (request.systemPrompt?.trim()) {
         requestParams.system = request.systemPrompt
       }
-      if (thinking_budget_tokens !== undefined && thinking_budget_tokens >= 1024) {
-        requestParams.thinking = {
-          type: 'enabled',
-          budget_tokens: thinking_budget_tokens
-        }
-      }
-
       Object.assign(requestParams, otherParams)
+      this.applyThinkingConfig(requestParams, config.modelMeta.id, thinking_budget_tokens, effort)
 
       const response = await client.messages.create(requestParams)
       const reasoning = this.extractThinking(response)
@@ -407,6 +453,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
         top_p,
         top_k,
         thinking_budget_tokens,
+        effort,
         responseMimeType: _responseMimeType,
         ...otherParams
       } = mergedParams as any
@@ -435,26 +482,20 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
         max_tokens: max_tokens ?? DEFAULT_MAX_TOKENS
       }
 
-      if (temperature !== undefined) {
+      if (!this.isAdaptiveThinkingModel(config.modelMeta.id) && temperature !== undefined) {
         requestParams.temperature = temperature
       }
-      if (top_p !== undefined) {
+      if (!this.isAdaptiveThinkingModel(config.modelMeta.id) && top_p !== undefined) {
         requestParams.top_p = top_p
       }
-      if (top_k !== undefined) {
+      if (!this.isAdaptiveThinkingModel(config.modelMeta.id) && top_k !== undefined) {
         requestParams.top_k = top_k
       }
       if (request.systemPrompt?.trim()) {
         requestParams.system = request.systemPrompt
       }
-      if (thinking_budget_tokens !== undefined && thinking_budget_tokens >= 1024) {
-        requestParams.thinking = {
-          type: 'enabled',
-          budget_tokens: thinking_budget_tokens
-        }
-      }
-
       Object.assign(requestParams, otherParams)
+      this.applyThinkingConfig(requestParams, config.modelMeta.id, thinking_budget_tokens, effort)
 
       const stream = await client.messages.stream(requestParams)
 
@@ -513,6 +554,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
         top_p,
         top_k,
         thinking_budget_tokens,
+        effort,
         ...otherParams // 其他参数（包括自定义参数）
       } = (config.paramOverrides || {}) as any
 
@@ -523,13 +565,13 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
       }
 
       // 只在用户明确设置时才添加参数，避免使用客户端默认值
-      if (temperature !== undefined) {
+      if (!this.isAdaptiveThinkingModel(config.modelMeta.id) && temperature !== undefined) {
         requestParams.temperature = temperature
       }
-      if (top_p !== undefined) {
+      if (!this.isAdaptiveThinkingModel(config.modelMeta.id) && top_p !== undefined) {
         requestParams.top_p = top_p
       }
-      if (top_k !== undefined) {
+      if (!this.isAdaptiveThinkingModel(config.modelMeta.id) && top_k !== undefined) {
         requestParams.top_k = top_k
       }
 
@@ -539,16 +581,9 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
         requestParams.system = systemMessage
       }
 
-      // 添加 Extended Thinking 配置
-      if (thinking_budget_tokens !== undefined && thinking_budget_tokens >= 1024) {
-        requestParams.thinking = {
-          type: 'enabled',
-          budget_tokens: thinking_budget_tokens
-        }
-      }
-
       // 添加其他参数（包括自定义参数）
       Object.assign(requestParams, otherParams)
+      this.applyThinkingConfig(requestParams, config.modelMeta.id, thinking_budget_tokens, effort)
 
       const stream = await client.messages.stream(requestParams)
 
@@ -614,6 +649,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
         top_p,
         top_k,
         thinking_budget_tokens,
+        effort,
         ...otherParams // 其他参数（包括自定义参数）
       } = (config.paramOverrides || {}) as any
 
@@ -625,13 +661,13 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
       }
 
       // 只在用户明确设置时才添加参数，避免使用客户端默认值
-      if (temperature !== undefined) {
+      if (!this.isAdaptiveThinkingModel(config.modelMeta.id) && temperature !== undefined) {
         requestParams.temperature = temperature
       }
-      if (top_p !== undefined) {
+      if (!this.isAdaptiveThinkingModel(config.modelMeta.id) && top_p !== undefined) {
         requestParams.top_p = top_p
       }
-      if (top_k !== undefined) {
+      if (!this.isAdaptiveThinkingModel(config.modelMeta.id) && top_k !== undefined) {
         requestParams.top_k = top_k
       }
 
@@ -641,16 +677,9 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
         requestParams.system = systemMessage
       }
 
-      // 添加 Extended Thinking 配置
-      if (thinking_budget_tokens !== undefined && thinking_budget_tokens >= 1024) {
-        requestParams.thinking = {
-          type: 'enabled',
-          budget_tokens: thinking_budget_tokens
-        }
-      }
-
       // 添加其他参数（包括自定义参数）
       Object.assign(requestParams, otherParams)
+      this.applyThinkingConfig(requestParams, config.modelMeta.id, thinking_budget_tokens, effort)
 
       const stream = await client.messages.stream(requestParams)
 

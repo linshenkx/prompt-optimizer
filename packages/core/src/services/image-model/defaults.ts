@@ -36,7 +36,7 @@ const IMAGE_BUILTIN_CONFIGS: readonly BuiltinImageConfigSpec[] = [
   { providerId: 'openai', configId: 'image-openai-gpt' },
   { providerId: 'siliconflow', configId: 'image-siliconflow-kolors' },
   { providerId: 'seedream', configId: 'image-seedream', modelId: 'doubao-seedream-4-0-250828' },
-  { providerId: 'seedream', configId: 'image-seedream-50-lite', modelId: 'doubao-seedream-5-0-260128', displayName: 'Doubao Seedream 5.0 Lite' },
+  { providerId: 'seedream', configId: 'image-seedream-50-lite', modelId: 'doubao-seedream-5-0-lite-260128', displayName: 'Doubao Seedream 5.0 Lite' },
   { providerId: 'dashscope', configId: 'image-dashscope' },
   { providerId: 'modelscope', configId: 'image-modelscope' },
   { providerId: 'ollama', configId: 'image-ollama' },

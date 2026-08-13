@@ -239,15 +239,15 @@ describe('model defaults provider env mapping', () => {
     })
   })
 
-  it('should include Grok with reasoning disabled by default', () => {
+  it('should include Grok 4.5 with high reasoning effort by default', () => {
     const models = getDefaultTextModels()
 
     expect(models.grok).toBeDefined()
     expect(models.grok.providerMeta.id).toBe('grok')
-    expect(models.grok.modelMeta.id).toBe('grok-4.3')
+    expect(models.grok.modelMeta.id).toBe('grok-4.5')
     expect(models.grok.enabled).toBe(false)
     expect(models.grok.paramOverrides).toEqual({
-      reasoning_effort: 'none'
+      reasoning_effort: 'high'
     })
   })
 

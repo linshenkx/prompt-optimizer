@@ -48,7 +48,7 @@ describe('default image models', () => {
 
     expect(models['image-seedream-50-lite']).toBeDefined()
     expect(models['image-seedream-50-lite'].providerId).toBe('seedream')
-    expect(models['image-seedream-50-lite'].modelId).toBe('doubao-seedream-5-0-260128')
+    expect(models['image-seedream-50-lite'].modelId).toBe('doubao-seedream-5-0-lite-260128')
     expect(models['image-seedream-50-lite'].enabled).toBe(true)
   })
 

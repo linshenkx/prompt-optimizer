@@ -47,8 +47,10 @@ describe('GeminiImageAdapter', () => {
       expect(Array.isArray(models)).toBe(true)
       expect(models.length).toBeGreaterThan(0)
       expect(models.map(model => model.id)).toEqual([
-        'gemini-2.5-flash-image',
-        'gemini-3.1-flash-image-preview'
+        'gemini-3.1-flash-image',
+        'gemini-3.1-flash-lite-image',
+        'gemini-3-pro-image',
+        'gemini-2.5-flash-image'
       ])
 
       const geminiModel = models.find(m => m.id.includes('gemini'))
@@ -117,8 +119,10 @@ describe('GeminiImageAdapter', () => {
       const models = await adapter.getModelsAsync({ apiKey: 'test-api-key' })
 
       expect(models.map(model => model.id)).toEqual([
-        'gemini-2.5-flash-image',
-        'gemini-3.1-flash-image-preview'
+        'gemini-3.1-flash-image',
+        'gemini-3.1-flash-lite-image',
+        'gemini-3-pro-image',
+        'gemini-2.5-flash-image'
       ])
     })
   })

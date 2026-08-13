@@ -12,7 +12,7 @@ import { IMAGE_ERROR_CODES } from '../../../constants/error-codes'
 
 const SEEDREAM_40_MODEL_ID = 'doubao-seedream-4-0-250828'
 const SEEDREAM_45_MODEL_ID = 'doubao-seedream-4-5-251128'
-const SEEDREAM_50_LITE_MODEL_ID = 'doubao-seedream-5-0-260128'
+const SEEDREAM_50_LITE_MODEL_ID = 'doubao-seedream-5-0-lite-260128'
 
 const SEEDREAM_40_SIZE_VALUES = ['1K', '2K', '4K', '1024x1024', '512x512', '768x768', '1024x768', '768x1024'] as const
 const SEEDREAM_45_SIZE_VALUES = ['2K', '4K', '2048x2048'] as const

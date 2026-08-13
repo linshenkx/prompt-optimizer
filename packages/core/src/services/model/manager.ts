@@ -115,8 +115,19 @@ export class ModelManager implements IModelManager {
 
               if (isTextModelConfig(existingModel)) {
                 // 已经是新格式，保留用户配置，仅在缺失关键字段时补齐默认值
-                let updatedModel = { ...existingModel } as TextModelConfig;
+                const copiedExistingModel = { ...existingModel } as TextModelConfig;
+                let updatedModel = this.patchBuiltinModelUpgrade(
+                  key,
+                  copiedExistingModel,
+                  defaultConfig
+                );
                 let patched = false;
+
+                if (updatedModel !== copiedExistingModel) {
+                  updatedModels[key] = updatedModel;
+                  hasUpdates = true;
+                  console.log(`[ModelManager] Migrated legacy builtin model: ${key}`);
+                }
 
                 if (!updatedModel.providerMeta && defaultConfig.providerMeta) {
                   updatedModel.providerMeta = defaultConfig.providerMeta;
@@ -238,6 +249,53 @@ export class ModelManager implements IModelManager {
         console.error('[ModelManager] Failed to save default models:', saveError);
       }
     }
+  }
+
+  private patchBuiltinModelUpgrade(
+    key: string,
+    config: TextModelConfig,
+    defaultConfig: TextModelConfig
+  ): TextModelConfig {
+    const legacyDefaultIds: Record<string, readonly string[]> = {
+      openai: ['gpt-5-mini'],
+      gemini: ['gemini-2.5-flash'],
+      anthropic: ['claude-opus-4-20250514', 'claude-sonnet-4-20250514'],
+      zhipu: ['glm-4.7'],
+      dashscope: ['qwen3.5-27b'],
+      grok: ['grok-4.3']
+    };
+    const currentModelId = config.modelId || config.modelMeta?.id;
+    if (!currentModelId || !legacyDefaultIds[key]?.includes(currentModelId)) {
+      return config;
+    }
+
+    const paramOverrides = {
+      ...(defaultConfig.paramOverrides || {}),
+      ...(config.paramOverrides || {})
+    } as Record<string, unknown>;
+
+    if (key === 'anthropic') {
+      delete paramOverrides.thinking_budget_tokens;
+      delete paramOverrides.temperature;
+      delete paramOverrides.top_p;
+      delete paramOverrides.top_k;
+      paramOverrides.effort = paramOverrides.effort || 'high';
+    } else if (key === 'gemini') {
+      delete paramOverrides.temperature;
+      delete paramOverrides.topP;
+      delete paramOverrides.topK;
+      delete paramOverrides.candidateCount;
+      delete paramOverrides.thinkingBudget;
+    } else if (key === 'grok' && paramOverrides.reasoning_effort === 'none') {
+      paramOverrides.reasoning_effort = 'high';
+    }
+
+    return {
+      ...config,
+      modelId: defaultConfig.modelId,
+      modelMeta: defaultConfig.modelMeta,
+      paramOverrides
+    };
   }
 
   /**

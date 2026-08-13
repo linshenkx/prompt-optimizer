@@ -292,7 +292,7 @@ describe('配置迁移集成测试', () => {
   describe('新格式配置处理', () => {
     it('应该直接识别并保留新格式配置', async () => {
       const adapter = registry.getAdapter('openai');
-      const model = adapter.getModels().find(m => m.id === 'gpt-5-mini')!;
+      const model = adapter.getModels().find(m => m.id === 'gpt-5.6-sol')!;
 
       const newConfig: TextModelConfig = {
         id: 'openai',

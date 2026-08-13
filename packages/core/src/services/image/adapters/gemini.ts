@@ -36,9 +36,9 @@ export class GeminiImageAdapter extends AbstractImageProviderAdapter {
   getModels(): ImageModel[] {
     return [
       {
-        id: 'gemini-2.5-flash-image',
-        name: 'Gemini 2.5 Flash Image',
-        description: 'Google Gemini 2.5 Flash image generation model (Nano Banana) with text-to-image, image editing, and multi-image input support',
+        id: 'gemini-3.1-flash-image',
+        name: 'Gemini 3.1 Flash Image',
+        description: 'Stable Gemini 3.1 Flash image model with text-to-image, editing, and multi-image input support',
         providerId: 'gemini',
         capabilities: {
           text2image: true,
@@ -51,9 +51,39 @@ export class GeminiImageAdapter extends AbstractImageProviderAdapter {
         }
       },
       {
-        id: 'gemini-3.1-flash-image-preview',
-        name: 'Gemini 3.1 Flash Image Preview',
-        description: 'Google Gemini 3.1 Flash image generation preview model with text-to-image, image editing, and multi-image input support',
+        id: 'gemini-3.1-flash-lite-image',
+        name: 'Gemini 3.1 Flash-Lite Image',
+        description: 'Efficient Gemini 3.1 image model for fast, cost-sensitive generation and editing',
+        providerId: 'gemini',
+        capabilities: {
+          text2image: true,
+          image2image: true,
+          multiImage: true
+        },
+        parameterDefinitions: [],
+        defaultParameterValues: {
+          outputMimeType: 'image/png'
+        }
+      },
+      {
+        id: 'gemini-3-pro-image',
+        name: 'Gemini 3 Pro Image',
+        description: 'High-capability Gemini image model for detailed generation and editing',
+        providerId: 'gemini',
+        capabilities: {
+          text2image: true,
+          image2image: true,
+          multiImage: true
+        },
+        parameterDefinitions: [],
+        defaultParameterValues: {
+          outputMimeType: 'image/png'
+        }
+      },
+      {
+        id: 'gemini-2.5-flash-image',
+        name: 'Gemini 2.5 Flash Image',
+        description: 'Legacy Gemini 2.5 Flash image model retained for compatibility',
         providerId: 'gemini',
         capabilities: {
           text2image: true,

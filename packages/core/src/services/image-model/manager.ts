@@ -81,7 +81,14 @@ export class ImageModelManager implements IImageModelManager {
           data[key] = cfg
           changed = true
         } else {
-          const existingConfig = data[key]
+          let existingConfig = data[key]
+          const upgradedConfig = this.patchBuiltinModelUpgrade(key, existingConfig, cfg)
+          if (upgradedConfig !== existingConfig) {
+            existingConfig = upgradedConfig
+            data[key] = upgradedConfig
+            changed = true
+            console.log(`[ImageModelManager] Migrated legacy builtin model: ${key}`)
+          }
           const backfillableFields = this.getBackfillableBuiltinConnectionFields(
             key,
             existingConfig,
@@ -126,6 +133,32 @@ export class ImageModelManager implements IImageModelManager {
         const defaults = getDefaultImageModels(this.registry)
         await this.storage.setItem(this.storageKey, JSON.stringify(defaults))
       } catch {}
+    }
+  }
+
+  private patchBuiltinModelUpgrade(
+    key: string,
+    config: ImageModelConfig,
+    defaultConfig: ImageModelConfig
+  ): ImageModelConfig {
+    const legacyDefaultIds: Record<string, readonly string[]> = {
+      'image-gemini-nanobanana': ['gemini-2.5-flash-image', 'gemini-3.1-flash-image-preview'],
+      'image-dashscope': ['qwen-image'],
+      'image-seedream-50-lite': ['doubao-seedream-5-0-260128']
+    }
+    const currentModelId = config.modelId || config.model?.id
+    if (!currentModelId || !legacyDefaultIds[key]?.includes(currentModelId)) {
+      return config
+    }
+
+    return {
+      ...config,
+      modelId: defaultConfig.modelId,
+      model: defaultConfig.model,
+      paramOverrides: {
+        ...(defaultConfig.paramOverrides || {}),
+        ...(config.paramOverrides || {})
+      }
     }
   }
 

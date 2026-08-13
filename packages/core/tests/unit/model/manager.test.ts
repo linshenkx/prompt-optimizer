@@ -118,6 +118,57 @@ describe('ModelManager', () => {
   });
 
   describe('initialization behavior', () => {
+    it('should migrate exact legacy builtin defaults while preserving connection settings', async () => {
+      const existing = await modelManager.getModel('openai')
+      expect(existing).toBeDefined()
+
+      const legacyOpenAI: TextModelConfig = {
+        ...existing!,
+        modelId: 'gpt-5-mini',
+        modelMeta: {
+          ...existing!.modelMeta,
+          id: 'gpt-5-mini',
+          name: 'GPT-5 Mini'
+        },
+        connectionConfig: {
+          ...existing!.connectionConfig,
+          baseURL: 'https://custom-openai.example/v1'
+        }
+      }
+      await storageProvider.setItem('models', JSON.stringify({ openai: legacyOpenAI }))
+
+      const reloadedManager = new ModelManager(storageProvider, new TextAdapterRegistry())
+      const reloaded = await reloadedManager.getModel('openai')
+
+      expect(reloaded?.modelId).toBe('gpt-5.6-terra')
+      expect(reloaded?.modelMeta.id).toBe('gpt-5.6-terra')
+      expect(reloaded?.paramOverrides.reasoning_effort).toBe('none')
+      expect(reloaded?.connectionConfig.baseURL).toBe('https://custom-openai.example/v1')
+    })
+
+    it('should not migrate a legacy model id stored under a custom config key', async () => {
+      const existing = await modelManager.getModel('openai')
+      expect(existing).toBeDefined()
+      const custom = {
+        ...existing!,
+        id: 'custom-openai-legacy',
+        name: 'Custom Legacy OpenAI',
+        modelId: 'gpt-5-mini',
+        modelMeta: {
+          ...existing!.modelMeta,
+          id: 'gpt-5-mini',
+          name: 'GPT-5 Mini'
+        }
+      }
+      await modelManager.addModel(custom.id, custom)
+
+      const reloadedManager = new ModelManager(storageProvider, new TextAdapterRegistry())
+      const reloaded = await reloadedManager.getModel(custom.id)
+
+      expect(reloaded?.modelId).toBe('gpt-5-mini')
+      expect(reloaded?.modelMeta.id).toBe('gpt-5-mini')
+    })
+
     it('should backfill missing builtin apiKey when env key becomes available for an enabled model', async () => {
       const originalGeminiKey = process.env.VITE_GEMINI_API_KEY
       process.env.VITE_GEMINI_API_KEY = 'env_gemini_key'

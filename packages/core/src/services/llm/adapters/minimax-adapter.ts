@@ -51,8 +51,8 @@ const MINIMAX_STATIC_MODELS: ModelOverride[] = [
     description: 'High-speed version of M2.7 for low-latency scenarios',
     capabilities: {
       supportsTools: true,
-      supportsReasoning: false,
-      maxContextLength: 1000000
+      supportsReasoning: true,
+      maxContextLength: 204800
     }
   }
 ]

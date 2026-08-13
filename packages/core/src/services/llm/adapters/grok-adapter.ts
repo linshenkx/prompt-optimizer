@@ -16,21 +16,21 @@ interface ModelOverride {
 
 const GROK_STATIC_MODELS: ModelOverride[] = [
   {
-    id: 'grok-4.3',
-    name: 'Grok 4.3',
-    description: 'xAI Grok 4.3 model via OpenAI-compatible Chat Completions API',
+    id: 'grok-4.5',
+    name: 'Grok 4.5',
+    description: 'xAI Grok 4.5 reasoning model via OpenAI-compatible Chat Completions API',
     capabilities: {
       supportsTools: true,
       supportsReasoning: true,
-      maxContextLength: 1000000
+      maxContextLength: 500000
     },
     defaultParameterValues: {
-      reasoning_effort: 'none'
+      reasoning_effort: 'high'
     }
   }
 ]
 
-type GrokReasoningEffort = 'none' | 'low' | 'medium' | 'high'
+type GrokReasoningEffort = 'low' | 'medium' | 'high'
 
 export class GrokAdapter extends OpenAIAdapter {
   public getProvider(): TextProvider {
@@ -125,11 +125,11 @@ export class GrokAdapter extends OpenAIAdapter {
         name: 'reasoning_effort',
         labelKey: 'params.reasoning_effort.label',
         descriptionKey: 'params.reasoning_effort.description',
-        description: 'Reasoning effort for Grok. Use none to disable reasoning tokens.',
+        description: 'Reasoning effort for Grok 4.5.',
         type: 'string',
-        defaultValue: 'none',
-        default: 'none',
-        allowedValues: ['none', 'low', 'medium', 'high']
+        defaultValue: 'high',
+        default: 'high',
+        allowedValues: ['low', 'medium', 'high']
       },
       {
         name: 'temperature',
@@ -192,7 +192,7 @@ export class GrokAdapter extends OpenAIAdapter {
 
   protected getDefaultParameterValues(_modelId: string): Record<string, unknown> {
     return {
-      reasoning_effort: 'none'
+      reasoning_effort: 'high'
     }
   }
 
@@ -209,13 +209,13 @@ export class GrokAdapter extends OpenAIAdapter {
       ...model,
       defaultParameterValues: {
         ...(model.defaultParameterValues || {}),
-        reasoning_effort: effort ?? 'none'
+        reasoning_effort: effort ?? 'high'
       }
     }
   }
 
   private normalizeReasoningEffort(value: unknown): GrokReasoningEffort | undefined {
-    return value === 'none' || value === 'low' || value === 'medium' || value === 'high'
+    return value === 'low' || value === 'medium' || value === 'high'
       ? value
       : undefined
   }
