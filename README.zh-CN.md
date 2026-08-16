@@ -365,11 +365,11 @@ pnpm dev:fresh        # 完整重置并重新启动开发环境
 
 ## Star History
 
-<a href="https://star-history.com/#linshenkx/prompt-optimizer&Date">
+<a href="https://star-history.dera.page/#linshenkx/prompt-optimizer&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=linshenkx/prompt-optimizer&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=linshenkx/prompt-optimizer&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=linshenkx/prompt-optimizer&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=linshenkx/prompt-optimizer&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=linshenkx/prompt-optimizer&type=Date" />
+   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=linshenkx/prompt-optimizer&type=Date" />
  </picture>
 </a>
 
