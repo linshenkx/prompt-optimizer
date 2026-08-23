@@ -17,6 +17,7 @@ import { ModelScopeImageAdapter } from './modelscope'
 import { OllamaImageAdapter } from './ollama'
 import { CloudflareImageAdapter } from './cloudflare'
 import { GrokImageAdapter } from './grok'
+import { MinimaxImageAdapter } from './minimax'
 
 /**
  * 图像适配器注册表实现
@@ -54,6 +55,7 @@ export class ImageAdapterRegistry
     const ollamaAdapter = new OllamaImageAdapter()
     const cloudflareAdapter = new CloudflareImageAdapter()
     const grokAdapter = new GrokImageAdapter()
+    const minimaxAdapter = new MinimaxImageAdapter()
 
     this.adapters.set('gemini', geminiAdapter)
     this.adapters.set('seedream', seedreamAdapter)
@@ -65,6 +67,7 @@ export class ImageAdapterRegistry
     this.adapters.set('ollama', ollamaAdapter)
     this.adapters.set('cloudflare', cloudflareAdapter)
     this.adapters.set('grok', grokAdapter)
+    this.adapters.set('minimax', minimaxAdapter)
 
     // 预加载静态模型缓存
     this.preloadStaticModels()
