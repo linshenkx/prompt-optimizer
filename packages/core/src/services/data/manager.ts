@@ -10,7 +10,7 @@ import {
   DataInvalidFormatError,
   DataInvalidJsonError,
 } from './errors';
-import { toErrorWithCode } from '../../utils/error';
+import { stripErrorCodeMarkers, toErrorWithCode } from '../../utils/error';
 
 /**
  * 数据导入导出管理器
@@ -142,7 +142,11 @@ export class DataManager implements IDataManager {
           await service.importData(dataToImport[dataKey]);
           console.log(`Successfully imported ${dataKey}`);
         } catch (error) {
-          const errorMessage = `Failed to import ${dataKey}: ${error instanceof Error ? error.message : String(error)}`;
+          // Nested structured errors may contain markers outside the leading position.
+          const detail = stripErrorCodeMarkers(
+            error instanceof Error ? error.message : String(error)
+          );
+          const errorMessage = `Failed to import ${dataKey}: ${detail}`;
           errors.push(errorMessage);
           console.error(errorMessage, error);
         }

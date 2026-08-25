@@ -8,6 +8,7 @@ import { IPreferenceService } from '../../../src/services/preference/types';
 import { ContextRepo } from '../../../src/services/context/types';
 import { MemoryStorageProvider } from '../../../src/services/storage/memoryStorageProvider';
 import { DATA_ERROR_CODES } from '../../../src/constants/error-codes';
+import { TemplateStorageError, TemplateValidationError } from '../../../src/services/template/errors';
 
 describe('DataManager', () => {
   let dataManager: DataManager;
@@ -212,6 +213,38 @@ describe('DataManager', () => {
     it('should throw an error for invalid JSON string', async () => {
       await expect(dataManager.importAllData('invalid-json'))
         .rejects.toMatchObject({ code: DATA_ERROR_CODES.INVALID_JSON });
+    });
+
+    it('should not leak inner error-code placeholders into the aggregate details', async () => {
+      // Cover markers at both the leading and nested positions.
+      const leadingMarker = new TemplateStorageError('Failed to save user templates: Storage error');
+      expect(leadingMarker.message).toMatch(/^\[error\.template\.storage\]/);
+
+      const nestedMarker = new Error(
+        `Invalid template data at index 0: ${new TemplateValidationError('Template validation failed: content: Too small').message}`
+      );
+      expect(nestedMarker.message).toContain('[error.template.validation]');
+      expect(nestedMarker.message).not.toMatch(/^\[error\./);
+
+      const importData = {
+        version: 1,
+        data: {
+          userTemplates: [{ id: 'tpl1', name: 'T', content: 'c', isBuiltin: false, metadata: { templateType: 'optimize', version: '1.0', lastModified: 0 } }],
+        },
+      };
+      const payload = JSON.stringify(importData);
+
+      for (const innerError of [leadingMarker, nestedMarker]) {
+        vi.mocked(mockTemplateManager.importData).mockRejectedValue(innerError);
+
+        const error = await dataManager.importAllData(payload).catch((reason: unknown) => reason) as {
+          code?: string;
+          params?: { details?: string };
+        };
+        expect(error.code).toBe(DATA_ERROR_CODES.IMPORT_PARTIAL_FAILED);
+        expect(error.params?.details).toContain('Failed to import userTemplates');
+        expect(error.params?.details).not.toContain('[error.');
+      }
     });
 
     it('should throw an error for data without a "data" property in new format', async () => {

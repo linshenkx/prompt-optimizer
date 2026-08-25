@@ -4,6 +4,7 @@ import { Template } from '../../../src/services/template/types';
 import { MemoryStorageProvider } from '../../../src/services/storage/memoryStorageProvider';
 import { TemplateLanguageService } from '../../../src/services/template/languageService';
 import { PreferenceService } from '../../../src/services/preference/service';
+import { IMPORT_EXPORT_ERROR_CODES } from '../../../src/constants/error-codes';
 
 describe('TemplateManager Import/Export', () => {
   let templateManager: TemplateManager;
@@ -244,12 +245,164 @@ describe('TemplateManager Import/Export', () => {
       expect(importedTemplate?.metadata.lastModified).toBeGreaterThan(0); // 应该被设置
     });
 
-    it('should skip invalid templates', async () => {
+    it('should reject corrupt metadata types instead of silently defaulting them', async () => {
+      // Invalid metadata containers must not be normalized into valid defaults.
+      const existingTemplate: Template = {
+        id: 'existing-template',
+        name: 'Existing Template',
+        content: 'Existing content',
+        isBuiltin: false,
+        metadata: {
+          version: '1.0.0',
+          lastModified: Date.now(),
+          templateType: 'optimize',
+          author: 'User'
+        }
+      };
+      await templateManager.saveTemplate(existingTemplate);
+
+      const corruptShapes: Array<[string, unknown]> = [
+        ['null', null],
+        ['string', 'corrupt'],
+        ['array', []],
+        ['number', 42],
+        ['boolean', true],
+      ];
+
+      for (const [label, metadata] of corruptShapes) {
+        const item = {
+          id: 'corrupt-template',
+          name: `Corrupt metadata (${label})`,
+          content: 'Corrupt content',
+          isBuiltin: false,
+          metadata
+        };
+
+        expect(await templateManager.validateData([item])).toBe(false);
+        await expect(templateManager.importData([item])).rejects.toMatchObject({
+          code: IMPORT_EXPORT_ERROR_CODES.VALIDATION_ERROR,
+          message: expect.stringContaining(
+            'Template metadata must be a non-array object when present'
+          )
+        });
+      }
+
+      // The corrupt batches must not have replaced the existing user templates.
+      const userTemplates = (await templateManager.listTemplates())
+        .filter(template => !template.isBuiltin);
+      expect(userTemplates).toHaveLength(1);
+      expect(userTemplates[0].id).toBe('existing-template');
+    });
+
+    it('should treat absent metadata exactly like an empty metadata object', async () => {
+      const absent = { id: 'absent-metadata', name: 'Absent', content: 'Content', isBuiltin: false };
+      const empty = {
+        id: 'empty-metadata',
+        name: 'Empty',
+        content: 'Content',
+        isBuiltin: false,
+        metadata: {}
+      };
+
+      expect(await templateManager.validateData([absent])).toBe(true);
+      expect(await templateManager.validateData([empty])).toBe(true);
+
+      await templateManager.importData([absent, empty]);
+
+      const imported = (await templateManager.listTemplates())
+        .filter(template => !template.isBuiltin);
+      expect(imported).toHaveLength(2);
+
+      const [a, e] = ['absent-metadata', 'empty-metadata']
+        .map(id => imported.find(template => template.id === id));
+      for (const template of [a, e]) {
+        expect(template?.metadata.version).toBe('1.0.0');
+        expect(template?.metadata.templateType).toBe('optimize');
+        expect(template?.metadata.author).toBe('User');
+        expect(template?.metadata.lastModified).toBeGreaterThan(0);
+      }
+      expect(Object.keys(a!.metadata).sort()).toEqual(Object.keys(e!.metadata).sort());
+    });
+
+    it('should align preflight validation with import normalization and ID rules', async () => {
+      const incompleteMetadata = [
+        {
+          id: 'legacy-template',
+          name: 'Legacy Template',
+          content: 'Legacy content',
+          isBuiltin: false,
+          metadata: {
+            author: 'User'
+          }
+        }
+      ];
+      const invalidId = [
+        {
+          id: 'INVALID-ID',
+          name: 'Invalid ID Template',
+          content: 'Invalid content',
+          isBuiltin: false,
+          metadata: {
+            version: '1.0.0',
+            lastModified: Date.now(),
+            templateType: 'optimize',
+            author: 'User'
+          }
+        }
+      ];
+
+      expect(await templateManager.validateData(incompleteMetadata)).toBe(true);
+      expect(await templateManager.validateData(invalidId)).toBe(false);
+    });
+
+    it('should import advanced templates with message-array content', async () => {
+      const messages: Template['content'] = [
+        { role: 'system', content: 'You are a prompt optimizer.' },
+        { role: 'user', content: '{{originalPrompt}}' }
+      ];
+      const importData: Template[] = [
+        {
+          id: 'advanced-template',
+          name: 'Advanced Template',
+          content: messages,
+          isBuiltin: false,
+          metadata: {
+            version: '1.0.0',
+            lastModified: Date.now(),
+            templateType: 'optimize',
+            author: 'User'
+          }
+        }
+      ];
+
+      expect(await templateManager.validateData(importData)).toBe(true);
+      await templateManager.importData(importData);
+
+      const importedTemplate = (await templateManager.listTemplates())
+        .find(template => template.id === 'advanced-template');
+      expect(importedTemplate?.content).toEqual(messages);
+    });
+
+    it('should reject invalid templates without deleting existing templates', async () => {
+      const existingTemplate: Template = {
+        id: 'existing-template',
+        name: 'Existing Template',
+        content: 'Existing content',
+        isBuiltin: false,
+        metadata: {
+          version: '1.0.0',
+          lastModified: Date.now(),
+          templateType: 'optimize',
+          author: 'User'
+        }
+      };
+      await templateManager.saveTemplate(existingTemplate);
+
       const importData = [
         {
-          // 缺少id字段
-          name: 'Invalid Template 1',
-          content: 'Invalid content 1',
+          // Missing id field.
+          name: 'Invalid Template',
+          content: 'Invalid content',
           isBuiltin: false,
           metadata: {
             version: '1.0.0',
@@ -272,22 +425,21 @@ describe('TemplateManager Import/Export', () => {
         }
       ];
 
-      // 应该不抛出错误，只是跳过无效模板
-      await expect(templateManager.importData(importData)).resolves.not.toThrow();
+      await expect(templateManager.importData(importData))
+        .rejects.toThrow('Invalid template data at index 0');
 
-      // 验证有效模板被导入
-      const afterImport = await templateManager.listTemplates();
-      const userTemplates = afterImport.filter(t => !t.isBuiltin);
-      expect(userTemplates.length).toBe(1);
-      expect(userTemplates[0].id).toBe('valid-template');
+      const userTemplates = (await templateManager.listTemplates())
+        .filter(template => !template.isBuiltin);
+      expect(userTemplates).toHaveLength(1);
+      expect(userTemplates[0].id).toBe('existing-template');
     });
 
-    it('should handle import errors gracefully', async () => {
-      const importData: Template[] = [
+    it('should not embed inner error-code markers in the rejection details', async () => {
+      const importData = [
         {
-          id: 'error-template',
-          name: 'Error Template',
-          content: 'Error content',
+          id: 'schema-fail',
+          name: 'Schema Fail',
+          content: '', // fails templateSchema: content must be non-empty
           isBuiltin: false,
           metadata: {
             version: '1.0.0',
@@ -298,11 +450,59 @@ describe('TemplateManager Import/Export', () => {
         }
       ];
 
-      // 模拟saveTemplate错误
-      vi.spyOn(templateManager, 'saveTemplate').mockRejectedValue(new Error('Save template error'));
+      const error = await templateManager.importData(importData)
+        .catch((reason: unknown) => reason) as {
+          code?: string;
+          message?: string;
+          params?: { details?: string };
+        };
+      expect(error.code).toBe(IMPORT_EXPORT_ERROR_CODES.VALIDATION_ERROR);
+      expect(error.message).toContain('Invalid template data at index 0');
+      expect(error.message).toContain('Template validation failed');
+      expect(error.message).not.toContain('[error.');
+      expect(error.params?.details).not.toContain('[error.');
+    });
 
-      // 应该不抛出错误，只是记录失败
-      await expect(templateManager.importData(importData)).resolves.not.toThrow();
+    it('should preserve existing templates when the replacement write fails', async () => {
+      const existingTemplate: Template = {
+        id: 'existing-template',
+        name: 'Existing Template',
+        content: 'Existing content',
+        isBuiltin: false,
+        metadata: {
+          version: '1.0.0',
+          lastModified: Date.now(),
+          templateType: 'optimize',
+          author: 'User'
+        }
+      };
+      await templateManager.saveTemplate(existingTemplate);
+
+      const importData: Template[] = [
+        {
+          id: 'replacement-template',
+          name: 'Replacement Template',
+          content: 'Replacement content',
+          isBuiltin: false,
+          metadata: {
+            version: '1.0.0',
+            lastModified: Date.now(),
+            templateType: 'optimize',
+            author: 'User'
+          }
+        }
+      ];
+      const setItemSpy = vi.spyOn(storageProvider, 'setItem')
+        .mockRejectedValueOnce(new Error('Storage error'));
+
+      await expect(templateManager.importData(importData))
+        .rejects.toThrow('Failed to save user templates');
+      setItemSpy.mockRestore();
+
+      const userTemplates = (await templateManager.listTemplates())
+        .filter(template => !template.isBuiltin);
+      expect(userTemplates).toHaveLength(1);
+      expect(userTemplates[0].id).toBe('existing-template');
     });
   });
 
