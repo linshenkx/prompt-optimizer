@@ -826,6 +826,7 @@ import {
 } from '../utils/remote-snapshot-backup'
 import { recordDataBackupCompleted } from '../utils/data-backup-reminder'
 import { openExternalUrl } from '../utils/open-external-url'
+import { formatErrorSummary } from '../utils/error'
 
 interface Props {
   show: boolean
@@ -1949,7 +1950,7 @@ const handleImport = async () => {
     clearSelectedFile()
   } catch (error) {
     console.error('Import failed:', error)
-    toast.error(`${t('dataManager.import.failed')}: ${(error as Error).message}`)
+    toast.error(formatErrorSummary(t('dataManager.import.failed'), error))
   } finally {
     isImporting.value = false
   }

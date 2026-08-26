@@ -402,7 +402,7 @@ function setupPreferenceHandlers() {
 
   ipcMain.handle('preference-getDataType', async (event) => {
     try {
-      const result = preferenceService.getDataType();
+      const result = await preferenceService.getDataType();
       return createSuccessResponse(result);
     } catch (error) {
       return createErrorResponse(error);
@@ -1453,7 +1453,7 @@ function setupIPC() {
 
   ipcMain.handle('model-getDataType', async (event) => {
     try {
-      const result = modelManager.getDataType();
+      const result = await modelManager.getDataType();
       return createSuccessResponse(result);
     } catch (error) {
       return createErrorResponse(error);
@@ -1575,7 +1575,7 @@ function setupIPC() {
 
   ipcMain.handle('template-getDataType', async (event) => {
     try {
-      const result = templateManager.getDataType();
+      const result = await templateManager.getDataType();
       return createSuccessResponse(result);
     } catch (error) {
       return createErrorResponse(error);
@@ -1586,7 +1586,7 @@ function setupIPC() {
     try {
       // 清理Vue响应式对象，防止IPC序列化错误
       const safeData = safeSerialize(data);
-      const result = templateManager.validateData(safeData);
+      const result = await templateManager.validateData(safeData);
       return createSuccessResponse(result);
     } catch (error) {
       return createErrorResponse(error);
@@ -1623,7 +1623,7 @@ function setupIPC() {
 
   ipcMain.handle('template-getSupportedLanguages', async (event, template) => {
     try {
-      const result = templateManager.getSupportedLanguages(template);
+      const result = await templateManager.getSupportedLanguages(template);
       return createSuccessResponse(result);
     } catch (error) {
       return createErrorResponse(error);
@@ -1751,7 +1751,7 @@ function setupIPC() {
 
   ipcMain.handle('history-getDataType', async (event) => {
     try {
-      const result = historyManager.getDataType();
+      const result = await historyManager.getDataType();
       return createSuccessResponse(result);
     } catch (error) {
       return createErrorResponse(error);
@@ -1904,7 +1904,7 @@ function setupIPC() {
 
   ipcMain.handle('context-getDataType', async (event) => {
     try {
-      const result = contextRepo.getDataType();
+      const result = await contextRepo.getDataType();
       return createSuccessResponse(result);
     } catch (error) {
       return createErrorResponse(error);

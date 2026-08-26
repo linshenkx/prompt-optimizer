@@ -18,6 +18,13 @@ export function isStructuredErrorLike(value: unknown): value is StructuredErrorL
   return isRecord(value) && typeof value.code === 'string'
 }
 
+const ERROR_CODE_MARKER_PATTERN = /\[error\.[^\]]+\]\s*/g
+
+/** Remove structured error-code markers before nesting a message in user-facing details. */
+export function stripErrorCodeMarkers(message: string): string {
+  return message.replace(ERROR_CODE_MARKER_PATTERN, '')
+}
+
 /**
  * Normalize unknown values into an Error instance while preserving `{ code, params }`
  * when available (e.g., errors crossing IPC boundaries).
