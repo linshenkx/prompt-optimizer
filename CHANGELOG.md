@@ -2,6 +2,10 @@
 
 Full release narratives now live in versioned files under `releases/`. This file stays as the index and summary entry point.
 
+## [2.11.9] - 2026-08-26
+- EN: This patch makes standard prompt and advanced-template imports lossless and failure-safe, refreshes built-in text/image model metadata, and adds current GPT Image 2 high-resolution sizes. See [Release Notes (EN)](releases/v2.11.9.en.md).
+- 中文：本次补丁让标准提示词与高级模板导入更加完整且失败安全，更新内置文本 / 图像模型元数据，并补充 GPT Image 2 当前高分辨率尺寸。参见 [版本说明（中文）](releases/v2.11.9.zh-CN.md)。
+
 ## [2.11.8] - 2026-07-25
 - EN: This patch adds single-image attachments to Basic/System tests, routes unsigned macOS updates to manual GitHub Release downloads, and includes focused UI correctness and scrolling fixes. See [Release Notes (EN)](releases/v2.11.8.en.md).
 - 中文：本次补丁为 Basic/System 测试新增单图附件支持，将未签名 macOS 更新引导至 GitHub Release 手动下载，并包含一组 UI 正确性与滚动性能修复。参见 [版本说明（中文）](releases/v2.11.8.zh-CN.md)。
