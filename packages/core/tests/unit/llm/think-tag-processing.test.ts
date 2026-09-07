@@ -119,5 +119,56 @@ describe('Think标签处理测试', () => {
       // 当没有推理回调时，think标签内容被过滤，只返回正文
       expect(mockCallbacks.onToken).toHaveBeenCalledWith('正文内容');
     });
+
+    it('在没有推理回调时应跨 chunk 识别拆分的开始标签', () => {
+      const adapter = new OpenAIAdapter();
+      const mockCallbacks = {
+        onToken: vi.fn(),
+        onComplete: vi.fn(),
+        onError: vi.fn()
+      };
+      const thinkState = { isInThinkMode: false, buffer: '' };
+
+      (adapter as any).processStreamContentWithThinkTags('Answer: <thi', mockCallbacks, thinkState);
+      (adapter as any).processStreamContentWithThinkTags('nk>private reasoning</think> visible', mockCallbacks, thinkState);
+
+      expect(mockCallbacks.onToken).toHaveBeenNthCalledWith(1, 'Answer: ');
+      expect(mockCallbacks.onToken).toHaveBeenNthCalledWith(2, ' visible');
+      expect(mockCallbacks.onToken).toHaveBeenCalledTimes(2);
+    });
+
+    it('在没有推理回调时应跨 chunk 识别拆分的结束标签', () => {
+      const adapter = new OpenAIAdapter();
+      const mockCallbacks = {
+        onToken: vi.fn(),
+        onComplete: vi.fn(),
+        onError: vi.fn()
+      };
+      const thinkState = { isInThinkMode: false, buffer: '' };
+
+      (adapter as any).processStreamContentWithThinkTags('Answer: <think>private reasoning</thi', mockCallbacks, thinkState);
+      (adapter as any).processStreamContentWithThinkTags('nk> visible', mockCallbacks, thinkState);
+
+      expect(mockCallbacks.onToken).toHaveBeenNthCalledWith(1, 'Answer: ');
+      expect(mockCallbacks.onToken).toHaveBeenNthCalledWith(2, ' visible');
+      expect(mockCallbacks.onToken).toHaveBeenCalledTimes(2);
+    });
+
+    it('在没有推理回调时应保留普通可见文本的 chunk 边界', () => {
+      const adapter = new OpenAIAdapter();
+      const mockCallbacks = {
+        onToken: vi.fn(),
+        onComplete: vi.fn(),
+        onError: vi.fn()
+      };
+      const thinkState = { isInThinkMode: false, buffer: '' };
+
+      (adapter as any).processStreamContentWithThinkTags('Answer: ', mockCallbacks, thinkState);
+      (adapter as any).processStreamContentWithThinkTags('visible', mockCallbacks, thinkState);
+
+      expect(mockCallbacks.onToken).toHaveBeenNthCalledWith(1, 'Answer: ');
+      expect(mockCallbacks.onToken).toHaveBeenNthCalledWith(2, 'visible');
+      expect(mockCallbacks.onToken).toHaveBeenCalledTimes(2);
+    });
   });
 });

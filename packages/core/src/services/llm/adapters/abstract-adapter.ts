@@ -269,16 +269,6 @@ export abstract class AbstractTextProviderAdapter implements ITextProviderAdapte
     callbacks: StreamHandlers,
     thinkState: { isInThinkMode: boolean; buffer: string }
   ): void {
-    // 如果没有推理回调，过滤掉think标签后发送到主要内容流
-    if (!callbacks.onReasoningToken) {
-      // 使用processThinkTags过滤掉think标签
-      const { content: mainContent } = this.processThinkTags(content)
-      if (mainContent) {
-        callbacks.onToken(mainContent)
-      }
-      return
-    }
-
     // 将新内容添加到缓冲区
     thinkState.buffer += content
     let remaining = thinkState.buffer
@@ -333,7 +323,7 @@ export abstract class AbstractTextProviderAdapter implements ITextProviderAdapte
           // 发送结束标签前的内容到推理流
           if (thinkEndIndex > 0) {
             const reasoningContent = remaining.slice(0, thinkEndIndex)
-            callbacks.onReasoningToken!(reasoningContent)
+            callbacks.onReasoningToken?.(reasoningContent)
             processed += reasoningContent + '</think>'
           } else {
             processed += '</think>'
@@ -359,7 +349,7 @@ export abstract class AbstractTextProviderAdapter implements ITextProviderAdapte
             return
           } else {
             // 确定没有结束标签，发送所有内容到推理流
-            callbacks.onReasoningToken!(remaining)
+            callbacks.onReasoningToken?.(remaining)
             processed += remaining
             remaining = ''
           }
