@@ -1,6 +1,6 @@
 # 提示词优化器 MCP 服务器
 
-为提示词优化器项目提供的 MCP (Model Context Protocol) 服务器。提供提示词优化工具，支持通过 HTTP 协议连接，可被任何 MCP 兼容客户端使用。
+为提示词优化器项目提供的 MCP (Model Context Protocol) 服务器。提供提示词优化工具，支持 Streamable HTTP 和 stdio 传输，可被任何 MCP 兼容客户端使用。
 
 > **用户部署和使用指南**：请查看 [MCP 服务器用户指南](../../docs/user/mcp-server.md)
 
@@ -35,6 +35,14 @@ pnpm start
 ```
 
 服务器将在 `http://localhost:3000/mcp` 启动。
+
+### stdio 传输
+
+构建后，不传 `--transport` 参数会使用 stdio：
+
+```bash
+node dist/start.cjs
+```
 
 ### 根目录快捷命令
 
