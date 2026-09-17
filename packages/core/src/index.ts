@@ -47,10 +47,119 @@ export type {
   ITextProviderAdapter,
   TextProvider,
   TextModel,
-  ConnectionSchema
+  ConnectionSchema,
+  ModelDiscoveryOptions
 } from './services/llm/types'
 export { LLMService, createLLMService } from './services/llm/service'
 export { TextAdapterRegistry, createTextAdapterRegistry } from './services/llm/adapters/registry'
+
+// 导出 OrcaRouter 接入相关
+export {
+  ORCAROUTER_API_KEY_PROVIDER_ID,
+  ORCAROUTER_PKCE_PROVIDER_ID,
+  ORCAROUTER_KEY_CONSOLE_URL,
+  ORCAROUTER_AUTHORIZED_APPS_URL,
+  OrcaRouterAdapter,
+  OrcaRouterOAuthAdapter,
+  ORCAROUTER_SEED_MODEL_IDS
+} from './services/llm/adapters/orcarouter-adapter'
+export {
+  ORCAROUTER_DEFAULT_AUTH_BASE_URL,
+  ORCAROUTER_DEFAULT_API_BASE_URL,
+  ORCAROUTER_AUTHORIZE_PATH,
+  ORCAROUTER_EXCHANGE_PATH,
+  ORCAROUTER_MODELS_PATH,
+  OrcaRouterOriginError,
+  buildOrcaRouterAuthorizeUrl,
+  buildOrcaRouterExchangeUrl,
+  buildOrcaRouterModelsUrl,
+  isLoopbackHostname,
+  normalizeOrcaRouterApiBaseUrl,
+  normalizeOrcaRouterOrigin,
+  resolveOrcaRouterOrigins
+} from './services/orcarouter/origins'
+export type { OrcaRouterOriginOptions, OrcaRouterOrigins } from './services/orcarouter/origins'
+export {
+  ORCAROUTER_SCOPE_API,
+  OrcaAuthError,
+  ApiKeyCredentialProvider,
+  PkceCredentialProvider,
+  checkOrcaRouterApiKeyFormat,
+  describeOrcaAuthError
+} from './services/orcarouter/credential'
+export type {
+  ApiKeyFormatCheck,
+  OrcaCredential,
+  OrcaCredentialProvider,
+  OrcaCredentialSource,
+  OrcaAuthErrorKind
+} from './services/orcarouter/credential'
+export {
+  ORCAROUTER_APP_NAME,
+  ORCAROUTER_AUTH_CODE_TTL_MS,
+  ORCAROUTER_OOB_CALLBACK,
+  exchangeOrcaRouterAuthCode,
+  scopeSatisfies,
+  startOrcaRouterAuthorize
+} from './services/orcarouter/pkce-flow'
+export type {
+  OrcaRouterAuthorizeParams,
+  OrcaRouterAuthorizeSession,
+  StartOrcaRouterAuthorizeOptions
+} from './services/orcarouter/pkce-flow'
+export {
+  base64UrlEncode,
+  createPkceChallenge,
+  createS256Challenge,
+  isOrcaRouterKeyFormat,
+  redactSecret,
+  timingSafeEqual
+} from './services/orcarouter/pkce'
+export type { PkceChallenge } from './services/orcarouter/pkce'
+export {
+  ORCAROUTER_CATALOG_MAX_BYTES,
+  ORCAROUTER_CATALOG_MAX_ITEMS,
+  ORCAROUTER_CATALOG_TIMEOUT_MS,
+  ORCAROUTER_SUPPORTED_ENDPOINT_TYPES,
+  ORCAROUTER_VERIFIED_SEED,
+  fetchOrcaCatalog,
+  filterOrcaModelsForCapability,
+  findOrcaSeedModel,
+  getOrcaReasoningEfforts,
+  getOrcaSeedCatalogModels,
+  isTextCapable,
+  parseOrcaCatalogEntry,
+  parseOrcaCatalogResponse,
+  resolveOrcaModelOptions,
+  toOrcaTextModel
+} from './services/orcarouter/catalog'
+export type {
+  OrcaCatalogCapability,
+  OrcaCatalogModel,
+  OrcaCatalogRequirements,
+  OrcaCatalogSnapshot,
+  OrcaInputModality,
+  OrcaSeedModel
+} from './services/orcarouter/catalog'
+export {
+  ORCAROUTER_DURABLE_KEY_LIFECYCLE_NOTE,
+  applyOrcaUnauthorized,
+  createOrcaCredentialRecord,
+  getOrcaAccountKey,
+  isOrcaCredentialUsable,
+  replaceOrcaCredential
+} from './services/orcarouter/credential-lifecycle'
+export type {
+  OrcaCredentialRecord,
+  OrcaCredentialStatus,
+  OrcaReauthDecision
+} from './services/orcarouter/credential-lifecycle'
+export { OrcaLoginController } from './services/orcarouter/login-controller'
+export type {
+  OrcaLoginControllerOptions,
+  OrcaLoginPhase,
+  OrcaLoginState
+} from './services/orcarouter/login-controller'
 export {
   CHROME_BUILT_IN_MODEL_ID,
   CHROME_BUILT_IN_AUTO_ENABLE_SOURCE,

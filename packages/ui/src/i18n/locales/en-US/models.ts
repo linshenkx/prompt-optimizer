@@ -32,7 +32,26 @@ const messages = {
       "dashscopeHint": "DashScope supports both OpenAI-compatible Chat Completions and Responses APIs. You can switch the request style here directly.",
       "xiaomiMimoHint": "Defaults to the Xiaomi MiMo Token Plan China endpoint: https://token-plan-cn.xiaomimimo.com/v1. You can change it to the Singapore endpoint https://token-plan-sgp.xiaomimimo.com/v1 or Amsterdam endpoint https://token-plan-ams.xiaomimimo.com/v1 shown in Subscription Management. Env presets use VITE_MIMO_TOKEN_PLAN_*.",
       "minimaxHint": "The default endpoint is the global MiniMax OpenAI-compatible API. Mainland China users should set API URL to https://api.minimaxi.com/v1. Do not use Anthropic-format MiniMax endpoints here.",
-      "chromeBuiltInHint": "Use Chrome's local Gemini Nano model without a third-party API key. Chrome manages the model, and first use may require an explicit user download. Chrome currently officially supports English, Spanish, and Japanese output; this provider defaults to English for compatibility."
+      "chromeBuiltInHint": "Use Chrome's local Gemini Nano model without a third-party API key. Chrome manages the model, and first use may require an explicit user download. Chrome currently officially supports English, Spanish, and Japanese output; this provider defaults to English for compatibility.",
+      "orcarouterHint": "OrcaRouter is an OpenAI-compatible AI gateway for both models and agents, with adaptive routing, automatic failover, zero-markup inference, observability, guardrails, and agent-tool governance. This entry uses an existing API key.",
+      "orcarouterOAuthHint": "OrcaRouter is an OpenAI-compatible AI gateway for both models and agents, with adaptive routing, automatic failover, zero-markup inference, observability, guardrails, and agent-tool governance. This entry signs in with your OrcaRouter account."
+    },
+    "orcaRouter": {
+      "intro": "Choose how to connect. Both options issue a normal OrcaRouter API key that belongs to your account, is billed to you, and can be revoked at any time.",
+      "methodLabel": "OrcaRouter authentication method",
+      "apiKeyTitle": "API Key",
+      "apiKeyDescription": "Paste an sk-orca-... key you already have.",
+      "pkceTitle": "Connect with OrcaRouter",
+      "pkceDescription": "Sign in with OAuth 2.0 + PKCE. No client secret, nothing to pre-register.",
+      "apiKeyPlaceholder": "sk-orca-...",
+      "connectAction": "Connect with OrcaRouter",
+      "disconnectAction": "Disconnect",
+      "authorizeUrlHint": "If the browser did not open, copy this URL into one:",
+      "codeLabel": "Authorization code",
+      "codePlaceholder": "Paste the code shown on the consent screen",
+      "codeSubmit": "Finish connection",
+      "connectedAs": "Connected with key {key}",
+      "revokeHint": "Revoke this app's keys in the OrcaRouter console"
     },
     "chromeBuiltIn": {
       "downloadAction": "Download / prepare local model",
@@ -202,6 +221,8 @@ const messages = {
       "placeholder": "Select a model",
       "modelTagTitle": "Click to switch the model for this configuration",
       "fetchFailed": "Failed to fetch online models: {error}. You can still choose a local default model.",
+      "noCompatibleModel": "OrcaRouter returned no model this entry point can use. Refresh the catalog or check the models your workspace can access.",
+      "noImageCapableModel": "No model in the OrcaRouter catalog declares image input, so none can be used here. Remove the attachment or pick a different provider.",
       "updateSuccess": "Switched to {model}",
       "updateFailed": "Failed to switch model: {error}"
     },

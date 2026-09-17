@@ -82,8 +82,17 @@
             </div>
           </NAlert>
 
+          <div v-if="isOrcaRouterProvider" class="orca-router-status">
+            <OrcaRouterAuthPanel
+              :api-key-value="String(form.connectionConfig.apiKey ?? '')"
+              :initial-method="isOrcaRouterOAuthProvider ? 'pkce' : 'api-key'"
+              @update:api-key="form.connectionConfig.apiKey = $event"
+              @connected="onOrcaRouterConnected"
+            />
+          </div>
+
           <NFormItem
-            v-for="field in connectionFields"
+            v-for="field in connectionFieldsWithoutOrcaCredential"
             :key="field.name"
             :label="resolveConnectionFieldLabel(field.name)"
           >
@@ -304,7 +313,13 @@ import { computed, inject, nextTick, h } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import { useToast } from '../composables/ui/useToast'
-import { isRunningInElectron, validateCustomRequestHeaders, type CustomRequestHeaderInput } from '@prompt-optimizer/core'
+import {
+  ORCAROUTER_API_KEY_PROVIDER_ID,
+  ORCAROUTER_PKCE_PROVIDER_ID,
+  isRunningInElectron,
+  validateCustomRequestHeaders,
+  type CustomRequestHeaderInput
+} from '@prompt-optimizer/core'
 import {
   NModal,
   NForm,
@@ -327,6 +342,7 @@ import {
 } from 'naive-ui'
 import ModelAdvancedSection from './ModelAdvancedSection.vue'
 import ProviderPillSelect from './ProviderPillSelect.vue'
+import OrcaRouterAuthPanel from './OrcaRouterAuthPanel.vue'
 import ExternalLinkIcon from './icons/ExternalLinkIcon.vue'
 import ThemedTooltip from './common/ThemedTooltip.vue'
 import type { TextModelManager } from '../composables/model/useTextModelManager'
@@ -390,6 +406,32 @@ interface CustomHeaderRow {
 }
 
 const showCustomHeaders = computed(() => currentProviderType.value === 'openai-compatible')
+
+/**
+ * OrcaRouter carries its own credential UI because it offers two explicit
+ * authentication choices. Everything else about the provider is ordinary, so
+ * the generic apiKey/baseURL rows stay for every other provider.
+ */
+const isOrcaRouterProvider = computed(() =>
+  currentProviderType.value === ORCAROUTER_API_KEY_PROVIDER_ID ||
+  currentProviderType.value === ORCAROUTER_PKCE_PROVIDER_ID
+)
+
+const isOrcaRouterOAuthProvider = computed(
+  () => currentProviderType.value === ORCAROUTER_PKCE_PROVIDER_ID
+)
+
+// Only the credential row is replaced for OrcaRouter — the api URL row stays,
+// so a self-hosted relay can still be pointed at explicitly.
+const connectionFieldsWithoutOrcaCredential = computed(() =>
+  isOrcaRouterProvider.value
+    ? connectionFields.value.filter((field) => field.name !== 'apiKey')
+    : connectionFields.value
+)
+
+const onOrcaRouterConnected = () => {
+  // The panel already pushed the key into the form; nothing else to sync.
+}
 
 const customHeaderRows = computed<CustomHeaderRow[]>(() => {
   const raw = form.value.connectionConfig.customHeaders

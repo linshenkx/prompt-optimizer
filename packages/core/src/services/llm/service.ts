@@ -6,7 +6,8 @@ import type {
   ModelOption,
   ToolDefinition,
   TextModel,
-  ITextAdapterRegistry
+  ITextAdapterRegistry,
+  ModelDiscoveryOptions
 } from './types';
 import type { TextModelConfig, ModelConfig } from '../model/types';
 import { ModelManager } from '../model/manager';
@@ -236,7 +237,8 @@ export class LLMService implements ILLMService {
    */
   async fetchModelList(
     provider: string,
-    customConfig?: Partial<TextModelConfig> | Partial<ModelConfig>
+    customConfig?: Partial<TextModelConfig> | Partial<ModelConfig>,
+    requirements?: ModelDiscoveryOptions
   ): Promise<ModelOption[]> {
     try {
       // 获取基础配置
@@ -251,7 +253,18 @@ export class LLMService implements ILLMService {
       // For explicit "fetch model list" actions, we want to surface the failure so UI can avoid
       // misleading "success" toasts and optionally fall back with a warning.
       if (this.registry.supportsDynamicModels(providerId)) {
-        const dynamicModels = await this.registry.getDynamicModels(providerId, modelConfig);
+        const dynamicModels = await this.registry.getDynamicModels(providerId, modelConfig, requirements);
+
+        // Most providers treat their static list as curated content that should
+        // be completed by dynamic discovery. A provider whose static list is
+        // only an offline fallback opts out, so a successful live catalog stays
+        // authoritative instead of being mixed with stub entries.
+        if (this.registry.dynamicModelsOverrideStatic(providerId)) {
+          return dynamicModels.map(model => ({
+            value: model.id,
+            label: model.name
+          }));
+        }
 
         const staticModels = this.registry.getStaticModels(providerId);
         const dynamicIds = new Set(dynamicModels.map((m) => m.id));

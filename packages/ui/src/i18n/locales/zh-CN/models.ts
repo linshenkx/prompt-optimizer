@@ -33,7 +33,26 @@ const messages = {
       "dashscopeHint": "阿里百炼已支持 OpenAI 兼容的 Chat Completions 与 Responses 接口。当前可直接在这里切换请求风格进行使用。",
       "xiaomiMimoHint": "默认使用小米 MiMo Token Plan 中国区地址：https://token-plan-cn.xiaomimimo.com/v1。也可按订阅管理页改为新加坡 https://token-plan-sgp.xiaomimimo.com/v1 或阿姆斯特丹 https://token-plan-ams.xiaomimimo.com/v1。环境变量预置使用 VITE_MIMO_TOKEN_PLAN_*。",
       "minimaxHint": "默认地址是 MiniMax 海外 OpenAI 兼容接口。国内用户请将 API 地址改为 https://api.minimaxi.com/v1；这里不要使用 MiniMax 的 Anthropic 格式地址。",
-      "chromeBuiltInHint": "使用 Chrome 自带的本地 Gemini Nano 模型，无需第三方 API Key。模型由 Chrome 管理，首次使用可能需要用户明确下载。目前 Chrome 官方仅支持英语、西班牙语、日语输出，本提供商会默认按英语会话兼容处理。"
+      "chromeBuiltInHint": "使用 Chrome 自带的本地 Gemini Nano 模型，无需第三方 API Key。模型由 Chrome 管理，首次使用可能需要用户明确下载。目前 Chrome 官方仅支持英语、西班牙语、日语输出，本提供商会默认按英语会话兼容处理。",
+      "orcarouterHint": "OrcaRouter 是同时面向模型与 Agent 的 OpenAI 兼容 AI 网关，提供自适应路由、自动故障转移、零加价推理、可观测性、护栏与 Agent 工具治理。此入口使用你已有的 API Key。",
+      "orcarouterOAuthHint": "OrcaRouter 是同时面向模型与 Agent 的 OpenAI 兼容 AI 网关，提供自适应路由、自动故障转移、零加价推理、可观测性、护栏与 Agent 工具治理。此入口使用你的 OrcaRouter 账号登录。"
+    },
+    "orcaRouter": {
+      "intro": "请选择接入方式。两种方式最终都会签发一把属于你账号的普通 OrcaRouter API Key，费用计入你的账号，且你可随时撤销。",
+      "methodLabel": "OrcaRouter 认证方式",
+      "apiKeyTitle": "API Key",
+      "apiKeyDescription": "粘贴你已有的 sk-orca-... 密钥。",
+      "pkceTitle": "使用 OrcaRouter 登录",
+      "pkceDescription": "通过 OAuth 2.0 + PKCE 登录，无需 client secret，也无需预先注册回调地址。",
+      "apiKeyPlaceholder": "sk-orca-...",
+      "connectAction": "使用 OrcaRouter 登录",
+      "disconnectAction": "断开连接",
+      "authorizeUrlHint": "如果浏览器没有自动打开，请把此链接复制到浏览器：",
+      "codeLabel": "授权码",
+      "codePlaceholder": "粘贴授权页面上显示的授权码",
+      "codeSubmit": "完成接入",
+      "connectedAs": "已使用密钥 {key} 接入",
+      "revokeHint": "在 OrcaRouter 控制台撤销此应用的密钥"
     },
     "chromeBuiltIn": {
       "downloadAction": "下载/准备本地模型",
@@ -202,6 +221,8 @@ const messages = {
       "placeholder": "选择模型",
       "modelTagTitle": "点击切换当前配置的模型",
       "fetchFailed": "获取在线模型列表失败：{error}，可继续选择本地默认模型。",
+      "noCompatibleModel": "OrcaRouter 未返回该入口可用的模型。请刷新模型目录，或检查当前工作区可访问的模型。",
+      "noImageCapableModel": "OrcaRouter 模型目录中没有声明支持图片输入的模型，因此该入口无法使用模型。请移除附件或改用其他 Provider。",
       "updateSuccess": "已切换为 {model}",
       "updateFailed": "切换模型失败：{error}"
     },

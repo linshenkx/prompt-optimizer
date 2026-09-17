@@ -24,7 +24,13 @@ const PROVIDER_ENV_KEYS = {
   minimax: ['VITE_MINIMAX_API_KEY'],
   cloudflare: ['VITE_CF_API_TOKEN'],
   grok: ['VITE_GROK_API_KEY', 'VITE_XAI_API_KEY'],
-  'xiaomi-mimo-token-plan': ['VITE_MIMO_TOKEN_PLAN_API_KEY']
+  'xiaomi-mimo-token-plan': ['VITE_MIMO_TOKEN_PLAN_API_KEY'],
+  /**
+   * Both OrcaRouter entries read the same preset. They differ only in how the
+   * key is acquired (pasted vs. OAuth 2.0 + PKCE), not in what it is used for.
+   */
+  orcarouter: ['VITE_ORCAROUTER_API_KEY', 'ORCA_KEY'],
+  'orcarouter-oauth': ['VITE_ORCAROUTER_API_KEY', 'ORCA_KEY']
 } as const;
 
 const PROVIDER_EXTRA_CONNECTION_ENV_KEYS: Record<string, Record<string, string[]>> = {
@@ -33,6 +39,16 @@ const PROVIDER_EXTRA_CONNECTION_ENV_KEYS: Record<string, Record<string, string[]
   },
   'xiaomi-mimo-token-plan': {
     baseURL: ['VITE_MIMO_TOKEN_PLAN_API_BASE_URL']
+  },
+  /**
+   * Self-hosted OrcaRouter deployments may serve auth and inference from one
+   * origin; the explicit per-origin overrides still win over this fallback.
+   */
+  orcarouter: {
+    baseURL: ['ORCA_API_BASE_URL', 'ORCA_BASE_URL']
+  },
+  'orcarouter-oauth': {
+    baseURL: ['ORCA_API_BASE_URL', 'ORCA_BASE_URL']
   }
 };
 
