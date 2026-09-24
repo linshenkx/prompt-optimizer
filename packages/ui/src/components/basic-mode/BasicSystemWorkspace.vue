@@ -338,6 +338,7 @@
                                             :model-key="variantModelKeyModels[id].value"
                                             :options="modelSelection.textModelOptions.value"
                                             :refresh-models="modelSelection.refreshTextModels"
+                                            :requires-image-input="testImageModel !== null"
                                             :disabled="variantRunning[id] || isAnyVariantRunning"
                                         />
                                     </div>

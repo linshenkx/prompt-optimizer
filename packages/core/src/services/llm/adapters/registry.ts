@@ -3,7 +3,8 @@ import type {
   ITextProviderAdapter,
   TextProvider,
   TextModel,
-  TextModelConfig
+  TextModelConfig,
+  ModelDiscoveryOptions
 } from '../types';
 import { AbstractAdapterRegistry } from '../../adapters/abstract-registry';
 import { OpenAIAdapter } from './openai-adapter';
@@ -22,6 +23,7 @@ import { CloudflareAdapter } from './cloudflare-adapter';
 import { GrokAdapter } from './grok-adapter';
 import { ChromeBuiltInAdapter } from './chrome-built-in-adapter';
 import { XiaomiMimoTokenPlanAdapter } from './xiaomi-mimo-token-plan-adapter';
+import { OrcaRouterAdapter, OrcaRouterOAuthAdapter } from './orcarouter-adapter';
 import { RequestConfigError } from '../errors';
 
 /**
@@ -33,7 +35,8 @@ export class TextAdapterRegistry
     ITextProviderAdapter,
     TextProvider,
     TextModel,
-    TextModelConfig
+    TextModelConfig,
+    ModelDiscoveryOptions
   >
   implements ITextAdapterRegistry
 {
@@ -70,6 +73,11 @@ export class TextAdapterRegistry
     const grokAdapter = new GrokAdapter();
     const chromeBuiltInAdapter = new ChromeBuiltInAdapter();
     const xiaomiMimoTokenPlanAdapter = new XiaomiMimoTokenPlanAdapter();
+    // OrcaRouter is registered twice on purpose: one entry per authentication
+    // choice. Both share the same inference base URL, model namespace and
+    // catalog logic and differ only in how a credential is acquired.
+    const orcaRouterAdapter = new OrcaRouterAdapter();
+    const orcaRouterOAuthAdapter = new OrcaRouterOAuthAdapter();
 
     this.adapters.set('openai', openaiAdapter);
     this.adapters.set('openai-compatible', openaiCompatibleAdapter);
@@ -87,6 +95,8 @@ export class TextAdapterRegistry
     this.adapters.set('grok', grokAdapter);
     this.adapters.set('chrome-built-in', chromeBuiltInAdapter);
     this.adapters.set('xiaomi-mimo-token-plan', xiaomiMimoTokenPlanAdapter);
+    this.adapters.set('orcarouter', orcaRouterAdapter);
+    this.adapters.set('orcarouter-oauth', orcaRouterOAuthAdapter);
 
     // 预加载静态模型缓存
     this.preloadStaticModels();
@@ -111,7 +121,8 @@ export class TextAdapterRegistry
    */
   protected async getModelsAsyncFromAdapter(
     adapter: ITextProviderAdapter,
-    config: TextModelConfig
+    config: TextModelConfig,
+    requirements?: ModelDiscoveryOptions
   ): Promise<TextModel[]> {
     if (!adapter.getModelsAsync) {
       const provider = adapter.getProvider();
@@ -119,7 +130,7 @@ export class TextAdapterRegistry
         `Adapter ${provider.name} does not implement getModelsAsync method`,
       );
     }
-    return await adapter.getModelsAsync(config);
+    return await adapter.getModelsAsync(config, requirements);
   }
 
   /**
