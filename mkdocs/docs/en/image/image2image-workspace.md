@@ -4,6 +4,8 @@ Route: `/#/image/image2image`
 
 Use this workspace when you already have an input image and want to continue editing from it.
 
+Before starting, prepare an input image, a text model, and an image model that supports image-to-image generation; see [Model Management](../basic/models.md#model-types). For example, upload a person photo and ask to preserve the pose while changing the style to watercolor. Run the model on the right to see the actual image.
+
 ## First-time rule of thumb
 
 If both are true, this is usually the right page:

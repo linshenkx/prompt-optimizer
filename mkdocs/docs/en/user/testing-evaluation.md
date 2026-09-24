@@ -1,5 +1,7 @@
 # Testing & Evaluation
 
+For a first run, finish [Quick Start](quick-start.md). To check whether a rewrite helped, run the original and improved prompts with the **same model** on the right, then compare their actual outputs. One text model is enough for that comparison.
+
 This page explains one thing:
 
 **what the left side edits, and what the right side proves.**

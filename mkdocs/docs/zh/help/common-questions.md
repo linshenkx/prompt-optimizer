@@ -19,6 +19,12 @@
 | 页面空白、按钮不可用、数据像丢了一样 | [故障排除](troubleshooting.md) |
 | 我想提交 Issue 或反馈文档错误 | [技术支持](support.md) |
 
+## 为什么打开网页还需要自己配置模型？
+
+Prompt Optimizer 提供提示词的优化、测试界面；实际的 AI 请求需要由你接入的模型服务处理。先按[快速开始](../user/quick-start.md)配置一个文本模型。API Key 从你选择的模型平台获取，具体填写步骤见[模型管理](../basic/models.md#first-text-model)。
+
+如果已经添加模型但仍然无法调用，按[连接问题](connection-issues.md)排查密钥、模型名和网络。
+
 ## Prompt Optimizer 会把我的提示词上传到你们服务器吗？
 
 默认不会。

@@ -4,6 +4,8 @@ Route: `/#/pro/variable`
 
 Use this workspace when one prompt structure stays the same but its parameters change across runs.
 
+Before starting, prepare a [text model](../basic/models.md#first-text-model), a prompt with `{{variables}}`, and one set of test values. The left side revises the template; the right side fills in values and produces an actual output.
+
 ## First-time rule of thumb
 
 If both are true, this is usually the right page:

@@ -8,13 +8,13 @@ hide:
     <div class="po-docs-badge">Prompt Optimizer Docs</div>
     <div class="po-docs-hero-main">
       <div class="po-docs-hero-copy">
-        <h1>先配模型，<br>再跑工作流</h1>
+        <h1>从一句提示词，<br>开始第一次优化</h1>
         <p class="po-docs-lead">
-          第一次使用，先配置 1 个文本模型，再进入工作区跑一次优化、测试和评估。
+          先接入 1 个文本模型，再按快速开始完成一次优化。跑通后再学习测试、评估和其他工作区。
         </p>
         <div class="po-docs-actions">
-          <a class="md-button md-button--primary" href="basic/models/">先配置模型</a>
-          <a class="md-button" href="user/quick-start/">快速开始</a>
+          <a class="md-button md-button--primary" href="user/quick-start/">从这里开始</a>
+          <a class="md-button" href="basic/models/">如何配置模型</a>
           <a class="md-button" href="user/choose-workspace/">选择工作区</a>
         </div>
       </div>
@@ -22,22 +22,22 @@ hide:
         <div class="po-docs-hero-note">
           <span>01</span>
           <div>
-            <strong>必做：先配 1 个文本模型</strong>
-            <p>不先配模型，就不能开始。</p>
+            <strong>先准备 1 个文本模型</strong>
+            <p>需要自己的模型服务与 API Key，或可用的本地模型。</p>
           </div>
         </div>
         <div class="po-docs-hero-note">
           <span>02</span>
           <div>
-            <strong>必做：先跑一次结果</strong>
-            <p>先完成优化、测试和评估。</p>
+            <strong>完成第一次优化</strong>
+            <p>输入一句任务要求，获得并复制优化后的提示词。</p>
           </div>
         </div>
         <div class="po-docs-hero-note">
           <span>03</span>
           <div>
-            <strong>再看：工作区和评估语义</strong>
-            <p>跑通后再区分细节。</p>
+            <strong>需要时再测试效果</strong>
+            <p>比较模型的实际输出，决定是否继续修改。</p>
           </div>
         </div>
       </div>
@@ -47,35 +47,35 @@ hide:
   <section class="po-docs-section po-docs-section--starter">
     <div class="po-docs-section-head">
       <h2>第一次使用</h2>
-      <p>按这个顺序走，最不容易卡住。</p>
+      <p>快速开始包含配置与优化的完整步骤；也可以直接查看模型配置。</p>
     </div>
     <div class="po-docs-step-strip">
-      <a class="po-docs-step" href="basic/models/">
+      <a class="po-docs-step" href="user/quick-start/">
         <span class="po-docs-step-index">01</span>
         <div>
-          <h3>先配置模型</h3>
-          <p>先配 1 个文本模型。</p>
+          <h3>快速开始</h3>
+          <p>从模型配置到复制结果。</p>
         </div>
       </a>
-      <a class="po-docs-step" href="user/quick-start/">
+      <a class="po-docs-step" href="basic/models/">
         <span class="po-docs-step-index">02</span>
         <div>
-          <h3>快速开始</h3>
-          <p>先跑通一次完整流程。</p>
+          <h3>模型管理</h3>
+          <p>按实际界面填写并测试连接。</p>
         </div>
       </a>
       <a class="po-docs-step" href="user/choose-workspace/">
         <span class="po-docs-step-index">03</span>
         <div>
           <h3>选择工作区</h3>
-          <p>看清输入结构差异。</p>
+          <p>按要完成的任务选择。</p>
         </div>
       </a>
       <a class="po-docs-step" href="user/testing-evaluation/">
         <span class="po-docs-step-index">04</span>
         <div>
           <h3>测试与评估</h3>
-          <p>分清分析、评估、对比评估。</p>
+          <p>用实际输出检验修改效果。</p>
         </div>
       </a>
     </div>
@@ -106,14 +106,14 @@ hide:
           <h3>变量工作区</h3>
           <p>把提示词沉淀成模板，分离固定结构与可变输入。</p>
         </div>
-        <code>/advanced/variables</code>
+        <code>/pro/variable</code>
       </a>
       <a class="po-docs-index-row" href="advanced/context/">
         <div>
           <h3>多消息工作区</h3>
           <p>在完整上下文里优化某条消息，而不是脱离会话单看一句话。</p>
         </div>
-        <code>/advanced/context</code>
+        <code>/pro/multi</code>
       </a>
       <a class="po-docs-index-row" href="image/text2image-workspace/">
         <div>

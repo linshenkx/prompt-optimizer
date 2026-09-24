@@ -4,6 +4,8 @@ Route: `/#/image/multiimage`
 
 Use this workspace when you want to generate one new image from multiple input images plus a prompt.
 
+Before starting, prepare at least two input images, a text model, and an image model that accepts multiple images; see [Model Management](../basic/models.md#model-types). For example, use image 1 for a person and image 2 for clothing, then describe each image's role. Check their order before running the model on the right.
+
 ## First-time rule of thumb
 
 If both are true, this is usually the right page:

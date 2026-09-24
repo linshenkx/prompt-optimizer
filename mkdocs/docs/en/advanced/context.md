@@ -4,6 +4,8 @@ Route: `/#/pro/multi`
 
 This workspace is for optimizing one target message inside a full conversation.
 
+Before starting, [connect a text model](../basic/models.md#first-text-model), prepare the conversation, and select the `system` or `user` message to revise. The left side produces that message's revised draft; the right side runs it inside the full conversation.
+
 ## First-time rule of thumb
 
 If both are true, this is usually the right page:

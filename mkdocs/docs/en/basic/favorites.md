@@ -185,7 +185,7 @@ Facilitating later updates and source verification.
 
 ### Complete Backup
 
-Exporting a favorite resource package now packages referenced images and media resources together. Importing automatically restores resource references, no need to separately migrate image files.
+Click **Export** in Favorites to create a `.po-favorites.zip` package containing favorites and available referenced images. If export reports missing resources, those images will not be included. Check images after importing. This is separate from the [Data Management](data.md) full app JSON backup.
 
 Suitable for:
 

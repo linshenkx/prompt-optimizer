@@ -352,6 +352,8 @@ body {
 
 .po-header-language .md-select__inner {
   min-width: 9.5rem;
+  right: 0;
+  left: auto;
 }
 
 .po-lang-trigger__label {
@@ -1371,6 +1373,48 @@ body {
     display: block;
     overflow-x: auto;
     white-space: nowrap;
+  }
+}
+
+@media screen and (max-width: 520px) {
+  .md-header__title,
+  .po-header-link--subtle,
+  .po-header-link--repo {
+    display: none;
+  }
+
+  .po-header-jump {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .po-header-language .md-select__inner {
+    right: 0;
+    left: auto;
+  }
+
+  .md-typeset__scrollwrap {
+    max-width: 100%;
+    margin-right: 0;
+    margin-left: 0;
+    overflow-x: auto;
+  }
+
+  .md-typeset__table,
+  .md-typeset table:not([class]) {
+    max-width: 100%;
+  }
+
+  .md-typeset :not(pre) > code {
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  .md-typeset pre > code {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
   }
 }
 

@@ -116,37 +116,16 @@ These two entry points are easy to confuse, but they work at different levels:
 
 If you only want to carry over a few verified prompts, start with [Favorites & Import](favorites.md).
 
-## Favorite Complete Backup (v2.10.0)
+## Full app backup and favorites package
 
-Starting from v2.10.0, exporting favorites now packages referenced images and media resources together.
+Use the export that matches what you want to move:
 
-This means:
+| Entry point | Current output | Best for |
+| --- | --- | --- |
+| **Data Management → Full Export** | App data JSON, including model settings, history, and templates; inspect for keys before sharing | Moving or backing up the app's data |
+| **Favorites → Export** | A `.po-favorites.zip` package with favorites and available referenced images | Moving or sharing favorites and media |
 
-- Exported JSON files include all resources
-- Importing automatically restores resource references
-- No need to separately migrate image files
-
-Suitable for:
-
-- Migrating favorites with images
-- Complete backup of favorite collections
-- Sharing prompts with media
-
-### Difference from Normal Export
-
-| Feature | Normal Export | Complete Backup |
-|---------|--------------|-----------------|
-| Prompt content | ✅ | ✅ |
-| Variable definitions | ✅ | ✅ |
-| Image resources | ❌ | ✅ |
-| Media files | ❌ | ✅ |
-| File size | Smaller | Larger |
-
-### Usage Recommendations
-
-- Only migrating text prompts: Use normal export
-- Migrating favorites with images: Use complete backup
-- Sharing with others: Use complete backup (ensures resources are complete)
+The favorites export may warn if referenced resources are missing. In that case, the package may not contain every image. It is not a full app backup. See [Favorites & Import](favorites.md) for other sharing formats.
 
 ## Recommended usage
 

@@ -4,6 +4,8 @@ Route: `/#/image/text2image`
 
 Use this workspace when you want to generate images from text only, with no reference image.
 
+Before starting, connect a [text model and an image model](../basic/models.md#model-types). For example, enter “An orange cat on a neon street in the rain, cinematic, muted colors.” The left side improves the image prompt; an image appears only after you run the model on the right.
+
 ## First-time rule of thumb
 
 If both are true, this is usually the right page:

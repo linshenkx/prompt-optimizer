@@ -59,6 +59,7 @@ nav:
   - 首页: index.md
   - 快速上手:
       - 快速开始: user/quick-start.md
+      - 模型管理: basic/models.md
       - 选择工作区: user/choose-workspace.md
       - 测试与评估: user/testing-evaluation.md
       - 模型选择与测试策略: user/model-testing-strategy.md
@@ -71,7 +72,6 @@ nav:
       - 图生图工作区: image/image2image-workspace.md
       - 多图生图工作区: image/multiimage-workspace.md
   - 通用能力:
-      - 模型管理: basic/models.md
       - 模板管理: basic/templates.md
       - 历史记录: basic/history.md
       - 收藏与导入: basic/favorites.md

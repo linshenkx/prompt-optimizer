@@ -6,6 +6,8 @@ Use this workspace to improve how one concrete task is phrased.
 
 If you are mainly writing role rules or global boundaries, [System Prompt Workspace](system-optimization.md) is usually a better fit.
 
+Before starting, [connect one text model](models.md#first-text-model). A successful left-side optimization produces a prompt you can copy. To see the content it generates, run a test on the right. First-time users can follow [Quick Start](../user/quick-start.md).
+
 ## First-time rule of thumb
 
 If both are true, this is usually the right page:
@@ -75,7 +77,7 @@ Original prompt:
 Write a poem.
 ```
 
-One stronger version could be:
+If you also ask for autumn longing in seven-character regulated verse, one revised version could be:
 
 ```text
 Write a seven-character regulated verse about autumn longing.

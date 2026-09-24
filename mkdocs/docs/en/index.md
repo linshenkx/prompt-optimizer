@@ -8,13 +8,13 @@ hide:
     <div class="po-docs-badge">Prompt Optimizer Docs</div>
     <div class="po-docs-hero-main">
       <div class="po-docs-hero-copy">
-        <h1>Set up a model,<br>then run a workflow</h1>
+        <h1>Improve your first prompt</h1>
         <p class="po-docs-lead">
-          Most first-time users do not get stuck on the UI. They get stuck before the first run because no model is configured. Start with one text model, then run one real workflow.
+          Connect one text model, improve a prompt, and copy the result. Explore testing and other workspaces after your first run.
         </p>
         <div class="po-docs-actions">
-          <a class="md-button md-button--primary" href="basic/models/">Configure Models</a>
-          <a class="md-button" href="user/quick-start/">Quick Start</a>
+          <a class="md-button md-button--primary" href="user/quick-start/">Get Started</a>
+          <a class="md-button" href="basic/models/">Configure a Model</a>
           <a class="md-button" href="user/choose-workspace/">Choose Workspace</a>
         </div>
       </div>
@@ -22,22 +22,22 @@ hide:
         <div class="po-docs-hero-note">
           <span>01</span>
           <div>
-            <strong>Must do: configure 1 text model</strong>
-            <p>Without it, analysis, optimization, testing, and evaluation will not run.</p>
+            <strong>Connect one text model</strong>
+            <p>Use your model provider and API key, or an available local model.</p>
           </div>
         </div>
         <div class="po-docs-hero-note">
           <span>02</span>
           <div>
-            <strong>Must do: run one result</strong>
-            <p>Complete one optimize, test, and evaluate cycle first.</p>
+            <strong>Improve one prompt</strong>
+            <p>Enter a task, then copy the improved prompt.</p>
           </div>
         </div>
         <div class="po-docs-hero-note">
           <span>03</span>
           <div>
-            <strong>Then learn the boundaries</strong>
-            <p>Then separate workspace input structure from evaluation semantics.</p>
+            <strong>Test when ready</strong>
+            <p>Run the prompt and compare actual outputs.</p>
           </div>
         </div>
       </div>
@@ -47,35 +47,35 @@ hide:
   <section class="po-docs-section po-docs-section--starter">
     <div class="po-docs-section-head">
       <h2>First-time setup</h2>
-      <p>Follow this order to avoid the most common blockers.</p>
+      <p>The quick start includes setup and your first run.</p>
     </div>
     <div class="po-docs-step-strip">
-      <a class="po-docs-step" href="basic/models/">
+      <a class="po-docs-step" href="user/quick-start/">
         <span class="po-docs-step-index">01</span>
         <div>
-          <h3>Configure Models</h3>
-          <p>Start with one text model.</p>
+          <h3>Quick Start</h3>
+          <p>From setup to a copied result.</p>
         </div>
       </a>
-      <a class="po-docs-step" href="user/quick-start/">
+      <a class="po-docs-step" href="basic/models/">
         <span class="po-docs-step-index">02</span>
         <div>
-          <h3>Quick Start</h3>
-          <p>Run one complete workflow.</p>
+          <h3>Configure a Model</h3>
+          <p>Fill the form and test the connection.</p>
         </div>
       </a>
       <a class="po-docs-step" href="user/choose-workspace/">
         <span class="po-docs-step-index">03</span>
         <div>
           <h3>Choose Workspace</h3>
-          <p>Match the page to your input structure.</p>
+          <p>Pick a page for your task.</p>
         </div>
       </a>
       <a class="po-docs-step" href="user/testing-evaluation/">
         <span class="po-docs-step-index">04</span>
         <div>
           <h3>Testing &amp; Evaluation</h3>
-          <p>Separate analysis from evaluation.</p>
+          <p>Check your changes with actual outputs.</p>
         </div>
       </a>
     </div>

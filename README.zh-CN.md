@@ -14,7 +14,7 @@
 ![GitHub forks](https://img.shields.io/github/forks/linshenkx/prompt-optimizer?style=flat)
 [![Deploy with Vercel](https://img.shields.io/badge/Vercel-indigo?style=flat&logo=vercel)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Flinshenkx%2Fprompt-optimizer)
 
-[官网](https://always200.com) | [在线优化器](https://prompt.always200.com) | [提示词库](https://garden.always200.com) | [文档站](https://docs.always200.com) | [快速开始](#快速开始) | [Chrome插件](https://chromewebstore.google.com/detail/prompt-optimizer/cakkkhboolfnadechdlgdcnjammejlna) | [💖赞助支持](images/other/sponsor_wx.jpg)
+[官网](https://always200.com) | [在线优化器](https://prompt.always200.com) | [提示词库](https://garden.always200.com) | [文档站](https://docs.always200.com) | [首次使用教程](https://docs.always200.com/user/quick-start/) | [Chrome插件](https://chromewebstore.google.com/detail/prompt-optimizer/cakkkhboolfnadechdlgdcnjammejlna) | [💖赞助支持](images/other/sponsor_wx.jpg)
 
 [开发文档](docs/developer/development.md) | [Vercel部署指南](docs/user/deployment/vercel.md) | [Cloudflare部署指南](docs/user/deployment/cloudflare-pages.md) | [MCP部署使用说明](docs/user/mcp-server.md) | [DeepWiki文档](https://deepwiki.com/linshenkx/prompt-optimizer) | [ZRead文档](https://zread.ai/linshenkx/prompt-optimizer)
 
@@ -88,6 +88,8 @@ Prompt Optimizer是一个强大的AI提示词优化工具，帮助你编写更�
 ### 1. 使用在线版本（推荐）
 
 直接访问：[https://prompt.always200.com](https://prompt.always200.com)
+
+第一次使用需要先在 **模型管理** 中接入一个可用的文本模型，再运行优化。按[首次使用教程](https://docs.always200.com/user/quick-start/)可从配置走到复制结果。
 
 项目是纯前端项目，所有数据只存储在浏览器本地，不会上传至任何服务器，因此直接使用在线版本也是安全可靠的
 

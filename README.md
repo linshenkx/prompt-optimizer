@@ -16,7 +16,7 @@
 
 [Website](https://always200.com) | [Online Optimizer](https://prompt.always200.com) | [Prompt Garden](https://garden.always200.com) | [Docs](https://docs.always200.com) | [Quick Start](#quick-start) | [Chrome Extension](https://chromewebstore.google.com/detail/prompt-optimizer/cakkkhboolfnadechdlgdcnjammejlna) | [💖 Support](https://ko-fi.com/linshenkx)
 
-[Development Docs](docs/developer/development.md) | [Vercel Deployment Guide](docs/user/deployment/vercel_en.md) | [Cloudflare Deployment Guide](docs/user/deployment/cloudflare-pages_en.md) | [MCP Deployment Guide](docs/user/mcp-server_en.md) | [DeepWiki Docs](https://deepwiki.com/linshenkx/prompt-optimizer) | [ZRead Docs](https://zread.ai/linshenkx/prompt-optimizer)
+[First-time Tutorial](https://docs.always200.com/en/user/quick-start/) | [Development Docs](docs/developer/development.md) | [Vercel Deployment Guide](docs/user/deployment/vercel_en.md) | [Cloudflare Deployment Guide](docs/user/deployment/cloudflare-pages_en.md) | [MCP Deployment Guide](docs/user/mcp-server_en.md) | [DeepWiki Docs](https://deepwiki.com/linshenkx/prompt-optimizer) | [ZRead Docs](https://zread.ai/linshenkx/prompt-optimizer)
 
 </div>
 
@@ -89,7 +89,7 @@ For detailed usage instructions, please refer to the [Image Mode Documentation](
 
 Direct access: [https://prompt.always200.com](https://prompt.always200.com)
 
-This is a pure frontend project with all data stored locally in your browser and never uploaded to any server, making the online version both safe and reliable to use.
+The online app stores its app data in your browser. Model requests go directly to the provider you configure. For your first run, connect one working text model in **Model Manager**, then follow the [first-time tutorial](https://docs.always200.com/en/user/quick-start/) to improve and copy a prompt.
 
 ### 2. Web Deployment
 

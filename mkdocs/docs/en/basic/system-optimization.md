@@ -6,6 +6,8 @@ Use this workspace for long-lived constraints such as role design, behavior boun
 
 If your main problem is how to phrase one concrete task, [User Prompt Workspace](user-optimization.md) is usually a better fit.
 
+Before starting, [connect one text model](models.md#first-text-model) and prepare a user question that tests the rules. The left side produces a revised system prompt; running the question on the right shows the model's actual reply.
+
 ## First-time rule of thumb
 
 If both are true, this is usually the right page:

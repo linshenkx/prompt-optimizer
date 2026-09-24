@@ -25,7 +25,7 @@ The left-side model is responsible for:
 - analyzing prompt structure
 - generating improved drafts
 - continuing iterations
-- handling text-side analysis tasks inside the workspace
+- evaluation uses the model selected by the workspace's evaluation settings; basic workspaces prefer the selected right-side test model
 
 Prioritize:
 
