@@ -43,6 +43,9 @@ jobs:
       - name: Run repo and gate checks
         run: pnpm test:gate
 
+      - name: Run MCP tests with a local mock provider
+        run: pnpm mcp:test
+
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 

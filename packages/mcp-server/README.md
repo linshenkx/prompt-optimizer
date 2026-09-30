@@ -1,8 +1,10 @@
 # 提示词优化器 MCP 服务器
 
-为提示词优化器项目提供的 MCP (Model Context Protocol) 服务器。提供提示词优化工具，支持通过 HTTP 协议连接，可被任何 MCP 兼容客户端使用。
+为提示词优化器项目提供的 MCP (Model Context Protocol) 服务器。提供提示词优化工具，支持 Streamable HTTP 和 stdio 传输。
 
 > **用户部署和使用指南**：请查看 [MCP 服务器用户指南](../../docs/user/mcp-server.md)
+>
+> **OpenCode / Agent 集成**：参见用户指南中的 [OpenCode 配置](../../docs/user/mcp-server.md#opencode-集成)和[工具输入输出约定](../../docs/user/mcp-server.md#工具输入输出约定)，或 [English guide](../../docs/user/mcp-server_en.md)。
 
 ## 功能特性
 
@@ -116,6 +118,19 @@ pnpm lint
 
 ## 测试与调试
 
+### 无需模型 API 的协议测试
+
+在仓库根目录使用 Node.js 24.x 和项目指定的 pnpm 版本运行：
+
+```bash
+pnpm install --frozen-lockfile
+pnpm mcp:test
+```
+
+该命令先构建 Core 和 MCP，再运行测试。协议 smoke tests 使用真实 MCP SDK 客户端连接 CLI 子进程，覆盖 stdio 和 Streamable HTTP 的初始化、工具发现、三项工具调用、显式模板、结果传递与参数错误。优化请求只发送到本地 mock OpenAI-compatible provider，子进程使用隔离的环境变量和工作目录，不需要真实 API 密钥。
+
+stdio 测试还检查协议解析错误，防止启动、Core 初始化或工具执行日志混入 JSON-RPC stdout。CLI 在加载 Core 前将 stdio 模式的 console 诊断输出转向 stderr。此测试验证协议互操作性，不评估优化质量，也不替代 OpenCode 客户端的端到端测试。
+
 ### 使用 MCP Inspector 测试
 
 MCP Inspector 是官方提供的可视化测试工具，支持通过 Web UI 测试 MCP 服务器。
@@ -160,9 +175,11 @@ npx @modelcontextprotocol/inspector
 
 此 MCP 服务器遵循零侵入设计原则：
 - 仅使用现有 Core 模块 API，无需修改
-- 采用内存存储实现无状态操作
+- 使用内存存储；调用方在迭代时显式传入上一轮结果，HTTP 传输仍使用 MCP 会话
 - 提供 MCP 和 Core 格式之间的参数适配
 
 ## 许可证
 
 GNU Affero General Public License v3.0 (AGPL-3.0-only)
+
+最近更新：2026-09-30
