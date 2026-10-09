@@ -8,9 +8,12 @@ import {
   CHROME_BUILT_IN_PROVIDER_ID,
   type ChromeBuiltInDownloadProgress,
   type ChromeBuiltInStatus,
+  type ModelDiscoveryOptions,
   type TextModel,
   type TextModelConfig,
   type TextProvider,
+  ORCAROUTER_API_KEY_PROVIDER_ID,
+  ORCAROUTER_PKCE_PROVIDER_ID,
   checkChromeBuiltInAvailability,
   getBuiltinModelIds,
   markChromeBuiltInUserConfigured,
@@ -678,6 +681,29 @@ export function useTextModelManager() {
     }
   }
 
+  const isOrcaRouterProvider = computed(
+    () =>
+      form.value.providerId === ORCAROUTER_API_KEY_PROVIDER_ID ||
+      form.value.providerId === ORCAROUTER_PKCE_PROVIDER_ID
+  )
+
+  /**
+   * Discovery requirements for the current provider.
+   *
+   * OrcaRouter serves several AI entry points from one provider id, so the
+   * model list is filtered per entry point instead of being shared. This
+   * surface is the model *configuration* form, which never uploads an
+   * attachment, so it asks for the plain chat capability. Multimodal entry
+   * points are handled where the attachment actually exists, by
+   * `TextModelQuickSwitch`'s `requiresImageInput` prop.
+   *
+   * Other providers are unaffected and keep their existing behaviour.
+   */
+  const discoveryRequirements = computed<ModelDiscoveryOptions | undefined>(() => {
+    if (!isOrcaRouterProvider.value) return undefined
+    return { capability: 'chat' }
+  })
+
   const refreshModelOptions = async (showSuccess = true) => {
     if (!form.value.providerId) return
 
@@ -737,15 +763,32 @@ export function useTextModelManager() {
         }
       }
 
-      const fetchedModels = await llmService.fetchModelList(providerTemplateId, {
+      const requestConfig = {
         providerId: providerMeta?.id || providerTemplateId,
         modelId: form.value.modelId || modelMeta?.id,
         connectionConfig,
         providerMeta,
         modelMeta: modelMeta ? { ...modelMeta, id: form.value.modelId || modelMeta.id } : undefined
-      } as Partial<TextModelConfig>)
+      } as Partial<TextModelConfig>
+
+      // The capability requirement is passed only when this provider filters
+      // by entry point, so every other provider keeps its existing call shape.
+      const requirements = discoveryRequirements.value
+      const fetchedModels = requirements
+        ? await llmService.fetchModelList(providerTemplateId, requestConfig, requirements)
+        : await llmService.fetchModelList(providerTemplateId, requestConfig)
 
       modelOptions.value = fetchedModels
+
+      // A model that the current entry point can no longer use must not be
+      // silently kept — the user is asked to pick again instead.
+      if (
+        form.value.modelId &&
+        !fetchedModels.some(option => option.value === form.value.modelId)
+      ) {
+        form.value.modelId = ''
+        form.value.defaultModel = undefined
+      }
       if (showSuccess) {
         toast.success(t('modelManager.fetchModelsSuccess', { count: fetchedModels.length }))
       }

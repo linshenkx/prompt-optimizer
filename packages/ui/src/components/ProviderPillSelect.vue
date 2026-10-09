@@ -123,6 +123,8 @@ const providerOrder = [
   'xiaomi-mimo-token-plan',
   'modelscope',
   'cloudflare',
+  'orcarouter',
+  'orcarouter-oauth',
   'openai-compatible'
 ]
 

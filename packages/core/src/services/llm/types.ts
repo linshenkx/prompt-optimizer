@@ -190,6 +190,22 @@ export interface ModelOption {
 }
 
 /**
+ * 模型发现的能力要求。
+ *
+ * 每个 AI 入口（文本 chat、多模态理解、embedding、图片生成等）传入自己的
+ * 要求，使下游模型下拉只会出现该入口真正能调用的模型。未声明能力的模型
+ * 一律 fail closed，不会混入多模态列表。
+ */
+export interface ModelDiscoveryOptions {
+  /** 该入口需要的能力。 */
+  capability: 'chat' | 'image-understanding' | 'embedding' | 'image' | 'video' | 'rerank';
+  /**
+   * 多模态入口实际上传的非 text 模态。仅当目录明确声明时才匹配。
+   */
+  requiredInputModalities?: readonly ('image' | 'audio' | 'video')[];
+}
+
+/**
  * LLM服务接口
  */
 export interface ILLMService {
@@ -245,7 +261,11 @@ export interface ILLMService {
    * @throws {RequestConfigError} 当参数无效时
    * @throws {APIError} 当请求失败时
    */
-  fetchModelList(provider: string, customConfig?: Partial<ModelConfig>): Promise<ModelOption[]>;
+  fetchModelList(
+    provider: string,
+    customConfig?: Partial<ModelConfig>,
+    requirements?: ModelDiscoveryOptions
+  ): Promise<ModelOption[]>;
 }
 
 // === Adapter层接口定义 ===
@@ -274,12 +294,24 @@ export interface ITextProviderAdapter {
   getModels(): TextModel[]
 
   /**
+   * 动态模型与静态模型合并策略。
+   *
+   * Registry 默认把静态模型并入动态结果（动态优先），这对“静态即内置精选”的
+   * Provider 是合理的。少数 Provider 的静态列表只是一份离线兜底目录，一旦动态
+   * 发现成功，该兜底目录就不再是权威来源；此时返回 `true`，让动态结果独占。
+   *
+   * @returns true 表示动态获取成功时不要混入静态模型
+   */
+  dynamicModelsOverrideStatic?: boolean
+
+  /**
    * 动态获取模型列表（如果Provider支持）
    * @param config 连接配置
+   * @param requirements 可选的能力要求，用于按 AI 入口过滤模型目录
    * @returns 动态获取的模型列表
    * @throws {Error} 如果Provider不支持动态获取
    */
-  getModelsAsync?(config: TextModelConfig): Promise<TextModel[]>
+  getModelsAsync?(config: TextModelConfig, requirements?: ModelDiscoveryOptions): Promise<TextModel[]>
 
   /**
    * 发送消息（结构化格式）
@@ -375,19 +407,36 @@ export interface ITextAdapterRegistry {
    * 动态获取模型列表（仅支持的Provider）
    * @param providerId Provider唯一标识
    * @param config 连接配置
+   * @param requirements 可选的能力要求，用于按 AI 入口过滤模型
    * @returns 动态获取的模型列表
    * @throws {Error} 如果Provider不支持动态获取
    */
-  getDynamicModels(providerId: string, config: TextModelConfig): Promise<TextModel[]>
+  getDynamicModels(
+    providerId: string,
+    config: TextModelConfig,
+    requirements?: ModelDiscoveryOptions
+  ): Promise<TextModel[]>
+
+  /**
+   * 该 Provider 的动态结果是否应独占（不并入静态模型）。
+   * 默认 false，保持既有“静态 + 动态合并、动态优先”的行为。
+   * @param providerId Provider唯一标识
+   */
+  dynamicModelsOverrideStatic(providerId: string): boolean
 
   /**
    * 获取模型列表（统一接口）
    * 优先尝试动态获取，失败则fallback到静态列表
    * @param providerId Provider唯一标识
    * @param config 连接配置（可选）
+   * @param requirements 可选的能力要求，用于按 AI 入口过滤模型
    * @returns 模型列表
    */
-  getModels(providerId: string, config?: TextModelConfig): Promise<TextModel[]>
+  getModels(
+    providerId: string,
+    config?: TextModelConfig,
+    requirements?: ModelDiscoveryOptions
+  ): Promise<TextModel[]>
 
   /**
    * 检查Provider是否支持动态模型获取

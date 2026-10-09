@@ -49,6 +49,15 @@
           <NText v-if="fetchError" type="warning" depth="3" class="text-model-quick-switch__hint">
             {{ t('model.quickSwitch.fetchFailed', { error: fetchError }) }}
           </NText>
+          <NText
+            v-else-if="capabilityNotice"
+            type="warning"
+            depth="3"
+            class="text-model-quick-switch__hint"
+            data-testid="quick-switch-capability-notice"
+          >
+            {{ capabilityNotice }}
+          </NText>
         </NSpace>
       </div>
     </NPopover>
@@ -60,6 +69,8 @@ import { computed, inject, ref, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NPopover, NSelect, NSpace, NTag, NText, type SelectOption } from 'naive-ui'
 import {
+  ORCAROUTER_API_KEY_PROVIDER_ID,
+  ORCAROUTER_PKCE_PROVIDER_ID,
   resolveTextModelMetadata,
   type ITextAdapterRegistry,
   type ModelOption,
@@ -77,12 +88,18 @@ interface Props {
   options: ModelSelectOption[]
   disabled?: boolean
   refreshModels?: () => Promise<void>
+  /**
+   * True when this entry point uploads image attachments, so the dropdown must
+   * only offer models that explicitly declare image input.
+   */
+  requiresImageInput?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   options: () => [],
   disabled: false,
   refreshModels: undefined,
+  requiresImageInput: false,
 })
 
 const { t } = useI18n()
@@ -93,6 +110,13 @@ const popoverVisible = ref(false)
 const loading = ref(false)
 const modelOptions = ref<SelectOption[]>([])
 const fetchError = ref('')
+/**
+ * Set when a live catalog answered successfully but holds nothing this entry
+ * point may use. Kept separate from `fetchError` because the catalog did not
+ * fail — there is simply no compatible model, and the difference matters to
+ * the user.
+ */
+const capabilityNotice = ref('')
 
 const selectedConfig = computed(() =>
   props.options.find((option) => option.value === props.modelKey)?.raw ?? null
@@ -164,22 +188,77 @@ const loadModelOptions = async () => {
 
   loading.value = true
   fetchError.value = ''
+  capabilityNotice.value = ''
+
+  const isOrcaRouter =
+    config.providerMeta.id === ORCAROUTER_API_KEY_PROVIDER_ID ||
+    config.providerMeta.id === ORCAROUTER_PKCE_PROVIDER_ID
 
   try {
+    // The capability filter is passed down so a multimodal entry point never
+    // offers a text-only model. When the filtered list is empty the current
+    // value is deliberately not re-added: keeping it would silently present an
+    // incompatible model as selectable.
+    // The capability requirement is only passed when this entry point uploads
+    // images, so the plain text path keeps its existing call shape.
     const fetched = config.providerMeta.supportsDynamicModels
-      ? await services.llmService.fetchModelList(config.providerMeta.id, config)
+      ? props.requiresImageInput
+        ? await services.llmService.fetchModelList(config.providerMeta.id, config, {
+            capability: 'image-understanding',
+            requiredInputModalities: ['image']
+          })
+        : await services.llmService.fetchModelList(config.providerMeta.id, config)
       : []
 
     const dynamicOptions = normalizeOptions(fetched)
     const staticOptions = getStaticOptions(services.textAdapterRegistry)
-    modelOptions.value = ensureCurrentOption(dynamicOptions.length ? dynamicOptions : staticOptions)
+
+    if (isOrcaRouter && dynamicOptions.length === 0) {
+      // The live catalog answered and holds nothing this entry point can use.
+      // Every generic fallback here is wrong: the static seed is text-only, so
+      // offering it to a multimodal entry point would present text-only models
+      // as image-capable, and offering it to the text entry point would mix
+      // unadvertised ids into a successful live result. Fail closed instead.
+      modelOptions.value = []
+      capabilityNotice.value = props.requiresImageInput
+        ? t('model.quickSwitch.noImageCapableModel')
+        : t('model.quickSwitch.noCompatibleModel')
+      return
+    }
+
+    modelOptions.value = props.requiresImageInput
+      ? dynamicOptions.length
+        ? dynamicOptions
+        : staticOptions
+      : ensureCurrentOption(dynamicOptions.length ? dynamicOptions : staticOptions)
   } catch (error) {
     fetchError.value = error instanceof Error ? error.message : String(error)
-    modelOptions.value = ensureCurrentOption(getStaticOptions(services.textAdapterRegistry))
+    if (isOrcaRouter && props.requiresImageInput) {
+      // The seed declares no modality it can vouch for at this entry point, so
+      // a catalog outage must not silently offer text-only models as
+      // image-capable. The failure is already reported next to the selector.
+      modelOptions.value = []
+    } else {
+      modelOptions.value = props.requiresImageInput
+        ? getStaticOptions(services.textAdapterRegistry)
+        : ensureCurrentOption(getStaticOptions(services.textAdapterRegistry))
+    }
   } finally {
     loading.value = false
   }
 }
+
+// Recompute the dropdown when the attachment requirement changes, so the
+// options actually passed to the selector are the filtered ones.
+watch(
+  () => props.requiresImageInput,
+  (next, previous) => {
+    if (next === previous) return
+    if (popoverVisible.value) {
+      void loadModelOptions()
+    }
+  }
+)
 
 const handlePopoverVisibility = (show: boolean) => {
   if (show) {
