@@ -173,7 +173,9 @@ const ensureInitializedIfSupported = async (manager: unknown) => {
 }
 
 // 刷新模型列表
+let modelListRefreshToken = 0
 const refreshModels = async () => {
+  const token = ++modelListRefreshToken
   if (!servicesRef.value?.modelManager) {
     evaluationModelOptions.value = []
     imageRecognitionModelOptions.value = []
@@ -184,15 +186,16 @@ const refreshModels = async () => {
     const manager = servicesRef.value.modelManager
     await ensureInitializedIfSupported(manager)
     const enabledModels = await manager.getEnabledModels()
+    if (token !== modelListRefreshToken) return
 
     const getProviderName = (model: ModelSelectOption['raw']) => getProviderDisplayName(model.providerMeta, t)
     const getModelName = (model: ModelSelectOption['raw']) => getTextModelConfigDisplayName(model, t)
     evaluationModelOptions.value = DataTransformer.modelsToSelectOptions(enabledModels, { getProviderName, getModelName })
     imageRecognitionModelOptions.value = DataTransformer.modelsToSelectOptions(enabledModels, { getProviderName, getModelName })
   } catch (error) {
+    if (token !== modelListRefreshToken) return
     console.error('[FunctionModelManager] Failed to refresh models:', error)
-    evaluationModelOptions.value = []
-    imageRecognitionModelOptions.value = []
+    toast.error(formatErrorSummary(t('functionModel.loadFailed'), error))
   }
 }
 

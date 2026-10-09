@@ -19,6 +19,50 @@ describe('FunctionModelManager default evaluation model', () => {
   })
   afterEach(resetFunctionModelManagerSingleton)
 
+  const createListServices = () => {
+    const models = [{ id: 'current', name: 'Current', enabled: true }]
+    const getEnabledModels = vi.fn().mockResolvedValue(models)
+    const services = ref({
+      modelManager: { getAllModels: vi.fn().mockResolvedValue(models), getEnabledModels },
+      preferenceService: { get: vi.fn(async (_key, fallback) => fallback), set: vi.fn() },
+    } as unknown as AppServices)
+    return { services, getEnabledModels }
+  }
+
+  it.each(['success', 'failure'])('ignores an older %s when a newer function model list is already displayed', async (outcome) => {
+    const { services, getEnabledModels } = createListServices()
+    const wrapper = mount(FunctionModelManager, { global: { provide: { services } } })
+    await flushPromises()
+    let resolveOlder!: (models: any[]) => void
+    let rejectOlder!: (error: Error) => void
+    getEnabledModels.mockImplementationOnce(() => new Promise((resolve, reject) => {
+      resolveOlder = resolve; rejectOlder = reject
+    })).mockResolvedValueOnce([{ id: 'latest', name: 'Latest', enabled: true }])
+    const refresh = () => (wrapper.vm as unknown as { refresh: () => Promise<void> }).refresh()
+    const older = refresh()
+    await flushPromises()
+    await refresh()
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    if (outcome === 'success') resolveOlder([{ id: 'obsolete', name: 'Obsolete', enabled: true }])
+    else rejectOlder(new Error('obsolete failure'))
+    await older
+    expect(wrapper.findAllComponents(SelectWithConfig)[0].props('options').map((option: any) => option.value)).toEqual(['latest'])
+    expect(toastError).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('retains the displayed model list and reports a current reload failure', async () => {
+    const { services, getEnabledModels } = createListServices()
+    const wrapper = mount(FunctionModelManager, { global: { provide: { services } } })
+    await flushPromises()
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    getEnabledModels.mockRejectedValueOnce(new Error('temporary list failure'))
+    await (wrapper.vm as unknown as { refresh: () => Promise<void> }).refresh()
+    expect(wrapper.findAllComponents(SelectWithConfig)[0].props('options').map((option: any) => option.value)).toEqual(['current'])
+    expect(toastError).toHaveBeenCalledWith(expect.stringContaining('temporary list failure'))
+    wrapper.unmount()
+  })
+
   it('lets users clear a saved override and preserves automatic selection after reopening', async () => {
     const saved = new Map<string, string>([[FUNCTION_MODEL_KEYS.EVALUATION_MODEL, 'deepseek']])
     const services = ref({

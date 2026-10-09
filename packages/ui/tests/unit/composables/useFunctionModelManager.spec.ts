@@ -56,7 +56,7 @@ describe('useFunctionModelManager recovery and availability', () => {
     const { services, modelManager, models, saved } = createServices()
     const manager = useFunctionModelManager(services)
     await manager.initialize()
-    let resumeFirst!: (models: typeof models.value) => void
+    let resumeFirst!: (value: typeof models.value) => void
     modelManager.getAllModels.mockImplementationOnce(() => new Promise(resolve => { resumeFirst = resolve }))
     const setModel = kind === 'evaluation' ? manager.setEvaluationModel : manager.setImageRecognitionModel
     const key = kind === 'evaluation' ? FUNCTION_MODEL_KEYS.EVALUATION_MODEL : FUNCTION_MODEL_KEYS.IMAGE_RECOGNITION_MODEL
