@@ -79,13 +79,13 @@ export function useWorkspaceModelSelection<T extends WorkspaceModelSessionStore>
   }
 
   const refreshTextModels = async () => {
+    const token = ++refreshModelToken
     const mgr = services.value?.modelManager
     if (!mgr) {
       textModelOptions.value = []
       return
     }
 
-    const token = ++refreshModelToken
     try {
       await ensureInitializedIfSupported(mgr)
 
@@ -119,6 +119,7 @@ export function useWorkspaceModelSelection<T extends WorkspaceModelSessionStore>
        }
 
     } catch (error) {
+      if (token !== refreshModelToken) return
       console.error('[useWorkspaceModelSelection] refreshTextModels failed:', error instanceof Error ? error.message : String(error), error)
       textModelOptions.value = []
     }
