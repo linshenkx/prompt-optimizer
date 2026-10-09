@@ -16,6 +16,37 @@ const createGeneration = () => {
 }
 
 describe('image model list readiness', () => {
+  it.each(['success', 'failure'])('ignores an older %s after the latest image model refresh completed', async (outcome) => {
+    const { generation, getEnabledConfigs, wrapper } = createGeneration()
+    let resolveOlder!: (models: any[]) => void
+    let rejectOlder!: (error: Error) => void
+    getEnabledConfigs.mockImplementationOnce(() => new Promise((resolve, reject) => {
+      resolveOlder = resolve; rejectOlder = reject
+    })).mockResolvedValueOnce([{ id: 'latest-model' }])
+    const older = generation.loadImageModels()
+    await generation.loadImageModels()
+    if (outcome === 'success') resolveOlder([{ id: 'disabled-model' }])
+    else rejectOlder(new Error('stale failure'))
+    await older
+    expect(generation.imageModels.value).toEqual([{ id: 'latest-model' }])
+    expect(generation.isImageModelListReady.value).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('ignores a pending image model response after services become unavailable', async () => {
+    const { generation, getEnabledConfigs, services, wrapper } = createGeneration()
+    let resolveOlder!: (models: any[]) => void
+    getEnabledConfigs.mockImplementationOnce(() => new Promise(resolve => { resolveOlder = resolve }))
+    const older = generation.loadImageModels()
+    services.value = null
+    await generation.loadImageModels()
+    resolveOlder([{ id: 'obsolete-model' }])
+    await older
+    expect(generation.imageModels.value).toEqual([])
+    expect(generation.isImageModelListReady.value).toBe(false)
+    wrapper.unmount()
+  })
+
   it('distinguishes an unloaded list from a successfully loaded empty list', async () => {
     const { generation, wrapper } = createGeneration()
     expect(generation.imageModels.value).toEqual([])

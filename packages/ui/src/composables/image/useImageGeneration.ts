@@ -80,8 +80,10 @@ export function useImageGeneration() {
   const imageModels = ref<ImageModelConfig[]>([])
   // 只有成功读取的列表才能用于清理工作区中的失效选择。
   const isImageModelListReady = ref(false)
+  let imageModelRefreshToken = 0
 
   const loadImageModels = async () => {
+    const token = ++imageModelRefreshToken
     isImageModelListReady.value = false
     if (!services?.value?.imageModelManager) {
       imageModels.value = []
@@ -90,9 +92,11 @@ export function useImageGeneration() {
     try {
       // 直接使用 getEnabledConfigs 获取自包含的配置数据
       const enabledConfigs = await services.value.imageModelManager.getEnabledConfigs()
+      if (token !== imageModelRefreshToken) return
       isImageModelListReady.value = true
       imageModels.value = enabledConfigs
     } catch (error) {
+      if (token !== imageModelRefreshToken) return
       console.error('Failed to load image models:', error)
       imageModels.value = []
     }
