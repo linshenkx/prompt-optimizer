@@ -184,7 +184,8 @@ const messages = {
   },
   "functionModel": {
     "evaluationModel": "评估模型",
-    "evaluationModelHint": "用于智能评估和变量提取，默认使用全局优化模型",
+    "evaluationModelPlaceholder": "默认：跟随全局优化模型",
+    "evaluationModelHint": "用于提示词质量分析、结果评估及变量提取与生成。单独选择后优先使用此模型；未设置时跟随全局优化模型，没有全局优化模型时再使用测试模型。",
     "imageRecognitionModel": "图像识别模型",
     "imageRecognitionModelHint": "用于从图片提取 JSON 提示词和变量初始值，需单独设置",
     "noImageRecognitionModel": "请先在功能模型中设置图像识别模型",

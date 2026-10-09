@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 
 import { useEvaluation } from '../../../src/composables/prompt/useEvaluation'
-import { resetFunctionModelManagerSingleton } from '../../../src/composables/model/useFunctionModelManager'
+import { resetFunctionModelManagerSingleton, useFunctionModelManager } from '../../../src/composables/model/useFunctionModelManager'
+import { FUNCTION_MODEL_KEYS } from '@prompt-optimizer/core'
 import type { AppServices } from '../../../src/types/services'
 
 const toast = {
@@ -13,25 +14,17 @@ vi.mock('../../../src/composables/ui/useToast', () => ({
   useToast: () => toast,
 }))
 
-const mockFunctionModelManager = {
-  evaluationModel: ref(''),
-  effectiveEvaluationModel: computed(() => ''),
-  imageRecognitionModel: ref(''),
-  effectiveImageRecognitionModel: computed(() => ''),
-  isLoading: ref(false),
-  isInitialized: ref(true),
-  setEvaluationModel: vi.fn(),
-  setImageRecognitionModel: vi.fn(),
-  getEffectiveEvaluationModel: vi.fn(),
-  getEffectiveImageRecognitionModel: vi.fn(),
-  initialize: vi.fn().mockResolvedValue(undefined),
-  refresh: vi.fn().mockResolvedValue(undefined),
-}
-
-vi.mock('../../../src/composables/model/useFunctionModelManager', () => ({
-  useFunctionModelManager: () => mockFunctionModelManager,
-  resetFunctionModelManagerSingleton: vi.fn(),
-}))
+const createServices = (evaluateStream: ReturnType<typeof vi.fn>, savedEvaluationModel = '') => ref({
+  evaluationService: { evaluateStream },
+  modelManager: {
+    getAllModels: vi.fn().mockResolvedValue([{ id: 'first-enabled-model', enabled: true }]),
+  },
+  preferenceService: {
+    get: vi.fn(async (key, defaultValue) =>
+      key === FUNCTION_MODEL_KEYS.EVALUATION_MODEL ? savedEvaluationModel : defaultValue),
+    set: vi.fn().mockResolvedValue(undefined),
+  },
+} as unknown as AppServices)
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -48,7 +41,6 @@ describe('useEvaluation model selection', () => {
   beforeEach(() => {
     resetFunctionModelManagerSingleton()
     toast.error.mockReset()
-    mockFunctionModelManager.initialize.mockClear()
   })
 
   afterEach(() => {
@@ -70,11 +62,7 @@ describe('useEvaluation model selection', () => {
       })
     })
 
-    const services = ref({
-      evaluationService: {
-        evaluateStream,
-      },
-    } as unknown as AppServices)
+    const services = createServices(evaluateStream)
 
     const evaluation = useEvaluation(services, {
       evaluationModelKey: ref('fallback-eval-model'),
@@ -168,11 +156,7 @@ describe('useEvaluation model selection', () => {
       })
     })
 
-    const services = ref({
-      evaluationService: {
-        evaluateStream,
-      },
-    } as unknown as AppServices)
+    const services = createServices(evaluateStream)
 
     const evaluation = useEvaluation(services, {
       evaluationModelKey: ref('eval-model'),
@@ -207,5 +191,50 @@ describe('useEvaluation model selection', () => {
       language: 'zh',
       analysisStage: 'workspace',
     })
+  })
+
+  it.each([
+    ['explicit-evaluation', 'global-optimizer', 'test-model', 'explicit-evaluation'],
+    ['', 'global-optimizer', 'test-model', 'global-optimizer'],
+    ['', '', 'test-model', 'test-model'],
+    ['', '', '', 'first-enabled-model'],
+  ])('selects %s / %s / %s as %s for prompt analysis', async (explicit, global, test, expected) => {
+    const evaluateStream = vi.fn(async (_request, handlers) => {
+      handlers.onComplete({ type: 'prompt-only', summary: 'done', improvements: [] })
+    })
+    const services = createServices(evaluateStream, explicit)
+    useFunctionModelManager(services, ref(global))
+    const evaluation = useEvaluation(services, {
+      evaluationModelKey: ref(test),
+      functionMode: ref('basic'),
+      subMode: ref('system'),
+    })
+
+    await evaluation.evaluatePromptOnly({ target: { workspacePrompt: 'Analyze this prompt' } })
+
+    expect(evaluateStream).toHaveBeenCalledTimes(1)
+    expect(evaluateStream.mock.calls[0][0].evaluationModelKey).toBe(expected)
+  })
+
+  it('follows changes to the global optimizer and falls back to the test model when cleared', async () => {
+    const evaluateStream = vi.fn(async (_request, handlers) => {
+      handlers.onComplete({ type: 'prompt-only', summary: 'done', improvements: [] })
+    })
+    const services = createServices(evaluateStream)
+    const globalModel = ref('optimizer-a')
+    useFunctionModelManager(services, globalModel)
+    const evaluation = useEvaluation(services, {
+      evaluationModelKey: ref('test-model'),
+      functionMode: ref('basic'),
+      subMode: ref('user'),
+    })
+
+    for (const model of ['optimizer-a', 'optimizer-b', '']) {
+      globalModel.value = model
+      await evaluation.evaluatePromptOnly({ target: { workspacePrompt: 'Analyze this prompt' } })
+    }
+
+    expect(evaluateStream.mock.calls.map(([request]) => request.evaluationModelKey))
+      .toEqual(['optimizer-a', 'optimizer-b', 'test-model'])
   })
 })

@@ -184,7 +184,8 @@ const messages = {
   },
   "functionModel": {
     "evaluationModel": "Evaluation Model",
-    "evaluationModelHint": "Used for intelligent evaluation and variable extraction, defaults to global optimization model",
+    "evaluationModelPlaceholder": "Default: use global optimization model",
+    "evaluationModelHint": "Used for prompt quality analysis, result evaluation, and variable extraction and generation. A model selected here takes priority. Otherwise, the global optimization model is used, falling back to the test model when no global optimization model is selected.",
     "imageRecognitionModel": "Image Recognition Model",
     "imageRecognitionModelHint": "Used to extract JSON prompts and variable defaults from images, and must be configured separately",
     "noImageRecognitionModel": "Please configure an image recognition model in Function Models first",

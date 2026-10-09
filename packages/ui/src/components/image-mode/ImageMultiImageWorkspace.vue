@@ -821,12 +821,7 @@ const evaluationHandler = useEvaluationHandler({
   evaluationModelKey: computed(() => selectedTextModelKey.value || ''),
   resolveEvaluationModelKey: async () => {
     await functionModelManager.initialize()
-    return (
-      functionModelManager.evaluationModel.value ||
-      selectedTextModelKey.value ||
-      functionModelManager.effectiveEvaluationModel.value ||
-      ''
-    )
+    return functionModelManager.resolveEvaluationModelKey(selectedTextModelKey.value)
   },
   functionMode: computed(() => 'image'),
   subMode: computed(() => 'multiimage'),

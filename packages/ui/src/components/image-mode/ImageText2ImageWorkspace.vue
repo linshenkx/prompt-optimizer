@@ -1752,12 +1752,7 @@ const evaluationHandler = useEvaluationHandler({
             return modelKey
         }
 
-        return (
-            functionModelManager.evaluationModel.value ||
-            selectedTextModelKey.value ||
-            functionModelManager.effectiveEvaluationModel.value ||
-            ''
-        )
+        return functionModelManager.resolveEvaluationModelKey(selectedTextModelKey.value)
     },
     functionMode: computed(() => 'image'),
     subMode: computed(() => 'text2image'),

@@ -977,7 +977,8 @@ const templateSelection = useWorkspaceTemplateSelection(
 // Variable value generation uses ContextUserTestPanel and requires a model key.
 // If the app-level evaluation model key isn't configured, fall back to the selected optimize model.
 const effectiveEvaluationModelKey = computed(() => {
-    return props.evaluationModelKey || modelSelection.selectedOptimizeModelKey.value || ''
+    return props.evaluationModelKey || modelSelection.selectedOptimizeModelKey.value ||
+        variantBModelKeyModel.value || variantAModelKeyModel.value || proVariableSession.selectedTestModelKey || ''
 })
 
 const patchSessionOptimizedResult = (

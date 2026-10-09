@@ -31,6 +31,7 @@ vi.mock('../../../src/composables/model/useFunctionModelManager', () => ({
     initialize: mockInitialize,
     evaluationModel: ref('test-eval-model'),
     effectiveEvaluationModel: ref(''),
+    resolveEvaluationModelKey: () => 'test-eval-model',
   }),
 }))
 

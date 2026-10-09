@@ -140,11 +140,7 @@ export function useSmartVariableValueGeneration(
     }
 
     const passedEvaluationModelKey = options.evaluationModelKey?.value || ''
-    const generationModelKey =
-      functionModelManager.evaluationModel.value ||
-      passedEvaluationModelKey ||
-      functionModelManager.effectiveEvaluationModel.value ||
-      ''
+    const generationModelKey = functionModelManager.resolveEvaluationModelKey(passedEvaluationModelKey)
 
     if (!generationModelKey) {
       toast.warning(t('evaluation.variableExtraction.noEvaluationModel'))

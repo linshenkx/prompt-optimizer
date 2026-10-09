@@ -18,14 +18,15 @@
 
           <NSpace align="center" :size="8" class="model-select-row">
             <SelectWithConfig
-              v-model="evaluationModel"
+              :model-value="evaluationModel || null"
               :options="evaluationModelOptions"
               :getPrimary="OptionAccessors.getPrimary"
               :getSecondary="OptionAccessors.getSecondary"
               :getValue="OptionAccessors.getValue"
-              :placeholder="t('model.select.placeholder')"
+              :placeholder="t('functionModel.evaluationModelPlaceholder')"
               size="medium"
               filterable
+              clearable
               :show-config-action="true"
               :show-empty-config-c-t-a="true"
               class="model-select"

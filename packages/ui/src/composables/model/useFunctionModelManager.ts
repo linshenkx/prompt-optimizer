@@ -34,6 +34,8 @@ export interface UseFunctionModelManagerReturn {
   setImageRecognitionModel: (modelId: string) => Promise<void>
   /** 获取有效评估模型（兼容旧 API） */
   getEffectiveEvaluationModel: () => ComputedRef<string>
+  /** 按评估配置、全局优化模型、调用方回退模型的顺序选择 */
+  resolveEvaluationModelKey: (fallbackModelKey?: string) => string
   /** 获取有效图片识别模型（兼容旧 API） */
   getEffectiveImageRecognitionModel: () => ComputedRef<string>
 
@@ -83,19 +85,22 @@ export function useFunctionModelManager(
   const globalOptimizeModelFallback = ref('')
   let initPromise: Promise<void> | null = null
 
-  // 创建固定的 computed（只创建一次）
-  // 使用全局的 globalOptimizeModelKeyRef，确保后续传入的参数能生效
-  const effectiveEvaluationModel = computed(() => {
+  // 统一评估模型优先级，避免工作区测试模型覆盖全局优化模型
+  const resolveEvaluationModelKey = (fallbackModelKey = ''): string => {
     // 优先级：
     // 1) 用户配置的评估模型
     // 2) 调用方传入的全局优化模型 key（运行时状态）
-    // 3) 从偏好设置读取的全局优化模型（持久化状态）
+    // 3) 调用方的回退模型（例如工作区测试模型）
+    // 4) 首个启用模型
     return (
       evaluationModel.value ||
       globalOptimizeModelKeyRef?.value ||
+      fallbackModelKey ||
       globalOptimizeModelFallback.value
     )
-  })
+  }
+  // 固定的 computed 使用可更新的全局模型引用
+  const effectiveEvaluationModel = computed(() => resolveEvaluationModelKey())
 
   const effectiveImageRecognitionModel = computed(() => {
     return imageRecognitionModel.value
@@ -190,6 +195,7 @@ export function useFunctionModelManager(
     setEvaluationModel,
     setImageRecognitionModel,
     getEffectiveEvaluationModel,
+    resolveEvaluationModelKey,
     getEffectiveImageRecognitionModel,
     initialize,
     refresh,

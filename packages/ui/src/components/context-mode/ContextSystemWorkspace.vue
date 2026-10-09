@@ -1775,7 +1775,8 @@ const evaluationHandler = useEvaluationHandler({
     analysisOptimizedPrompt: computed(() => displayAdapter.displayedOptimizedPrompt.value || ''),
     resultTargets: resultEvaluationTargets,
     evaluationModelKey: computed(() => {
-        const key = props.evaluationModelKey || modelSelection.selectedOptimizeModelKey.value
+        const key = props.evaluationModelKey || modelSelection.selectedOptimizeModelKey.value ||
+            variantBModelKeyModel.value || variantAModelKeyModel.value || proMultiSession.selectedTestModelKey
         return key || ''
     }),
     functionMode: computed(() => 'pro'),

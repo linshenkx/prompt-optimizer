@@ -270,16 +270,7 @@ export function useEvaluation(
     }
 
     await functionModelManager.initialize()
-    if (functionModelManager.evaluationModel.value) {
-      return functionModelManager.evaluationModel.value
-    }
-
-    const passedModelKey = options.evaluationModelKey?.value || ''
-    if (passedModelKey) {
-      return passedModelKey
-    }
-
-    return functionModelManager.effectiveEvaluationModel.value || ''
+    return functionModelManager.resolveEvaluationModelKey(options.evaluationModelKey?.value)
   }
 
   const getLanguage = (): string => {
