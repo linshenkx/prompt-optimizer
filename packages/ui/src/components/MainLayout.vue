@@ -238,4 +238,147 @@ const openBrandWebsite = async () => {
 .custom-select::-ms-expand {
   display: none;
 }
+
+/* ==========================================================================
+ * 移动端适配（<= 767px）
+ *
+ * 断点对应 useResponsive 的 sm/md 边界，即 shouldUseVerticalLayout 为真的范围。
+ * 在此之前，除 ImageMultiImageWorkspace 有 900px 的单列处理外，
+ * 各工作区与顶部导航都没有任何响应式规则，窄屏下会出现：
+ *   - 工作区左右分栏各被压到 ~180px，标题被迫竖排断字
+ *   - 顶部导航的操作按钮组折成 4 行，占掉 26% 的屏幕高度
+ * 这里把 ImageMultiImageWorkspace 已有的处理推广到其余工作区，并补齐导航。
+ * ========================================================================== */
+@media (max-width: 767px) {
+  /* ------------------------------------------------------------------
+   * 顶部导航：4 行 -> 2 行
+   * ------------------------------------------------------------------ */
+  .nav-header-enhanced {
+    min-height: 0 !important;
+    padding-top: calc(4px + env(safe-area-inset-top, 0px)) !important;
+    padding-right: 10px !important;
+    padding-bottom: 4px !important;
+    padding-left: 10px !important;
+  }
+
+  /* 标题行与操作行改为上下排布 */
+  .nav-content {
+    flex-wrap: wrap !important;
+    row-gap: 4px;
+  }
+
+  .nav-content > * {
+    min-width: 0;
+  }
+
+  /* 模式选择器超宽时横向滚动，而不是把标题挤到换行 */
+  .core-navigation {
+    flex: 1 1 100%;
+    margin-left: 0;
+    padding-left: 0;
+    border-left: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .core-navigation::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 模式选择器内部默认会折成两行（约 95px），强制单行以压缩导航高度 */
+  .core-navigation .n-space {
+    flex-wrap: nowrap !important;
+    align-items: center;
+    height: 44px;
+    min-height: 44px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .core-navigation .n-space::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 操作按钮组：保持单行并可横向滚动，避免折成 4 行把导航撑高 */
+  .nav-actions {
+    flex-wrap: nowrap !important;
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    justify-content: flex-start !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .nav-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ------------------------------------------------------------------
+   * 工作区分栏：左右 -> 上下
+   *
+   * 列宽由组件通过内联样式 grid-template-columns 写入，
+   * 内联样式优先级高于任何选择器，因此必须使用 !important。
+   * 这与 ImageMultiImageWorkspace 既有的处理方式一致。
+   * ------------------------------------------------------------------ */
+  .basic-system-split,
+  .basic-user-split,
+  .context-system-split,
+  .context-user-split,
+  .image-image2image-split,
+  .image-multiimage-split,
+  .image-text2image-split {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) !important;
+  }
+
+  /* 触摸屏无法拖动分隔条，且单列后已无意义 */
+  .split-divider {
+    display: none !important;
+  }
+
+  /* 测试结果卡片：多列 -> 单列 */
+  .variant-deck,
+  .variant-results {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  /* ------------------------------------------------------------------
+   * 文本与触摸目标
+   * ------------------------------------------------------------------ */
+  .test-area-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* 触摸目标不小于 44px（Material Design / WCAG 2.5.5 建议值）。
+     Naive UI 用 .n-button--{type}-type 这类双类选择器设置尺寸，
+     优先级高于单个 .n-button，因此这里需要 !important。 */
+  .n-button,
+  .n-radio-button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
+  .n-base-selection {
+    min-height: 44px !important;
+  }
+
+  /* ------------------------------------------------------------------
+   * 全面屏安全区与滚动行为
+   * ------------------------------------------------------------------ */
+  .main-content-wrapper {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  html,
+  body {
+    overscroll-behavior-y: none;
+    -webkit-text-size-adjust: 100%;
+  }
+}
 </style>
