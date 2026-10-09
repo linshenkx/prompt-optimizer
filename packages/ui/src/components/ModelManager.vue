@@ -173,10 +173,9 @@ const openAddForActiveTab = () => {
   }
 }
 
-const handleTextModelsUpdated = (id?: string) => {
-  if (id) {
-    emit('modelsUpdated', id)
-  }
+const handleTextModelsUpdated = async (id?: string) => {
+  emit('modelsUpdated', id)
+  await functionManagerRef.value?.refresh?.()
 }
 
 const handleAddImageModel = () => {

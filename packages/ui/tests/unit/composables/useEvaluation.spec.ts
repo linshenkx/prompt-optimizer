@@ -17,7 +17,10 @@ vi.mock('../../../src/composables/ui/useToast', () => ({
 const createServices = (evaluateStream: ReturnType<typeof vi.fn>, savedEvaluationModel = '') => ref({
   evaluationService: { evaluateStream },
   modelManager: {
-    getAllModels: vi.fn().mockResolvedValue([{ id: 'first-enabled-model', enabled: true }]),
+    getAllModels: vi.fn().mockResolvedValue([
+      'first-enabled-model', 'explicit-evaluation', 'global-optimizer', 'test-model',
+      'optimizer-a', 'optimizer-b', 'eval-model', 'fallback-eval-model',
+    ].map(id => ({ id, enabled: true }))),
   },
   preferenceService: {
     get: vi.fn(async (key, defaultValue) =>
@@ -236,5 +239,28 @@ describe('useEvaluation model selection', () => {
 
     expect(evaluateStream.mock.calls.map(([request]) => request.evaluationModelKey))
       .toEqual(['optimizer-a', 'optimizer-b', 'test-model'])
+  })
+
+  it('shows initialization errors and allows the next prompt analysis to retry', async () => {
+    const evaluateStream = vi.fn(async (_request, handlers) => {
+      handlers.onComplete({ type: 'prompt-only', summary: 'done', improvements: [] })
+    })
+    const services = createServices(evaluateStream)
+    const manager = useFunctionModelManager(services, ref('global-optimizer'))
+    await manager.initialize()
+    vi.mocked(services.value.modelManager.getAllModels).mockRejectedValueOnce(new Error('temporary model read failure'))
+    const evaluation = useEvaluation(services, {
+      evaluationModelKey: ref('test-model'), functionMode: ref('basic'), subMode: ref('system'),
+    })
+    await expect(evaluation.evaluatePromptOnly({ target: { workspacePrompt: 'prompt' } })).resolves.toBeUndefined()
+    expect(evaluateStream).not.toHaveBeenCalled()
+    expect(toast.error).toHaveBeenCalledTimes(1)
+    expect(evaluation.state['prompt-only'].isEvaluating).toBe(false)
+    expect(evaluation.state['prompt-only'].error).toBeTruthy()
+
+    await evaluation.evaluatePromptOnly({ target: { workspacePrompt: 'prompt' } })
+    expect(evaluateStream).toHaveBeenCalledTimes(1)
+    expect(evaluateStream.mock.calls[0][0].evaluationModelKey).toBe('global-optimizer')
+    expect(evaluation.state['prompt-only'].error).toBeNull()
   })
 })

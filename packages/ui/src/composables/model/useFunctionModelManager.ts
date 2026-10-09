@@ -17,6 +17,8 @@ import type { AppServices } from '../../types/services'
 export interface UseFunctionModelManagerReturn {
   /** 评估模型 */
   evaluationModel: Ref<string>
+  /** 已设置的评估模型是否仍启用 */
+  isEvaluationModelAvailable: ComputedRef<boolean>
   /** 有效的评估模型（如果未设置则跟随当前全局优化模型） */
   effectiveEvaluationModel: ComputedRef<string>
   /** 图片识别模型 */
@@ -83,6 +85,7 @@ export function useFunctionModelManager(
   const evaluationModel = ref('')
   const imageRecognitionModel = ref('')
   const globalOptimizeModelFallback = ref('')
+  const availableModelKeys = ref<string[]>([])
   let initPromise: Promise<void> | null = null
 
   // 统一评估模型优先级，避免工作区测试模型覆盖全局优化模型
@@ -92,13 +95,16 @@ export function useFunctionModelManager(
     // 2) 调用方传入的全局优化模型 key（运行时状态）
     // 3) 调用方的回退模型（例如工作区测试模型）
     // 4) 首个启用模型
-    return (
-      evaluationModel.value ||
-      globalOptimizeModelKeyRef?.value ||
-      fallbackModelKey ||
-      globalOptimizeModelFallback.value
-    )
+    return [
+      evaluationModel.value,
+      globalOptimizeModelKeyRef?.value,
+      fallbackModelKey,
+      globalOptimizeModelFallback.value,
+    ].find(key => key && availableModelKeys.value.includes(key)) || ''
   }
+  const isEvaluationModelAvailable = computed(() =>
+    !evaluationModel.value || availableModelKeys.value.includes(evaluationModel.value)
+  )
   // 固定的 computed 使用可更新的全局模型引用
   const effectiveEvaluationModel = computed(() => resolveEvaluationModelKey())
 
@@ -106,37 +112,37 @@ export function useFunctionModelManager(
     return imageRecognitionModel.value
   })
 
-  // 初始化
+  const refreshAvailableModels = async (): Promise<void> => {
+    const allModels = await services.value?.modelManager?.getAllModels() || []
+    availableModelKeys.value = allModels.filter(model => model.enabled).map(model => model.id)
+    globalOptimizeModelFallback.value = availableModelKeys.value[0] || ''
+  }
+
+  // 初始化；普通评估请求也刷新可用模型，避免沿用已删除或停用的模型
   const initialize = async (): Promise<void> => {
     if (initPromise) {
       return initPromise
     }
+    if (isInitialized.value) {
+      await refreshAvailableModels()
+      return
+    }
 
     initPromise = (async () => {
-      if (isInitialized.value) return
-
       isLoading.value = true
       try {
-        // 兜底：从当前可用模型中选一个
-        if (services.value?.modelManager) {
-          const allModels = await services.value.modelManager.getAllModels()
-          const enabledModels = allModels.filter(m => m.enabled)
-          globalOptimizeModelFallback.value = enabledModels[0]?.id || ''
-        } else {
-          globalOptimizeModelFallback.value = ''
-        }
+        await refreshAvailableModels()
 
         // 读取评估模型
         const savedEvaluationModel = await getPreference(
           FUNCTION_MODEL_KEYS.EVALUATION_MODEL,
           ''
         )
-        evaluationModel.value = savedEvaluationModel
-
         const savedImageRecognitionModel = await getPreference(
           FUNCTION_MODEL_KEYS.IMAGE_RECOGNITION_MODEL,
           ''
         )
+        evaluationModel.value = savedEvaluationModel
         imageRecognitionModel.value = savedImageRecognitionModel
 
         isInitialized.value = true
@@ -145,24 +151,33 @@ export function useFunctionModelManager(
       }
     })()
 
-    return initPromise
+    try {
+      await initPromise
+    } finally {
+      // 包括失败的初始化在内都释放，允许下一次操作重试
+      initPromise = null
+    }
   }
 
   const refresh = async (): Promise<void> => {
+    if (initPromise) {
+      await initPromise.catch(() => undefined)
+    }
     isInitialized.value = false
-    initPromise = null
     await initialize()
   }
 
   // 设置评估模型
   const setEvaluationModel = async (modelId: string): Promise<void> => {
-    evaluationModel.value = modelId
+    await initialize()
     await setPreference(FUNCTION_MODEL_KEYS.EVALUATION_MODEL, modelId)
+    evaluationModel.value = modelId
   }
 
   const setImageRecognitionModel = async (modelId: string): Promise<void> => {
-    imageRecognitionModel.value = modelId
+    await initialize()
     await setPreference(FUNCTION_MODEL_KEYS.IMAGE_RECOGNITION_MODEL, modelId)
+    imageRecognitionModel.value = modelId
   }
 
   // 获取有效评估模型（返回同一个 computed 实例）
@@ -179,7 +194,11 @@ export function useFunctionModelManager(
     services,
     async (newServices) => {
       if (newServices && !isInitialized.value) {
-        await initialize()
+        try {
+          await initialize()
+        } catch (error) {
+          console.warn('[useFunctionModelManager] Initialization failed; next operation will retry:', error)
+        }
       }
     },
     { immediate: true }
@@ -187,6 +206,7 @@ export function useFunctionModelManager(
 
   instance = {
     evaluationModel,
+    isEvaluationModelAvailable,
     effectiveEvaluationModel,
     imageRecognitionModel,
     effectiveImageRecognitionModel,

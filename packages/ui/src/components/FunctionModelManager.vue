@@ -15,6 +15,9 @@
           <NText depth="3" class="section-hint">
             {{ t('functionModel.evaluationModelHint') }}
           </NText>
+          <NText v-if="!isEvaluationModelAvailable" type="warning" class="section-hint">
+            {{ t('functionModel.evaluationModelUnavailable') }}
+          </NText>
 
           <NSpace align="center" :size="8" class="model-select-row">
             <SelectWithConfig
@@ -63,7 +66,7 @@
 
           <NSpace align="center" :size="8" class="model-select-row">
             <SelectWithConfig
-              v-model="imageRecognitionModel"
+              :model-value="imageRecognitionModel || null"
               :options="imageRecognitionModelOptions"
               :getPrimary="OptionAccessors.getPrimary"
               :getSecondary="OptionAccessors.getSecondary"
@@ -103,8 +106,11 @@ import { DataTransformer, OptionAccessors } from '../utils/data-transformer'
 import { getProviderDisplayName, getTextModelConfigDisplayName } from '../utils/provider-display'
 import type { AppServices } from '../types/services'
 import type { ModelSelectOption } from '../types/select-options'
+import { useToast } from '../composables/ui/useToast'
+import { formatErrorSummary } from '../utils/error'
 
 const { t } = useI18n()
+const toast = useToast()
 
 // 获取服务
 const services = inject<AppServices | Ref<AppServices | null>>('services')
@@ -126,6 +132,7 @@ const servicesRef: Ref<AppServices | null> = 'value' in services
 const functionModelManager = useFunctionModelManager(servicesRef)
 const {
   evaluationModel,
+  isEvaluationModelAvailable,
   imageRecognitionModel,
   setEvaluationModel,
   setImageRecognitionModel,
@@ -200,19 +207,31 @@ const normalizeModelValue = (
 const handleEvaluationModelChange = async (
   newValue: string | number | (string | number)[] | null
 ) => {
-  await setEvaluationModel(normalizeModelValue(newValue))
+  try {
+    await setEvaluationModel(normalizeModelValue(newValue))
+  } catch (error) {
+    toast.error(formatErrorSummary(t('functionModel.saveFailed'), error))
+  }
 }
 
 const handleImageRecognitionModelChange = async (
   newValue: string | number | (string | number)[] | null
 ) => {
-  await setImageRecognitionModel(normalizeModelValue(newValue))
+  try {
+    await setImageRecognitionModel(normalizeModelValue(newValue))
+  } catch (error) {
+    toast.error(formatErrorSummary(t('functionModel.saveFailed'), error))
+  }
 }
 
 // 初始化
 const initialize = async () => {
-  await refreshModels()
-  await functionModelManager.initialize()
+  try {
+    await refreshModels()
+    await functionModelManager.initialize()
+  } catch (error) {
+    toast.error(formatErrorSummary(t('functionModel.loadFailed'), error))
+  }
 }
 
 // 打开模型管理器
@@ -231,8 +250,12 @@ const handleOpenModelManager = () => {
 
 // 刷新
 const refresh = async () => {
-  await refreshModels()
-  await functionModelManager.refresh()
+  try {
+    await refreshModels()
+    await functionModelManager.refresh()
+  } catch (error) {
+    toast.error(formatErrorSummary(t('functionModel.loadFailed'), error))
+  }
 }
 
 onMounted(initialize)

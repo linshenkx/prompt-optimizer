@@ -185,6 +185,9 @@ const messages = {
   "functionModel": {
     "evaluationModel": "評估模型",
     "evaluationModelPlaceholder": "預設：跟隨全域優化模型",
+    "evaluationModelUnavailable": "已設定的評估模型已停用或刪除，將按預設順序選擇可用模型。",
+    "saveFailed": "功能模型設定儲存失敗，請重試",
+    "loadFailed": "功能模型設定載入失敗，請重試",
     "evaluationModelHint": "用於提示詞品質分析、結果評估及變數擷取與生成。單獨選擇後優先使用此模型；未設定時跟隨全域優化模型，沒有全域優化模型時再使用測試模型。",
     "imageRecognitionModel": "圖像識別模型",
     "imageRecognitionModelHint": "用於從圖片提取 JSON 提示詞和變數初始值，需單獨設定",

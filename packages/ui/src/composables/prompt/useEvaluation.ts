@@ -313,7 +313,10 @@ export function useEvaluation(
     }
 
     try {
-      await evaluationService.evaluateStream(request, {
+      await evaluationService.evaluateStream({
+        ...request,
+        evaluationModelKey: await getModelKey(type),
+      }, {
         onToken: (token: string) => {
           if (!targetState.isEvaluating) return
           targetState.streamContent += token
@@ -343,7 +346,7 @@ export function useEvaluation(
       target: params.target,
       testCase: params.testCase,
       snapshot: params.snapshot,
-      evaluationModelKey: await getModelKey('result'),
+      evaluationModelKey: '', // 在 executeEvaluation 的错误处理范围内解析
       variables: { language: getLanguage() },
       mode: getModeConfig(),
       focus: params.focus?.trim()
@@ -374,7 +377,7 @@ export function useEvaluation(
       testCases: params.testCases,
       snapshots: params.snapshots,
       compareHints: params.compareHints,
-      evaluationModelKey: await getModelKey('compare'),
+      evaluationModelKey: '',
       variables: { language: getLanguage() },
       mode: getModeConfig(),
       focus: params.focus?.trim()
@@ -396,7 +399,7 @@ export function useEvaluation(
     const request: PromptOnlyEvaluationRequest = {
       type: 'prompt-only',
       target: params.target,
-      evaluationModelKey: await getModelKey('prompt-only'),
+      evaluationModelKey: '',
       variables: {
         ...(params.variables || {}),
         language: getLanguage(),
@@ -423,7 +426,7 @@ export function useEvaluation(
       type: 'prompt-iterate',
       target: params.target,
       iterateRequirement: params.iterateRequirement,
-      evaluationModelKey: await getModelKey('prompt-iterate'),
+      evaluationModelKey: '',
       variables: {
         ...(params.variables || {}),
         language: getLanguage(),

@@ -185,6 +185,9 @@ const messages = {
   "functionModel": {
     "evaluationModel": "Evaluation Model",
     "evaluationModelPlaceholder": "Default: use global optimization model",
+    "evaluationModelUnavailable": "The configured evaluation model is disabled or deleted. Available models will be selected in the default order.",
+    "saveFailed": "Could not save function model settings. Please try again",
+    "loadFailed": "Could not load function model settings. Please try again",
     "evaluationModelHint": "Used for prompt quality analysis, result evaluation, and variable extraction and generation. A model selected here takes priority. Otherwise, the global optimization model is used, falling back to the test model when no global optimization model is selected.",
     "imageRecognitionModel": "Image Recognition Model",
     "imageRecognitionModelHint": "Used to extract JSON prompts and variable defaults from images, and must be configured separately",

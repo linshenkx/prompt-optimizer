@@ -4,6 +4,7 @@ import { ImportExportError } from "../../interfaces/import-export";
 import { IMPORT_EXPORT_ERROR_CODES } from "../../constants/error-codes";
 import { StorageError } from "../storage/errors";
 import { toErrorWithCode } from "../../utils/error";
+import { FUNCTION_MODEL_KEYS } from "../../constants/storage-keys";
 
 const SESSION_KEY_PREFIX = "session/";
 const MAX_SESSION_SNAPSHOT_BYTES = 1024 * 1024;
@@ -54,6 +55,8 @@ const assertValidPreferenceKey: (
 
 // 需要导出的UI配置键 - 白名单验证
 const UI_SETTINGS_KEYS = [
+  FUNCTION_MODEL_KEYS.EVALUATION_MODEL,
+  FUNCTION_MODEL_KEYS.IMAGE_RECOGNITION_MODEL,
   "app:settings:ui:theme-id",
   "app:settings:ui:preferred-language",
   "app:settings:ui:builtin-template-language",
