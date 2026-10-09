@@ -118,17 +118,23 @@ export function useFunctionModelManager(
   )
 
   let availabilityRefreshToken = 0
-  const refreshAvailableModels = async (): Promise<void> => {
+  let latestAvailabilityRefresh: Promise<void> = Promise.resolve()
+  const refreshAvailableModels = (): Promise<void> => {
     const token = ++availabilityRefreshToken
-    try {
-      const allModels = await services.value?.modelManager?.getAllModels() || []
-      if (token !== availabilityRefreshToken) return
-      availableModelKeys.value = allModels.filter(model => model.enabled).map(model => model.id)
-      globalOptimizeModelFallback.value = availableModelKeys.value[0] || ''
-    } catch (error) {
-      if (token !== availabilityRefreshToken) return
-      throw error
-    }
+    const pending = (async () => {
+      try {
+        const allModels = await services.value?.modelManager?.getAllModels() || []
+        // 旧调用也必须等最新读取结束，避免调用方继续使用刷新前的缓存。
+        if (token !== availabilityRefreshToken) return latestAvailabilityRefresh
+        availableModelKeys.value = allModels.filter(model => model.enabled).map(model => model.id)
+        globalOptimizeModelFallback.value = availableModelKeys.value[0] || ''
+      } catch (error) {
+        if (token !== availabilityRefreshToken) return latestAvailabilityRefresh
+        throw error
+      }
+    })()
+    latestAvailabilityRefresh = pending
+    return pending
   }
 
   // 初始化；普通评估请求也刷新可用模型，避免沿用已删除或停用的模型

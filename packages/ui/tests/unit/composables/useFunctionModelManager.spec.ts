@@ -21,6 +21,68 @@ describe('useFunctionModelManager recovery and availability', () => {
   beforeEach(resetFunctionModelManagerSingleton)
   afterEach(resetFunctionModelManagerSingleton)
 
+  it.each(['success', 'failure'])('waits for the latest availability read when an older %s finishes first', async (outcome) => {
+    const { services, modelManager, models } = createServices()
+    const manager = useFunctionModelManager(services, ref('global'))
+    await manager.initialize()
+    let finishOlder!: (value: typeof models.value) => void
+    let rejectOlder!: (error: Error) => void
+    let finishLatest!: (value: typeof models.value) => void
+    modelManager.getAllModels
+      .mockImplementationOnce(() => new Promise((resolve, reject) => {
+        finishOlder = resolve; rejectOlder = reject
+      }))
+      .mockImplementationOnce(() => new Promise(resolve => { finishLatest = resolve }))
+    let selectedModel: string | undefined
+    const older = manager.initialize().then(() => { selectedModel = manager.resolveEvaluationModelKey('test') })
+    const latest = manager.initialize()
+    if (outcome === 'success') finishOlder([])
+    else rejectOlder(new Error('obsolete read failure'))
+    await flushPromises()
+    expect(selectedModel).toBeUndefined()
+    finishLatest([])
+    await Promise.all([older, latest])
+    expect(selectedModel).toBe('')
+  })
+
+  it('keeps earlier callers waiting when a third availability refresh replaces the second', async () => {
+    const { services, modelManager, models } = createServices()
+    const manager = useFunctionModelManager(services)
+    await manager.initialize()
+    const finishReads: ((value: typeof models.value) => void)[] = []
+    modelManager.getAllModels.mockImplementation(() => new Promise(resolve => { finishReads.push(resolve) }))
+    let selectedModel: string | undefined
+    const first = manager.initialize().then(() => { selectedModel = manager.resolveEvaluationModelKey('test') })
+    const second = manager.initialize()
+    finishReads[0]([])
+    await flushPromises()
+    const third = manager.initialize()
+    finishReads[1]([])
+    await flushPromises()
+    expect(selectedModel).toBeUndefined()
+    finishReads[2]([])
+    await Promise.all([first, second, third])
+    expect(selectedModel).toBe('')
+  })
+
+  it('propagates the latest availability failure to callers of obsolete reads', async () => {
+    const { services, modelManager, models } = createServices()
+    const manager = useFunctionModelManager(services)
+    await manager.initialize()
+    let finishOlder!: (value: typeof models.value) => void
+    let rejectLatest!: (error: Error) => void
+    modelManager.getAllModels
+      .mockImplementationOnce(() => new Promise(resolve => { finishOlder = resolve }))
+      .mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectLatest = reject }))
+    const older = manager.initialize()
+    const latest = manager.initialize()
+    const settled = Promise.allSettled([older, latest])
+    finishOlder([])
+    await flushPromises()
+    rejectLatest(new Error('latest availability failure'))
+    expect((await settled).map(result => result.status)).toEqual(['rejected', 'rejected'])
+  })
+
   it('allows a later queued save to succeed after an earlier save fails', async () => {
     const { services, preferenceService, saved } = createServices()
     const manager = useFunctionModelManager(services)
