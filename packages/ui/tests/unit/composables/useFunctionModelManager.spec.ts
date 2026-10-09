@@ -20,6 +20,23 @@ describe('useFunctionModelManager recovery and availability', () => {
   beforeEach(resetFunctionModelManagerSingleton)
   afterEach(resetFunctionModelManagerSingleton)
 
+  it.each(['disabled', 'deleted'])('rejects a %s image recognition model while preserving its saved choice', async (status) => {
+    const { services, saved, models } = createServices()
+    saved.set(FUNCTION_MODEL_KEYS.IMAGE_RECOGNITION_MODEL, 'evaluation')
+    const manager = useFunctionModelManager(services)
+    await manager.initialize()
+    expect(manager.effectiveImageRecognitionModel.value).toBe('evaluation')
+    if (status === 'disabled') models.value[0].enabled = false
+    else models.value = models.value.filter(model => model.id !== 'evaluation')
+    await manager.initialize()
+    expect(manager.isImageRecognitionModelAvailable.value).toBe(false)
+    expect(manager.effectiveImageRecognitionModel.value).toBe('')
+    expect(saved.get(FUNCTION_MODEL_KEYS.IMAGE_RECOGNITION_MODEL)).toBe('evaluation')
+    models.value = [{ id: 'evaluation', enabled: true }]
+    await manager.initialize()
+    expect(manager.effectiveImageRecognitionModel.value).toBe('evaluation')
+  })
+
   it('skips removed and disabled models on the next evaluation without reopening settings', async () => {
     const { services, saved, models } = createServices()
     saved.set(FUNCTION_MODEL_KEYS.EVALUATION_MODEL, 'evaluation')

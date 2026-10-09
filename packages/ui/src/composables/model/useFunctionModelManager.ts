@@ -23,6 +23,8 @@ export interface UseFunctionModelManagerReturn {
   effectiveEvaluationModel: ComputedRef<string>
   /** 图片识别模型 */
   imageRecognitionModel: Ref<string>
+  /** 已设置的图片识别模型是否仍启用 */
+  isImageRecognitionModelAvailable: ComputedRef<boolean>
   /** 有效的图片识别模型（图片提取功能要求显式设置） */
   effectiveImageRecognitionModel: ComputedRef<string>
   /** 是否正在加载 */
@@ -108,9 +110,12 @@ export function useFunctionModelManager(
   // 固定的 computed 使用可更新的全局模型引用
   const effectiveEvaluationModel = computed(() => resolveEvaluationModelKey())
 
-  const effectiveImageRecognitionModel = computed(() => {
-    return imageRecognitionModel.value
-  })
+  const isImageRecognitionModelAvailable = computed(() =>
+    !imageRecognitionModel.value || availableModelKeys.value.includes(imageRecognitionModel.value)
+  )
+  const effectiveImageRecognitionModel = computed(() =>
+    isImageRecognitionModelAvailable.value ? imageRecognitionModel.value : ''
+  )
 
   const refreshAvailableModels = async (): Promise<void> => {
     const allModels = await services.value?.modelManager?.getAllModels() || []
@@ -209,6 +214,7 @@ export function useFunctionModelManager(
     isEvaluationModelAvailable,
     effectiveEvaluationModel,
     imageRecognitionModel,
+    isImageRecognitionModelAvailable,
     effectiveImageRecognitionModel,
     isLoading,
     isInitialized,

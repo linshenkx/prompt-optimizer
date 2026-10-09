@@ -63,6 +63,9 @@
           <NText depth="3" class="section-hint">
             {{ t('functionModel.imageRecognitionModelHint') }}
           </NText>
+          <NText v-if="!isImageRecognitionModelAvailable" type="warning" class="section-hint">
+            {{ t('functionModel.imageRecognitionModelUnavailable') }}
+          </NText>
 
           <NSpace align="center" :size="8" class="model-select-row">
             <SelectWithConfig
@@ -134,6 +137,7 @@ const {
   evaluationModel,
   isEvaluationModelAvailable,
   imageRecognitionModel,
+  isImageRecognitionModelAvailable,
   setEvaluationModel,
   setImageRecognitionModel,
 } = functionModelManager

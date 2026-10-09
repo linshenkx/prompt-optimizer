@@ -191,6 +191,7 @@ const messages = {
     "evaluationModelHint": "用于提示词质量分析、结果评估及变量提取与生成。单独选择后优先使用此模型；未设置时跟随全局优化模型，没有全局优化模型时再使用测试模型。",
     "imageRecognitionModel": "图像识别模型",
     "imageRecognitionModelHint": "用于从图片提取 JSON 提示词和变量初始值，需单独设置",
+    "imageRecognitionModelUnavailable": "已设置的图片识别模型已停用或删除，请启用该模型或选择其他模型。",
     "noImageRecognitionModel": "请先在功能模型中设置图像识别模型",
     "unsupportedImageRecognitionModel": "当前图像识别模型暂不支持图片提取：{provider}"
   },
