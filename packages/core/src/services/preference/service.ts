@@ -247,7 +247,8 @@ export class PreferenceService implements IPreferenceService {
    */
   async getAll(): Promise<Record<string, string>> {
     try {
-      const allKeys = await this.keys();
+      // 重启后缓存只包含本次访问过的键，已知 UI 设置仍需从存储读取。
+      const allKeys = new Set([...await this.keys(), ...UI_SETTINGS_KEYS]);
       const result: Record<string, string> = {};
 
       for (const key of allKeys) {

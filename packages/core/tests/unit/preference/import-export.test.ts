@@ -17,6 +17,17 @@ describe('PreferenceService Import/Export', () => {
   });
 
   describe('exportData', () => {
+    it('exports persisted UI settings after reopening without requiring earlier reads', async () => {
+      await preferenceService.set('app:settings:ui:theme-id', 'dark');
+      await preferenceService.set(FUNCTION_MODEL_KEYS.EVALUATION_MODEL, 'judge');
+      await preferenceService.set(FUNCTION_MODEL_KEYS.IMAGE_RECOGNITION_MODEL, 'vision');
+      const reopened = new PreferenceService(storageProvider);
+      expect(await reopened.exportData()).toEqual({
+        'app:settings:ui:theme-id': 'dark',
+        [FUNCTION_MODEL_KEYS.EVALUATION_MODEL]: 'judge',
+        [FUNCTION_MODEL_KEYS.IMAGE_RECOGNITION_MODEL]: 'vision',
+      });
+    });
     it('should export all preferences', async () => {
       // 设置一些偏好设置
       await preferenceService.set('app:settings:ui:theme-id', 'dark');
