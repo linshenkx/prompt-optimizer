@@ -2,6 +2,10 @@
 
 Full release narratives now live in versioned files under `releases/`. This file stays as the index and summary entry point.
 
+## [2.11.11] - 2026-10-09
+- EN: This maintenance release fixes evaluation model priority, unavailable model selection, asynchronous refresh and save ordering, and function-model backup restoration. It also includes automatic preparation of oversized image uploads and clearer first-time setup guides. See [Release Notes (EN)](releases/v2.11.11.en.md).
+- 中文：本次维护版本修复评估模型优先级、失效模型选择、异步刷新与保存顺序，以及功能模型设置的备份恢复，并包含大图上传自动处理和更清晰的首次使用指南。参见 [版本说明（中文）](releases/v2.11.11.zh-CN.md)。
+
 ## [2.11.10] - 2026-09-10
 - EN: This patch closes an access-password bypass, restores first-use model configuration and model-category tabs, refreshes model and dependency catalogs, preserves restored history order, and completes the Node.js 24 desktop/CI migration. See [Release Notes (EN)](releases/v2.11.10.en.md).
 - 中文：本次补丁修复访问密码绕过问题，恢复首次使用时的模型配置入口与模型分类标签，更新模型和依赖目录，保持历史记录恢复顺序，并完成 Node.js 24 的桌面端与 CI 迁移。参见 [版本说明（中文）](releases/v2.11.10.zh-CN.md)。
