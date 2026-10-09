@@ -139,9 +139,7 @@ const handleDeleteModel = async (id: string) => {
 
   await manager.deleteModel(id)
   const firstId = manager.models.value[0]?.id
-  if (firstId) {
-    emit('modelsUpdated', firstId)
-  }
+  emit('modelsUpdated', firstId)
 }
 
 const openAddModal = async () => {
