@@ -292,7 +292,8 @@ describe('配置迁移集成测试', () => {
   describe('新格式配置处理', () => {
     it('应该直接识别并保留新格式配置', async () => {
       const adapter = registry.getAdapter('openai');
-      const model = adapter.getModels().find(m => m.id === 'gpt-5.6-sol')!;
+      // 使用当前目录中的有效模型，避免型号调整使测试配置缺少元数据。
+      const model = adapter.getModels()[0]!;
 
       const newConfig: TextModelConfig = {
         id: 'openai',
