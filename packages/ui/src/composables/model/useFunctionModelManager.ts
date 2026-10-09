@@ -117,10 +117,18 @@ export function useFunctionModelManager(
     isImageRecognitionModelAvailable.value ? imageRecognitionModel.value : ''
   )
 
+  let availabilityRefreshToken = 0
   const refreshAvailableModels = async (): Promise<void> => {
-    const allModels = await services.value?.modelManager?.getAllModels() || []
-    availableModelKeys.value = allModels.filter(model => model.enabled).map(model => model.id)
-    globalOptimizeModelFallback.value = availableModelKeys.value[0] || ''
+    const token = ++availabilityRefreshToken
+    try {
+      const allModels = await services.value?.modelManager?.getAllModels() || []
+      if (token !== availabilityRefreshToken) return
+      availableModelKeys.value = allModels.filter(model => model.enabled).map(model => model.id)
+      globalOptimizeModelFallback.value = availableModelKeys.value[0] || ''
+    } catch (error) {
+      if (token !== availabilityRefreshToken) return
+      throw error
+    }
   }
 
   // 初始化；普通评估请求也刷新可用模型，避免沿用已删除或停用的模型

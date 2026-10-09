@@ -20,6 +20,26 @@ describe('useFunctionModelManager recovery and availability', () => {
   beforeEach(resetFunctionModelManagerSingleton)
   afterEach(resetFunctionModelManagerSingleton)
 
+  it.each(['success', 'failure'])('ignores an older availability %s after models were disabled', async (outcome) => {
+    const { services, modelManager, models } = createServices()
+    const manager = useFunctionModelManager(services, ref('global'))
+    await manager.initialize()
+    let resolveOlder!: (value: typeof models.value) => void
+    let rejectOlder!: (error: Error) => void
+    const oldSnapshot = models.value.map(model => ({ ...model }))
+    modelManager.getAllModels.mockImplementationOnce(() => new Promise((resolve, reject) => {
+      resolveOlder = resolve
+      rejectOlder = reject
+    }))
+    const older = manager.initialize()
+    models.value = []
+    await manager.initialize()
+    if (outcome === 'success') resolveOlder(oldSnapshot)
+    else rejectOlder(new Error('obsolete read failure'))
+    await expect(older).resolves.toBeUndefined()
+    expect(manager.resolveEvaluationModelKey('test')).toBe('')
+  })
+
   it.each(['disabled', 'deleted'])('rejects a %s image recognition model while preserving its saved choice', async (status) => {
     const { services, saved, models } = createServices()
     saved.set(FUNCTION_MODEL_KEYS.IMAGE_RECOGNITION_MODEL, 'evaluation')
