@@ -285,6 +285,8 @@ export function useEvaluation(
     subMode: options.subMode.value as EvaluationSubMode,
   })
 
+  const activeRequests = new WeakMap<SingleEvaluationState, symbol>()
+
   const executeEvaluation = async (
     type: EvaluationType,
     request: EvaluationRequest,
@@ -299,6 +301,9 @@ export function useEvaluation(
     const targetState = getTargetState(type, options.variantId)
     if (!targetState) return
 
+    const requestId = Symbol('evaluation')
+    activeRequests.set(targetState, requestId)
+    const isCurrentRequest = () => activeRequests.get(targetState) === requestId && targetState.isEvaluating
     targetState.isEvaluating = true
     targetState.result = null
     targetState.streamContent = ''
@@ -313,27 +318,30 @@ export function useEvaluation(
     }
 
     try {
+      const evaluationModelKey = await getModelKey(type)
+      if (!isCurrentRequest()) return
       await evaluationService.evaluateStream({
         ...request,
-        evaluationModelKey: await getModelKey(type),
+        evaluationModelKey,
       }, {
         onToken: (token: string) => {
-          if (!targetState.isEvaluating) return
+          if (!isCurrentRequest()) return
           targetState.streamContent += token
         },
         onComplete: (result: EvaluationResponse) => {
-          if (!targetState.isEvaluating) return
+          if (!isCurrentRequest()) return
           targetState.result = result
           targetState.isEvaluating = false
         },
         onError: (error: Error) => {
-          if (!targetState.isEvaluating) return
+          if (!isCurrentRequest()) return
           targetState.error = getI18nErrorMessage(error)
           targetState.isEvaluating = false
           toast.error(t('evaluation.error.failed', { error: targetState.error }))
         },
       })
     } catch (error) {
+      if (!isCurrentRequest()) return
       targetState.error = getI18nErrorMessage(error)
       targetState.isEvaluating = false
       toast.error(t('evaluation.error.failed', { error: targetState.error }))
@@ -447,6 +455,7 @@ export function useEvaluation(
     const targetState = getTargetState(type, variantId)
     if (!targetState) return
 
+    activeRequests.delete(targetState)
     targetState.isEvaluating = false
     targetState.result = null
     targetState.streamContent = ''

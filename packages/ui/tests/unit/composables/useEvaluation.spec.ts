@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
+import { flushPromises } from '@vue/test-utils'
 
 import { useEvaluation } from '../../../src/composables/prompt/useEvaluation'
 import { resetFunctionModelManagerSingleton, useFunctionModelManager } from '../../../src/composables/model/useFunctionModelManager'
@@ -48,6 +49,50 @@ describe('useEvaluation model selection', () => {
 
   afterEach(() => {
     resetFunctionModelManagerSingleton()
+  })
+
+  it.each(['complete', 'error', 'reject'])('ignores stale %s callbacks after clearing and restarting evaluation', async (outcome) => {
+    const pending: { handlers: any; resolve: () => void; reject: (error: Error) => void }[] = []
+    const evaluateStream = vi.fn((_request, handlers) => new Promise<void>((resolve, reject) => {
+      pending.push({ handlers, resolve, reject })
+    }))
+    const evaluation = useEvaluation(createServices(evaluateStream), {
+      evaluationModelKey: ref('eval-model'), functionMode: ref('basic'), subMode: ref('system'),
+    })
+    const first = evaluation.evaluatePromptOnly({ target: { workspacePrompt: 'old prompt' } })
+    await flushPromises()
+    evaluation.clearResult('prompt-only')
+    const second = evaluation.evaluatePromptOnly({ target: { workspacePrompt: 'new prompt' } })
+    await flushPromises()
+    pending[0].handlers.onToken('old text')
+    if (outcome === 'complete') pending[0].handlers.onComplete({ summary: 'old result' })
+    if (outcome === 'error') pending[0].handlers.onError(new Error('old failure'))
+    if (outcome === 'reject') pending[0].reject(new Error('old rejection'))
+    else pending[0].resolve()
+    await first
+    expect(evaluation.state['prompt-only'].isEvaluating).toBe(true)
+    expect(evaluation.state['prompt-only'].streamContent).toBe('')
+    expect(toast.error).not.toHaveBeenCalled()
+    pending[1].handlers.onToken('new text')
+    pending[1].handlers.onComplete({ summary: 'new result' })
+    pending[1].resolve()
+    await second
+    expect(evaluation.state['prompt-only'].result?.summary).toBe('new result')
+    expect(evaluation.state['prompt-only'].streamContent).toBe('new text')
+  })
+
+  it('does not dispatch an evaluation cleared while resolving the model', async () => {
+    let resolveModel!: (key: string) => void
+    const evaluateStream = vi.fn()
+    const evaluation = useEvaluation(createServices(evaluateStream), {
+      functionMode: ref('basic'), subMode: ref('system'),
+      resolveEvaluationModelKey: () => new Promise<string>(resolve => { resolveModel = resolve }),
+    })
+    const request = evaluation.evaluatePromptOnly({ target: { workspacePrompt: 'prompt' } })
+    evaluation.clearResult('prompt-only')
+    resolveModel('eval-model')
+    await request
+    expect(evaluateStream).not.toHaveBeenCalled()
   })
 
   it('can resolve evaluation models per evaluation type', async () => {
