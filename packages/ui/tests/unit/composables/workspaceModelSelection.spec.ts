@@ -27,6 +27,25 @@ const createSelection = (mode: string) => {
 }
 
 describe.each(['pro', 'image'])('%s workspace model refresh', (mode) => {
+  it('clears invalid selections when all models are removed and restores defaults when a model is added', async () => {
+    const { selection, getEnabledModels, session } = createSelection(mode)
+    await flushPromises()
+    getEnabledModels.mockResolvedValue([])
+    await selection.refreshTextModels()
+    if (mode === 'image') expect(session.selectedTextModelKey).toBe('')
+    else {
+      expect(session.selectedOptimizeModelKey).toBe('')
+      expect(session.selectedTestModelKey).toBe('')
+    }
+    getEnabledModels.mockResolvedValue([{ ...model, id: 'replacement' }])
+    await selection.refreshTextModels()
+    if (mode === 'image') expect(session.selectedTextModelKey).toBe('replacement')
+    else {
+      expect(session.selectedOptimizeModelKey).toBe('replacement')
+      expect(session.selectedTestModelKey).toBe('replacement')
+    }
+  })
+
   it.each(['success', 'failure'])('ignores an older %s after the latest refresh succeeded', async (outcome) => {
     const { selection, getEnabledModels } = createSelection(mode)
     await flushPromises()

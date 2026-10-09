@@ -68,7 +68,7 @@ export function useWorkspaceTextModelSelection<T extends WorkspaceTextModelSessi
 
       const invalid = current && !keys.has(current)
       const emptyNeedsFallback = !current && !!fallback
-      if ((invalid || emptyNeedsFallback) && fallback) {
+      if (invalid || emptyNeedsFallback) {
         selectedTextModelKey.value = fallback
       }
     } catch (error) {
