@@ -2361,7 +2361,7 @@ app.on('before-quit', async (event) => {
       }
       // 使用setImmediate确保在下一个事件循环中退出
       setImmediate(() => {
-        isQuitting = false; // 重置标志以允许正常退出
+        // 保留退出标志，让第二次 before-quit 放行，避免重复保存并循环退出。
         app.quit(); // 手动退出
       });
     }
