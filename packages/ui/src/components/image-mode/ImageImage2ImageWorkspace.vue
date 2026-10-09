@@ -1012,6 +1012,7 @@ const {
     generateImage2Image,
     validateImage2ImageRequest,
     loadImageModels,
+    isImageModelListReady,
 } = useImageGeneration()
 
 // 服务引用
@@ -1427,8 +1428,8 @@ const versionOptions = computed(() => {
 watch(
     () => imageModelOptions.value,
     (opts) => {
+        if (!isImageModelListReady.value) return
         const fallback = opts?.[0]?.value || ''
-        if (!fallback) return
         const keys = new Set((opts || []).map((o) => o.value))
 
         const legacy = session.selectedImageModelKey
@@ -2248,6 +2249,7 @@ const refreshImageModels = async () => {
         }))
 
         if (!imageModels.value.length) {
+            if (isImageModelListReady.value) selectedImageModelKey.value = ''
             return
         }
 

@@ -691,7 +691,7 @@ const services = inject<Ref<AppServices | null>>('services', ref(null))
 const variableManager = inject<VariableManagerHooks | null>('variableManager', null)
 const session = useImageMultiImageSession()
 const tempVarsManager = useTemporaryVariables()
-const { imageModels, loadImageModels, generateMultiImage, validateMultiImageRequest } = useImageGeneration()
+const { imageModels, isImageModelListReady, loadImageModels, generateMultiImage, validateMultiImageRequest } = useImageGeneration()
 
 interface VariantInputImageInfo {
   width?: number
@@ -1186,14 +1186,13 @@ const versionOptions = computed(() =>
 watch(
   () => imageModelOptions.value,
   (options) => {
+    if (!isImageModelListReady.value) return
     const validKeys = new Set(options.map((item) => item.value))
     const seed = options.find((item) => item.supportsMultiImage)?.value || options[0]?.value || ''
-    if (seed) {
-      for (const id of ALL_VARIANT_IDS) {
-        const current = variantModelKeyModels[id].value
-        if (!current || !validKeys.has(current)) {
-          session.updateTestVariant(id, { modelKey: seed })
-        }
+    for (const id of ALL_VARIANT_IDS) {
+      const current = variantModelKeyModels[id].value
+      if (!current || !validKeys.has(current)) {
+        session.updateTestVariant(id, { modelKey: seed })
       }
     }
   },
