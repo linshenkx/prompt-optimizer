@@ -172,26 +172,34 @@ export function useFunctionModelManager(
     }
   }
 
-  const refresh = async (): Promise<void> => {
+  // 按用户操作顺序保存、重读配置，避免较慢的旧操作覆盖新选择。
+  let preferenceOperations: Promise<void> = Promise.resolve()
+  const enqueuePreferenceOperation = (operation: () => Promise<void>): Promise<void> => {
+    const pending = preferenceOperations.then(operation)
+    preferenceOperations = pending.catch(() => undefined)
+    return pending
+  }
+
+  const refresh = (): Promise<void> => enqueuePreferenceOperation(async () => {
     if (initPromise) {
       await initPromise.catch(() => undefined)
     }
     isInitialized.value = false
     await initialize()
-  }
+  })
 
   // 设置评估模型
-  const setEvaluationModel = async (modelId: string): Promise<void> => {
+  const setEvaluationModel = (modelId: string): Promise<void> => enqueuePreferenceOperation(async () => {
     await initialize()
     await setPreference(FUNCTION_MODEL_KEYS.EVALUATION_MODEL, modelId)
     evaluationModel.value = modelId
-  }
+  })
 
-  const setImageRecognitionModel = async (modelId: string): Promise<void> => {
+  const setImageRecognitionModel = (modelId: string): Promise<void> => enqueuePreferenceOperation(async () => {
     await initialize()
     await setPreference(FUNCTION_MODEL_KEYS.IMAGE_RECOGNITION_MODEL, modelId)
     imageRecognitionModel.value = modelId
-  }
+  })
 
   // 获取有效评估模型（返回同一个 computed 实例）
   const getEffectiveEvaluationModel = (): ComputedRef<string> => {

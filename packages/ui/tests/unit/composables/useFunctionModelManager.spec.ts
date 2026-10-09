@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
+import { flushPromises } from '@vue/test-utils'
 import { FUNCTION_MODEL_KEYS } from '@prompt-optimizer/core'
 import { resetFunctionModelManagerSingleton, useFunctionModelManager } from '../../../src/composables/model/useFunctionModelManager'
 import type { AppServices } from '../../../src/types/services'
@@ -19,6 +20,55 @@ const createServices = () => {
 describe('useFunctionModelManager recovery and availability', () => {
   beforeEach(resetFunctionModelManagerSingleton)
   afterEach(resetFunctionModelManagerSingleton)
+
+  it('allows a later queued save to succeed after an earlier save fails', async () => {
+    const { services, preferenceService, saved } = createServices()
+    const manager = useFunctionModelManager(services)
+    await manager.initialize()
+    preferenceService.set.mockRejectedValueOnce(new Error('first save failed'))
+    const results = await Promise.allSettled([
+      manager.setEvaluationModel('evaluation'), manager.setEvaluationModel('test'),
+    ])
+    expect(results.map(result => result.status)).toEqual(['rejected', 'fulfilled'])
+    expect(manager.evaluationModel.value).toBe('test')
+    expect(saved.get(FUNCTION_MODEL_KEYS.EVALUATION_MODEL)).toBe('test')
+  })
+
+  it('refreshes settings after a pending save has completed', async () => {
+    const { services, preferenceService, saved } = createServices()
+    const manager = useFunctionModelManager(services)
+    await manager.initialize()
+    let finishSave!: () => void
+    preferenceService.set.mockImplementationOnce((key, value) => new Promise(resolve => {
+      finishSave = () => { saved.set(key, value); resolve() }
+    }))
+    const save = manager.setEvaluationModel('test')
+    await flushPromises()
+    const refresh = manager.refresh()
+    await flushPromises()
+    expect(preferenceService.get).toHaveBeenCalledTimes(2)
+    finishSave()
+    await Promise.all([save, refresh])
+    expect(manager.evaluationModel.value).toBe('test')
+  })
+
+  it.each(['evaluation', 'recognition'])('keeps the latest %s choice when rapid changes finish loading out of order', async (kind) => {
+    const { services, modelManager, models, saved } = createServices()
+    const manager = useFunctionModelManager(services)
+    await manager.initialize()
+    let resumeFirst!: (models: typeof models.value) => void
+    modelManager.getAllModels.mockImplementationOnce(() => new Promise(resolve => { resumeFirst = resolve }))
+    const setModel = kind === 'evaluation' ? manager.setEvaluationModel : manager.setImageRecognitionModel
+    const key = kind === 'evaluation' ? FUNCTION_MODEL_KEYS.EVALUATION_MODEL : FUNCTION_MODEL_KEYS.IMAGE_RECOGNITION_MODEL
+    const selected = kind === 'evaluation' ? manager.evaluationModel : manager.imageRecognitionModel
+    const first = setModel('evaluation')
+    const second = setModel('test')
+    await flushPromises()
+    resumeFirst(models.value)
+    await Promise.all([first, second])
+    expect(selected.value).toBe('test')
+    expect(saved.get(key)).toBe('test')
+  })
 
   it.each(['success', 'failure'])('ignores an older availability %s after models were disabled', async (outcome) => {
     const { services, modelManager, models } = createServices()
