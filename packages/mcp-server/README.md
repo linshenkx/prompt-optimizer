@@ -145,6 +145,8 @@ npx @modelcontextprotocol/inspector
 2. **Claude Desktop** - 实际使用场景
 3. **自定义 MCP 客户端** - 使用 `@modelcontextprotocol/sdk`
 
+For a runnable SDK client that supplies web reference excerpts to `iterate-prompt`, see the [research prompt example](../../examples/research-prompt/README.md).
+
 **为什么不能用 curl**：
 - MCP 使用 JSON-RPC 2.0 协议
 - 需要特殊的握手和初始化过程

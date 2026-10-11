@@ -1,0 +1,12 @@
+{
+  "name": "prompt-optimizer-research-example",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "^24.0.0" },
+  "scripts": {
+    "start": "node research-prompt.mjs",
+    "test": "node --test research-prompt.test.mjs"
+  },
+  "dependencies": { "@modelcontextprotocol/sdk": "^1.30.0" }
+}

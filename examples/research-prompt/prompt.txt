@@ -1,0 +1,2 @@
+Write a checklist for migrating a Node.js application to the current LTS release.
+Include compatibility checks and links to official documentation.
