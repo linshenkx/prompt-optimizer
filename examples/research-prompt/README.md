@@ -41,6 +41,6 @@ node research-prompt.mjs \
   --optimizer http://localhost:8081/mcp
 ```
 
-Repeat `--query` or `--url` as needed (at most 20 URLs). The objective is limited to 200 characters. The example includes up to three sources from each tool, with bounded excerpts, and asks the optimizer to treat retrieved text as reference data. It stops on missing tools, MCP errors, empty source context, or empty optimizer output. Requests time out after 60 seconds and connections close when the run ends. It does not read or send saved Parallel credentials or API keys.
+Repeat `--query` or `--url` as needed (at most 20 URLs). The objective is limited to 200 characters. The example includes up to three sources from each tool, with bounded excerpts, and asks the optimizer to treat retrieved text as reference data. It stops on missing tools, MCP errors, any failed explicitly requested page fetch, empty source context, or empty optimizer output. Requests time out after 60 seconds. When the run ends, it requests session termination and closes connections, including on failure. It does not read or send saved Parallel credentials or API keys.
 
 Run the local protocol and error-path tests with `npm test`.

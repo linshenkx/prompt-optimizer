@@ -6,13 +6,19 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { connect, refine, SEARCH_URL, USER_AGENT } from './research-prompt.mjs';
 
-async function fixture(t, { failSearch = false, emptySearch = false, failOptimizer = false } = {}) {
+async function fixture(t, { failSearch = false, emptySearch = false, failOptimizer = false, failFetch = false } = {}) {
   const requests = [];
   const calls = [];
+  const sessions = new Map();
   const server = createServer(async (req, res) => {
     requests.push({ path: req.url, method: req.method, headers: req.headers });
     let body = '';
     for await (const chunk of req) body += chunk;
+    const existing = sessions.get(req.headers['mcp-session-id']);
+    if (existing) {
+      await existing.transport.handleRequest(req, res, body ? JSON.parse(body) : undefined);
+      return;
+    }
     const mcp = new Server({ name: 'example-test', version: '1.0.0' }, { capabilities: { tools: {} } });
     const search = req.url === '/search';
     mcp.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: (search
@@ -25,28 +31,36 @@ async function fixture(t, { failSearch = false, emptySearch = false, failOptimiz
       if (!search) return { content: [{ type: 'text', text: 'Refined migration checklist prompt with source links.' }] };
       const data = { results: emptySearch ? [] : [{ url: 'https://nodejs.org/en/about/previous-releases',
         excerpts: [params.name === 'web_fetch' ? 'Exact release policy excerpt.' : 'Current LTS release support excerpt.'] }] };
+      if (params.name === 'web_fetch' && failFetch) {
+        data.errors = [{ url: 'https://example.org/missing', error_type: 'http_error', http_status_code: 404, content: null }];
+      }
       // Exercise structured output for search and the JSON text fallback for fetch.
       return { ...(params.name === 'web_search' ? { structuredContent: data } : {}),
         content: [{ type: 'text', text: JSON.stringify(data) }] };
     });
-    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-    res.on('close', () => { void mcp.close(); });
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: () => crypto.randomUUID(),
+      onsessioninitialized: id => sessions.set(id, { mcp, transport }) });
     try {
       await mcp.connect(transport);
+      const onclose = transport.onclose;
+      transport.onclose = () => { sessions.delete(transport.sessionId); onclose?.(); };
       await transport.handleRequest(req, res, body ? JSON.parse(body) : undefined);
     } catch (error) {
       if (!res.headersSent) res.writeHead(500).end(error.message);
     }
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  t.after(() => new Promise(resolve => server.close(resolve)));
+  t.after(async () => {
+    for (const { mcp } of sessions.values()) await mcp.close();
+    await new Promise(resolve => server.close(resolve));
+  });
   const base = `http://127.0.0.1:${server.address().port}`;
   const observed = [];
   const open = url => connect(url, (input, init) => {
     observed.push({ url: String(input), headers: new Headers(init.headers), body: init.body });
     return fetch(url === SEARCH_URL ? `${base}/search` : input, init);
   });
-  return { open, requests, calls, observed, options: { prompt: 'Write a migration checklist.',
+  return { open, requests, calls, observed, sessions, options: { prompt: 'Write a migration checklist.',
     objective: 'Find Node.js LTS release policy', queries: ['Node.js LTS release policy'],
     optimizerUrl: `${base}/optimizer` } };
 }
@@ -73,12 +87,15 @@ test('SDK discovery/search/fetch feed cited reference context into optimizer exe
     assert.equal(request.headers['x-api-key'], undefined);
   }
   for (const request of f.observed) assert.equal(request.headers.get('User-Agent'), USER_AGENT);
+  assert.deepEqual(f.requests.filter(request => request.method === 'DELETE').map(request => request.path).sort(), ['/optimizer', '/search']);
+  assert.equal(f.sessions.size, 0);
 });
 
 test('search-only path avoids automatic fetch', async t => {
   const f = await fixture(t);
   await refine(f.options, f.open);
   assert.deepEqual(f.calls.map(call => call.name), ['web_search', 'iterate-prompt']);
+  assert.equal(f.sessions.size, 0);
 });
 
 for (const options of [{ failSearch: true }, { emptySearch: true }, { failOptimizer: true }]) {
@@ -86,8 +103,16 @@ for (const options of [{ failSearch: true }, { emptySearch: true }, { failOptimi
     const f = await fixture(t, options);
     await assert.rejects(refine(f.options, f.open), /failed|No usable source excerpts/);
     if (!options.failOptimizer) assert.ok(!f.calls.some(call => call.name === 'iterate-prompt'));
+    assert.equal(f.sessions.size, 0);
   });
 }
+
+test('partial explicit fetch failure stops refinement and releases its session', async t => {
+  const f = await fixture(t, { failFetch: true });
+  await assert.rejects(refine({ ...f.options, urls: ['https://example.org/missing'] }, f.open), /Page fetch failed/);
+  assert.ok(!f.calls.some(call => call.name === 'iterate-prompt'));
+  assert.equal(f.sessions.size, 0);
+});
 
 test('context stays within optimizer requirements limit even with large responses', async () => {
   let requirements;

@@ -21,6 +21,14 @@ export async function connect(url, fetchImpl = globalThis.fetch) {
         : AbortSignal.timeout(REQUEST_TIMEOUT) });
     },
   });
+  const close = client.close.bind(client);
+  client.close = async () => {
+    try {
+      await transport.terminateSession();
+    } finally {
+      await close();
+    }
+  };
   try {
     await client.connect(transport);
     return client;
@@ -44,6 +52,9 @@ function textContent(result) {
 
 function references(result) {
   const data = result.structuredContent ?? JSON.parse(textContent(result));
+  if (Array.isArray(data.errors) && data.errors.length) {
+    throw new Error('Page fetch failed for one or more requested URLs; prompt was not refined');
+  }
   if (!Array.isArray(data.results)) throw new Error('Search response has no results array');
   // Keep URLs alongside bounded excerpts; the optimizer accepts at most 10,000
   // characters of requirements. Retrieved pages are reference data, not instructions.
