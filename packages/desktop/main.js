@@ -38,6 +38,8 @@ const {
   isManualReleaseDelivery,
 } = require('./config/update-delivery-policy');
 const { createGlobalDispatcherFromProxyDecision } = require('./config/proxy-dispatcher');
+const { NetworkSettingsStore } = require('./config/network-settings');
+const { ModelNetworkDispatcher } = require('./config/model-network');
 const {
   buildAppMenuTemplate,
   getPageZoomShortcutAction,
@@ -122,6 +124,9 @@ function safeSerialize(obj) {
 }
 
 let mainWindow;
+let networkSettingsStore;
+let modelNetwork;
+let networkRestarting = false;
 let modelManager, templateManager, historyManager, llmService, promptService, templateLanguageService, preferenceService, dataManager, contextRepo, favoriteManager;
 let imageModelManager, imageService, imageUnderstandingService;
 let imageAdapterRegistry; // 全局引用以供 IPC 处理器使用
@@ -700,6 +705,18 @@ async function initializeServices() {
     
     // 在创建任何网络相关服务前，先根据系统代理设置 undici 全局分发器
     await setupGlobalProxyDispatcherFromSystem();
+    networkSettingsStore = new NetworkSettingsStore(userDataPath);
+    await networkSettingsStore.load();
+    const undici = require('undici');
+    modelNetwork = new ModelNetworkDispatcher({
+      settings: networkSettingsStore.snapshot().active,
+      fallbackDispatcher: undici.getGlobalDispatcher(),
+      Agent: undici.Agent,
+      ProxyAgent: undici.ProxyAgent,
+      Socks5ProxyAgent: undici.Socks5ProxyAgent,
+      resolveProxy: url => session.defaultSession.resolveProxy(url),
+    });
+    undici.setGlobalDispatcher(modelNetwork);
 
     console.log('[DESKTOP] Creating LLM service...');
     llmService = createLLMService(modelManager);
@@ -879,6 +896,23 @@ function createFavoriteErrorResponse(error) {
 }
 
 // --- High-Level IPC Service Handlers ---
+function withModelNetwork(callback, connectionTest = false) {
+  return async (event, ...args) => {
+    if (networkRestarting) return createErrorResponse(new Error('networkSettings.errors.restarting'));
+    return modelNetwork.run(() => callback(event, ...args), {
+      connectionTest,
+      onConnectionTest: result => {
+        if (!event.sender.isDestroyed()) event.sender.send('model-network-test', result);
+      },
+    });
+  };
+}
+
+function getNetworkSettingsState() {
+  return { ...networkSettingsStore.snapshot(), busy: modelNetwork.activeRequests > 0,
+    lastConnection: modelNetwork.lastConnection };
+}
+
 function setupIPC() {
   console.log('[Main Process] Setting up high-level service IPC handlers...');
   setupPreferenceHandlers();
@@ -886,55 +920,79 @@ function setupIPC() {
     createSuccessResponse,
     createErrorResponse,
   });
+
+  ipcMain.handle('network-settings-get', async () => createSuccessResponse(getNetworkSettingsState()));
+  ipcMain.handle('network-settings-save', async (_event, settings) => {
+    try {
+      await networkSettingsStore.save(settings);
+      return createSuccessResponse(getNetworkSettingsState());
+    } catch (error) {
+      return createErrorResponse(error);
+    }
+  });
+  ipcMain.handle('network-settings-restart', async () => {
+    if (modelNetwork.activeRequests > 0 || networkRestarting) {
+      return createErrorResponse(new Error('networkSettings.errors.busy'));
+    }
+    networkRestarting = true;
+    try {
+      await storageProvider.flush();
+      setTimeout(() => { app.relaunch(); app.quit(); }, 100);
+      return createSuccessResponse(null);
+    } catch (error) {
+      networkRestarting = false;
+      return createErrorResponse(error);
+    }
+  });
   
   // LLM Service handlers
-  ipcMain.handle('llm-testConnection', async (event, provider) => {
+  ipcMain.handle('llm-testConnection', withModelNetwork(async (event, provider) => {
     try {
       await llmService.testConnection(provider);
       return createSuccessResponse(null);
     } catch (error) {
       return createErrorResponse(error);
     }
-  });
+  }, true));
 
-  ipcMain.handle('llm-sendMessage', async (event, messages, provider) => {
+  ipcMain.handle('llm-sendMessage', withModelNetwork(async (event, messages, provider) => {
     try {
       const result = await llmService.sendMessage(messages, provider);
       return createSuccessResponse(result);
     } catch (error) {
       return createErrorResponse(error);
     }
-  });
+  }));
 
-  ipcMain.handle('llm-sendMessageStructured', async (event, messages, provider) => {
+  ipcMain.handle('llm-sendMessageStructured', withModelNetwork(async (event, messages, provider) => {
     try {
       const result = await llmService.sendMessageStructured(messages, provider);
       return createSuccessResponse(result);
     } catch (error) {
       return createErrorResponse(error);
     }
-  });
+  }));
 
-  ipcMain.handle('llm-fetchModelList', async (event, provider, customConfig) => {
+  ipcMain.handle('llm-fetchModelList', withModelNetwork(async (event, provider, customConfig) => {
     try {
       const result = await llmService.fetchModelList(provider, customConfig);
       return createSuccessResponse(result);
     } catch (error) {
       return createErrorResponse(error);
     }
-  });
+  }));
 
-  ipcMain.handle('image-understanding-understand', async (event, request) => {
+  ipcMain.handle('image-understanding-understand', withModelNetwork(async (event, request) => {
     try {
       const result = await imageUnderstandingService.understand(safeSerialize(request));
       return createSuccessResponse(result);
     } catch (error) {
       return createErrorResponse(error);
     }
-  });
+  }));
 
   // Streaming handler - more complex due to callbacks
-  ipcMain.handle('llm-sendMessageStream', async (event, messages, provider, streamId) => {
+  ipcMain.handle('llm-sendMessageStream', withModelNetwork(async (event, messages, provider, streamId) => {
     try {
       // 使用符合 StreamHandlers 接口的回调名称
       const callbacks = {
@@ -965,10 +1023,10 @@ function setupIPC() {
     } catch (error) {
       return createErrorResponse(error);
     }
-  });
+  }));
 
   // Streaming handler with tools - supports tool-call events
-  ipcMain.handle('llm-sendMessageStreamWithTools', async (event, messages, provider, tools, streamId) => {
+  ipcMain.handle('llm-sendMessageStreamWithTools', withModelNetwork(async (event, messages, provider, tools, streamId) => {
     try {
       const callbacks = {
         onToken: (token) => {
@@ -1003,44 +1061,44 @@ function setupIPC() {
     } catch (error) {
       return createErrorResponse(error);
     }
-  });
+  }));
 
   // Prompt Service handlers
-  ipcMain.handle('prompt-optimizePrompt', async (event, request) => {
+  ipcMain.handle('prompt-optimizePrompt', withModelNetwork(async (event, request) => {
     try {
       const result = await promptService.optimizePrompt(request);
       return createSuccessResponse(result);
     } catch (error) {
       return createErrorResponse(error);
     }
-  });
+  }));
 
-  ipcMain.handle('prompt-optimizeMessage', async (event, request) => {
+  ipcMain.handle('prompt-optimizeMessage', withModelNetwork(async (event, request) => {
     try {
       const result = await promptService.optimizeMessage(request);
       return createSuccessResponse(result);
     } catch (error) {
       return createErrorResponse(error);
     }
-  });
+  }));
 
-  ipcMain.handle('prompt-iteratePrompt', async (event, originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, contextData) => {
+  ipcMain.handle('prompt-iteratePrompt', withModelNetwork(async (event, originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, contextData) => {
     try {
       const result = await promptService.iteratePrompt(originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, contextData);
       return createSuccessResponse(result);
     } catch (error) {
       return createErrorResponse(error);
     }
-  });
+  }));
 
-  ipcMain.handle('prompt-testPrompt', async (event, systemPrompt, userPrompt, modelKey, inputImages) => {
+  ipcMain.handle('prompt-testPrompt', withModelNetwork(async (event, systemPrompt, userPrompt, modelKey, inputImages) => {
     try {
       const result = await promptService.testPrompt(systemPrompt, userPrompt, modelKey, inputImages);
       return createSuccessResponse(result);
     } catch (error) {
       return createErrorResponse(error);
     }
-  });
+  }));
 
   ipcMain.handle('prompt-getHistory', async () => {
     try {
@@ -1090,7 +1148,7 @@ function setupIPC() {
     },
   });
 
-  ipcMain.handle('prompt-optimizePromptStream', async (event, request, streamId) => {
+  ipcMain.handle('prompt-optimizePromptStream', withModelNetwork(async (event, request, streamId) => {
     const streamHandlers = createIpcStreamHandlers(mainWindow, streamId);
     try {
       await promptService.optimizePromptStream(request, streamHandlers);
@@ -1099,9 +1157,9 @@ function setupIPC() {
       streamHandlers.onError(error);
       return createErrorResponse(error);
     }
-  });
+  }));
 
-  ipcMain.handle('prompt-optimizeMessageStream', async (event, request, streamId) => {
+  ipcMain.handle('prompt-optimizeMessageStream', withModelNetwork(async (event, request, streamId) => {
     const streamHandlers = createIpcStreamHandlers(mainWindow, streamId);
     try {
       await promptService.optimizeMessageStream(request, streamHandlers);
@@ -1110,9 +1168,9 @@ function setupIPC() {
       streamHandlers.onError(error);
       return createErrorResponse(error);
     }
-  });
+  }));
 
-  ipcMain.handle('prompt-iteratePromptStream', async (event, originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, streamId, contextData) => {
+  ipcMain.handle('prompt-iteratePromptStream', withModelNetwork(async (event, originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, streamId, contextData) => {
     const streamHandlers = createIpcStreamHandlers(mainWindow, streamId);
     try {
       await promptService.iteratePromptStream(originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, streamHandlers, templateId, contextData);
@@ -1121,9 +1179,9 @@ function setupIPC() {
       streamHandlers.onError(error);
       return createErrorResponse(error);
     }
-  });
+  }));
 
-  ipcMain.handle('prompt-testPromptStream', async (event, systemPrompt, userPrompt, modelKey, streamId, inputImages) => {
+  ipcMain.handle('prompt-testPromptStream', withModelNetwork(async (event, systemPrompt, userPrompt, modelKey, streamId, inputImages) => {
     const streamHandlers = createIpcStreamHandlers(mainWindow, streamId);
     try {
       await promptService.testPromptStream(systemPrompt, userPrompt, modelKey, streamHandlers, inputImages);
@@ -1132,7 +1190,7 @@ function setupIPC() {
       streamHandlers.onError(error);
       return createErrorResponse(error);
     }
-  });
+  }));
 
   // 在页面加载前拦截 /config.js 并注入运行时环境变量（双份键）
   try {
@@ -1154,7 +1212,7 @@ function setupIPC() {
   }
 
   // 自定义会话测试（支持工具、变量、对话消息）
-  ipcMain.handle('prompt-testCustomConversationStream', async (event, request, streamId) => {
+  ipcMain.handle('prompt-testCustomConversationStream', withModelNetwork(async (event, request, streamId) => {
     const streamHandlers = createIpcStreamHandlers(mainWindow, streamId);
     try {
       await promptService.testCustomConversationStream(request, streamHandlers);
@@ -1163,7 +1221,7 @@ function setupIPC() {
       streamHandlers.onError(error);
       return createErrorResponse(error);
     }
-  });
+  }));
 
   // Model Manager handlers
   ipcMain.handle('model-getModels', async (event) => {
@@ -1305,7 +1363,7 @@ function setupIPC() {
   })
 
   // ===== Image Service handlers =====
-  ipcMain.handle('image-generate', async (e, request) => {
+  ipcMain.handle('image-generate', withModelNetwork(async (e, request) => {
     try {
       const safeReq = safeSerialize(request)
       const res = await imageService.generate(safeReq)
@@ -1313,10 +1371,10 @@ function setupIPC() {
     } catch (error) {
       return createStructuredErrorResponse(error)
     }
-  })
+  }));
 
   // 显式模式：避免根据 inputImage 是否存在隐式推断
-  ipcMain.handle('image-generateText2Image', async (e, request) => {
+  ipcMain.handle('image-generateText2Image', withModelNetwork(async (e, request) => {
     try {
       const safeReq = safeSerialize(request)
       const res = await imageService.generateText2Image(safeReq)
@@ -1324,9 +1382,9 @@ function setupIPC() {
     } catch (error) {
       return createStructuredErrorResponse(error)
     }
-  })
+  }));
 
-  ipcMain.handle('image-generateImage2Image', async (e, request) => {
+  ipcMain.handle('image-generateImage2Image', withModelNetwork(async (e, request) => {
     try {
       const safeReq = safeSerialize(request)
       const res = await imageService.generateImage2Image(safeReq)
@@ -1334,9 +1392,9 @@ function setupIPC() {
     } catch (error) {
       return createStructuredErrorResponse(error)
     }
-  })
+  }));
 
-  ipcMain.handle('image-generateMultiImage', async (e, request) => {
+  ipcMain.handle('image-generateMultiImage', withModelNetwork(async (e, request) => {
     try {
       const safeReq = safeSerialize(request)
       const res = await imageService.generateMultiImage(safeReq)
@@ -1344,7 +1402,7 @@ function setupIPC() {
     } catch (error) {
       return createStructuredErrorResponse(error)
     }
-  })
+  }));
 
   ipcMain.handle('image-validateRequest', async (e, request) => {
     try {
@@ -1387,7 +1445,7 @@ function setupIPC() {
   })
 
   // 新增：连接测试（在主进程执行，避免渲染端网络请求）
-  ipcMain.handle('image-testConnection', async (e, config) => {
+  ipcMain.handle('image-testConnection', withModelNetwork(async (e, config) => {
     try {
       const safeCfg = safeSerialize(config)
       // Reuse ImageService.testConnection to keep behavior consistent with Web:
@@ -1398,10 +1456,10 @@ function setupIPC() {
     } catch (error) {
       return createStructuredErrorResponse(error)
     }
-  })
+  }, true));
 
   // 新增：动态模型拉取（在主进程执行）
-  ipcMain.handle('image-getDynamicModels', async (e, providerId, connectionConfig) => {
+  ipcMain.handle('image-getDynamicModels', withModelNetwork(async (e, providerId, connectionConfig) => {
     try {
       const safeConn = safeSerialize(connectionConfig)
       const models = await imageAdapterRegistry.getDynamicModels(providerId, safeConn)
@@ -1409,7 +1467,7 @@ function setupIPC() {
     } catch (error) {
       return createStructuredErrorResponse(error)
     }
-  })
+  }));
 
   ipcMain.handle('model-importData', async (event, data) => {
     try {

@@ -171,6 +171,7 @@
     </form>
 
     <template #action>
+      <ModelNetworkStatus style="margin-bottom: 8px" />
       <NSpace justify="space-between" align="center" style="width: 100%;">
         <!-- 左侧：连接测试 -->
         <NSpace align="center">
@@ -234,6 +235,7 @@
 </template>
 
 <script setup lang="ts">
+import ModelNetworkStatus from './ModelNetworkStatus.vue'
 import { computed, watch, nextTick, h } from 'vue'
 
 import { useI18n } from 'vue-i18n'

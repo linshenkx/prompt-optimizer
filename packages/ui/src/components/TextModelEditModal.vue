@@ -265,6 +265,7 @@
     </NFlex>
 
     <template #action>
+      <ModelNetworkStatus style="margin-bottom: 8px" />
       <NSpace justify="space-between" align="center" style="width: 100%;">
         <NSpace align="center">
           <NButton
@@ -300,6 +301,7 @@
 </template>
 
 <script setup lang="ts">
+import ModelNetworkStatus from './ModelNetworkStatus.vue'
 import { computed, inject, nextTick, h } from 'vue'
 
 import { useI18n } from 'vue-i18n'

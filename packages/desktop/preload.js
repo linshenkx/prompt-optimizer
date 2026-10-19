@@ -1236,6 +1236,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Add an identifier so the frontend knows it's running in Electron
   isElectron: true,
 
+  network: {
+    getSettings: async () => {
+      const result = await ipcRenderer.invoke('network-settings-get');
+      if (!result.success) throw createIpcError(result.error);
+      return result.data;
+    },
+    saveSettings: async (settings) => {
+      const result = await ipcRenderer.invoke('network-settings-save', settings);
+      if (!result.success) throw createIpcError(result.error);
+      return result.data;
+    },
+    restart: async () => {
+      const result = await ipcRenderer.invoke('network-settings-restart');
+      if (!result.success) throw createIpcError(result.error);
+    },
+  },
+
   // Preference Service interface
   preference: {
     get: async (key, defaultValue) => {

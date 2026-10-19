@@ -14,6 +14,7 @@ import type {
   ContextMode
 } from '@prompt-optimizer/core'
 import type { RemoteStorageIpcApi } from '../utils/remote-backup'
+import type { ModelNetworkAPI, ModelNetworkTest } from './model-network'
 
 // 基础响应类型
 interface ElectronErrorPayload {
@@ -111,6 +112,7 @@ interface EventAPI {
 }
 
 interface ElectronEventMap {
+  'model-network-test': [ModelNetworkTest]
   'update-available-info': [UpdateInfo]
   'update-not-available': [{ version?: string; reason?: string }]
   'update-download-progress': [DownloadProgress]
@@ -214,6 +216,7 @@ interface DataAPI {
 
 // 完整的ElectronAPI接口
 interface ElectronAPI {
+  network: ModelNetworkAPI
   app: AppAPI
   updater: UpdaterAPI
   shell: ShellAPI

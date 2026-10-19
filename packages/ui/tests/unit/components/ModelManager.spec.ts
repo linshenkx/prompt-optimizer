@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick, ref } from 'vue'
 import ModelManager from '../../../src/components/ModelManager.vue'
@@ -59,6 +59,8 @@ vi.mock('../../../src/composables/useToast', () => ({
 }))
 
 describe('ModelManager', () => {
+  const originalApi = window.electronAPI
+  afterEach(() => { window.electronAPI = originalApi })
   const mountComponent = () =>
     mount(ModelManager, {
       props: {
@@ -129,6 +131,8 @@ describe('ModelManager', () => {
           ImageModelEditModal: {
             template: '<div class="stub-image-edit-modal" />'
           },
+          NetworkSettingsModal: { template: '<div class="stub-network-settings" />', props: ['show'] },
+          ModelNetworkStatus: { template: '<div />' },
           InputWithSelect: {
             template: '<div class="stub-input-with-select" />'
           }
@@ -145,6 +149,22 @@ describe('ModelManager', () => {
 
     // 验证组件结构包含 TextModelManager 和 ImageModelManager 存根
     expect(wrapper.html()).toBeTruthy()
+  })
+
+  it('hides the network settings entry on the web', () => {
+    window.electronAPI = undefined
+    const wrapper = mountComponent()
+    expect(wrapper.find('[data-testid="network-settings-open"]').exists()).toBe(false)
+    expect(wrapper.find('.stub-network-settings').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('opens one global network dialog only when the desktop bridge is present', async () => {
+    window.electronAPI = { network: {} } as unknown as typeof window.electronAPI
+    const wrapper = mountComponent()
+    await wrapper.get('[data-testid="network-settings-open"]').trigger('click')
+    expect(wrapper.findComponent('.stub-network-settings').props('show')).toBe(true)
+    wrapper.unmount()
   })
 
   it('renders model category labels and switches to image models', async () => {

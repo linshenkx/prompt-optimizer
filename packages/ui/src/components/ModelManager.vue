@@ -12,6 +12,9 @@
       @update:show="(value) => !value && close()"
     >
       <template #header-extra>
+        <NButton v-if="hasDesktopNetwork" @click="showNetworkSettings = true" style="margin-right: 12px" data-testid="network-settings-open">
+          {{ t('networkSettings.title') }}
+        </NButton>
         <NButton
           v-if="activeTab === 'text'"
           type="primary"
@@ -107,6 +110,7 @@
           </NCard>
         </div>
       </div>
+      <ModelNetworkStatus />
     </NModal>
 
     <ImageModelEditModal
@@ -116,6 +120,7 @@
       @update:show="updateImageEditModalVisibility"
       @saved="handleImageModelSaved"
     />
+    <NetworkSettingsModal v-if="hasDesktopNetwork" v-model:show="showNetworkSettings" />
   </ToastUI>
 </template>
 
@@ -130,6 +135,8 @@ import ImageModelManager from './ImageModelManager.vue'
 import TextModelManager from './TextModelManager.vue'
 import FunctionModelManager from './FunctionModelManager.vue'
 import ToastUI from './Toast.vue'
+import NetworkSettingsModal from './NetworkSettingsModal.vue'
+import ModelNetworkStatus from './ModelNetworkStatus.vue'
 import type { AppServices } from '../types/services'
 
 defineProps({
@@ -144,6 +151,8 @@ const emit = defineEmits(['modelsUpdated', 'close', 'select', 'update:show'])
 const { t } = useI18n()
 
 const activeTab = ref<'text' | 'image' | 'function'>('text')
+const hasDesktopNetwork = typeof window !== 'undefined' && !!window.electronAPI?.network
+const showNetworkSettings = ref(false)
 const textManagerRef = ref<InstanceType<typeof TextModelManager> | null>(null)
 const imageListRef = ref<InstanceType<typeof ImageModelManager> | null>(null)
 const functionManagerRef = ref<InstanceType<typeof FunctionModelManager> | null>(null)
@@ -161,6 +170,7 @@ provide('imageRegistry', services.value.imageAdapterRegistry)
 provide('imageService', services.value.imageService)
 
 const close = () => {
+  showNetworkSettings.value = false
   emit('update:show', false)
   emit('close')
 }
@@ -216,6 +226,9 @@ const handleImageModelSaved = () => {
 }
 
 if (typeof window !== 'undefined') {
+  const networkHandler = () => { if (hasDesktopNetwork) showNetworkSettings.value = true }
+  onMounted(() => window.addEventListener('model-network:open-settings', networkHandler))
+  onUnmounted(() => window.removeEventListener('model-network:open-settings', networkHandler))
   const tabHandler = (e: Event) => {
     try {
       const tab = (e as CustomEvent).detail
