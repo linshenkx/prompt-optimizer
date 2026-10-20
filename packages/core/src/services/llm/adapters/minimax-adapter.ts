@@ -1,4 +1,4 @@
-import type { TextModel, TextProvider } from '../types'
+import type { ParameterDefinition, TextModel, TextModelConfig, TextProvider } from '../types'
 import { OpenAIAdapter } from './openai-adapter'
 
 interface ModelOverride {
@@ -26,9 +26,9 @@ const MINIMAX_REGIONAL_ENDPOINTS = [
 
 const MINIMAX_STATIC_MODELS: ModelOverride[] = [
   {
-    id: 'MiniMax-M3',
-    name: 'MiniMax M3',
-    description: 'Latest flagship model with enhanced reasoning and coding',
+    id: 'MiniMax-M3.1-Flash',
+    name: 'MiniMax M3.1 Flash',
+    description: 'Fast reasoning and coding model with adjustable thinking depth',
     capabilities: {
       supportsTools: true,
       supportsReasoning: true,
@@ -36,23 +36,13 @@ const MINIMAX_STATIC_MODELS: ModelOverride[] = [
     }
   },
   {
-    id: 'MiniMax-M2.7',
-    name: 'MiniMax M2.7',
-    description: 'Previous flagship model retained for compatibility',
+    id: 'MiniMax-M3',
+    name: 'MiniMax M3',
+    description: 'Flagship model with enhanced reasoning and coding',
     capabilities: {
       supportsTools: true,
       supportsReasoning: true,
-      maxContextLength: 204800
-    }
-  },
-  {
-    id: 'MiniMax-M2.7-highspeed',
-    name: 'MiniMax M2.7 HighSpeed',
-    description: 'High-speed version of M2.7 for low-latency scenarios',
-    capabilities: {
-      supportsTools: true,
-      supportsReasoning: true,
-      maxContextLength: 204800
+      maxContextLength: 1000000
     }
   }
 ]
@@ -77,6 +67,42 @@ export class MinimaxAdapter extends OpenAIAdapter {
         }
       }
     }
+  }
+
+  public async getModelsAsync(config: TextModelConfig): Promise<TextModel[]> {
+    await super.getModelsAsync(config)
+    // Keep the curated fallback order even when discovery omits a current model.
+    // Explicit saved/custom IDs still use buildDefaultModel.
+    return this.getModels()
+  }
+
+  protected getParameterDefinitions(modelId: string): readonly ParameterDefinition[] {
+    const definitions = super.getParameterDefinitions(modelId)
+    if (modelId !== 'MiniMax-M3.1-Flash' && modelId !== 'MiniMax-M3') return definitions
+
+    return definitions
+      .filter(parameter => modelId !== 'MiniMax-M3' || parameter.name !== 'reasoning_effort')
+      .map(parameter => {
+        if (parameter.name === 'reasoning_effort') {
+          return {
+            ...parameter,
+            description: 'Thinking depth for MiniMax M3.1 Flash. Thinking is always enabled.',
+            descriptionKey: undefined,
+            defaultValue: 'max',
+            default: 'max',
+            allowedValues: ['low', 'medium', 'high', 'xhigh', 'max']
+          }
+        }
+        if (modelId === 'MiniMax-M3.1-Flash' &&
+            ['max_tokens', 'max_completion_tokens'].includes(parameter.name)) {
+          return { ...parameter, maxValue: 524288, max: 524288 }
+        }
+        return parameter
+      })
+  }
+
+  protected getDefaultParameterValues(modelId: string): Record<string, unknown> {
+    return modelId === 'MiniMax-M3.1-Flash' ? { reasoning_effort: 'max' } : super.getDefaultParameterValues(modelId)
   }
 
   public getModels(): TextModel[] {

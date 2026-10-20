@@ -697,6 +697,15 @@ export function useTextModelManager() {
 
     // Keep this outside try/catch so we can fall back to static models on error.
     const providerTemplateId = form.value.providerId || currentProviderType.value || 'custom'
+    const preserveMiniMaxSelection = !!form.value.modelId && (
+      providerTemplateId === 'minimax' ||
+      (providerTemplateId === 'openrouter' && form.value.modelId.startsWith('minimax/'))
+    )
+    const restoreMiniMaxSelection = () => {
+      if (preserveMiniMaxSelection && !modelOptions.value.some(model => model.value === form.value.modelId)) {
+        modelOptions.value.push({ value: form.value.modelId, label: form.value.modelId })
+      }
+    }
 
     try {
       const connectionConfig: TextConnectionConfig = {
@@ -745,12 +754,13 @@ export function useTextModelManager() {
         modelMeta: modelMeta ? { ...modelMeta, id: form.value.modelId || modelMeta.id } : undefined
       } as Partial<TextModelConfig>)
 
-      modelOptions.value = fetchedModels
+      modelOptions.value = [...fetchedModels]
+      restoreMiniMaxSelection()
       if (showSuccess) {
         toast.success(t('modelManager.fetchModelsSuccess', { count: fetchedModels.length }))
       }
 
-      if (fetchedModels.length > 0 && !fetchedModels.some((m: { value: string }) => m.value === form.value.modelId)) {
+      if (!preserveMiniMaxSelection && fetchedModels.length > 0 && !fetchedModels.some((m: { value: string }) => m.value === form.value.modelId)) {
         form.value.modelId = fetchedModels[0].value
         form.value.defaultModel = fetchedModels[0].value
       }
@@ -770,6 +780,7 @@ export function useTextModelManager() {
       }
 
       loadStaticModelsForProvider(providerTemplateId)
+      restoreMiniMaxSelection()
 
       if (staticCount > 0) {
         toast.warning(t('modelManager.fetchModelsFallback', { error: errorMessage, count: staticCount }))

@@ -6,6 +6,7 @@ import {
   type TextModelConfig
 } from '@prompt-optimizer/core'
 import { useTextModelManager } from '../../../src/composables/model/useTextModelManager'
+import { allowConsole } from '../../utils/error-detection'
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -27,6 +28,92 @@ vi.mock('../../../src/composables/ui/useToast', () => ({
 }))
 
 describe('useTextModelManager', () => {
+  const mountMiniMaxManager = (providerId = 'minimax', modelId = 'MiniMax-M2.7') => {
+    const registry = new TextAdapterRegistry()
+    const adapter = registry.getAdapter(providerId)
+    const saved: TextModelConfig = {
+      id: 'saved-minimax', name: 'Saved MiniMax', enabled: true, providerId, modelId,
+      providerMeta: adapter.getProvider(), modelMeta: adapter.buildDefaultModel(modelId),
+      connectionConfig: { apiKey: 'saved-key', baseURL: adapter.getProvider().defaultBaseURL },
+      paramOverrides: { max_tokens: 123, custom_flag: true }
+    }
+    const modelManager = {
+      getAllModels: vi.fn().mockResolvedValue([saved]),
+      getModel: vi.fn().mockResolvedValue(saved),
+      addModel: vi.fn().mockResolvedValue(undefined),
+      updateModel: vi.fn().mockResolvedValue(undefined)
+    }
+    const llmService = {
+      fetchModelList: vi.fn().mockResolvedValue([
+        { value: 'MiniMax-M3.1-Flash', label: 'MiniMax M3.1 Flash' },
+        { value: 'MiniMax-M3', label: 'MiniMax M3' }
+      ])
+    }
+    const wrapper = mount(defineComponent({
+      setup: () => ({ manager: useTextModelManager() }), template: '<div />'
+    }), {
+      global: { provide: { services: ref({ modelManager, llmService, textAdapterRegistry: registry }) } }
+    })
+    const manager = (wrapper.vm as unknown as { manager: ReturnType<typeof useTextModelManager> }).manager
+    return { wrapper, manager, modelManager, llmService, saved }
+  }
+
+  it('selects Flash for a new MiniMax configuration and offers only the current static catalog', async () => {
+    const { wrapper, manager } = mountMiniMaxManager()
+    await manager.prepareForCreate()
+    manager.selectProvider('minimax')
+    await nextTick()
+    expect(manager.form.value.modelId).toBe('MiniMax-M3.1-Flash')
+    expect(manager.modelOptions.value.map(model => model.value)).toEqual(['MiniMax-M3.1-Flash', 'MiniMax-M3'])
+    expect(manager.form.value.paramOverrides).toEqual({ reasoning_effort: 'max' })
+    const effort = manager.currentParameterDefinitions.value.find(parameter => parameter.name === 'reasoning_effort')
+    expect(effort?.allowedValues).toEqual(['low', 'medium', 'high', 'xhigh', 'max'])
+    manager.onModelChange('MiniMax-M3')
+    expect(manager.form.value.paramOverrides).toEqual({})
+    expect(manager.currentParameterDefinitions.value.some(parameter => parameter.name === 'reasoning_effort')).toBe(false)
+    wrapper.unmount()
+  })
+
+  it.each([
+    ['minimax', 'MiniMax-M2.7', 'success'],
+    ['minimax', 'private-model', 'success'],
+    ['openrouter', 'minimax/minimax-m2.7', 'success'],
+    ['minimax', 'MiniMax-M2.7', 'empty'],
+    ['minimax', 'MiniMax-M2.7', 'failure'],
+    ['openrouter', 'minimax/minimax-m2.7', 'failure']
+  ])('preserves %s / %s through edit, %s refresh, save and clone', async (providerId, modelId, result) => {
+    const { wrapper, manager, modelManager, llmService, saved } = mountMiniMaxManager(providerId, modelId)
+    const before = JSON.stringify(saved)
+    if (providerId === 'openrouter') {
+      llmService.fetchModelList.mockResolvedValue([
+        { value: 'minimax/minimax-m3.1-flash:free', label: 'Flash' },
+        { value: 'minimax/minimax-m3', label: 'M3' }
+      ])
+    }
+    if (result === 'empty') llmService.fetchModelList.mockResolvedValue([])
+    if (result === 'failure') {
+      allowConsole(/^Failed to fetch model list:/)
+      llmService.fetchModelList.mockRejectedValue(new Error('Offline fixture'))
+    }
+    await manager.prepareForEdit(saved.id)
+    expect(manager.form.value.modelId).toBe(modelId)
+    await manager.refreshModelOptions(false)
+    expect(manager.form.value.modelId).toBe(modelId)
+    expect(manager.modelOptions.value.some(model => model.value === modelId)).toBe(true)
+    expect(manager.form.value.paramOverrides).toEqual(saved.paramOverrides)
+    await manager.saveForm()
+    expect(modelManager.updateModel).toHaveBeenCalledWith(saved.id, expect.objectContaining({
+      modelId, modelMeta: expect.objectContaining({ id: modelId }),
+      connectionConfig: expect.objectContaining({ apiKey: 'saved-key' }),
+      paramOverrides: { max_tokens: 123, custom_flag: true }
+    }))
+    await manager.prepareForClone(saved.id)
+    expect(manager.form.value.modelId).toBe(modelId)
+    expect(manager.form.value.paramOverrides).toEqual(saved.paramOverrides)
+    expect(JSON.stringify(saved)).toBe(before)
+    wrapper.unmount()
+  })
+
   it('uses the newly selected provider metadata when testing and saving an edited model', async () => {
     const registry = new TextAdapterRegistry()
     const openaiAdapter = registry.getAdapter('openai')
