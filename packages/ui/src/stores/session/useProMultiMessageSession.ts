@@ -89,6 +89,8 @@ export interface TestVariantConfig {
 }
 
 export interface TestVariantResult {
+  /** Resolved prompt sent for this answer, independent of later edits. */
+  requestPrompt?: string
   result: string
   reasoning: string
 }
@@ -609,7 +611,7 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
             const oneRecord = one as Record<string, unknown>
             const r = typeof oneRecord['result'] === 'string' ? (oneRecord['result'] as string) : ''
             const reasoning = typeof oneRecord['reasoning'] === 'string' ? (oneRecord['reasoning'] as string) : ''
-            return { result: r, reasoning }
+            return { result: r, reasoning, ...(typeof oneRecord['requestPrompt'] === 'string' ? { requestPrompt: oneRecord['requestPrompt'] } : {}) }
           }
 
           testVariantResults.value = {

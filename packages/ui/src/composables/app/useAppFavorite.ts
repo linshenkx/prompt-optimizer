@@ -134,6 +134,7 @@ type MultiImageExampleSessionApi = TemporaryVariablesSessionApi & {
  */
 export interface AppFavoriteOptions {
     /** 🔧 Step D: 路由导航函数（替代 setFunctionMode/set*SubMode） */
+    beforeApplyToWorkspace?: (targetKey: string) => Promise<boolean>
     navigateToSubModeKey: (toKey: string, opts?: { replace?: boolean }) => boolean | void | Promise<boolean | void>
     /** 处理上下文模式变更 */
     handleContextModeChange: (mode: ContextMode) => Promise<void>
@@ -310,6 +311,7 @@ const buildSaveFavoriteReproducibilityPrefill = (
 export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
     const {
         navigateToSubModeKey,
+        beforeApplyToWorkspace,
         handleContextModeChange,
         optimizerPrompt,
         t,
@@ -704,6 +706,7 @@ export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
             // 图像模式：根据 favImageSubMode 确定目标子模式（默认 text2image）
             const targetSubMode = favoriteMode.imageSubMode || 'text2image'
 
+            if (beforeApplyToWorkspace && !(await beforeApplyToWorkspace(targetKey))) return false
             const didNavigate = await navigateToSubModeKey(targetKey)
             if (didNavigate === false) return false
             toast.info(t('toast.info.switchedToImageMode'))
@@ -753,6 +756,7 @@ export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
 
             // 3. 一次性导航到目标路由
             const resolvedTargetKey = targetKey || `${targetFunctionMode}-${targetSubMode}`
+            if (beforeApplyToWorkspace && !(await beforeApplyToWorkspace(resolvedTargetKey))) return false
             const didNavigate = await navigateToSubModeKey(resolvedTargetKey)
             if (didNavigate === false) return false
 

@@ -14,6 +14,7 @@
     <NConfigProvider
         :theme="naiveTheme"
         :theme-overrides="themeOverrides"
+        :style="isCompact ? { '--compact-accent': themeOverrides.common?.primaryColor } : undefined"
         :hljs="hljsInstance"
     >
         <div v-if="isInitializing" class="loading-container">
@@ -29,6 +30,14 @@
         </div>
         <template v-else>
             <MainLayoutUI>
+                <template #mobile-nav>
+                    <CompactNavigation
+                        :workspace-path="activeWorkspaceContextPath"
+                        :app-version="appVersion"
+                        :backup-reminder-due="dataBackupReminderDue"
+                        @action="handleMobileAction"
+                    />
+                </template>
                 <!-- Title Slot -->
                 <template #title>
                     {{ t("promptOptimizer.title") }}
@@ -263,6 +272,12 @@ hljs.registerLanguage("json", jsonLang);
 
 // 内部组件导入
 import MainLayoutUI from '../MainLayout.vue'
+import CompactNavigation from './CompactNavigation.vue'
+import { useBasicWorkspaceView } from '../../composables/ui/useBasicWorkspaceView'
+import { useWorkspaceLayout } from '../../composables/ui/useWorkspaceLayout'
+const { isCompact, keyboardViewportHeight, keyboardViewportTop } = useWorkspaceLayout()
+import '../../styles/compact-workspace.css'
+
 import ModelManagerUI from '../ModelManager.vue'
 import TemplateManagerUI from '../TemplateManager.vue'
 import HistoryDrawerUI from '../HistoryDrawer.vue'
@@ -727,6 +742,9 @@ const isCompareMode = ref(true);
 
 // Naive UI 主题配置
 const { naiveTheme, themeOverrides, initTheme } = useNaiveTheme();
+watch(() => naiveTheme.value?.name, (theme) => {
+    if (typeof document !== 'undefined') document.documentElement.dataset.workspaceTheme = theme === 'dark' ? 'dark' : 'light';
+}, { immediate: true });
 
 // 初始化主题系统
 if (typeof window !== "undefined") {
@@ -734,6 +752,31 @@ if (typeof window !== "undefined") {
 }
 
 // 变量管理状态
+const handleMobileAction = (action: string) => {
+    if (action === 'favorites') openFavoritesPage();
+    else if (action === 'history') historyManager.showHistory = true;
+    else if (action === 'templates') openTemplateManager();
+    else if (action === 'models') openModelManager();
+    else if (action === 'variables') handleOpenVariableManager();
+    else if (action === 'data') showDataManager.value = true;
+    else if (action === 'docs') openDocumentationSite();
+    else if (action === 'website') openOfficialWebsite();
+    else if (action === 'github') openGithubRepo();
+};
+watch(isCompact, (compact) => {
+    if (typeof document !== 'undefined') document.documentElement.classList.toggle('workspace-compact', compact);
+}, { immediate: true });
+watch([isCompact, keyboardViewportHeight, keyboardViewportTop], ([compact, height, top]) => {
+    if (typeof document === 'undefined') return;
+    const style = document.documentElement.style;
+    if (compact && height !== undefined) {
+        style.setProperty('--compact-viewport-height', `${height}px`);
+        style.setProperty('--compact-viewport-top', `${top}px`);
+    } else {
+        style.removeProperty('--compact-viewport-height');
+        style.removeProperty('--compact-viewport-top');
+    }
+}, { immediate: true });
 const showVariableManager = ref(false);
 const focusVariableName = ref<string | undefined>(undefined);
 
@@ -1659,9 +1702,39 @@ const saveSessionForTargetKey = async (targetKey: string) => {
     await session.saveSession();
 };
 
+// Mobile-only safeguard; retain the existing desktop history/favorite flow.
+const beforeApplyToWorkspace = async (targetKey: string) => {
+    if (!isCompact.value) return true;
+    if (targetKey === 'pro-multi' || targetKey === 'pro-variable' ||
+        targetKey === 'image-text2image' || targetKey === 'image-image2image' ||
+        targetKey === 'image-multiimage') {
+        useBasicWorkspaceView(targetKey).resetView();
+        return true;
+    }
+    if (targetKey !== 'basic-system' && targetKey !== 'basic-user') return true;
+    const session = targetKey === 'basic-system' ? basicSystemSession : basicUserSession;
+    let savedPrompt = '';
+    let savedOriginal = '';
+    if (session.versionId && services.value?.historyManager) {
+        try {
+            const record = await services.value.historyManager.getRecord(session.versionId);
+            savedPrompt = record.optimizedPrompt || '';
+            savedOriginal = record.originalPrompt || '';
+        } catch { /* Missing history must not silently discard a draft. */ }
+    }
+    const dirty = (session.optimizedPrompt || '') !== savedPrompt || (session.prompt || '') !== savedOriginal;
+    if (dirty && !(await confirmDialog.warning({
+        title: t('common.warning'), content: t('prompt.unsavedChangesConfirm'),
+        positiveText: t('common.confirm'), negativeText: t('common.cancel'),
+    }))) return false;
+    useBasicWorkspaceView(targetKey === 'basic-system' ? 'system' : 'user').resetView();
+    return true;
+};
+
 // App 级别历史记录恢复
 const { handleHistoryReuse } = useAppHistoryRestore({
     services: servicesForHistoryRestore,
+    beforeApplyToWorkspace,
     navigateToSubModeKey: navigateToSubModeKeyCompat,  // 🔧 Step D: 替代旧的 setFunctionMode/set*SubMode
     handleContextModeChange,
     handleSelectHistory: promptHistory.handleSelectHistory,
@@ -1683,6 +1756,7 @@ const {
     handleSaveFavoriteComplete,
     handleUseFavorite,
 } = useAppFavorite({
+    beforeApplyToWorkspace,
     navigateToSubModeKey: navigateToSubModeKeyCompat,  // 🔧 Step D: 替代旧的 setFunctionMode/set*SubMode
     handleContextModeChange,
     optimizerPrompt,

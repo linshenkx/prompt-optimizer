@@ -52,6 +52,8 @@ export interface TestVariantConfig {
 }
 
 export interface TestVariantResult {
+  /** Resolved prompt sent for this answer, independent of later edits. */
+  requestPrompt?: string
   result: string
   reasoning: string
 }
@@ -479,10 +481,10 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
 
         const coerceVariantResult = (value: unknown): TestVariantResult | null => {
           if (!value || typeof value !== 'object') return null
-          const v = value as { result?: unknown; reasoning?: unknown }
+          const v = value as { result?: unknown; reasoning?: unknown; requestPrompt?: unknown }
           if (typeof v.result !== 'string') return null
           if (typeof v.reasoning !== 'string') return null
-          return { result: v.result, reasoning: v.reasoning }
+          return { result: v.result, reasoning: v.reasoning, ...(typeof v.requestPrompt === 'string' ? { requestPrompt: v.requestPrompt } : {}) }
         }
 
         const ids: TestVariantId[] = ['a', 'b', 'c', 'd']
