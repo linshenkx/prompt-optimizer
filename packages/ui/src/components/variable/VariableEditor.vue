@@ -88,11 +88,11 @@
 </template>
 
 <script setup lang="ts">
+import NModal from '../common/AdaptiveModal.vue'
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 
 import { useI18n } from "vue-i18n";
 import {
-    NModal,
     NForm,
     NFormItem,
     NInput,

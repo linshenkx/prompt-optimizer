@@ -78,10 +78,10 @@
     @positive-click="handleConfirmCustom"
   >
     <NSpace vertical :size="12">
-      <NFormItem :label="t('modelManager.advancedParameters.customKeyPlaceholder')">
+      <NFormItem :label="t('modelManager.advancedParameters.customKeyPlaceholder')" :label-placement="isCompact ? 'top' : undefined" :label-width="isCompact ? 0 : undefined">
         <NInput v-model:value="customForm.key" size="small" :placeholder="t('modelManager.advancedParameters.customKeyPlaceholder')" />
       </NFormItem>
-      <NFormItem :label="t('modelManager.advancedParameters.customValuePlaceholder')">
+      <NFormItem :label="t('modelManager.advancedParameters.customValuePlaceholder')" :label-placement="isCompact ? 'top' : undefined" :label-width="isCompact ? 0 : undefined">
         <NInput
           v-model:value="customForm.value"
           type="textarea"
@@ -115,6 +115,7 @@ import {
 } from 'naive-ui'
 import { isSafeCustomKey, parseCustomValue, type UnifiedParameterDefinition } from '@prompt-optimizer/core'
 import ModelParameterEditor from './ModelParameterEditor.vue'
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
 
 const props = defineProps({
   mode: {
@@ -144,6 +145,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { isCompact } = useWorkspaceLayout()
 const message = resolveMessageApi()
 
 const expandedNames = ref<string[]>([])

@@ -65,9 +65,10 @@
 </template>
 
 <script setup lang="ts">
+import NModal from "./common/AdaptiveModal.vue"
 import { computed, inject, ref, watch, type Ref } from 'vue'
 
-import { NAlert, NButton, NButtonGroup, NModal, NSelect, NSpace } from 'naive-ui'
+import { NAlert, NButton, NButtonGroup,  NSelect, NSpace } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import type { FavoritePrompt } from '@prompt-optimizer/core'
 

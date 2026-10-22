@@ -1,5 +1,5 @@
 <template>
-  <NModal
+  <AdaptiveModal class="image-model-edit-modal"
     :show="show"
     preset="card"
     :title="isEditing ? t('modelManager.editModel') : t('modelManager.addImageModel')"
@@ -10,7 +10,7 @@
     @update:show="(value) => !value && close()"
   >
     <form @submit.prevent="save">
-        <NForm label-placement="left" label-width="auto" size="small">
+        <NForm :label-placement="isCompact ? 'top' : 'left'" :label-width="isCompact ? undefined : 'auto'" size="small">
           <!-- 基本信息区域 -->
           <NFormItem :label="t('image.config.displayName.label')">
             <NInput v-model:value="configForm.name" :placeholder="t('image.config.displayName.placeholder')" required />
@@ -96,7 +96,7 @@
           <NH4 style="margin: 0 0 12px 0; font-size: 14px;">{{ t('image.model.section') }}</NH4>
 
           <NFormItem :label="t('image.model.label')">
-            <NSpace align="center" style="width: 100%;">
+            <NSpace class="image-model-picker-row" align="center" style="width: 100%;">
               <NSelect
                 v-model:value="configForm.modelId"
                 :options="modelOptions"
@@ -231,21 +231,23 @@
         {{ connectionStatus.detail }}
       </NText>
     </template>
-  </NModal>
+  </AdaptiveModal>
 </template>
 
 <script setup lang="ts">
+import AdaptiveModal from './common/AdaptiveModal.vue'
 import ModelNetworkStatus from './ModelNetworkStatus.vue'
 import { computed, watch, nextTick, h } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import {
-  NModal, NSpace, NInput, NInputNumber,
+  NSpace, NInput, NInputNumber,
   NCheckbox, NSelect, NButton, NTag, NText,
   NDivider, NH4, NForm, NFormItem, useDialog
 } from 'naive-ui'
 import { useImageModelManager } from '../composables/model/useImageModelManager'
 import { useToast } from '../composables/ui/useToast'
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
 import { isRunningInElectron, type ImageModelConfig } from '@prompt-optimizer/core'
 import ModelAdvancedSection from './ModelAdvancedSection.vue'
 import ProviderPillSelect from './ProviderPillSelect.vue'
@@ -255,6 +257,7 @@ import ThemedTooltip from './common/ThemedTooltip.vue'
 
 
 const { t } = useI18n()
+const { isCompact } = useWorkspaceLayout()
 const toast = useToast()
 const dialog = useDialog()
 

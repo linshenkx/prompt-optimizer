@@ -1,6 +1,7 @@
 <template>
   <NModal
     :show="show"
+    :auto-focus="!isCompact"
     preset="card"
     :style="{ width: '90vw', maxWidth: '1200px', maxHeight: '85vh' }"
     :title="t('history.title')"
@@ -219,16 +220,18 @@
 </template>
 
 <script setup lang="ts">
+import NModal from "./common/AdaptiveModal.vue"
 import { ref, watch, computed, type PropType } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import {
-  NModal, NScrollbar, NSpace, NCard, NText, NTag, NButton, 
+   NScrollbar, NSpace, NCard, NText, NTag, NButton,
   NDivider, NCollapse, NCollapseItem, NEmpty, NInput
 } from 'naive-ui'
 import type { PromptRecord, PromptRecordChain } from '@prompt-optimizer/core'
 import { useConfirmDialog } from '../composables/ui/useConfirmDialog'
 import { useToast } from '../composables/ui/useToast'
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
 import SourceAssetBadge from './source/SourceAssetBadge.vue'
 import { extractHistorySourceBinding } from '../utils/history-source-binding'
 import { resolveSourceAssetRef } from '../utils/source-asset'
@@ -242,6 +245,7 @@ const props = defineProps({
 })
 
 const { t } = useI18n()
+const { isCompact } = useWorkspaceLayout()
 
 const emit = defineEmits<{
   (e: 'update:show', value: boolean): void

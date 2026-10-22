@@ -765,10 +765,11 @@
 </template>
 
 <script setup lang="ts">
+import NModal from "./common/AdaptiveModal.vue"
 import { ref, computed, inject, onMounted, onUnmounted, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-  NModal, NText, NButton, NUpload, NUploadDragger,
+   NText, NButton, NUpload, NUploadDragger,
   NIcon, NCheckbox, NRadio, NRadioGroup, NSelect, NInput, NProgress, NTag,
   NCollapse, NCollapseItem,
   type UploadFileInfo,

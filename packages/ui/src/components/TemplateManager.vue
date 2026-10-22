@@ -28,7 +28,8 @@
     </template>
 
     <!-- 类型切换：一行网格自动分两行，每行三列，按钮全宽（更易扩展） -->
-    <NGrid :cols="3" :x-gap="8" :y-gap="8">
+    <NSelect v-if="isCompact" v-model:value="currentCategory" :options="mobileCategoryOptions" size="large" :aria-label="t('workspace.templateCategory')" />
+    <NGrid v-else class="compact-template-categories" :cols="3" :x-gap="8" :y-gap="8">
       <NGridItem>
         <NButton block :type="currentCategory==='system-optimize' ? 'primary' : 'default'" @click="currentCategory='system-optimize'">
           {{ `🎯 ${t('templateManager.optimizeTemplates')}` }}
@@ -259,6 +260,7 @@
     <!-- 查看/编辑模态框 -->
     <NModal
       :show="!!(showAddForm || editingTemplate || viewingTemplate)"
+      class="template-editor-modal"
       preset="card"
       :style="{ width: '90vw', maxWidth: '1200px' }"
       :title="getEditModalTitle()"
@@ -633,11 +635,15 @@
 </template>
 
 <script setup lang="ts">
+import NModal from "./common/AdaptiveModal.vue"
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
+const { isCompact } = useWorkspaceLayout()
+
 import { ref, onMounted, computed, watch, nextTick, inject } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import {
-  NModal, NCard, NButton, NTag, NInput,
+   NCard, NButton, NTag, NInput,
   NSelect, NSpace, NText, NH3, NH4, NScrollbar,
   NCode,
   NGrid, NGridItem, NEl
@@ -1387,6 +1393,17 @@ const close = () => {
   emit('update:show', false)
   emit('close')
 }
+const mobileCategoryOptions = computed(() => [
+  { value: 'system-optimize', label: t('templateManager.optimizeTemplates') },
+  { value: 'user-optimize', label: t('templateManager.userOptimizeTemplates') },
+  { value: props.basicSubMode === 'system' ? 'basic-system-iterate' : 'basic-user-iterate', label: t('templateManager.iterateTemplates') },
+  { value: 'context-system-optimize', label: t('templateManager.optimizeTemplatesContext') },
+  { value: 'context-user-optimize', label: t('templateManager.userOptimizeTemplatesContext') },
+  { value: 'context-iterate', label: t('templateManager.iterateTemplatesContext') },
+  { value: 'image-text2image-optimize', label: t('templateManager.imageText2ImageTemplates') },
+  { value: 'image-image2image-optimize', label: t('templateManager.imageImage2ImageTemplates') },
+  { value: 'image-iterate', label: t('templateManager.imageIterateTemplates') },
+])
 </script>
 
 <style scoped>

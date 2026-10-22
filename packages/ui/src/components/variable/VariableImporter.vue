@@ -155,11 +155,12 @@
 </template>
 
 <script setup lang="ts">
+import NModal from '../common/AdaptiveModal.vue'
 import { ref, computed, watch } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import { 
-  NModal, NButton, NTabs, NTabPane, NUpload, NUploadDragger, NText, 
+  NButton, NTabs, NTabPane, NUpload, NUploadDragger, NText,
   NAlert, NUl, NLi, NFormItem, NInput, NSpace,
   NRadioGroup, NRadio, NCard, NList, NListItem, NScrollbar, NIcon,
   type UploadFileInfo 

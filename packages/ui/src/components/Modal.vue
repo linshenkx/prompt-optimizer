@@ -44,10 +44,11 @@
 </template>
 
 <script setup lang="ts">
+import NModal from "./common/AdaptiveModal.vue"
 import { computed, ref, watch } from 'vue'
 
 import { useI18n } from 'vue-i18n'
-import { NModal, NButton } from 'naive-ui'
+import {  NButton } from 'naive-ui'
 
 const { t } = useI18n()
 

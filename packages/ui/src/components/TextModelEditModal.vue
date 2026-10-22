@@ -301,14 +301,16 @@
 </template>
 
 <script setup lang="ts">
+import NModal from "./common/AdaptiveModal.vue"
 import ModelNetworkStatus from './ModelNetworkStatus.vue'
-import { computed, inject, nextTick, h } from 'vue'
+import { computed, inject, nextTick, h, ref, watch } from 'vue'
+import { useConfirmDialog } from '../composables/ui/useConfirmDialog'
 
 import { useI18n } from 'vue-i18n'
 import { useToast } from '../composables/ui/useToast'
 import { isRunningInElectron, validateCustomRequestHeaders, type CustomRequestHeaderInput } from '@prompt-optimizer/core'
 import {
-  NModal,
+
   NForm,
   NFormItem,
   NH4,
@@ -355,6 +357,14 @@ if (!manager) {
 const modalTitle = manager.modalTitle
 const form = manager.form
 const formReady = manager.formReady
+const confirmDialog = useConfirmDialog()
+const initialForm = ref('')
+let confirmingClose = false
+watch([() => show, formReady], async ([visible, ready]) => {
+  if (!visible || !ready) return
+  await nextTick()
+  initialForm.value = JSON.stringify(form.value)
+}, { immediate: true })
 const providerOptions = manager.providerOptions
 const isLoadingProviders = manager.isLoadingProviders
 const connectionFields = manager.connectionFields
@@ -559,7 +569,19 @@ const handleTestFormConnection = async () => {
   await runTest()
 }
 
-const handleUpdateShow = async (value: boolean) => {
+const handleUpdateShow = async (value: boolean, saved = false) => {
+  if (!value && !saved && initialForm.value && JSON.stringify(form.value) !== initialForm.value) {
+    if (confirmingClose) return
+    confirmingClose = true
+    const discard = await confirmDialog.warning({
+      title: t('common.warning'),
+      content: t('workspace.unsavedForm'),
+      positiveText: t('common.confirm'),
+      negativeText: t('common.cancel'),
+    })
+    confirmingClose = false
+    if (!discard) return
+  }
   emit('update:show', value)
 
   // 只有在明确关闭时才重置表单状态
@@ -574,7 +596,7 @@ const handleSubmit = async () => {
   try {
     const id = await manager.saveForm()
     emit('saved', id || undefined)
-    handleUpdateShow(false)
+    await handleUpdateShow(false, true)
   } catch (error) {
     console.error('Failed to save model:', error)
 

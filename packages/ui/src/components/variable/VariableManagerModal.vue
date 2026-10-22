@@ -155,6 +155,16 @@
                     </NEmpty>
                 </div>
 
+                <div v-else-if="isCompact" class="compact-variable-list">
+                    <article v-for="variable in customVariables" :key="variable.name" class="compact-variable-row">
+                        <strong>{{ variable.name }}</strong>
+                        <pre>{{ variable.value }}</pre>
+                        <NSpace justify="end">
+                            <NButton :disabled="props.readonly || loading" @click="editVariable(variable)">{{ t('common.edit') }}</NButton>
+                            <NButton :disabled="props.readonly || loading" @click="deleteVariable(variable.name)">{{ t('common.delete') }}</NButton>
+                        </NSpace>
+                    </article>
+                </div>
                 <NDataTable
                     v-else
                     :columns="customTableColumns"
@@ -167,7 +177,7 @@
                 />
 
                 <!-- 快速添加表单 -->
-                <template #footer>
+                <template v-if="!isCompact" #footer>
                     <NDivider />
                     <div>
                         <NText
@@ -342,11 +352,14 @@
 </template>
 
 <script setup lang="ts">
+import NModal from "../common/AdaptiveModal.vue"
+import { useWorkspaceLayout } from '../../composables/ui/useWorkspaceLayout'
+const { isCompact } = useWorkspaceLayout()
 import { ref, computed, watch, h } from 'vue'
 
 import { useI18n } from "vue-i18n";
 import {
-    NModal,
+
     NButton,
     NSpace,
     NTag,
@@ -362,7 +375,7 @@ import {
     NDivider,
     NIcon,
     type DataTableColumns,
-} from "naive-ui";
+} from 'naive-ui';
 import { useResponsive } from "../../composables/ui/useResponsive";
 import { useClipboard } from "../../composables/ui/useClipboard";
 import { useConfirmDialog } from "../../composables/ui/useConfirmDialog";

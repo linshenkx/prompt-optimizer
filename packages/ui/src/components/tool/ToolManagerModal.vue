@@ -1,5 +1,5 @@
 <template>
-    <NModal
+    <AdaptiveModal
         v-model:show="localVisible"
         preset="card"
         :title="title || t('contextEditor.toolsTab')"
@@ -173,10 +173,10 @@
                 </NButton>
             </NSpace>
         </template>
-    </NModal>
+    </AdaptiveModal>
 
     <!-- 工具编辑器 -->
-    <NModal
+    <AdaptiveModal
         v-model:show="showEditor"
         preset="card"
         :title="
@@ -254,14 +254,15 @@
                 </NButton>
             </NSpace>
         </template>
-    </NModal>
+    </AdaptiveModal>
 </template>
 
 <script setup lang="ts">
+import AdaptiveModal from '../common/AdaptiveModal.vue'
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-    NModal,
+
     NCard,
     NButton,
     NSpace,

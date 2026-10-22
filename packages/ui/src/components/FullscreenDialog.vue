@@ -19,7 +19,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import { NModal, NFlex } from 'naive-ui'
+import { NFlex } from 'naive-ui'
+import NModal from './common/AdaptiveModal.vue'
 
 const props = defineProps({
   modelValue: {
