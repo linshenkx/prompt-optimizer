@@ -16,6 +16,11 @@ vi.mock('../../../src/utils/remote-snapshot-backup', async (importOriginal) => {
   }
 })
 
+const compactViewport = ref(false)
+vi.mock('../../../src/composables/ui/useWorkspaceLayout', () => ({
+  useWorkspaceLayout: () => ({ isCompact: compactViewport }),
+}))
+
 import DataManager from '../../../src/components/DataManager.vue'
 
 const isRunningInElectronMock = vi.fn(() => false)
@@ -195,6 +200,7 @@ const mountComponent = (services = createServices()) =>
 
 describe('DataManager storage breakdown', () => {
   beforeEach(() => {
+    compactViewport.value = false
     isRunningInElectronMock.mockReset()
     isRunningInElectronMock.mockReturnValue(false)
     getEnvVarMock.mockReset()
@@ -729,4 +735,47 @@ describe('DataManager storage breakdown', () => {
 
     expect(buttons.every((button) => (button.element as HTMLButtonElement).disabled)).toBe(true)
   })
+  it('preserves a mobile remote draft across tasks and resizing without connecting or reloading', async () => {
+    compactViewport.value = true
+    const services = createServices()
+    const wrapper = mountComponent(services)
+    await flushPromises()
+    expect(wrapper.get('[data-testid="data-manager-tasks"]').isVisible()).toBe(true)
+    expect(wrapper.get('.data-manager-section--remote').attributes('style')).toContain('display: none')
+    await wrapper.get('[data-testid="data-manager-task-remote"]').trigger('click')
+    await flushPromises()
+    const scrollShell = wrapper.get('.data-manager-scroll-shell').element as HTMLElement
+    scrollShell.scrollTop = 240
+    const remote = wrapper.get('.data-manager-section--remote')
+    remote.getComponent('.n-select').vm.$emit('update:value', 'webdav')
+    await flushPromises()
+    const endpoint = remote.findAll('input')[0]
+    await endpoint.setValue('https://mobile-draft.invalid/dav')
+    const endpointNode = endpoint.element
+    const storageLoads = services.imageStorageService.getStorageStats.mock.calls.length
+    wrapper.findComponent({ name: 'NModal' }).vm.$emit('update:show', false)
+    await flushPromises()
+    expect(wrapper.emitted('close')).toBeUndefined()
+    expect(wrapper.get('[data-testid="data-manager-tasks"]').isVisible()).toBe(true)
+    expect(scrollShell.scrollTop).toBe(0)
+    await wrapper.get('[data-testid="data-manager-task-remote"]').trigger('click')
+    await flushPromises()
+    expect(scrollShell.scrollTop).toBe(240)
+    wrapper.findComponent({ name: 'NModal' }).vm.$emit('update:show', false)
+    await flushPromises()
+    await wrapper.get('[data-testid="data-manager-task-export"]').trigger('click')
+    expect(wrapper.get('.local-transfer-row--import').attributes('style')).toContain('display: none')
+    compactViewport.value = false
+    await flushPromises()
+    expect(wrapper.get('.data-manager-section--remote').attributes('style') || '').not.toContain('display: none')
+    expect(remote.findAll('input')[0].element).toBe(endpointNode)
+    expect((endpointNode as HTMLInputElement).value).toBe('https://mobile-draft.invalid/dav')
+    compactViewport.value = true
+    await flushPromises()
+    expect(services.imageStorageService.getStorageStats.mock.calls.length).toBe(storageLoads)
+    expect(remoteSnapshotMocks.listRemoteSnapshotBackups).not.toHaveBeenCalled()
+    expect(remoteSnapshotMocks.restoreRemoteSnapshotBackup).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
 })

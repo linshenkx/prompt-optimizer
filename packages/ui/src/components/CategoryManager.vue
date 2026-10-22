@@ -1,5 +1,5 @@
 <template>
-  <div class="category-manager">
+  <div class="category-manager" :class="{ 'category-manager--compact': isCompact }">
     <!-- 工具栏 -->
     <div class="toolbar">
       <n-space>
@@ -9,14 +9,14 @@
           </template>
           {{ t('favorites.categoryManager.addRootCategory') }}
         </n-button>
-        <n-button @click="handleExpandAll">
-          <template #icon>
+        <n-button :text="isCompact" @click="handleExpandAll">
+          <template v-if="!isCompact" #icon>
             <n-icon><ArrowsMaximize /></n-icon>
           </template>
           {{ t('favorites.categoryManager.expandAll') }}
         </n-button>
-        <n-button @click="handleCollapseAll">
-          <template #icon>
+        <n-button :text="isCompact" @click="handleCollapseAll">
+          <template v-if="!isCompact" #icon>
             <n-icon><ArrowsMinimize /></n-icon>
           </template>
           {{ t('favorites.categoryManager.collapseAll') }}
@@ -51,8 +51,8 @@
         ref="formRef"
         :model="categoryForm"
         :rules="formRules"
-        label-placement="left"
-        label-width="80"
+        :label-placement="isCompact ? 'top' : 'left'"
+        :label-width="isCompact ? undefined : 80"
       >
         <n-form-item :label="t('favorites.categoryManager.categoryName')" path="name">
           <n-input
@@ -132,7 +132,6 @@ import {
   NIcon,
   NSpace,
   NTree,
-  NModal,
   NForm,
   NFormItem,
   NInput,
@@ -150,14 +149,18 @@ import {
   Edit,
   Trash,
   Plus,
-  Folder
+  Folder,
+  DotsVertical
 } from '@vicons/tabler';
 import { useToast } from '../composables/ui/useToast';
 import { useI18n } from 'vue-i18n';
 import { getI18nErrorMessage } from '../utils/error';
 import type { FavoriteCategory } from '@prompt-optimizer/core';
 import type { AppServices } from '../types/services';
+import NModal from './common/AdaptiveModal.vue';
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout';
 
+const { isCompact } = useWorkspaceLayout();
 const services = inject<Ref<AppServices | null> | null>('services', null);
 const message = useToast();
 const { t } = useI18n();
@@ -300,13 +303,19 @@ const renderSuffix = ({ option }: { option: TreeOption }): VNodeChild => {
         NDropdown,
         {
           options: dropdownOptions,
+          trigger: isCompact.value ? 'click' : 'hover',
           onSelect: (key: string) => handleNodeAction(key, cat)
         },
         {
           default: () => h(
             NButton,
-            { text: true, size: 'small' },
-            { icon: () => h(NIcon, { size: 16 }, { default: () => h(Edit) }) }
+            {
+              text: !isCompact.value,
+              quaternary: isCompact.value,
+              size: 'small',
+              'aria-label': `${t('favorites.manager.tagManager.actions')}: ${cat.name}`,
+            },
+            { icon: () => h(NIcon, { size: 16 }, { default: () => h(isCompact.value ? DotsVertical : Edit) }) }
           )
         }
       )
@@ -547,5 +556,43 @@ watch(() => services?.value?.favoriteManager, (favoriteManager) => {
 
 :deep(.n-tree-node-content:hover) {
   background: var(--n-hover-color);
+}
+
+.category-manager--compact {
+  min-height: 0;
+}
+
+.category-manager--compact .toolbar {
+  flex-shrink: 0;
+  padding: 8px 0 12px;
+}
+
+.category-manager--compact .toolbar :deep(.n-space) {
+  align-items: center;
+  gap: 8px !important;
+}
+
+.category-manager--compact .toolbar :deep(.n-button) {
+  min-height: 40px;
+}
+
+.category-manager--compact .tree-container {
+  min-height: 0;
+  padding: 8px 0;
+}
+
+.category-manager--compact :deep(.n-tree-node-content) {
+  min-width: 0;
+}
+
+.category-manager--compact :deep(.n-tree-node-content__text) {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.category-manager--compact :deep(.tree-suffix .n-button) {
+  min-width: 40px;
+  min-height: 40px;
 }
 </style>

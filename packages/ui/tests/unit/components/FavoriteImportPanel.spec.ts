@@ -7,6 +7,11 @@ import FavoriteImportPanel from '../../../src/components/FavoriteImportPanel.vue
 import { createFavoriteResourcePackage } from '../../../src/utils/favorite-resource-package'
 import { createFavoriteShareHtml } from '../../../src/utils/favorite-share-export'
 
+const compactViewport = ref(false)
+vi.mock('../../../src/composables/ui/useWorkspaceLayout', () => ({
+  useWorkspaceLayout: () => ({ isCompact: compactViewport }),
+}))
+
 const toastMock = vi.hoisted(() => ({
   success: vi.fn(),
   error: vi.fn(),
@@ -125,6 +130,7 @@ const mountPanel = (services: Record<string, unknown>, shallow = true) =>
 
 describe('FavoriteImportPanel', () => {
   beforeEach(() => {
+    compactViewport.value = false
     toastMock.success.mockReset()
     toastMock.error.mockReset()
     toastMock.warning.mockReset()
@@ -142,6 +148,33 @@ describe('FavoriteImportPanel', () => {
     expect(wrapper.text()).toContain('Same upload entry supports')
     expect(wrapper.text()).toContain('share .html/.htm')
     expect(wrapper.text()).toContain('original .png')
+  })
+
+  it('keeps a pasted draft and overwrite choice across compact layouts and submits only on explicit import', async () => {
+    const favoriteManager = {
+      importFavorites: vi.fn(async () => ({ imported: 1, skipped: 0, errors: [] })),
+    }
+    compactViewport.value = true
+    const wrapper = mountPanel({ favoriteManager }, false)
+    const groups = wrapper.findAllComponents('.n-radio-group')
+    groups[0].vm.$emit('update:value', 'paste')
+    groups[1].vm.$emit('update:value', 'overwrite')
+    await flushPromises()
+    const input = wrapper.get('[data-testid="favorite-import-paste"] textarea')
+    const payload = JSON.stringify({ favorites: [{ title: 'Long draft', content: 'prompt\n'.repeat(100) }] })
+    await input.setValue(payload)
+    compactViewport.value = false
+    await flushPromises()
+    compactViewport.value = true
+    await flushPromises()
+    expect(wrapper.get('[data-testid="favorite-import-paste"] textarea').element).toBe(input.element)
+    expect((input.element as HTMLTextAreaElement).value).toBe(payload)
+    expect(favoriteManager.importFavorites).not.toHaveBeenCalled()
+    await wrapper.get('.favorite-import-panel__buttons').findAll('button')[1].trigger('click')
+    await flushPromises()
+    expect(favoriteManager.importFavorites).toHaveBeenCalledExactlyOnceWith(payload, { mergeStrategy: 'overwrite' })
+    expect(wrapper.emitted('imported')).toHaveLength(1)
+    wrapper.unmount()
   })
 
   it('keeps legacy JSON file import on the file path', async () => {
