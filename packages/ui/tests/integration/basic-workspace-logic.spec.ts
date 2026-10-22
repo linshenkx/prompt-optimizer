@@ -451,4 +451,33 @@ describe('Basic workspace logic (smoke)', () => {
 
     consoleErrorSpy.mockRestore()
   })
+  it('restores the exact workspace and reasoning after a failed iteration so it can be retried', async () => {
+    const sessionStore = reactive({
+      prompt: 'original', optimizedPrompt: 'edited draft', reasoning: 'previous reasoning',
+      chainId: 'chain-1', versionId: 'ver-1', testContent: 'test',
+      selectedOptimizeModelKey: 'model-1', selectedTestModelKey: 'model-1',
+      selectedTemplateId: 'template-1', selectedIterateTemplateId: 'iterate-1', isCompareMode: false,
+      updatePrompt: vi.fn(), updateOptimizedResult: vi.fn(), updateTestContent: vi.fn(),
+      updateOptimizeModel: vi.fn(), updateTestModel: vi.fn(), updateTemplate: vi.fn(),
+      updateIterateTemplate: vi.fn(), saveSession: vi.fn(),
+    })
+    const services = ref({
+      promptService: { iteratePromptStream: vi.fn(async (_original, previous, _note, _model, callbacks) => {
+        expect(previous).toBe('edited draft')
+        callbacks.onToken('partial response')
+        callbacks.onReasoningToken('partial reasoning')
+        throw new Error('network interrupted')
+      }) },
+      historyManager: { addIteration: vi.fn() },
+    } as unknown as AppServices)
+    const logic = useBasicWorkspaceLogic({ services, sessionStore, optimizationMode: 'system', promptRecordType: 'optimize' })
+    await logic.handleIterate({ originalPrompt: 'original', optimizedPrompt: 'edited draft', iterateInput: 'shorter' })
+    expect(sessionStore.optimizedPrompt).toBe('edited draft')
+    expect(sessionStore.reasoning).toBe('previous reasoning')
+    expect(sessionStore.versionId).toBe('ver-1')
+    expect(sessionStore.saveSession).not.toHaveBeenCalled()
+    expect(services.value.historyManager.addIteration).not.toHaveBeenCalled()
+    expect(logic.isIterating.value).toBe(false)
+  })
+
 })
