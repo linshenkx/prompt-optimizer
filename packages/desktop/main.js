@@ -22,6 +22,11 @@ const consoleLogger = new ConsoleLogger();
 // 立即设置全局错误处理器，确保任何异常都能被记录
 consoleLogger.setupGlobalErrorHandlers();
 
+console.info('[prompt-optimizer/runtime]', {
+  node: process.versions.node,
+  electron: process.versions.electron,
+});
+
 const { app, BrowserWindow, ipcMain, shell, session, Menu, nativeImage } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const {

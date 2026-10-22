@@ -3,15 +3,23 @@
   "private": true,
   "version": "0.1.0",
   "packageManager": "pnpm@10.6.1",
+  "engines": {
+    "node": "^24.22.1"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
   "devDependencies": {
-    "vite": "^7.3.6"
+    "vite": "^7.3.7"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "source-map-js@^1.0.0": "^1.2.2"
+    }
   }
 }

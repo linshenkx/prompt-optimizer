@@ -31,7 +31,7 @@
     "msw": "^2.12.14",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",

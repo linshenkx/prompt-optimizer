@@ -26,7 +26,7 @@
   "author": "Prompt Optimizer Team",
   "license": "AGPL-3.0-only",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "@prompt-optimizer/core": "workspace:*",
     "debug": "^4.4.3",
     "dotenv": "^17.3.1",
@@ -43,10 +43,10 @@
     "globals": "^17.4.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   },
   "engines": {
-    "node": "^24.0.0"
+    "node": "^24.22.1"
   },
   "files": [
     "bin",

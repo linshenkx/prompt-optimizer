@@ -364,6 +364,7 @@ async function main() {
     const port = parseInt(args.find(arg => arg.startsWith('--port='))?.split('=')[1] || config.httpPort.toString());
 
     logger.info('Starting MCP Server for Prompt Optimizer');
+    logger.info(`Node.js runtime: ${process.version}`);
     logger.info(`Transport: ${transport}, Port: ${port}`);
 
     // 初始化 Core 服务（一次性，用于验证配置）

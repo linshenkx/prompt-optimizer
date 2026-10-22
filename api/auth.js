@@ -1,3 +1,5 @@
+console.info(`[prompt-optimizer/runtime] Node.js ${process.version}`);
+
 export default function handler(req, res) {
   // 设置CORS头
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -60,4 +62,4 @@ export default function handler(req, res) {
   }
 
   res.status(405).json({ error: 'Method not allowed' });
-} 
+}

@@ -42,10 +42,10 @@
     "@vicons/tabler": "^0.13.0",
     "@vueuse/core": "^14.2.1",
     "codemirror": "^6.0.2",
-    "dompurify": "^3.4.15",
+    "dompurify": "^3.4.16",
     "fflate": "^0.8.3",
     "highlight.js": "^11.11.1",
-    "markdown-it": "^14.3.1",
+    "markdown-it": "^14.3.3",
     "naive-ui": "2.44.1",
     "pinia": "^3.0.4",
     "uuid": "^13.0.2",
@@ -71,8 +71,8 @@
     "postcss": "^8.5.28",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
-    "vite": "^8.3.0",
-    "vitest": "^4.1.11",
+    "vite": "^8.3.3",
+    "vitest": "^4.1.12",
     "vue-eslint-parser": "^10.4.0",
     "vue-tsc": "^3.2.6"
   }

@@ -20,7 +20,7 @@
   },
   "devDependencies": {
     "cross-env": "^10.1.0",
-    "electron": "^41.10.7",
+    "electron": "^44.9.3",
     "electron-builder": "^26.16.1"
   },
   "dependencies": {
@@ -29,7 +29,7 @@
     "dotenv": "^17.3.1",
     "electron-log": "^5.4.3",
     "electron-updater": "6.8.9",
-    "undici": "^7.29.1",
+    "undici": "^7.30.1",
     "webdav": "^5.10.0"
   },
   "build": {
