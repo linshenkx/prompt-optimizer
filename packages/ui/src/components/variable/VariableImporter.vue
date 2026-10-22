@@ -8,7 +8,8 @@
     :style="modalStyle"
     @after-leave="onAfterLeave"
     @close="cancel"
-    :mask-closable="true"
+    :mask-closable="!isCompact || !isBusy"
+    compact-class="mobile-variable-importer"
     @mask-click="cancel"
     @esc="cancel"
   >
@@ -26,8 +27,8 @@
             drag
           >
             <NUploadDragger>
-              <div style="text-align:center; padding: 24px;">
-                <NIcon size="48" style="display:block; margin: 0 auto 12px;">
+              <div :style="{ textAlign: 'center', padding: isCompact ? '12px' : '24px' }">
+                <NIcon :size="isCompact ? 32 : 48" style="display:block; margin: 0 auto 12px;">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
                   </svg>
@@ -78,7 +79,7 @@
               v-model:value="importText"
               type="textarea"
               :placeholder="getTextInputPlaceholder()"
-              :autosize="{ minRows: 10, maxRows: 15 }"
+              :autosize="isCompact ? { minRows: 5, maxRows: 10 } : { minRows: 10, maxRows: 15 }"
               :input-props="{ style: 'font-family: Monaco, Consolas, monospace; font-size: 13px;' }"
             />
             <template #feedback>
@@ -124,6 +125,8 @@
       </NCard>
     </div>
 
+    <NAlert v-if="isCompact && saveError" type="error">{{ saveError }}</NAlert>
+
     <!-- 错误信息 -->
     <NAlert v-if="error" type="error" size="small">
         <template #icon>
@@ -138,14 +141,14 @@
 
     <template #footer>
       <NSpace justify="end">
-        <NButton @click="cancel" :disabled="loading">
+        <NButton @click="cancel" :disabled="isBusy">
           {{ t('common.cancel') }}
         </NButton>
         <NButton 
           type="primary"
           @click="importVariables"
-          :disabled="!canImport || loading"
-          :loading="loading"
+          :disabled="!canImport || isBusy"
+          :loading="isBusy"
         >
           {{ t('variables.importer.import') }}
         </NButton>
@@ -166,7 +169,12 @@ import {
   type UploadFileInfo 
 } from 'naive-ui'
 
+import { useWorkspaceLayout } from '../../composables/ui/useWorkspaceLayout'
+import { useConfirmDialog } from '../../composables/ui/useConfirmDialog'
+
 const { t } = useI18n()
+const { isCompact } = useWorkspaceLayout()
+const confirmDialog = useConfirmDialog()
 
 interface Emits {
   (e: 'import', variables: Record<string, string>): void
@@ -176,16 +184,21 @@ interface Emits {
 const emit = defineEmits<Emits>()
 
 // 可见性（与父组件同步，用于一致的过渡动画）
-const props = defineProps<{ show?: boolean }>()
+const props = defineProps<{ show?: boolean; saving?: boolean; saveError?: string }>()
 const localVisible = computed({
   get: () => props.show ?? true,
-  set: (val: boolean) => emit('update:show', val)
+  set: (val: boolean) => {
+    if (!val && isCompact.value) void requestClose()
+    else emit('update:show', val)
+  }
 })
 
 const modalStyle = { width: '600px', maxWidth: '90vw' }
 
 // 状态管理
 const loading = ref(false)
+const isBusy = computed(() => loading.value || props.saving)
+const confirmingClose = ref(false)
 const activeMethod = ref<'file' | 'text'>('file')
 const importText = ref('')
 const error = ref('')
@@ -371,12 +384,31 @@ const onAfterLeave = () => {
   emit('cancel')
 }
 
+const requestClose = async () => {
+  if (isBusy.value || confirmingClose.value) return
+  if (importText.value.trim() || selectedFile.value) {
+    confirmingClose.value = true
+    try {
+      const discard = await confirmDialog.warning({
+        title: t('common.warning'),
+        content: t('workspace.unsavedForm'),
+        positiveText: t('common.confirm'),
+        negativeText: t('common.cancel'),
+      })
+      if (!discard) return
+    } finally {
+      confirmingClose.value = false
+    }
+  }
+  emit('update:show', false)
+}
+
 const cancel = () => {
   localVisible.value = false
 }
 
 const importVariables = () => {
-  if (!canImport.value) return
+  if (!canImport.value || isBusy.value) return
   
   try {
     loading.value = true
@@ -410,6 +442,15 @@ const importVariables = () => {
   }
 }
 
+// Reset only when opening a new mobile import, never on breakpoint changes.
+watch(() => props.show, (show) => {
+  if (!show || !isCompact.value) return
+  importText.value = ''
+  selectedFile.value = null
+  previewVariables.value = {}
+  error.value = ''
+})
+
 // 监听方法切换
 watch(activeMethod, () => {
   error.value = ''
@@ -439,5 +480,13 @@ watch([importText, textFormat], () => {
 </script>
 
 <style scoped>
-/* Pure Naive UI implementation - no custom theme CSS needed */
+:global(.workspace-compact .mobile-variable-importer .n-form-item-feedback-wrapper) {
+  min-height: 0;
+}
+:global(.workspace-compact .mobile-variable-importer .n-tabs-pane-wrapper) {
+  min-width: 0;
+}
+:global(.workspace-compact .mobile-variable-importer .n-list-item) {
+  overflow-wrap: anywhere;
+}
 </style>

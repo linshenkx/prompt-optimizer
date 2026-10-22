@@ -1,6 +1,8 @@
 <template>
   <NModal
     :show="show"
+    compact-class="template-manager--compact"
+    :auto-focus="!isCompact"
     preset="card"
     :style="{ width: '90vw', maxWidth: '1200px' }"
     :title="t('templateManager.title')"
@@ -12,6 +14,7 @@
     <template #header-extra>
       <NSpace>
         <NButton
+          v-if="!isCompact"
           quaternary
           circle
           @click="showSyntaxGuide = true"
@@ -28,7 +31,20 @@
     </template>
 
     <!-- 类型切换：一行网格自动分两行，每行三列，按钮全宽（更易扩展） -->
-    <NSelect v-if="isCompact" v-model:value="currentCategory" :options="mobileCategoryOptions" size="large" :aria-label="t('workspace.templateCategory')" />
+    <MobileTemplateList
+      v-if="isCompact"
+      v-model:category="currentCategory"
+      v-model:search="mobileSearch"
+      :templates="mobileFilteredTemplates"
+      :categories="mobileCategoryOptions"
+      :selected-id="getSelectedTemplateId()"
+      @add="addMobileTemplate"
+      @view="viewTemplate"
+      @edit="editTemplate"
+      @copy="copyTemplate"
+      @migrate="showMigrationDialog"
+      @delete="template => confirmDelete(template.id)"
+    />
     <NGrid v-else class="compact-template-categories" :cols="3" :x-gap="8" :y-gap="8">
       <NGridItem>
         <NButton block :type="currentCategory==='system-optimize' ? 'primary' : 'default'" @click="currentCategory='system-optimize'">
@@ -87,7 +103,7 @@
     </NGrid>
 
     <!-- 模板列表 -->
-    <NSpace vertical :size="16" style="margin-top: 16px;">
+    <NSpace v-if="!isCompact" vertical :size="16" style="margin-top: 16px;">
       <NSpace justify="space-between" align="center">
         <NSpace align="center">
           <NH3 style="margin: 0;">{{ getCurrentCategoryLabel() }}</NH3>
@@ -261,15 +277,17 @@
     <NModal
       :show="!!(showAddForm || editingTemplate || viewingTemplate)"
       class="template-editor-modal"
+      compact-class="template-editor-modal--compact"
+      :auto-focus="!isCompact"
       preset="card"
       :style="{ width: '90vw', maxWidth: '1200px' }"
-      :title="getEditModalTitle()"
+      :title="isCompact && viewingTemplate ? viewingTemplate.name : getEditModalTitle()"
       size="large"
       :bordered="false"
       :segmented="true"
-      @update:show="(value: boolean) => !value && cancelEdit()"
+      @update:show="(value: boolean) => !value && requestCancelEdit()"
     >
-      <template #header-extra>
+      <template v-if="!isCompact" #header-extra>
         <NSpace>
           <!-- 在查看或编辑时显示模板类型 -->
           <NTag
@@ -297,7 +315,18 @@
         </NSpace>
       </template>
 
-      <form @submit.prevent="handleSubmit" class="space-y-4">
+      <MobileTemplateEditor
+        v-if="isCompact"
+        v-model:form="form"
+        :readonly="!!viewingTemplate"
+        :saving="mobileSaving"
+        :preview="processedPreview"
+        @add-message="addMessage"
+        @remove-message="removeMessage"
+        @move-message="moveMessage"
+        @syntax="showSyntaxGuide = true"
+      />
+      <form v-else @submit.prevent="handleSubmit" class="space-y-4">
         <div>
           <label class="block text-sm font-medium mb-1.5">{{ t('template.name') }}</label>
           <NInput
@@ -515,14 +544,21 @@
       </form>
 
       <template #action>
-        <NSpace justify="end">
-          <NButton @click="cancelEdit">
+        <div v-if="isCompact && viewingTemplate" class="mobile-template-detail-actions">
+          <NButton v-if="viewingTemplate.isBuiltin" secondary @click="copyTemplate(viewingTemplate)">{{ t('templateManager.copyTemplate') }}</NButton>
+          <NButton v-else secondary @click="editTemplate(viewingTemplate)">{{ t('common.edit') }}</NButton>
+          <NButton type="primary" @click="useMobileTemplate(viewingTemplate)">{{ t('templateManager.useTemplate') }}</NButton>
+        </div>
+        <NSpace v-else justify="end">
+          <NButton :disabled="isCompact && mobileSaving" @click="requestCancelEdit">
             {{ viewingTemplate ? t('common.close') : t('common.cancel') }}
           </NButton>
           <NButton
             v-if="!viewingTemplate"
             type="primary"
             @click="handleSubmit"
+            :loading="isCompact && mobileSaving"
+            :disabled="isCompact && mobileSaving"
           >
             {{ editingTemplate ? t('template.save') : t('template.add') }}
           </NButton>
@@ -636,6 +672,8 @@
 
 <script setup lang="ts">
 import NModal from "./common/AdaptiveModal.vue"
+import MobileTemplateList from './templates/MobileTemplateList.vue'
+import MobileTemplateEditor from './templates/MobileTemplateEditor.vue'
 import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
 const { isCompact } = useWorkspaceLayout()
 
@@ -717,6 +755,11 @@ const showAddForm = ref(false)
 const editingTemplate = ref<Template | null>(null)
 const viewingTemplate = ref<Template | null>(null)
 const showSyntaxGuide = ref(false)
+const mobileSearch = ref('')
+const mobileSaving = ref(false)
+const mobileDraftBaseline = ref('')
+let mobileEditSession = 0
+let mobileDiscardConfirmationPending = false
 
 const form = ref<{
   name: string
@@ -938,6 +981,11 @@ const formatDate = (timestamp: number) => {
 
 // 编辑提示词
 const editTemplate = (template: Template) => {
+  mobileEditSession += 1
+  if (isCompact.value) {
+    viewingTemplate.value = null
+    showAddForm.value = false
+  }
   editingTemplate.value = template
   const isAdvanced = Array.isArray(template.content)
 
@@ -946,8 +994,9 @@ const editTemplate = (template: Template) => {
     content: isAdvanced ? '' : template.content as string,
     description: template.metadata.description || '',
     isAdvanced,
-    messages: isAdvanced ? [...template.content] as MessageTemplate[] : []
+    messages: isAdvanced ? cloneMessagesForPresentation(template.content as MessageTemplate[]) : []
   }
+  mobileDraftBaseline.value = JSON.stringify(form.value)
 
   // 等待DOM更新后初始化textarea高度
   nextTick(() => {
@@ -957,6 +1006,11 @@ const editTemplate = (template: Template) => {
 
 // 查看提示词
 const viewTemplate = (template: Template) => {
+  mobileEditSession += 1
+  if (isCompact.value) {
+    editingTemplate.value = null
+    showAddForm.value = false
+  }
   viewingTemplate.value = template
   const isAdvanced = Array.isArray(template.content)
 
@@ -965,8 +1019,9 @@ const viewTemplate = (template: Template) => {
     content: isAdvanced ? '' : template.content as string,
     description: template.metadata.description || '',
     isAdvanced,
-    messages: isAdvanced ? [...template.content] as MessageTemplate[] : []
+    messages: isAdvanced ? cloneMessagesForPresentation(template.content as MessageTemplate[]) : []
   }
+  mobileDraftBaseline.value = JSON.stringify(form.value)
 
   // 等待DOM更新后初始化textarea高度
   nextTick(() => {
@@ -976,6 +1031,7 @@ const viewTemplate = (template: Template) => {
 
 // 取消编辑
 const cancelEdit = () => {
+  mobileEditSession += 1
   showAddForm.value = false
   editingTemplate.value = null
   viewingTemplate.value = null
@@ -987,6 +1043,44 @@ const cancelEdit = () => {
     isAdvanced: false,
     messages: []
   }
+}
+
+// The host owns one draft across both presentations. Only mobile edit sessions
+// opt into isolated message drafts and a guarded close; desktop behavior stays intact.
+const cloneMessagesForPresentation = (messages: MessageTemplate[]): MessageTemplate[] =>
+  isCompact.value ? JSON.parse(JSON.stringify(messages)) : [...messages]
+
+const addMobileTemplate = () => {
+  cancelEdit()
+  showAddForm.value = true
+  mobileDraftBaseline.value = JSON.stringify(form.value)
+}
+
+const requestCancelEdit = async () => {
+  if (mobileSaving.value || mobileDiscardConfirmationPending) return
+  if (isCompact.value && !viewingTemplate.value && JSON.stringify(form.value) !== mobileDraftBaseline.value) {
+    // Repeated native-back/close events share one confirmation. Its answer only
+    // applies to the edit session that opened it, even if another draft opens.
+    const session = mobileEditSession
+    mobileDiscardConfirmationPending = true
+    try {
+      const confirmed = await confirmDialog.warning({
+        title: t('common.warning'),
+        content: t('workspace.unsavedForm'),
+        positiveText: t('common.confirm'),
+        negativeText: t('common.cancel'),
+      })
+      if (!confirmed || session !== mobileEditSession || mobileSaving.value) return
+    } finally {
+      mobileDiscardConfirmationPending = false
+    }
+  }
+  cancelEdit()
+}
+
+const useMobileTemplate = (template: Template) => {
+  selectTemplate(template)
+  cancelEdit()
 }
 
 // 生成唯一的模板ID
@@ -1146,6 +1240,9 @@ const saveFullscreenEditor = () => {
 
 // 提交表单
 const handleSubmit = async () => {
+  const compactSubmission = isCompact.value
+  if (mobileSaving.value) return
+  if (compactSubmission) mobileSaving.value = true
   try {
     // 验证表单
     if (form.value.isAdvanced) {
@@ -1190,6 +1287,8 @@ const handleSubmit = async () => {
   } catch (error) {
     console.error('Failed to save template:', error)
     toast.error(t('template.error.saveFailed'))
+  } finally {
+    if (compactSubmission) mobileSaving.value = false
   }
 }
 
@@ -1245,6 +1344,11 @@ const confirmDelete = async (templateId: string) => {
 
 // 复制内置提示词
 const copyTemplate = (template: Template) => {
+  mobileEditSession += 1
+  if (isCompact.value) {
+    editingTemplate.value = null
+    viewingTemplate.value = null
+  }
   showAddForm.value = true
   const isAdvanced = Array.isArray(template.content)
 
@@ -1253,8 +1357,9 @@ const copyTemplate = (template: Template) => {
     content: isAdvanced ? '' : template.content as string,
     description: template.metadata.description || '',
     isAdvanced,
-    messages: isAdvanced ? [...template.content] as MessageTemplate[] : []
+    messages: isAdvanced ? cloneMessagesForPresentation(template.content as MessageTemplate[]) : []
   }
+  mobileDraftBaseline.value = JSON.stringify(form.value)
 }
 
 // 选择提示词
@@ -1402,11 +1507,49 @@ const mobileCategoryOptions = computed(() => [
   { value: 'context-iterate', label: t('templateManager.iterateTemplatesContext') },
   { value: 'image-text2image-optimize', label: t('templateManager.imageText2ImageTemplates') },
   { value: 'image-image2image-optimize', label: t('templateManager.imageImage2ImageTemplates') },
+  { value: 'image-multiimage-optimize', label: t('imageMode.multiimage') },
   { value: 'image-iterate', label: t('templateManager.imageIterateTemplates') },
 ])
+const mobileFilteredTemplates = computed(() => {
+  const query = mobileSearch.value.trim().toLocaleLowerCase()
+  if (!query) return filteredTemplates.value
+  return filteredTemplates.value.filter(template => {
+    const content = typeof template.content === 'string'
+      ? template.content
+      : template.content.map(message => message.content).join('\n')
+    return [template.name, template.metadata.description, content].some(value => value?.toLocaleLowerCase().includes(query))
+  })
+})
 </script>
 
 <style scoped>
+:global(.workspace-compact .template-manager--compact.adaptive-modal-page > .n-card-header),
+:global(.workspace-compact .template-editor-modal--compact.adaptive-modal-page > .n-card-header) {
+  padding: 10px 12px;
+  gap: 8px;
+}
+:global(.workspace-compact .template-manager--compact.adaptive-modal-page > .n-card-header) {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+:global(.workspace-compact .template-manager--compact.adaptive-modal-page > .n-card-header > .n-card-header__extra) {
+  grid-column: 2;
+  grid-row: 1;
+}
+:global(.workspace-compact .template-manager--compact.adaptive-modal-page > .n-card-header > .n-base-close) {
+  grid-column: 3;
+}
+:global(.workspace-compact .template-manager--compact.adaptive-modal-page > .n-card-content),
+:global(.workspace-compact .template-editor-modal--compact.adaptive-modal-page > .n-card-content) {
+  padding: 12px !important;
+}
+:global(.workspace-compact .template-editor-modal--compact.adaptive-modal-page > .n-card__action) {
+  padding: 10px 12px max(10px, env(safe-area-inset-bottom));
+}
+.mobile-template-detail-actions {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+}
 /* 添加过渡动画 */
 .modal-enter-active,
 .modal-leave-active {

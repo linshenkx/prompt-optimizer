@@ -1,4 +1,4 @@
-/* Management-page wrappers retain their existing mobile baseline. This is not the future business-list/form redesign. */
+/* Compatibility rules for management-page shells and existing controls. Business compact lists, details, and forms own their styles in their SFCs. */
 
 .workspace-compact .adaptive-modal-page .model-card-actions {
   flex-wrap: wrap;
@@ -7,11 +7,6 @@
 .workspace-compact .favorites-page {
   padding: 16px;
   overflow: auto;
-}
-
-.workspace-compact .favorites-page-heading {
-  margin: 0 0 16px;
-  font-size: 22px;
 }
 
 .workspace-compact .favorites-manager-toolbar-row {
@@ -38,27 +33,6 @@
 
 .workspace-compact .favorites-manager-shell--page .favorites-manager-content {
   overflow: visible;
-}
-
-.compact-variable-row {
-  border-bottom: 1px solid var(--compact-border);
-  padding: 10px 0 15px;
-}
-
-.compact-variable-row strong {
-  font-size: 14px;
-  overflow-wrap: anywhere;
-}
-
-.compact-variable-row pre {
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.8;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  color: var(--compact-muted);
-  max-height: 220px;
-  overflow-y: auto;
 }
 
 .workspace-compact .image-model-picker-row .image-model-picker-item {
