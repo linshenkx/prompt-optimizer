@@ -4,7 +4,7 @@
         <template #header>
             <NSpace justify="space-between" align="center">
                 <!-- 左侧：标题 -->
-                <NText class="text-base font-semibold">
+                <NText class="text-base font-semibold conversation-manager-title">
                     {{ title || t("conversation.management.title") }}
                 </NText>
 
@@ -35,7 +35,7 @@
 
                     <!-- 工具数量标签（可点击） -->
                     <NText
-                        v-if="enableToolManagement"
+                        v-if="enableToolManagement && (!isCompact || toolCount > 0)"
                         :depth="3"
                         style="font-size: 13px; cursor: pointer"
                         @click="emit('open-tool-manager')"
@@ -44,6 +44,10 @@
                         🔧 {{ t("conversation.stats.tools") }}: {{ toolCount || 0 }}
                     </NText>
 
+                    <NButton v-if="isCompact && collapsible" quaternary size="small"
+                        :aria-expanded="!isCollapsed" @click="isCollapsed = !isCollapsed">
+                        {{ t(isCollapsed ? 'common.expand' : 'common.collapse') }}
+                    </NButton>
                     <!-- 打开上下文编辑器按钮 -->
                     <NButton
                         v-if="messages.length > 0 && canEditMessages"
@@ -76,7 +80,8 @@
         </template>
 
         <!-- 消息列表内容 -->
-        <div v-if="!isCollapsed" :style="contentStyle">
+        <p v-if="isCompact && isCollapsed" class="conversation-collapsed-preview">{{ messages.find(message => message.id === selectedMessageId)?.content || messages[0]?.content }}</p>
+        <div v-show="!isCompact || !isCollapsed" :style="contentStyle">
             <!-- 空状态 -->
             <NEmpty
                 v-if="messages.length === 0"
@@ -369,6 +374,7 @@ import {
 } from "naive-ui";
 import { usePerformanceMonitor } from "../../composables/performance/usePerformanceMonitor";
 import { useDebounceThrottle } from '../../composables/performance/useDebounceThrottle';
+import { useWorkspaceLayout } from '../../composables/ui/useWorkspaceLayout';
 import { useToast } from "../../composables/ui/useToast";
 import { VariableAwareInput } from "../variable-extraction";
 import { PREDEFINED_VARIABLES } from "../../types/variable";
@@ -378,6 +384,7 @@ import type {
 import type { ConversationMessage } from "@prompt-optimizer/core";
 
 const { t } = useI18n();
+const { isCompact } = useWorkspaceLayout();
 const toast = useToast();
 
 // 性能监控
@@ -425,6 +432,10 @@ const emit = defineEmits<{
 // 状态管理 - 使用 shallowRef 优化大数据渲染
 const loading = ref(false);
 const isCollapsed = ref(false);
+watch(() => props.isMessageOptimizing, busy => {
+    if (isCompact.value && props.collapsible && busy) isCollapsed.value = true;
+});
+defineExpose({ expand: () => { isCollapsed.value = false } });
 
 // 批处理状态更新优化
 const batchStateUpdate = batchExecute((updates: Array<() => void>) => {
@@ -462,14 +473,14 @@ const cardSize = computed(() => {
 
 const contentStyle = computed(() => {
     const style: Record<string, string | number> = {};
-    if (props.maxHeight && !isCollapsed.value) {
+    if (props.maxHeight && (!isCompact.value || !isCollapsed.value)) {
         style.maxHeight = `${props.maxHeight}px`;
     }
     return style;
 });
 
 const scrollbarStyle = computed(() => {
-    if (props.maxHeight && !isCollapsed.value) {
+    if (props.maxHeight && (!isCompact.value || !isCollapsed.value)) {
         return { maxHeight: `${props.maxHeight - 100}px` };
     }
     return {};

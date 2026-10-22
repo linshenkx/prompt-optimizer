@@ -1,6 +1,7 @@
 <template>
     <NFlex vertical :style="{ height: mode === 'full' ? '100%' : 'auto', gap: '12px' }">
         <TemporaryVariablesPanel
+            :compact="compact"
             :manager="variableManager"
             :show-generate-values="true"
             :is-generating="isGenerating"
@@ -131,6 +132,7 @@ interface Props {
      * - variables-only: 仅变量表单（供 Workspace 自行渲染多列 variants 测试区）
      */
     mode?: "full" | "variables-only";
+    compact?: boolean;
 
     // 原始提示词（fallback，当optimizedPrompt为空时使用）
     prompt?: string;
@@ -185,6 +187,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
     mode: "full",
+    compact: false,
     prompt: "",
     optimizedPrompt: "",
     isTestRunning: false,

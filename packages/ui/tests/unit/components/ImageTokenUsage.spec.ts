@@ -4,6 +4,21 @@ import { mount } from '@vue/test-utils'
 import ImageTokenUsage from '../../../src/components/image-mode/ImageTokenUsage.vue'
 
 describe('ImageTokenUsage', () => {
+  it('folds mobile metadata while preserving every value and the normal desktop presentation', async () => {
+    const wrapper = mount(ImageTokenUsage, {
+      props: { compact: true, metadata: { usage: { promptTokenCount: 123, totalTokenCount: 456 } } },
+    })
+    try {
+      expect(wrapper.get('details').attributes('open')).toBeUndefined()
+      expect(wrapper.get('summary').text()).toBe('Generation details')
+      expect(wrapper.text()).toContain('All tokens: 456')
+      await wrapper.setProps({ compact: false })
+      expect(wrapper.find('details').exists()).toBe(false)
+      expect(wrapper.find('summary').exists()).toBe(false)
+      expect(wrapper.text()).toContain('Prompt tokens: 123')
+    } finally { wrapper.unmount() }
+  })
+
   it('keeps single-image input usage rendering intact', () => {
     const wrapper = mount(ImageTokenUsage, {
       props: {

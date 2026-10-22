@@ -1,6 +1,13 @@
 <template>
+    <div v-if="compact && displayVariables.length === 0" class="compact-empty-variables">
+        <NButton quaternary size="small" :disabled="props.disabled" @click="showAddVariableDialog = true">
+            {{ t('test.variables.addVariable') }}
+        </NButton>
+    </div>
     <!-- 变量值输入表单（临时变量编辑区） -->
     <NCard
+        v-else
+        class="temporary-variables-panel"
         :title="t('test.variables.title')"
         size="small"
         :bordered="true"
@@ -9,7 +16,7 @@
         <template #header-extra>
             <NSpace :size="8">
                 <NButton
-                    v-if="props.showGenerateValues"
+                    v-if="props.showGenerateValues && !compact"
                     size="small"
                     quaternary
                     :loading="props.isGenerating"
@@ -85,9 +92,11 @@
                 <div
                     v-for="(varName, index) in displayVariables"
                     :key="varName"
+                    class="temporary-variable-row"
                     :style="getVariableRowStyle(index)"
                 >
                     <div
+                        class="temporary-variable-meta"
                         :style="{
                             width: '220px',
                             flexShrink: 0,
@@ -136,6 +145,7 @@
                     </div>
 
                     <NInput
+                        class="temporary-variable-value"
                         :value="getVariableDisplayValue(varName)"
                         :placeholder="getVariablePlaceholder(varName)"
                         size="small"
@@ -147,6 +157,7 @@
                     />
 
                     <div
+                        class="temporary-variable-actions"
                         :style="{
                             width: '84px',
                             flexShrink: 0,
@@ -197,7 +208,7 @@
     </NCard>
 
     <!-- 添加变量对话框 -->
-    <NModal
+    <AdaptiveModal
         v-model:show="showAddVariableDialog"
         preset="dialog"
         :title="t('test.variables.addVariable')"
@@ -228,7 +239,7 @@
                 />
             </NFormItem>
         </NSpace>
-    </NModal>
+    </AdaptiveModal>
 
     <FullscreenDialog
         v-model="showValueFullscreenEditor"
@@ -257,6 +268,7 @@
 </template>
 
 <script setup lang="ts">
+import AdaptiveModal from '../common/AdaptiveModal.vue'
 import { computed, ref, watch } from 'vue'
 
 import { useI18n } from 'vue-i18n'
@@ -266,7 +278,6 @@ import {
     NTag,
     NButton,
     NInput,
-    NModal,
     NFormItem,
     NIcon,
     NText,
@@ -284,6 +295,7 @@ import type { TestVariableManager } from '../../composables/variable/useTestVari
 interface Props {
     manager: TestVariableManager
     disabled?: boolean
+    compact?: boolean
 
     // Optional actions
     showGenerateValues?: boolean
@@ -291,10 +303,11 @@ interface Props {
 }
 
 type VariableActionKey = 'rename' | 'save-global' | 'delete' | 'generate'
-type HeaderActionKey = 'clear-all'
+type HeaderActionKey = 'clear-all' | 'generate-values'
 
 const props = withDefaults(defineProps<Props>(), {
     disabled: false,
+    compact: false,
     showGenerateValues: false,
     isGenerating: false,
 })
@@ -335,6 +348,11 @@ const fullscreenEditorValue = ref('')
 const displayVariables = computed(() => sortedVariables.value)
 
 const headerActionOptions = computed<DropdownOption[]>(() => [
+    ...(props.compact && props.showGenerateValues ? [{
+        key: 'generate-values',
+        label: t('test.variableValueGeneration.generateButton'),
+        disabled: props.disabled || props.isGenerating || displayVariables.value.length === 0,
+    }] : []),
     {
         key: 'clear-all',
         label: t('test.variables.clearAll'),
@@ -504,9 +522,12 @@ const showClearAllConfirm = () => {
 
 const handleHeaderActionSelect = (actionKey: string | number) => {
     const action = String(actionKey) as HeaderActionKey
-    if (action !== 'clear-all') return
     if (props.disabled || displayVariables.value.length === 0) return
-    showClearAllConfirm()
+    if (action === 'generate-values' && props.compact && props.showGenerateValues && !props.isGenerating) {
+        emit('generate-values')
+    } else if (action === 'clear-all') {
+        showClearAllConfirm()
+    }
 }
 
 const openValueFullscreenEditor = (varName: string) => {

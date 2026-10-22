@@ -2,36 +2,54 @@
   <NCard
     :bordered="false"
     class="output-display-core h-full"
+    :class="{ 'output-display--flow': fitContent }"
     content-style="padding: 0; height: 100%; max-height: 100%; display: flex; flex-direction: column; overflow: hidden;"
     :data-testid="testId"
   >
     <NFlex vertical style="height: 100%; min-height: 0; overflow: hidden;">
       <!-- 统一顶层工具栏 -->
-      <NFlex v-if="hasToolbar" justify="space-between" align="center" style="flex: 0 0 auto;">
+      <NFlex ref="toolbarRef" v-if="hasToolbar && (!fitContent || hasContent || hasReasoning)" class="output-display-toolbar" justify="space-between" align="center" style="flex: 0 0 auto;">
         <!-- 左侧：视图控制按钮组 -->
-        <NButtonGroup>
+        <NDropdown v-if="foldViewControls" trigger="click" :options="[
+          { key: 'render', label: t('common.render') },
+          { key: 'source', label: t('workspace.sourceText') },
+          ...(isActionEnabled('diff') && originalContent ? [{ key: 'diff', label: t('common.compare') }] : []),
+        ]" @select="selectCompactView">
+          <NButton quaternary size="small" data-testid="output-view-menu" class="output-view-menu">
+            {{ t(internalViewMode === 'render' ? 'common.render' : internalViewMode === 'diff' ? 'common.compare' : 'workspace.sourceText') }}
+            <NIcon size="14" style="margin-left: 6px"><ChevronDown /></NIcon>
+          </NButton>
+        </NDropdown>
+        <NButtonGroup v-else class="output-view-modes">
           <NButton 
             @click="internalViewMode = 'render'"
-            :disabled="internalViewMode === 'render'"
+            :disabled="!fitContent && internalViewMode === 'render'"
+            :aria-pressed="internalViewMode === 'render'"
+            :quaternary="fitContent"
             size="small"
-            :type="internalViewMode === 'render' ? 'primary' : 'default'"
+            :type="!fitContent && internalViewMode === 'render' ? 'primary' : 'default'"
           >
             {{ t('common.render') }}
           </NButton>
           <NButton 
             @click="internalViewMode = 'source'"
-            :disabled="internalViewMode === 'source'"
+            :data-testid="testId ? `${testId}-view-source` : 'output-view-source'"
+            :disabled="!fitContent && internalViewMode === 'source'"
+            :aria-pressed="internalViewMode === 'source'"
+            :quaternary="fitContent"
             size="small"
-            :type="internalViewMode === 'source' ? 'primary' : 'default'"
+            :type="!fitContent && internalViewMode === 'source' ? 'primary' : 'default'"
           >
-            {{ t('common.source') }}
+            {{ t(fitContent ? 'workspace.sourceText' : 'common.source') }}
           </NButton>
           <NButton 
             v-if="isActionEnabled('diff') && originalContent"
             @click="internalViewMode = 'diff'"
-            :disabled="internalViewMode === 'diff' || !originalContent"
+            :disabled="(!fitContent && internalViewMode === 'diff') || !originalContent"
+            :aria-pressed="internalViewMode === 'diff'"
+            :quaternary="fitContent"
             size="small"
-            :type="internalViewMode === 'diff' ? 'primary' : 'default'"
+            :type="!fitContent && internalViewMode === 'diff' ? 'primary' : 'default'"
           >
             {{ t('common.compare') }}
           </NButton>
@@ -40,8 +58,16 @@
         <!-- 右侧：操作按钮 -->
         <NFlex align="center" :size="6" :wrap="false" class="output-toolbar-actions">
           <slot name="toolbar-right-extra"></slot>
+          <NDropdown v-if="foldActionControls && (isActionEnabled('copy') || isActionEnabled('favorite'))" trigger="click"
+            :options="compactActionOptions" @select="handleCompactAction">
+            <NButton quaternary circle size="small" :aria-label="t('workspace.moreOptions')" data-testid="output-compact-actions">
+              <template #icon><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></template>
+            </NButton>
+          </NDropdown>
+          <template v-if="!foldActionControls">
           <NButton
             v-if="isActionEnabled('favorite')"
+            :aria-label="t('favorites.dialog.saveTitle')"
             :data-testid="testId ? `${testId}-favorite` : 'output-favorite'"
             @click="handleFavorite"
             size="small"
@@ -93,14 +119,17 @@
               >
                 <template #icon>
                   <NIcon>
-                    <ChevronDown />
+                    <Copy class="output-copy-menu-icon" />
+                    <ChevronDown class="output-copy-menu-chevron" />
                   </NIcon>
                 </template>
               </NButton>
             </NDropdown>
           </div>
+          </template>
           <NButton
             v-if="isActionEnabled('fullscreen')"
+            :aria-label="t('common.expand')"
             @click="handleFullscreen"
             size="small"
             quaternary
@@ -160,10 +189,11 @@
         />
 
         <!-- 原文模式 -->
-        <template v-if="internalViewMode === 'source'">
+        <template v-else-if="internalViewMode === 'source'">
+          <pre v-if="fitContent && mode === 'readonly'" class="output-source-text">{{ content || placeholder }}</pre>
           <!-- 🆕 Pro 模式：使用变量感知输入框 -->
           <VariableAwareInput
-            v-if="shouldEnableVariables && variableData"
+            v-else-if="shouldEnableVariables && variableData"
             :model-value="content"
             @update:model-value="handleSourceInput"
             :readonly="mode !== 'editable' || streaming"
@@ -183,7 +213,7 @@
             :readonly="mode !== 'editable' || streaming"
             type="textarea"
             :placeholder="placeholder"
-            :autosize="{ minRows: 10 }"
+            :autosize="fitContent ? { minRows: 5, maxRows: 24 } : { minRows: 10 }"
             style="height: 100%; min-height: 0;"
           />
         </template>
@@ -202,6 +232,7 @@
           />
           <MarkdownRenderer
             v-else-if="displayContent"
+            :disable-internal-scroll="fitContent"
             :content="displayContent"
             :streaming="streaming"
             style="flex: 1; min-height: 0; overflow: auto;"
@@ -222,6 +253,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch, nextTick, onMounted, inject, h, type Ref } from 'vue'
+import { useElementSize } from '@vueuse/core'
 
 import { useI18n } from 'vue-i18n'
 import {
@@ -232,6 +264,7 @@ import {
 import { useToast } from '../composables/ui/useToast'
 import {
   ChevronDown,
+  Copy,
   Star,
 } from '@vicons/tabler'
 import { useClipboard } from '../composables/ui/useClipboard'
@@ -272,6 +305,7 @@ const services = inject<Ref<AppServices | null>>('services') ?? ref<AppServices 
 
 // 组件 Props
 interface Props {
+  fitContent?: boolean
   // 内容相关
   content?: string
   originalContent?: string
@@ -312,6 +346,12 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const testId = computed(() => props.testId || undefined)
+const toolbarRef = ref<HTMLElement>()
+const { width: toolbarWidth } = useElementSize(toolbarRef)
+// The same output can fill a phone or occupy one comparison column.
+// Keep desktop controls unchanged; only flow/mobile rendering uses these budgets.
+const foldViewControls = computed(() => props.fitContent && toolbarWidth.value < 320)
+const foldActionControls = computed(() => props.fitContent && toolbarWidth.value < 400)
 
 // 事件定义
 const emit = defineEmits<{
@@ -369,6 +409,10 @@ const userHasManuallyToggledReasoning = ref(false)
 
 // 新的视图状态机
 const internalViewMode = ref<'render' | 'source' | 'diff'>('render')
+const selectCompactView = (key: string) => {
+  if (key === 'render' || key === 'source' || key === 'diff') internalViewMode.value = key
+}
+
 const EMPTY_COMPARE_RESULT: CompareResult = {
   fragments: [],
   summary: { additions: 0, deletions: 0, unchanged: 0 },
@@ -505,6 +549,15 @@ const handleCopyActionSelect = async (key: string | number) => {
   await handlePrimaryCopyAction()
 }
 
+const compactActionOptions = computed<DropdownOption[]>(() => [
+  ...(isActionEnabled('favorite') ? [{ key: 'favorite', label: t('favorites.dialog.saveTitle'), disabled: !hasContent.value }] : []),
+  ...(isActionEnabled('copy') ? copyActionOptions.value : []),
+])
+const handleCompactAction = (key: string | number) => {
+  if (key === 'favorite') handleFavorite()
+  else void handleCopyActionSelect(key)
+}
+
 // 全屏功能
 const handleFullscreen = () => {
   emit('fullscreen')
@@ -574,6 +627,7 @@ watch(() => props.streaming, (isStreaming, wasStreaming) => {
 })
 
 watch(internalViewMode, updateCompareResult, { immediate: true })
+watch(internalViewMode, view => emit('view-change', view === 'diff' ? 'diff' : 'base'), { immediate: true })
 watch(() => [props.content, props.originalContent], () => {
   if (internalViewMode.value === 'diff') {
     updateCompareResult()
@@ -653,14 +707,14 @@ onMounted(() => {
   // - functionMode 有默认值 'basic'，可以正常工作
 
   // 如果是可编辑模式，默认显示原文
-  if (props.mode === 'editable') {
+  if (props.mode === 'editable' && !props.fitContent) {
     internalViewMode.value = 'source';
   }
 });
 
 // 监听 mode 变化，自动切换视图模式
 watch(() => props.mode, (newMode) => {
-  if (newMode === 'editable' && internalViewMode.value === 'render') {
+  if (newMode === 'editable' && !props.fitContent && internalViewMode.value === 'render') {
     internalViewMode.value = 'source';
   } else if (newMode === 'readonly' && internalViewMode.value === 'source') {
     internalViewMode.value = 'render';
@@ -671,6 +725,16 @@ defineExpose({ resetReasoningState, forceRefreshContent, forceExitEditing })
 </script>
 
 <style scoped>
+.output-copy-menu-icon { display: none; }
+.output-source-text {
+  margin: 0;
+  padding: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: 1.7;
+}
+
 .output-toolbar-actions {
   flex-shrink: 0;
 }

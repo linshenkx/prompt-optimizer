@@ -1,5 +1,6 @@
 <template>
-    <div v-if="hasAnyData" class="image-token-usage">
+    <component :is="compact ? 'details' : 'div'" v-if="hasAnyData" class="image-token-usage" :class="{ 'image-token-usage--compact': compact }">
+        <summary v-if="compact">{{ t('workspace.generationDetails') }}</summary>
         <!-- Input section -->
         <div v-if="hasInputData" class="usage-section">
             <NText depth="3" class="section-label">Input</NText>
@@ -61,12 +62,15 @@
                 </NTag>
             </div>
         </div>
-    </div>
+    </component>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { NTag, NText } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface ImageRefLike {
     b64?: string
@@ -94,6 +98,7 @@ interface NormalizedUsage {
 }
 
 const props = defineProps<{
+    compact?: boolean
     metadata?: {
         usage?: unknown
         [key: string]: unknown
@@ -311,4 +316,11 @@ const hasAnyData = computed(() => hasInputData.value || hasOutputData.value || t
     flex: 1;
     min-width: 0;
 }
+
+.image-token-usage--compact { display: block; padding: 0 8px; box-sizing: border-box; }
+.image-token-usage--compact summary { cursor: pointer; min-height: 36px; align-content: center; color: var(--compact-muted); font-size: 12px; }
+.image-token-usage--compact .usage-section { display: block; margin-bottom: 8px; }
+.image-token-usage--compact .usage-tags { gap: 4px; }
+.image-token-usage--compact :deep(.n-tag) { height: auto; max-width: 100%; white-space: normal; font-size: 11px; padding: 4px 6px; }
+.image-token-usage--compact :deep(.n-tag__content) { white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
 </style>

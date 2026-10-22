@@ -12,7 +12,7 @@
     />
 
     <ThemedTooltip
-      v-if="isPromptGardenEnabled"
+      v-if="isPromptGardenEnabled && !compact"
       :label="t('common.promptGarden.title')"
       placement="left"
     >
@@ -46,6 +46,7 @@
     <ThemedTooltip :label="t('common.workspaceTools')" placement="left">
       <span class="workspace-utility-menu-trigger">
         <NDropdown
+          v-model:show="mobileMenuVisible"
           trigger="click"
           :options="menuOptions"
           placement="bottom-end"
@@ -54,7 +55,8 @@
           <NButton
             class="workspace-utility-button"
             size="small"
-            secondary
+            :secondary="!compact"
+            :quaternary="compact"
             circle
             :disabled="disabled"
             :data-testid="testId"
@@ -117,11 +119,13 @@ import { openExternalUrl } from '../../utils/open-external-url'
 import type { PromptGardenImportRequest } from '../../utils/prompt-garden-import'
 import type { SourceAssetRef } from '../../utils/source-asset'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
+  compact?: boolean
   disabled?: boolean
   testId?: string
   source?: SourceAssetRef | null
 }>(), {
+  compact: false,
   disabled: false,
   testId: undefined,
   source: null,
@@ -134,6 +138,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const router = inject(routerKey, null)
 const showClearConfirm = ref(false)
+const mobileMenuVisible = ref(false)
 const showPromptGardenImport = ref(false)
 const promptGardenImportIntent = ref<'use' | 'favorite'>('use')
 const triggerStyle = ref<CSSProperties>({})
@@ -186,6 +191,9 @@ onUnmounted(() => {
 })
 
 const menuOptions = computed<DropdownOption[]>(() => [
+  ...(props.compact && isPromptGardenEnabled.value
+    ? [...gardenMenuOptions.value, { type: 'divider' as const, key: 'garden-divider' }]
+    : []),
   {
     key: 'clear-content',
     label: t('common.clearContent'),
@@ -231,6 +239,8 @@ const promptGardenImportDialogHint = computed(() =>
 const handleSelect = (key: string) => {
   if (key === 'clear-content') {
     showClearConfirm.value = true
+  } else if (props.compact) {
+    handleGardenSelect(key)
   }
 }
 

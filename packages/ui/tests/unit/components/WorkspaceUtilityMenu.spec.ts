@@ -187,8 +187,9 @@ vi.mock('../../../src/components/source/SourceAssetBadge.vue', () => ({
 
 import WorkspaceUtilityMenu from '../../../src/components/common/WorkspaceUtilityMenu.vue'
 
-const mountComponent = () =>
+const mountComponent = (props: { compact?: boolean } = {}) =>
   mount(WorkspaceUtilityMenu, {
+    props,
     global: {
       renderStubDefaultSlot: true,
       provide: {
@@ -260,5 +261,32 @@ describe('WorkspaceUtilityMenu Prompt Garden actions', () => {
         saveToFavorites: 'confirm',
       },
     })
+  })
+
+  it('keeps Garden actions reachable from one mobile utility trigger', async () => {
+    const wrapper = mountComponent({ compact: true })
+    expect(wrapper.find('[data-testid="workspace-prompt-garden-menu"]').exists()).toBe(false)
+    expect(wrapper.findAll('.workspace-utility-button')).toHaveLength(1)
+    expect(wrapper.findAll('.n-dropdown-trigger')).toHaveLength(1)
+    await wrapper.get('[data-dropdown-key="import-code"]').trigger('click')
+    await wrapper.get('[data-testid="workspace-prompt-garden-import-code"]').setValue(
+      'https://prompt.always200.com/#/image/text2image?importCode=mobile_code&exampleId=ex-1',
+    )
+    await wrapper.get('[data-testid="modal-positive"]').trigger('click')
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/image/text2image',
+      query: { keep: '1', importCode: 'mobile_code', exampleId: 'ex-1' },
+    })
+    wrapper.unmount()
+  })
+
+  it('retains the clear confirmation after consolidating mobile tools', async () => {
+    const wrapper = mountComponent({ compact: true })
+    await wrapper.get('[data-dropdown-key="clear-content"]').trigger('click')
+    expect(wrapper.text()).toContain('Clears:')
+    expect(wrapper.emitted('clear')).toBeUndefined()
+    await wrapper.get('[data-testid="modal-positive"]').trigger('click')
+    expect(wrapper.emitted('clear')).toHaveLength(1)
+    wrapper.unmount()
   })
 })

@@ -1,8 +1,8 @@
 <!-- 输入面板组件 - 纯Naive UI实现 -->
 <template>
-    <NSpace vertical :size="16">
+    <NSpace vertical :size="16" :class="{ 'compact-compact-input': compact }">
         <!-- 标题区域 -->
-        <NFlex justify="space-between" align="center" :wrap="false">
+        <NFlex class="input-panel-heading" justify="space-between" align="center" :wrap="false">
             <NFlex align="center" :size="8">
                 <NText :depth="1" style="font-size: 18px; font-weight: 500">{{
                     label
@@ -54,6 +54,8 @@
                     @click="$emit('extract-variables')"
                     :loading="extracting"
                     :disabled="extracting || !modelValue.trim()"
+                    :title="extracting ? $t('evaluation.variableExtraction.extracting') : $t('evaluation.variableExtraction.extractButton')"
+                    :aria-label="$t('evaluation.variableExtraction.extractButton')"
                     ghost
                     round
                 >
@@ -64,7 +66,7 @@
                             </svg>
                         </NIcon>
                     </template>
-                    {{ extracting ? $t('evaluation.variableExtraction.extracting') : $t('evaluation.variableExtraction.extractButton') }}
+                    <template v-if="!compact">{{ extracting ? $t('evaluation.variableExtraction.extracting') : $t('evaluation.variableExtraction.extractButton') }}</template>
                 </NButton>
                 <!-- 预览按钮 -->
                 <NButton
@@ -137,7 +139,7 @@
             :model-value="modelValue"
             @update:model-value="$emit('update:modelValue', $event)"
             :placeholder="placeholder"
-            :autosize="{ minRows: 4, maxRows: 12 }"
+            :autosize="compact ? { minRows: 2, maxRows: compactInputRows } : { minRows: 4, maxRows: 12 }"
             clearable
             show-count
             :data-testid="`${testIdPrefix}-input`"
@@ -154,12 +156,14 @@
         <!-- 原生输入框 (不支持变量提取) -->
         <NInput
             v-else
+            class="input-panel-primary-editor"
             :value="modelValue"
             @update:value="$emit('update:modelValue', $event)"
             type="textarea"
             :placeholder="placeholder"
             :rows="4"
-            :autosize="{ minRows: 4, maxRows: 12 }"
+            :resizable="!compact"
+            :autosize="compact ? { minRows: 2, maxRows: compactInputRows } : { minRows: 4, maxRows: 12 }"
             clearable
             show-count
             :data-testid="`${testIdPrefix}-input`"
@@ -225,11 +229,13 @@
                         type="primary"
                         size="medium"
                         :data-testid="`${testIdPrefix}-optimize-button`"
+                        :aria-label="compact ? buttonText : undefined"
+                        :aria-busy="compact ? loading : undefined"
                         @click="$emit('submit')"
                         :loading="loading"
                         :disabled="analyzeLoading || loading || disabled || !modelValue.trim()"
                     >
-                        {{ loading ? loadingText : buttonText }}
+                        {{ compact ? buttonText : loading ? loadingText : buttonText }}
                     </NButton>
                 </NSpace>
             </NGridItem>
@@ -252,6 +258,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
+const { compactInputRows } = useWorkspaceLayout()
 
 import {
     NInput,
@@ -279,6 +287,7 @@ import { VariableAwareInput } from "./variable-extraction";
  */
 
 interface Props {
+    compact?: boolean
     /** 输入框的值 */
     modelValue: string;
     /** 选中的模型 */
@@ -334,6 +343,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+    compact: false,
     placeholder: "",
     templateLabel: "",
     loading: false,
