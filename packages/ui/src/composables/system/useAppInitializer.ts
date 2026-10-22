@@ -64,6 +64,7 @@ import {
   runFavoriteAssetGc,
 } from '../../utils/favorite-asset-maintenance'
 import { autoEnableChromeBuiltInModelIfReady } from '../../utils/chrome-built-in-auto-enable'
+import { migrateWorkspacePreviewTextModel, seedWorkspacePreviewImageModel, seedWorkspacePreviewTextModel } from '../../utils/workspace-preview-models'
 
 const appendStartupRepairReport = (
   currentReport: StartupRepairReport | null,
@@ -418,6 +419,24 @@ export function useAppInitializer(): {
           }
         } catch (e) {
           console.warn('[AppInitializer] ImageModelManager ensureInitialized failed (non-critical):', e)
+        }
+
+        if (import.meta.env.DEV && import.meta.env.VITE_WORKSPACE_PREVIEW === '1') {
+          try {
+              await modelManagerInstance.ensureInitialized()
+              await migrateWorkspacePreviewTextModel(modelManagerInstance, textAdapterRegistryInstance, {
+                enabled: true, origin: window.location.origin, legacyApiKey: import.meta.env.VITE_CUSTOM_API_KEY_mobile_preview,
+              })
+              await seedWorkspacePreviewTextModel(modelManagerInstance, textAdapterRegistryInstance, {
+                enabled: true, origin: window.location.origin,
+              })
+            await seedWorkspacePreviewImageModel(imageModelManagerInstance, imageAdapterRegistryInstance, {
+              enabled: true,
+              origin: window.location.origin,
+            })
+          } catch (e) {
+            console.warn('[AppInitializer] Workspace preview image configuration failed (non-critical):', e)
+          }
         }
 
         // 创建 CompareService（直接使用）
