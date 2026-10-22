@@ -13,15 +13,15 @@
             size="small"
             :bordered="false"
             :segmented="false"
-            class="flex-none"
+            class="prompt-panel-header-card flex-none"
             content-style="padding: 0;"
             :style="{ maxHeight: '120px', overflow: 'visible' }"
         >
-            <NFlex justify="space-between" align="flex-start" :wrap="false">
+            <NFlex class="prompt-panel-heading" justify="space-between" align="flex-start" :wrap="false">
                 <!-- 左侧：标题和版本 -->
                 <NSpace vertical :size="8" class="flex-1 min-w-0">
                     <NSpace align="center" :size="12">
-                        <NText class="text-lg font-semibold">{{
+                        <NText class="prompt-panel-title text-lg font-semibold">{{
                             t("prompt.optimized")
                         }}</NText>
                         <NSelect v-if="mobileLayout && versions?.length" size="small" class="compact-version-picker"
@@ -198,7 +198,7 @@
                         :loading="isIterating"
                         type="primary"
                         size="small"
-                        class="min-w-[100px]"
+                        class="prompt-panel-continue min-w-[100px]"
                         data-testid="prompt-panel-continue-optimize"
                     >
                         <template #icon>

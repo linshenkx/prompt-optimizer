@@ -16,12 +16,26 @@ vi.mock('@vueuse/core', async importOriginal => {
 beforeEach(() => { geometry.available = 800; geometry.config = 180 })
 
 describe('co-visible workspace regions', () => {
+  it('leaves configuration visibility controlled by the parent', async () => {
+    const wrapper = mount(TestWorkspaceLayout, {
+      props: { compact: true, configExpanded: true },
+      slots: { input: '<textarea />', results: '<article>Answer</article>' },
+    })
+    try {
+      await wrapper.get('[data-testid="test-config-toggle"]').trigger('click')
+      expect(wrapper.emitted('update:configExpanded')).toEqual([[false]])
+      expect(wrapper.get('[data-testid="test-config-toggle"]').attributes('aria-expanded')).toBe('true')
+      await wrapper.setProps({ configExpanded: false })
+      expect(wrapper.get('[data-testid="test-config-toggle"]').attributes('aria-expanded')).toBe('false')
+    } finally { wrapper.unmount() }
+  })
+
   it('synchronizes configuration visibility with parent requests and manual toggles', async () => {
-    const view = ref<'config' | 'results'>('results')
+    const configExpanded = ref(false)
     const Host = defineComponent({
       setup: () => () => h(TestWorkspaceLayout, {
-        compact: true, view: view.value,
-        'onUpdate:view': value => { view.value = value },
+        compact: true, configExpanded: configExpanded.value,
+        'onUpdate:configExpanded': value => { configExpanded.value = value },
       }, { input: () => h('textarea'), results: () => h('article', 'Saved answer') }),
     })
     const wrapper = mount(Host, { attachTo: document.body })
@@ -29,27 +43,27 @@ describe('co-visible workspace regions', () => {
       const layout = wrapper.getComponent(TestWorkspaceLayout)
       const editor = wrapper.get('textarea').element
       expect(wrapper.get<HTMLElement>('.test-config-scroll').element.style.display).toBe('none')
-      view.value = 'config'
+      configExpanded.value = true
       await nextTick()
       expect(wrapper.get<HTMLElement>('.test-config-scroll').element.style.display).not.toBe('none')
       await wrapper.get('[data-testid="test-config-toggle"]').trigger('click')
-      expect(view.value).toBe('results')
-      expect(layout.emitted('update:view')).toEqual([['results']])
-      view.value = 'config'
+      expect(configExpanded.value).toBe(false)
+      expect(layout.emitted('update:configExpanded')).toEqual([[false]])
+      configExpanded.value = true
       await nextTick()
       expect(wrapper.get<HTMLElement>('.test-config-scroll').element.style.display).not.toBe('none')
       expect(wrapper.get('textarea').element).toBe(editor)
-      expect(layout.emitted('update:view')).toEqual([['results']])
+      expect(layout.emitted('update:configExpanded')).toEqual([[false]])
     } finally { wrapper.unmount() }
   })
 
   it('keeps automatic sizing responsive to space after v-model echoes and folds each run once', async () => {
-    const view = ref<'config' | 'results'>('config')
+    const configExpanded = ref(true)
     const running = ref(false)
     const Host = defineComponent({
       setup: () => () => h(TestWorkspaceLayout, {
-        compact: true, view: view.value, running: running.value, hasResults: true,
-        'onUpdate:view': value => { view.value = value },
+        compact: true, configExpanded: configExpanded.value, running: running.value, hasResults: true,
+        'onUpdate:configExpanded': value => { configExpanded.value = value },
       }, { input: () => h('textarea'), results: () => h('article', 'Saved answer') }),
     })
     const wrapper = mount(Host, { attachTo: document.body })
@@ -58,22 +72,22 @@ describe('co-visible workspace regions', () => {
       const layout = wrapper.getComponent(TestWorkspaceLayout)
       geometry.available = 400
       await nextTick()
-      expect(view.value).toBe('results')
+      expect(configExpanded.value).toBe(false)
       geometry.available = 900
       await nextTick()
-      expect(view.value).toBe('config')
-      expect(layout.emitted('update:view')).toEqual([['results'], ['config']])
+      expect(configExpanded.value).toBe(true)
+      expect(layout.emitted('update:configExpanded')).toEqual([[false], [true]])
       running.value = true
       await nextTick()
-      expect(view.value).toBe('results')
+      expect(configExpanded.value).toBe(false)
       running.value = false
       await nextTick()
-      expect(layout.emitted('update:view')).toEqual([['results'], ['config'], ['results']])
-      view.value = 'config'
+      expect(layout.emitted('update:configExpanded')).toEqual([[false], [true], [false]])
+      configExpanded.value = true
       await nextTick()
       geometry.available = 400
       await nextTick()
-      expect(view.value).toBe('config')
+      expect(configExpanded.value).toBe(true)
       expect(wrapper.get<HTMLElement>('.test-config-scroll').element.style.display).not.toBe('none')
     } finally { wrapper.unmount() }
   })
@@ -83,7 +97,9 @@ describe('co-visible workspace regions', () => {
     geometry.config = 300
     const wrapper = mount(TestWorkspaceLayout, {
       attachTo: document.body,
-      props: { compact: true, view: 'config', hasResults: false },
+      props: { compact: true, configExpanded: true, hasResults: false,
+        'onUpdate:configExpanded': value => { void wrapper.setProps({ configExpanded: value }) },
+      },
       slots: { input: '<textarea />', results: '<article>Answer</article>' },
     })
     try {
@@ -110,7 +126,9 @@ describe('co-visible workspace regions', () => {
   it('folds configuration on a real run without discarding drafts, selections or answers', async () => {
     const wrapper = mount(TestWorkspaceLayout, {
       attachTo: document.body,
-      props: { compact: true, view: 'config', running: false },
+      props: { compact: true, configExpanded: true, running: false,
+        'onUpdate:configExpanded': value => { void wrapper.setProps({ configExpanded: value }) },
+      },
       slots: {
         input: '<textarea />',
         'variant-controls': '<select><option>a</option><option>b</option></select>',
@@ -123,7 +141,7 @@ describe('co-visible workspace regions', () => {
       await wrapper.get('select').setValue('b')
       const input = wrapper.get('textarea').element
       const answer = wrapper.get('article').element
-      await wrapper.setProps({ running: true, view: 'results' })
+      await wrapper.setProps({ running: true, configExpanded: false })
       expect(wrapper.get<HTMLElement>('.test-config-scroll').element.style.display).toBe('none')
       expect(wrapper.get('.test-config-summary').text()).toContain('Message used')
       expect(wrapper.get('article').isVisible()).toBe(true)
@@ -141,7 +159,7 @@ describe('co-visible workspace regions', () => {
     } finally { wrapper.unmount() }
   })
 
-  it('keeps test drafts, selections and results mounted across view and desktop switches', async () => {
+  it('keeps test drafts, selections and results mounted across folding and desktop switches', async () => {
     let mounts = 0
     const Input = defineComponent({
       setup() {
@@ -155,7 +173,7 @@ describe('co-visible workspace regions', () => {
     })
     const wrapper = mount(TestWorkspaceLayout, {
       attachTo: document.body,
-      props: { compact: true, view: 'config' },
+      props: { compact: true, configExpanded: true },
       slots: {
         input: () => h(Input),
         'variant-controls': () => h('select', [h('option', 'original'), h('option', 'workspace')]),
@@ -171,11 +189,11 @@ describe('co-visible workspace regions', () => {
       expect(wrapper.find('.workspace-subview-switch').exists()).toBe(false)
       expect(wrapper.get('article').isVisible()).toBe(true)
       for (let attempt = 0; attempt < 2; attempt += 1) {
-        await wrapper.setProps({ view: 'results' })
+        await wrapper.setProps({ configExpanded: false })
         expect(wrapper.get<HTMLElement>('.test-config-scroll').element.style.display).toBe('none')
         expect(wrapper.get<HTMLElement>('.test-results-scroll').element.style.display).not.toBe('none')
         expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
-        await wrapper.setProps({ view: 'config' })
+        await wrapper.setProps({ configExpanded: true })
         expect(wrapper.get('textarea').element).toBe(input)
         expect(wrapper.get('textarea').element.value).toBe('unfinished test input')
         expect(wrapper.get('select').element).toBe(selector)
@@ -195,7 +213,7 @@ describe('co-visible workspace regions', () => {
     }
   })
 
-  it('allows either optimization view without prerequisites and retains both editor drafts', async () => {
+  it('keeps both optimization editors mounted across responsive changes', async () => {
     let mounts = 0
     const Editor = defineComponent({
       setup() {
@@ -208,7 +226,7 @@ describe('co-visible workspace regions', () => {
       },
     })
     const wrapper = mount(OptimizeWorkspaceLayout, {
-      props: { compact: true, view: 'original' },
+      props: { compact: true },
       slots: { original: () => h(Editor), workspace: () => h(Editor) },
     })
     try {
@@ -217,10 +235,8 @@ describe('co-visible workspace regions', () => {
       await original.setValue('original draft')
       await workspace.setValue('unsaved working copy')
       expect(wrapper.find('.workspace-subview-switch').exists()).toBe(false)
-      await wrapper.setProps({ view: 'workspace' })
       expect(wrapper.get<HTMLElement>('.optimize-original-scroll').element.style.display).not.toBe('none')
       expect(wrapper.find('.workspace-subview-switch').exists()).toBe(false)
-      await wrapper.setProps({ view: 'original' })
       await wrapper.setProps({ compact: false })
       expect(wrapper.get<HTMLElement>('.optimize-original-scroll').element.style.display).not.toBe('none')
       expect(wrapper.get<HTMLElement>('.optimize-workspace-scroll').element.style.display).not.toBe('none')
@@ -232,5 +248,24 @@ describe('co-visible workspace regions', () => {
     } finally {
       wrapper.unmount()
     }
+  })
+
+  it('exposes scroll and source anchors without requiring the caller to inspect layout markup', () => {
+    const wrapper = mount(OptimizeWorkspaceLayout, {
+      props: { compact: true },
+      slots: { original: '<textarea />', workspace: '<article>Working prompt</article>' },
+    })
+    try {
+      const original = wrapper.get<HTMLElement>('.optimize-original-scroll').element
+      const content = wrapper.get<HTMLElement>('article').element
+      original.scrollIntoView = vi.fn()
+      content.scrollIntoView = vi.fn()
+      wrapper.vm.setScrollTop(120)
+      expect(wrapper.vm.getScrollTop()).toBe(120)
+      wrapper.vm.scrollToSection('original')
+      expect(original.scrollIntoView).toHaveBeenCalledWith({ block: 'start' })
+      wrapper.vm.scrollToSection('workspace', 'content')
+      expect(content.scrollIntoView).toHaveBeenCalledWith({ block: 'start' })
+    } finally { wrapper.unmount() }
   })
 })

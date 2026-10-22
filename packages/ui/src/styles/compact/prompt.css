@@ -1,0 +1,143 @@
+/* PromptPanel owns its heading, versions, continuation and comparison controls. Source-summary hooks belong to workspace collapsed headers. */
+
+.compact-two-region .compact-original-card .source-summary-title {
+  white-space: nowrap;
+  font-size: 14px !important;
+  font-weight: 600;
+  color: var(--compact-ink);
+}
+
+.compact-two-region .compact-original-card .source-summary-group {
+  min-width: 0;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.compact-two-region .compact-original-card .source-summary-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.6;
+}
+
+.compact-shared-prompt .prompt-panel-header-card {
+  max-height: none !important;
+  background: transparent;
+}
+
+.compact-shared-prompt .prompt-panel-heading {
+  flex-wrap: wrap !important;
+  gap: 10px;
+}
+
+.compact-shared-prompt .prompt-panel-title {
+  font-size: 15px;
+}
+
+.compact-shared-prompt .prompt-panel-continue {
+  min-height: 44px;
+  border-radius: 8px;
+}
+
+.compact-compare-selector {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--compact-muted);
+  font-size: 12px;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 0 2px;
+}
+
+.compact-compare-selector .n-select {
+  width: 130px;
+}
+
+.compact-iterate-reference {
+  margin-bottom: 20px;
+  background: var(--compact-soft);
+  border: 1px solid var(--compact-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.compact-iterate-reference summary {
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--compact-muted);
+}
+
+.compact-iterate-reference pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.8;
+  max-height: 25dvh;
+  overflow-y: auto;
+}
+
+.workspace-compact .compact-shared-iterate .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.compact-shared-prompt {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.compact-two-region .compact-shared-prompt .prompt-panel-continue {
+  font-size: 13px;
+  min-height: 36px;
+  padding: 0 10px;
+  width: auto;
+  min-width: 0;
+}
+
+.compact-compare-selector .n-base-selection {
+  --n-height: 40px !important;
+  font-size: 13px;
+}
+
+.compact-two-region .compact-shared-prompt .prompt-panel-title {
+  font-size: 14px !important;
+  font-weight: 600;
+  color: var(--compact-ink);
+}
+
+.compact-two-region .compact-shared-prompt .prompt-panel-heading {
+  align-items: center !important;
+  gap: 8px;
+  flex-wrap: wrap !important;
+  row-gap: 4px;
+}
+
+.compact-two-region .compact-compare-selector {
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.compact-two-region .compact-compare-selector .n-base-selection,
+.compact-two-region .compact-version-picker .n-base-selection {
+  --n-height: 32px !important;
+}
+
+.compact-two-region .compact-shared-prompt {
+  gap: 4px !important;
+}
+
+.compact-two-region .compact-version-picker {
+  width: 70px;
+}
+
+.compact-two-region .compact-shared-prompt .compact-version-picker {
+  width: clamp(62px, 18cqi, 84px);
+}

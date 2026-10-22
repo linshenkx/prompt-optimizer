@@ -17,12 +17,12 @@
         </div>
         <div
             ref="splitRootRef"
-            class="basic-system-split"
+            class="basic-system-split compact-workspace-pane"
             :style="{ gridTemplateColumns: isCompact ? 'minmax(0, 1fr)' : `${mainSplitLeftPct}% 12px 1fr` }"
         >
             <!-- 左侧：优化区域 -->
             <div v-show="!isCompact || mobileRegion === 'optimize'" class="split-pane compact-optimize-region" style="min-width: 0; height: 100%; overflow: hidden;">
-                <OptimizeWorkspaceLayout :compact="isCompact" v-model:view="mobileOptimizeView"
+                <OptimizeWorkspaceLayout ref="optimizeLayoutRef" :compact="isCompact"
                     @scroll="rememberOptimizeScroll">
                 <template #original>
                 <!-- 输入控制区域（可折叠） -->
@@ -33,16 +33,16 @@
                     :source-tone="sourceAreaFeedback.original.sourceTone"
                 >
                     <!-- 折叠态：只显示标题栏 -->
-                    <NFlex
+                    <NFlex class="source-summary-heading"
                         v-if="isInputPanelCollapsed"
                         justify="space-between"
                         align="center"
                     >
-                        <NFlex align="center" :size="8">
-                            <NText :depth="1" style="font-size: 18px; font-weight: 500">
+                        <NFlex class="source-summary-group" align="center" :size="8">
+                            <NText class="source-summary-title" :depth="1" style="font-size: 18px; font-weight: 500">
                                 {{ t('promptOptimizer.originalPrompt') }}
                             </NText>
-                            <NText
+                            <NText class="source-summary-text"
                                 v-if="promptModel"
                                 depth="3"
                                 style="font-size: 12px;"
@@ -218,8 +218,8 @@
 
             <!-- 右侧：测试区域 -->
             <div v-show="!isCompact || mobileRegion === 'test'" ref="testPaneRef" class="split-pane compact-test-region" style="min-width: 0; height: 100%; overflow: hidden;">
-                <TestWorkspaceLayout :compact="isCompact" v-model:view="mobileTestView" :running="isAnyVariantRunning" :has-results="activeVariantIds.some(id => variantResults[id].requestPrompt !== undefined)"
-                    @scroll="rememberTestScroll" @config-scroll="rememberTestConfigScroll">
+                <TestWorkspaceLayout ref="testLayoutRef" :compact="isCompact" v-model:config-expanded="testConfigExpanded" :running="isAnyVariantRunning" :has-results="activeVariantIds.some(id => variantResults[id].requestPrompt !== undefined)"
+                    @scroll="rememberTestScroll">
                     <template #input>
                     <!-- Kept mounted when mobile configuration is folded. -->
                     <!-- 测试输入（system 模式必填） -->
@@ -564,10 +564,13 @@ import TestWorkspaceLayout from '../common/TestWorkspaceLayout.vue'
 import MobileTestResultHeader from '../common/MobileTestResultHeader.vue'
 import OptimizeWorkspaceLayout from '../common/OptimizeWorkspaceLayout.vue'
 import WorkspaceRegionSwitch from '../common/WorkspaceRegionSwitch.vue'
-import { useWorkspaceLayout } from '../../composables/ui/useWorkspaceLayout'
 import { useElementSize } from '@vueuse/core'
-import { useBasicWorkspaceView } from '../../composables/ui/useBasicWorkspaceView'
-const { isCompact } = useWorkspaceLayout()
+import { useWorkspacePresentation } from '../../composables/ui/useWorkspacePresentation'
+const {
+  isCompact, mobileRegion, testConfigExpanded, inputCollapsed: isInputPanelCollapsed,
+  optimizeLayoutRef, testLayoutRef, rememberOptimizeScroll, rememberTestScroll,
+  resetTestScroll, showOptimizationSection, resetMobileView,
+} = useWorkspacePresentation('system')
 
 /**
  * BasicSystemWorkspace - Basic 模式 System 子模式工作区
@@ -774,9 +777,6 @@ type PromptPanelExpose = {
 } | null
 const promptPanelRef = ref<PromptPanelExpose>(null)
 
-// 输入区折叠状态（初始展开）
-const { region: mobileRegion, variant: mobileVariant, inputCollapsed: isInputPanelCollapsed, optimizeView: mobileOptimizeView, testView: mobileTestView, optimizeScroll, testConfigScroll, testScroll, resetView } = useBasicWorkspaceView('system')
-
 // 提示词摘要（折叠态显示）
 const promptSummary = computed(() => {
   const prompt = logic.prompt.value
@@ -936,9 +936,6 @@ const variantDTestModelKeyModel = computed<string>({
 
 const ALL_VARIANT_IDS: TestVariantId[] = ['a', 'b', 'c', 'd']
 const activeVariantIds = computed<TestVariantId[]>(() => ALL_VARIANT_IDS.slice(0, testColumnCountModel.value))
-watch(activeVariantIds, (ids) => {
-  if (!ids.includes(mobileVariant.value)) mobileVariant.value = ids[0] ?? 'a'
-})
 const useStackedVariantControls = computed(() => activeVariantIds.value.length >= 2)
 
 const variantVersionModels = {
@@ -1072,11 +1069,8 @@ const previewVariantSource = (id: TestVariantId) => {
 const editPreviewSource = async () => {
   const original = variantVersionModels[sourcePreviewId.value].value === 0
   sourcePreviewOpen.value = false
-  mobileRegion.value = 'optimize'
-  mobileOptimizeView.value = original ? 'original' : 'workspace'
   if (original) isInputPanelCollapsed.value = false
-  await nextTick()
-  splitRootRef.value?.querySelector(original ? '.compact-original-card' : '.compact-result-card')?.scrollIntoView({ block: 'start' })
+  await showOptimizationSection(original ? 'original' : 'workspace', 'content')
   activateVariantSource(sourcePreviewId.value)
 }
 
@@ -1228,8 +1222,7 @@ const getVariantTestInput = (id: TestVariantId): VariantTestInput | null => {
   const modelKey = (variantModelKeyModels[id].value || '').trim()
   if (!modelKey) {
     if (isCompact.value) {
-      mobileVariant.value = id
-      mobileTestView.value = 'config'
+      testConfigExpanded.value = true
     }
     toast.error(t('test.error.noModel'))
     return null
@@ -1237,7 +1230,7 @@ const getVariantTestInput = (id: TestVariantId): VariantTestInput | null => {
 
   const userPrompt = (logic.testContent.value || '').trim()
   if (!userPrompt) {
-    if (isCompact.value) mobileTestView.value = 'config'
+    if (isCompact.value) testConfigExpanded.value = true
     toast.error(t('test.error.noTestContent'))
     return null
   }
@@ -1287,12 +1280,8 @@ const runVariant = async (
 
   const input = getVariantTestInput(id)
   if (!input) return false
-  if (isCompact.value && !opts?.allowParallel) mobileTestView.value = 'results'
-  testScroll.value[id] = 0
-  if (mobileVariant.value === id) {
-    const reader = testPaneRef.value?.querySelector('.test-results-scroll')
-    if (reader) reader.scrollTop = 0
-  }
+  if (isCompact.value && !opts?.allowParallel) testConfigExpanded.value = false
+  if (id === 'a') resetTestScroll()
 
   if (!opts?.skipClearEvaluation) {
     evaluationHandler.clearBeforeTest()
@@ -1370,7 +1359,7 @@ const runAllVariants = async () => {
   for (const id of ids) {
     if (!getVariantTestInput(id)) return
   }
-  if (isCompact.value) mobileTestView.value = 'results'
+  if (isCompact.value) testConfigExpanded.value = false
 
   // 对比两侧固定使用同一次点击时的图片与 fingerprint 快照。
   const sharedInputImages = getTestInputImages()
@@ -1681,54 +1670,8 @@ const handleCompareRoleConfigConfirm = async (
 const handleOptimizeSafely = async () => {
   if (isCompact.value && promptPanelRef.value?.confirmDiscardChanges && !(await promptPanelRef.value.confirmDiscardChanges())) return
   const pending = logic.handleOptimize()
-  if (isCompact.value && logic.isOptimizing.value) mobileOptimizeView.value = 'workspace'
   await pending
 }
-let restoringViewScroll = false
-let scrollRestoreFrame = 0
-const rememberOptimizeScroll = (pane: 'original' | 'workspace' | 'desktop', event: Event) => {
-  if (!restoringViewScroll && pane === 'desktop') {
-    optimizeScroll.value[pane] = (event.target as HTMLElement).scrollTop
-  }
-}
-const rememberTestScroll = (event: Event) => {
-  if (!restoringViewScroll) {
-    testScroll.value[mobileVariant.value] = (event.target as HTMLElement).scrollTop
-  }
-}
-const rememberTestConfigScroll = (event: Event) => {
-  if (!restoringViewScroll && isCompact.value && mobileTestView.value === 'config') {
-    testConfigScroll.value = (event.target as HTMLElement).scrollTop
-  }
-}
-const viewWatchSources = [mobileRegion, mobileVariant, isCompact] as const
-// Capture the outgoing pane before v-show can clamp its scroll position.
-watch(viewWatchSources, (_next, [region, variant, compact]) => {
-  if (!restoringViewScroll) {
-    const pane = splitRootRef.value?.querySelector('.optimize-workspace-layout')
-    if (pane && (!compact || region === 'optimize')) optimizeScroll.value.desktop = pane.scrollTop
-    if (compact && region === 'test') {
-      const test = testPaneRef.value?.querySelector('.test-results-scroll')
-      if (test) testScroll.value[variant] = test.scrollTop
-    }
-  }
-  restoringViewScroll = true
-}, { flush: 'sync' })
-const restoreViewScroll = async () => {
-  restoringViewScroll = true
-  await nextTick()
-  const root = splitRootRef.value
-  const optimize = root?.querySelector('.optimize-workspace-layout')
-  const results = testPaneRef.value?.querySelector('.test-results-scroll')
-  if (optimize) optimize.scrollTop = optimizeScroll.value.desktop
-  if (results) results.scrollTop = testScroll.value[mobileVariant.value]
-  cancelAnimationFrame(scrollRestoreFrame)
-  scrollRestoreFrame = requestAnimationFrame(() => { restoringViewScroll = false })
-}
-watch(viewWatchSources, restoreViewScroll, { flush: 'post' })
-onMounted(() => { void restoreViewScroll() })
-onUnmounted(() => { cancelAnimationFrame(scrollRestoreFrame) })
-
 // 迭代优化
 const handleIterate = (payload: IteratePayload) => {
   logic.handleIterate(payload)
@@ -1862,7 +1805,7 @@ const handleClearEvaluation = () => {
 
 const handleClearContent = () => {
   for (const id of ALL_VARIANT_IDS) variantFailed[id] = false
-  resetView()
+  resetMobileView()
   logic.clearContent()
   handleClearEvaluation()
 }

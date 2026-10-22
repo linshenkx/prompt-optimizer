@@ -2,7 +2,7 @@
     <NCard class="conversation-manager" :size="size" :bordered="false">
         <!-- 标题和统计信息 -->
         <template #header>
-            <NSpace justify="space-between" align="center">
+            <NSpace class="conversation-heading" item-class="conversation-heading-item" justify="space-between" align="center">
                 <!-- 左侧：标题 -->
                 <NText class="text-base font-semibold conversation-manager-title">
                     {{ title || t("conversation.management.title") }}

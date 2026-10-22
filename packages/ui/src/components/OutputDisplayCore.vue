@@ -3,10 +3,11 @@
     :bordered="false"
     class="output-display-core h-full"
     :class="{ 'output-display--flow': fitContent }"
+    content-class="output-display-content"
     content-style="padding: 0; height: 100%; max-height: 100%; display: flex; flex-direction: column; overflow: hidden;"
     :data-testid="testId"
   >
-    <NFlex vertical style="height: 100%; min-height: 0; overflow: hidden;">
+    <NFlex class="output-display-stack" vertical style="height: 100%; min-height: 0; overflow: hidden;">
       <!-- 统一顶层工具栏 -->
       <NFlex ref="toolbarRef" v-if="hasToolbar && (!fitContent || hasContent || hasReasoning)" class="output-display-toolbar" justify="space-between" align="center" style="flex: 0 0 auto;">
         <!-- 左侧：视图控制按钮组 -->
@@ -178,7 +179,7 @@
         </NCollapse>
       </NFlex>
       <!-- 主要内容区域 -->
-      <NFlex vertical style="flex: 1; min-height: 0; max-height: 100%; overflow: hidden;">
+      <NFlex class="output-display-body" vertical style="flex: 1; min-height: 0; max-height: 100%; overflow: hidden;">
         <!-- 对比模式 -->
         <TextDiffUI v-if="internalViewMode === 'diff' && content && originalContent"
           :originalText="originalContent"
@@ -220,6 +221,7 @@
 
         <!-- 渲染模式（默认） -->
         <NFlex v-else
+          class="output-display-render"
           vertical
           :align="displayContent ? 'stretch' : 'center'"
           :justify="displayContent ? 'start' : 'center'"

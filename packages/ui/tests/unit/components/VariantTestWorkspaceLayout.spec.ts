@@ -10,7 +10,7 @@ const variants = [
 describe('shared mobile variant workspace', () => {
   it('keeps simultaneous results and drafts mounted without a group tab', async () => {
     const wrapper = mount(VariantTestWorkspaceLayout, {
-      props: { compact: true, view: 'config', variant: 'b', variants },
+      props: { compact: true, configExpanded: true, variants },
       slots: { results: '<article>saved image or text</article>', input: '<textarea />' },
     })
     try {
@@ -18,20 +18,20 @@ describe('shared mobile variant workspace', () => {
       await wrapper.get('textarea').setValue('unfinished draft')
       await wrapper.get('[data-testid="mobile-config-run-all"]').trigger('click')
       expect(wrapper.emitted('run-all')).toHaveLength(1)
-      await wrapper.setProps({ view: 'results' })
+      await wrapper.setProps({ configExpanded: false })
       expect(wrapper.find('.compact-test-tabs').exists()).toBe(false)
       expect(wrapper.find('[data-testid="mobile-config-run-current"]').exists()).toBe(false)
-      await wrapper.setProps({ view: 'config' })
+      await wrapper.setProps({ configExpanded: true })
       expect(wrapper.get('article').element).toBe(result)
       expect(wrapper.get('textarea').element.value).toBe('unfinished draft')
       await wrapper.setProps({ variants: [variants[0]] })
-      expect(wrapper.emitted('update:variant')?.at(-1)).toEqual(['a'])
+      expect(wrapper.get('article').element).toBe(result)
     } finally { wrapper.unmount() }
   })
 
   it('disables run-all while a group runs and preserves the desktop controls', async () => {
     const wrapper = mount(VariantTestWorkspaceLayout, {
-      props: { compact: true, view: 'results', variant: 'b', variants: [{ ...variants[0], running: true }, variants[1]] },
+      props: { compact: true, configExpanded: false, variants: [{ ...variants[0], running: true }, variants[1]] },
     })
     try {
       expect(wrapper.get('[data-testid="mobile-config-run-all"]').attributes('disabled')).toBeDefined()

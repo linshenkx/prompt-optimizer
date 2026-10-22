@@ -23,7 +23,7 @@
       <slot name="variant-controls" />
     </div>
     <div v-if="compact && !configExpanded && $slots['config-summary']" class="test-config-summary"><slot name="config-summary" /></div>
-    <div :class="compact ? 'test-answer-content' : 'test-results-scroll'" @scroll.passive="!compact && emit('scroll', $event)">
+    <div ref="resultsRoot" :class="compact ? 'test-answer-content' : 'test-results-scroll'" @scroll.passive="!compact && emit('scroll', $event)">
       <slot name="results" />
     </div>
   </section>
@@ -32,35 +32,39 @@
 import { ref, watch } from 'vue'
 import { useElementSize } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
-const props = withDefaults(defineProps<{ compact: boolean; view: 'config' | 'results'; running?: boolean; hasResults?: boolean }>(), { running: false, hasResults: false })
+import type { WorkspaceScrollHandle } from '../../types/workspacePresentation'
+const props = withDefaults(defineProps<{ compact: boolean; configExpanded: boolean; running?: boolean; hasResults?: boolean }>(), { running: false, hasResults: false })
 const emit = defineEmits<{
-  'update:view': [value: 'config' | 'results']
+  'update:configExpanded': [value: boolean]
   scroll: [event: Event]
-  'config-scroll': [event: Event]
 }>()
 // Keep editors mounted so drafts and selections survive folding.
-const configExpanded = ref(props.view !== 'results')
 const layoutRoot = ref<HTMLElement>()
 const configRoot = ref<HTMLElement>()
+const resultsRoot = ref<HTMLElement>()
+const getScrollRoot = () => props.compact ? layoutRoot.value : resultsRoot.value
+defineExpose<WorkspaceScrollHandle>({
+  getScrollTop: () => getScrollRoot()?.scrollTop ?? 0,
+  setScrollTop: top => { const root = getScrollRoot(); if (root) root.scrollTop = top },
+})
 const { height: availableHeight } = useElementSize(layoutRoot)
 const { height: configHeight } = useElementSize(configRoot)
 const measuredConfigHeight = ref(0)
 const manuallyToggled = ref(false)
+let requestedExpansion: boolean | undefined
 const setConfigExpanded = (expanded: boolean) => {
-  configExpanded.value = expanded
-  const view = expanded ? 'config' : 'results'
-  if (props.view !== view) emit('update:view', view)
+  if (props.configExpanded === expanded) return
+  requestedExpansion = expanded
+  emit('update:configExpanded', expanded)
 }
 const toggleConfig = () => {
   manuallyToggled.value = true
-  setConfigExpanded(!configExpanded.value)
+  setConfigExpanded(!props.configExpanded)
 }
-watch(() => props.view, view => {
-  const expanded = view === 'config'
+watch(() => props.configExpanded, expanded => {
   // An update echoed by v-model is not a new manual override of auto sizing.
-  if (configExpanded.value === expanded) return
-  manuallyToggled.value = true
-  configExpanded.value = expanded
+  if (requestedExpansion !== expanded) manuallyToggled.value = true
+  requestedExpansion = undefined
 })
 watch(configHeight, height => {
   if (props.compact && height > 0) measuredConfigHeight.value = height

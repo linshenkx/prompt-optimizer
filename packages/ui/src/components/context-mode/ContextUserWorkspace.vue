@@ -22,12 +22,12 @@
         </div>
         <div
             ref="splitRootRef"
-            class="context-user-split"
+            class="context-user-split compact-workspace-pane"
             :style="{ gridTemplateColumns: isCompact ? 'minmax(0, 1fr)' : `${mainSplitLeftPct}% 12px 1fr` }"
         >
             <!-- 左侧：优化区域 -->
             <div v-show="!isCompact || mobileRegion === 'optimize'" :class="{ 'compact-optimize-region': isCompact }" class="split-pane" style="min-width: 0; height: 100%; overflow: hidden;">
-                <OptimizeWorkspaceLayout :compact="isCompact" v-model:view="mobileOptimizeView" @scroll="rememberOptimizeScroll">
+                <OptimizeWorkspaceLayout ref="optimizeLayoutRef" :compact="isCompact" @scroll="rememberOptimizeScroll">
     <template #original>
             <!-- 提示词输入面板 (可折叠) -->
             <TestSourceLinkedCard class="compact-original-card"
@@ -37,16 +37,16 @@
                 :source-tone="sourceAreaFeedback.original.sourceTone"
             >
                 <!-- 折叠态：只显示标题栏 -->
-                <NFlex
+                <NFlex class="source-summary-heading"
                     v-if="isInputPanelCollapsed"
                     justify="space-between"
                     align="center"
                 >
-                    <NFlex align="center" :size="8">
-                        <NText :depth="1" style="font-size: 18px; font-weight: 500">
+                    <NFlex class="source-summary-group" align="center" :size="8">
+                        <NText class="source-summary-title" :depth="1" style="font-size: 18px; font-weight: 500">
                             {{ t('promptOptimizer.originalPrompt') }}
                         </NText>
-                        <NText
+                        <NText class="source-summary-text"
                             v-if="contextUserOptimization.prompt"
                             depth="3"
                             style="font-size: 12px;"
@@ -240,9 +240,9 @@
 
             <!-- 右侧：测试区域（变量共享 + 多列 variants） -->
             <div v-show="!isCompact || mobileRegion === 'test'" :class="{ 'compact-test-region': isCompact }" ref="testPaneRef" class="split-pane" style="min-width: 0; height: 100%; overflow: hidden;">
-                <VariantTestWorkspaceLayout :compact="isCompact" v-model:view="mobileTestView" v-model:variant="mobileVariant"
-    :variants="mobileVariants" @run="runVariant" @run-all="runAllVariants" @source="previewMobileSource"
-    @scroll="rememberTestScroll" @config-scroll="rememberTestConfigScroll">
+                <VariantTestWorkspaceLayout ref="testLayoutRef" :compact="isCompact" v-model:config-expanded="testConfigExpanded"
+    :variants="mobileVariants" @run-all="runAllVariants"
+    @scroll="rememberTestScroll">
     <template #input><ContextUserTestPanel :compact="isCompact"
                         ref="testAreaPanelRef"
                         mode="variables-only"
@@ -554,7 +554,7 @@ import VariantTestWorkspaceLayout from '../common/VariantTestWorkspaceLayout.vue
 import MobileTestResultHeader from '../common/MobileTestResultHeader.vue'
 import WorkspaceRegionSwitch from '../common/WorkspaceRegionSwitch.vue'
 import TestSourcePreview from '../common/TestSourcePreview.vue'
-import { useCompactWorkspace } from '../../composables/ui/useCompactWorkspace'
+import { useWorkspacePresentation } from '../../composables/ui/useWorkspacePresentation'
 
 /**
  * 上下文模式 - 用户提示词工作区组件
@@ -892,10 +892,11 @@ const proVariableSession = useProVariableSession();
 // ==================== 主布局：可拖拽分栏（左侧 25%~50%） ====================
 
 const {
-    splitRootRef, isCompact, mobileRegion, mobileVariant, mobileOptimizeView, mobileTestView,
-    rememberOptimizeScroll, rememberTestScroll, rememberTestConfigScroll,
-    showOptimization, showTestResult, resetMobileView,
-  } = useCompactWorkspace('pro-variable')
+    isCompact, mobileRegion, testConfigExpanded, optimizeLayoutRef, testLayoutRef,
+    rememberOptimizeScroll, rememberTestScroll,
+    showOptimization, showOptimizationSection, showTestResult, resetMobileView,
+  } = useWorkspacePresentation('pro-variable')
+const splitRootRef = ref<HTMLElement | null>(null)
 const testPaneRef = ref<HTMLElement | null>(null)
 
 const clampLeftPct = (pct: number) => Math.min(50, Math.max(25, pct))
@@ -2357,11 +2358,8 @@ const previewMobileSource = (id: TestVariantId) => {
 }
 const editMobileSource = async () => {
   showMobileSource.value = false
-  mobileRegion.value = 'optimize'
-  mobileOptimizeView.value = mobileSourceView.value
   if (mobileSourceView.value === 'original') { isInputPanelCollapsed.value = false }
-  await nextTick()
-  splitRootRef.value?.querySelector(`.optimize-${mobileSourceView.value}-scroll`)?.scrollIntoView({ block: 'start' })
+  await showOptimizationSection(mobileSourceView.value)
 }
 watch(() => contextUserOptimization.isOptimizing, (running, previous) => {
   if (running && !previous) showOptimization()

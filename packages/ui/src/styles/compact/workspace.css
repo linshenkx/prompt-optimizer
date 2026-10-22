@@ -1,0 +1,106 @@
+/* OptimizeWorkspaceLayout and workspace shell slots own pane surfaces, card spacing and shared reading layout. */
+
+.compact-two-region > .compact-workspace-pane {
+  flex: 1;
+  min-height: 0;
+  padding: 0 16px 8px;
+  padding-top: 0;
+  container: mobile-pane / inline-size;
+}
+
+.compact-two-region .compact-original-card {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.compact-two-region .compact-result-card {
+  overflow: visible !important;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  flex: 0 0 auto !important;
+  min-height: 0 !important;
+}
+
+.compact-two-region .compact-result-card > .n-card-content {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  padding: 4px 0 !important;
+}
+
+.compact-two-region .optimize-original-scroll > .compact-original-card > .n-card-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.compact-two-region .optimize-original-scroll {
+  gap: 12px;
+}
+
+.compact-two-region .optimize-original-scroll > .n-card:not(.compact-original-card) {
+  border: 0;
+  background: transparent;
+}
+
+.compact-two-region .optimize-original-scroll > .n-card:not(.compact-original-card) > .n-card-content {
+  padding: 8px 0;
+}
+
+.compact-two-region .optimize-original-scroll > .n-card:not(.compact-original-card) .n-flex {
+  min-width: 0;
+}
+
+.compact-two-region .optimize-original-scroll > .n-card:not(.compact-original-card) .n-button--block {
+  min-height: 44px;
+}
+
+.compact-two-region .optimize-original-scroll > .n-card .n-base-selection {
+  --n-height: 44px !important;
+}
+
+.compact-two-region .optimize-original-scroll .n-base-selection {
+  --n-height: 36px !important;
+  font-size: 13px;
+}
+
+.compact-two-region .compact-original-card .compact-action-menu-trigger {
+  font-size: 12px;
+}
+
+.compact-two-region .optimize-original-scroll > .compact-original-card {
+  flex: 0 0 auto;
+}
+
+.compact-two-region .optimize-workspace-layout--compact {
+  gap: 6px;
+}
+
+.compact-two-region .optimize-workspace-layout--compact .optimize-workspace-scroll {
+  padding-top: 4px;
+}
+
+.compact-two-region .compact-original-card > .n-card-content {
+  padding: 4px 0 !important;
+}
+
+@media (max-width: 359px) {
+  .compact-two-region > .compact-workspace-pane {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+}
+
+@container mobile-viewport (max-height: 620px) {
+  .compact-two-region > .compact-workspace-pane {
+    padding-bottom: 4px;
+  }
+
+  .compact-two-region .optimize-original-scroll {
+    gap: 6px;
+  }
+
+}

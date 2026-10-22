@@ -1,0 +1,187 @@
+/* OutputDisplayCore owns flow reading, typography and its toolbar. Explicit content/stack/body/render hooks replace flex-tree traversal. */
+
+.compact-two-region .output-display-core .output-display-toolbar {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.compact-two-region .output-display-core .n-button {
+  min-height: 40px;
+}
+
+.compact-two-region .output-display-core .markdown-content {
+  font-size: 15px !important;
+  line-height: 1.8 !important;
+  color: var(--compact-ink);
+  padding: 12px 2px 24px;
+}
+
+.compact-two-region .output-display-core .markdown-content h2 {
+  font-size: 17px;
+}
+
+.compact-two-region .output-display-core .diff-text {
+  font-size: 14px;
+  line-height: 1.85;
+}
+
+.output-display--flow,
+.output-display--flow > .output-display-content,
+.output-display--flow .output-display-stack,
+.output-display--flow .output-display-body,
+.output-display--flow .output-display-render {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  flex: 0 0 auto !important;
+}
+
+.output-display--flow .markdown-content {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.compact-two-region .output-display-toolbar {
+  gap: 4px !important;
+  flex-wrap: nowrap !important;
+  justify-content: space-between !important;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.compact-two-region .output-view-modes {
+  flex-shrink: 0;
+  gap: 2px;
+  flex-wrap: nowrap;
+}
+
+.compact-two-region .output-view-modes > .n-button {
+  border-radius: 8px !important;
+  font-size: 13px;
+  color: var(--compact-muted);
+  min-width: 0;
+  padding: 0 8px;
+}
+
+.compact-two-region .output-view-modes > .n-button[aria-pressed="true"] {
+  color: var(--compact-ink);
+  background: var(--compact-soft);
+  font-weight: 600;
+}
+
+.compact-two-region .output-toolbar-actions {
+  gap: 0 !important;
+}
+
+.compact-two-region .output-toolbar-actions > .n-button {
+  width: 36px;
+  min-height: 40px;
+}
+
+.compact-two-region .output-copy-split-button {
+  height: 40px;
+  border: 0;
+  border-radius: 8px;
+  overflow: visible;
+}
+
+.compact-two-region .output-copy-split-button .output-copy-split-primary {
+  width: 36px;
+  min-width: 36px;
+}
+
+.compact-two-region .output-copy-split-button .output-copy-split-menu {
+  width: 28px;
+  min-width: 28px;
+}
+
+.compact-two-region .output-copy-split-button .output-copy-split-menu::before {
+  display: none;
+}
+
+.compact-two-region .output-display-core .markdown-content p,
+.compact-two-region .output-display-core .markdown-content li {
+  line-height: 1.8;
+}
+
+.compact-two-region .output-display-core .markdown-content h3 {
+  font-size: 16px;
+  margin-top: 18px;
+}
+
+.compact-two-region .output-source-text {
+  padding: 12px 2px 24px;
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.compact-two-region .output-view-menu {
+  font-size: 13px;
+  color: var(--compact-muted);
+  padding: 0 8px;
+  min-height: 36px;
+}
+
+.compact-two-region .compact-shared-prompt .output-display-core .n-input:not(:focus-within) {
+  --n-color: transparent !important;
+}
+
+.compact-two-region .output-display--flow .output-display-stack {
+  gap: 4px !important;
+}
+
+.compact-two-region .output-display-toolbar .n-button {
+  min-height: 36px;
+}
+
+.compact-two-region .output-display--flow .n-empty {
+  padding: 16px 0;
+}
+
+.compact-two-region .output-display--flow .markdown-content {
+  --md-title-spacing: 8px 0;
+  --md-spacing-lg: 8px 0;
+  --md-spacing-md: 6px 0;
+  padding-top: 6px;
+  line-height: 1.65 !important;
+}
+
+.compact-two-region .output-display--flow .markdown-content h1 {
+  font-size: 19px;
+  line-height: 1.4;
+  margin: 8px 0;
+}
+
+.compact-two-region .output-display--flow .markdown-content h2 {
+  font-size: 17px;
+  line-height: 1.45;
+  margin: 8px 0;
+}
+
+.compact-two-region .output-display--flow .markdown-content h3 {
+  font-size: 16px;
+  line-height: 1.45;
+  margin: 6px 0;
+}
+
+.compact-two-region .output-display--flow .markdown-content p,
+.compact-two-region .output-display--flow .markdown-content li {
+  line-height: 1.65;
+}
+
+.compact-two-region .output-display--flow .markdown-content ul,
+.compact-two-region .output-display--flow .markdown-content ol {
+  padding-left: 1.25em;
+}
+
+.workspace-compact .output-fullscreen-layout .output-display-core {
+  flex: 1;
+  min-height: 0;
+}
+
+.compact-two-region .optimize-workspace-scroll .output-display-toolbar {
+  flex-wrap: wrap !important;
+  gap: 0 4px !important;
+}

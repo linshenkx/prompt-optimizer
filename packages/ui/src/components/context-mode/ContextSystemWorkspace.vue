@@ -10,12 +10,12 @@
         </div>
         <div
             ref="splitRootRef"
-            class="context-system-split"
+            class="context-system-split compact-workspace-pane"
             :style="{ gridTemplateColumns: isCompact ? 'minmax(0, 1fr)' : `${mainSplitLeftPct}% 12px 1fr` }"
         >
             <!-- 左侧：优化区域 -->
             <div v-show="!isCompact || mobileRegion === 'optimize'" :class="{ 'compact-optimize-region': isCompact }" class="split-pane" style="min-width: 0; height: 100%; overflow: hidden;">
-                <OptimizeWorkspaceLayout :compact="isCompact" v-model:view="mobileOptimizeView" @scroll="rememberOptimizeScroll">
+                <OptimizeWorkspaceLayout ref="optimizeLayoutRef" :compact="isCompact" @scroll="rememberOptimizeScroll">
     <template #original>
                     <!-- 会话管理器 (系统模式专属，也是消息输入界面) -->
                     <TestSourceLinkedCard class="compact-original-card"
@@ -58,13 +58,13 @@
 
                     <!-- 优化控制区 -->
                     <NCard class="multi-optimize-controls" :style="{ flexShrink: 0 }" size="small">
-                        <NFlex vertical :size="12">
+                        <NFlex class="multi-optimize-grid" vertical :size="12">
                             <!-- 模型和模板选择行 -->
-                            <NFlex :size="12" :wrap="false">
+                            <NFlex class="multi-optimize-selectors" :size="12" :wrap="false">
                                 <!-- 优化模型选择 -->
-                                <NFlex vertical :size="4" style="flex: 1">
+                                <NFlex class="multi-optimize-field" vertical :size="4" style="flex: 1">
                                     <NFlex align="center" :size="6" :wrap="false">
-                                        <NText :depth="3" style="font-size: 12px; flex-shrink: 0;">
+                                        <NText class="multi-optimize-label" :depth="3" style="font-size: 12px; flex-shrink: 0;">
                                             {{ $t('promptOptimizer.optimizeModel') }}
                                         </NText>
                                         <TextModelQuickSwitch v-if="!isCompact"
@@ -92,8 +92,8 @@
                                 </NFlex>
 
                                 <!-- 模板选择 -->
-                                <NFlex vertical :size="4" style="flex: 1">
-                                    <NText :depth="3" style="font-size: 12px">
+                                <NFlex class="multi-optimize-field" vertical :size="4" style="flex: 1">
+                                    <NText class="multi-optimize-label" :depth="3" style="font-size: 12px">
                                         {{ $t('promptOptimizer.templateLabel') }}
                                     </NText>
                                     <SelectWithConfig
@@ -193,9 +193,9 @@
 
             <!-- 右侧：测试区域（变量共享 + 多列 variants） -->
             <div v-show="!isCompact || mobileRegion === 'test'" :class="{ 'compact-test-region': isCompact }" ref="testPaneRef" class="split-pane" style="min-width: 0; height: 100%; overflow: hidden;">
-                <VariantTestWorkspaceLayout :compact="isCompact" v-model:view="mobileTestView" v-model:variant="mobileVariant"
-    :variants="mobileVariants" @run="runVariant" @run-all="runAllVariants" @source="previewMobileSource"
-    @scroll="rememberTestScroll" @config-scroll="rememberTestConfigScroll">
+                <VariantTestWorkspaceLayout ref="testLayoutRef" :compact="isCompact" v-model:config-expanded="testConfigExpanded"
+    :variants="mobileVariants" @run-all="runAllVariants"
+    @scroll="rememberTestScroll">
     <template #input><ConversationTestPanel :compact="isCompact"
                         ref="testAreaPanelRef"
                         mode="variables-only"
@@ -519,10 +519,9 @@ import VariantTestWorkspaceLayout from '../common/VariantTestWorkspaceLayout.vue
 import MobileTestResultHeader from '../common/MobileTestResultHeader.vue'
 import WorkspaceRegionSwitch from '../common/WorkspaceRegionSwitch.vue'
 import TestSourcePreview from '../common/TestSourcePreview.vue'
-import { useCompactWorkspace } from '../../composables/ui/useCompactWorkspace'
+import { useWorkspacePresentation } from '../../composables/ui/useWorkspacePresentation'
 
 import {
-    nextTick,
     ref,
     reactive,
     computed,
@@ -988,10 +987,11 @@ const refreshTemplatesHandler = async () => {
 // ==================== 主布局：可拖拽分栏（左侧 25%~50%） ====================
 
 const {
-    splitRootRef, isCompact, mobileRegion, mobileVariant, mobileOptimizeView, mobileTestView,
-    rememberOptimizeScroll, rememberTestScroll, rememberTestConfigScroll,
-    showOptimization, showTestResult, resetMobileView,
-  } = useCompactWorkspace('pro-multi')
+    isCompact, mobileRegion, testConfigExpanded, optimizeLayoutRef, testLayoutRef,
+    rememberOptimizeScroll, rememberTestScroll,
+    showOptimization, showOptimizationSection, showTestResult, resetMobileView,
+  } = useWorkspacePresentation('pro-multi')
+const splitRootRef = ref<HTMLElement | null>(null)
 const testPaneRef = ref<HTMLElement | null>(null)
 
 const clampLeftPct = (pct: number) => Math.min(50, Math.max(25, pct))
@@ -2280,11 +2280,8 @@ const previewMobileSource = (id: TestVariantId) => {
 }
 const editMobileSource = async () => {
   showMobileSource.value = false
-  mobileRegion.value = 'optimize'
-  mobileOptimizeView.value = mobileSourceView.value
   if (mobileSourceView.value === 'original') { conversationManagerRef.value?.expand() }
-  await nextTick()
-  splitRootRef.value?.querySelector(`.optimize-${mobileSourceView.value}-scroll`)?.scrollIntoView({ block: 'start' })
+  await showOptimizationSection(mobileSourceView.value)
 }
 watch(() => displayAdapter.displayedIsOptimizing.value, (running, previous) => {
   if (running && !previous) showOptimization()

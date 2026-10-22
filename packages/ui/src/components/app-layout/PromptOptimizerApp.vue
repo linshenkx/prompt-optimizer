@@ -273,7 +273,7 @@ hljs.registerLanguage("json", jsonLang);
 // 内部组件导入
 import MainLayoutUI from '../MainLayout.vue'
 import CompactNavigation from './CompactNavigation.vue'
-import { useBasicWorkspaceView } from '../../composables/ui/useBasicWorkspaceView'
+import { useWorkspaceViewState } from '../../composables/ui/useWorkspaceViewState'
 import { useWorkspaceLayout } from '../../composables/ui/useWorkspaceLayout'
 const { isCompact, keyboardViewportHeight, keyboardViewportTop } = useWorkspaceLayout()
 import '../../styles/compact-workspace.css'
@@ -1708,7 +1708,7 @@ const beforeApplyToWorkspace = async (targetKey: string) => {
     if (targetKey === 'pro-multi' || targetKey === 'pro-variable' ||
         targetKey === 'image-text2image' || targetKey === 'image-image2image' ||
         targetKey === 'image-multiimage') {
-        useBasicWorkspaceView(targetKey).resetView();
+        useWorkspaceViewState(targetKey).resetView();
         return true;
     }
     if (targetKey !== 'basic-system' && targetKey !== 'basic-user') return true;
@@ -1727,7 +1727,7 @@ const beforeApplyToWorkspace = async (targetKey: string) => {
         title: t('common.warning'), content: t('prompt.unsavedChangesConfirm'),
         positiveText: t('common.confirm'), negativeText: t('common.cancel'),
     }))) return false;
-    useBasicWorkspaceView(targetKey === 'basic-system' ? 'system' : 'user').resetView();
+    useWorkspaceViewState(targetKey === 'basic-system' ? 'system' : 'user').resetView();
     return true;
 };
 

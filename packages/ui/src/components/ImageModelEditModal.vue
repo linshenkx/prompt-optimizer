@@ -96,8 +96,9 @@
           <NH4 style="margin: 0 0 12px 0; font-size: 14px;">{{ t('image.model.section') }}</NH4>
 
           <NFormItem :label="t('image.model.label')">
-            <NSpace class="image-model-picker-row" align="center" style="width: 100%;">
+            <NSpace class="image-model-picker-row" item-class="image-model-picker-item" align="center" style="width: 100%;">
               <NSelect
+                class="image-model-select"
                 v-model:value="configForm.modelId"
                 :options="modelOptions"
                 :placeholder="t('image.model.placeholder')"

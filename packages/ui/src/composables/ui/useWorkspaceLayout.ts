@@ -3,11 +3,6 @@ import { createSharedComposable, useEventListener, useWindowSize } from '@vueuse
 
 export const WORKSPACE_SPLIT_MIN_WIDTH = 1024
 
-/** Layout decisions never write to the session's enabled test groups. */
-export function getVisibleTestColumns(width: number, groups: number, compact: boolean): number {
-  return compact ? 1 : Math.max(1, Math.min(groups, Math.floor(width / 280)))
-}
-
 export const useWorkspaceLayout = createSharedComposable(() => {
   const { width, height } = useWindowSize()
   const containerWidth = ref<number>()

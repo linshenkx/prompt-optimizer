@@ -1,0 +1,464 @@
+/* TestWorkspaceLayout and workspace test slots own configuration and side-by-side result adaptations. These rules deliberately refine owned output/image components in narrow result columns. */
+
+.compact-source-reading {
+  height: 100%;
+  min-height: 320px;
+}
+
+.compact-stale {
+  padding: 8px 10px;
+  background: color-mix(in srgb, #b78032 8%, var(--compact-paper));
+  color: color-mix(in srgb, #b78032 65%, var(--compact-ink));
+  font-size: 12px;
+  line-height: 1.6;
+  border-radius: 8px;
+}
+
+.compact-two-region .compact-test-region .test-area-top {
+  justify-content: space-between;
+  font-size: 14px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.compact-two-region .compact-test-region .test-area-top .n-button {
+  min-height: 44px;
+  border-radius: 8px;
+}
+
+.compact-two-region .variant-cell__actions {
+  gap: 8px;
+}
+
+.compact-two-region .variant-cell__run .n-button {
+  min-height: 44px;
+  min-width: 36px;
+}
+
+.compact-two-region .compact-test-region .variant-results-wrap {
+  flex: 0 0 auto;
+  min-height: 260px;
+  overflow: visible;
+}
+
+.compact-two-region .variant-results {
+  min-height: 0;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.compact-two-region .variant-result-card > .n-card-content {
+  padding: 12px 14px !important;
+  display: flex;
+  flex-direction: column;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.compact-two-region .variant-result-card .compact-stale {
+  flex-shrink: 0;
+  margin: 0 0 10px;
+}
+
+.compact-two-region .variant-result-card .output-display-core {
+  flex: 1;
+  min-height: 0;
+}
+
+.compact-two-region .variant-result-card {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.compact-test-error {
+  color: #d45c5c;
+  padding: 8px 12px;
+  margin: 0;
+}
+
+.compact-two-region .test-global-controls {
+  background: transparent;
+  border: 0;
+}
+
+.compact-two-region .test-global-controls > .n-card-content {
+  padding: 0 !important;
+}
+
+.compact-two-region .test-variant-controls > .n-card-content {
+  padding: 8px 12px !important;
+}
+
+.compact-two-region .compact-test-region .test-group-count {
+  order: 1;
+  flex-basis: 100%;
+}
+
+.compact-two-region .variant-cell__version {
+  flex-shrink: 0;
+}
+
+.compact-two-region .compact-test-region .compact-stale {
+  padding: 6px 10px;
+  margin: 0 0 8px;
+}
+
+.compact-test-summary__context {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.compact-test-summary__context .test-variant-source-tag {
+  max-width: 100%;
+  overflow: hidden;
+  min-height: 36px;
+  padding: 0 8px;
+  border-radius: 8px;
+}
+
+.compact-two-region .test-results-scroll .variant-result-card > .n-card-content {
+  padding: 0 !important;
+}
+
+.compact-two-region .test-results-scroll .output-display-toolbar {
+  top: 0;
+  z-index: 2;
+  background: var(--compact-paper);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--compact-border);
+  position: static;
+}
+
+.compact-two-region .test-config-scroll .test-area-top {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.compact-two-region .test-config-scroll .test-group-count {
+  flex-basis: auto;
+  order: 0;
+  justify-content: space-between;
+  padding: 2px 0;
+}
+
+.compact-two-region .test-config-scroll .variant-cell__actions {
+  width: 100%;
+  display: grid;
+  align-items: center;
+  grid-template-columns: 22px minmax(0, .8fr) minmax(0, 1.2fr);
+  gap: var(--compact-gap);
+}
+
+.compact-two-region .test-config-scroll .test-settings-label {
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--compact-muted);
+  display: none;
+}
+
+.compact-two-region .test-config-scroll .n-radio-group {
+  --n-height: 40px !important;
+}
+
+.compact-two-region .test-config-scroll .n-radio-button {
+  min-width: 44px;
+  text-align: center;
+  border-radius: 8px;
+  --n-button-color-active: var(--compact-soft);
+  --n-button-border-color-active: var(--compact-border);
+  --n-button-text-color-active: var(--compact-ink);
+}
+
+.compact-two-region .test-config-scroll .test-panel-version-select {
+  width: 100%;
+}
+
+.compact-two-region .test-variant-controls {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.compact-two-region .test-input-section__header-actions .n-button {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  background: transparent;
+  --n-border: 0 !important;
+}
+
+.compact-two-region .test-config-scroll .test-run-controls {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.compact-two-region .test-config-scroll > .n-card:not(.test-global-controls):not(.test-variant-controls) {
+  border: 0;
+  background: transparent;
+}
+
+.compact-two-region .test-config-scroll > .n-card > .n-card-content {
+  padding: 6px 0 !important;
+}
+
+.compact-two-region .test-config-scroll .test-global-controls > .n-card-content {
+  padding: 0 !important;
+}
+
+.compact-two-region .test-config-scroll .variant-cell__controls {
+  gap: 2px;
+}
+
+.compact-two-region .test-config-scroll .test-variant-source-tag {
+  min-height: 32px;
+  border-radius: 8px;
+}
+
+.compact-two-region .test-config-scroll .test-input-section__label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.compact-two-region .test-config-scroll .variant-cell__model {
+  min-width: 0;
+}
+
+.compact-two-region .test-results-scroll .n-image {
+  max-width: 100%;
+}
+
+.compact-two-region .test-results-scroll .n-image img {
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.compact-two-region .test-config-scroll .variant-cell__model .n-select {
+  width: 100%;
+  min-width: 0;
+}
+
+.compact-two-region .test-results-scroll .result-container,
+.compact-two-region .test-results-scroll .result-body {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  flex: 0 0 auto;
+}
+
+.compact-two-region .test-config-scroll .variant-deck {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: var(--compact-gap);
+}
+
+.compact-two-region .test-config-scroll .variant-cell__actions--stacked {
+  display: grid;
+  align-items: center;
+  grid-template-columns: 22px minmax(0, .8fr) minmax(0, 1.2fr);
+  gap: var(--compact-gap);
+}
+
+.compact-two-region .test-config-group-label {
+  font-size: 14px;
+  color: var(--compact-muted);
+  text-align: center;
+  border: 0;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  min-height: 36px;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+}
+
+.compact-two-region .test-config-scroll .n-base-selection {
+  --n-height: 36px !important;
+  font-size: 13px;
+}
+
+.compact-two-region .test-config-scroll .test-variant-controls > .n-card-content {
+  padding: 0 !important;
+}
+
+.compact-two-region .test-config-scroll .test-run-controls > .n-button {
+  flex: 0 0 auto;
+  min-height: 36px;
+}
+
+.compact-two-region .test-config-group-label:focus-visible {
+  outline: 2px solid #7295c3;
+}
+
+.compact-two-region .test-plan-actions .test-run-controls {
+  padding: 0;
+  gap: 6px;
+}
+
+.compact-two-region .test-plan-actions .test-run-controls .n-button {
+  padding: 0 10px;
+  font-size: 12px;
+  white-space: nowrap;
+  min-width: 84px;
+}
+
+.compact-two-region .test-plan-actions .test-plan-options summary {
+  padding: 0 4px;
+}
+
+.compact-two-region .test-answer-content .variant-results {
+  align-items: start;
+  gap: clamp(6px, 1.6cqi, 12px);
+}
+
+.compact-two-region .test-answer-content .variant-result-card {
+  min-width: 0;
+  border: 1px solid var(--compact-border);
+}
+
+.compact-two-region .test-answer-content .output-display-toolbar {
+  padding: 2px 4px;
+  gap: 0 !important;
+}
+
+.compact-two-region .test-answer-content .output-view-menu {
+  padding: 0 4px;
+  font-size: 12px;
+}
+
+.compact-two-region .test-answer-content .output-toolbar-actions {
+  min-width: 0;
+}
+
+.compact-two-region .test-answer-content .output-toolbar-actions .n-button {
+  width: 32px;
+  min-width: 32px;
+  min-height: 36px;
+}
+
+.compact-two-region .test-answer-content .output-copy-split-primary {
+  display: none;
+}
+
+.compact-two-region .test-answer-content .output-copy-split-button {
+  height: 36px;
+}
+
+.compact-two-region .test-answer-content .output-display-core .markdown-content,
+.compact-two-region .test-answer-content .output-source-text {
+  padding: 8px 8px 16px;
+  font-size: 14px !important;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.compact-two-region .test-answer-content .output-display-core .markdown-content h2,
+.compact-two-region .test-answer-content .output-display-core .markdown-content h3 {
+  font-size: 15px;
+}
+
+.compact-two-region .test-answer-content .image-result-content {
+  padding: 0 0 8px !important;
+}
+
+.compact-two-region .test-answer-content .image-result-content .n-image {
+  border-radius: 0;
+}
+
+.compact-two-region .test-answer-content .image-result-content .n-image img {
+  max-height: none;
+}
+
+.compact-two-region .test-answer-content .compact-stale {
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+.compact-two-region .test-answer-content .output-copy-menu-icon {
+  display: block;
+}
+
+.compact-two-region .test-answer-content .output-copy-menu-chevron {
+  display: none;
+}
+
+.compact-two-region .test-answer-content .output-display--flow .markdown-content h1,
+.compact-two-region .test-answer-content .output-display--flow .markdown-content h2,
+.compact-two-region .test-answer-content .output-display--flow .markdown-content h3 {
+  font-size: 15px;
+}
+
+.compact-two-region .test-plan-heading {
+  flex-wrap: wrap;
+  gap: 0 6px;
+}
+
+.compact-two-region .test-plan-actions {
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.compact-two-region .test-plan-options-content {
+  max-width: calc(100vw - 32px);
+}
+
+@media (max-width: 380px) {
+  .compact-two-region .test-plan-actions,
+  .compact-two-region .test-plan-actions .test-run-controls {
+    gap: 3px;
+  }
+
+  .compact-two-region .test-plan-actions .test-run-controls .n-button {
+    padding: 0 7px;
+  }
+
+}
+
+@container mobile-pane (min-width: 560px) {
+  .compact-two-region .test-config-scroll .variant-deck {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .compact-two-region .test-config-scroll .variant-cell__actions,
+  .compact-two-region .test-config-scroll .variant-cell__actions--stacked {
+    grid-template-columns: 22px minmax(0, .8fr) minmax(0, 1.2fr);
+  }
+
+}
+
+@container mobile-viewport (max-height: 620px) {
+  .compact-two-region .test-config-scroll {
+    gap: 3px;
+  }
+
+  .compact-two-region .test-config-scroll .variant-deck {
+    gap: 4px;
+  }
+
+  .compact-two-region .test-workspace-layout--compact .test-answer-content {
+    margin-top: 6px;
+  }
+
+}
+
+@container mobile-viewport (max-height: 420px) {
+  .compact-two-region .test-answer-content .image-result-content .n-image img {
+    max-height: clamp(140px, calc(100dvh - 180px), 300px);
+    object-fit: contain;
+  }
+
+}

@@ -10,12 +10,12 @@
         </div>
         <div
             ref="splitRootRef"
-            class="image-image2image-split"
+            class="image-image2image-split compact-workspace-pane"
             :style="{ gridTemplateColumns: isCompact ? 'minmax(0, 1fr)' : `${mainSplitLeftPct}% 12px 1fr` }"
         >
             <!-- 左侧：提示词优化区域（文本模型） -->
             <div v-show="!isCompact || mobileRegion === 'optimize'" :class="{ 'compact-optimize-region': isCompact }" class="split-pane" style="min-width: 0; height: 100%; overflow: hidden;">
-                <OptimizeWorkspaceLayout :compact="isCompact" v-model:view="mobileOptimizeView" @scroll="rememberOptimizeScroll">
+                <OptimizeWorkspaceLayout ref="optimizeLayoutRef" :compact="isCompact" @scroll="rememberOptimizeScroll">
     <template #original>
             <!-- 输入控制区域 - 对齐InputPanel布局 -->
             <TestSourceLinkedCard class="compact-original-card"
@@ -25,16 +25,16 @@
                 :source-tone="sourceAreaFeedback.original.sourceTone"
             >
                 <!-- 折叠态：只显示标题栏 -->
-                <NFlex
+                <NFlex class="source-summary-heading"
                     v-if="sourceCollapsed"
                     justify="space-between"
                     align="center"
                 >
-                    <NFlex align="center" :size="8">
-                        <NText :depth="1" style="font-size: 18px; font-weight: 500">
+                    <NFlex class="source-summary-group" align="center" :size="8">
+                        <NText class="source-summary-title" :depth="1" style="font-size: 18px; font-weight: 500">
                             {{ t('imageWorkspace.input.originalPrompt') }}
                         </NText>
-                        <NText
+                        <NText class="source-summary-text"
                             v-if="originalPrompt"
                             depth="3"
                             style="font-size: 12px;"
@@ -42,7 +42,7 @@
                             {{ promptSummary }}
                         </NText>
                     </NFlex>
-                    <NFlex align="center" :size="8">
+                    <NFlex class="source-summary-group" align="center" :size="8">
                         <PromptGardenInspirationPopover
                             mode="image-image2image"
                             :has-prompt="!!originalPrompt.trim()"
@@ -71,17 +71,17 @@
                 </NFlex>
 
                 <!-- 展开态：完整输入面板 -->
-                <div v-show="!sourceCollapsed" class="workspace-input-panel"><NSpace  vertical :size="16">
+                <div v-show="!sourceCollapsed" class="workspace-input-panel"><NSpace class="input-panel-stack" vertical :size="16">
                     <!-- 标题区域 -->
-                    <NFlex justify="space-between" align="center" :wrap="false">
-                        <NText
+                    <NFlex class="input-panel-heading" justify="space-between" align="center" :wrap="false">
+                        <NText class="input-panel-title"
                             :depth="1"
                             style="font-size: 18px; font-weight: 500"
                             >{{
                                 t("imageWorkspace.input.originalPrompt")
                             }}</NText
                         >
-                        <NFlex align="center" :size="8">
+                        <NFlex class="input-panel-heading-group" align="center" :size="8">
                             <PromptGardenInspirationPopover
                                 mode="image-image2image"
                                 :has-prompt="!!originalPrompt.trim()"
@@ -228,10 +228,10 @@
                     <!-- 控制面板 - 使用网格布局 -->
                     <NGrid class="image-input-controls" :cols="24" :x-gap="8" responsive="screen">
                         <!-- 文本模型选择 -->
-                        <NGridItem :span="7" :xs="24" :sm="7">
-                            <NSpace vertical :size="8">
+                        <NGridItem class="image-input-control" :span="7" :xs="24" :sm="7">
+                            <NSpace item-class="image-input-field-item" vertical :size="8">
                                 <NFlex align="center" :size="6" :wrap="false">
-                                    <NText
+                                    <NText class="image-input-label"
                                         :depth="2"
                                         style="font-size: 14px; font-weight: 500; flex-shrink: 0;"
                                         >{{
@@ -298,9 +298,9 @@
                         </NGridItem>
 
                         <!-- 优化模板选择 -->
-                        <NGridItem :span="11" :xs="24" :sm="11">
-                            <NSpace vertical :size="8">
-                                <NText
+                        <NGridItem class="image-input-control" :span="11" :xs="24" :sm="11">
+                            <NSpace item-class="image-input-field-item" vertical :size="8">
+                                <NText class="image-input-label"
                                     :depth="2"
                                     style="font-size: 14px; font-weight: 500"
                                     >{{
@@ -340,7 +340,7 @@
                                         "
                                     />
                                 </template>
-                                <NText
+                                <NText class="image-input-label"
                                     v-else
                                     depth="3"
                                     style="padding: 0; font-size: 14px"
@@ -351,8 +351,8 @@
                         </NGridItem>
 
                         <!-- 优化按钮 -->
-                        <NGridItem :span="6" :xs="24" :sm="6" class="flex items-end justify-end">
-                            <NSpace :size="8">
+                        <NGridItem :span="6" :xs="24" :sm="6" class="image-input-control image-input-submit flex items-end justify-end">
+                            <NSpace class="image-input-submit-actions" item-class="image-input-submit-item" :size="8">
                                 <NButton v-if="!isCompact"
                                     type="default"
                                     size="medium"
@@ -454,9 +454,9 @@
 
             <!-- 右侧：图像生成测试区域（图像模型，多列 variants） -->
             <div v-show="!isCompact || mobileRegion === 'test'" :class="{ 'compact-test-region': isCompact }" ref="testPaneRef" class="split-pane" style="min-width: 0; height: 100%; overflow: hidden;">
-                <VariantTestWorkspaceLayout :compact="isCompact" v-model:view="mobileTestView" v-model:variant="mobileVariant"
-    :variants="mobileVariants" @run="runVariant" @run-all="runAllVariants" @source="previewMobileSource"
-    @scroll="rememberTestScroll" @config-scroll="rememberTestConfigScroll">
+                <VariantTestWorkspaceLayout ref="testLayoutRef" :compact="isCompact" v-model:config-expanded="testConfigExpanded"
+    :variants="mobileVariants" @run-all="runAllVariants"
+    @scroll="rememberTestScroll">
     <template #input><TemporaryVariablesPanel :compact="isCompact"
                         :manager="temporaryVariablePanelManager"
                         :disabled="isOptimizing"
@@ -590,7 +590,7 @@
                                 <div class="result-container">
                                     <div class="result-body">
                                         <template v-if="hasVariantResult(id)">
-                                            <NSpace class="image-result-content" vertical :size="12" style="padding: 12px;">
+                                            <NSpace class="image-result-content" item-class="image-result-item" vertical :size="12" style="padding: 12px;">
                                                 <NFlex class="image-result-utility" justify="end" align="center">
                                                     <SaveTestResultExampleButton
                                                         sub-mode-key="image-image2image"
@@ -603,7 +603,7 @@
                                                         :test-id="`save-test-example-image-image2image-${id}`"
                                                     />
                                                 </NFlex>
-                                                <AppPreviewImage
+                                                <AppPreviewImage class="image-result-media"
                                                     :data-testid="getVariantImageTestId(id)"
                                                     :src="getImageSrc(getVariantResult(id)?.images?.[0])"
                                                     object-fit="contain"
@@ -617,7 +617,7 @@
                                                 />
 
                                                 <template v-if="getVariantResult(id)?.text">
-                                                    <NCard
+                                                    <NCard class="image-result-prompt"
                                                         size="small"
                                                         :title="t('imageWorkspace.results.textOutput')"
                                                     >
@@ -826,7 +826,7 @@ import VariantTestWorkspaceLayout from '../common/VariantTestWorkspaceLayout.vue
 import MobileTestResultHeader from '../common/MobileTestResultHeader.vue'
 import WorkspaceRegionSwitch from '../common/WorkspaceRegionSwitch.vue'
 import TestSourcePreview from '../common/TestSourcePreview.vue'
-import { useCompactWorkspace } from '../../composables/ui/useCompactWorkspace'
+import { useWorkspacePresentation } from '../../composables/ui/useWorkspacePresentation'
 
 import { onMounted, onUnmounted, inject, ref, reactive, computed, watch, nextTick, toRef, type Ref } from 'vue'
 import { useRouter, type LocationQueryRaw } from 'vue-router'
@@ -1251,10 +1251,11 @@ const imageModelOptions = ref<SelectOption<ImageModelConfig>[]>([])
 // ==================== 主布局：可拖拽分栏（左侧 25%~50%） ====================
 
 const {
-    splitRootRef, isCompact, compactInputRows, mobileRegion, mobileVariant, mobileOptimizeView, mobileTestView,
-    rememberOptimizeScroll, rememberTestScroll, rememberTestConfigScroll,
-    showOptimization, showTestResult, resetMobileView,
-  } = useCompactWorkspace('image-image2image')
+    isCompact, compactInputRows, mobileRegion, testConfigExpanded, optimizeLayoutRef, testLayoutRef,
+    rememberOptimizeScroll, rememberTestScroll,
+    showOptimization, showOptimizationSection, showTestResult, resetMobileView,
+  } = useWorkspacePresentation('image-image2image')
+const splitRootRef = ref<HTMLElement | null>(null)
 const testPaneRef = ref<HTMLElement | null>(null)
 
 const clampLeftPct = (pct: number) => Math.min(50, Math.max(25, pct))
@@ -2663,11 +2664,8 @@ const previewMobileSource = (id: TestVariantId) => {
 }
 const editMobileSource = async () => {
   showMobileSource.value = false
-  mobileRegion.value = 'optimize'
-  mobileOptimizeView.value = mobileSourceView.value
   if (mobileSourceView.value === 'original') { isInputPanelCollapsed.value = false; compactAutoFolded.value = false }
-  await nextTick()
-  splitRootRef.value?.querySelector(`.optimize-${mobileSourceView.value}-scroll`)?.scrollIntoView({ block: 'start' })
+  await showOptimizationSection(mobileSourceView.value)
 }
 watch(() => isOptimizing.value, (running, previous) => {
   if (isCompact.value && running) compactAutoFolded.value = true

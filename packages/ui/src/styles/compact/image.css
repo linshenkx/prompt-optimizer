@@ -1,0 +1,270 @@
+/* Image workspace controls, references and generated results own this module. NSpace item-class hooks identify intentional item wrappers. */
+
+.compact-two-region .image-input-controls {
+  display: grid !important;
+  align-items: end;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr) var(--compact-submit-width) !important;
+  gap: var(--compact-gap) !important;
+}
+
+.compact-two-region .image-input-controls .image-input-control {
+  grid-column: auto !important;
+  min-width: 0;
+}
+
+.compact-two-region .image-input-controls .image-input-submit-actions,
+.compact-two-region .image-input-controls .image-input-submit-item {
+  width: 100%;
+}
+
+.compact-two-region .image-input-controls .image-input-label {
+  font-size: 12px !important;
+  color: var(--compact-muted);
+  display: none;
+}
+
+.compact-two-region .image-input-controls .n-space {
+  min-width: 0 !important;
+  max-width: 100%;
+  gap: 0 !important;
+}
+
+.compact-two-region .image-input-controls .image-input-field-item,
+.compact-two-region .image-input-controls .n-select {
+  min-width: 0 !important;
+  max-width: 100%;
+}
+
+.compact-two-region .reference-action-toolbar .n-button {
+  min-height: 36px;
+}
+
+.compact-two-region.image-multiimage-workspace .image-card-list {
+  flex-wrap: nowrap;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 2px 2px 8px;
+  touch-action: pan-x pan-y;
+  scrollbar-width: thin;
+  scrollbar-color: var(--compact-border) transparent;
+}
+
+.compact-two-region.image-multiimage-workspace .image-card {
+  flex: 0 0 clamp(114px, 28cqi, 128px);
+  width: 114px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.compact-two-region.image-multiimage-workspace .image-card__footer {
+  flex-wrap: nowrap;
+  gap: 2px;
+  cursor: default;
+}
+
+.compact-two-region.image-multiimage-workspace .image-card__label {
+  flex: 0 0 auto;
+  min-width: 24px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.compact-two-region .image-card__reorder {
+  display: flex;
+  margin-left: auto;
+}
+
+.compact-two-region .image-card__reorder .n-button {
+  width: 32px;
+  min-width: 32px;
+  height: 36px;
+  padding: 0;
+  font-size: 20px;
+}
+
+.compact-two-region .image-card__remove {
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.compact-two-region.image-multiimage-workspace .image-card__preview-wrap {
+  height: 64px;
+  max-height: 64px;
+  aspect-ratio: auto;
+}
+
+.compact-two-region.image-multiimage-workspace .image-card__preview img {
+  width: 100%;
+  height: 64px;
+  object-fit: cover;
+}
+
+.compact-two-region.image-multiimage-workspace .image-upload-card {
+  flex: 0 0 72px;
+  width: 72px;
+  min-width: 0;
+  min-height: 126px;
+  box-sizing: border-box;
+}
+
+.compact-two-region .image-result-content {
+  padding: 0 2px 16px !important;
+  position: relative;
+  gap: 8px !important;
+}
+
+.compact-two-region .image-result-content .image-result-item {
+  order: 3;
+}
+
+.compact-two-region .image-result-content .image-result-item:has(> .image-result-utility) {
+  order: 0;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+}
+
+.compact-two-region .image-result-content .image-result-item:has(> .image-result-media) {
+  order: 1;
+  width: 100%;
+}
+
+.compact-two-region .image-result-content .image-result-item:has(> .image-result-actions) {
+  order: 2;
+}
+
+.compact-two-region .image-result-actions .n-button {
+  min-height: 40px;
+}
+
+.compact-two-region .image-result-content .image-result-prompt {
+  border: 0;
+  background: var(--compact-soft);
+}
+
+.compact-two-region .image-result-content .image-result-prompt .n-text {
+  font-size: 14px;
+  line-height: 1.8 !important;
+  overflow-wrap: anywhere;
+}
+
+.compact-two-region .image-input-controls .image-input-submit {
+  grid-column: auto !important;
+}
+
+.compact-two-region .image-input-controls .image-input-submit .n-button {
+  min-height: 36px;
+  border-radius: 8px;
+  font-size: 13px;
+  height: 36px;
+  padding: 0 6px;
+  width: 100%;
+}
+
+.compact-two-region .image-input-controls .n-base-selection {
+  --n-height: 36px !important;
+  --n-font-size: 13px !important;
+}
+
+.compact-two-region[data-mode="image-text2image"] .workspace-input-panel .cm-scroller {
+  min-height: 56px;
+  max-height: 136px;
+}
+
+.compact-two-region .image-result-utility {
+  background: var(--compact-paper);
+  border: 1px solid var(--compact-border);
+  border-radius: 8px;
+}
+
+.compact-two-region .image-result-utility .n-button {
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.compact-two-region .image-result-content .n-image {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  background: var(--compact-soft);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.compact-two-region .image-result-content .n-image img {
+  max-height: min(42dvh, 340px);
+  width: 100%;
+  object-fit: contain;
+}
+
+.compact-two-region .image-input-controls .image-input-field-item:has(> .image-input-label) {
+  display: none;
+}
+
+.compact-two-region .image-input-controls .n-button--loading .n-base-loading {
+  position: absolute;
+}
+
+.compact-two-region .image-input-controls .n-button--loading .n-button__content {
+  visibility: hidden;
+}
+
+.compact-two-region .image-reference-row {
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.compact-two-region .image-reference-row .n-button {
+  min-height: 36px;
+  height: 36px;
+}
+
+.compact-two-region .image-reference-row .thumbnail-container .n-image img {
+  width: 40px !important;
+  height: 40px !important;
+}
+
+.compact-two-region[data-mode="image-image2image"] .workspace-input-panel .cm-scroller,
+.compact-two-region[data-mode="image-multiimage"] .workspace-input-panel .cm-scroller {
+  min-height: 56px;
+  max-height: 136px;
+}
+
+.workspace-compact .n-image-preview-toolbar {
+  gap: 2px;
+  max-width: calc(100vw - 24px);
+}
+
+.workspace-compact .n-image-preview-toolbar > .n-base-icon {
+  width: 40px;
+  height: 40px;
+  margin: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.workspace-compact .n-image-preview-toolbar > .n-base-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.compact-two-region[data-mode^="image-"] .workspace-input-panel .cm-scroller {
+  max-height: var(--compact-editor-max);
+}
+
+@media (min-height: 800px) {
+  .compact-two-region .image-result-content .n-image img {
+    max-height: min(46dvh, 420px);
+  }
+
+}
+
+@container mobile-pane (min-width: 560px) {
+  .compact-two-region .image-input-controls {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) 80px !important;
+  }
+
+}

@@ -23,8 +23,8 @@
       </button>
     </div>
     <div class="compact-menu-preferences">
-      <div><span>{{ t('workspace.theme') }}</span><ThemeToggleUI /></div>
-      <div><span>{{ t('workspace.language') }}</span><LanguageSwitchDropdown /></div>
+      <div class="compact-menu-preference"><span class="compact-menu-preference-label">{{ t('workspace.theme') }}</span><ThemeToggleUI /></div>
+      <div class="compact-menu-preference"><span class="compact-menu-preference-label">{{ t('workspace.language') }}</span><LanguageSwitchDropdown /></div>
     </div>
     <details class="compact-menu-help">
       <summary>{{ t('workspace.helpAbout') }}</summary>
