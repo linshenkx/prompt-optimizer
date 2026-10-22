@@ -1,11 +1,13 @@
 <template>
   <NSelect
+    ref="selectRef"
     v-bind="forwardedAttrs"
     :value="normalizedValue"
     :options="mappedOptions"
     :render-label="renderOptionLabel"
     :render-tag="multiple ? renderSelectedTag : undefined"
     @update:value="onUpdateValue"
+    @update:show="onUpdateShow"
   >
     <template #empty>
       <slot name="empty">
@@ -44,16 +46,21 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, useAttrs, toValue, type ComputedRef, type Ref } from 'vue'
+import { computed, h, ref, useAttrs, useId, toValue, type ComputedRef, type Ref, type StyleValue } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import { NSelect, NSpace, NButton, NText, type SelectOption as NaiveSelectOption, type SelectFilter } from 'naive-ui'
 
 import type { SelectOption as StandardSelectOption } from '../types/select-options'
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
+import { useSelectMenuViewport } from '../composables/ui/useSelectMenuViewport'
 
 type SelectOption = StandardSelectOption<unknown>
 
 type OptionsSource = SelectOption[] | Ref<SelectOption[]> | ComputedRef<SelectOption[]>
+
+// All attributes are forwarded below, after merging viewport/menu settings.
+defineOptions({ inheritAttrs: false })
 
 interface Props {
   // Allow null so callers can intentionally clear selection.
@@ -84,11 +91,31 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'update:modelValue': [value: string | number | Array<string | number> | null]
+  'update:show': [show: boolean]
   'config': [payload?: Record<string, unknown>]
 }>()
 
 const attrs = useAttrs() as Record<string, unknown>
 const { t } = useI18n()
+const { isCompact } = useWorkspaceLayout()
+const selectRef = ref<{ $el: HTMLElement } | null>(null)
+const menuVisible = ref(false)
+const generatedMenuId = `swc-menu-${useId()}`
+const menuId = computed(() => {
+  const menuProps = (attrs['menu-props'] || attrs.menuProps || {}) as Record<string, unknown>
+  return typeof menuProps.id === 'string' ? menuProps.id : generatedMenuId
+})
+const menuViewport = useSelectMenuViewport({
+  show: menuVisible,
+  isCompact,
+  getTrigger: () => selectRef.value?.$el ?? null,
+  getMenu: () => document.getElementById(menuId.value),
+  getPlacement: () => typeof attrs.placement === 'string' ? attrs.placement : 'bottom-start',
+})
+const onUpdateShow = (show: boolean) => {
+  menuVisible.value = show
+  emit('update:show', show)
+}
 
 // 检测是否有 config 事件处理器 - 始终显示配置按钮确保功能可用
 // 动态显示配置相关功能（由父级显式开启）
@@ -158,8 +185,13 @@ const forwardedAttrs = computed(() => {
   // 规范：通过 class & menu-props.class 注入样式作用域，避免使用 :deep
   const mergedRootClass = [rootClass, 'swc-select'].filter(Boolean).join(' ')
   const mp = (menuPropsKebab || menuProps || {}) as Record<string, unknown>
-  const mergedMenuClass = [mp.class, 'swc-select-menu'].filter(Boolean).join(' ')
-  const normalizedMenuProps = { ...mp, class: mergedMenuClass }
+  const mergedMenuClass = [mp.class, 'swc-select-menu', menuViewport.layout.value && 'swc-select-menu--viewport'].filter(Boolean).join(' ')
+  const normalizedMenuProps = {
+    ...mp,
+    id: menuId.value,
+    class: mergedMenuClass,
+    ...(menuViewport.menuStyle.value ? { style: [mp.style as StyleValue, menuViewport.menuStyle.value] } : {}),
+  }
 
   const customFilter = (attrs as Record<string, unknown>).filter
   const resolvedFilter: SelectFilter = hasCustomFilter && typeof customFilter === 'function'
@@ -173,6 +205,7 @@ const forwardedAttrs = computed(() => {
     style: { minWidth: '160px', ...(rootStyle as Record<string, unknown> || {}) },
     menuProps: normalizedMenuProps,
     ...rest,
+    ...(menuViewport.layout.value ? { placement: menuViewport.layout.value.placement } : {}),
     filter: resolvedFilter
   }
 })
@@ -206,6 +239,25 @@ const emitConfig = () => emit('config')
 </style>
 
 <style>
+/* Only open compact selectors receive this class. Keep search and menu scrolling native. */
+.swc-select-menu--viewport {
+  display: flex;
+  flex-direction: column;
+}
+.swc-select-menu--viewport > .n-scrollbar {
+  min-height: 0;
+  flex-shrink: 1;
+}
+.swc-select-menu--viewport > [data-action],
+.swc-select-menu--viewport > [data-header] {
+  flex-shrink: 0;
+}
+.swc-select-menu--viewport > [data-empty] {
+  box-sizing: border-box;
+  min-height: 0;
+  max-height: var(--swc-menu-body-height);
+  overflow-y: auto;
+}
 /* 使用类作用域（通过 class & menu-props 注入），避免 :deep */
 .swc-select-menu .n-base-select-option__content {
   white-space: normal;
