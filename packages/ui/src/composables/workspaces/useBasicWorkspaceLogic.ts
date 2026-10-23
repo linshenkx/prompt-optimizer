@@ -60,7 +60,7 @@ type BasicSessionStore = {
   updateIterateTemplate: (id: string | null) => void
   clearAssetBinding?: () => void
   clearContent: () => void
-  saveSession?: () => Promise<void> | void
+  saveSession?: () => Promise<boolean | void> | void
   assetBinding?: PromptAssetBinding
   origin?: PromptSessionOrigin
 }

@@ -1226,7 +1226,7 @@ watch(
   { immediate: true },
 )
 
-let sessionSaveChain: Promise<void> = Promise.resolve()
+let sessionSaveChain: Promise<boolean | void> = Promise.resolve()
 const queueSessionSave = () => {
   sessionSaveChain = sessionSaveChain.then(() => session.saveSession()).catch((error) => {
     console.error('[ImageMultiImageWorkspace] Failed to persist image session:', error)
@@ -2117,6 +2117,10 @@ const editMobileSource = async () => {
 watch(() => optimizing.value, (running, previous) => {
   if (isCompact.value && running) compactAutoFolded.value = true
   if (running && !previous) showOptimization()
+})
+// Optional Web host update checkpoint; runtime state stays owned by this workspace.
+defineExpose({
+  isUpdateBusy: () => optimizing.value || isIterating.value || isAnyVariantRunning.value || isAnalyzing.value || isGenerating.value,
 })
 </script>
 

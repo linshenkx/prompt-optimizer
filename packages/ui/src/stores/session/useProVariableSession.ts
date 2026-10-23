@@ -8,6 +8,7 @@
  */
 
 import { defineStore } from 'pinia'
+import { runSessionWrite, type SessionWritePermit } from './sessionPersistence'
 import { ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { TEMPLATE_SELECTION_KEYS, type PromptAssetBinding, type PromptSessionOrigin } from '@prompt-optimizer/core'
@@ -394,11 +395,14 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
     lastActiveAt.value = defaultState.lastActiveAt
   }
 
-  const saveSession = async () => {
+  const saveSession = (permit?: SessionWritePermit): Promise<boolean> =>
+    runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit)
+
+  const persistSession = async (): Promise<boolean> => {
     const $services = getPiniaServices()
     if (!$services?.preferenceService) {
       console.warn('[ProVariableSession] PreferenceService is unavailable; cannot save session')
-      return
+      return false
     }
 
     try {
@@ -430,8 +434,10 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
         'session/v1/pro-variable',
         sessionState
       )
+      return true
     } catch (error) {
       console.error('[ProVariableSession] Failed to save session:', error)
+      return false
     }
   }
 

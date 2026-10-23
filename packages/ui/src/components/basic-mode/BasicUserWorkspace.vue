@@ -1767,6 +1767,7 @@ watch(() => session.chainId, async (newChainId) => {
 })
 
 defineExpose({
+  isUpdateBusy: () => logic.isOptimizing.value || logic.isIterating.value || isAnyVariantRunning.value,
   promptPanelRef,
   openIterateDialog: (initialContent?: string) => {
     promptPanelRef.value?.openIterateDialog?.(initialContent)

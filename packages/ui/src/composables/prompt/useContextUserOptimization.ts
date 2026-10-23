@@ -19,7 +19,7 @@ type PromptChain = PromptRecordChain
 type SourceBindingSessionLike = {
   assetBinding?: PromptAssetBinding
   origin?: PromptSessionOrigin
-  saveSession?: () => Promise<void> | void
+  saveSession?: () => Promise<boolean | void> | void
 }
 
 export interface ContextUserOptimizationBindings {
@@ -30,7 +30,7 @@ export interface ContextUserOptimizationBindings {
   currentVersionId?: Ref<string>
   clearSessionContent?: () => void
   clearAssetBinding?: () => void
-  saveSession?: () => Promise<void> | void
+  saveSession?: () => Promise<boolean | void> | void
   assetBinding?: PromptAssetBinding
   origin?: PromptSessionOrigin
   getSourceBindingSession?: () => SourceBindingSessionLike | null | undefined

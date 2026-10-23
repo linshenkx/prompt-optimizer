@@ -8,6 +8,7 @@
  */
 
 import { defineStore } from 'pinia'
+import { runSessionWrite, type SessionWritePermit } from './sessionPersistence'
 import { ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { isValidVariableName, sanitizeVariableRecord } from '../../types/variable'
@@ -603,7 +604,10 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
     return imageId
   }
 
-  const saveSession = async () => {
+  const saveSession = (permit?: SessionWritePermit): Promise<boolean> =>
+    runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit)
+
+  const persistSession = async () => {
     return await queueImageStorageMaintenance(async () => {
       const $services = getPiniaServices()
       if (!$services?.preferenceService) {

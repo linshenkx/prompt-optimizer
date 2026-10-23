@@ -46,6 +46,9 @@ function listen() {
   })
 }
 
+/** Used by the optional app-update checkpoint to preserve protected mobile forms. */
+export const hasCompactModalLayers = () => layers.length > 0
+
 /** Finish the overlay's history pop before a router push can add a new page. */
 export async function releaseCompactOverlayHistory() {
   if (typeof window === 'undefined' || history.state?.compactOverlay !== marker) return

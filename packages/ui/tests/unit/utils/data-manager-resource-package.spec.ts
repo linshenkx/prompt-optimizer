@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { strToU8, unzipSync, zipSync } from 'fflate'
 import type { FullImageData } from '@prompt-optimizer/core'
+import { DataManager } from '../../../../core/src/services/data/manager'
+import { PreferenceService } from '../../../../core/src/services/preference/service'
+import { MemoryStorageProvider } from '../../../../core/src/services/storage/memoryStorageProvider'
 
 import {
   DATA_MANAGER_RESOURCE_PACKAGE_SCHEMA_VERSION,
@@ -133,11 +136,68 @@ describe('dataManagerResourcePackage', () => {
     expect(order).toEqual([
       'save:session:session-1',
       'save:favorite:favorite-1',
-      'import:app',
       'import:favorites',
+      'import:app',
     ])
     expect(sessionTarget.store.has('session-1')).toBe(true)
     expect(favoriteTarget.store.has('favorite-1')).toBe(true)
+  })
+
+  it('round-trips workspace input and A/B output images through the unified app-data backup without favorites', async () => {
+    const createManager = (preferences: PreferenceService) => {
+      const collection = { exportData: async () => [], importData: async () => {} }
+      return new DataManager(
+        collection as ConstructorParameters<typeof DataManager>[0],
+        collection as ConstructorParameters<typeof DataManager>[1],
+        collection as ConstructorParameters<typeof DataManager>[2],
+        preferences,
+        { exportData: async () => ({}), importData: async () => {} } as ConstructorParameters<typeof DataManager>[4],
+      )
+    }
+    const sourcePreferences = new PreferenceService(new MemoryStorageProvider())
+    const result = (id: string) => ({ images: [{ _type: 'image-ref', id, mimeType: 'image/png' }] })
+    const sessions = {
+      'basic-system': { prompt: '识别图片', optimizedPrompt: '描述图片中的内容', testImageAssetId: 'vision-input' },
+      'image-image2image': { originalPrompt: '改为水彩', optimizedPrompt: '保留构图，改为水彩画', inputImageId: 'edit-input' },
+      'image-multiimage': {
+        originalPrompt: '融合两张图', optimizedPrompt: '保留人物并替换背景',
+        inputImages: [{ id: 'runtime-1', assetId: 'multi-input' }],
+        originalImageResult: result('generated-a'), optimizedImageResult: result('generated-b'),
+        testVariantResults: { a: result('generated-a'), b: result('generated-b') },
+      },
+    }
+    for (const [mode, snapshot] of Object.entries(sessions)) {
+      await sourcePreferences.set(`session/v1/${mode}`, snapshot)
+    }
+    const imageIds = ['vision-input', 'edit-input', 'multi-input', 'generated-a', 'generated-b']
+    const sourceImages = createStorage(imageIds.map(id => createImage(id, `image bytes for ${id}`)))
+    const backup = await createDataManagerResourcePackage({
+      dataManager: createManager(sourcePreferences), favoriteManager: null,
+      imageStorageService: sourceImages, favoriteImageStorageService: null,
+    })
+    expect(backup.missingResources).toEqual([])
+    const packageContent = readDataManagerResourcePackage(await backup.blob.arrayBuffer())
+    expect(packageContent.manifest.resources.map(resource => resource.id)).toEqual(imageIds)
+
+    const destinationPreferences = new PreferenceService(new MemoryStorageProvider())
+    const destinationImages = createStorage([])
+    const destinationManager = createManager(destinationPreferences)
+    const importAllData = vi.fn(async (data: string) => {
+      // References must be resolvable when the session snapshots are restored.
+      for (const id of imageIds) {
+        expect(destinationImages.store.get(id)?.data).toEqual(sourceImages.store.get(id)?.data)
+        expect(destinationImages.store.get(id)?.metadata).toMatchObject({ id, mimeType: 'image/png', source: 'uploaded' })
+      }
+      await destinationManager.importAllData(data)
+    })
+    await importDataManagerResourcePackage(await backup.blob.arrayBuffer(), {
+      dataManager: { importAllData }, favoriteManager: null,
+      imageStorageService: destinationImages, favoriteImageStorageService: null,
+    })
+    expect(importAllData).toHaveBeenCalledOnce()
+    for (const [mode, snapshot] of Object.entries(sessions)) {
+      expect(await destinationPreferences.get(`session/v1/${mode}`, null)).toEqual(snapshot)
+    }
   })
 
   it('restores package resources when local metadata exists but image bytes are missing', async () => {

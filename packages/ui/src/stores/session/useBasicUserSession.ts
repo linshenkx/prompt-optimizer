@@ -6,6 +6,7 @@
  */
 
 import { defineStore } from 'pinia'
+import { runSessionWrite, type SessionWritePermit } from './sessionPersistence'
 import { ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { TEMPLATE_SELECTION_KEYS, type PromptAssetBinding, type PromptSessionOrigin } from '@prompt-optimizer/core'
@@ -437,11 +438,14 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
    * 保存会话到持久化存储
    * 使用 PreferenceService（Codex 要求）
    */
-  const saveSession = async () => {
+  const saveSession = (permit?: SessionWritePermit): Promise<boolean> =>
+    runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit)
+
+  const persistSession = async (): Promise<boolean> => {
     const $services = getPiniaServices()
     if (!$services?.preferenceService) {
       console.warn('[BasicUserSession] PreferenceService is unavailable; cannot save session')
-      return
+      return false
     }
 
     try {
@@ -471,8 +475,10 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
         'session/v1/basic-user',
         sessionState
       )
+      return true
     } catch (error) {
       console.error('[BasicUserSession] Failed to save session:', error)
+      return false
     }
   }
 

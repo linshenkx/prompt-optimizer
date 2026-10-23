@@ -389,13 +389,18 @@ export const importDataManagerResourcePackage = async (
   const resources = await restorePackageResources(manifest, files, options)
   assertImageResourceRestoreReportSafe(resources, 'App backup package')
 
-  if (sections.appData) {
-    await options.dataManager.importAllData(appDataJson)
-  }
   if (sections.favorites && options.favoriteManager) {
-    await options.favoriteManager.importFavorites(favoritesJson, {
+    const result = await options.favoriteManager.importFavorites(favoritesJson, {
       mergeStrategy: options.favoriteMergeStrategy ?? 'overwrite',
     })
+    if (result.errors.length > 0) {
+      throw new Error(`Favorites import failed: ${result.errors.join('; ')}`)
+    }
+  }
+  // DataManager commits workspace snapshots last. Nothing that can fail during
+  // this package import may run after that commit and resume old session saves.
+  if (sections.appData) {
+    await options.dataManager.importAllData(appDataJson)
   }
 
   return {

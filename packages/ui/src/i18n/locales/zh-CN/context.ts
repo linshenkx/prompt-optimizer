@@ -242,7 +242,7 @@ const messages = {
     },
     "export": {
       "title": "导出数据",
-      "description": "按所选内容导出当前应用数据，包含配置、历史、上下文、收藏夹和相关图片。",
+      "description": "按所选内容导出各模式工作区草稿、测试结果、配置、历史、上下文、收藏夹和相关图片。",
       "scopeTitle": "导出内容",
       "button": "导出数据",
       "success": "数据导出成功",
@@ -251,7 +251,7 @@ const messages = {
     },
     "import": {
       "title": "导入数据",
-      "description": "从本地文件导入数据，兼容旧版 JSON 文件。",
+      "description": "从本地文件恢复应用数据及对应工作区的草稿、测试结果，兼容旧版 JSON。",
       "selectFile": "点击选择本地数据文件或拖拽到此处",
       "supportFormat": "支持当前导出文件，也兼容历史 .json 文件",
       "scopeTitle": "导入内容",
@@ -266,6 +266,7 @@ const messages = {
       "createCopy": "导入为副本",
       "createCopyHint": "遇到相同提示词内容时新增一份副本",
       "noSelectedContent": "请选择要导入的内容",
+      "workspaceBusy": "工作区正在运行或切换，请等待完成后再导入。",
       "changeFile": "更换文件",
       "button": "导入数据",
       "success": "数据导入成功",
@@ -279,9 +280,9 @@ const messages = {
     },
     "sections": {
       "appData": "应用数据",
-      "appDataHint": "历史记录、模型、模板、上下文和用户设置",
+      "appDataHint": "各模式工作区草稿、测试结果、历史记录、模型、模板、上下文和用户设置",
       "appDataImages": "相关图片",
-      "appDataImagesHint": "历史和结果中引用的图片，不包含当前工作区会话",
+      "appDataImagesHint": "工作区输入图，以及测试结果和历史中引用的图片",
       "favoritesBundle": "收藏夹",
       "favoritesBundleHint": "收藏、分类、标签、提示词资产、示例、版本链和收藏图片",
       "favoriteImages": "收藏图片",
@@ -424,6 +425,7 @@ const messages = {
       "listFailed": "获取远程备份列表失败：{message}",
       "restoreFrom": "从远程备份还原",
       "restoreScope": "还原内容",
+      "restoreWorkspaceHint": "会替换备份中对应工作区的草稿和测试结果。",
       "restoreMissingAssetsHint": "此备份创建时有 {count} 个图片资源缺失，可取消图片内容后只还原 JSON 数据。",
       "noBackups": "暂无远程备份",
       "restoreSelected": "还原选中备份",
@@ -470,7 +472,7 @@ const messages = {
       "totalNote": "主数据为估算值，图片与备份为实际占用。",
       "totalNoteShort": "主数据为估算，图片为实际占用",
       "appMainData": "应用主数据（估算）",
-      "appMainDataNote": "包含：模型、模板、历史、上下文、设置",
+      "appMainDataNote": "估算模型、模板、历史、上下文与设置；备份另含工作区草稿和测试结果。",
       "imageCache": "会话/结果图片缓存",
       "favoriteImages": "收藏图片",
       "imageCount": "共 {count} 张图片",
@@ -480,7 +482,7 @@ const messages = {
       "refresh": "刷新",
       "refreshFailed": "刷新存储占用失败"
     },
-    "warning": "导入数据会覆盖或更新现有历史记录、模型配置、上下文、收藏夹和用户设置；请先确认重要数据已备份。"
+    "warning": "导入会替换备份中对应工作区的草稿和测试结果，并覆盖或更新所选历史记录、模型配置、上下文、收藏夹和设置；请先备份重要数据。"
   }
 } as const;
 

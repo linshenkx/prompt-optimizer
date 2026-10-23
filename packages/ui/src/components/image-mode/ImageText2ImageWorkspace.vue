@@ -2172,7 +2172,7 @@ const getVariantRequest = (id: TestVariantId): Text2ImageRequest | null => {
 }
 
 // 并行生成时避免 saveSession 竞态：串行化保存，最后一次写入应包含最新状态。
-let sessionSaveChain: Promise<void> = Promise.resolve()
+let sessionSaveChain: Promise<boolean | void> = Promise.resolve()
 const queueSessionSave = () => {
     sessionSaveChain = sessionSaveChain
         .then(() => session.saveSession())
@@ -3162,6 +3162,10 @@ const editMobileSource = async () => {
 watch(() => isOptimizing.value, (running, previous) => {
   if (isCompact.value && running) compactAutoFolded.value = true
   if (running && !previous) showOptimization()
+})
+// Optional Web host update checkpoint; runtime state stays owned by this workspace.
+defineExpose({
+  isUpdateBusy: () => isOptimizing.value || isIterating.value || isAnyVariantRunning.value || isExtractingFromImage.value || isGenerating.value,
 })
 </script>
 

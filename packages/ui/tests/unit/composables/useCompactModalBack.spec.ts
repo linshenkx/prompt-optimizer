@@ -1,6 +1,6 @@
 import { effectScope, nextTick, ref } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { releaseCompactOverlayHistory, useCompactModalBack } from '../../../src/composables/ui/useCompactModalBack'
+import { hasCompactModalLayers, releaseCompactOverlayHistory, useCompactModalBack } from '../../../src/composables/ui/useCompactModalBack'
 
 const scopes: ReturnType<typeof effectScope>[] = []
 const settle = async () => { await nextTick(); await nextTick() }
@@ -10,7 +10,7 @@ const openLayer = () => {
   scopes.push(scope)
   const close = vi.fn(() => { show.value = false })
   scope.run(() => useCompactModalBack(show, ref(true), close))
-  return { show, close }
+  return { show, close, scope }
 }
 
 afterEach(async () => {
@@ -20,6 +20,47 @@ afterEach(async () => {
 })
 
 describe('compact overlay history', () => {
+  it('does not add browser history or intercept Back on desktop', async () => {
+    history.replaceState({ position: 0 }, '', '/')
+    const length = history.length
+    const scope = effectScope()
+    scopes.push(scope)
+    const close = vi.fn()
+    scope.run(() => useCompactModalBack(ref(true), ref(false), close))
+    await settle()
+    expect(history.length).toBe(length)
+    expect(hasCompactModalLayers()).toBe(false)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    expect(close).not.toHaveBeenCalled()
+  })
+
+  it('removes an unmounted editor from the stack before the next Back', async () => {
+    history.replaceState({ position: 0 }, '', '/')
+    const manager = openLayer()
+    await settle()
+    const editor = openLayer()
+    await settle()
+    editor.scope.stop()
+    await settle()
+    expect(hasCompactModalLayers()).toBe(true)
+    history.back()
+    await vi.waitFor(() => expect(manager.close).toHaveBeenCalledOnce())
+    expect(editor.close).not.toHaveBeenCalled()
+    await settle()
+    expect(hasCompactModalLayers()).toBe(false)
+  })
+
+  it('removes its temporary history entry when the final layer unmounts', async () => {
+    history.replaceState({ position: 0 }, '', '/')
+    const editor = openLayer()
+    await settle()
+    editor.scope.stop()
+    await settle()
+    await vi.waitFor(() => expect(history.state?.compactOverlay).toBeUndefined())
+    expect(location.pathname).toBe('/')
+    expect(editor.close).not.toHaveBeenCalled()
+  })
+
   it('closes only the nested editor on Back, then returns to the workspace', async () => {
     history.replaceState({ position: 0 }, '', '/')
     const manager = openLayer()

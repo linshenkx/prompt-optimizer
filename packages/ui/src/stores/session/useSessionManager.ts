@@ -38,6 +38,8 @@ import {
   buildPromptSessionsFromStores,
   type PromptSessionProjectionStoreMap,
 } from './promptSessionProjection'
+import { pauseImageStorageGc, queueImageStorageMaintenance } from './imageStorageMaintenance'
+import { pauseSessionWrites, type SessionWritePermit } from './sessionPersistence'
 import { SESSION_STORAGE_KEYS, SESSION_SUB_MODE_KEYS, type SubModeKey } from './sessionKeys'
 
 export type { SubModeKey } from './sessionKeys'
@@ -122,6 +124,7 @@ export const useSessionManager = defineStore('sessionManager', () => {
    * 防止所有保存入口（定时器、pagehide、visibilitychange、切换）并发写入
    */
   const saveInFlight = ref(false)
+  const isRestoring = ref(false)
 
   /**
    * 全量 hydrate 标志（防止“未恢复的默认空 state”在 saveAllSessions 时覆盖持久化内容）
@@ -253,7 +256,7 @@ export const useSessionManager = defineStore('sessionManager', () => {
    * @param toKey 新模式的 key（由 watch 传入）
    */
   const switchMode = async (fromKey: SubModeKey, toKey: SubModeKey) => {
-    if (isSwitching.value) {
+    if (isSwitching.value || isRestoring.value) {
       return
     }
 
@@ -277,7 +280,7 @@ export const useSessionManager = defineStore('sessionManager', () => {
    * @param toKey 新子模式的 key（由 watch 传入）
    */
   const switchSubMode = async (fromKey: SubModeKey, toKey: SubModeKey) => {
-    if (isSwitching.value) {
+    if (isSwitching.value || isRestoring.value) {
       return
     }
 
@@ -299,33 +302,13 @@ export const useSessionManager = defineStore('sessionManager', () => {
    * 内部方法:保存指定子模式会话（不加锁）
    * 仅供 saveSubModeSession 和 saveAllSessions 调用
    */
-  const _saveSubModeSessionUnsafe = async (key: SubModeKey) => {
+  const _saveSubModeSessionUnsafe = async (key: SubModeKey, permit?: SessionWritePermit) => {
     try {
-      switch (key) {
-        case 'basic-system':
-          await useBasicSystemSession().saveSession()
-          break
-        case 'basic-user':
-          await useBasicUserSession().saveSession()
-          break
-        case 'pro-multi':
-          await useProMultiMessageSession().saveSession()
-          break
-        case 'pro-variable':
-          await useProVariableSession().saveSession()
-          break
-        case 'image-text2image':
-          await useImageText2ImageSession().saveSession()
-          break
-        case 'image-image2image':
-          await useImageImage2ImageSession().saveSession()
-          break
-        case 'image-multiimage':
-          await useImageMultiImageSession().saveSession()
-          break
-      }
+      // Text stores report handled failures; image stores reject on storage errors.
+      return (await getProjectionStoreMap()[key].saveSession(permit)) !== false
     } catch (error) {
       console.error(`[SessionManager] Failed to save ${key} session:`, error)
+      return false
     }
   }
 
@@ -334,21 +317,22 @@ export const useSessionManager = defineStore('sessionManager', () => {
    * 🔧 加强防护：未恢复前不允许保存，避免覆盖持久化数据
    */
   const saveSubModeSession = async (key: SubModeKey) => {
+    if (isRestoring.value) return false
     // ✅ 强制检查：必须先恢复才能保存
     if (!hasRestoredAllSessions.value) {
       console.warn(`[SessionManager] Attempted to save ${key} before global restore completed; skipping to avoid overwriting persisted data`)
-      return
+      return false
     }
 
     // ⚠️ 并发保护：如果上一次保存还在进行中，跳过本次
     if (saveInFlight.value) {
       console.warn(`[SessionManager] A save operation is already in progress; skipping ${key} session save`)
-      return
+      return false
     }
 
     try {
       saveInFlight.value = true
-      await _saveSubModeSessionUnsafe(key)
+      return await _saveSubModeSessionUnsafe(key)
     } finally {
       saveInFlight.value = false
     }
@@ -457,21 +441,26 @@ export const useSessionManager = defineStore('sessionManager', () => {
   }
 
   const saveAllSessions = async () => {
+    if (isRestoring.value) return false
     // ⚠️ 等待当前保存完成（最多等待 5 秒）
     const startTime = Date.now()
     const MAX_WAIT = 5000 // 5 秒超时
 
     await restoreAllSessions()
+    if (!hasRestoredAllSessions.value || isRestoring.value) return false
 
     while (saveInFlight.value) {
+      if (isRestoring.value) return false
       if (Date.now() - startTime > MAX_WAIT) {
         // ⚠️ 超时时直接返回，不要强制执行（避免误解锁）
         console.warn('[SessionManager] Timed out while waiting for the current save to finish; aborting this save request')
-        return
+        return false
       }
       // 等待 50ms 后重试
       await new Promise(resolve => setTimeout(resolve, 50))
     }
+
+    if (isRestoring.value) return false
 
     // ⚠️ 记录是否是我获得的锁（防御性编程）
     let acquired = false
@@ -483,12 +472,19 @@ export const useSessionManager = defineStore('sessionManager', () => {
       // IMPORTANT:
       // Save sequentially to reduce peak memory usage for very large sessions.
       // (Parallel JSON.stringify across 6 stores can spike memory and crash the browser on pagehide/unmount.)
-      for (const key of SESSION_SUB_MODE_KEYS) {
-        await _saveSubModeSessionUnsafe(key)
+      // Save the active workspace first: a mobile browser may suspend this page
+      // before the remaining background workspace snapshots finish.
+      const activeKey = readers ? getActiveSubModeKey() : SESSION_SUB_MODE_KEYS[0]
+      const orderedKeys = [activeKey, ...SESSION_SUB_MODE_KEYS.filter(key => key !== activeKey)]
+      let saved = true
+      for (const key of orderedKeys) {
+        if (!await _saveSubModeSessionUnsafe(key)) saved = false
         await new Promise(resolve => setTimeout(resolve, 0))
       }
+      return saved
     } catch (error) {
       console.error('[SessionManager] Failed to save all sessions:', error)
+      return false
     } finally {
       // ✅ 只有我获得的锁，我才释放
       if (acquired) {
@@ -497,9 +493,80 @@ export const useSessionManager = defineStore('sessionManager', () => {
     }
   }
 
+  /**
+   * Freeze automatic writes before importing workspace snapshots. On failure the
+   * caller releases the lease; after a successful import it stays held until reload.
+   */
+  const beginSessionRestore = async (): Promise<() => void> => {
+    if (isRestoring.value) throw new Error('Session restore is already in progress')
+    if (isSwitching.value) throw new Error('Cannot restore sessions while switching workspaces')
+    const service = getPiniaServices()?.preferenceService
+    if (!service) throw new Error('Session storage is unavailable')
+    // Freeze at the store boundary: model/template setters and result callbacks
+    // call saveSession directly, independently of this manager's autosave lock.
+    const writes = pauseSessionWrites(service)
+    const resumeGc = pauseImageStorageGc()
+    isRestoring.value = true
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    let cancelled = false
+    let released = false
+    const resume = () => {
+      if (released) return
+      released = true
+      writes.release()
+      resumeGc()
+      isRestoring.value = false
+    }
+    try {
+      await Promise.race([
+        (async () => {
+          await restoreAllSessions()
+          if (!hasRestoredAllSessions.value) throw new Error('Session hydration did not complete')
+          while (saveInFlight.value && !cancelled) await new Promise(resolve => setTimeout(resolve, 50))
+          if (cancelled) return
+          await writes.ready
+          if (cancelled) return
+          // Drain a GC that was already executing before pauseImageStorageGc.
+          // New/timer/queued GCs remain paused through import and reload.
+          await queueImageStorageMaintenance(async () => {})
+
+          // Old backups and favorites-only imports have no workspace snapshots.
+          // Preserve all current drafts before any import can request a reload.
+          // Only this checkpoint's permit may write while the stores are frozen.
+          let saved = true
+          for (const key of SESSION_SUB_MODE_KEYS) {
+            if (cancelled) return
+            if (!await _saveSubModeSessionUnsafe(key, writes.permit)) saved = false
+          }
+          if (!saved) throw new Error('Failed to save current workspaces before import')
+        })(),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error('Timed out while waiting for session writes')), 5000)
+        }),
+      ])
+      return resume
+    } catch (error) {
+      resume()
+      throw error
+    } finally {
+      cancelled = true
+      clearTimeout(timeout)
+    }
+  }
+
+  /** Subscribe to mutations without copying or serializing the session state. */
+  const subscribeToSessionChanges = (onChange: () => void) => {
+    const unsubscribe = Object.values(getProjectionStoreMap()).map(store =>
+      store.$subscribe(onChange, { detached: true, flush: 'post' }),
+    )
+    return () => unsubscribe.forEach(stop => stop())
+  }
+
+
   return {
     // 状态
     isSwitching,
+    isRestoring,
 
     // 方法
     injectSubModeReaders,
@@ -515,6 +582,8 @@ export const useSessionManager = defineStore('sessionManager', () => {
     restoreSubModeSession,
     restoreAllSessions,
     saveAllSessions,
+    beginSessionRestore,
+    subscribeToSessionChanges,
   }
 })
 

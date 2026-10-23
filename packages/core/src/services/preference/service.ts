@@ -7,7 +7,7 @@ import { toErrorWithCode } from "../../utils/error";
 import { FUNCTION_MODEL_KEYS } from "../../constants/storage-keys";
 
 const SESSION_KEY_PREFIX = "session/";
-const MAX_SESSION_SNAPSHOT_BYTES = 1024 * 1024;
+export const MAX_SESSION_SNAPSHOT_BYTES = 1024 * 1024;
 
 type SessionStorageOperation = "read" | "write";
 type PreferenceStorageOperation = SessionStorageOperation | "delete";
@@ -287,7 +287,11 @@ export class PreferenceService implements IPreferenceService {
    */
   async exportData(): Promise<Record<string, string>> {
     try {
-      return await this.getAll();
+      // Session snapshots have their own structured DataManager section. They must
+      // not be exported as "[object Object]" UI settings or bypass its whitelist.
+      return Object.fromEntries(
+        Object.entries(await this.getAll()).filter(([key]) => !key.startsWith(SESSION_KEY_PREFIX)),
+      );
     } catch (error) {
       throw new ImportExportError(
         "Failed to export preference data",

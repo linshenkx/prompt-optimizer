@@ -677,6 +677,9 @@
               <NText depth="3" class="remote-field-label">
                 {{ $t('dataManager.remote.restoreScope') }}
               </NText>
+              <NText v-if="isCompact && remoteRestoreAppData" depth="3" class="storage-note">
+                {{ $t('dataManager.remote.restoreWorkspaceHint') }}
+              </NText>
               <NText
                 v-if="selectedRemoteBackupMissingAssetsCount > 0"
                 depth="3"
@@ -850,9 +853,12 @@ import {
 import { recordDataBackupCompleted } from '../utils/data-backup-reminder'
 import { openExternalUrl } from '../utils/open-external-url'
 import { formatErrorSummary } from '../utils/error'
+import { useSessionManager } from '../stores/session/useSessionManager'
 
 interface Props {
   show: boolean
+  /** The app can defer import while model generation or mode switching is active. */
+  prepareRestore?: () => Promise<(() => void) | null>
 }
 
 interface Emits {
@@ -865,6 +871,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const { t } = useI18n()
+const sessionManager = useSessionManager()
 const { isCompact } = useWorkspaceLayout()
 type MobileDataTask = 'export' | 'import' | 'remote' | 'storage'
 const mobileTask = ref<MobileDataTask | null>(null)
@@ -1599,6 +1606,7 @@ const handleRemoteUpload = async () => {
     if (!servicesValue) {
       throw new Error('[DataManager] Services are not initialized. Make sure the application has started correctly.')
     }
+    await flushWorkspaceSnapshots()
     const result = await createRemoteSnapshotBackup({
       objectStore: getRemoteStore(),
       dataManager: getDataManager.value,
@@ -1638,6 +1646,7 @@ const handleRemoteRestore = async () => {
   if (!entry) return
   if (!(await ensureRemoteConnectionReady())) return
 
+  let releaseSessionRestore: (() => void) | undefined
   try {
     isRestoringRemote.value = true
     startRemoteProgress('restore', 'dataManager.remote.progress.restore.start')
@@ -1645,6 +1654,8 @@ const handleRemoteRestore = async () => {
     if (!servicesValue) {
       throw new Error('[DataManager] Services are not initialized. Make sure the application has started correctly.')
     }
+    releaseSessionRestore = await prepareSessionRestore() ?? undefined
+    if (!releaseSessionRestore) return
     const result = await restoreRemoteSnapshotBackup({
       objectStore: getRemoteStore(),
       snapshotId: entry.id,
@@ -1665,9 +1676,13 @@ const handleRemoteRestore = async () => {
     if (warning) {
       toast.warning(warning)
     }
+    // Imported snapshots must survive the App's existing reload. Its pagehide
+    // handler and autosave must not write the pre-import in-memory sessions.
+    releaseSessionRestore = undefined
     emit('imported')
     emit('close')
   } catch (error) {
+    releaseSessionRestore?.()
     console.error('[DataManager] Remote restore failed:', error)
     toast.error(t('dataManager.remote.restoreFailed', { message: (error as Error).message }))
   } finally {
@@ -1858,6 +1873,20 @@ watch(
   { immediate: true },
 )
 
+const flushWorkspaceSnapshots = async () => {
+  if (!await sessionManager.saveAllSessions()) {
+    throw new Error(t('dataManager.export.failed'))
+  }
+}
+
+const prepareSessionRestore = async () => {
+  const resume = await (props.prepareRestore
+    ? props.prepareRestore()
+    : sessionManager.beginSessionRestore())
+  if (!resume) toast.warning(t('dataManager.import.workspaceBusy'))
+  return resume
+}
+
 const handleExport = async () => {
   try {
     const servicesValue = services.value
@@ -1866,6 +1895,7 @@ const handleExport = async () => {
     }
     isExporting.value = true
 
+    await flushWorkspaceSnapshots()
     const exportPackage = await createDataManagerResourcePackage({
       dataManager: getDataManager.value,
       favoriteManager: servicesValue.favoriteManager,
@@ -1952,6 +1982,7 @@ const buildRemoteSnapshotRestoreWarning = (
 const handleImport = async () => {
   if (!selectedFile.value) return
 
+  let releaseSessionRestore: (() => void) | undefined
   try {
     isImporting.value = true
 
@@ -1963,8 +1994,15 @@ const handleImport = async () => {
 
     const buffer = await readFileAsArrayBuffer(file)
     const bytes = new Uint8Array(buffer)
+    const isResourcePackage = looksLikeDataManagerZipPackage(file.name, bytes)
+    if (!isResourcePackage && !importAppData.value) {
+      toast.warning(t('dataManager.import.noSelectedContent'))
+      return
+    }
 
-    if (looksLikeDataManagerZipPackage(file.name, bytes)) {
+    releaseSessionRestore = await prepareSessionRestore() ?? undefined
+    if (!releaseSessionRestore) return
+    if (isResourcePackage) {
       const servicesValue = services.value
       if (!servicesValue) {
         throw new Error('[DataManager] Services are not initialized. Make sure the application has started correctly.')
@@ -1989,20 +2027,19 @@ const handleImport = async () => {
         toast.warning(warning)
       }
     } else {
-      if (!importAppData.value) {
-        toast.warning(t('dataManager.import.noSelectedContent'))
-        return
-      }
       const content = new TextDecoder().decode(bytes)
       const dataManager = getDataManager.value
       await dataManager.importAllData(content)
       toast.success(t('dataManager.import.success'))
     }
 
+    // Keep saving paused until App reloads; release only failed attempts below.
+    releaseSessionRestore = undefined
     emit('imported')
     emit('close')
     clearSelectedFile()
   } catch (error) {
+    releaseSessionRestore?.()
     console.error('Import failed:', error)
     toast.error(formatErrorSummary(t('dataManager.import.failed'), error))
   } finally {

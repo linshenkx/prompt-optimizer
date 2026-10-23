@@ -242,7 +242,7 @@ const messages = {
     },
     "export": {
       "title": "匯出資料",
-      "description": "依所選內容匯出目前應用資料，包含配置、歷史、情境、收藏和相關圖片。",
+      "description": "依所選內容匯出各模式工作區草稿、測試結果、配置、歷史、情境、收藏和相關圖片。",
       "scopeTitle": "匯出內容",
       "button": "匯出資料",
       "success": "資料匯出成功",
@@ -251,7 +251,7 @@ const messages = {
     },
     "import": {
       "title": "匯入資料",
-      "description": "從本機檔案匯入資料，兼容舊版 JSON 檔案。",
+      "description": "從本機檔案還原應用資料及對應工作區的草稿、測試結果，兼容舊版 JSON。",
       "selectFile": "點選選擇本機資料檔案或拖曳到此處",
       "supportFormat": "支援目前匯出檔案，也兼容歷史 .json 檔案",
       "scopeTitle": "匯入內容",
@@ -266,6 +266,7 @@ const messages = {
       "createCopy": "匯入為副本",
       "createCopyHint": "遇到相同提示詞內容時新增一份副本",
       "noSelectedContent": "請選擇要匯入的內容",
+      "workspaceBusy": "工作區正在執行或切換，請等待完成後再匯入。",
       "changeFile": "更換檔案",
       "button": "匯入資料",
       "success": "資料匯入成功",
@@ -279,9 +280,9 @@ const messages = {
     },
     "sections": {
       "appData": "應用資料",
-      "appDataHint": "歷史記錄、模型、模板、情境和使用者設定",
+      "appDataHint": "各模式工作區草稿、測試結果、歷史記錄、模型、模板、情境和使用者設定",
       "appDataImages": "相關圖片",
-      "appDataImagesHint": "歷史和結果中引用的圖片，不包含目前工作區會話",
+      "appDataImagesHint": "工作區輸入圖，以及測試結果和歷史中引用的圖片",
       "favoritesBundle": "收藏",
       "favoritesBundleHint": "收藏、分類、標籤、提示詞資產、範例、版本鏈和收藏圖片",
       "favoriteImages": "收藏圖片",
@@ -424,6 +425,7 @@ const messages = {
       "listFailed": "取得遠端備份列表失敗：{message}",
       "restoreFrom": "從遠端備份還原",
       "restoreScope": "還原內容",
+      "restoreWorkspaceHint": "會取代備份中對應工作區的草稿和測試結果。",
       "restoreMissingAssetsHint": "此備份建立時有 {count} 個圖片資源缺失，可取消圖片內容後只還原 JSON 資料。",
       "noBackups": "暫無遠端備份",
       "restoreSelected": "還原選中備份",
@@ -470,7 +472,7 @@ const messages = {
       "totalNote": "主資料為估算值，圖片與備份為實際占用。",
       "totalNoteShort": "主資料為估算，圖片為實際占用",
       "appMainData": "應用主資料（估算）",
-      "appMainDataNote": "包含：模型、模板、歷史、上下文、設定",
+      "appMainDataNote": "估算模型、模板、歷史、情境與設定；備份另含工作區草稿和測試結果。",
       "imageCache": "會話/結果圖片快取",
       "favoriteImages": "收藏圖片",
       "imageCount": "共 {count} 張圖片",
@@ -480,7 +482,7 @@ const messages = {
       "refresh": "重新整理",
       "refreshFailed": "重新整理儲存占用失敗"
     },
-    "warning": "匯入資料會覆蓋或更新現有歷史紀錄、模型配置、情境、收藏和使用者設定；請先確認重要資料已備份。"
+    "warning": "匯入會取代備份中對應工作區的草稿和測試結果，並覆蓋或更新所選歷史記錄、模型配置、情境、收藏和設定；請先備份重要資料。"
   }
 } as const;
 
