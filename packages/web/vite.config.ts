@@ -3,6 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 import path from 'path'
 import { DEFAULT_VITE_ENV } from '../core/src/utils/default-env'
+import { createPwaPlugin } from './pwa.config'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -15,7 +16,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     envDir: monorepoRoot,
-    plugins: [vue()],
+    plugins: [vue(), createPwaPlugin()],
     server: {
       port: 18181,
       host: true,

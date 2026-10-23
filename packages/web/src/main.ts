@@ -39,6 +39,17 @@ if (typeof document !== 'undefined') {
 
   syncDocumentTitle()
   watch(i18n.global.locale, syncDocumentTitle)
+
+  // Web-only browser chrome; no shared layout or theme rules are changed.
+  const syncBrowserTheme = () => {
+    document.querySelector('meta[name="theme-color"]')?.setAttribute(
+      'content', document.documentElement.classList.contains('dark') ? '#18181c' : '#ffffff',
+    )
+  }
+  syncBrowserTheme()
+  const themeObserver = new MutationObserver(syncBrowserTheme)
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+  import.meta.hot?.dispose(() => themeObserver.disconnect())
 }
 
 // 等待 router 完成首航解析（Hash URL -> route），避免初始化逻辑在短暂的 "/" 状态下误重定向

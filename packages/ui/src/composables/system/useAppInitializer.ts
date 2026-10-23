@@ -64,7 +64,7 @@ import {
   runFavoriteAssetGc,
 } from '../../utils/favorite-asset-maintenance'
 import { autoEnableChromeBuiltInModelIfReady } from '../../utils/chrome-built-in-auto-enable'
-import { migrateWorkspacePreviewTextModel, seedWorkspacePreviewImageModel, seedWorkspacePreviewTextModel } from '../../utils/workspace-preview-models'
+import { migrateWorkspacePreviewTextModel, relocateWorkspacePreviewModels, seedWorkspacePreviewImageModel, seedWorkspacePreviewTextModel } from '../../utils/workspace-preview-models'
 
 const appendStartupRepairReport = (
   currentReport: StartupRepairReport | null,
@@ -421,11 +421,18 @@ export function useAppInitializer(): {
           console.warn('[AppInitializer] ImageModelManager ensureInitialized failed (non-critical):', e)
         }
 
-        if (import.meta.env.DEV && import.meta.env.VITE_WORKSPACE_PREVIEW === '1') {
+        // Explicit opt-in for both development and an installed private preview.
+        // Ordinary web/desktop/extension builds do not enable these presets.
+        if (import.meta.env.VITE_WORKSPACE_PREVIEW === '1' && /^https?:$/.test(window.location.protocol)) {
           try {
               await modelManagerInstance.ensureInitialized()
-              await migrateWorkspacePreviewTextModel(modelManagerInstance, textAdapterRegistryInstance, {
-                enabled: true, origin: window.location.origin, legacyApiKey: import.meta.env.VITE_CUSTOM_API_KEY_mobile_preview,
+              if (import.meta.env.DEV) {
+                await migrateWorkspacePreviewTextModel(modelManagerInstance, textAdapterRegistryInstance, {
+                  enabled: true, origin: window.location.origin, legacyApiKey: import.meta.env.VITE_CUSTOM_API_KEY_mobile_preview,
+                })
+              }
+              await relocateWorkspacePreviewModels(modelManagerInstance, imageModelManagerInstance, {
+                enabled: true, origin: window.location.origin,
               })
               await seedWorkspacePreviewTextModel(modelManagerInstance, textAdapterRegistryInstance, {
                 enabled: true, origin: window.location.origin,
