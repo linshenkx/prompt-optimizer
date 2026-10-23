@@ -636,6 +636,8 @@ import MobileTestResultHeader from '../common/MobileTestResultHeader.vue'
 import WorkspaceRegionSwitch from '../common/WorkspaceRegionSwitch.vue'
 import TestSourcePreview from '../common/TestSourcePreview.vue'
 import { useWorkspacePresentation } from '../../composables/ui/useWorkspacePresentation'
+import { useWorkspaceSplit } from '../../composables/ui/useWorkspaceSplit'
+import { useTestVariantBindings } from '../../composables/workspaces/useTestVariantBindings'
 
 import { computed, inject, nextTick, onMounted, onUnmounted, reactive, ref, watch, toRef, type Ref } from 'vue'
 import { NButton, NCard, NEmpty, NFlex, NGrid, NGridItem, NIcon, NInput, NRadioButton, NRadioGroup, NSpace, NText } from 'naive-ui'
@@ -655,7 +657,7 @@ import {
   type Template,
 } from '@prompt-optimizer/core'
 import type { AppServices } from '../../types/services'
-import { useImageMultiImageSession, type TestColumnCount, type TestPanelVersionValue, type TestVariantId } from '../../stores/session/useImageMultiImageSession'
+import { useImageMultiImageSession, type TestPanelVersionValue, type TestVariantId } from '../../stores/session/useImageMultiImageSession'
 import { useImageGeneration } from '../../composables/image/useImageGeneration'
 import { useImageInputPreparation } from '../../composables/image/useImageInputPreparation'
 import { useTemporaryVariables } from '../../composables/variable/useTemporaryVariables'
@@ -1034,13 +1036,17 @@ const imageInputHint = computed(() => {
   }
   return t('imageWorkspace.input.multiImageReadyHint')
 })
-const testColumnCountModel = computed<TestColumnCount>({
-  get: () => (session.layout.testColumnCount === 3 || session.layout.testColumnCount === 4 ? session.layout.testColumnCount : 2),
-  set: (value) => session.setTestColumnCount(value),
-})
 
-const ALL_VARIANT_IDS: TestVariantId[] = ['a', 'b', 'c', 'd']
-const activeVariantIds = computed(() => ALL_VARIANT_IDS.slice(0, testColumnCountModel.value))
+const {
+  testColumnCountModel, activeVariantIds, variantVersionModels, variantModelKeyModels,
+  allVariantIds: ALL_VARIANT_IDS,
+} = useTestVariantBindings({
+  getVariants: () => session.testVariants,
+  getCount: () => session.layout.testColumnCount,
+  setVariant: (id, patch) => session.updateTestVariant(id, patch),
+  setCount: count => session.setTestColumnCount(count),
+  originalVersionFallback: 'workspace',
+})
 const useStackedVariantControls = computed(() => activeVariantIds.value.length >= 2)
 const { width: testPaneWidth } = useElementSize(testPaneRef)
 const canUseFourColumns = computed(() => isCompact.value || testPaneWidth.value >= 1000)
@@ -1055,21 +1061,6 @@ watch(
 )
 const testGridTemplateColumns = computed(() => `repeat(${testColumnCountModel.value}, minmax(0, 1fr))`)
 const isAnyVariantRunning = computed(() => activeVariantIds.value.some((id) => variantRunning[id]))
-
-const createVariantVersionModel = (id: TestVariantId) =>
-  computed<TestPanelVersionValue>({
-    get: () => session.testVariants.find((item) => item.id === id)?.version ?? 'workspace',
-    set: (value) => session.updateTestVariant(id, { version: value }),
-  })
-
-const createVariantModelKeyModel = (id: TestVariantId) =>
-  computed<string>({
-    get: () => session.testVariants.find((item) => item.id === id)?.modelKey ?? '',
-    set: (value) => session.updateTestVariant(id, { modelKey: value }),
-  })
-
-const variantVersionModels = { a: createVariantVersionModel('a'), b: createVariantVersionModel('b'), c: createVariantVersionModel('c'), d: createVariantVersionModel('d') } as const
-const variantModelKeyModels = { a: createVariantModelKeyModel('a'), b: createVariantModelKeyModel('b'), c: createVariantModelKeyModel('c'), d: createVariantModelKeyModel('d') } as const
 
 const getVariantLabel = (id: TestVariantId) => ({ a: 'A', b: 'B', c: 'C', d: 'D' }[id])
 
@@ -1251,77 +1242,11 @@ watch(
   { deep: true },
 )
 
-const clampLeftPct = (pct: number) => Math.min(50, Math.max(25, pct))
-const mainSplitLeftPct = ref<number>(50)
-
-watch(
-  () => session.layout.mainSplitLeftPct,
-  (pct) => {
-    if (typeof pct === 'number' && Number.isFinite(pct)) {
-      mainSplitLeftPct.value = clampLeftPct(Math.round(pct))
-    }
-  },
-  { immediate: true },
-)
-
-const isDraggingSplit = ref(false)
-let dragStartX = 0
-let dragStartPct = 0
-
-const handleSplitPointerMove = (event: PointerEvent) => {
-  const root = splitRootRef.value
-  if (!root) return
-
-  const rect = root.getBoundingClientRect()
-  if (!rect.width) return
-
-  const deltaX = event.clientX - dragStartX
-  const nextPct = dragStartPct + (deltaX / rect.width) * 100
-  mainSplitLeftPct.value = clampLeftPct(nextPct)
-}
-
-const endSplitDrag = () => {
-  if (!isDraggingSplit.value) return
-
-  isDraggingSplit.value = false
-  document.removeEventListener('pointermove', handleSplitPointerMove)
-  document.removeEventListener('pointerup', endSplitDrag)
-  document.removeEventListener('pointercancel', endSplitDrag)
-  document.body.style.cursor = ''
-  document.body.style.userSelect = ''
-
-  session.setMainSplitLeftPct(mainSplitLeftPct.value)
-}
-
-const onSplitPointerDown = (event: PointerEvent) => {
-  if (!splitRootRef.value) return
-
-  dragStartX = event.clientX
-  dragStartPct = mainSplitLeftPct.value
-  isDraggingSplit.value = true
-
-  document.addEventListener('pointermove', handleSplitPointerMove)
-  document.addEventListener('pointerup', endSplitDrag)
-  document.addEventListener('pointercancel', endSplitDrag)
-  document.body.style.cursor = 'col-resize'
-  document.body.style.userSelect = 'none'
-}
-
-const onSplitKeydown = (event: KeyboardEvent) => {
-  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
-
-  event.preventDefault()
-  if (event.key === 'Home') {
-    mainSplitLeftPct.value = 25
-  } else if (event.key === 'End') {
-    mainSplitLeftPct.value = 50
-  } else {
-    const delta = event.key === 'ArrowLeft' ? -1 : 1
-    mainSplitLeftPct.value = clampLeftPct(mainSplitLeftPct.value + delta)
-  }
-
-  session.setMainSplitLeftPct(mainSplitLeftPct.value)
-}
+const { mainSplitLeftPct, onSplitPointerDown, onSplitKeydown } = useWorkspaceSplit({
+  root: splitRootRef,
+  getPercent: () => session.layout.mainSplitLeftPct,
+  setPercent: percent => session.setMainSplitLeftPct(percent),
+})
 
 const toDataUrl = (item: Pick<ImageInputRef, 'b64' | 'mimeType'>) => `data:${item.mimeType || 'image/png'};base64,${item.b64}`
 const draggingImageIndex = ref<number | null>(null)
@@ -2074,7 +1999,6 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  endSplitDrag()
   if (typeof window !== 'undefined') {
     window.removeEventListener('image-workspace-refresh-iterate-select', refreshIterateHandler)
     window.removeEventListener('image-workspace-refresh-text-models', refreshTextModelsHandler)

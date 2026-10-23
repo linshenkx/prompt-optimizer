@@ -185,6 +185,7 @@ const readSavedSnapshot = (raw: unknown) =>
 describe('workspace session reactivity regression', () => {
   afterEach(() => {
     resetFunctionModelManagerSingleton()
+    vi.restoreAllMocks()
   })
 
   it('basic-user keeps latest variant results after restoreSession replaces the session objects', async () => {
@@ -237,6 +238,44 @@ describe('workspace session reactivity regression', () => {
     await flushPromises()
     await nextTick()
 
+    const split = wrapper.get('.split-divider')
+    const root = wrapper.get('.basic-user-split').element
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue({ width: 1000 } as DOMRect)
+    const commitSplit = vi.spyOn(store, 'setMainSplitLeftPct')
+    split.element.dispatchEvent(new MouseEvent('pointerdown', { clientX: 300, bubbles: true }))
+    document.dispatchEvent(new MouseEvent('pointermove', { clientX: 100 }))
+    await nextTick()
+    expect(split.attributes('aria-valuenow')).toBe('30')
+    expect(store.layout.mainSplitLeftPct).toBe(50)
+    expect(commitSplit).not.toHaveBeenCalled()
+    document.dispatchEvent(new MouseEvent('pointerup'))
+    expect(commitSplit).toHaveBeenCalledExactlyOnceWith(30)
+    await split.trigger('keydown', { key: 'Home' })
+    expect(store.layout.mainSplitLeftPct).toBe(25)
+    await split.trigger('keydown', { key: 'ArrowRight' })
+    expect(store.layout.mainSplitLeftPct).toBe(26)
+
+    await wrapper.getComponent({ name: 'NRadioGroup' }).vm.$emit('update:value', 4)
+    await nextTick()
+    const versions = wrapper.findAllComponents({ name: 'TestPanelVersionSelect' })
+    expect(versions).toHaveLength(4)
+    versions[2]!.vm.$emit('update:value', 'previous')
+    await wrapper.getComponent('[data-testid="basic-user-test-variant-d-model-select"]').vm.$emit('update:model-value', 'draft-model')
+    expect(store.testVariants.find(item => item.id === 'c')?.version).toBe('previous')
+    expect(store.testVariants.find(item => item.id === 'd')?.modelKey).toBe('draft-model')
+    // Restore replaces both layout and testVariants. The mounted controls must
+    // keep reading and updating the new objects, including hidden C/D groups.
+    const oldVariants = store.testVariants
+    await store.restoreSession()
+    await flushPromises()
+    expect(store.testVariants).not.toBe(oldVariants)
+    expect(split.attributes('aria-valuenow')).toBe('50')
+    await wrapper.getComponent({ name: 'NRadioGroup' }).vm.$emit('update:value', 4)
+    await nextTick()
+    wrapper.findAllComponents({ name: 'TestPanelVersionSelect' })[2]!.vm.$emit('update:value', 2)
+    expect(store.testVariants.find(item => item.id === 'c')?.version).toBe(2)
+    expect(oldVariants.find(item => item.id === 'c')?.version).toBe('previous')
+
     await wrapper.get('[data-testid="basic-user-test-run-a"]').trigger('click')
     await flushPromises()
     await nextTick()
@@ -246,6 +285,7 @@ describe('workspace session reactivity regression', () => {
 
     const saved = readSavedSnapshot(set.mock.calls.at(-1)?.[1])
     expect(saved?.testVariantResults?.a?.result).toBe('NEW-BASIC')
+    wrapper.unmount()
   })
 
   it('pro-variable keeps latest variant results after restoreSession replaces the session objects', async () => {

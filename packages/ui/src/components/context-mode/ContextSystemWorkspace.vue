@@ -520,6 +520,8 @@ import MobileTestResultHeader from '../common/MobileTestResultHeader.vue'
 import WorkspaceRegionSwitch from '../common/WorkspaceRegionSwitch.vue'
 import TestSourcePreview from '../common/TestSourcePreview.vue'
 import { useWorkspacePresentation } from '../../composables/ui/useWorkspacePresentation'
+import { useWorkspaceSplit } from '../../composables/ui/useWorkspaceSplit'
+import { useTestVariantBindings } from '../../composables/workspaces/useTestVariantBindings'
 
 import {
     ref,
@@ -539,9 +541,7 @@ import { useI18n } from "vue-i18n";
 import {
     useProMultiMessageSession,
     type TestPanelVersionValue,
-    type TestVariantConfig,
     type TestVariantId,
-    type TestColumnCount,
 } from '../../stores/session/useProMultiMessageSession'
 import {
     NCard,
@@ -994,78 +994,13 @@ const {
 const splitRootRef = ref<HTMLElement | null>(null)
 const testPaneRef = ref<HTMLElement | null>(null)
 
-const clampLeftPct = (pct: number) => Math.min(50, Math.max(25, pct))
-
-// 使用本地 draft，避免拖拽过程频繁写入持久化存储
-const mainSplitLeftPct = ref<number>(50)
-watch(
-    () => proMultiSession.layout.mainSplitLeftPct,
-    (pct) => {
-        if (typeof pct === 'number' && Number.isFinite(pct)) {
-            mainSplitLeftPct.value = clampLeftPct(Math.round(pct))
-        }
-    },
-    { immediate: true },
-)
-
-const isDraggingSplit = ref(false)
-let dragStartX = 0
-let dragStartPct = 0
-
-const handleSplitPointerMove = (e: PointerEvent) => {
-    const root = splitRootRef.value
-    if (!root) return
-    const rect = root.getBoundingClientRect()
-    if (!rect.width) return
-
-    const deltaX = e.clientX - dragStartX
-    const nextPct = dragStartPct + (deltaX / rect.width) * 100
-    mainSplitLeftPct.value = clampLeftPct(nextPct)
-}
-
-const endSplitDrag = () => {
-    if (!isDraggingSplit.value) return
-    isDraggingSplit.value = false
-    document.removeEventListener('pointermove', handleSplitPointerMove)
-    document.removeEventListener('pointerup', endSplitDrag)
-    document.removeEventListener('pointercancel', endSplitDrag)
-    document.body.style.cursor = ''
-    document.body.style.userSelect = ''
-
-    proMultiSession.setMainSplitLeftPct(mainSplitLeftPct.value)
-}
-
-const onSplitPointerDown = (e: PointerEvent) => {
-    if (!splitRootRef.value) return
-    dragStartX = e.clientX
-    dragStartPct = mainSplitLeftPct.value
-    isDraggingSplit.value = true
-    document.addEventListener('pointermove', handleSplitPointerMove)
-    document.addEventListener('pointerup', endSplitDrag)
-    document.addEventListener('pointercancel', endSplitDrag)
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-}
-
-const onSplitKeydown = (e: KeyboardEvent) => {
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return
-    e.preventDefault()
-
-    if (e.key === 'Home') {
-        mainSplitLeftPct.value = 25
-    } else if (e.key === 'End') {
-        mainSplitLeftPct.value = 50
-    } else {
-        const delta = e.key === 'ArrowLeft' ? -1 : 1
-        mainSplitLeftPct.value = clampLeftPct(mainSplitLeftPct.value + delta)
-    }
-
-    proMultiSession.setMainSplitLeftPct(mainSplitLeftPct.value)
-}
+const { mainSplitLeftPct, onSplitPointerDown, onSplitKeydown } = useWorkspaceSplit({
+  root: splitRootRef,
+  getPercent: () => proMultiSession.layout.mainSplitLeftPct,
+  setPercent: percent => proMultiSession.setMainSplitLeftPct(percent),
+})
 
 onUnmounted(() => {
-    endSplitDrag()
-
     if (typeof window !== 'undefined') {
         window.removeEventListener('pro-workspace-refresh-text-models', refreshTextModelsHandler)
         window.removeEventListener('pro-workspace-refresh-templates', refreshTemplatesHandler)
@@ -1073,79 +1008,20 @@ onUnmounted(() => {
 })
 
 // ==================== 测试区：多列 variants（当前选中消息版本） ====================
-
-const getVariant = (id: TestVariantId): TestVariantConfig | undefined => {
-    const list = proMultiSession.testVariants as unknown as TestVariantConfig[]
-    return Array.isArray(list) ? list.find((v) => v.id === id) : undefined
-}
-
-const testColumnCountModel = computed<TestColumnCount>({
-    get: () => {
-        const raw = proMultiSession.layout.testColumnCount
-        return raw === 2 || raw === 3 || raw === 4 ? raw : 2
-    },
-    set: (value) => proMultiSession.setTestColumnCount(value),
+const {
+  testColumnCountModel, activeVariantIds, variantVersionModels, variantModelKeyModels,
+  allVariantIds: ALL_VARIANT_IDS,
+} = useTestVariantBindings({
+  getVariants: () => proMultiSession.testVariants,
+  getCount: () => proMultiSession.layout.testColumnCount,
+  setVariant: (id, patch) => proMultiSession.updateTestVariant(id, patch),
+  setCount: count => proMultiSession.setTestColumnCount(count),
 })
-
-const variantAVersionModel = computed<TestPanelVersionValue>({
-    get: () => getVariant('a')?.version ?? 0,
-    set: (value) => proMultiSession.updateTestVariant('a', { version: value }),
-})
-
-const variantBVersionModel = computed<TestPanelVersionValue>({
-    get: () => getVariant('b')?.version ?? 'workspace',
-    set: (value) => proMultiSession.updateTestVariant('b', { version: value }),
-})
-
-const variantCVersionModel = computed<TestPanelVersionValue>({
-    get: () => getVariant('c')?.version ?? 'workspace',
-    set: (value) => proMultiSession.updateTestVariant('c', { version: value }),
-})
-
-const variantDVersionModel = computed<TestPanelVersionValue>({
-    get: () => getVariant('d')?.version ?? 'workspace',
-    set: (value) => proMultiSession.updateTestVariant('d', { version: value }),
-})
-
-const variantAModelKeyModel = computed<string>({
-    get: () => getVariant('a')?.modelKey ?? '',
-    set: (value) => proMultiSession.updateTestVariant('a', { modelKey: value }),
-})
-
-const variantBModelKeyModel = computed<string>({
-    get: () => getVariant('b')?.modelKey ?? '',
-    set: (value) => proMultiSession.updateTestVariant('b', { modelKey: value }),
-})
-
-const variantCModelKeyModel = computed<string>({
-    get: () => getVariant('c')?.modelKey ?? '',
-    set: (value) => proMultiSession.updateTestVariant('c', { modelKey: value }),
-})
-
-const variantDModelKeyModel = computed<string>({
-    get: () => getVariant('d')?.modelKey ?? '',
-    set: (value) => proMultiSession.updateTestVariant('d', { modelKey: value }),
-})
-
-const ALL_VARIANT_IDS: TestVariantId[] = ['a', 'b', 'c', 'd']
-const activeVariantIds = computed<TestVariantId[]>(() =>
-    ALL_VARIANT_IDS.slice(0, testColumnCountModel.value),
-)
+const variantAVersionModel = variantVersionModels.a
+const variantAModelKeyModel = variantModelKeyModels.a
+const variantBVersionModel = variantVersionModels.b
+const variantBModelKeyModel = variantModelKeyModels.b
 const useStackedVariantControls = computed(() => activeVariantIds.value.length >= 2)
-
-const variantVersionModels = {
-    a: variantAVersionModel,
-    b: variantBVersionModel,
-    c: variantCVersionModel,
-    d: variantDVersionModel,
-} as const
-
-const variantModelKeyModels = {
-    a: variantAModelKeyModel,
-    b: variantBModelKeyModel,
-    c: variantCModelKeyModel,
-    d: variantDModelKeyModel,
-} as const
 
 // pro-multi 变量优先级：global < temporary < predefined
 const mergedTestVariables = computed<Record<string, string>>(() => ({

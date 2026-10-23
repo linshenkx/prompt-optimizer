@@ -827,6 +827,8 @@ import MobileTestResultHeader from '../common/MobileTestResultHeader.vue'
 import WorkspaceRegionSwitch from '../common/WorkspaceRegionSwitch.vue'
 import TestSourcePreview from '../common/TestSourcePreview.vue'
 import { useWorkspacePresentation } from '../../composables/ui/useWorkspacePresentation'
+import { useWorkspaceSplit } from '../../composables/ui/useWorkspaceSplit'
+import { useTestVariantBindings } from '../../composables/workspaces/useTestVariantBindings'
 
 import { onMounted, onUnmounted, inject, ref, reactive, computed, watch, nextTick, toRef, type Ref } from 'vue'
 import { useRouter, type LocationQueryRaw } from 'vue-router'
@@ -905,9 +907,7 @@ import {
 } from '../../utils/testPanelVersion'
 import {
     useImageImage2ImageSession,
-    type TestColumnCount,
     type TestPanelVersionValue,
-    type TestVariantConfig,
     type TestVariantId,
 } from '../../stores/session/useImageImage2ImageSession'
 import { useImageGeneration } from '../../composables/image/useImageGeneration'
@@ -1258,153 +1258,22 @@ const {
 const splitRootRef = ref<HTMLElement | null>(null)
 const testPaneRef = ref<HTMLElement | null>(null)
 
-const clampLeftPct = (pct: number) => Math.min(50, Math.max(25, pct))
-
-// 使用本地 draft，避免拖拽过程频繁写入持久化存储
-const mainSplitLeftPct = ref<number>(50)
-watch(
-    () => session.layout.mainSplitLeftPct,
-    (pct) => {
-        if (typeof pct === 'number' && Number.isFinite(pct)) {
-            mainSplitLeftPct.value = clampLeftPct(Math.round(pct))
-        }
-    },
-    { immediate: true },
-)
-
-const isDraggingSplit = ref(false)
-let dragStartX = 0
-let dragStartPct = 0
-
-const handleSplitPointerMove = (e: PointerEvent) => {
-    const root = splitRootRef.value
-    if (!root) return
-    const rect = root.getBoundingClientRect()
-    if (!rect.width) return
-
-    const deltaX = e.clientX - dragStartX
-    const nextPct = dragStartPct + (deltaX / rect.width) * 100
-    mainSplitLeftPct.value = clampLeftPct(nextPct)
-}
-
-const endSplitDrag = () => {
-    if (!isDraggingSplit.value) return
-    isDraggingSplit.value = false
-    document.removeEventListener('pointermove', handleSplitPointerMove)
-    document.removeEventListener('pointerup', endSplitDrag)
-    document.removeEventListener('pointercancel', endSplitDrag)
-    document.body.style.cursor = ''
-    document.body.style.userSelect = ''
-
-    session.setMainSplitLeftPct(mainSplitLeftPct.value)
-}
-
-const onSplitPointerDown = (e: PointerEvent) => {
-    if (!splitRootRef.value) return
-    dragStartX = e.clientX
-    dragStartPct = mainSplitLeftPct.value
-    isDraggingSplit.value = true
-    document.addEventListener('pointermove', handleSplitPointerMove)
-    document.addEventListener('pointerup', endSplitDrag)
-    document.addEventListener('pointercancel', endSplitDrag)
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-}
-
-const onSplitKeydown = (e: KeyboardEvent) => {
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return
-    e.preventDefault()
-
-    if (e.key === 'Home') {
-        mainSplitLeftPct.value = 25
-    } else if (e.key === 'End') {
-        mainSplitLeftPct.value = 50
-    } else {
-        const delta = e.key === 'ArrowLeft' ? -1 : 1
-        mainSplitLeftPct.value = clampLeftPct(mainSplitLeftPct.value + delta)
-    }
-
-    session.setMainSplitLeftPct(mainSplitLeftPct.value)
-}
-
-onUnmounted(() => {
-    endSplitDrag()
+const { mainSplitLeftPct, onSplitPointerDown, onSplitKeydown } = useWorkspaceSplit({
+  root: splitRootRef,
+  getPercent: () => session.layout.mainSplitLeftPct,
+  setPercent: percent => session.setMainSplitLeftPct(percent),
 })
 
-// ==================== 测试区：多列 variants（按提示词版本 + 图像模型） ====================
-
-const getVariant = (id: TestVariantId): TestVariantConfig | undefined => {
-    const list = session.testVariants as unknown as TestVariantConfig[]
-    return Array.isArray(list) ? list.find((v) => v.id === id) : undefined
-}
-
-const testColumnCountModel = computed<TestColumnCount>({
-    get: () => {
-        const raw = session.layout.testColumnCount
-        return raw === 2 || raw === 3 || raw === 4 ? raw : 2
-    },
-    set: (value) => session.setTestColumnCount(value),
+const {
+  testColumnCountModel, activeVariantIds, variantVersionModels, variantModelKeyModels,
+  allVariantIds: ALL_VARIANT_IDS,
+} = useTestVariantBindings({
+  getVariants: () => session.testVariants,
+  getCount: () => session.layout.testColumnCount,
+  setVariant: (id, patch) => session.updateTestVariant(id, patch),
+  setCount: count => session.setTestColumnCount(count),
 })
-
-const variantAVersionModel = computed<TestPanelVersionValue>({
-    get: () => getVariant('a')?.version ?? 0,
-    set: (value) => session.updateTestVariant('a', { version: value }),
-})
-
-const variantBVersionModel = computed<TestPanelVersionValue>({
-    get: () => getVariant('b')?.version ?? 'workspace',
-    set: (value) => session.updateTestVariant('b', { version: value }),
-})
-
-const variantCVersionModel = computed<TestPanelVersionValue>({
-    get: () => getVariant('c')?.version ?? 'workspace',
-    set: (value) => session.updateTestVariant('c', { version: value }),
-})
-
-const variantDVersionModel = computed<TestPanelVersionValue>({
-    get: () => getVariant('d')?.version ?? 'workspace',
-    set: (value) => session.updateTestVariant('d', { version: value }),
-})
-
-const variantAModelKeyModel = computed<string>({
-    get: () => getVariant('a')?.modelKey ?? '',
-    set: (value) => session.updateTestVariant('a', { modelKey: value }),
-})
-
-const variantBModelKeyModel = computed<string>({
-    get: () => getVariant('b')?.modelKey ?? '',
-    set: (value) => session.updateTestVariant('b', { modelKey: value }),
-})
-
-const variantCModelKeyModel = computed<string>({
-    get: () => getVariant('c')?.modelKey ?? '',
-    set: (value) => session.updateTestVariant('c', { modelKey: value }),
-})
-
-const variantDModelKeyModel = computed<string>({
-    get: () => getVariant('d')?.modelKey ?? '',
-    set: (value) => session.updateTestVariant('d', { modelKey: value }),
-})
-
-const ALL_VARIANT_IDS: TestVariantId[] = ['a', 'b', 'c', 'd']
-const activeVariantIds = computed<TestVariantId[]>(() =>
-    ALL_VARIANT_IDS.slice(0, testColumnCountModel.value),
-)
 const useStackedVariantControls = computed(() => activeVariantIds.value.length >= 2)
-
-const variantVersionModels = {
-    a: variantAVersionModel,
-    b: variantBVersionModel,
-    c: variantCVersionModel,
-    d: variantDVersionModel,
-} as const
-
-const variantModelKeyModels = {
-    a: variantAModelKeyModel,
-    b: variantBModelKeyModel,
-    c: variantCModelKeyModel,
-    d: variantDModelKeyModel,
-} as const
 
 // 测试区宽度：用于禁用 4 列（避免横向滚动）
 const { width: testPaneWidth } = useElementSize(testPaneRef)
