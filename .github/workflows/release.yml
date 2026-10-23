@@ -530,7 +530,8 @@ jobs:
   publish-docker:
     needs: [prepare-release, build-windows, build-macos, build-linux, build-extension]
     permissions:
-      contents: read
+      # GitHub only exposes draft releases to callers with repository write access.
+      contents: write
     uses: ./.github/workflows/docker.yml
     with:
       version: ${{ needs.prepare-release.outputs.version }}

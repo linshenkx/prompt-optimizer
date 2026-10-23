@@ -28,7 +28,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      # Required to read the private draft during the publication-state guard.
+      contents: write
     steps:
       - uses: actions/checkout@v6
         with:

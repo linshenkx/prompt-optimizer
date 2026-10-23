@@ -228,6 +228,13 @@ test('published releases are immutable and preview metadata is never latest', ()
   assert.match(defaults, /allowPrerelease: false/);
 });
 
+test('both sides of the reusable Docker workflow can see the unpublished draft', () => {
+  // A read-only GITHUB_TOKEN omits draft releases from the API. The callee
+  // cannot elevate permissions beyond the caller, so both must grant write.
+  assert.equal(release.jobs['publish-docker'].permissions.contents, 'write');
+  assert.equal(docker.jobs.build.permissions.contents, 'write');
+});
+
 test('daily repository gate runs release policy and release notes tests', () => {
   const gate = JSON.parse(read('package.json')).scripts['test:repo'];
   for (const file of ['scripts/release-channel.test.mjs','scripts/release-notes.test.mjs']) {
