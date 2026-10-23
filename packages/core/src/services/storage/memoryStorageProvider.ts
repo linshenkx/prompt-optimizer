@@ -8,6 +8,13 @@ import type { IStorageProvider } from './types';
 export class MemoryStorageProvider implements IStorageProvider {
   private storage = new Map<string, string>();
 
+  async compareAndSetItem(key: string, expected: string | null, value: string | null): Promise<boolean> {
+    if ((this.storage.get(key) ?? null) !== expected) return false;
+    if (value === null) this.storage.delete(key);
+    else this.storage.set(key, value);
+    return true;
+  }
+
   /**
    * 获取存储项
    * @param key 存储键
@@ -108,4 +115,4 @@ export class MemoryStorageProvider implements IStorageProvider {
   getAllKeys(): string[] {
     return Array.from(this.storage.keys());
   }
-} 
+}

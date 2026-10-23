@@ -14,7 +14,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { runSessionWrite, type SessionWritePermit } from './sessionPersistence'
+import { readSessionSnapshot, writeSessionSnapshot, runSessionWrite, type SessionWritePermit } from './sessionPersistence'
 import { ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { TEMPLATE_SELECTION_KEYS, type PromptAssetBinding, type PromptSessionOrigin } from '@prompt-optimizer/core'
@@ -563,7 +563,7 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
           lastActiveAt: lastActiveAt.value,
           ...assetBindingState.persistedAssetBinding(),
         }
-        await $services.preferenceService.set(BASIC_SYSTEM_SESSION_KEY, sessionState)
+        await writeSessionSnapshot($services.preferenceService, BASIC_SYSTEM_SESSION_KEY, sessionState)
 
         if ($services.imageStorageService) {
           scheduleImageStorageGc($services.preferenceService, $services.imageStorageService)
@@ -589,7 +589,7 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
 
     try {
       let shouldRepairMissingTestImage = false
-      const saved = await $services.preferenceService.get<unknown>(
+      const saved = await readSessionSnapshot<unknown>($services.preferenceService,
         BASIC_SYSTEM_SESSION_KEY,
         null
       )

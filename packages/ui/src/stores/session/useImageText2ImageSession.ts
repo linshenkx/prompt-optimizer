@@ -7,7 +7,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { runSessionWrite, type SessionWritePermit } from './sessionPersistence'
+import { readSessionSnapshot, writeSessionSnapshot, runSessionWrite, type SessionWritePermit } from './sessionPersistence'
 import { ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { isValidVariableName, sanitizeVariableRecord } from '../../types/variable'
@@ -609,7 +609,7 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
         ...assetBindingState.persistedAssetBinding(),
       }
 
-      await $services.preferenceService.set(IMAGE_TEXT2IMAGE_SESSION_KEY, snapshot)
+      await writeSessionSnapshot($services.preferenceService, IMAGE_TEXT2IMAGE_SESSION_KEY, snapshot)
       scheduleImageStorageGc($services.preferenceService, $services.imageStorageService)
     })
   }
@@ -624,7 +624,7 @@ export const useImageText2ImageSession = defineStore('imageText2ImageSession', (
     }
 
     try {
-        const saved = await $services.preferenceService.get<unknown>(
+        const saved = await readSessionSnapshot<unknown>($services.preferenceService,
           IMAGE_TEXT2IMAGE_SESSION_KEY,
           null
         )

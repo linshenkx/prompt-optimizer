@@ -179,11 +179,11 @@ describe('Workspace session transfer in unified backups', () => {
   it('restores earlier modes if storage fails midway through the workspace import', async () => {
     const original = snapshotFor('basic-system')
     await preferences.set('session/v1/basic-system', original)
-    const set = preferences.set.bind(preferences)
+    const compareAndSet = storage.compareAndSetItem.bind(storage)
     let failOnce = true
-    vi.spyOn(preferences, 'set').mockImplementation(async (key, value) => {
-      if (key === 'session/v1/basic-user' && failOnce) { failOnce = false; throw new Error('quota exceeded') }
-      await set(key, value)
+    vi.spyOn(storage, 'compareAndSetItem').mockImplementation(async (key, expected, value) => {
+      if (key === 'pref:session/v1/basic-user' && failOnce) { failOnce = false; throw new Error('quota exceeded') }
+      return compareAndSet(key, expected, value)
     })
     await expect(new WorkspaceSessionTransfer(preferences).importData({ version: 1, sessions: {
       'basic-system': { ...original, prompt: '不应残留的替换稿' },
@@ -191,5 +191,41 @@ describe('Workspace session transfer in unified backups', () => {
     } })).rejects.toThrow('quota exceeded')
     expect(await preferences.get('session/v1/basic-system', null)).toEqual(original)
     expect(await preferences.get('session/v1/basic-user', null)).toBeNull()
+  })
+
+  it('aborts a conflicting import and rolls back only its own earlier snapshots', async () => {
+    const first = snapshotFor('basic-system')
+    const second = snapshotFor('basic-user')
+    await preferences.set('session/v1/basic-system', first)
+    await preferences.set('session/v1/basic-user', second)
+    const commit = storage.compareAndSetItem.bind(storage)
+    vi.spyOn(storage, 'compareAndSetItem').mockImplementationOnce(async (key, expected, value) => {
+      await preferences.set('session/v1/basic-user', { ...second, prompt: 'another window saved this' })
+      return commit(key, expected, value)
+    })
+    await expect(new WorkspaceSessionTransfer(preferences).importData({ version: 1, sessions: {
+      'basic-system': { ...first, prompt: 'imported system' },
+      'basic-user': { ...second, prompt: 'imported user' },
+    } })).rejects.toThrow('another window')
+    expect(await preferences.get('session/v1/basic-system', null)).toEqual(first)
+    expect(await preferences.get('session/v1/basic-user', null)).toEqual({ ...second, prompt: 'another window saved this' })
+  })
+
+  it('does not roll back over a newer commit made after an imported snapshot', async () => {
+    const first = snapshotFor('basic-system')
+    await preferences.set('session/v1/basic-system', first)
+    const commit = storage.compareAndSetItem.bind(storage)
+    vi.spyOn(storage, 'compareAndSetItem').mockImplementation(async (key, expected, value) => {
+      if (key === 'pref:session/v1/basic-user') {
+        await preferences.set('session/v1/basic-system', { ...first, prompt: 'newer independent commit' })
+        throw new Error('quota exceeded')
+      }
+      return commit(key, expected, value)
+    })
+    await expect(new WorkspaceSessionTransfer(preferences).importData({ version: 1, sessions: {
+      'basic-system': { ...first, prompt: 'imported system' },
+      'basic-user': snapshotFor('basic-user'),
+    } })).rejects.toThrow('rollback failed')
+    expect(await preferences.get('session/v1/basic-system', null)).toEqual({ ...first, prompt: 'newer independent commit' })
   })
 })

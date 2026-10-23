@@ -24,6 +24,7 @@ export default {
     "runGroup": "Test {group}",
     "testActions": "More test actions",
     "unsavedForm": "You have unsaved changes. Discard them and go back?",
+    "sessionConflict": "Another window updated this workspace. Your local draft is still here but was not saved. Copy it before reloading to continue.",
     "testFailed": "Test failed. Run this group again; any partial answer is for reference only.",
     "failed": "Failed",
     "sourceText": "Text",

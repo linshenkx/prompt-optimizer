@@ -102,6 +102,19 @@ export class DexieStorageProvider implements IStorageProvider {
     }
   }
 
+  async compareAndSetItem(key: string, expected: string | null, value: string | null): Promise<boolean> {
+    await this.initialize();
+    // IndexedDB serializes this transaction across tabs/PWA windows. In contrast
+    // to updateData, conflicts/errors must never fall back to an unlocked write.
+    return this.db.transaction('rw', this.db.storage, async () => {
+      const record = await this.db.storage.get(key);
+      if ((record?.value ?? null) !== expected) return false;
+      if (value === null) await this.db.storage.delete(key);
+      else await this.db.storage.put({ key, value, timestamp: Date.now() });
+      return true;
+    });
+  }
+
   /**
    * 设置存储项
    */

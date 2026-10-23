@@ -186,18 +186,30 @@ export class WorkspaceSessionTransfer implements IImportExportable {
       previous.set(key, await this.preferences.get<unknown>(key, null))
     }
     const attempted: string[] = []
+    const imported = new Map(entries.map(([mode, snapshot]) => [sessionKey(mode), snapshot]))
     try {
       for (const [mode, snapshot] of entries) {
         const key = sessionKey(mode)
-        attempted.push(key)
-        await this.preferences.set(key, snapshot)
+        if (this.preferences.compareAndSet) {
+          if (!await this.preferences.compareAndSet(key, previous.get(key), snapshot)) {
+            throw new Error('Workspace changed in another window during import')
+          }
+          attempted.push(key)
+        } else {
+          attempted.push(key)
+          await this.preferences.set(key, snapshot)
+        }
       }
     } catch (error) {
       const rollbackErrors: string[] = []
       for (const key of attempted.reverse()) {
         try {
           const original = previous.get(key)
-          if (original === null || original === undefined) await this.preferences.delete(key)
+          if (this.preferences.compareAndSet) {
+            if (!await this.preferences.compareAndSet(key, imported.get(key), original ?? null)) {
+              throw new Error('Workspace changed after import; rollback must not overwrite it')
+            }
+          } else if (original === null || original === undefined) await this.preferences.delete(key)
           else await this.preferences.set(key, original)
         } catch { rollbackErrors.push(key) }
       }

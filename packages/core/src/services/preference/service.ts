@@ -122,9 +122,29 @@ export class PreferenceService implements IPreferenceService {
   private readonly PREFIX = "pref:";
   private keyCache: Set<string> = new Set();
   private storageProvider: IStorageProvider;
+  readonly compareAndSet?: IPreferenceService['compareAndSet'];
 
   constructor(storageProvider: IStorageProvider) {
     this.storageProvider = storageProvider;
+    if (storageProvider.compareAndSetItem) {
+      this.compareAndSet = async <T>(key: string, expected: unknown, value: T | null) => {
+        assertValidPreferenceKey(key, 'write');
+        const serialized = value === null ? null : JSON.stringify(value);
+        if (serialized !== null) assertSessionSnapshotSize(key, serialized, 'write');
+        let matched = await storageProvider.compareAndSetItem!(
+          this.getPrefKey(key), expected == null ? null : JSON.stringify(expected), serialized,
+        );
+        // Legacy preference writers could persist JSON null instead of removing a key.
+        if (!matched && expected == null) {
+          matched = await storageProvider.compareAndSetItem!(this.getPrefKey(key), 'null', serialized);
+        }
+        if (matched) {
+          if (value === null) this.keyCache.delete(key);
+          else this.keyCache.add(key);
+        }
+        return matched;
+      };
+    }
   }
 
   /**

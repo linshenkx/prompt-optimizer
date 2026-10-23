@@ -24,6 +24,7 @@ export default {
     "runGroup": "測試 {group}",
     "testActions": "更多測試操作",
     "unsavedForm": "修改尚未儲存，確認放棄並返回嗎？",
+    "sessionConflict": "另一個視窗已更新此工作區，目前草稿仍保留但尚未儲存。請先複製需要保留的內容，再重新整理繼續。",
     "testFailed": "測試失敗。可重新執行本組，已產生的內容僅供參考。",
     "failed": "失敗",
     "sourceText": "文字",

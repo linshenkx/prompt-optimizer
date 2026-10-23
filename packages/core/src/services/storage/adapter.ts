@@ -8,7 +8,13 @@ import { StorageError } from './errors';
 export class StorageAdapter implements IStorageProvider {
   private locks: Map<string, Promise<void>> = new Map();
 
-  constructor(private readonly baseProvider: IStorageProvider) {}
+  readonly compareAndSetItem?: IStorageProvider['compareAndSetItem'];
+
+  constructor(private readonly baseProvider: IStorageProvider) {
+    if (baseProvider.compareAndSetItem) {
+      this.compareAndSetItem = baseProvider.compareAndSetItem.bind(baseProvider);
+    }
+  }
 
   // 基础方法直接代理
   async getItem(key: string): Promise<string | null> {

@@ -788,6 +788,7 @@
 </template>
 
 <script setup lang="ts">
+import { completeSessionRestore } from '../stores/session/sessionConcurrency'
 import NModal from "./common/AdaptiveModal.vue"
 import { ref, computed, inject, nextTick, onMounted, onUnmounted, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -1678,6 +1679,7 @@ const handleRemoteRestore = async () => {
     }
     // Imported snapshots must survive the App's existing reload. Its pagehide
     // handler and autosave must not write the pre-import in-memory sessions.
+    completeSessionRestore(releaseSessionRestore)
     releaseSessionRestore = undefined
     emit('imported')
     emit('close')
@@ -2034,6 +2036,7 @@ const handleImport = async () => {
     }
 
     // Keep saving paused until App reloads; release only failed attempts below.
+    completeSessionRestore(releaseSessionRestore)
     releaseSessionRestore = undefined
     emit('imported')
     emit('close')

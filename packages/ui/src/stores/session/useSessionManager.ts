@@ -39,7 +39,8 @@ import {
   type PromptSessionProjectionStoreMap,
 } from './promptSessionProjection'
 import { pauseImageStorageGc, queueImageStorageMaintenance } from './imageStorageMaintenance'
-import { pauseSessionWrites, type SessionWritePermit } from './sessionPersistence'
+import { hasSessionConflict, pauseSessionWrites, type SessionWritePermit } from './sessionPersistence'
+import { acquireSessionRestoreLock, type SessionRestoreRelease } from './sessionConcurrency'
 import { SESSION_STORAGE_KEYS, SESSION_SUB_MODE_KEYS, type SubModeKey } from './sessionKeys'
 
 export type { SubModeKey } from './sessionKeys'
@@ -342,6 +343,9 @@ export const useSessionManager = defineStore('sessionManager', () => {
    * 恢复指定子模式会话
    */
   const restoreSubModeSession = async (key: SubModeKey) => {
+    // A route round-trip must not discard a losing window's unsaved draft.
+    // Keep it available for copying; a page reload establishes a fresh baseline.
+    if (hasSessionConflict(getPiniaServices()?.preferenceService, SESSION_STORAGE_KEYS[key])) return
     try {
       switch (key) {
         case 'basic-system':
@@ -497,7 +501,7 @@ export const useSessionManager = defineStore('sessionManager', () => {
    * Freeze automatic writes before importing workspace snapshots. On failure the
    * caller releases the lease; after a successful import it stays held until reload.
    */
-  const beginSessionRestore = async (): Promise<() => void> => {
+  const beginSessionRestore = async (): Promise<SessionRestoreRelease> => {
     if (isRestoring.value) throw new Error('Session restore is already in progress')
     if (isSwitching.value) throw new Error('Cannot restore sessions while switching workspaces')
     const service = getPiniaServices()?.preferenceService
@@ -510,9 +514,13 @@ export const useSessionManager = defineStore('sessionManager', () => {
     let timeout: ReturnType<typeof setTimeout> | undefined
     let cancelled = false
     let released = false
+    const controller = new AbortController()
+    let releaseAccess: (() => void) | undefined
+    const complete = () => { releaseAccess?.(); releaseAccess = undefined }
     const resume = () => {
       if (released) return
       released = true
+      complete()
       writes.release()
       resumeGc()
       isRestoring.value = false
@@ -529,6 +537,8 @@ export const useSessionManager = defineStore('sessionManager', () => {
           // Drain a GC that was already executing before pauseImageStorageGc.
           // New/timer/queued GCs remain paused through import and reload.
           await queueImageStorageMaintenance(async () => {})
+          releaseAccess = await acquireSessionRestoreLock(controller.signal)
+          if (cancelled) { complete(); return }
 
           // Old backups and favorites-only imports have no workspace snapshots.
           // Preserve all current drafts before any import can request a reload.
@@ -544,12 +554,13 @@ export const useSessionManager = defineStore('sessionManager', () => {
           timeout = setTimeout(() => reject(new Error('Timed out while waiting for session writes')), 5000)
         }),
       ])
-      return resume
+      return Object.assign(resume, { complete })
     } catch (error) {
       resume()
       throw error
     } finally {
       cancelled = true
+      controller.abort()
       clearTimeout(timeout)
     }
   }

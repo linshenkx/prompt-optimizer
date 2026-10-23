@@ -8,7 +8,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { runSessionWrite, type SessionWritePermit } from './sessionPersistence'
+import { readSessionSnapshot, writeSessionSnapshot, runSessionWrite, type SessionWritePermit } from './sessionPersistence'
 import { ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { TEMPLATE_SELECTION_KEYS, type PromptAssetBinding, type PromptSessionOrigin } from '@prompt-optimizer/core'
@@ -430,7 +430,7 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
         lastActiveAt: lastActiveAt.value,
         ...assetBindingState.persistedAssetBinding(),
       }
-      await $services.preferenceService.set(
+      await writeSessionSnapshot($services.preferenceService,
         'session/v1/pro-variable',
         sessionState
       )
@@ -449,7 +449,7 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
     }
 
     try {
-      const saved = await $services.preferenceService.get<unknown>(
+      const saved = await readSessionSnapshot<unknown>($services.preferenceService,
         'session/v1/pro-variable',
         null
       )

@@ -9,7 +9,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { runSessionWrite, type SessionWritePermit } from './sessionPersistence'
+import { readSessionSnapshot, writeSessionSnapshot, runSessionWrite, type SessionWritePermit } from './sessionPersistence'
 import { ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { TEMPLATE_SELECTION_KEYS, type ConversationMessage, type PromptAssetBinding, type PromptSessionOrigin } from '@prompt-optimizer/core'
@@ -512,7 +512,7 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
         lastActiveAt: lastActiveAt.value,
         ...assetBindingState.persistedAssetBinding(),
       }
-      await $services.preferenceService.set(
+      await writeSessionSnapshot($services.preferenceService,
         'session/v1/pro-multi',
         sessionState
       )
@@ -534,7 +534,7 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
     }
 
     try {
-      const saved = await $services.preferenceService.get<unknown>(
+      const saved = await readSessionSnapshot<unknown>($services.preferenceService,
         'session/v1/pro-multi',
         null
       )

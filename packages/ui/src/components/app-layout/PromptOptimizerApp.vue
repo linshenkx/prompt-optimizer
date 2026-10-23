@@ -277,6 +277,7 @@ import CompactNavigation from './CompactNavigation.vue'
 import { useWorkspaceViewState } from '../../composables/ui/useWorkspaceViewState'
 import { useWorkspaceLayout } from '../../composables/ui/useWorkspaceLayout'
 import { hasCompactModalLayers } from '../../composables/ui/useCompactModalBack'
+import { hasSessionConflicts, SESSION_CONFLICT_EVENT } from '../../stores/session/sessionPersistence'
 import { createAppUpdatePreparation } from '../../composables/ui/useAppUpdatePreparation'
 import { useCompactSessionAutosave } from '../../composables/session/useCompactSessionAutosave'
 const { isCompact, keyboardViewportHeight, keyboardViewportTop } = useWorkspaceLayout()
@@ -2373,6 +2374,7 @@ const compactAutosave = useCompactSessionAutosave({
 
 // Optional Web/PWA host API. No service worker or browser update state enters UI stores.
 const isWorkspaceBusy = () => !isReady.value || sessionManager.isSwitching ||
+  hasSessionConflicts(services.value?.preferenceService) ||
   !!activeWorkspaceRef.value?.isUpdateBusy?.();
 const prepareSessionRestore = async (): Promise<(() => void) | null> => {
   if (isWorkspaceBusy()) return null;
@@ -2417,8 +2419,10 @@ const handleVisibilityChange = () => {
 const refreshDataBackupReminder = () => {
   dataBackupReminderDue.value = isDataBackupReminderDue()
 }
+const handleSessionConflict = () => { toast.warning(t('workspace.sessionConflict')); };
 
 onMounted(() => {
+  window.addEventListener(SESSION_CONFLICT_EVENT, handleSessionConflict);
   // Route-level lazy loading can break after a new deployment when this tab is still running an old main bundle.
   // Prompt user to refresh instead of auto-reloading.
   if (typeof window !== 'undefined') {
@@ -2513,6 +2517,7 @@ onMounted(() => {
 
 // 应用卸载前清理并保存所有会话
 onBeforeUnmount(async () => {
+  window.removeEventListener(SESSION_CONFLICT_EVENT, handleSessionConflict);
   isAppUnmounted = true;
 
   // 🔧 Codex 修复：设置卸载标志，阻止后续 microtask 执行恢复

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { runSessionWrite, type SessionWritePermit } from './sessionPersistence'
+import { readSessionSnapshot, writeSessionSnapshot, runSessionWrite, type SessionWritePermit } from './sessionPersistence'
 import { ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { isValidVariableName, sanitizeVariableRecord } from '../../types/variable'
@@ -624,7 +624,7 @@ export const useImageMultiImageSession = defineStore('imageMultiImageSession', (
         d: await prepareForSave(baseVariantResults.d, imageStorageService),
       }
 
-      await $services.preferenceService.set(IMAGE_MULTIIMAGE_SESSION_KEY, {
+      await writeSessionSnapshot($services.preferenceService, IMAGE_MULTIIMAGE_SESSION_KEY, {
         originalPrompt: originalPrompt.value,
         optimizedPrompt: optimizedPrompt.value,
         reasoning: reasoning.value,
@@ -662,7 +662,7 @@ export const useImageMultiImageSession = defineStore('imageMultiImageSession', (
     }
     const imageStorageService = $services.imageStorageService
 
-    const saved = await $services.preferenceService.get<unknown>(IMAGE_MULTIIMAGE_SESSION_KEY, null)
+    const saved = await readSessionSnapshot<unknown>($services.preferenceService,IMAGE_MULTIIMAGE_SESSION_KEY, null)
     if (!saved) return
 
     const parsed =

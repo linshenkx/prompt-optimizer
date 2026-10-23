@@ -1,4 +1,5 @@
 import type { IImageStorageService, IPreferenceService } from '@prompt-optimizer/core'
+import { hasSessionLocks, withSessionMaintenance } from './sessionConcurrency'
 
 // Session snapshot keys (single source of truth)
 export const BASIC_SYSTEM_SESSION_KEY = 'session/v1/basic-system'
@@ -273,7 +274,7 @@ function schedulePendingGc(delayMs: number) {
     pendingGcServices = null
     if (!services) return
 
-    void queueImageStorageMaintenance(async () => {
+    void withSessionMaintenance(() => queueImageStorageMaintenance(async () => {
       // A GC queued before the lease must not run after import starts either.
       if (gcPauseCount) {
         pendingGcServices ??= services
@@ -288,7 +289,7 @@ function schedulePendingGc(delayMs: number) {
       } catch (e) {
         console.error('[imageStorageMaintenance] GC failed:', e)
       }
-    })
+    })).catch(error => console.error('[imageStorageMaintenance] GC coordination failed:', error))
   }, delayMs)
 }
 
@@ -305,6 +306,10 @@ export function scheduleImageStorageGc(
     getFavoritesPayload?: FavoritesPayloadProvider | null
   },
 ) {
+  // LAN HTTP can use IndexedDB CAS without Web Locks. Keep orphan images rather
+  // than race another window importing assets whose references are not saved yet.
+  // Explicit storage-management actions remain available; this GC is best-effort.
+  if (preferenceService.compareAndSet && !hasSessionLocks()) return
   const hasFavoritesProviderOverride = !!opts && Object.prototype.hasOwnProperty.call(opts, 'getFavoritesPayload')
   if (hasFavoritesProviderOverride) {
     defaultFavoritesPayloadProvider = opts?.getFavoritesPayload ?? null
