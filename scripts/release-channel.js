@@ -89,15 +89,23 @@ function main(env = process.env, cwd = process.cwd()) {
   process.stdout.write(text);
 }
 
+function readRemoteReleases(env = process.env, cwd = process.cwd(), run = execFileSync) {
+  if (!/^[\w.-]+\/[\w.-]+$/.test(env.GITHUB_REPOSITORY || '')) throw new Error('Missing repository identity');
+  // Release bodies and asset metadata grow past execFileSync's default buffer.
+  // Project each page in gh before capturing output; JSON lines retain records
+  // across pages without combining the incompatible --slurp and --jq options.
+  const lines = run('gh', ['api', '--paginate',
+    `repos/${env.GITHUB_REPOSITORY}/releases`, '--jq',
+    '.[] | {tag_name, draft, prerelease} | @json'], {
+    cwd, env, encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 8 * 1024 * 1024,
+  });
+  return lines.trim() ? lines.trim().split(/\r?\n/).map(line => JSON.parse(line)) : [];
+}
+
 function checkRemoteReleaseState(env = process.env, cwd = process.cwd()) {
   const policy = validateSource(cwd, env.RELEASE_VERSION, env.RELEASE_SHA);
-  if (!/^[\w.-]+\/[\w.-]+$/.test(env.GITHUB_REPOSITORY || '')) throw new Error('Missing repository identity');
-  const pages = JSON.parse(execFileSync('gh', ['api', '--paginate', '--slurp',
-    `repos/${env.GITHUB_REPOSITORY}/releases`], {
-    cwd, env, encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'],
-  }));
-  if (!Array.isArray(pages)) throw new Error('Invalid GitHub release response');
-  assertReleaseState(policy, pages.flat(), env.REQUIRE_DRAFT === 'true');
+  assertReleaseState(policy, readRemoteReleases(env, cwd), env.REQUIRE_DRAFT === 'true');
   console.log(`Release state verified: ${policy.tag}`);
 }
 
@@ -107,4 +115,4 @@ if (require.main === module) {
     else main();
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }
-module.exports = { releaseChannel, validateVersions, validateSource, assertForwardStable, assertReleaseState, main };
+module.exports = { releaseChannel, validateVersions, validateSource, assertForwardStable, assertReleaseState, readRemoteReleases, main };

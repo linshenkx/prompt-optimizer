@@ -8,11 +8,37 @@ import yaml from 'js-yaml';
 import policyModule from './release-channel.js';
 import syncModule from './sync-versions.js';
 
-const { releaseChannel, validateVersions, validateSource, assertForwardStable, assertReleaseState } = policyModule;
+const { releaseChannel, validateVersions, validateSource, assertForwardStable, assertReleaseState, readRemoteReleases } = policyModule;
 const { syncVersions } = syncModule;
 const read = file => fs.readFileSync(file, 'utf8');
 const release = yaml.load(read('.github/workflows/release.yml'));
 const docker = yaml.load(read('.github/workflows/docker.yml'));
+
+test('remote history projects metadata before capture and keeps later-page publication guards', () => {
+  const releases = readRemoteReleases({ GITHUB_REPOSITORY: 'owner/repo' }, process.cwd(), (bin, args, options) => {
+    assert.equal(bin, 'gh');
+    assert.ok(args.includes('--paginate'));
+    assert.ok(!args.includes('--slurp'), 'gh does not support --slurp with --jq');
+    assert.equal(args[args.indexOf('--jq') + 1], '.[] | {tag_name, draft, prerelease} | @json');
+    assert.equal(options.encoding, 'utf8');
+    return [
+      { tag_name: 'v2.11.13', draft: false, prerelease: false },
+      { tag_name: 'v2.12.0-beta.1', draft: false, prerelease: true },
+      { tag_name: 'v2.12.0', draft: false, prerelease: false },
+    ].map(r => JSON.stringify(r)).join('\r\n') + '\r\n';
+  });
+  assert.throws(() => assertReleaseState(releaseChannel('2.12.0-beta.1'), releases), /published release/);
+  assert.throws(() => assertReleaseState(releaseChannel('2.11.14'), releases), /newer/);
+});
+
+test('remote history handles empty repositories and refuses malformed state or command failure', () => {
+  const env = { GITHUB_REPOSITORY: 'owner/repo' };
+  assert.deepEqual(readRemoteReleases(env, '.', () => ''), []);
+  assert.throws(() => readRemoteReleases(env, '.', () => '{broken'), SyntaxError);
+  assert.throws(() => readRemoteReleases(env, '.', () => { throw new Error('API unavailable'); }), /API unavailable/);
+  const invalid = readRemoteReleases(env, '.', () => '{"tag_name":"v2.12.0-beta.1"}\n');
+  assert.throws(() => assertReleaseState(releaseChannel('2.12.0-beta.1'), invalid), /Invalid GitHub release state/);
+});
 
 for (const version of ['2.12.0-beta.1', '2.12.0-alpha.2', '2.12.0-rc.1', '2.12.0-preview.3', '2.12.0-hotfix.1']) {
   test(`${version} cannot promote a stable image or GitHub release`, () => {
