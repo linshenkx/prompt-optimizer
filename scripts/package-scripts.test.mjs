@@ -39,6 +39,13 @@ test('repo checks execute package script coverage tests', () => {
   assert.match(rootPackage.scripts['test:repo'], /scripts\/package-scripts\.test\.mjs/)
 })
 
+test('documented release note commands use the shared validator', () => {
+  const { scripts } = readJson('package.json')
+  assert.equal(scripts['release:notes:new'], 'node scripts/release-notes.js new')
+  assert.equal(scripts['release:notes:check'], 'node scripts/release-notes.js check')
+  assert.equal(scripts['release:notes:check:entry'], 'node scripts/release-notes.js check-entry')
+})
+
 test('repo gate includes Docker PWA deployment regressions', () => {
   const { scripts } = readJson('package.json')
   const spec = 'scripts/docker-pwa.test.mjs'

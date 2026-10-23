@@ -2,6 +2,10 @@
 
 Full release narratives now live in versioned files under `releases/`. This file stays as the index and summary entry point.
 
+## [2.12.0-beta.1] - 2026-10-23
+- EN: This preview adds mobile layouts across seven workspaces, phone-friendly management views, and an installable Web PWA. It strengthens workspace recovery, cross-window saves and update protection, with preview images isolated from stable latest tags. See [Release Notes (EN)](releases/v2.12.0-beta.1.en.md).
+- 中文：本预览版新增七工作区移动布局、适合手机的管理页面和可安装 Web PWA，增强工作区恢复、跨窗口保存与更新保护，并将预览镜像与稳定版 latest 标签隔离。参见 [版本说明（中文）](releases/v2.12.0-beta.1.zh-CN.md)。
+
 ## [2.11.13] - 2026-10-22
 - EN: This security maintenance release updates build and Docker Node.js to 24.22.1 and resolves known npm dependency advisories. Desktop Electron is upgraded, but its embedded Node.js security update remains pending upstream. See [Release Notes (EN)](releases/v2.11.13.en.md).
 - 中文：本次安全维护版本将构建与 Docker 的 Node.js 升级至 24.22.1，并修复已知 npm 依赖漏洞。桌面 Electron 已升级，内置 Node.js 的本次安全补丁仍待上游发布。参见 [版本说明（中文）](releases/v2.11.13.zh-CN.md)。
