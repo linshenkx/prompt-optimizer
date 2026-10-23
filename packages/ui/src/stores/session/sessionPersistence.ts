@@ -8,8 +8,14 @@ type PersistenceState = {
   pending: Set<Promise<unknown>>
   permit: SessionWritePermit | null
   snapshots: Map<string, unknown>
-  writes: Map<string, Promise<void>>
+  writes: Map<string, Promise<unknown>>
   conflicts: Set<string>
+  restores: Map<string, RestoreCheckpoint>
+}
+
+type RestoreCheckpoint = {
+  task: Promise<void>
+  removeIfUnchanged?: () => Promise<boolean>
 }
 
 // Scope the boundary to the actual storage service, not a second session store.
@@ -17,7 +23,7 @@ const states = new WeakMap<IPreferenceService, PersistenceState>()
 const getState = (service: IPreferenceService) => {
   let state = states.get(service)
   if (!state) {
-    state = { pending: new Set(), permit: null, snapshots: new Map(), writes: new Map(), conflicts: new Set() }
+    state = { pending: new Set(), permit: null, snapshots: new Map(), writes: new Map(), conflicts: new Set(), restores: new Map() }
     states.set(service, state)
   }
   return state
@@ -47,21 +53,73 @@ export const hasSessionConflict = (service: IPreferenceService | undefined, key:
 
 /** Only an explicit store hydration establishes a new baseline; GC/export reads do not. */
 export async function readSessionSnapshot<T>(service: IPreferenceService, key: string, fallback: T): Promise<T> {
-  const value = await service.get(key, fallback)
+  const state = getState(service)
+  const checkpoint = state.restores.get(key)
+  let value: T
+  if (checkpoint && service.readSnapshot) {
+    // The receipt captures the original raw value even when decoding is rejected
+    // by the size limit. It belongs to this restore, never the mutable write baseline.
+    const snapshot = await service.readSnapshot(key, fallback)
+    checkpoint.removeIfUnchanged = snapshot.removeIfUnchanged
+    if (!snapshot.result.ok) throw snapshot.result.error
+    value = snapshot.result.value
+  } else {
+    value = await service.get(key, fallback)
+    if (checkpoint && service.compareAndSet) {
+      const original = copySnapshot(value)
+      checkpoint.removeIfUnchanged = () => service.compareAndSet!(key, original, null)
+    }
+  }
   if (service.compareAndSet) {
-    const state = getState(service)
     state.snapshots.set(key, copySnapshot(value))
     state.conflicts.delete(key)
   }
   return value
 }
 
+const queueSnapshotCommit = async <T>(state: PersistenceState, key: string, commit: () => Promise<T>): Promise<T> => {
+  const previous = state.writes.get(key) ?? Promise.resolve()
+  const task = previous.catch(() => {}).then(commit)
+  state.writes.set(key, task)
+  try { return await task } finally { if (state.writes.get(key) === task) state.writes.delete(key) }
+}
+
+/** Keep cleanup tied to one restore attempt; concurrent restores of that key share it. */
+export function withSessionRestoreCheckpoint(
+  service: IPreferenceService | undefined,
+  key: string,
+  restore: (cleanup: () => Promise<boolean>) => Promise<void>,
+): Promise<void> {
+  if (!service) return restore(async () => false)
+  const state = getState(service)
+  const current = state.restores.get(key)
+  if (current) return current.task
+  const checkpoint: RestoreCheckpoint = { task: Promise.resolve() }
+  const cleanup = () => runSessionWrite(service, () => queueSnapshotCommit(state, key, async () => {
+    // Import may have frozen writes while this operation waited for a preceding commit.
+    if (state.permit) return false
+    if (service.compareAndSet) {
+      if (!checkpoint.removeIfUnchanged || !await checkpoint.removeIfUnchanged()) return false
+      state.snapshots.set(key, null)
+    } else {
+      // Electron's existing IPC provider has no atomic snapshot capability.
+      await service.delete(key)
+    }
+    return true
+  }))
+  checkpoint.task = Promise.resolve().then(() => restore(cleanup)).finally(() => {
+    checkpoint.removeIfUnchanged = undefined
+    if (state.restores.get(key) === checkpoint) state.restores.delete(key)
+  })
+  state.restores.set(key, checkpoint)
+  return checkpoint.task
+}
+
 export async function writeSessionSnapshot<T>(service: IPreferenceService, key: string, value: T): Promise<void> {
   if (!service.compareAndSet) { await service.set(key, value); return }
   const state = getState(service)
   const snapshot = copySnapshot(value)
-  const previous = state.writes.get(key) ?? Promise.resolve()
-  const task = previous.catch(() => {}).then(async () => {
+  await queueSnapshotCommit(state, key, async () => {
     const baseline = state.snapshots.get(key) ?? null
     if (!state.conflicts.has(key) && state.snapshots.has(key) && comparableSnapshot(snapshot) === comparableSnapshot(baseline)) {
       // Idle/pagehide saves must not rewrite old content or flag an untouched tab.
@@ -84,8 +142,6 @@ export async function writeSessionSnapshot<T>(service: IPreferenceService, key: 
     }
     state.snapshots.set(key, snapshot)
   })
-  state.writes.set(key, task)
-  try { await task } finally { if (state.writes.get(key) === task) state.writes.delete(key) }
 }
 
 /** Every store enters here before starting snapshot or image persistence. */

@@ -2,6 +2,10 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
+import { createRequire } from 'node:module'
+
+const require = createRequire(import.meta.url)
+const { groups } = require('./e2e-groups.js')
 
 const readJson = (relativePath) =>
   JSON.parse(fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8'))
@@ -33,6 +37,59 @@ test('repo checks execute package script coverage tests', () => {
 
   assert.equal(typeof rootPackage.scripts?.['test:repo'], 'string')
   assert.match(rootPackage.scripts['test:repo'], /scripts\/package-scripts\.test\.mjs/)
+})
+
+test('daily gate includes Web/PWA unit tests alongside existing repo, core and UI checks', () => {
+  const { scripts } = readJson('package.json')
+  const gateTasks = scripts['test:gate'].split(/\s+/)
+
+  for (const task of ['test:repo', 'test:gate:core', 'test:gate:ui', 'test:gate:web']) {
+    assert.ok(gateTasks.includes(task), `Daily gate must run ${task}`)
+  }
+  // Web shell tests mock the UI exports, but Vite still resolves their package
+  // entry. Build prerequisites must work even without existing dist artifacts.
+  assert.equal(scripts['test:gate:web'], 'pnpm -F @prompt-optimizer/core build && pnpm -F @prompt-optimizer/ui build:bundle && pnpm -F @prompt-optimizer/web test:unit')
+  assert.equal(readJson('packages/web/package.json').scripts['test:unit'], 'vitest run tests/unit')
+})
+
+test('core gate includes deterministic snapshot and conditional-write regressions', () => {
+  assert.equal(readJson('package.json').scripts['test:gate:core'], 'pnpm -F @prompt-optimizer/core test:gate')
+  const gateSpecs = readJson('packages/core/package.json').scripts['test:gate'].split(/\s+/)
+  for (const spec of [
+    'tests/unit/utils/vcr.spec.ts',
+    'tests/unit/utils/llm-mock-service.spec.ts',
+    'tests/unit/preference/read-snapshot.test.ts',
+    'tests/unit/preference/compare-and-set.test.ts',
+    'tests/unit/preference/indexeddb-compare-and-set.test.ts',
+  ]) {
+    assert.ok(gateSpecs.includes(spec), `Missing core gate regression: ${spec}`)
+    assert.ok(fs.existsSync(path.join('packages/core', spec)), `Core gate spec does not exist: ${spec}`)
+  }
+})
+
+test('daily browser gate includes model-free workspace regressions without dropping existing suites', () => {
+  const { scripts } = readJson('package.json')
+  const browserTasks = scripts['test:gate:e2e'].split(/\s+/)
+
+  for (const task of ['test:e2e:ui-smoke', 'test:e2e:workspace-regression', 'test:e2e:gate:replay']) {
+    assert.ok(browserTasks.includes(task), `Daily browser gate must run ${task}`)
+  }
+  const regressionCommand = scripts['test:e2e:workspace-regression']
+  assert.match(regressionCommand, /\bE2E_EMPTY_MODEL_CONFIG=1\b/)
+  assert.match(regressionCommand, /\bE2E_VCR_MODE=live\b/)
+  assert.match(regressionCommand, /run-e2e-group\.js workspaceRegression$/)
+
+  for (const name of ['workspace-source-preview', 'workspace-split-bindings', 'cross-window-conflict']) {
+    const spec = `tests/e2e/session-persistence/${name}.spec.ts`
+    assert.ok(groups.workspaceRegression.includes(spec), `Missing daily regression: ${spec}`)
+  }
+  for (const spec of groups.workspaceRegression) {
+    assert.ok(fs.existsSync(spec), `Workspace regression does not exist: ${spec}`)
+  }
+
+  const workflow = fs.readFileSync('.github/workflows/test.yml', 'utf8')
+  assert.match(workflow, /run:\s*pnpm test:gate\s*$/m)
+  assert.match(workflow, /run:\s*pnpm test:gate:e2e\s*$/m)
 })
 
 test('core package exposes a dedicated typecheck script', () => {

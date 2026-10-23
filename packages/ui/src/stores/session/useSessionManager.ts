@@ -39,9 +39,10 @@ import {
   type PromptSessionProjectionStoreMap,
 } from './promptSessionProjection'
 import { pauseImageStorageGc, queueImageStorageMaintenance } from './imageStorageMaintenance'
-import { hasSessionConflict, pauseSessionWrites, type SessionWritePermit } from './sessionPersistence'
+import { hasSessionConflict, pauseSessionWrites, withSessionRestoreCheckpoint, type SessionWritePermit } from './sessionPersistence'
 import { acquireSessionRestoreLock, type SessionRestoreRelease } from './sessionConcurrency'
 import { SESSION_STORAGE_KEYS, SESSION_SUB_MODE_KEYS, type SubModeKey } from './sessionKeys'
+import type { SessionSaveResult } from './sessionSaveResult'
 
 export type { SubModeKey } from './sessionKeys'
 
@@ -70,7 +71,7 @@ const getSessionCleanupKey = (key: SubModeKey, error: unknown): string | null =>
   }
 
   if (typeof maybeError.params.key === 'string' && maybeError.params.key.trim()) {
-    return maybeError.params.key
+    return maybeError.params.key === SESSION_STORAGE_KEYS[key] ? maybeError.params.key : null
   }
 
   return SESSION_STORAGE_KEYS[key]
@@ -339,6 +340,17 @@ export const useSessionManager = defineStore('sessionManager', () => {
     }
   }
 
+  /** Mobile scheduling needs to distinguish temporary contention from a refused write. */
+  const saveSubModeSessionWithStatus = async (key: SubModeKey): Promise<SessionSaveResult> => {
+    const isBlocked = () => isRestoring.value || !hasRestoredAllSessions.value ||
+      hasSessionConflict(getPiniaServices()?.preferenceService, SESSION_STORAGE_KEYS[key])
+    if (isBlocked()) return 'blocked'
+    if (isSwitching.value || saveInFlight.value) return 'deferred'
+    const saved = await saveSubModeSession(key)
+    if (saved) return 'saved'
+    return isBlocked() ? 'blocked' : 'failed'
+  }
+
   /**
    * 恢复指定子模式会话
    */
@@ -346,54 +358,54 @@ export const useSessionManager = defineStore('sessionManager', () => {
     // A route round-trip must not discard a losing window's unsaved draft.
     // Keep it available for copying; a page reload establishes a fresh baseline.
     if (hasSessionConflict(getPiniaServices()?.preferenceService, SESSION_STORAGE_KEYS[key])) return
-    try {
-      switch (key) {
-        case 'basic-system':
-          await useBasicSystemSession().restoreSession()
-          break
-        case 'basic-user':
-          await useBasicUserSession().restoreSession()
-          break
-        case 'pro-multi':
-          await useProMultiMessageSession().restoreSession()
-          break
-        case 'pro-variable':
-          await useProVariableSession().restoreSession()
-          break
-        case 'image-text2image':
-          await useImageText2ImageSession().restoreSession()
-          break
-        case 'image-image2image':
-          await useImageImage2ImageSession().restoreSession()
-          break
-        case 'image-multiimage':
-          await useImageMultiImageSession().restoreSession()
-          break
-      }
-    } catch (error) {
-      const cleanupKey = getSessionCleanupKey(key, error)
-      if (cleanupKey) {
-        console.info(`[SessionManager] Detected a corrupted session snapshot; preparing cleanup: ${cleanupKey}`)
-      } else {
-        console.error(`[SessionManager] Failed to restore ${key} session:`, error)
-      }
-
-      if (!cleanupKey) {
-        return
-      }
-
-      const $services = getPiniaServices()
-      if (!$services?.preferenceService) {
-        return
-      }
-
+    return withSessionRestoreCheckpoint(getPiniaServices()?.preferenceService, SESSION_STORAGE_KEYS[key], async cleanup => {
       try {
-        await $services.preferenceService.delete(cleanupKey)
-        console.info(`[SessionManager] Removed corrupted session snapshot: ${cleanupKey}`)
-      } catch (cleanupError) {
-        console.error(`[SessionManager] Failed to remove corrupted session snapshot (${cleanupKey}):`, cleanupError)
+        switch (key) {
+          case 'basic-system':
+            await useBasicSystemSession().restoreSession()
+            break
+          case 'basic-user':
+            await useBasicUserSession().restoreSession()
+            break
+          case 'pro-multi':
+            await useProMultiMessageSession().restoreSession()
+            break
+          case 'pro-variable':
+            await useProVariableSession().restoreSession()
+            break
+          case 'image-text2image':
+            await useImageText2ImageSession().restoreSession()
+            break
+          case 'image-image2image':
+            await useImageImage2ImageSession().restoreSession()
+            break
+          case 'image-multiimage':
+            await useImageMultiImageSession().restoreSession()
+            break
+        }
+      } catch (error) {
+        const cleanupKey = getSessionCleanupKey(key, error)
+        if (cleanupKey) {
+          console.info(`[SessionManager] Detected a corrupted session snapshot; preparing cleanup: ${cleanupKey}`)
+        } else {
+          console.error(`[SessionManager] Failed to restore ${key} session:`, error)
+        }
+
+        if (!cleanupKey) {
+          return
+        }
+
+        try {
+          if (await cleanup()) {
+            console.info(`[SessionManager] Removed corrupted session snapshot: ${cleanupKey}`)
+          } else {
+            console.info(`[SessionManager] Preserved session snapshot changed or protected during recovery: ${cleanupKey}`)
+          }
+        } catch (cleanupError) {
+          console.error(`[SessionManager] Failed to remove corrupted session snapshot (${cleanupKey}):`, cleanupError)
+        }
       }
-    }
+    })
   }
 
   /**
@@ -566,9 +578,10 @@ export const useSessionManager = defineStore('sessionManager', () => {
   }
 
   /** Subscribe to mutations without copying or serializing the session state. */
-  const subscribeToSessionChanges = (onChange: () => void) => {
-    const unsubscribe = Object.values(getProjectionStoreMap()).map(store =>
-      store.$subscribe(onChange, { detached: true, flush: 'post' }),
+  const subscribeToSessionChanges = (onChange: (key: SubModeKey) => void) => {
+    const stores = getProjectionStoreMap()
+    const unsubscribe = SESSION_SUB_MODE_KEYS.map(key =>
+      stores[key].$subscribe(() => onChange(key), { detached: true, flush: 'post' }),
     )
     return () => unsubscribe.forEach(stop => stop())
   }
@@ -578,6 +591,7 @@ export const useSessionManager = defineStore('sessionManager', () => {
     // 状态
     isSwitching,
     isRestoring,
+    isSaving: saveInFlight,
 
     // 方法
     injectSubModeReaders,
@@ -590,6 +604,7 @@ export const useSessionManager = defineStore('sessionManager', () => {
     switchMode,
     switchSubMode,
     saveSubModeSession,
+    saveSubModeSessionWithStatus,
     restoreSubModeSession,
     restoreAllSessions,
     saveAllSessions,

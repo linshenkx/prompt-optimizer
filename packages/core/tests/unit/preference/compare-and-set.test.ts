@@ -55,6 +55,7 @@ describe('preference conditional writes', () => {
     const preferences = new PreferenceService(adapter)
     expect(adapter.compareAndSetItem).toBeUndefined()
     expect(preferences.compareAndSet).toBeUndefined()
+    expect(preferences.readSnapshot).toBeUndefined()
     await preferences.set('session/v1/basic-user', { prompt: 'normal save' })
     expect(await preferences.get('session/v1/basic-user', null)).toEqual({ prompt: 'normal save' })
   })

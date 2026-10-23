@@ -2366,10 +2366,9 @@ let initTimeoutId: number | null = null
 
 const compactAutosave = useCompactSessionAutosave({
   enabled: computed(() => isCompact.value && isReady.value),
+  busy: computed(() => sessionManager.isSwitching || sessionManager.isSaving),
   subscribe: sessionManager.subscribeToSessionChanges,
-  save: () => sessionManager.isSwitching
-    ? Promise.resolve(false)
-    : sessionManager.saveSubModeSession(sessionManager.getActiveSubModeKey()),
+  save: sessionManager.saveSubModeSessionWithStatus,
 });
 
 // Optional Web/PWA host API. No service worker or browser update state enters UI stores.

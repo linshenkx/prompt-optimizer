@@ -2,6 +2,13 @@ const groups = {
   uiSmoke: [
     'tests/e2e/regression/model-configuration-smoke.spec.ts',
   ],
+  // These regressions seed local sessions and exercise real UI/IndexedDB behavior.
+  // They need neither provider credentials nor VCR recordings.
+  workspaceRegression: [
+    'tests/e2e/session-persistence/workspace-source-preview.spec.ts',
+    'tests/e2e/session-persistence/workspace-split-bindings.spec.ts',
+    'tests/e2e/session-persistence/cross-window-conflict.spec.ts',
+  ],
   gate: [
     'tests/e2e/workflows/p0-route-smoke.spec.ts',
     'tests/e2e/regression/root-route-bootstrap.spec.ts',
