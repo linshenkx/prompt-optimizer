@@ -66,6 +66,14 @@ services:
       VITE_CUSTOM_API_PARAMS_nvidia: '{"chat_template_kwargs":{"enable_thinking":true},"temperature":0.6,"top_p":0.95,"max_tokens":16384}'
 ```
 
+## Install as a mobile app (PWA)
+
+Without `ACCESS_PASSWORD`, the production app can be installed from trusted HTTPS or browser-trusted `localhost`. A plain LAN HTTP IP does not meet the installation requirement. Offline use supports reading and editing saved local workspaces; model requests still need a network connection.
+
+Docker permits caching public build resources while keeping runtime `config.js`, API/model responses and the worker script `sw.js` under `no-store`. Updates activate only after choosing **Save and update**. Preserve these cache rules when adding a reverse proxy.
+
+With `ACCESS_PASSWORD`, authenticated online use remains available. The protected page does not support offline-shell installation and does not show the install reminder. Do not expose a protected document or cache credential-bearing runtime configuration to enable installation.
+
 ## Verification
 
 1. Start the container.

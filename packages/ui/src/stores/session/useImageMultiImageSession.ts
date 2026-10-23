@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { readSessionSnapshot, writeSessionSnapshot, runSessionWrite, type SessionWritePermit } from './sessionPersistence'
+import { readSessionSnapshot, createSessionSnapshotWriter, runSessionWrite, type SessionWritePermit } from './sessionPersistence'
 import { ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { isValidVariableName, sanitizeVariableRecord } from '../../types/variable'
@@ -573,11 +573,14 @@ export const useImageMultiImageSession = defineStore('imageMultiImageSession', (
     }
   }
 
+  const sessionSnapshot = createSessionSnapshotWriter(() => sessionContent)
+
   const saveSession = (permit?: SessionWritePermit): Promise<boolean> =>
     runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit)
 
   const persistSession = async () => {
     return await queueImageStorageMaintenance(async () => {
+      const capturedContent = sessionSnapshot.capture()
       const $services = getPiniaServices()
       if (!$services?.preferenceService) {
         throw new Error('[ImageMultiImageSession] PreferenceService is unavailable; cannot save session')
@@ -624,7 +627,7 @@ export const useImageMultiImageSession = defineStore('imageMultiImageSession', (
         d: await prepareForSave(baseVariantResults.d, imageStorageService),
       }
 
-      await writeSessionSnapshot($services.preferenceService, IMAGE_MULTIIMAGE_SESSION_KEY, {
+      await sessionSnapshot.write($services.preferenceService, IMAGE_MULTIIMAGE_SESSION_KEY, {
         originalPrompt: originalPrompt.value,
         optimizedPrompt: optimizedPrompt.value,
         reasoning: reasoning.value,
@@ -646,7 +649,7 @@ export const useImageMultiImageSession = defineStore('imageMultiImageSession', (
         selectedIterateTemplateId: selectedIterateTemplateId.value,
         lastActiveAt: lastActiveAt.value,
         ...assetBindingState.persistedAssetBinding(),
-      })
+      }, capturedContent)
 
       scheduleImageStorageGc($services.preferenceService, imageStorageService)
     })
@@ -663,7 +666,10 @@ export const useImageMultiImageSession = defineStore('imageMultiImageSession', (
     const imageStorageService = $services.imageStorageService
 
     const saved = await readSessionSnapshot<unknown>($services.preferenceService,IMAGE_MULTIIMAGE_SESSION_KEY, null)
-    if (!saved) return
+    if (!saved) {
+      sessionSnapshot.restored($services.preferenceService, IMAGE_MULTIIMAGE_SESSION_KEY)
+      return
+    }
 
     const parsed =
       typeof saved === 'string'
@@ -757,9 +763,10 @@ export const useImageMultiImageSession = defineStore('imageMultiImageSession', (
     selectedIterateTemplateId.value = typeof parsed.selectedIterateTemplateId === 'string' ? parsed.selectedIterateTemplateId : null
     assetBindingState.restoreAssetBinding(parsed)
     lastActiveAt.value = Date.now()
+    sessionSnapshot.restored($services.preferenceService, IMAGE_MULTIIMAGE_SESSION_KEY)
   }
 
-  return {
+  const sessionContent = {
     originalPrompt,
     optimizedPrompt,
     reasoning,
@@ -782,6 +789,10 @@ export const useImageMultiImageSession = defineStore('imageMultiImageSession', (
     lastActiveAt,
     assetBinding: assetBindingState.assetBinding,
     origin: assetBindingState.origin,
+  }
+
+  return {
+    ...sessionContent,
     updatePrompt,
     updateOptimizedResult,
     updateOriginalImageResult,

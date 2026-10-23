@@ -39,6 +39,13 @@ test('repo checks execute package script coverage tests', () => {
   assert.match(rootPackage.scripts['test:repo'], /scripts\/package-scripts\.test\.mjs/)
 })
 
+test('repo gate includes Docker PWA deployment regressions', () => {
+  const { scripts } = readJson('package.json')
+  const spec = 'scripts/docker-pwa.test.mjs'
+  assert.ok(scripts['test:repo'].split(/\s+/).includes(spec))
+  assert.ok(fs.existsSync(spec), 'Docker PWA regression must exist')
+})
+
 test('daily gate includes Web/PWA unit tests alongside existing repo, core and UI checks', () => {
   const { scripts } = readJson('package.json')
   const gateTasks = scripts['test:gate'].split(/\s+/)

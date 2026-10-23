@@ -8,7 +8,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { readSessionSnapshot, writeSessionSnapshot, runSessionWrite, type SessionWritePermit } from './sessionPersistence'
+import { readSessionSnapshot, createSessionSnapshotWriter, runSessionWrite, type SessionWritePermit } from './sessionPersistence'
 import { ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { isValidVariableName, sanitizeVariableRecord } from '../../types/variable'
@@ -604,11 +604,14 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
     return imageId
   }
 
+  const sessionSnapshot = createSessionSnapshotWriter(() => sessionContent)
+
   const saveSession = (permit?: SessionWritePermit): Promise<boolean> =>
     runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit)
 
   const persistSession = async () => {
     return await queueImageStorageMaintenance(async () => {
+      const capturedContent = sessionSnapshot.capture()
       const $services = getPiniaServices()
       if (!$services?.preferenceService) {
         throw new Error('[ImageImage2ImageSession] PreferenceService is unavailable; cannot save session')
@@ -679,7 +682,7 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
         ...assetBindingState.persistedAssetBinding(),
       }
 
-      await writeSessionSnapshot($services.preferenceService, IMAGE_IMAGE2IMAGE_SESSION_KEY, snapshot)
+      await sessionSnapshot.write($services.preferenceService, IMAGE_IMAGE2IMAGE_SESSION_KEY, snapshot, capturedContent)
       scheduleImageStorageGc($services.preferenceService, $services.imageStorageService)
     })
   }
@@ -862,13 +865,14 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
 
       }
       // else: 没有保存的会话，使用默认状态
+      sessionSnapshot.restored($services.preferenceService, IMAGE_IMAGE2IMAGE_SESSION_KEY)
     } catch (error) {
       reset()
       throw error
     }
   }
 
-  return {
+  const sessionContent = {
     // ========== 状态（直接返回，Pinia 会自动追踪响应式）==========
     originalPrompt,
     optimizedPrompt,
@@ -895,6 +899,10 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
     assetBinding: assetBindingState.assetBinding,
     origin: assetBindingState.origin,
 
+  }
+
+  return {
+    ...sessionContent,
     // ========== 更新方法 ==========
     updatePrompt,
     updateOptimizedResult,

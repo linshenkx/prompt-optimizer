@@ -6,7 +6,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { readSessionSnapshot, writeSessionSnapshot, runSessionWrite, type SessionWritePermit } from './sessionPersistence'
+import { readSessionSnapshot, createSessionSnapshotWriter, runSessionWrite, type SessionWritePermit } from './sessionPersistence'
 import { ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { TEMPLATE_SELECTION_KEYS, type PromptAssetBinding, type PromptSessionOrigin } from '@prompt-optimizer/core'
@@ -438,6 +438,8 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
    * 保存会话到持久化存储
    * 使用 PreferenceService（Codex 要求）
    */
+  const sessionSnapshot = createSessionSnapshotWriter(() => sessionContent)
+
   const saveSession = (permit?: SessionWritePermit): Promise<boolean> =>
     runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit)
 
@@ -471,7 +473,7 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
         lastActiveAt: lastActiveAt.value,
         ...assetBindingState.persistedAssetBinding(),
       }
-      await writeSessionSnapshot($services.preferenceService,
+      await sessionSnapshot.write($services.preferenceService,
         'session/v1/basic-user',
         sessionState
       )
@@ -623,6 +625,7 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
           selectedIterateTemplateId.value = legacyIterateTemplateId
         }
       }
+      sessionSnapshot.restored($services.preferenceService, 'session/v1/basic-user')
     } catch (error) {
       console.error('[BasicUserSession] Failed to restore session:', error)
       // 恢复失败时保持当前状态或重置为默认
@@ -630,7 +633,7 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
     }
   }
 
-  return {
+  const sessionContent = {
     // ========== 状态（直接返回，Pinia 会自动追踪响应式）==========
     prompt,
     optimizedPrompt,
@@ -654,6 +657,10 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
     assetBinding: assetBindingState.assetBinding,
     origin: assetBindingState.origin,
 
+  }
+
+  return {
+    ...sessionContent,
     // ========== 更新方法 ==========
     updatePrompt,
     updateOptimizedResult,

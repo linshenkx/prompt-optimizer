@@ -8,7 +8,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { readSessionSnapshot, writeSessionSnapshot, runSessionWrite, type SessionWritePermit } from './sessionPersistence'
+import { readSessionSnapshot, createSessionSnapshotWriter, runSessionWrite, type SessionWritePermit } from './sessionPersistence'
 import { ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { TEMPLATE_SELECTION_KEYS, type PromptAssetBinding, type PromptSessionOrigin } from '@prompt-optimizer/core'
@@ -395,6 +395,8 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
     lastActiveAt.value = defaultState.lastActiveAt
   }
 
+  const sessionSnapshot = createSessionSnapshotWriter(() => sessionContent)
+
   const saveSession = (permit?: SessionWritePermit): Promise<boolean> =>
     runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit)
 
@@ -430,7 +432,7 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
         lastActiveAt: lastActiveAt.value,
         ...assetBindingState.persistedAssetBinding(),
       }
-      await writeSessionSnapshot($services.preferenceService,
+      await sessionSnapshot.write($services.preferenceService,
         'session/v1/pro-variable',
         sessionState
       )
@@ -586,13 +588,14 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
           selectedIterateTemplateId.value = legacyIterateTemplateId
         }
       }
+      sessionSnapshot.restored($services.preferenceService, 'session/v1/pro-variable')
     } catch (error) {
       console.error('[ProVariableSession] Failed to restore session:', error)
       reset()
     }
   }
 
-  return {
+  const sessionContent = {
     // ========== 状态（直接返回，Pinia 会自动追踪响应式）==========
     prompt,
     optimizedPrompt,
@@ -617,6 +620,10 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
     assetBinding: assetBindingState.assetBinding,
     origin: assetBindingState.origin,
 
+  }
+
+  return {
+    ...sessionContent,
     // ========== 更新方法 ==========
     updatePrompt,
     updateOptimizedResult,

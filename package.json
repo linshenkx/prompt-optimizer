@@ -28,7 +28,7 @@
     "dev:desktop:parallel": "concurrently -k -p \"[{name}]\" -n \"WEB,DESKTOP\" \"pnpm -F @prompt-optimizer/web dev\" \"pnpm -F @prompt-optimizer/desktop dev\"",
     "test": "pnpm test:unit",
     "test:unit": "pnpm -r test --run --passWithNoTests",
-    "test:repo": "node --test scripts/run-many.test.mjs scripts/check-locale-parity.test.mjs scripts/check-no-chinese-runtime.test.mjs scripts/package-scripts.test.mjs scripts/desktop-ipc-handlers.test.mjs scripts/middleware-auth.test.mjs scripts/workspace-select-config.test.mjs && pnpm check:locale && pnpm check:no-chinese-runtime",
+    "test:repo": "node --test scripts/run-many.test.mjs scripts/check-locale-parity.test.mjs scripts/check-no-chinese-runtime.test.mjs scripts/package-scripts.test.mjs scripts/desktop-ipc-handlers.test.mjs scripts/middleware-auth.test.mjs scripts/workspace-select-config.test.mjs scripts/docker-pwa.test.mjs && pnpm check:locale && pnpm check:no-chinese-runtime",
     "check:locale": "node scripts/check-locale-parity.mjs",
     "check:no-chinese-runtime": "node scripts/check-no-chinese-runtime.mjs",
     "check:extension-release-secrets": "node scripts/check-extension-release-secrets.mjs packages/extension/dist",

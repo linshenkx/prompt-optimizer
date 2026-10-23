@@ -14,7 +14,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { readSessionSnapshot, writeSessionSnapshot, runSessionWrite, type SessionWritePermit } from './sessionPersistence'
+import { readSessionSnapshot, createSessionSnapshotWriter, runSessionWrite, type SessionWritePermit } from './sessionPersistence'
 import { ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { TEMPLATE_SELECTION_KEYS, type PromptAssetBinding, type PromptSessionOrigin } from '@prompt-optimizer/core'
@@ -487,10 +487,13 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
    * 保存会话到持久化存储
    * 使用 PreferenceService（Codex 要求）
    */
+  const sessionSnapshot = createSessionSnapshotWriter(() => sessionContent)
+
   const saveSession = (permit?: SessionWritePermit): Promise<boolean> =>
     runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit)
 
   const persistSession = async (): Promise<boolean> => {
+    const capturedContent = sessionSnapshot.capture()
     const imageSnapshot = {
       b64: testImageB64.value,
       mimeType: testImageMimeType.value,
@@ -563,7 +566,7 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
           lastActiveAt: lastActiveAt.value,
           ...assetBindingState.persistedAssetBinding(),
         }
-        await writeSessionSnapshot($services.preferenceService, BASIC_SYSTEM_SESSION_KEY, sessionState)
+        await sessionSnapshot.write($services.preferenceService, BASIC_SYSTEM_SESSION_KEY, sessionState, capturedContent)
 
         if ($services.imageStorageService) {
           scheduleImageStorageGc($services.preferenceService, $services.imageStorageService)
@@ -762,13 +765,14 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
       if (shouldRepairMissingTestImage) {
         await saveSession()
       }
+      sessionSnapshot.restored($services.preferenceService, BASIC_SYSTEM_SESSION_KEY)
     } catch (error) {
       reset()
       console.error('[BasicSystemSession] Failed to restore session:', error)
     }
   }
 
-  return {
+  const sessionContent = {
     // ========== 状态（直接返回，Pinia 会自动追踪响应式）==========
     prompt,
     optimizedPrompt,
@@ -795,6 +799,10 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
     assetBinding: assetBindingState.assetBinding,
     origin: assetBindingState.origin,
 
+  }
+
+  return {
+    ...sessionContent,
     // ========== 更新方法 ==========
     updatePrompt,
     updateOptimizedResult,

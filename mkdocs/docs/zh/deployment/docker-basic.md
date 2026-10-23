@@ -136,6 +136,14 @@ docker compose -f docker/docker-compose.dev.yml up -d --build
 - 只要设置了 `ACCESS_PASSWORD`，Web 页面就会启用 Basic 认证
 - `/mcp` 路径默认会绕过这层认证，便于 MCP 客户端直接访问
 
+## 安装为手机应用（PWA）
+
+未设置 `ACCESS_PASSWORD` 时，通过可信 HTTPS 地址或浏览器认可的 `localhost` 打开生产版本，可以安装 PWA。手机直接访问局域网 HTTP IP 不满足安装条件。离线时可以打开应用并读写已保存的本地工作区，调用模型仍然需要联网。
+
+Docker 会缓存公共构建资源，但运行时 `config.js`、模型/API 响应和 Worker 脚本 `sw.js` 保持 `no-store`。新版本需点击“保存并更新”后才启用。自建反向代理时应保留这些缓存规则。
+
+设置 `ACCESS_PASSWORD` 后仍可正常登录并在线使用；受 Basic 认证保护的页面不支持离线壳安装，也不会提示安装。不要为了安装 PWA 而公开受保护的页面或缓存含凭据的运行时配置。
+
 ## 如何验证容器是否正常
 
 最直接的检查方法：
