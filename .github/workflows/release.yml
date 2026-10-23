@@ -12,15 +12,26 @@ on:
         required: true
         type: string
 
+# Serialize release side effects, including stable image aliases.
+concurrency:
+  group: release-publication
+  cancel-in-progress: false
+
 env:
   NODE_VERSION: '24.22.1'
 
 jobs:
   test:
+    needs: [validate-release-notes]
     uses: ./.github/workflows/test.yml
 
   validate-release-notes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      source_sha: ${{ steps.version.outputs.source_sha }}
     steps:
       - name: 检出代码
         uses: actions/checkout@v6
@@ -33,21 +44,17 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: 校验版本说明文件
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ inputs.version }}"
-            if [[ "$VERSION" != v* ]]; then
-              VERSION="v$VERSION"
-            fi
-            echo "📝 Using manual input version: $VERSION"
-          else
-            VERSION="${GITHUB_REF#refs/tags/}"
-            echo "🏷️ Using git tag version: $VERSION"
-          fi
+      - name: 校验版本与源码身份
+        id: version
+        env:
+          RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: node scripts/release-channel.js
 
-          echo "Validating release notes for $VERSION"
-          node scripts/release-notes.js check "$VERSION"
+      - name: 校验版本说明文件
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: node scripts/release-notes.js check "$RELEASE_VERSION"
 
   prepare-release:
     needs: [test, validate-release-notes]
@@ -59,6 +66,8 @@ jobs:
       version_no_prefix: ${{ steps.version.outputs.version_no_prefix }}
       is_prerelease: ${{ steps.version.outputs.is_prerelease }}
       version_type: ${{ steps.version.outputs.version_type }}
+      source_sha: ${{ steps.version.outputs.source_sha }}
+      extension_version: ${{ steps.version.outputs.extension_version }}
     steps:
       - name: 检出代码
         uses: actions/checkout@v6
@@ -71,43 +80,19 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: 获取版本号和类型
+      - name: 获取已验证的版本身份
         id: version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ inputs.version }}"
-            if [[ "$VERSION" != v* ]]; then
-              VERSION="v$VERSION"
-            fi
-            echo "📝 Using manual input version: $VERSION"
-          else
-            VERSION="${GITHUB_REF#refs/tags/}"
-            echo "🏷️ Using git tag version: $VERSION"
-          fi
+        env:
+          RELEASE_VERSION: ${{ needs.validate-release-notes.outputs.version }}
+          RELEASE_SHA: ${{ needs.validate-release-notes.outputs.source_sha }}
+        run: node scripts/release-channel.js
 
-          VERSION_NO_PREFIX="${VERSION#v}"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "version_no_prefix=$VERSION_NO_PREFIX" >> "$GITHUB_OUTPUT"
-          echo "Version: $VERSION"
-
-          IS_PRERELEASE=false
-          VERSION_TYPE="release"
-          if [[ $VERSION =~ -(alpha|beta|rc) ]]; then
-            IS_PRERELEASE=true
-            VERSION_TYPE="prerelease"
-            echo "🧪 Detected prerelease version"
-          elif [[ $VERSION =~ -(hotfix|patch) ]]; then
-            IS_PRERELEASE=false
-            VERSION_TYPE="hotfix"
-            echo "🔧 Detected hotfix version"
-          else
-            IS_PRERELEASE=false
-            VERSION_TYPE="release"
-            echo "🚀 Detected stable release version"
-          fi
-
-          echo "is_prerelease=$IS_PRERELEASE" >> "$GITHUB_OUTPUT"
-          echo "version_type=$VERSION_TYPE" >> "$GITHUB_OUTPUT"
+      - name: Check published versions before preparing a draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_SHA: ${{ steps.version.outputs.source_sha }}
+        run: node scripts/release-channel.js --check-state
 
       - name: 生成 Release 正文
         run: |
@@ -123,21 +108,26 @@ jobs:
           IS_PRERELEASE: ${{ steps.version.outputs.is_prerelease }}
         run: |
           if gh release view "$VERSION" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            echo "Release already exists, updating metadata in place"
+            is_draft=$(gh release view "$VERSION" --repo "${{ github.repository }}" --json isDraft --jq .isDraft)
+            if [ "$is_draft" != "true" ]; then
+              echo "Refusing to overwrite an already published release; use a new version"
+              exit 1
+            fi
+            echo "Resuming the existing draft release"
             gh release edit "$VERSION" \
               --repo "${{ github.repository }}" \
               --title "$VERSION" \
               --notes-file release_body.md \
-              $([ "$IS_PRERELEASE" = "true" ] && echo "--prerelease")
+              --prerelease="$IS_PRERELEASE"
           else
             echo "Creating draft release shell"
             gh release create "$VERSION" \
               --repo "${{ github.repository }}" \
               --title "$VERSION" \
               --notes-file release_body.md \
-              --target "${GITHUB_SHA}" \
+              --verify-tag \
               --draft \
-              $([ "$IS_PRERELEASE" = "true" ] && echo "--prerelease")
+              --prerelease="$IS_PRERELEASE"
           fi
 
   # 构建 Windows 版本
@@ -150,6 +140,7 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v6
         with:
+          ref: ${{ needs.prepare-release.outputs.source_sha }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -250,6 +241,7 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v6
         with:
+          ref: ${{ needs.prepare-release.outputs.source_sha }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -344,6 +336,7 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v6
         with:
+          ref: ${{ needs.prepare-release.outputs.source_sha }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -459,6 +452,7 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v6
         with:
+          ref: ${{ needs.prepare-release.outputs.source_sha }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -489,18 +483,11 @@ jobs:
             fi
           done
 
-      - name: 校验 Chrome 插件 manifest 版本
+      - name: 校验 Chrome 插件与发布版本
         env:
-          EXPECTED_VERSION: ${{ needs.prepare-release.outputs.version_no_prefix }}
-        run: |
-          MANIFEST_VERSION=$(jq -r '.version' packages/extension/public/manifest.json)
-          echo "Expected manifest version: $EXPECTED_VERSION"
-          echo "Actual manifest version:   $MANIFEST_VERSION"
-
-          if [ "$MANIFEST_VERSION" != "$EXPECTED_VERSION" ]; then
-            echo "Error: Chrome extension manifest version does not match release tag"
-            exit 1
-          fi
+          RELEASE_VERSION: ${{ needs.prepare-release.outputs.version }}
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.source_sha }}
+        run: node scripts/release-channel.js
 
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
@@ -540,12 +527,44 @@ jobs:
             --repo "${{ github.repository }}" \
             --clobber
 
-  publish-release:
+  publish-docker:
     needs: [prepare-release, build-windows, build-macos, build-linux, build-extension]
+    permissions:
+      contents: read
+    uses: ./.github/workflows/docker.yml
+    with:
+      version: ${{ needs.prepare-release.outputs.version }}
+      source_sha: ${{ needs.prepare-release.outputs.source_sha }}
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      ALIYUN_USERNAME: ${{ secrets.ALIYUN_USERNAME }}
+      ALIYUN_PASSWORD: ${{ secrets.ALIYUN_PASSWORD }}
+
+  publish-release:
+    needs: [prepare-release, publish-docker]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare-release.outputs.source_sha }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: '.node-version'
+
+      - name: Recheck publication state on retries
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ needs.prepare-release.outputs.version }}
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.source_sha }}
+          REQUIRE_DRAFT: 'true'
+        run: node scripts/release-channel.js --check-state
+
       - name: 发布 Draft Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -555,8 +574,9 @@ jobs:
           gh release edit "$VERSION" \
             --repo "${{ github.repository }}" \
             --draft=false \
+            --latest="$([ "$IS_PRERELEASE" = "true" ] && echo false || echo true)" \
             --title "$VERSION" \
-            $([ "$IS_PRERELEASE" = "true" ] && echo "--prerelease")
+            --prerelease="$IS_PRERELEASE"
 
       - name: 验证 Release 元数据
         env:
@@ -595,8 +615,8 @@ jobs:
             exit 1
           fi
 
-          if [ "${{ needs.prepare-release.outputs.is_prerelease }}" = "true" ] && [ "$RELEASE_IS_PRERELEASE" != "true" ]; then
-            echo "Expected prerelease metadata but release is not marked as prerelease"
+          if [ "$RELEASE_IS_PRERELEASE" != "${{ needs.prepare-release.outputs.is_prerelease }}" ]; then
+            echo "Release channel metadata does not match the validated version"
             exit 1
           fi
 

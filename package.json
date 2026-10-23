@@ -28,7 +28,7 @@
     "dev:desktop:parallel": "concurrently -k -p \"[{name}]\" -n \"WEB,DESKTOP\" \"pnpm -F @prompt-optimizer/web dev\" \"pnpm -F @prompt-optimizer/desktop dev\"",
     "test": "pnpm test:unit",
     "test:unit": "pnpm -r test --run --passWithNoTests",
-    "test:repo": "node --test scripts/run-many.test.mjs scripts/check-locale-parity.test.mjs scripts/check-no-chinese-runtime.test.mjs scripts/package-scripts.test.mjs scripts/desktop-ipc-handlers.test.mjs scripts/middleware-auth.test.mjs scripts/workspace-select-config.test.mjs scripts/docker-pwa.test.mjs && pnpm check:locale && pnpm check:no-chinese-runtime",
+    "test:repo": "node --test scripts/run-many.test.mjs scripts/check-locale-parity.test.mjs scripts/check-no-chinese-runtime.test.mjs scripts/package-scripts.test.mjs scripts/release-channel.test.mjs scripts/release-notes.test.mjs scripts/desktop-ipc-handlers.test.mjs scripts/middleware-auth.test.mjs scripts/workspace-select-config.test.mjs scripts/docker-pwa.test.mjs && pnpm check:locale && pnpm check:no-chinese-runtime",
     "check:locale": "node scripts/check-locale-parity.mjs",
     "check:no-chinese-runtime": "node scripts/check-no-chinese-runtime.mjs",
     "check:extension-release-secrets": "node scripts/check-extension-release-secrets.mjs packages/extension/dist",
@@ -80,6 +80,7 @@
     "@playwright/test": "^1.58.2",
     "concurrently": "^9.2.4",
     "cross-env": "^10.1.0",
+    "js-yaml": "4.3.2",
     "rimraf": "^6.1.3"
   },
   "keywords": [],

@@ -33,6 +33,9 @@ importers:
       cross-env:
         specifier: ^10.1.0
         version: 10.1.0
+      js-yaml:
+        specifier: 4.3.2
+        version: 4.3.2
       rimraf:
         specifier: ^6.1.3
         version: 6.1.3

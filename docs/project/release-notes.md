@@ -65,9 +65,12 @@ pnpm release:notes:check:entry v2.6.0
 
 ## 推荐发布流程
 
+预览版与正式版都遵循[发布渠道与版本身份规则](release-channels.md)：根版本、桌面版本、扩展显示版本与已存在的标签必须一致。首个移动端预览建议使用 `2.12.0-beta.1`；`version:sync` 会将扩展的数字版本和预览显示名称分开。手动运行 Release 必须选择与该版本标签相同的提交。
+
 ```bash
-# 1. 更新版本号
-pnpm version patch
+# 1. 更新版本号，先不创建标签
+pnpm version patch --no-git-tag-version
+# 预览版则显式指定，例如：pnpm version 2.12.0-beta.1 --no-git-tag-version
 
 # 2. 生成版本说明模板
 pnpm release:notes:new
@@ -78,7 +81,8 @@ pnpm release:notes:new
 # 4. 校验版本说明
 pnpm release:notes:check
 
-# 5. 创建 tag（会再次自动校验）
+# 5. 核对并提交版本文件、说明和代码，再创建 tag（标签必须包含这些提交）
+# version 生命周期会暂存文件，提交前务必检查 git diff --cached
 pnpm version:tag
 
 # 6. 推送 tag
@@ -100,6 +104,8 @@ pnpm version:publish
 对于历史版本回填，可以使用 `pnpm release:notes:check:entry <version>`。它会沿用同样的正文结构校验，但把 `CHANGELOG.md` 校验范围放宽为“存在对应版本条目”。
 
 ## GitHub Release 行为
+
+Release 流程统一编排桌面、扩展和 Docker 镜像，并校验它们来自相同源码提交。预览镜像只使用完整预览版本标签，正式版本才更新 latest。主分支 push 不再独立发布 Docker；发布失败时的部分产物恢复边界见[发布渠道](release-channels.md)。
 
 发布工作流不会再从 commit 列表自动拼接公开正文，而是优先读取：
 

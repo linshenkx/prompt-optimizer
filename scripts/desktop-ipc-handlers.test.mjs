@@ -245,10 +245,10 @@ test('updater release navigation is constructed and opened in the main process',
 
 test('manual release workflow normalizes tags used by release-page navigation', () => {
   const workflow = readText('.github/workflows/release.yml')
-  const normalization = /VERSION="\$\{\{ inputs\.version \}\}"\s+if \[\[ "\$VERSION" != v\* \]\]; then\s+VERSION="v\$VERSION"\s+fi/g
-
-  assert.equal([...workflow.matchAll(normalization)].length, 2)
+  assert.match(workflow, /RELEASE_VERSION: \$\{\{ inputs\.version \|\| github\.ref_name \}\}/)
+  assert.match(workflow, /run: node scripts\/release-channel\.js/)
   assert.match(workflow, /gh release create "\$VERSION"/)
+  assert.match(workflow, /--verify-tag/)
 })
 
 test('desktop release jobs keep repository metadata and updater publish config aligned', () => {

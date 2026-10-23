@@ -1,60 +1,30 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
+const { releaseChannel } = require('./release-channel.js');
 
-const rootPackage = require('../package.json');
-const targetVersion = rootPackage.version;
-
-console.log(`🔄 开始同步版本号至 ${targetVersion}`);
-
-// 需要同步版本的文件列表
-const versionFiles = [
-  {
-    path: 'packages/extension/public/manifest.json',
-    field: 'version',
-    description: '浏览器扩展清单文件'
-  },
-  {
-    path: 'packages/desktop/package.json',
-    field: 'version',
-    description: 'Desktop应用包文件'
-  }
-  // 未来可以添加更多需要同步的文件
-];
-
-let syncCount = 0;
-let errorCount = 0;
-
-versionFiles.forEach(file => {
-  try {
-    const filePath = path.resolve(__dirname, '..', file.path);
-    
-    // 检查文件是否存在
-    if (!fs.existsSync(filePath)) {
-      console.log(`⚠️  文件不存在: ${file.path}`);
-      errorCount++;
-      return;
+function syncVersions(cwd = path.resolve(__dirname, '..')) {
+  const read = file => JSON.parse(fs.readFileSync(path.join(cwd, file), 'utf8'));
+  const policy = releaseChannel(read('package.json').version);
+  const desktopPath = 'packages/desktop/package.json';
+  const extensionPath = 'packages/extension/public/manifest.json';
+  // Read and validate both before changing either file.
+  const desktop = read(desktopPath);
+  const extension = read(extensionPath);
+  desktop.version = policy.version;
+  extension.version = policy.extensionVersion;
+  if (policy.isPrerelease) extension.version_name = policy.version;
+  else delete extension.version_name;
+  for (const [file, data] of [[desktopPath, desktop], [extensionPath, extension]]) {
+    const content = JSON.stringify(data, null, 2) + '\n';
+    if (fs.readFileSync(path.join(cwd, file), 'utf8') !== content) {
+      fs.writeFileSync(path.join(cwd, file), content);
     }
-    
-    // 读取并更新文件
-    const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    const oldVersion = content[file.field];
-    
-    if (oldVersion === targetVersion) {
-      console.log(`✅ ${file.description}: ${file.path} 版本已是最新 (${targetVersion})`);
-    } else {
-      content[file.field] = targetVersion;
-      fs.writeFileSync(filePath, JSON.stringify(content, null, 2) + '\n');
-      console.log(`✅ ${file.description}: ${file.path} 版本已更新 ${oldVersion} → ${targetVersion}`);
-      syncCount++;
-    }
-  } catch (error) {
-    console.error(`❌ 更新 ${file.path} 时出错:`, error.message);
-    errorCount++;
   }
-});
+  return policy;
+}
 
-console.log(`\n📊 同步完成: ${syncCount} 个文件已更新, ${errorCount} 个错误`);
-
-if (errorCount > 0) {
-  process.exit(1);
-} 
+if (require.main === module) {
+  try { console.log(`Versions synchronized: ${syncVersions().version}`); }
+  catch (error) { console.error(error.message); process.exitCode = 1; }
+}
+module.exports = { syncVersions };
