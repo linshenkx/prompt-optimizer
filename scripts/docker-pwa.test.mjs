@@ -78,7 +78,7 @@ test('Docker serves a public PWA shell without caching configuration, APIs or au
       await fs.mkdir(conf)
       await fs.writeFile(path.join(conf, 'default.conf'), configuration)
       await fs.writeFile(path.join(conf, 'auth.conf'), authenticated
-        ? 'auth_basic "PWA regression";\nauth_basic_user_file /verify/htpasswd;\n'
+        ? 'auth_basic "PWA regression";\nauth_basic_user_file /etc/nginx/pwa-test.htpasswd;\n'
         : 'auth_basic off;\n')
       const name = `po-pwa-regression-${randomUUID().slice(0, 8)}`
       containers.push(name)
@@ -88,6 +88,9 @@ test('Docker serves a public PWA shell without caching configuration, APIs or au
         '--publish', `127.0.0.1:${port}:80`,
         '--mount', `type=bind,src=${conf},dst=/etc/nginx/http.d,readonly`,
         '--mount', `type=bind,src=${html},dst=/usr/share/nginx/html,readonly`,
+        // mkdtemp is 0700 on Linux. Mount the generated credential file directly
+        // so unprivileged Nginx workers need not traverse the private temp root.
+        '--mount', `type=bind,src=${path.join(temp, 'htpasswd')},dst=/etc/nginx/pwa-test.htpasswd,readonly`,
         '--mount', `type=bind,src=${temp},dst=/verify,readonly`,
         '--entrypoint', 'nginx', image, '-c', '/verify/nginx.conf', '-g', 'daemon off;')
       const bindings = JSON.parse((await docker('inspect', '--format', '{{json .NetworkSettings.Ports}}', name)).stdout)
