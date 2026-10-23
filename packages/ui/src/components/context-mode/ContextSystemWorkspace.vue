@@ -2236,7 +2236,7 @@ const handleSaveLocalEdit = async (payload: { note?: string }) => {
 
 // 暴露引用
 defineExpose({
-  isUpdateBusy: () => conversationOptimization.isOptimizing.value || props.isIterating || isAnyVariantRunning.value,
+  isUpdateBusy: () => conversationOptimization.isOptimizing.value || props.isIterating || isAnyVariantRunning.value || evaluation.isAnyEvaluating.value,
     testAreaPanelRef,
     restoreFromHistory,
     openIterateDialog: (initialContent?: string) => {

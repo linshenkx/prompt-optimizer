@@ -7,6 +7,7 @@ import BasicSystemWorkspace from '../../src/components/basic-mode/BasicSystemWor
 import { resetFunctionModelManagerSingleton } from '../../src/composables/model/useFunctionModelManager'
 import { useBasicSystemSession } from '../../src/stores/session/useBasicSystemSession'
 import { createPreferenceServiceStub, createTestPinia } from '../utils/pinia-test-helpers'
+import { createAppUpdatePreparation } from '../../src/composables/ui/useAppUpdatePreparation'
 
 const toastError = vi.fn()
 
@@ -206,6 +207,38 @@ const readEvaluationRequests = (evaluateStream: EvaluationStreamMock) =>
   evaluateStream.mock.calls.map((call) => call[0] as any)
 
 describe('BasicSystemWorkspace single-image test flow', () => {
+  it('blocks app updates while an evaluation continues after closing its panel', async () => {
+    const { wrapper, evaluateStream } = await createHarness()
+    await runAll(wrapper)
+    let finish = () => {}
+    evaluateStream.mockImplementationOnce(async (_request: unknown, callbacks: any) => {
+      await new Promise<void>(resolve => {
+        finish = () => {
+          callbacks.onComplete({ score: { overall: 88 }, summary: 'ok', improvements: [] })
+          resolve()
+        }
+      })
+    })
+    const workspace = wrapper.vm as any
+    const evaluation = workspace.handleEvaluateResult('a')
+    await flushPromises()
+    workspace.evaluation.closePanel()
+    const flush = vi.fn(async () => true)
+    const prepare = createAppUpdatePreparation({ isBusy: workspace.isUpdateBusy, flush })
+    try {
+      expect(await prepare()).toBe('busy')
+      expect(flush).not.toHaveBeenCalled()
+      finish()
+      await evaluation
+      finish = () => {}
+      expect(await prepare()).toBe('ready')
+      expect(flush).toHaveBeenCalledOnce()
+    } finally {
+      finish()
+      await evaluation
+      wrapper.unmount()
+    }
+  })
   afterEach(() => {
     resetFunctionModelManagerSingleton()
     vi.clearAllMocks()

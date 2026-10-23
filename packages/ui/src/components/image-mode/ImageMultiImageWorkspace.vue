@@ -2120,7 +2120,7 @@ watch(() => optimizing.value, (running, previous) => {
 })
 // Optional Web host update checkpoint; runtime state stays owned by this workspace.
 defineExpose({
-  isUpdateBusy: () => optimizing.value || isIterating.value || isAnyVariantRunning.value || isAnalyzing.value || isGenerating.value,
+  isUpdateBusy: () => optimizing.value || isIterating.value || isAnyVariantRunning.value || isAnalyzing.value || isGenerating.value || evaluation.isAnyEvaluating.value,
 })
 </script>
 

@@ -2310,7 +2310,7 @@ const handleSaveLocalEdit = async (payload: { note?: string }) => {
 
 // 暴露 TestAreaPanel 引用给父组件（用于工具调用等高级功能）
 defineExpose({
-  isUpdateBusy: () => contextUserOptimization.isOptimizing || contextUserOptimization.isIterating || isAnyVariantRunning.value,
+  isUpdateBusy: () => contextUserOptimization.isOptimizing || contextUserOptimization.isIterating || isAnyVariantRunning.value || evaluation.isAnyEvaluating.value,
     testAreaPanelRef,
     restoreFromHistory,
     contextUserOptimization,  // 🆕 暴露优化器状态，供父组件访问（如AI变量提取）
