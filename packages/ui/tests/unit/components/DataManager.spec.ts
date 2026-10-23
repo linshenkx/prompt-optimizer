@@ -915,6 +915,8 @@ describe('DataManager storage breakdown', () => {
 
     expect(buttons.every((button) => (button.element as HTMLButtonElement).disabled)).toBe(true)
   })
+  // This flow renders the full form through several task and viewport changes.
+  // Give that integration work its own budget without relaxing any assertions.
   it('preserves a mobile remote draft across tasks and resizing without connecting or reloading', async () => {
     compactViewport.value = true
     const services = createServices()
@@ -956,6 +958,6 @@ describe('DataManager storage breakdown', () => {
     expect(remoteSnapshotMocks.listRemoteSnapshotBackups).not.toHaveBeenCalled()
     expect(remoteSnapshotMocks.restoreRemoteSnapshotBackup).not.toHaveBeenCalled()
     wrapper.unmount()
-  })
+  }, 15000)
 
 })

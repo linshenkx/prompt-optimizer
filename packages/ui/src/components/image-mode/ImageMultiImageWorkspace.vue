@@ -637,7 +637,9 @@ import WorkspaceRegionSwitch from '../common/WorkspaceRegionSwitch.vue'
 import TestSourcePreview from '../common/TestSourcePreview.vue'
 import { useWorkspacePresentation } from '../../composables/ui/useWorkspacePresentation'
 import { useWorkspaceSplit } from '../../composables/ui/useWorkspaceSplit'
+import { useImageWorkspaceHistory } from '../../composables/workspaces/useImageWorkspaceHistory'
 import { useTestVariantBindings } from '../../composables/workspaces/useTestVariantBindings'
+import { useTestSourcePreview } from '../../composables/workspaces/useTestSourcePreview'
 
 import { computed, inject, nextTick, onMounted, onUnmounted, reactive, ref, watch, toRef, type Ref } from 'vue'
 import { NButton, NCard, NEmpty, NFlex, NGrid, NGridItem, NIcon, NInput, NRadioButton, NRadioGroup, NSpace, NText } from 'naive-ui'
@@ -676,7 +678,7 @@ import { useWorkspaceTemplateSelection } from '../../composables/workspaces/useW
 import { useElementSize } from '@vueuse/core'
 import { useLocalPromptPreviewPanel } from '../../composables/prompt/useLocalPromptPreviewPanel'
 import { buildPromptExecutionContext } from '../../utils/prompt-variables'
-import { runTasksWithExecutionMode } from '../../utils/runTasksSequentially'
+import { useWorkspaceTestBatch } from '../../composables/workspaces/useWorkspaceTestBatch'
 import { buildTestPanelVersionOptions, resolveTestPanelVersionSelection } from '../../utils/testPanelVersion'
 import { buildMultiImageVariantFingerprint } from '../../utils/multiimage-workspace'
 import { downloadImageSource } from '../../utils/image-download'
@@ -1225,14 +1227,39 @@ const queueSessionSave = () => {
   return sessionSaveChain
 }
 
-const saveSessionAfterHistoryCommit = async (reason: string) => {
-  try {
-    await session.saveSession()
-  } catch (error) {
-    console.error(`[ImageMultiImageWorkspace] Failed to persist image session after ${reason}:`, error)
-    toast.warning(t('toast.warning.saveHistoryFailed'))
-  }
-}
+const { handleSaveLocalEdit, applyCommittedChain } = useImageWorkspaceHistory({
+  workspaceName: 'ImageMultiImageWorkspace',
+  historyManager: () => historyManager.value,
+  currentChainId,
+  currentVersions,
+  currentVersionId,
+  session,
+  recordType: 'multiimageOptimize',
+  createRecordId: () => createRecordId(),
+  getOptimizedPrompt: () => optimizedPrompt.value || '',
+  getLocalEdit: () => ({
+    originalPrompt: originalPrompt.value,
+    modelKey: selectedTextModelKey.value,
+    iterateTemplateId: selectedIterateTemplate.value?.id,
+    optimizeTemplateId: selectedTemplate.value?.id,
+    metadata: withHistorySourceBindingMetadata({
+      optimizationMode: 'user' as OptimizationMode,
+      functionMode: 'image',
+      localEdit: true,
+      localEditSource: 'manual',
+      imageModelKey: session.selectedImageModelKey,
+      inputImageCount: session.inputImages.length,
+      compareMode: session.isCompareMode,
+    }, session),
+  }),
+  notifyHistoryRefresh: () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('prompt-optimizer:history-refresh'))
+    }
+  },
+  toast,
+  t,
+})
 
 watch(
   () => session.layout,
@@ -1431,15 +1458,10 @@ const createHistoryRecord = async () => {
   })
 
   currentChainId.value = chain.chainId
-  currentVersions.value = chain.versions
-  currentVersionId.value = chain.currentRecord.id
-  session.updateOptimizedResult({
+  await applyCommittedChain(chain, {
     optimizedPrompt: optimizedPrompt.value,
     reasoning: optimizedReasoning.value,
-    chainId: chain.chainId,
-    versionId: chain.currentRecord.id,
-  })
-  await saveSessionAfterHistoryCommit('optimization commit')
+  }, 'optimization commit')
 }
 
 const optimizePrompt = async () => {
@@ -1539,15 +1561,10 @@ const handleIteratePrompt = async (payload: {
                 }, session),
               })
               currentChainId.value = updatedChain.chainId
-              currentVersions.value = updatedChain.versions
-              currentVersionId.value = updatedChain.currentRecord.id
-              session.updateOptimizedResult({
+              await applyCommittedChain(updatedChain, {
                 optimizedPrompt: optimizedPrompt.value,
                 reasoning: optimizedReasoning.value,
-                chainId: updatedChain.chainId,
-                versionId: updatedChain.currentRecord.id,
-              })
-              await saveSessionAfterHistoryCommit('iteration commit')
+              }, 'iteration commit')
             } else {
               await createHistoryRecord()
             }
@@ -1587,82 +1604,6 @@ const handleSwitchVersion = async (version: PromptRecordChain['versions'][number
   await nextTick()
 }
 
-const handleSaveLocalEdit = async (payload: { note?: string }) => {
-  if (!historyManager.value) {
-    toast.error(t('toast.error.historyUnavailable'))
-    return
-  }
-
-  const newPrompt = optimizedPrompt.value || ''
-  if (!newPrompt.trim()) return
-
-  try {
-    const chainId = currentChainId.value || session.chainId || ''
-    const currentRecord = currentVersions.value.find((version) => version.id === currentVersionId.value)
-    const modelKey = currentRecord?.modelKey || selectedTextModelKey.value || 'local-edit'
-    const templateId =
-      currentRecord?.templateId ||
-      selectedIterateTemplate.value?.id ||
-      selectedTemplate.value?.id ||
-      'local-edit'
-
-    const chain = chainId
-      ? await historyManager.value.addIteration({
-          chainId,
-          originalPrompt: originalPrompt.value,
-          optimizedPrompt: newPrompt,
-          modelKey,
-          templateId,
-          iterationNote: payload.note,
-          metadata: withHistorySourceBindingMetadata({
-            optimizationMode: 'user' as OptimizationMode,
-            functionMode: 'image',
-            localEdit: true,
-            localEditSource: 'manual',
-            imageModelKey: session.selectedImageModelKey,
-            inputImageCount: session.inputImages.length,
-            compareMode: session.isCompareMode,
-          }, session),
-        })
-      : await historyManager.value.createNewChain({
-          id: createRecordId(),
-          originalPrompt: originalPrompt.value,
-          optimizedPrompt: newPrompt,
-          type: 'multiimageOptimize' as PromptRecordType,
-          modelKey,
-          templateId,
-          timestamp: Date.now(),
-          metadata: withHistorySourceBindingMetadata({
-            optimizationMode: 'user' as OptimizationMode,
-            functionMode: 'image',
-            localEdit: true,
-            localEditSource: 'manual',
-            imageModelKey: session.selectedImageModelKey,
-            inputImageCount: session.inputImages.length,
-            compareMode: session.isCompareMode,
-          }, session),
-        })
-
-    currentChainId.value = chain.chainId
-    currentVersions.value = chain.versions
-    currentVersionId.value = chain.currentRecord.id
-    session.updateOptimizedResult({
-      optimizedPrompt: newPrompt,
-      reasoning: '',
-      chainId: chain.chainId,
-      versionId: chain.currentRecord.id,
-    })
-    await saveSessionAfterHistoryCommit('local edit commit')
-
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('prompt-optimizer:history-refresh'))
-    }
-    toast.success(t('toast.success.localEditSaved'))
-  } catch (error) {
-    console.error('[ImageMultiImageWorkspace] Failed to save local edit:', error)
-    toast.warning(t('toast.warning.saveHistoryFailed'))
-  }
-}
 
 const buildRuntimePredefinedVariables = (resolved: { text: string }): Record<string, string> => {
   const current = (resolved.text || '').trim()
@@ -1799,27 +1740,26 @@ const runVariant = async (
   }
 }
 
-const runAllVariants = async () => {
-  if (isAnyVariantRunning.value) return
+const runAllVariants = useWorkspaceTestBatch({
+  isRunning: () => isAnyVariantRunning.value,
+  getIds: () => activeVariantIds.value,
+  validate: getVariantRequest,
+  prepare: () => {
+    return {
+      run: async (id) =>
+        runVariant(id, { silentSuccess: true, silentError: true, persist: false }),
+      complete: (results) => {
+        queueSessionSave()
 
-  const ids = activeVariantIds.value
-  for (const id of ids) {
-    if (!getVariantRequest(id)) return
-  }
-
-  const results = await runTasksWithExecutionMode(
-    ids,
-    async (id) => runVariant(id, { silentSuccess: true, silentError: true, persist: false }),
-  )
-
-  queueSessionSave()
-
-  if (results.every(Boolean)) {
-    toast.success(t('imageWorkspace.generation.generationCompleted'))
-  } else {
-    toast.error(t('imageWorkspace.generation.generateFailed'))
-  }
-}
+        if (results.every(Boolean)) {
+          toast.success(t('imageWorkspace.generation.generationCompleted'))
+        } else {
+          toast.error(t('imageWorkspace.generation.generateFailed'))
+        }
+      },
+    }
+  },
+})
 
 const hasVariantResult = (id: TestVariantId) => Boolean(getVariantResult(id)?.images?.length || getVariantResult(id)?.text)
 const getImageSrc = (imageItem: ImageResultItem | null | undefined) => imageItem?.url || (imageItem?.b64 ? `data:${imageItem.mimeType || 'image/png'};base64,${imageItem.b64}` : '')
@@ -2022,22 +1962,24 @@ const mobileVariants = computed(() => activeVariantIds.value.map(id => {
     disabled: isVariantModelUnsupported(id),
   }
 }))
-const showMobileSource = ref(false)
-const mobileSourceContent = ref('')
-const mobileSourceEditable = ref(false)
-const mobileSourceView = ref<'original' | 'workspace'>('original')
-const previewMobileSource = (id: TestVariantId) => {
-  const selection = variantVersionModels[id].value
-  mobileSourceContent.value = resolvePromptForSelection(selection).text
-  mobileSourceEditable.value = selection === 'workspace' || selection === 0
-  mobileSourceView.value = selection === 'workspace' ? 'workspace' : 'original'
-  showMobileSource.value = true
-}
-const editMobileSource = async () => {
-  showMobileSource.value = false
-  if (mobileSourceView.value === 'original') { isInputPanelCollapsed.value = false; compactAutoFolded.value = false }
-  await showOptimizationSection(mobileSourceView.value)
-}
+const {
+  show: showMobileSource, content: mobileSourceContent, editable: mobileSourceEditable,
+  preview: previewMobileSource, edit: editMobileSource,
+} = useTestSourcePreview({
+  mode: 'snapshot',
+  readSource: (id) => {
+    const selection = variantVersionModels[id].value
+    return {
+      content: resolvePromptForSelection(selection).text,
+      editable: selection === 'workspace' || selection === 0,
+      view: selection === 'workspace' ? 'workspace' : 'original',
+    }
+  },
+  onEdit: async (view) => {
+    if (view === 'original') { isInputPanelCollapsed.value = false; compactAutoFolded.value = false }
+    await showOptimizationSection(view)
+  },
+})
 watch(() => optimizing.value, (running, previous) => {
   if (isCompact.value && running) compactAutoFolded.value = true
   if (running && !previous) showOptimization()

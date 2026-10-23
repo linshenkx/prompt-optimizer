@@ -548,6 +548,8 @@ import { useElementSize } from '@vueuse/core'
 import { useWorkspacePresentation } from '../../composables/ui/useWorkspacePresentation'
 import { useWorkspaceSplit } from '../../composables/ui/useWorkspaceSplit'
 import { useTestVariantBindings } from '../../composables/workspaces/useTestVariantBindings'
+import { useWorkspaceEvaluationActions } from '../../composables/workspaces/useWorkspaceEvaluationActions'
+import { useTestSourcePreview } from '../../composables/workspaces/useTestSourcePreview'
 const {
   isCompact, mobileRegion, testConfigExpanded, inputCollapsed: isInputPanelCollapsed,
   optimizeLayoutRef, testLayoutRef, rememberOptimizeScroll, rememberTestScroll,
@@ -619,9 +621,9 @@ import {
 } from '../../utils/testPanelVersion'
 import type { AppServices } from '../../types/services'
 import type { IteratePayload } from '../../types/workspace'
-import { applyPatchOperationsToText, type EvaluationType, type PatchOperation, type Template } from '@prompt-optimizer/core'
+import { applyPatchOperationsToText, type PatchOperation, type Template } from '@prompt-optimizer/core'
 import type { PersistedCompareSnapshotRoles } from '../../types/evaluation'
-import { runTasksWithExecutionMode } from '../../utils/runTasksSequentially'
+import { useWorkspaceTestBatch } from '../../composables/workspaces/useWorkspaceTestBatch'
 
 const { t } = useI18n()
 const toast = useToast()
@@ -806,22 +808,30 @@ const activateVariantSource = (id: TestVariantId) => {
   pulseSourceAreaForSelection(selection, resolved.resolvedVersion, 'change')
 }
 
-const sourcePreviewOpen = ref(false)
-const sourcePreviewId = ref<TestVariantId>('a')
-const sourcePreviewContent = computed(() => resolveTestPrompt(variantVersionModels[sourcePreviewId.value].value).text)
-const sourcePreviewTitle = computed(() => `${t('workspace.viewPrompt')} · ${getVariantLabel(sourcePreviewId.value)} · ${getVariantVersionLabel(sourcePreviewId.value)}`)
-const sourcePreviewEditable = computed(() => [0, 'workspace'].includes(variantVersionModels[sourcePreviewId.value].value))
+const {
+  show: sourcePreviewOpen, selectedId: sourcePreviewId,
+  content: sourcePreviewContent, title: sourcePreviewTitle, editable: sourcePreviewEditable,
+  preview: openSourcePreview, edit: editPreviewSource,
+} = useTestSourcePreview({
+  mode: 'live',
+  readSource: (id) => {
+    const selection = variantVersionModels[id].value
+    return {
+      content: resolveTestPrompt(selection).text,
+      title: `${t('workspace.viewPrompt')} · ${getVariantLabel(id)} · ${getVariantVersionLabel(id)}`,
+      editable: [0, 'workspace'].includes(selection),
+      view: selection === 0 ? 'original' : 'workspace',
+    }
+  },
+  onEdit: async (view) => {
+    if (view === 'original') isInputPanelCollapsed.value = false
+    await showOptimizationSection(view, 'content')
+    activateVariantSource(sourcePreviewId.value)
+  },
+})
 const previewVariantSource = (id: TestVariantId) => {
   if (!isCompact.value) { activateVariantSource(id); return }
-  sourcePreviewId.value = id
-  sourcePreviewOpen.value = true
-}
-const editPreviewSource = async () => {
-  const original = variantVersionModels[sourcePreviewId.value].value === 0
-  sourcePreviewOpen.value = false
-  if (original) isInputPanelCollapsed.value = false
-  await showOptimizationSection(original ? 'original' : 'workspace', 'content')
-  activateVariantSource(sourcePreviewId.value)
+  openSourcePreview(id)
 }
 
 const getVariantVersionTestId = (id: TestVariantId) => {
@@ -1054,38 +1064,37 @@ const runVariant = async (
   }
 }
 
-const runAllVariants = async () => {
-  if (isAnyVariantRunning.value) return
+const runAllVariants = useWorkspaceTestBatch({
+  isRunning: () => isAnyVariantRunning.value,
+  getIds: () => activeVariantIds.value,
+  validate: getVariantTestInput,
+  prepare: () => {
+    if (isCompact.value) testConfigExpanded.value = false
 
-  // 先校验所有列配置，避免部分启动导致状态混乱
-  const ids = activeVariantIds.value
-  for (const id of ids) {
-    if (!getVariantTestInput(id)) return
-  }
-  if (isCompact.value) testConfigExpanded.value = false
+    evaluationHandler.clearBeforeTest()
 
-  evaluationHandler.clearBeforeTest()
-  const results = await runTasksWithExecutionMode(
-    ids,
-    async (id) =>
-      runVariant(id, {
-        silentSuccess: true,
-        silentError: true,
-        skipClearEvaluation: true,
-        allowParallel: true,
-        persist: false,
-      })
-  )
+    return {
+      run: async (id) =>
+        runVariant(id, {
+          silentSuccess: true,
+          silentError: true,
+          skipClearEvaluation: true,
+          allowParallel: true,
+          persist: false,
+        }),
+      complete: (results) => {
+        // 所有列执行结束后统一持久化（best-effort）
+        void session.saveSession()
 
-  // 所有列执行结束后统一持久化（best-effort）
-  void session.saveSession()
-
-  if (results.every(Boolean)) {
-    toast.success(t('toast.success.testComplete'))
-  } else {
-    toast.error(t('toast.error.testFailed'))
-  }
-}
+        if (results.every(Boolean)) {
+          toast.success(t('toast.success.testComplete'))
+        } else {
+          toast.error(t('toast.error.testFailed'))
+        }
+      },
+    }
+  },
+})
 
 // 组件引用（用于触发迭代对话框、刷新迭代下拉等）
 type PromptPanelExpose = {
@@ -1384,87 +1393,26 @@ const handleIterate = (payload: IteratePayload) => {
 }
 
 // 评估
-const handleEvaluateResult = async (variantId: string) => {
-  if (!ensureEvaluationWorkspaceReady()) return
-
-  await handleEvaluateInternal('result', { variantId })
-
-  if (evaluation.state.result[variantId]?.result && variantId in resultEvaluationFingerprint) {
-    resultEvaluationFingerprint[variantId as TestVariantId] = getVariantFingerprint(variantId as TestVariantId)
-  }
-}
-
-const handleResultEvaluateWithFeedback = async (variantId: string, feedback: string) => {
-  if (!ensureEvaluationWorkspaceReady()) return
-
-  await evaluationHandler.handleEvaluateWithFeedback('result', feedback, { variantId })
-
-  if (evaluation.state.result[variantId]?.result && variantId in resultEvaluationFingerprint) {
-    resultEvaluationFingerprint[variantId as TestVariantId] = getVariantFingerprint(variantId as TestVariantId)
-  }
-}
-
-const handleResultEvaluateWithFeedbackEvent = async (
-  variantId: string,
-  payload: { feedback: string }
-) => {
-  await handleResultEvaluateWithFeedback(variantId, payload.feedback)
-}
-
-const handleEvaluate = async (type: 'compare') => {
-  if (!ensureCompareEvaluationReady()) return
-
-  await handleEvaluateInternal(type)
-
-  if (evaluation.state.compare.result) {
-    compareEvaluationFingerprint.value = buildCompareEvaluationFingerprint()
-  }
-}
-
-const handleEvaluateWithFeedback = async (payload: {
-  type: EvaluationType
-  feedback: string
-}) => {
-  if (payload.type === 'compare' && !ensureCompareEvaluationReady()) {
-    return
-  }
-
-  await evaluationHandler.handleEvaluateWithFeedback(payload.type, payload.feedback)
-
-  if (payload.type === 'compare' && evaluation.state.compare.result) {
-    compareEvaluationFingerprint.value = buildCompareEvaluationFingerprint()
-  }
-}
-
-const handleReEvaluateActive = async () => {
-  const active = evaluation.state.activeDetail
-  if (!active) return
-
-  if (active.type === 'compare' && !ensureCompareEvaluationReady()) {
-    return
-  }
-
-  if (active.type === 'result' && !ensureEvaluationWorkspaceReady()) {
-    return
-  }
-
-  await evaluationHandler.handleReEvaluate()
-}
-
-const handleEvaluateActiveWithFeedback = async (payload: { feedback: string }) => {
-  const active = evaluation.state.activeDetail
-  if (!active) return
-
-  if (active.type === 'compare' && !ensureCompareEvaluationReady()) {
-    return
-  }
-
-  if (active.type === 'result' && !ensureEvaluationWorkspaceReady()) {
-    return
-  }
-
-  await evaluationHandler.handleEvaluateActiveWithFeedback(payload.feedback)
-}
+const {
+  handleEvaluateResult, handleResultEvaluateWithFeedbackEvent,
+  handleEvaluate, handleEvaluateWithFeedback,
+  handleReEvaluateActive, handleEvaluateActiveWithFeedback,
+} = useWorkspaceEvaluationActions({
+  handler: evaluationHandler,
+  getActiveDetail: () => evaluation.state.activeDetail,
+  ensureResultReady: ensureEvaluationWorkspaceReady,
+  ensureCompareReady: ensureCompareEvaluationReady,
+  onResultEvaluated: (variantId) => {
+    if (evaluation.state.result[variantId]?.result && variantId in resultEvaluationFingerprint) {
+      resultEvaluationFingerprint[variantId as TestVariantId] = getVariantFingerprint(variantId as TestVariantId)
+    }
+  },
+  onCompareEvaluated: () => {
+    if (evaluation.state.compare.result) {
+      compareEvaluationFingerprint.value = buildCompareEvaluationFingerprint()
+    }
+  },
+})
 
 // 分析评估（prompt-only）
 const handleAnalyzeEvaluate = async () => {

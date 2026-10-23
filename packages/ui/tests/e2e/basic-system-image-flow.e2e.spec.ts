@@ -207,6 +207,49 @@ const readEvaluationRequests = (evaluateStream: EvaluationStreamMock) =>
   evaluateStream.mock.calls.map((call) => call[0] as any)
 
 describe('BasicSystemWorkspace single-image test flow', () => {
+  it('keeps result and compare evaluation blocked until test content is restored', async () => {
+    const { wrapper, store, evaluateStream } = await createHarness()
+    await runAll(wrapper)
+    const workspace = wrapper.vm as any
+    store.testContent = ''
+    await nextTick()
+    await workspace.handleEvaluateResult('a')
+    await workspace.handleResultEvaluateWithFeedbackEvent('a', { feedback: 'check' })
+    await workspace.handleEvaluate('compare')
+    expect(evaluateStream).not.toHaveBeenCalled()
+    expect(toastError).toHaveBeenLastCalledWith('test.error.noTestContent')
+
+    store.testContent = 'restored input'
+    await nextTick()
+    await workspace.handleResultEvaluateWithFeedbackEvent('a', { feedback: 'check' })
+    expect(evaluateStream).toHaveBeenCalledOnce()
+    expect(readEvaluationRequests(evaluateStream)[0]).toMatchObject({ type: 'result', focus: { content: 'check' } })
+    wrapper.unmount()
+  })
+
+  it('keeps text detail re-evaluation separate from result-action fingerprint refresh', async () => {
+    const { wrapper, store, evaluateStream } = await createHarness()
+    await runAll(wrapper)
+    const workspace = wrapper.vm as any
+    await workspace.handleEvaluateResult('a')
+    workspace.showResultDetail('a')
+    expect(workspace.isResultEvaluationStale('a')).toBe(false)
+    store.testContent = 'changed input'
+    await nextTick()
+    expect(workspace.isResultEvaluationStale('a')).toBe(true)
+    wrapper.getComponent({ name: 'EvaluationPanel' }).vm.$emit('re-evaluate')
+    await flushPromises()
+    expect(evaluateStream).toHaveBeenCalledTimes(2)
+    expect(workspace.isResultEvaluationStale('a')).toBe(true)
+    wrapper.getComponent({ name: 'EvaluationPanel' }).vm.$emit('evaluate-with-feedback', { feedback: 'focus' })
+    await flushPromises()
+    expect(evaluateStream).toHaveBeenCalledTimes(3)
+    expect(workspace.isResultEvaluationStale('a')).toBe(true)
+    await workspace.handleEvaluateResult('a')
+    expect(workspace.isResultEvaluationStale('a')).toBe(false)
+    wrapper.unmount()
+  })
+
   it('blocks app updates while an evaluation continues after closing its panel', async () => {
     const { wrapper, evaluateStream } = await createHarness()
     await runAll(wrapper)

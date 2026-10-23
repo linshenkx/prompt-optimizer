@@ -21,14 +21,8 @@ const readSource = (file: string) =>
   readFileSync(resolve(process.cwd(), file), 'utf8')
 
 describe('image workspace session commit guards', () => {
-  it.each(workspaces)('$name persists the session immediately after history commits', ({ file }) => {
-    const source = readSource(file)
-
-    expect(source).toContain('saveSessionAfterHistoryCommit')
-    expect(source).toContain("await saveSessionAfterHistoryCommit('optimization commit')")
-    expect(source).toContain("await saveSessionAfterHistoryCommit('iteration commit')")
-    expect(source).toContain("await saveSessionAfterHistoryCommit('local edit commit')")
-  })
+  // Commit order and failure policy are exercised through all three mounted
+  // workspaces in integration/image-workspace-history.spec.ts.
 
   it.each(workspaces)('$name keeps streaming token handlers free of session persistence', ({ file }) => {
     const source = readSource(file)
