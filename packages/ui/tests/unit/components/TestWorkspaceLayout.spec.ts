@@ -16,6 +16,31 @@ vi.mock('@vueuse/core', async importOriginal => {
 beforeEach(() => { geometry.available = 800; geometry.config = 180 })
 
 describe('co-visible workspace regions', () => {
+  it('keeps focused configuration open when the mobile keyboard reduces available space', async () => {
+    const configExpanded = ref(true)
+    const Host = defineComponent({
+      setup: () => () => h(TestWorkspaceLayout, {
+        compact: true, configExpanded: configExpanded.value, hasResults: true,
+        'onUpdate:configExpanded': value => { configExpanded.value = value },
+      }, { input: () => h('input', { 'aria-label': 'Filter test model' }), results: () => h('article', 'Saved answer') }),
+    })
+    const wrapper = mount(Host, { attachTo: document.body })
+    try {
+      await nextTick()
+      const input = wrapper.get('input').element
+      input.focus()
+      geometry.available = 400
+      await nextTick()
+      expect(configExpanded.value).toBe(true)
+      expect(document.activeElement).toBe(input)
+      expect(wrapper.get<HTMLElement>('.test-config-scroll').element.style.display).not.toBe('none')
+      input.blur()
+      geometry.available = 350
+      await nextTick()
+      expect(configExpanded.value).toBe(false)
+    } finally { wrapper.unmount() }
+  })
+
   it('leaves configuration visibility controlled by the parent', async () => {
     const wrapper = mount(TestWorkspaceLayout, {
       props: { compact: true, configExpanded: true },

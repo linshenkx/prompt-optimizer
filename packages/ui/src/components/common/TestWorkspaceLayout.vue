@@ -71,6 +71,9 @@ watch(configHeight, height => {
 }, { immediate: true })
 watch([availableHeight, measuredConfigHeight, () => props.compact, () => props.hasResults], () => {
   if (!props.compact || props.running || !props.hasResults || manuallyToggled.value || !measuredConfigHeight.value || !availableHeight.value) return
+  // Opening a mobile select can raise the keyboard and shrink this region.
+  // Folding its focused trigger would immediately blur it and close the menu.
+  if (typeof document !== 'undefined' && configRoot.value?.contains(document.activeElement)) return
   // Restored answers need reading room too. Never fold a new, untested draft.
   const configBudget = Math.max(0, Math.min(availableHeight.value * 0.4, availableHeight.value - 260))
   setConfigExpanded(measuredConfigHeight.value <= configBudget)
