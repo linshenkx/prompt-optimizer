@@ -1,0 +1,82 @@
+/* Shared mobile tokens, viewport budgets and workspace surfaces. Do not add feature-specific descendants here. */
+
+:root {
+  --compact-border: #e8ebf0;
+  --compact-muted: #687587;
+  --compact-ink: #253247;
+  --compact-paper: #fff;
+  --compact-soft: #f4f6f9;
+}
+
+:root[data-workspace-theme="dark"] {
+  --compact-paper: #20242c;
+  --compact-soft: #292f39;
+  --compact-ink: #e6e9ed;
+  --compact-border: #3b424e;
+  --compact-muted: #a1aab9;
+}
+
+.workspace-compact .main-content-wrapper {
+  overflow: hidden;
+  background: var(--compact-paper);
+  container: mobile-viewport / size;
+}
+
+.workspace-compact .n-button {
+  touch-action: manipulation;
+}
+
+.compact-two-region {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--compact-paper);
+  --compact-gap: clamp(6px, 1.5vw, 10px);
+  --compact-editor-max: clamp(82px, 18dvh, 164px);
+  --compact-submit-width: clamp(56px, 15cqi, 80px);
+}
+
+.compact-two-region .n-card {
+  border-radius: 12px;
+  border-color: var(--compact-border);
+}
+
+.compact-two-region textarea,
+.compact-two-region .n-input__input-el {
+  font-size: 16px !important;
+  line-height: 1.7 !important;
+}
+
+.workspace-compact .n-config-provider {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.compact-two-region .n-button {
+  --n-border-radius: 10px !important;
+}
+
+.compact-two-region .n-input {
+  --n-border-radius: 10px !important;
+  --n-color: var(--compact-soft) !important;
+  --n-border: 1px solid transparent !important;
+  --n-font-size: 16px !important;
+  --n-line-height-textarea: 1.7 !important;
+}
+
+.compact-two-region .n-base-selection {
+  --n-border-radius: 10px !important;
+  --n-color: var(--compact-soft) !important;
+  --n-border: 1px solid transparent !important;
+}
+
+.compact-two-region .n-input:focus-within {
+  --n-color: var(--compact-paper) !important;
+}
+
+:root[data-workspace-theme="dark"] .compact-two-region .n-button--primary-type {
+  --n-text-color: #fff !important;
+  --n-text-color-hover: #fff !important;
+  --n-text-color-pressed: #fff !important;
+  --n-text-color-focus: #fff !important;
+}

@@ -320,8 +320,8 @@ describe('remote snapshot backup', () => {
     expect(order).toEqual([
       'save:session:session-1',
       'save:favorite:favorite-1',
-      'import:app',
       'import:favorites',
+      'import:app',
     ])
   })
 
@@ -456,7 +456,7 @@ describe('remote snapshot backup', () => {
     },
   )
 
-  it('stops before favorites import when app data import fails after resource validation', async () => {
+  it('runs app data last, after resource validation and favorites import', async () => {
     const objectStore = createObjectStore()
     const exported = await createRemoteSnapshotBackup({
       objectStore,
@@ -486,7 +486,7 @@ describe('remote snapshot backup', () => {
 
     expect(target.saveImage).toHaveBeenCalledTimes(1)
     expect(target.store.has('session-1')).toBe(true)
-    expect(importFavorites).not.toHaveBeenCalled()
+    expect(importFavorites).toHaveBeenCalledTimes(1)
   })
 
   it('does not write local data when strict restore validation fails', async () => {

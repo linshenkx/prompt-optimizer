@@ -94,6 +94,11 @@ describe('Session store (image-multiimage) persistence', () => {
 
     await store.saveSession()
 
+    // A second, idle save must not masquerade as an edit and block app updates.
+    const cachedInputList = store.inputImages
+    await store.saveSession()
+    expect(store.inputImages).toBe(cachedInputList)
+
     const restored = useImageMultiImageSession(pinia)
     restored.reset()
     await restored.restoreSession()

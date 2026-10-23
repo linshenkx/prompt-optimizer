@@ -1,6 +1,7 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { defineComponent, ref } from 'vue'
+import { CompareService } from '@prompt-optimizer/core'
 import OutputDisplayCore from '../../../src/components/OutputDisplayCore.vue'
 
 const { copyTextMock, errorMock, currentRoute } = vi.hoisted(() => ({
@@ -123,7 +124,10 @@ const mountOutputDisplayCore = (content = 'Optimized prompt') =>
         NText: passthroughStub('NText'),
         NSpace: passthroughStub('NSpace'),
         NEmpty: passthroughStub('NEmpty'),
-        NInput: passthroughStub('NInput'),
+        NInput: defineComponent({
+          props: { value: String, readonly: Boolean },
+          template: '<textarea :value="value" :readonly="readonly" />',
+        }),
         NSpin: passthroughStub('NSpin'),
         MarkdownRenderer: passthroughStub('MarkdownRenderer'),
         XmlRenderer: passthroughStub('XmlRenderer'),
@@ -189,6 +193,57 @@ describe('OutputDisplayCore copy and open action', () => {
     expect(copyTextMock).toHaveBeenCalledWith('Hello platform')
     expect(openSpy).not.toHaveBeenCalled()
     expect(wrapper.emitted('copy')).toEqual([[expect.any(String), 'content']])
+  })
+
+  it('shows the complete mobile read-only text as selectable page content, preserving literal markup', async () => {
+    const content = `${'A long answer line\n'.repeat(100)}<b>Last line</b>`
+    const wrapper = mountOutputDisplayCore(content)
+    await wrapper.setProps({ fitContent: true })
+    await selectCopyAction(wrapper, 'source')
+
+    expect(wrapper.get('pre').element.textContent).toBe(content)
+    expect(wrapper.find('pre b').exists()).toBe(false)
+    expect(wrapper.find('textarea').exists()).toBe(false)
+    await selectCopyAction(wrapper, 'copy')
+    expect(copyTextMock).toHaveBeenLastCalledWith(content)
+
+    await wrapper.setProps({ mode: 'editable' })
+    expect(wrapper.find('pre').exists()).toBe(false)
+    expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe(content)
+    wrapper.unmount()
+  })
+
+  it('emits diff changes from the compact display menu without adding a tab row', async () => {
+    const wrapper = mountOutputDisplayCore('new prompt')
+    try {
+      await wrapper.setProps({
+        fitContent: true,
+        originalContent: 'old prompt',
+        enabledActions: ['copy', 'diff'],
+        compareService: new CompareService(),
+      })
+      expect(wrapper.find('.output-view-modes').exists()).toBe(false)
+      await selectCopyAction(wrapper, 'diff')
+      expect(wrapper.emitted('view-change')?.at(-1)).toEqual(['diff'])
+      await selectCopyAction(wrapper, 'source')
+      expect(wrapper.emitted('view-change')?.at(-1)).toEqual(['base'])
+    } finally { wrapper.unmount() }
+  })
+
+  it('retains copy and favorite actions in the mobile menu and restores desktop buttons', async () => {
+    const wrapper = mountOutputDisplayCore('Useful answer')
+    try {
+      await wrapper.setProps({ fitContent: true, enabledActions: ['copy', 'favorite'] })
+      expect(wrapper.find('[data-testid="output-compact-actions"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="output-copy-action"]').exists()).toBe(false)
+      await selectCopyAction(wrapper, 'copy')
+      expect(copyTextMock).toHaveBeenLastCalledWith('Useful answer')
+      await selectCopyAction(wrapper, 'favorite')
+      expect(wrapper.emitted('save-favorite')?.at(-1)?.[0]).toMatchObject({ content: 'Useful answer' })
+      await wrapper.setProps({ fitContent: false })
+      expect(wrapper.find('[data-testid="output-compact-actions"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="output-copy-action"]').exists()).toBe(true)
+    } finally { wrapper.unmount() }
   })
 
   it('stores Claude selection and immediately opens Claude after copying', async () => {

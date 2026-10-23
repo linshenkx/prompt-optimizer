@@ -6,6 +6,7 @@
  */
 
 import { defineStore } from 'pinia'
+import { runSessionWrite, type SessionWritePermit } from './sessionPersistence'
 import { ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { TEMPLATE_SELECTION_KEYS, type PromptAssetBinding, type PromptSessionOrigin } from '@prompt-optimizer/core'
@@ -36,6 +37,8 @@ export type TestVariantId = 'a' | 'b' | 'c' | 'd'
 export type TestColumnCount = 2 | 3 | 4
 
 export interface TestVariantResult {
+  /** Resolved prompt sent for this answer, independent of later edits. */
+  requestPrompt?: string
   result: string
   reasoning: string
 }
@@ -435,11 +438,14 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
    * 保存会话到持久化存储
    * 使用 PreferenceService（Codex 要求）
    */
-  const saveSession = async () => {
+  const saveSession = (permit?: SessionWritePermit): Promise<boolean> =>
+    runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit)
+
+  const persistSession = async (): Promise<boolean> => {
     const $services = getPiniaServices()
     if (!$services?.preferenceService) {
       console.warn('[BasicUserSession] PreferenceService is unavailable; cannot save session')
-      return
+      return false
     }
 
     try {
@@ -469,8 +475,10 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
         'session/v1/basic-user',
         sessionState
       )
+      return true
     } catch (error) {
       console.error('[BasicUserSession] Failed to save session:', error)
+      return false
     }
   }
 
@@ -518,10 +526,10 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
 
         const coerceVariantResult = (value: unknown): TestVariantResult | null => {
           if (!value || typeof value !== 'object') return null
-          const v = value as { result?: unknown; reasoning?: unknown }
+          const v = value as { result?: unknown; reasoning?: unknown; requestPrompt?: unknown }
           if (typeof v.result !== 'string') return null
           if (typeof v.reasoning !== 'string') return null
-          return { result: v.result, reasoning: v.reasoning }
+          return { result: v.result, reasoning: v.reasoning, ...(typeof v.requestPrompt === 'string' ? { requestPrompt: v.requestPrompt } : {}) }
         }
 
         const ids: TestVariantId[] = ['a', 'b', 'c', 'd']

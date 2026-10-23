@@ -3,6 +3,7 @@
     class="favorite-detail-panel"
     :class="{
       'favorite-detail-panel--linked-dialog': isLinkedDialog,
+      'favorite-detail-panel--compact': isCompact,
     }"
   >
     <div v-if="!favorite" class="favorite-detail-panel__empty">
@@ -39,7 +40,13 @@
             </template>
             {{ t('favorites.manager.card.useNow') }}
           </NButton>
+          <NDropdown v-if="isCompact" trigger="click" :options="mobileActionOptions" @select="handleMobileAction">
+            <NButton secondary data-testid="favorite-detail-more" :aria-label="t('common.actions')">
+              <template #icon><NIcon><DotsVertical /></NIcon></template>
+            </NButton>
+          </NDropdown>
           <NButton
+            v-if="!isCompact"
             data-testid="favorite-detail-copy"
             secondary
             @click="$emit('copy', favorite)"
@@ -50,6 +57,7 @@
             {{ t('favorites.manager.card.copyContent') }}
           </NButton>
           <NButton
+            v-if="!isCompact"
             data-testid="favorite-detail-share"
             secondary
             @click="$emit('share', favorite)"
@@ -60,6 +68,7 @@
             {{ t('favorites.share.action') }}
           </NButton>
           <NButton
+            v-if="!isCompact"
             data-testid="favorite-detail-edit"
             quaternary
             @click="$emit('edit', favorite)"
@@ -70,6 +79,7 @@
             {{ t('favorites.manager.card.edit') }}
           </NButton>
           <NButton
+            v-if="!isCompact"
             data-testid="favorite-detail-delete"
             quaternary
             type="error"
@@ -141,14 +151,23 @@
                       <NText strong class="favorite-detail-panel__title">
                         {{ favorite.title }}
                       </NText>
-                      <NText depth="3">
+                      <NText v-if="!isCompact || metadataExpanded" depth="3">
                         {{ t('favorites.manager.preview.updatedAt', { time: formatDate(favorite.updatedAt) }) }}
                         ·
                         {{ t('favorites.manager.preview.useCountInline', { count: favorite.useCount }) }}
                       </NText>
                     </div>
 
-                    <NSpace :size="8" wrap>
+                    <NButton
+                      v-if="isCompact"
+                      text
+                      size="small"
+                      :aria-expanded="metadataExpanded"
+                      @click="metadataExpanded = !metadataExpanded"
+                    >
+                      {{ t('favorites.manager.preview.extraTitle') }} · {{ metadataExpanded ? t('common.collapse') : t('common.expand') }}
+                    </NButton>
+                    <NSpace v-if="!isCompact || metadataExpanded" :size="8" wrap>
                       <NTag
                         v-if="category"
                         :color="category.color ? { color: category.color, textColor: 'white' } : undefined"
@@ -184,12 +203,12 @@
                       </NTag>
                     </NSpace>
 
-                    <NText v-if="favorite.description" depth="3" class="favorite-detail-panel__description">
+                    <NText v-if="favorite.description && (!isCompact || metadataExpanded)" depth="3" class="favorite-detail-panel__description">
                       {{ favorite.description }}
                     </NText>
 
                     <NEllipsis
-                      v-if="!isLinkedDialog"
+                      v-if="!isLinkedDialog && !isCompact"
                       :line-clamp="4"
                       :tooltip="false"
                     >
@@ -208,6 +227,7 @@
                 >
                   <div class="favorite-detail-panel__content-shell favorite-detail-panel__content-shell--side">
                     <OutputDisplayCore
+                      :fit-content="isCompact"
                       :content="displayContent"
                       :original-content="originalContent"
                       mode="readonly"
@@ -227,6 +247,7 @@
             >
               <div class="favorite-detail-panel__content-shell favorite-detail-panel__content-shell--compact">
                 <OutputDisplayCore
+                  :fit-content="isCompact"
                   :content="displayContent"
                   :original-content="originalContent"
                   mode="readonly"
@@ -236,7 +257,7 @@
               </div>
             </FavoriteSurfaceSection>
 
-            <NCollapse :default-expanded-names="imageExpandedSectionNames" class="favorite-detail-panel__sections">
+            <NCollapse :default-expanded-names="isCompact ? [] : imageExpandedSectionNames" class="favorite-detail-panel__sections">
               <NCollapseItem
                 v-if="promptAsset"
                 name="versions"
@@ -294,14 +315,23 @@
                   <NText strong class="favorite-detail-panel__title">
                     {{ favorite.title }}
                   </NText>
-                  <NText depth="3">
+                  <NText v-if="!isCompact || metadataExpanded" depth="3">
                     {{ t('favorites.manager.preview.updatedAt', { time: formatDate(favorite.updatedAt) }) }}
                     ·
                     {{ t('favorites.manager.preview.useCountInline', { count: favorite.useCount }) }}
                   </NText>
                 </div>
 
-                <NSpace :size="8" wrap>
+                <NButton
+                  v-if="isCompact"
+                  text
+                  size="small"
+                  :aria-expanded="metadataExpanded"
+                  @click="metadataExpanded = !metadataExpanded"
+                >
+                  {{ t('favorites.manager.preview.extraTitle') }} · {{ metadataExpanded ? t('common.collapse') : t('common.expand') }}
+                </NButton>
+                <NSpace v-if="!isCompact || metadataExpanded" :size="8" wrap>
                   <NTag
                     v-if="category"
                     :color="category.color ? { color: category.color, textColor: 'white' } : undefined"
@@ -337,7 +367,7 @@
                   </NTag>
                 </NSpace>
 
-                <NText v-if="favorite.description" depth="3" class="favorite-detail-panel__description">
+                <NText v-if="favorite.description && (!isCompact || metadataExpanded)" depth="3" class="favorite-detail-panel__description">
                   {{ favorite.description }}
                 </NText>
               </NSpace>
@@ -350,6 +380,7 @@
             >
               <div class="favorite-detail-panel__content-shell">
                 <OutputDisplayCore
+                  :fit-content="isCompact"
                   :content="displayContent"
                   :original-content="originalContent"
                   mode="readonly"
@@ -359,7 +390,7 @@
               </div>
             </FavoriteSurfaceSection>
 
-            <NCollapse :default-expanded-names="textExpandedSectionNames" class="favorite-detail-panel__sections">
+            <NCollapse :default-expanded-names="isCompact ? [] : textExpandedSectionNames" class="favorite-detail-panel__sections">
               <NCollapseItem
                 v-if="promptAsset"
                 name="versions"
@@ -443,6 +474,7 @@ import {
   NCollapse,
   NCollapseItem,
   NEmpty,
+  NDropdown,
   NEllipsis,
   NIcon,
   NScrollbar,
@@ -452,6 +484,7 @@ import {
 } from 'naive-ui'
 import {
   ArrowLeft,
+  DotsVertical,
   Copy,
   Edit,
   PlayerPlay,
@@ -461,6 +494,7 @@ import {
 import { useI18n } from 'vue-i18n'
 import type { FavoriteCategory, FavoritePrompt, PromptContentVersion } from '@prompt-optimizer/core'
 
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
 import type { AppServices } from '../types/services'
 import { parseFavoriteMediaMetadata } from '../utils/favorite-media'
 import { normalizeFavoriteFunctionMode } from '../utils/favorite-mode'
@@ -503,6 +537,22 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { isCompact } = useWorkspaceLayout()
+const metadataExpanded = ref(false)
+const mobileActionOptions = computed(() => [
+  { key: 'edit', label: t('favorites.manager.card.edit') },
+  { key: 'copy', label: t('favorites.manager.card.copyContent') },
+  { key: 'share', label: t('favorites.share.action') },
+  { key: 'delete', label: t('favorites.manager.card.delete') },
+])
+const handleMobileAction = (key: string) => {
+  if (!props.favorite) return
+  if (key === 'copy') emit('copy', props.favorite)
+  else if (key === 'share') emit('share', props.favorite)
+  else if (key === 'edit') emit('edit', props.favorite)
+  else if (key === 'delete') emit('delete', props.favorite)
+}
+watch(() => props.favorite?.id, () => { metadataExpanded.value = false })
 const services = inject<Ref<AppServices | null> | null>('services', null)
 
 const assetDataUrlCache = new Map<string, string>()
@@ -965,5 +1015,46 @@ const handleApplyExample = (options: { exampleId?: string; exampleIndex: number 
   .favorite-detail-panel--linked-dialog .favorite-detail-panel__hero-layout {
     grid-template-columns: 1fr;
   }
+}
+
+.favorite-detail-panel--compact {
+  gap: 8px;
+}
+.favorite-detail-panel--compact .favorite-detail-panel__action-bar {
+  order: 1;
+  padding: 8px 0 0;
+  border-bottom: 0;
+  border-top: 1px solid var(--n-border-color);
+  background: transparent;
+}
+.favorite-detail-panel--compact .favorite-detail-panel__layout {
+  gap: 10px;
+  padding-right: 0;
+}
+.favorite-detail-panel--compact .favorite-detail-panel__hero-layout,
+.favorite-detail-panel--compact .favorite-detail-panel__side-stack {
+  gap: 10px;
+}
+.favorite-detail-panel--compact .favorite-detail-panel__title {
+  font-size: 15px;
+}
+.favorite-detail-panel--compact .favorite-detail-panel__hero-image {
+  min-height: 0;
+  max-height: 38dvh;
+}
+.favorite-detail-panel--compact .favorite-detail-panel__content-shell {
+  min-height: 0;
+  height: auto;
+}
+.favorite-detail-panel--compact .favorite-detail-panel__sections {
+  padding: 8px;
+}
+.favorite-detail-panel--compact :deep(.n-card-header) {
+  min-height: 0;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+.favorite-detail-panel--compact :deep(.n-card-content) {
+  padding: 10px;
 }
 </style>

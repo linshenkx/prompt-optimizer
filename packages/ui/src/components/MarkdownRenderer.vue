@@ -305,6 +305,9 @@ watch(
 
 // 组件挂载时渲染
 onMounted(renderMarkdown);
+// A responsive scroll-mode change replaces the DOM container without changing
+// the content. Populate the new container after Vue has updated the template.
+watch(() => props.disableInternalScroll, renderMarkdown, { flush: "post" });
 </script>
 
 <style>

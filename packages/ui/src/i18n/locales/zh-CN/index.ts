@@ -1,3 +1,4 @@
+import workspace from './workspace'
 import core from './core'
 import favorites from './favorites'
 import prompt from './prompt'
@@ -9,6 +10,7 @@ import image from './image'
 import errors from './errors'
 
 const messages = {
+  ...workspace,
   ...core,
   ...favorites,
   ...prompt,

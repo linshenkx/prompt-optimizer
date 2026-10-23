@@ -1,5 +1,5 @@
 <template>
-  <NModal
+  <AdaptiveModal
     v-model:show="visible"
     preset="card"
     :title="$t('contextMode.preview.title')"
@@ -78,14 +78,15 @@
         </NButton>
       </NFlex>
     </template>
-  </NModal>
+  </AdaptiveModal>
 </template>
 
 <script setup lang="ts">
+import AdaptiveModal from './common/AdaptiveModal.vue'
 import { ref, watch } from 'vue'
 
 import {
-  NModal,
+
   NCard,
   NFlex,
   NTag,

@@ -242,7 +242,7 @@ const messages = {
     },
     "export": {
       "title": "Export Data",
-      "description": "Export the selected app data, including settings, history, contexts, favorites, and related images.",
+      "description": "Export selected workspace drafts, test results, settings, history, contexts, favorites, and related images across modes.",
       "scopeTitle": "Export contents",
       "button": "Export Data",
       "success": "Data exported successfully",
@@ -251,7 +251,7 @@ const messages = {
     },
     "import": {
       "title": "Import Data",
-      "description": "Import data from a local file. Legacy JSON backups are still supported.",
+      "description": "Restore app data and the corresponding workspace drafts and test results from a local file. Legacy JSON is supported.",
       "selectFile": "Click to select a local data file or drag it here",
       "supportFormat": "Supports current export files and legacy .json files",
       "scopeTitle": "Import contents",
@@ -266,6 +266,7 @@ const messages = {
       "createCopy": "Import as copies",
       "createCopyHint": "Create a new copy when the same prompt content already exists",
       "noSelectedContent": "Select at least one content type to import",
+      "workspaceBusy": "A workspace operation or mode switch is running. Wait for it to finish before importing.",
       "changeFile": "Change File",
       "button": "Import Data",
       "success": "Data imported successfully",
@@ -279,9 +280,9 @@ const messages = {
     },
     "sections": {
       "appData": "App data",
-      "appDataHint": "History, models, templates, contexts, and user settings",
+      "appDataHint": "Workspace drafts and test results across modes, history, models, templates, contexts, and user settings",
       "appDataImages": "Related images",
-      "appDataImagesHint": "Images referenced by history and results; current workspace sessions are not included",
+      "appDataImagesHint": "Workspace input images and images referenced by test results and history",
       "favoritesBundle": "Favorites",
       "favoritesBundleHint": "Favorites, categories, tags, prompt assets, examples, versions, and favorite images",
       "favoriteImages": "Favorite images",
@@ -424,6 +425,7 @@ const messages = {
       "listFailed": "Failed to load remote backup list: {message}",
       "restoreFrom": "Restore from remote backup",
       "restoreScope": "Restore contents",
+      "restoreWorkspaceHint": "Workspace drafts and test results in this backup will replace their current versions.",
       "restoreMissingAssetsHint": "This backup was created with {count} missing image resources. Clear image sections to restore only JSON data.",
       "noBackups": "No remote backups",
       "restoreSelected": "Restore Selected Backup",
@@ -470,7 +472,7 @@ const messages = {
       "totalNote": "Main app data is estimated; image and backup sizes are actual usage.",
       "totalNoteShort": "Main data is estimated; images are actual usage",
       "appMainData": "App Main Data (Estimated)",
-      "appMainDataNote": "Includes models, templates, history, contexts and settings",
+      "appMainDataNote": "Estimates models, templates, history, contexts and settings. Backups also include workspace drafts and test results.",
       "imageCache": "Session/Result Image Cache",
       "favoriteImages": "Favorite Images",
       "imageCount": "{count} images",
@@ -480,7 +482,7 @@ const messages = {
       "refresh": "Refresh",
       "refreshFailed": "Failed to refresh storage usage"
     },
-    "warning": "Importing data may overwrite or update existing history, model configuration, contexts, favorites, and user settings. Make sure important data is backed up first."
+    "warning": "Import replaces drafts and test results for the workspaces present in the backup, and overwrites or updates selected history, model configuration, contexts, favorites, and settings. Back up important data first."
   }
 } as const;
 

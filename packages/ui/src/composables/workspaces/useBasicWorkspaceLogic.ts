@@ -60,7 +60,7 @@ type BasicSessionStore = {
   updateIterateTemplate: (id: string | null) => void
   clearAssetBinding?: () => void
   clearContent: () => void
-  saveSession?: () => Promise<void> | void
+  saveSession?: () => Promise<boolean | void> | void
   assetBinding?: PromptAssetBinding
   origin?: PromptSessionOrigin
 }
@@ -316,6 +316,7 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
     isIterating.value = true
     const originalPromptValue = payload.originalPrompt || prompt.value
     const lastOptimizedPrompt = payload.optimizedPrompt || optimizedPrompt.value
+    const lastReasoning = optimizedReasoning.value
     optimizedPrompt.value = ''
     optimizedReasoning.value = ''
 
@@ -406,6 +407,8 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
         iterateTemplateId,
       )
     } catch (error) {
+      optimizedPrompt.value = lastOptimizedPrompt
+      optimizedReasoning.value = lastReasoning
       const fallback = t('toast.error.iterateFailed')
       const detail = getI18nErrorMessage(error, fallback)
       if (detail === fallback) {

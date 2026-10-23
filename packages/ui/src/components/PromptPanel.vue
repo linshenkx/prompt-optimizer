@@ -1,6 +1,7 @@
 <template>
     <NFlex
         vertical
+        :class="{ 'compact-shared-prompt': mobileLayout }"
         :style="{
             height: '100%',
             maxHeight: '100%',
@@ -12,19 +13,23 @@
             size="small"
             :bordered="false"
             :segmented="false"
-            class="flex-none"
+            class="prompt-panel-header-card flex-none"
             content-style="padding: 0;"
             :style="{ maxHeight: '120px', overflow: 'visible' }"
         >
-            <NFlex justify="space-between" align="flex-start" :wrap="false">
+            <NFlex class="prompt-panel-heading" justify="space-between" align="flex-start" :wrap="false">
                 <!-- 左侧：标题和版本 -->
                 <NSpace vertical :size="8" class="flex-1 min-w-0">
                     <NSpace align="center" :size="12">
-                        <NText class="text-lg font-semibold">{{
+                        <NText class="prompt-panel-title text-lg font-semibold">{{
                             t("prompt.optimized")
                         }}</NText>
+                        <NSelect v-if="mobileLayout && versions?.length" size="small" class="compact-version-picker"
+                            :value="isV0Selected ? 'v0' : currentVersionId" :aria-label="t('workspace.promptVersion')"
+                            :options="[...versions.slice().reverse().map(version => ({ label: `V${version.version}`, value: version.id })), ...(showV0Tag ? [{ label: t('prompt.originalVersion'), value: 'v0' }] : [])]"
+                            @update:value="selectMobileVersion" />
                         <NSpace
-                            v-if="versions && versions.length > 0"
+                            v-if="!mobileLayout && versions && versions.length > 0"
                             :size="4"
                             class="version-tags"
                             data-testid="prompt-panel-version-tags"
@@ -186,14 +191,14 @@
                     </NButton>
                     <!-- 继续优化按钮 -->
                     <NButton
-                        v-if="optimizedPrompt"
+                        v-if="optimizedPrompt || (mobileLayout && isIterating)"
                         key="iterate-action"
                         @click="handleIterate"
-                        :disabled="isIterating"
+                        :disabled="isIterating || (mobileLayout && isOptimizing)"
                         :loading="isIterating"
                         type="primary"
                         size="small"
-                        class="min-w-[100px]"
+                        class="prompt-panel-continue min-w-[100px]"
                         data-testid="prompt-panel-continue-optimize"
                     >
                         <template #icon>
@@ -223,11 +228,19 @@
         </NCard>
 
         <!-- 内容区域：使用 OutputDisplay 组件 -->
+        <div v-if="mobileLayout && optimizedPrompt && mobileOutputView === 'diff'" class="compact-compare-selector">
+            <span>{{ t('workspace.textComparison') }}</span>
+            <NSelect v-model:value="mobileCompareBase" size="small" :options="[
+                { label: t('promptOptimizer.originalPrompt'), value: 'original' },
+                { label: t('workspace.previousVersion'), value: 'previous' },
+            ]" />
+        </div>
         <OutputDisplay
+            :fit-content="mobileLayout"
             :test-id="testId ? testId + '-output' : undefined"
             ref="outputDisplayRef"
             :content="optimizedPrompt"
-            :original-content="previousVersionText"
+            :original-content="mobileLayout && mobileCompareBase === 'original' ? originalPrompt : previousVersionText"
             :reasoning="reasoning"
             mode="editable"
             :streaming="isOptimizing || isIterating"
@@ -235,7 +248,7 @@
             :enable-copy="true"
             :enable-fullscreen="true"
             :enable-edit="true"
-            :placeholder="t('prompt.optimizedPlaceholder')"
+            :placeholder="mobileLayout && (isOptimizing || isIterating) ? t('prompt.optimizing') : t('prompt.optimizedPlaceholder')"
             :style="{
                 height: '100%',
                 maxHeight: '100%',
@@ -243,6 +256,7 @@
                 minHeight: 0,
                 overflow: 'hidden',
             }"
+            @view-change="mobileOutputView = $event"
             @update:content="$emit('update:optimizedPrompt', $event)"
             @save-favorite="$emit('save-favorite', $event)"
         />
@@ -251,12 +265,17 @@
     <Modal
         v-model="showIterateInput"
         data-testid="prompt-panel-iterate-modal"
+        :class="{ 'compact-shared-iterate': mobileLayout }"
         @confirm="submitIterate"
     >
         <template #title>
-            {{ templateTitleText }}
+            {{ mobileLayout ? t('prompt.continueOptimize') : templateTitleText }}
         </template>
 
+        <details v-if="mobileLayout" open class="compact-iterate-reference">
+            <summary>{{ t('workspace.promptReference') }}</summary>
+            <pre>{{ optimizedPrompt }}</pre>
+        </details>
         <div class="space-y-4">
             <div>
                 <NText class="text-sm font-medium mb-2">{{
@@ -314,7 +333,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { NButton, NText, NInput, NCard, NFlex, NSpace, NTag, NIcon } from "naive-ui";
+import { NButton, NText, NInput, NCard, NFlex, NSpace, NTag, NIcon, NSelect } from "naive-ui";
 import { useConfirmDialog } from '../composables/ui/useConfirmDialog';
 import { useToast } from '../composables/ui/useToast';
 import { useEvaluationContextOptional } from '../composables/prompt/useEvaluationContext';
@@ -346,6 +365,8 @@ interface IteratePayload {
 }
 
 const props = defineProps({
+    mobileLayout: { type: Boolean, default: false },
+    enableEvaluation: { type: Boolean, default: true },
     /** E2E/测试定位用的 testId（用于 OutputDisplay 根节点 data-testid） */
     testId: {
         type: String,
@@ -456,7 +477,9 @@ const getV0TagRenderKey = () =>
     `v0:${props.sourceFeedbackVersion === 0 ? props.sourceFeedbackKey : 0}`;
 
 // 计算评估相关的状态（从 context 获取）
-const showEvaluation = computed(() => !!evaluation);
+const showEvaluation = computed(() => props.enableEvaluation && !!evaluation);
+const mobileOutputView = ref('source')
+const mobileCompareBase = ref<'original' | 'previous'>('original');
 
 // 判断当前使用的评估类型：有迭代需求用 prompt-iterate，否则用 prompt-only
 const evaluationType = computed<'prompt-only' | 'prompt-iterate'>(() => {
@@ -610,6 +633,10 @@ const iterateTemplateSelectRef = ref<{ refresh?: () => void } | null>(null);
 
 // 🆕 V0 特殊处理：跟踪是否选中 V0
 const isV0Selected = ref(false);
+watch([() => props.mobileLayout, () => props.currentVersionId, () => props.versions], ([mobile, id]) => {
+    if (!mobile) return;
+    isV0Selected.value = !id && !!props.versions?.length && props.optimizedPrompt === props.versions[0]?.originalPrompt;
+}, { immediate: true });
 
 // 🆕 是否显示 V0 标签（只有当 versions 存在且有原始内容时才显示）
 const showV0Tag = computed(() => {
@@ -627,17 +654,42 @@ const currentVersionOptimizedPrompt = computed(() => {
 const showSaveChanges = computed(() => {
     if (!props.optimizedPrompt) return false;
     if (!props.versions || props.versions.length === 0) return false;
-    if (!props.currentVersionId) return false;
-    if (isV0Selected.value) return false;
-    return props.optimizedPrompt !== currentVersionOptimizedPrompt.value;
+    if (!props.mobileLayout) {
+        if (!props.currentVersionId || isV0Selected.value) return false;
+        return props.optimizedPrompt !== currentVersionOptimizedPrompt.value;
+    }
+    const baseline = isV0Selected.value ? props.versions[0]?.originalPrompt : currentVersionOptimizedPrompt.value;
+    return props.optimizedPrompt !== baseline;
 });
 
+const hasUnsavedChanges = computed(() => {
+    const baseline = isV0Selected.value ? props.versions?.[0]?.originalPrompt || '' : currentVersionOptimizedPrompt.value;
+    return props.optimizedPrompt !== baseline;
+});
+const confirmDiscardChanges = async () => {
+    if (!props.mobileLayout) return true;
+    if (props.isOptimizing || props.isIterating) return false;
+    if (!hasUnsavedChanges.value) return true;
+    return confirmDialog.warning({
+        title: t('common.warning'), content: t('prompt.unsavedChangesConfirm'),
+        positiveText: t('common.confirm'), negativeText: t('common.cancel'),
+    });
+};
+
 // 🆕 切换到 V0（原始内容）
+const selectMobileVersion = (id: string) => {
+    if (id === 'v0') return switchToV0()
+    const version = props.versions?.find(item => item.id === id)
+    if (version) return switchVersion(version)
+}
+
 const switchToV0 = async () => {
     if (!props.versions || props.versions.length === 0) return;
 
     const v0Content = props.versions[0].originalPrompt;
     if (!v0Content) return;
+
+    if (props.mobileLayout && !(await confirmDiscardChanges())) return;
 
     // 标记为 V0 已选中
     isV0Selected.value = true;
@@ -780,6 +832,14 @@ const cancelIterate = () => {
     iterateInput.value = "";
 };
 
+let submittedIteration = '';
+let submittedVersionId = '';
+watch(() => props.isIterating, (running, wasRunning) => {
+    if (!running && wasRunning && props.currentVersionId !== submittedVersionId && iterateInput.value === submittedIteration) {
+        iterateInput.value = '';
+    }
+});
+
 const dispatchIterate = (input: string): boolean => {
     const trimmedInput = input.trim();
     if (!trimmedInput || props.isIterating) return false;
@@ -789,6 +849,8 @@ const dispatchIterate = (input: string): boolean => {
         return false;
     }
 
+    submittedIteration = trimmedInput;
+    submittedVersionId = props.currentVersionId;
     emit("iterate", {
         originalPrompt: props.originalPrompt,
         optimizedPrompt: outputDisplayRef.value?.content || props.optimizedPrompt,
@@ -801,8 +863,6 @@ const dispatchIterate = (input: string): boolean => {
 const submitIterate = () => {
     if (!dispatchIterate(iterateInput.value)) return;
 
-    // 重置输入
-    iterateInput.value = "";
     showIterateInput.value = false;
 };
 
@@ -810,7 +870,9 @@ const submitIterate = () => {
 const switchVersion = async (version: PromptRecord) => {
     if (version.id === props.currentVersionId && !isV0Selected.value) return;
 
-    if (showSaveChanges.value) {
+    if (props.mobileLayout) {
+        if (!(await confirmDiscardChanges())) return;
+    } else if (showSaveChanges.value) {
         const ok = await confirmDialog.warning({
             title: t("common.warning"),
             content: t("prompt.unsavedChangesConfirm"),
@@ -882,7 +944,7 @@ const openIterateDialog = (input?: string) => {
 const runIterateWithInput = (input: string) => {
     const started = dispatchIterate(input);
     if (started) {
-        iterateInput.value = "";
+        iterateInput.value = input;
         showIterateInput.value = false;
     }
     return started;
@@ -892,6 +954,8 @@ defineExpose({
     refreshIterateTemplateSelect,
     openIterateDialog,
     runIterateWithInput,
+    hasUnsavedChanges,
+    confirmDiscardChanges,
 });
 </script>
 

@@ -1,20 +1,48 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, h, ref } from 'vue'
+import { allowConsole } from '../../utils/error-detection'
 
 const remoteSnapshotMocks = vi.hoisted(() => ({
   listRemoteSnapshotBackups: vi.fn(),
+  createRemoteSnapshotBackup: vi.fn(),
   restoreRemoteSnapshotBackup: vi.fn(),
+}))
+
+const sessionMocks = vi.hoisted(() => ({
+  saveAllSessions: vi.fn(),
+  beginSessionRestore: vi.fn(),
+  releaseRestore: vi.fn(),
+}))
+
+const resourcePackageMocks = vi.hoisted(() => ({
+  createDataManagerResourcePackage: vi.fn(),
+  importDataManagerResourcePackage: vi.fn(),
+}))
+
+vi.mock('../../../src/stores/session/useSessionManager', () => ({
+  useSessionManager: () => sessionMocks,
+}))
+
+vi.mock('../../../src/utils/data-manager-resource-package', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../../../src/utils/data-manager-resource-package')>(),
+  ...resourcePackageMocks,
 }))
 
 vi.mock('../../../src/utils/remote-snapshot-backup', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/utils/remote-snapshot-backup')>()
   return {
     ...actual,
+    createRemoteSnapshotBackup: remoteSnapshotMocks.createRemoteSnapshotBackup,
     listRemoteSnapshotBackups: remoteSnapshotMocks.listRemoteSnapshotBackups,
     restoreRemoteSnapshotBackup: remoteSnapshotMocks.restoreRemoteSnapshotBackup,
   }
 })
+
+const compactViewport = ref(false)
+vi.mock('../../../src/composables/ui/useWorkspaceLayout', () => ({
+  useWorkspaceLayout: () => ({ isCompact: compactViewport }),
+}))
 
 import DataManager from '../../../src/components/DataManager.vue'
 
@@ -195,12 +223,30 @@ const mountComponent = (services = createServices()) =>
 
 describe('DataManager storage breakdown', () => {
   beforeEach(() => {
+    compactViewport.value = false
     isRunningInElectronMock.mockReset()
     isRunningInElectronMock.mockReturnValue(false)
     getEnvVarMock.mockReset()
     getEnvVarMock.mockReturnValue('')
     remoteSnapshotMocks.listRemoteSnapshotBackups.mockReset()
     remoteSnapshotMocks.listRemoteSnapshotBackups.mockResolvedValue([])
+    remoteSnapshotMocks.createRemoteSnapshotBackup.mockReset()
+    remoteSnapshotMocks.createRemoteSnapshotBackup.mockResolvedValue({
+      entry: { id: 'new-snapshot', name: 'new-snapshot' },
+      missingResources: [],
+    })
+    sessionMocks.saveAllSessions.mockReset().mockResolvedValue(true)
+    sessionMocks.beginSessionRestore.mockReset().mockResolvedValue(sessionMocks.releaseRestore)
+    sessionMocks.releaseRestore.mockReset()
+    resourcePackageMocks.createDataManagerResourcePackage.mockReset().mockResolvedValue({
+      blob: new Blob(['backup']),
+      filename: 'backup.po-backup.zip',
+      missingResources: [],
+    })
+    resourcePackageMocks.importDataManagerResourcePackage.mockReset().mockResolvedValue({
+      favorites: null,
+      resources: { restored: 0, skipped: 0, missing: [], corrupt: [], errors: [] },
+    })
     remoteSnapshotMocks.restoreRemoteSnapshotBackup.mockReset()
     remoteSnapshotMocks.restoreRemoteSnapshotBackup.mockResolvedValue({
       restored: 0,
@@ -215,6 +261,144 @@ describe('DataManager storage breakdown', () => {
     })
     delete (window as any).electronAPI
     window.localStorage.clear()
+  })
+
+  const connectRemote = async (wrapper: ReturnType<typeof mountComponent>) => {
+    const state = (wrapper.vm as any).$?.setupState
+    state.remoteSettings = {
+      ...state.remoteSettings,
+      provider: { kind: 'cloudflare-r2', accountId: 'account-123', bucket: 'prompt-optimizer-backups', accessKeyId: 'ak', secretAccessKey: 'sk' },
+    }
+    await flushPromises()
+    state.remoteConnectionStates = {
+      ...state.remoteConnectionStates,
+      'cloudflare-r2': {
+        ...state.remoteConnectionStates['cloudflare-r2'],
+        status: 'connected',
+      },
+    }
+    state.remoteBackups = [{
+      id: 'snap-1', name: 'snap-1', manifestPath: 'v1/snapshots/snap-1/manifest.json',
+      manifest: { includedSections: ['appData', 'favorites', 'imageCache', 'favoriteImages'] },
+    }]
+    state.selectedRemoteBackupId = 'snap-1'
+    await flushPromises()
+    return state
+  }
+
+  it.each(['local', 'remote'])('saves live workspace drafts before creating a %s backup', async (target) => {
+    allowConsole(/^(Export failed:|\[DataManager\] Remote backup failed:)/)
+    const wrapper = mountComponent()
+    await flushPromises()
+    const state = await connectRemote(wrapper)
+    let finishSave!: (saved: boolean) => void
+    sessionMocks.saveAllSessions.mockReturnValue(new Promise<boolean>((resolve) => { finishSave = resolve }))
+    const exportMock = target === 'local'
+      ? resourcePackageMocks.createDataManagerResourcePackage
+      : remoteSnapshotMocks.createRemoteSnapshotBackup
+    // Avoid downloading a real file; this test checks the persisted snapshot barrier.
+    exportMock.mockRejectedValue(new Error('stop after snapshot export'))
+    const operation = target === 'local' ? state.handleExport() : state.handleRemoteUpload()
+    await flushPromises()
+    expect(sessionMocks.saveAllSessions).toHaveBeenCalledTimes(1)
+    expect(exportMock).not.toHaveBeenCalled()
+    finishSave(true)
+    await operation
+    expect(exportMock).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it.each(['local', 'remote'])('aborts %s backup when workspace drafts cannot be saved', async (target) => {
+    allowConsole(/^(Export failed:|\[DataManager\] Remote backup failed:)/)
+    sessionMocks.saveAllSessions.mockResolvedValue(false)
+    const wrapper = mountComponent()
+    await flushPromises()
+    const state = await connectRemote(wrapper)
+    await (target === 'local' ? state.handleExport() : state.handleRemoteUpload())
+    expect(sessionMocks.saveAllSessions).toHaveBeenCalledTimes(1)
+    expect(resourcePackageMocks.createDataManagerResourcePackage).not.toHaveBeenCalled()
+    expect(remoteSnapshotMocks.createRemoteSnapshotBackup).not.toHaveBeenCalled()
+    expect(window.localStorage.getItem('prompt-optimizer:data-backup-status')).toBeNull()
+    wrapper.unmount()
+  })
+
+  it.each(['json', 'zip', 'remote'])('holds the old session state paused through a successful %s restore and reload', async (source) => {
+    const services = createServices()
+    const wrapper = mountComponent(services)
+    await flushPromises()
+    const state = await connectRemote(wrapper)
+    state.selectedFile = { id: 'backup', name: `backup.${source}`, file: new File(['{}'], `backup.${source}`) }
+    let finishPause!: (release: () => void) => void
+    sessionMocks.beginSessionRestore.mockReturnValue(new Promise<() => void>((resolve) => { finishPause = resolve }))
+    const importMock = source === 'remote' ? remoteSnapshotMocks.restoreRemoteSnapshotBackup
+      : source === 'zip' ? resourcePackageMocks.importDataManagerResourcePackage : services.dataManager.importAllData
+    const operation = source === 'remote' ? state.handleRemoteRestore() : state.handleImport()
+    await vi.waitFor(() => expect(sessionMocks.beginSessionRestore).toHaveBeenCalledTimes(1))
+    expect(importMock).not.toHaveBeenCalled()
+    finishPause(sessionMocks.releaseRestore)
+    await operation
+    expect(importMock).toHaveBeenCalledTimes(1)
+    expect(wrapper.emitted('imported')).toHaveLength(1)
+    expect(sessionMocks.releaseRestore).not.toHaveBeenCalled()
+    wrapper.unmount()
+    expect(sessionMocks.releaseRestore).not.toHaveBeenCalled()
+  })
+
+  it.each(['json', 'zip', 'remote'])('resumes saving after a failed %s restore', async (source) => {
+    allowConsole(/^(Import failed:|\[DataManager\] Remote restore failed:)/)
+    const services = createServices()
+    const wrapper = mountComponent(services)
+    await flushPromises()
+    const state = await connectRemote(wrapper)
+    state.selectedFile = { id: 'backup', name: `backup.${source}`, file: new File(['{}'], `backup.${source}`) }
+    const importMock = source === 'remote' ? remoteSnapshotMocks.restoreRemoteSnapshotBackup
+      : source === 'zip' ? resourcePackageMocks.importDataManagerResourcePackage : services.dataManager.importAllData
+    importMock.mockRejectedValue(new Error('invalid backup'))
+    await (source === 'remote' ? state.handleRemoteRestore() : state.handleImport())
+    expect(sessionMocks.beginSessionRestore).toHaveBeenCalledTimes(1)
+    expect(sessionMocks.releaseRestore).toHaveBeenCalledTimes(1)
+    expect(wrapper.emitted('imported')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it.each(['json', 'zip', 'remote'])('defers %s import when the app reports a running workspace operation', async (source) => {
+    const services = createServices()
+    const wrapper = mountComponent(services)
+    const prepareRestore = vi.fn().mockResolvedValue(null)
+    await wrapper.setProps({ prepareRestore })
+    const state = await connectRemote(wrapper)
+    state.selectedFile = { id: 'backup', name: `backup.${source}`, file: new File(['{}'], `backup.${source}`) }
+    await (source === 'remote' ? state.handleRemoteRestore() : state.handleImport())
+    expect(prepareRestore).toHaveBeenCalledTimes(1)
+    expect(sessionMocks.beginSessionRestore).not.toHaveBeenCalled()
+    expect(services.dataManager.importAllData).not.toHaveBeenCalled()
+    expect(resourcePackageMocks.importDataManagerResourcePackage).not.toHaveBeenCalled()
+    expect(remoteSnapshotMocks.restoreRemoteSnapshotBackup).not.toHaveBeenCalled()
+    expect(wrapper.emitted('imported')).toBeUndefined()
+    expect(state.isImporting).toBe(false)
+    expect(state.isRestoringRemote).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('releases the app restore lease on failure and holds it on success', async () => {
+    allowConsole(/^Import failed:/)
+    const services = createServices()
+    const wrapper = mountComponent(services)
+    const release = vi.fn()
+    const prepareRestore = vi.fn().mockResolvedValue(release)
+    await wrapper.setProps({ prepareRestore })
+    const state = (wrapper.vm as any).$?.setupState
+    state.selectedFile = { id: 'backup', name: 'backup.json', file: new File(['{}'], 'backup.json') }
+    services.dataManager.importAllData.mockRejectedValueOnce(new Error('invalid backup'))
+    await state.handleImport()
+    expect(release).toHaveBeenCalledTimes(1)
+    expect(wrapper.emitted('imported')).toBeUndefined()
+    await state.handleImport()
+    expect(release).toHaveBeenCalledTimes(1)
+    expect(prepareRestore).toHaveBeenCalledTimes(2)
+    expect(sessionMocks.beginSessionRestore).not.toHaveBeenCalled()
+    expect(wrapper.emitted('imported')).toHaveLength(1)
+    wrapper.unmount()
   })
 
   afterEach(() => {
@@ -244,7 +428,9 @@ describe('DataManager storage breakdown', () => {
     expect(text).toContain('App Main Data (Estimated)')
     expect(text).toContain('Session/Result Image Cache')
     expect(text).toContain('Favorite Images')
-    expect(text).toContain('Includes models, templates, history, contexts and settings')
+    expect(text).toContain('Backups also include workspace drafts and test results')
+    expect(text).toContain('Import replaces drafts and test results for the workspaces present in the backup')
+    expect(text).not.toContain('current workspace sessions are not included')
     expect(text).toContain('2 images')
     expect(text).toContain('1 images')
     expect(text).not.toContain('上下文集合')
@@ -729,4 +915,47 @@ describe('DataManager storage breakdown', () => {
 
     expect(buttons.every((button) => (button.element as HTMLButtonElement).disabled)).toBe(true)
   })
+  it('preserves a mobile remote draft across tasks and resizing without connecting or reloading', async () => {
+    compactViewport.value = true
+    const services = createServices()
+    const wrapper = mountComponent(services)
+    await flushPromises()
+    expect(wrapper.get('[data-testid="data-manager-tasks"]').isVisible()).toBe(true)
+    expect(wrapper.get('.data-manager-section--remote').attributes('style')).toContain('display: none')
+    await wrapper.get('[data-testid="data-manager-task-remote"]').trigger('click')
+    await flushPromises()
+    const scrollShell = wrapper.get('.data-manager-scroll-shell').element as HTMLElement
+    scrollShell.scrollTop = 240
+    const remote = wrapper.get('.data-manager-section--remote')
+    remote.getComponent('.n-select').vm.$emit('update:value', 'webdav')
+    await flushPromises()
+    const endpoint = remote.findAll('input')[0]
+    await endpoint.setValue('https://mobile-draft.invalid/dav')
+    const endpointNode = endpoint.element
+    const storageLoads = services.imageStorageService.getStorageStats.mock.calls.length
+    wrapper.findComponent({ name: 'NModal' }).vm.$emit('update:show', false)
+    await flushPromises()
+    expect(wrapper.emitted('close')).toBeUndefined()
+    expect(wrapper.get('[data-testid="data-manager-tasks"]').isVisible()).toBe(true)
+    expect(scrollShell.scrollTop).toBe(0)
+    await wrapper.get('[data-testid="data-manager-task-remote"]').trigger('click')
+    await flushPromises()
+    expect(scrollShell.scrollTop).toBe(240)
+    wrapper.findComponent({ name: 'NModal' }).vm.$emit('update:show', false)
+    await flushPromises()
+    await wrapper.get('[data-testid="data-manager-task-export"]').trigger('click')
+    expect(wrapper.get('.local-transfer-row--import').attributes('style')).toContain('display: none')
+    compactViewport.value = false
+    await flushPromises()
+    expect(wrapper.get('.data-manager-section--remote').attributes('style') || '').not.toContain('display: none')
+    expect(remote.findAll('input')[0].element).toBe(endpointNode)
+    expect((endpointNode as HTMLInputElement).value).toBe('https://mobile-draft.invalid/dav')
+    compactViewport.value = true
+    await flushPromises()
+    expect(services.imageStorageService.getStorageStats.mock.calls.length).toBe(storageLoads)
+    expect(remoteSnapshotMocks.listRemoteSnapshotBackups).not.toHaveBeenCalled()
+    expect(remoteSnapshotMocks.restoreRemoteSnapshotBackup).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
 })

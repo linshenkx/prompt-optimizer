@@ -1,15 +1,15 @@
 <template>
   <!-- 使用ToastUI包装整个布局以提供NMessageProvider -->
   <ToastUI>
-    <NLayout style="position: fixed; inset: 0; width: 100vw; height: 100vh;
-    max-height: 100vh;
+    <NLayout ref="layoutRoot" class="compact-viewport-frame" :style="{ height: isCompact ? '100dvh' : '100vh', maxHeight: isCompact ? '100dvh' : '100vh' }" style="position: fixed; inset: 0; width: 100vw;
     overflow: hidden; display: flex; min-height: 0;"
     content-style="height: 100%; max-height: 100%; min-height: 0; overflow: hidden;"
     >
 
-      <NFlex vertical style="position: fixed; inset: 0; width: 100vw; max-height: 100vh; height: 100vh; min-height: 0;">
+      <NFlex vertical class="compact-viewport-frame" :style="{ height: isCompact ? '100dvh' : '100vh', maxHeight: isCompact ? '100dvh' : '100vh' }" style="position: fixed; inset: 0; width: 100vw; min-height: 0;">
       <!-- 顶部导航栏 -->
-      <NLayoutHeader class="theme-header nav-header-enhanced">
+      <NLayoutHeader v-show="isCompact" class="compact-header"><slot name="mobile-nav" /></NLayoutHeader>
+      <NLayoutHeader v-show="!isCompact" class="theme-header nav-header-enhanced">
         <NFlex justify="space-between" align="center" class="w-full nav-content" :wrap="false" :size="[16, 12]">
           <!-- 左侧：Logo + 标题 + 核心导航 -->
           <NFlex align="center" :size="16" :wrap="false">
@@ -53,9 +53,9 @@
       <!-- 主要内容区域 - 严格控制在剩余空间内 -->
       <NLayoutContent has-sider
         style="flex: 1; min-height: 0; overflow: hidden;"
-        content-style="height: 100%; max-height: 100%; min-height: 0; box-sizing: border-box; padding: 24px clamp(16px, 2vw, 48px) 40px; display: flex; flex-direction: column; align-items: stretch; overflow: hidden;"
+        :content-style="isCompact ? 'height: 100%; min-height: 0; padding: 0; display: flex; flex-direction: column; overflow: hidden;' : 'height: 100%; max-height: 100%; min-height: 0; box-sizing: border-box; padding: 24px clamp(16px, 2vw, 48px) 40px; display: flex; flex-direction: column; align-items: stretch; overflow: hidden;'"
       >
-        <div class="main-content-wrapper">
+        <div ref="contentRoot" class="main-content-wrapper">
           <slot name="main"></slot>
         </div>
       </NLayoutContent>
@@ -69,7 +69,21 @@
 </template>
 
 <script setup lang="ts">
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
+const { isCompact, containerWidth, contentHeight } = useWorkspaceLayout()
+const layoutRoot = ref()
+const contentRoot = ref<HTMLElement>()
+useResizeObserver(contentRoot, (entries) => {
+  const height = entries[0]?.contentRect.height
+  if (height) contentHeight.value = height
+})
+useResizeObserver(layoutRoot, (entries) => {
+  const width = entries[0]?.contentRect.width
+  if (width) containerWidth.value = width
+})
+
 import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { useResizeObserver } from '@vueuse/core'
 
 import { useI18n } from 'vue-i18n'
 import { NButton, NLayout, NLayoutHeader, NLayoutContent, NFlex, NText } from 'naive-ui'

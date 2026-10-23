@@ -1,6 +1,7 @@
 <template>
   <ToastUI>
     <NModal
+      compact-class="model-manager--compact"
       :show="show"
       preset="card"
       :style="{ width: '90vw', maxWidth: '1200px', maxHeight: '90vh' }"
@@ -38,7 +39,7 @@
               <path d="M6 12v6" />
             </svg>
           </template>
-          {{ t('modelManager.addModel') }}
+          {{ isCompact ? t('common.add') : t('modelManager.addModel') }}
         </NButton>
         <NButton
           v-else-if="activeTab === 'image'"
@@ -63,7 +64,7 @@
               <path d="M6 12v6" />
             </svg>
           </template>
-          {{ t('modelManager.addImageModel') }}
+          {{ isCompact ? t('common.add') : t('modelManager.addImageModel') }}
         </NButton>
       </template>
 
@@ -87,9 +88,9 @@
             size="small"
             :bordered="false"
             class="model-manager-shell"
-            content-style="padding: 16px; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0;"
+            :content-style="{ padding: isCompact ? '0' : '16px', display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: '0' }"
           >
-            <div class="model-manager-scroll-area">
+            <div ref="scrollAreaRef" class="model-manager-scroll-area">
               <TextModelManager
                 v-show="activeTab === 'text'"
                 ref="textManagerRef"
@@ -125,10 +126,11 @@
 </template>
 
 <script setup lang="ts">
-import { inject, onMounted, onUnmounted, provide, ref, type Ref } from 'vue'
+import NModal from "./common/AdaptiveModal.vue"
+import { inject, nextTick, onMounted, onUnmounted, provide, ref, watch, type Ref } from 'vue'
 
 import { useI18n } from 'vue-i18n'
-import { NButton, NCard, NModal, NTabs, NTabPane } from 'naive-ui'
+import { NButton, NCard,  NTabs, NTabPane } from 'naive-ui'
 import type { ImageModelConfig } from '@prompt-optimizer/core'
 import ImageModelEditModal from './ImageModelEditModal.vue'
 import ImageModelManager from './ImageModelManager.vue'
@@ -138,6 +140,7 @@ import ToastUI from './Toast.vue'
 import NetworkSettingsModal from './NetworkSettingsModal.vue'
 import ModelNetworkStatus from './ModelNetworkStatus.vue'
 import type { AppServices } from '../types/services'
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
 
 defineProps({
   show: {
@@ -149,8 +152,19 @@ defineProps({
 const emit = defineEmits(['modelsUpdated', 'close', 'select', 'update:show'])
 
 const { t } = useI18n()
+const { isCompact } = useWorkspaceLayout()
 
 const activeTab = ref<'text' | 'image' | 'function'>('text')
+const scrollAreaRef = ref<HTMLElement | null>(null)
+const compactScrollTop = { text: 0, image: 0, function: 0 }
+watch(activeTab, async (tab, previous) => {
+  if (!isCompact.value) return
+  compactScrollTop[previous] = scrollAreaRef.value?.scrollTop ?? 0
+  await nextTick()
+  if (isCompact.value && activeTab.value === tab && scrollAreaRef.value) {
+    scrollAreaRef.value.scrollTop = compactScrollTop[tab]
+  }
+}, { flush: 'pre' })
 const hasDesktopNetwork = typeof window !== 'undefined' && !!window.electronAPI?.network
 const showNetworkSettings = ref(false)
 const textManagerRef = ref<InstanceType<typeof TextModelManager> | null>(null)
@@ -293,6 +307,30 @@ if (typeof window !== 'undefined') {
   overflow: auto;
   padding-right: 4px;
 }
+
+:global(.workspace-compact .model-manager--compact.adaptive-modal-page > .n-card-header) {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  padding: 8px 12px;
+  gap: 8px;
+}
+
+:global(.workspace-compact .model-manager--compact.adaptive-modal-page > .n-card-header > .n-card-header__extra) {
+  grid-row: 1;
+  grid-column: 2;
+}
+
+:global(.workspace-compact .model-manager--compact.adaptive-modal-page > .n-card-header > .n-base-close) {
+  grid-column: 3;
+}
+
+:global(.workspace-compact .model-manager--compact.adaptive-modal-page > .n-card-content) {
+  padding: 12px !important;
+  overflow: hidden;
+}
+
+.model-manager--compact .model-manager-content { gap: 8px; }
+.model-manager--compact .model-manager-shell { border-radius: 0; background: transparent; }
+.model-manager--compact .model-manager-scroll-area { padding: 0; overscroll-behavior: contain; }
 
 .modal-enter-active,
 .modal-leave-active {

@@ -135,6 +135,7 @@
 </template>
 
 <script setup lang="ts">
+import NModal from '../common/AdaptiveModal.vue'
 import { computed, inject, onUnmounted, reactive, ref, watch, type Ref } from 'vue'
 import {
   NAlert,
@@ -142,7 +143,6 @@ import {
   NCard,
   NCheckbox,
   NEmpty,
-  NModal,
   NRadioButton,
   NRadioGroup,
   NSpace,

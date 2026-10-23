@@ -9,8 +9,18 @@
         :style="modalStyle"
         @after-leave="handleClose"
     >
-        <!-- 工具栏 -->
-        <NSpace justify="space-between">
+        <!-- The mobile list owns list actions; editor drafts remain in their existing host. -->
+        <div v-if="isCompact" class="variable-list-toolbar">
+            <NButton type="primary" :disabled="props.disabled || props.readonly || loading" @click="showAddVariable">
+                {{ t('variables.management.addVariable') }}
+            </NButton>
+            <NDropdown v-if="props.showImportExport !== false" trigger="click" :options="mobileListActions" @select="handleListAction">
+                <NButton :disabled="props.disabled || loading" :aria-label="t('workspace.moreOptions')">
+                    {{ t('workspace.moreOptions') }}
+                </NButton>
+            </NDropdown>
+        </div>
+        <NSpace v-else justify="space-between">
             <NButton
                 type="primary"
                 @click="showAddVariable"
@@ -106,8 +116,15 @@
                     </NButton>
                 </template>
 
+                <MobileVariableList
+                    v-if="isPredefinedExpanded && isCompact"
+                    :variables="predefinedVariables"
+                    readonly
+                    predefined
+                    @copy="copyVariableName"
+                />
                 <NDataTable
-                    v-if="isPredefinedExpanded"
+                    v-else-if="isPredefinedExpanded"
                     :columns="predefinedTableColumns"
                     :data="predefinedVariables"
                     :max-height="200"
@@ -155,6 +172,15 @@
                     </NEmpty>
                 </div>
 
+                <MobileVariableList
+                    v-else-if="isCompact"
+                    :variables="customVariables"
+                    :readonly="props.readonly"
+                    :disabled="props.disabled || loading"
+                    @edit="editVariable"
+                    @copy="copyVariableName"
+                    @delete="deleteVariable"
+                />
                 <NDataTable
                     v-else
                     :columns="customTableColumns"
@@ -167,7 +193,7 @@
                 />
 
                 <!-- 快速添加表单 -->
-                <template #footer>
+                <template v-if="!isCompact" #footer>
                     <NDivider />
                     <div>
                         <NText
@@ -229,7 +255,10 @@
                         count: allVariables.length,
                     })
                 }}</NText>
-                <NSpace>
+                <NButton v-if="isCompact" @click="handleCancel" :disabled="loading">
+                    {{ t('common.close') }}
+                </NButton>
+                <NSpace v-else>
                     <NButton
                         v-if="!props.readonly"
                         type="primary"
@@ -255,6 +284,8 @@
             v-model:show="showEditor"
             :variable="editingVariable"
             :existing-names="existingVariableNames"
+            :saving="loading"
+            :save-error="editorError"
             @save="onVariableSave"
             @cancel="onEditorCancel"
         />
@@ -262,6 +293,8 @@
         <!-- 导入弹窗 -->
         <VariableImporter
             v-model:show="showImporter"
+            :saving="loading"
+            :save-error="importError"
             @import="onVariablesImport"
         />
 
@@ -342,11 +375,14 @@
 </template>
 
 <script setup lang="ts">
+import NModal from "../common/AdaptiveModal.vue"
+import { useWorkspaceLayout } from '../../composables/ui/useWorkspaceLayout'
+const { isCompact } = useWorkspaceLayout()
 import { ref, computed, watch, h } from 'vue'
 
 import { useI18n } from "vue-i18n";
 import {
-    NModal,
+
     NButton,
     NSpace,
     NTag,
@@ -360,9 +396,10 @@ import {
     NText,
     NEmpty,
     NDivider,
+    NDropdown,
     NIcon,
     type DataTableColumns,
-} from "naive-ui";
+} from 'naive-ui';
 import { useResponsive } from "../../composables/ui/useResponsive";
 import { useClipboard } from "../../composables/ui/useClipboard";
 import { useConfirmDialog } from "../../composables/ui/useConfirmDialog";
@@ -374,6 +411,7 @@ import type { VariableManagerHooks } from '../../composables/prompt/useVariableM
 import type { VariableExportData, VariableImportOptions } from '@prompt-optimizer/core';
 import VariableEditor from "./VariableEditor.vue";
 import VariableImporter from "./VariableImporter.vue";
+import MobileVariableList from "./MobileVariableList.vue";
 
 const { t } = useI18n();
 const { copyText } = useClipboard();
@@ -436,6 +474,16 @@ const localVisible = computed({
 
 // 状态管理
 const loading = ref(false);
+const editorError = ref("");
+const importError = ref("");
+const mobileListActions = computed(() => [
+    { key: "import", label: t("variables.management.import"), disabled: props.readonly },
+    { key: "export", label: t("variables.management.export") },
+]);
+const handleListAction = (key: string) => {
+    if (key === "import") showImportModal();
+    if (key === "export") showExportModal.value = true;
+};
 const showEditor = ref(false);
 const showImporter = ref(false);
 const showExportModal = ref(false);
@@ -769,11 +817,13 @@ const copyVariableName = async (name: string) => {
 };
 
 const showAddVariable = () => {
+    editorError.value = "";
     editingVariable.value = null;
     showEditor.value = true;
 };
 
 const editVariable = (variable: VariableRow) => {
+    editorError.value = "";
     editingVariable.value = variable;
     showEditor.value = true;
 };
@@ -903,7 +953,8 @@ const deleteVariable = async (name: string) => {
 };
 
 const onVariableSave = async (variable: { name: string; value: string }) => {
-    if (!props.variableManager?.variableManager.value) return;
+    if (!props.variableManager?.variableManager.value || loading.value) return;
+    editorError.value = "";
 
     try {
         loading.value = true;
@@ -923,6 +974,7 @@ const onVariableSave = async (variable: { name: string; value: string }) => {
         );
     } catch (error: unknown) {
         console.error("[VariableManagerModal] Failed to save variable:", error);
+        editorError.value = error instanceof Error ? error.message : String(error);
         emit("error", error instanceof Error ? error : new Error(String(error)));
     } finally {
         loading.value = false;
@@ -935,11 +987,13 @@ const onEditorCancel = () => {
 };
 
 const showImportModal = () => {
+    importError.value = "";
     showImporter.value = true;
 };
 
 const onVariablesImport = (variables: Record<string, string>) => {
-    if (!props.variableManager) return;
+    if (!props.variableManager || loading.value) return;
+    importError.value = "";
 
     try {
         loading.value = true;
@@ -964,6 +1018,7 @@ const onVariablesImport = (variables: Record<string, string>) => {
             "[VariableManagerModal] Failed to import variables:",
             error,
         );
+        importError.value = error instanceof Error ? error.message : String(error);
         emit("error", error instanceof Error ? error : new Error(String(error)));
     } finally {
         loading.value = false;
@@ -1133,5 +1188,9 @@ const executeExport = () => {
 </script>
 
 <style scoped>
-/* Pure Naive UI implementation - no custom theme CSS needed */
+.variable-list-toolbar {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
 </style>

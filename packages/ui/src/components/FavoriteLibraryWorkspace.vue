@@ -1,10 +1,10 @@
 <template>
   <div
     class="favorites-manager-shell"
-    :class="{ 'favorites-manager-shell--page': isPageLayout }"
+    :class="{ 'favorites-manager-shell--page': isPageLayout, 'favorites-manager-shell--compact': isMobile }"
   >
     <div class="favorites-manager-toolbar">
-      <NSpace vertical :size="16">
+      <NSpace vertical :size="isMobile ? 8 : 16">
         <div class="favorites-manager-toolbar-row favorites-manager-toolbar-row--search">
           <div v-if="$slots['toolbar-leading']" class="favorites-manager-toolbar-leading">
             <slot name="toolbar-leading" />
@@ -28,7 +28,7 @@
         </div>
 
         <div class="favorites-manager-toolbar-row favorites-manager-toolbar-row--controls">
-          <NSpace :size="12" align="center" wrap class="favorites-manager-filters">
+          <NSpace v-show="!isMobile || filtersExpanded" :size="12" align="center" wrap class="favorites-manager-filters">
             <CategoryTreeSelect
               v-model="selectedCategory"
               :placeholder="t('favorites.manager.allCategories')"
@@ -51,7 +51,12 @@
           </NSpace>
 
           <NSpace :size="8" align="center" wrap class="favorites-manager-actions">
+            <NButton v-if="isMobile" secondary :type="filtersExpanded || selectedCategory || selectedTags.length ? 'primary' : 'default'"
+              :aria-expanded="filtersExpanded" data-testid="favorites-manager-filters-toggle" @click="filtersExpanded = !filtersExpanded">
+              {{ `${t('favorites.dialog.categoryLabel')} / ${t('favorites.dialog.tagsLabel')}` }}<span v-if="selectedCategory || selectedTags.length"> · {{ (selectedCategory ? 1 : 0) + selectedTags.length }}</span>
+            </NButton>
             <NDropdown
+              :trigger="isMobile ? 'click' : 'hover'"
               :options="actionMenuOptions"
               @select="handleActionMenuSelect"
             >
@@ -62,7 +67,7 @@
               </NButton>
             </NDropdown>
 
-            <NButton secondary data-testid="favorites-manager-import" @click="openImportPanel">
+            <NButton v-if="!isMobile" secondary data-testid="favorites-manager-import" @click="openImportPanel">
               <template #icon>
                 <NIcon><Upload /></NIcon>
               </template>
@@ -97,6 +102,7 @@
 
           <div
             v-if="popularTagFilters.length > 0"
+            v-show="!isMobile || filtersExpanded"
             class="favorites-manager-tag-cloud"
             data-testid="favorites-manager-tag-cloud"
           >
@@ -168,7 +174,7 @@
               :favorite="favorite"
               :category="getCategoryById(favorite.category)"
               :is-selected="selectedFavorite?.id === favorite.id && workspaceMode === 'detail'"
-              :show-quick-actions="true"
+              :show-quick-actions="!isMobile"
               @select="handleSelectFavorite"
               @edit="handleEditFavorite"
               @delete="handleDeleteFavorite"
@@ -256,7 +262,6 @@ import {
   NEmpty,
   NIcon,
   NInput,
-  NModal,
   NPagination,
   NScrollbar,
   NSelect,
@@ -288,6 +293,7 @@ import {
 import { normalizeFavoriteFunctionMode, type NormalizedFavoriteFunctionMode } from '../utils/favorite-mode'
 import { createFavoriteResourcePackage } from '../utils/favorite-resource-package'
 import CategoryManager from './CategoryManager.vue'
+import NModal from './common/AdaptiveModal.vue'
 import CategoryTreeSelect from './CategoryTreeSelect.vue'
 import FavoriteAssetPanelDialog from './favorites/FavoriteAssetPanelDialog.vue'
 import FavoriteShareExportDialog from './favorites/FavoriteShareExportDialog.vue'
@@ -377,6 +383,7 @@ const taskFavorite = ref<FavoritePrompt | null>(null)
 const assetPanelVisible = ref(false)
 const viewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1440)
 
+const filtersExpanded = ref(false)
 const categoryManagerVisible = ref(false)
 const tagManagerVisible = ref(false)
 const shareExportVisible = ref(false)
@@ -544,6 +551,7 @@ const tagOptions = computed(() => {
 })
 
 const actionMenuOptions = computed(() => [
+  ...(isMobile.value ? [{ label: t('favorites.manager.import'), key: 'import', icon: () => h(NIcon, null, { default: () => h(Upload) }) }] : []),
   {
     label: () => h('span', { 'data-testid': 'favorites-manager-action-manage-tags' }, t('favorites.manager.actions.manageTags')),
     key: 'manageTags',
@@ -970,6 +978,9 @@ const handleUseFavorite = async (
 
 const handleActionMenuSelect = async (key: string) => {
   switch (key) {
+    case 'import':
+      openImportPanel()
+      break
     case 'manageTags':
       tagManagerVisible.value = true
       break
@@ -1335,6 +1346,53 @@ onBeforeUnmount(() => {
   .favorites-manager-tag-select {
     width: 100%;
     min-width: 0;
+  }
+}
+
+@media (max-width: 1023px) {
+  .favorites-manager-shell--compact {
+    min-height: 0;
+    height: 100%;
+    padding: 10px;
+    gap: 10px;
+  }
+  .favorites-manager-shell--compact .favorites-manager-toolbar-row--search {
+    flex-direction: row;
+    align-items: center;
+  }
+  .favorites-manager-shell--compact .favorites-manager-count {
+    display: none;
+  }
+  .favorites-manager-shell--compact .favorites-manager-toolbar-row--controls {
+    gap: 8px;
+  }
+  .favorites-manager-shell--compact .favorites-manager-actions {
+    order: -1;
+  }
+  .favorites-manager-shell--compact .favorites-manager-mode-filter {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+  .favorites-manager-shell--compact .favorites-manager-mode-filter :deep(.n-button) {
+    flex: none;
+  }
+  .favorites-manager-shell--compact .favorites-manager-pane-header {
+    flex-direction: row;
+    align-items: center;
+    font-size: 12px;
+  }
+  .favorites-manager-shell--compact .favorites-manager-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: auto;
+    gap: 8px;
+  }
+  .favorites-manager-shell--compact .favorites-manager-empty {
+    min-height: 160px;
+  }
+  .favorites-manager-shell--compact.favorites-manager-shell--page {
+    height: auto;
+    padding: 0;
   }
 }
 </style>

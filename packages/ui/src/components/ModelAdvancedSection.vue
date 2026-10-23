@@ -1,5 +1,5 @@
 <template>
-  <NCollapse v-model:expanded-names="expandedNames" class="model-advanced-section">
+  <NCollapse v-model:expanded-names="expandedNames" class="model-advanced-section" :class="{ 'model-advanced-section--compact': isCompact }">
     <NCollapseItem name="advanced">
       <template #header>
         <NSpace vertical :size="4" class="advanced-header">
@@ -7,11 +7,11 @@
             <NH4 style="margin: 0; font-size: 14px;">
               {{ t('modelManager.advancedParameters.title') }}
             </NH4>
-            <NTag type="default" size="small" :bordered="false">
+            <NTag v-if="!isCompact" type="default" size="small" :bordered="false">
               {{ providerDisplay }}
             </NTag>
           </NSpace>
-          <NText depth="3" style="font-size: 12px;">
+          <NText v-if="!isCompact" depth="3" style="font-size: 12px;">
             <span>{{ t('modelManager.advancedParameters.currentProvider') }}:</span>
             <NText strong>
               {{ providerDisplay }}
@@ -78,10 +78,10 @@
     @positive-click="handleConfirmCustom"
   >
     <NSpace vertical :size="12">
-      <NFormItem :label="t('modelManager.advancedParameters.customKeyPlaceholder')">
+      <NFormItem :label="t('modelManager.advancedParameters.customKeyPlaceholder')" :label-placement="isCompact ? 'top' : undefined" :label-width="isCompact ? 0 : undefined">
         <NInput v-model:value="customForm.key" size="small" :placeholder="t('modelManager.advancedParameters.customKeyPlaceholder')" />
       </NFormItem>
-      <NFormItem :label="t('modelManager.advancedParameters.customValuePlaceholder')">
+      <NFormItem :label="t('modelManager.advancedParameters.customValuePlaceholder')" :label-placement="isCompact ? 'top' : undefined" :label-width="isCompact ? 0 : undefined">
         <NInput
           v-model:value="customForm.value"
           type="textarea"
@@ -115,6 +115,7 @@ import {
 } from 'naive-ui'
 import { isSafeCustomKey, parseCustomValue, type UnifiedParameterDefinition } from '@prompt-optimizer/core'
 import ModelParameterEditor from './ModelParameterEditor.vue'
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
 
 const props = defineProps({
   mode: {
@@ -144,6 +145,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { isCompact } = useWorkspaceLayout()
 const message = resolveMessageApi()
 
 const expandedNames = ref<string[]>([])
@@ -313,4 +315,6 @@ function resolveMessageApi(): MessageApi {
 .advanced-control {
   max-width: 360px;
 }
+.model-advanced-section--compact :deep(.n-collapse-item__header-main) { min-height: 44px; }
+.model-advanced-section--compact .advanced-header { min-width: 0; }
 </style>

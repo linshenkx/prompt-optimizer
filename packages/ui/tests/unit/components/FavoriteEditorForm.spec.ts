@@ -9,6 +9,11 @@ import {
 
 const resolveAssetIdToDataUrlMock = vi.fn()
 const persistImageSourceAsAssetIdMock = vi.fn()
+const compactViewport = ref(false)
+
+vi.mock('../../../src/composables/ui/useWorkspaceLayout', () => ({
+  useWorkspaceLayout: () => ({ isCompact: compactViewport }),
+}))
 
 vi.mock('../../../src/utils/image-asset-storage', () => ({
   resolveAssetIdToDataUrl: (...args: unknown[]) => resolveAssetIdToDataUrlMock(...args),
@@ -205,12 +210,43 @@ const createDeferred = <T>() => {
 
 describe('FavoriteEditorForm', () => {
   beforeEach(() => {
+    compactViewport.value = false
     resolveAssetIdToDataUrlMock.mockReset()
     persistImageSourceAsAssetIdMock.mockReset()
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  it('protects a new draft when its target mode changes and retains the editor across viewport changes', async () => {
+    const wrapper = mount(FavoriteEditorForm, {
+      props: { mode: 'create' },
+      global: { stubs: naiveStubs, provide: { services: ref({}) } },
+    })
+    await flushPromises()
+    expect(wrapper.vm.hasUnsavedChanges).toBe(false)
+
+    wrapper.getComponent('.n-select').vm.$emit('update:value', 'image')
+    await flushPromises()
+    expect(wrapper.vm.hasUnsavedChanges).toBe(true)
+
+    wrapper.getComponent('.n-select').vm.$emit('update:value', 'basic')
+    await flushPromises()
+    expect(wrapper.vm.hasUnsavedChanges).toBe(false)
+
+    const contentInput = wrapper.getComponent('[data-testid="favorite-editor-content"]')
+    contentInput.vm.$emit('update:value', 'Unsaved mobile content')
+    await flushPromises()
+    const contentNode = contentInput.element
+    compactViewport.value = true
+    await flushPromises()
+    compactViewport.value = false
+    await flushPromises()
+    expect(contentInput.element).toBe(contentNode)
+    expect(contentInput.props('value')).toBe('Unsaved mobile content')
+    expect(wrapper.vm.hasUnsavedChanges).toBe(true)
+    wrapper.unmount()
   })
 
   it('creates missing category path from garden metadata only when save is confirmed', async () => {

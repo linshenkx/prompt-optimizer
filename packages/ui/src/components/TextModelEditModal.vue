@@ -1,19 +1,33 @@
 <template>
   <NModal
     :show="show"
+    compact-class="text-model-editor--compact"
+    :closable="!isCompact"
     preset="card"
     :style="{ width: '90vw', maxWidth: '1000px' }"
-    :title="modalTitle"
+    :title="isCompact ? undefined : modalTitle"
     size="large"
     :bordered="false"
     :segmented="true"
     @update:show="handleUpdateShow"
   >
-    <form v-if="formReady" @submit.prevent="handleSubmit">
-        <NForm label-placement="left" label-width="auto" size="small">
+    <template v-if="isCompact" #header>
+      <div class="mobile-text-model-heading">
+        <NButton quaternary circle :aria-label="t('common.close')" :disabled="isSaving" @click="handleCancel">
+          <template #icon>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m14 6-6 6 6 6" /></svg>
+          </template>
+        </NButton>
+        <span :title="modalTitle">{{ isEditing && form.name ? form.name : modalTitle }}</span>
+      </div>
+    </template>
+    <form v-if="formReady" :class="{ 'mobile-text-model-form': isCompact }" @submit.prevent="handleSubmit">
+        <NForm :label-placement="isCompact ? 'top' : 'left'" label-width="auto" size="small" :show-feedback="!isCompact">
+          <div :class="isCompact ? 'mobile-text-model-identity' : 'text-model-identity'">
           <NFormItem :label="t('modelManager.displayName')">
             <NInput
               v-model:value="form.name"
+              data-testid="text-model-name"
               :placeholder="t('modelManager.displayNamePlaceholder')"
               required
             />
@@ -23,11 +37,26 @@
             <NCheckbox v-model:checked="form.enabled"></NCheckbox>
           </NFormItem>
 
-          <NDivider style="margin: 12px 0 8px 0;" />
-          <NH4 style="margin: 0 0 12px 0; font-size: 14px;">{{ t('modelManager.provider.section') }}</NH4>
+          </div>
+          <NDivider v-if="!isCompact" style="margin: 12px 0 8px 0;" />
+          <NH4 v-if="!isCompact" style="margin: 0 0 12px 0; font-size: 14px;">{{ t('modelManager.provider.section') }}</NH4>
 
           <NFormItem :label="t('modelManager.provider.label')">
+            <NSelect
+              v-if="isCompact"
+              :ref="providerMenu.selectRef"
+              v-bind="providerMenu.attrs.value"
+              data-testid="text-model-provider-select"
+              :value="form.providerId"
+              :options="mobileProviderOptions"
+              :loading="isLoadingProviders"
+              :aria-label="t('modelManager.provider.label')"
+              filterable
+              @update:value="onMobileProviderChange"
+              @update:show="providerMenu.onUpdateShow"
+            />
             <ProviderPillSelect
+              v-else
               v-model:value="form.providerId"
               :options="providerOptions"
               :loading="isLoadingProviders"
@@ -160,8 +189,20 @@
             </template>
           </NFormItem>
 
-          <NFormItem v-if="showCustomHeaders" :label="t('modelManager.customHeaders.label')">
-            <div class="custom-headers-editor">
+          <NFormItem v-if="showCustomHeaders" :label="t('modelManager.customHeaders.label')" :class="{ 'mobile-text-model-headers': isCompact }">
+            <template v-if="isCompact" #label>
+              <button
+                type="button"
+                class="mobile-text-model-disclosure"
+                :aria-expanded="headersExpanded"
+                aria-controls="text-model-custom-headers"
+                @click="headersExpanded = !headersExpanded"
+              >
+                <span>{{ t('modelManager.customHeaders.label') }}<span v-if="customHeaderRows.length"> ({{ customHeaderRows.length }})</span></span>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" :class="{ 'is-expanded': headersExpanded }"><path d="m9 5 7 7-7 7" /></svg>
+              </button>
+            </template>
+            <div v-show="!isCompact || headersExpanded" id="text-model-custom-headers" class="custom-headers-editor">
               <div
                 v-for="(row, index) in customHeaderRows"
                 :key="index"
@@ -169,6 +210,7 @@
               >
                 <NInput
                   :value="row.key"
+                  class="custom-header-name"
                   :placeholder="t('modelManager.customHeaders.namePlaceholder')"
                   @update:value="updateCustomHeaderRow(index, { key: $event })"
                 />
@@ -199,17 +241,20 @@
             </div>
           </NFormItem>
 
-          <NDivider style="margin: 12px 0 8px 0;" />
-          <NH4 style="margin: 0 0 12px 0; font-size: 14px;">{{ t('modelManager.model.section') }}</NH4>
+          <NDivider v-if="!isCompact" style="margin: 12px 0 8px 0;" />
+          <NH4 v-if="!isCompact" style="margin: 0 0 12px 0; font-size: 14px;">{{ t('modelManager.model.section') }}</NH4>
 
           <NFormItem :label="t('modelManager.selectModel')">
-            <NSpace align="center" style="width: 100%;">
+            <component :is="isCompact ? 'div' : NSpace" align="center" style="width: 100%;" :class="{ 'mobile-text-model-picker': isCompact }">
               <NSelect
+                :ref="modelMenu.selectRef"
+                v-bind="modelMenu.attrs.value"
+                data-testid="text-model-id-select"
                 v-model:value="form.modelId"
                 :options="modelOptions"
                 :loading="isLoadingModelOptions"
                 :placeholder="t('modelManager.defaultModelPlaceholder')"
-                style="flex: 1; min-width: 300px; max-width: 500px;"
+                :style="isCompact ? { minWidth: 0, flex: 1 } : { flex: 1, minWidth: '300px', maxWidth: '500px' }"
                 clearable
                 filterable
                 :filter="(pattern, option) => {
@@ -220,6 +265,7 @@
                 tag
                 required
                 @update:value="handleModelChange"
+                @update:show="modelMenu.onUpdateShow"
               />
 
               <ThemedTooltip
@@ -229,6 +275,7 @@
               >
                 <NButton
                   @click="refreshModelOptions()"
+                  :aria-label="t('modelManager.clickToFetchModels')"
                   :loading="isLoadingModelOptions"
                   :disabled="!canRefreshModelOptions"
                   circle
@@ -246,11 +293,11 @@
                   </template>
                 </NButton>
               </ThemedTooltip>
-            </NSpace>
+            </component>
           </NFormItem>
         </NForm>
 
-        <NDivider style="margin: 12px 0 8px 0;" />
+        <NDivider v-if="!isCompact" style="margin: 12px 0 8px 0;" />
         <ModelAdvancedSection
           mode="text"
           :provider-type="currentProviderType"
@@ -266,7 +313,32 @@
 
     <template #action>
       <ModelNetworkStatus style="margin-bottom: 8px" />
-      <NSpace justify="space-between" align="center" style="width: 100%;">
+      <div v-if="isCompact" class="mobile-text-model-footer">
+        <NText
+          v-if="formConnectionStatus"
+          :type="formConnectionStatus.type"
+          class="mobile-text-model-status"
+          role="status"
+        >{{ formConnectionStatus.message }}</NText>
+        <NText v-if="submitError" type="error" class="mobile-text-model-status" role="alert">{{ submitError }}</NText>
+        <div class="mobile-text-model-primary-actions">
+          <NButton
+            secondary
+            :loading="isTestingFormConnection"
+            :disabled="!canTestFormConnection"
+            data-testid="text-model-test"
+            @click="handleTestFormConnection"
+          >{{ t('modelManager.testConnection') }}</NButton>
+          <NButton
+            type="primary"
+            :loading="isSaving"
+            :disabled="!canSaveForm"
+            data-testid="text-model-save"
+            @click="handleSubmit"
+          >{{ isEditing ? t('common.save') : t('common.create') }}</NButton>
+        </div>
+      </div>
+      <NSpace v-else justify="space-between" align="center" style="width: 100%;">
         <NSpace align="center">
           <NButton
             @click="handleTestFormConnection"
@@ -301,14 +373,16 @@
 </template>
 
 <script setup lang="ts">
+import NModal from "./common/AdaptiveModal.vue"
 import ModelNetworkStatus from './ModelNetworkStatus.vue'
-import { computed, inject, nextTick, h } from 'vue'
+import { computed, inject, nextTick, h, ref, watch } from 'vue'
+import { useConfirmDialog } from '../composables/ui/useConfirmDialog'
 
 import { useI18n } from 'vue-i18n'
 import { useToast } from '../composables/ui/useToast'
 import { isRunningInElectron, validateCustomRequestHeaders, type CustomRequestHeaderInput } from '@prompt-optimizer/core'
 import {
-  NModal,
+
   NForm,
   NFormItem,
   NH4,
@@ -334,6 +408,8 @@ import ThemedTooltip from './common/ThemedTooltip.vue'
 import type { TextModelManager } from '../composables/model/useTextModelManager'
 import { resolveTextConnectionFieldLabel } from '../utils/model-connection-label'
 import { getProviderDisplayName } from '../utils/provider-display'
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
+import { useCompactSelectMenu } from '../composables/ui/useSelectMenuViewport'
 
 const { show } = defineProps({
   show: {
@@ -345,6 +421,11 @@ const { show } = defineProps({
 const emit = defineEmits(['update:show', 'saved'])
 
 const { t } = useI18n()
+const { isCompact } = useWorkspaceLayout()
+const providerMenu = useCompactSelectMenu(isCompact, computed(() => show))
+const modelMenu = useCompactSelectMenu(isCompact, computed(() => show))
+const headersExpanded = ref(false)
+const submitError = ref('')
 const toast = useToast()
 const dialog = useDialog()
 const manager = inject<TextModelManager>('textModelManager')
@@ -355,6 +436,16 @@ if (!manager) {
 const modalTitle = manager.modalTitle
 const form = manager.form
 const formReady = manager.formReady
+const confirmDialog = useConfirmDialog()
+const initialForm = ref('')
+let confirmingClose = false
+watch([() => show, formReady], async ([visible, ready]) => {
+  if (!visible || !ready) return
+  headersExpanded.value = false
+  submitError.value = ''
+  await nextTick()
+  initialForm.value = JSON.stringify(form.value)
+}, { immediate: true })
 const providerOptions = manager.providerOptions
 const isLoadingProviders = manager.isLoadingProviders
 const connectionFields = manager.connectionFields
@@ -385,6 +476,11 @@ const isEditing = computed(() => !!manager.editingModelId.value)
 const providerLabelOverrides = computed(() => ({
   'openai-compatible': t('modelManager.provider.openaiCompatibleCustomLabel')
 }))
+
+const mobileProviderOptions = computed(() => providerOptions.value.map(option => ({
+  ...option,
+  label: providerLabelOverrides.value[option.value as keyof typeof providerLabelOverrides.value] || option.label,
+})))
 
 interface CustomHeaderRow {
   key: string
@@ -449,6 +545,10 @@ const customHeaderValidationMessage = computed(() => {
     .join('; ')
 
   return t('modelManager.customHeaders.validationError', { details })
+})
+
+watch(customHeaderValidationMessage, message => {
+  if (message) headersExpanded.value = true
 })
 
 // 获取当前选择的 Provider 的 API Key URL
@@ -559,7 +659,20 @@ const handleTestFormConnection = async () => {
   await runTest()
 }
 
-const handleUpdateShow = async (value: boolean) => {
+const handleUpdateShow = async (value: boolean, saved = false) => {
+  if (!value && !saved && isCompact.value && isSaving.value) return
+  if (!value && !saved && initialForm.value && JSON.stringify(form.value) !== initialForm.value) {
+    if (confirmingClose) return
+    confirmingClose = true
+    const discard = await confirmDialog.warning({
+      title: t('common.warning'),
+      content: t('workspace.unsavedForm'),
+      positiveText: t('common.confirm'),
+      negativeText: t('common.cancel'),
+    })
+    confirmingClose = false
+    if (!discard) return
+  }
   emit('update:show', value)
 
   // 只有在明确关闭时才重置表单状态
@@ -571,10 +684,13 @@ const handleUpdateShow = async (value: boolean) => {
 }
 
 const handleSubmit = async () => {
+  // A responsive rerender or a second click must not turn an in-flight save into a close.
+  if (isSaving.value) return
+  submitError.value = ''
   try {
     const id = await manager.saveForm()
     emit('saved', id || undefined)
-    handleUpdateShow(false)
+    await handleUpdateShow(false, true)
   } catch (error) {
     console.error('Failed to save model:', error)
 
@@ -593,6 +709,7 @@ const handleSubmit = async () => {
           (typeof errorParams === 'object' && errorParams) ? (errorParams as Record<string, unknown>) : {}
         )
         if (translated && translated !== errorCode) {
+          submitError.value = translated
           toast.error(translated)
           return
         }
@@ -601,7 +718,8 @@ const handleSubmit = async () => {
       }
     }
 
-    toast.error(rawError || fallback)
+    submitError.value = rawError || fallback
+    toast.error(submitError.value)
   }
 }
 
@@ -623,9 +741,130 @@ const onProviderChange = (providerId: string) => {
     resetConnectionConfig: true
   })
 }
+
+const onMobileProviderChange = (providerId: string) => {
+  // Re-selecting the current searchable option must not discard this draft.
+  if (providerId === form.value.providerId) return
+  onProviderChange(providerId)
+}
 </script>
 
 <style scoped>
+.text-model-identity {
+  display: contents;
+}
+
+:global(.workspace-compact .text-model-editor--compact.adaptive-modal-page > .n-card-header) {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.mobile-text-model-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 16px;
+}
+
+.mobile-text-model-heading span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-text-model-form {
+  min-width: 0;
+}
+
+.mobile-text-model-form :deep(.n-form-item) {
+  margin-bottom: 12px;
+}
+
+.mobile-text-model-form :deep(.n-form-item-label) {
+  padding: 0 0 5px;
+  font-size: 13px;
+}
+
+.mobile-text-model-identity {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+
+.mobile-text-model-identity :deep(.n-checkbox) {
+  min-height: 34px;
+  align-items: center;
+}
+
+.mobile-text-model-picker {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-text-model-disclosure {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mobile-text-model-disclosure svg {
+  flex-shrink: 0;
+}
+
+.mobile-text-model-disclosure .is-expanded {
+  transform: rotate(90deg);
+}
+
+.mobile-text-model-headers :deep(.n-form-item-label) {
+  display: block;
+}
+
+.mobile-text-model-headers :deep(.n-form-item-blank) {
+  min-height: 0;
+}
+
+.mobile-text-model-form .custom-header-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.mobile-text-model-form .custom-header-name {
+  grid-column: 1 / -1;
+}
+
+.mobile-text-model-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobile-text-model-status {
+  line-height: 1.4;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  max-height: 72px;
+  overflow: auto;
+}
+
+.mobile-text-model-primary-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
 .api-url-help-button {
   width: 18px;
   height: 18px;

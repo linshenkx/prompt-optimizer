@@ -3,6 +3,7 @@
     size="small"
     :title="title"
     :segmented="segmented"
+    :content-style="collapsible && collapsed ? { padding: 0 } : undefined"
     class="favorite-surface-section"
     :class="[
       `favorite-surface-section--${variant}`,
@@ -12,30 +13,41 @@
       },
     ]"
   >
-    <template v-if="$slots.headerExtra" #header-extra>
-      <slot name="headerExtra" />
+    <template v-if="$slots.headerExtra || collapsible" #header-extra>
+      <div class="favorite-surface-section__extra" :class="{ 'favorite-surface-section__extra--collapsible': collapsible }">
+        <slot name="headerExtra" />
+        <NButton v-if="collapsible" text size="small" :aria-expanded="!collapsed" :aria-label="title"
+          @click="collapsed = !collapsed">
+          <NIcon><ChevronDown v-if="collapsed" /><ChevronUp v-else /></NIcon>
+        </NButton>
+      </div>
     </template>
 
-    <slot />
+    <div :style="{ display: collapsible && collapsed ? 'none' : 'contents' }"><slot /></div>
   </NCard>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { NCard } from 'naive-ui'
+import { computed, ref } from 'vue'
+import { NButton, NCard, NIcon } from 'naive-ui'
+import { ChevronDown, ChevronUp } from '@vicons/tabler'
 
 const props = withDefaults(defineProps<{
   title?: string
   changed?: boolean
   variant?: 'default' | 'identity' | 'media' | 'content'
   flush?: boolean
+  /** Presentation only: content stays mounted so folding preserves editor drafts. */
+  collapsible?: boolean
 }>(), {
   title: undefined,
   changed: false,
   variant: 'default',
   flush: false,
+  collapsible: false,
 })
 
+const collapsed = ref(true)
 const segmented = computed(() => (props.title ? { content: true } : false))
 </script>
 
@@ -77,5 +89,13 @@ const segmented = computed(() => (props.title ? { content: true } : false))
 
 .favorite-surface-section--flush :deep(.n-card__content) {
   padding: 0;
+}
+.favorite-surface-section__extra {
+  display: contents;
+}
+.favorite-surface-section__extra--collapsible {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 </style>

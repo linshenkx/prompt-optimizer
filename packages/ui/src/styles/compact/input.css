@@ -1,0 +1,187 @@
+/* InputPanel and shared text editors own compact controls, labels and editor typography. NSpace item-class hooks keep wrappers explicit. */
+
+.input-panel--compact .input-panel-controls {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 12px 10px !important;
+}
+
+.input-panel--compact .input-panel-control {
+  grid-column: auto !important;
+  min-width: 0;
+}
+
+.input-panel--compact .input-panel-secondary-actions {
+  display: none;
+}
+
+.input-panel--compact .input-panel-submit {
+  grid-column: 1 / -1 !important;
+}
+
+.input-panel--compact .input-panel-submit-actions,
+.input-panel--compact .input-panel-submit-item {
+  width: 100%;
+}
+
+.input-panel--compact .input-panel-submit .n-button {
+  width: 100%;
+  min-height: 42px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.input-panel--compact .input-panel-controls .input-panel-label {
+  font-size: 12px !important;
+  color: var(--compact-muted);
+}
+
+.compact-two-region .optimize-original-scroll .workspace-input-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.compact-two-region .optimize-original-scroll .input-panel-primary-editor textarea {
+  resize: none;
+}
+
+.compact-two-region .optimize-original-scroll .input-panel--compact .n-base-selection {
+  --n-height: 44px !important;
+}
+
+.input-panel--compact .input-panel-field,
+.input-panel--compact .input-panel-field-item {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.input-panel--compact .input-panel-controls .n-select {
+  min-width: 0 !important;
+  width: 100%;
+}
+
+.compact-two-region .input-panel-heading .n-button {
+  min-width: 40px;
+  padding: 0;
+  background: transparent;
+  --n-border: 0 !important;
+  min-height: 36px;
+  height: 36px;
+}
+
+.compact-two-region .input-panel--compact {
+  gap: 10px !important;
+  min-height: 0;
+}
+
+.compact-two-region .input-panel--compact .input-panel-primary-editor {
+  --n-padding-left: 14px;
+  --n-padding-right: 14px;
+}
+
+.compact-two-region .input-panel--compact .input-panel-submit .n-button {
+  font-weight: 600;
+  min-height: 36px;
+  border-radius: 8px;
+  font-size: 13px;
+  height: 36px;
+  padding: 0 6px;
+  width: 100%;
+}
+
+.compact-two-region .codemirror-container .cm-content {
+  font-size: 16px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.compact-two-region .cm-scroller {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+}
+
+.compact-two-region .codemirror-container {
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--compact-soft);
+}
+
+.compact-two-region .optimize-original-scroll .input-panel-primary-editor {
+  height: auto;
+  min-height: 0;
+}
+
+.compact-two-region .input-panel--compact .input-panel-controls {
+  align-items: end;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr) var(--compact-submit-width) !important;
+  gap: var(--compact-gap) !important;
+}
+
+.compact-two-region .input-panel--compact .input-panel-submit {
+  grid-column: auto !important;
+}
+
+.compact-two-region .input-panel--compact .input-panel-controls .input-panel-label,
+.compact-two-region .input-panel--compact .input-panel-label-row {
+  display: none;
+}
+
+.compact-two-region .workspace-input-panel .input-panel-heading {
+  flex-wrap: nowrap !important;
+  gap: 8px;
+}
+
+.compact-two-region .workspace-input-panel .input-panel-heading-group {
+  flex-wrap: nowrap !important;
+  gap: 4px !important;
+}
+
+.compact-two-region .workspace-input-panel .input-panel-stack {
+  gap: 6px !important;
+}
+
+.compact-two-region .input-panel-heading {
+  min-height: 36px;
+  flex-wrap: wrap !important;
+  gap: 0 6px !important;
+}
+
+.compact-two-region .input-panel--compact .input-panel-field-item:has(> .input-panel-label-row),
+.compact-two-region .input-panel--compact .input-panel-field-item:has(> .input-panel-label) {
+  display: none;
+}
+
+.compact-two-region .input-panel--compact .input-panel-field {
+  gap: 0 !important;
+}
+
+.compact-two-region .input-panel--compact .input-panel-submit .n-button .n-base-loading {
+  position: absolute;
+}
+
+.compact-two-region .input-panel--compact .input-panel-submit .n-button--loading .n-button__content {
+  visibility: hidden;
+}
+
+.compact-two-region .input-panel-heading-group {
+  gap: 4px !important;
+}
+
+.compact-two-region .input-panel-heading-actions {
+  margin-left: auto;
+}
+
+.compact-two-region .compact-original-card .input-panel-title {
+  font-size: 14px !important;
+  font-weight: 600;
+  color: var(--compact-ink);
+  white-space: nowrap;
+}
+
+@container mobile-pane (min-width: 560px) {
+  .compact-two-region .input-panel--compact .input-panel-controls {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) 80px !important;
+  }
+
+}

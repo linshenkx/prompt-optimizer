@@ -1,0 +1,15 @@
+/* Mobile presentation entrypoint. Feature rules belong to their named owner module.
+ * Keep imports deterministic: shared surfaces first; narrow comparison and management adaptations last.
+ * Component defaults and desktop rules stay in their existing SFCs.
+ */
+@import './compact/foundation.css';
+@import './compact/overlay.css';
+@import './compact/workspace.css';
+@import './compact/navigation.css';
+@import './compact/input.css';
+@import './compact/prompt.css';
+@import './compact/output.css';
+@import './compact/context.css';
+@import './compact/image.css';
+@import './compact/test-result.css';
+@import './compact/management.css';

@@ -3,6 +3,7 @@
     ref="coreDisplayRef"
     v-bind="$attrs"
     :content="content"
+    :fit-content="fitContent"
     :originalContent="originalContent"
     :reasoning="reasoning"
     :mode="mode"
@@ -14,7 +15,7 @@
     :streaming="streaming"
     :compareService="compareService"
     :test-id="testId"
-    :style="{ height: '100%', maxHeight: '100%', flex: 1, minHeight: 0, overflow: 'hidden' }"
+    :style="fitContent ? { height: 'auto', maxHeight: 'none', overflow: 'visible' } : { height: '100%', maxHeight: '100%', flex: 1, minHeight: 0, overflow: 'hidden' }"
     @update:content="emit('update:content', $event)"
     @update:reasoning="emit('update:reasoning', $event)"
     @copy="handleCopy"
@@ -61,6 +62,7 @@ type ActionName = 'fullscreen' | 'diff' | 'copy' | 'edit' | 'reasoning' | 'favor
 
 // Props
 interface Props {
+  fitContent?: boolean
   content?: string
   originalContent?: string
   reasoning?: string

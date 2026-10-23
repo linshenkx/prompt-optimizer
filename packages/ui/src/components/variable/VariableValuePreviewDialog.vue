@@ -48,9 +48,9 @@
 </template>
 
 <script setup lang="ts">
+import NModal from '../common/AdaptiveModal.vue'
 import { ref, computed, watch, h } from 'vue'
 import {
-  NModal,
   NAlert,
   NDataTable,
   NEmpty,

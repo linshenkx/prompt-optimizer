@@ -1,6 +1,7 @@
 <template>
     <NFlex vertical :style="{ height: mode === 'full' ? '100%' : 'auto', gap: '12px' }">
         <TemporaryVariablesPanel
+            :compact="compact"
             :manager="variableManager"
         />
 
@@ -174,6 +175,7 @@ interface Props {
      * - variables-only: 仅变量表单（供 Workspace 自行渲染多列 variants 测试区）
      */
     mode?: "full" | "variables-only";
+    compact?: boolean;
 
     // 核心状态
     optimizationMode: OptimizationMode;
@@ -227,6 +229,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
     mode: "full",
+    compact: false,
     isTestRunning: false,
     isCompareMode: false,
     enableCompareMode: true,

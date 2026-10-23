@@ -14,6 +14,7 @@
     <NConfigProvider
         :theme="naiveTheme"
         :theme-overrides="themeOverrides"
+        :style="isCompact ? { '--compact-accent': themeOverrides.common?.primaryColor } : undefined"
         :hljs="hljsInstance"
     >
         <div v-if="isInitializing" class="loading-container">
@@ -29,6 +30,14 @@
         </div>
         <template v-else>
             <MainLayoutUI>
+                <template #mobile-nav>
+                    <CompactNavigation
+                        :workspace-path="activeWorkspaceContextPath"
+                        :app-version="appVersion"
+                        :backup-reminder-due="dataBackupReminderDue"
+                        @action="handleMobileAction"
+                    />
+                </template>
                 <!-- Title Slot -->
                 <template #title>
                     {{ t("promptOptimizer.title") }}
@@ -110,6 +119,7 @@
             <DataManagerUI
                 v-if="isReady"
                 v-model:show="showDataManager"
+                :prepare-restore="prepareSessionRestore"
                 @imported="handleDataImported"
             />
 
@@ -263,6 +273,15 @@ hljs.registerLanguage("json", jsonLang);
 
 // 内部组件导入
 import MainLayoutUI from '../MainLayout.vue'
+import CompactNavigation from './CompactNavigation.vue'
+import { useWorkspaceViewState } from '../../composables/ui/useWorkspaceViewState'
+import { useWorkspaceLayout } from '../../composables/ui/useWorkspaceLayout'
+import { hasCompactModalLayers } from '../../composables/ui/useCompactModalBack'
+import { createAppUpdatePreparation } from '../../composables/ui/useAppUpdatePreparation'
+import { useCompactSessionAutosave } from '../../composables/session/useCompactSessionAutosave'
+const { isCompact, keyboardViewportHeight, keyboardViewportTop } = useWorkspaceLayout()
+import '../../styles/compact-workspace.css'
+
 import ModelManagerUI from '../ModelManager.vue'
 import TemplateManagerUI from '../TemplateManager.vue'
 import HistoryDrawerUI from '../HistoryDrawer.vue'
@@ -400,10 +419,22 @@ const promptRefreshForNewDeploy = async (reason: unknown) => {
       return;
     }
 
-    try {
-      await sessionManager.saveAllSessions();
-    } catch (e) {
-      console.warn('[PromptOptimizerApp] saveAllSessions failed before refresh:', e);
+    if (isCompact.value) {
+      const checkpoint = await prepareForUpdate();
+      if (checkpoint !== 'ready') {
+        console.warn('[PromptOptimizerApp] Refresh deferred by application checkpoint:', checkpoint);
+        window.sessionStorage.removeItem(CHUNK_LOAD_REFRESH_GUARD_KEY);
+        toast.warning(t('toast.warning.chunkLoadRefreshDeclined'), 8000);
+        return;
+      }
+    } else {
+      // Keep the existing desktop chunk-recovery flow. PWA updates use their
+      // separate explicit checkpoint through the Web host component.
+      try {
+        await sessionManager.saveAllSessions();
+      } catch (error) {
+        console.warn('[PromptOptimizerApp] saveAllSessions failed before refresh:', error);
+      }
     }
 
     window.location.reload();
@@ -689,8 +720,10 @@ const basicModeWorkspaceRef = ref<{
 
 // 🔧 Step E: 使用 route-computed 代替旧 state
 type WorkspaceRouteName = string | symbol | null | undefined;
+const activeWorkspaceRef = shallowRef<{ isUpdateBusy?: () => boolean } | null>(null);
 const setWorkspaceRef = (instance: unknown, routeName: WorkspaceRouteName) => {
     const resolvedInstance = instance ?? null;
+    activeWorkspaceRef.value = resolvedInstance as typeof activeWorkspaceRef.value;
 
     switch (routeName) {
         case "basic-system":
@@ -727,6 +760,9 @@ const isCompareMode = ref(true);
 
 // Naive UI 主题配置
 const { naiveTheme, themeOverrides, initTheme } = useNaiveTheme();
+watch(() => naiveTheme.value?.name, (theme) => {
+    if (typeof document !== 'undefined') document.documentElement.dataset.workspaceTheme = theme === 'dark' ? 'dark' : 'light';
+}, { immediate: true });
 
 // 初始化主题系统
 if (typeof window !== "undefined") {
@@ -734,6 +770,31 @@ if (typeof window !== "undefined") {
 }
 
 // 变量管理状态
+const handleMobileAction = (action: string) => {
+    if (action === 'favorites') openFavoritesPage();
+    else if (action === 'history') historyManager.showHistory = true;
+    else if (action === 'templates') openTemplateManager();
+    else if (action === 'models') openModelManager();
+    else if (action === 'variables') handleOpenVariableManager();
+    else if (action === 'data') showDataManager.value = true;
+    else if (action === 'docs') openDocumentationSite();
+    else if (action === 'website') openOfficialWebsite();
+    else if (action === 'github') openGithubRepo();
+};
+watch(isCompact, (compact) => {
+    if (typeof document !== 'undefined') document.documentElement.classList.toggle('workspace-compact', compact);
+}, { immediate: true });
+watch([isCompact, keyboardViewportHeight, keyboardViewportTop], ([compact, height, top]) => {
+    if (typeof document === 'undefined') return;
+    const style = document.documentElement.style;
+    if (compact && height !== undefined) {
+        style.setProperty('--compact-viewport-height', `${height}px`);
+        style.setProperty('--compact-viewport-top', `${top}px`);
+    } else {
+        style.removeProperty('--compact-viewport-height');
+        style.removeProperty('--compact-viewport-top');
+    }
+}, { immediate: true });
 const showVariableManager = ref(false);
 const focusVariableName = ref<string | undefined>(undefined);
 
@@ -1659,9 +1720,39 @@ const saveSessionForTargetKey = async (targetKey: string) => {
     await session.saveSession();
 };
 
+// Mobile-only safeguard; retain the existing desktop history/favorite flow.
+const beforeApplyToWorkspace = async (targetKey: string) => {
+    if (!isCompact.value) return true;
+    if (targetKey === 'pro-multi' || targetKey === 'pro-variable' ||
+        targetKey === 'image-text2image' || targetKey === 'image-image2image' ||
+        targetKey === 'image-multiimage') {
+        useWorkspaceViewState(targetKey).resetView();
+        return true;
+    }
+    if (targetKey !== 'basic-system' && targetKey !== 'basic-user') return true;
+    const session = targetKey === 'basic-system' ? basicSystemSession : basicUserSession;
+    let savedPrompt = '';
+    let savedOriginal = '';
+    if (session.versionId && services.value?.historyManager) {
+        try {
+            const record = await services.value.historyManager.getRecord(session.versionId);
+            savedPrompt = record.optimizedPrompt || '';
+            savedOriginal = record.originalPrompt || '';
+        } catch { /* Missing history must not silently discard a draft. */ }
+    }
+    const dirty = (session.optimizedPrompt || '') !== savedPrompt || (session.prompt || '') !== savedOriginal;
+    if (dirty && !(await confirmDialog.warning({
+        title: t('common.warning'), content: t('prompt.unsavedChangesConfirm'),
+        positiveText: t('common.confirm'), negativeText: t('common.cancel'),
+    }))) return false;
+    useWorkspaceViewState(targetKey === 'basic-system' ? 'system' : 'user').resetView();
+    return true;
+};
+
 // App 级别历史记录恢复
 const { handleHistoryReuse } = useAppHistoryRestore({
     services: servicesForHistoryRestore,
+    beforeApplyToWorkspace,
     navigateToSubModeKey: navigateToSubModeKeyCompat,  // 🔧 Step D: 替代旧的 setFunctionMode/set*SubMode
     handleContextModeChange,
     handleSelectHistory: promptHistory.handleSelectHistory,
@@ -1683,6 +1774,7 @@ const {
     handleSaveFavoriteComplete,
     handleUseFavorite,
 } = useAppFavorite({
+    beforeApplyToWorkspace,
     navigateToSubModeKey: navigateToSubModeKeyCompat,  // 🔧 Step D: 替代旧的 setFunctionMode/set*SubMode
     handleContextModeChange,
     optimizerPrompt,
@@ -2271,8 +2363,41 @@ let autoSaveIntervalId: number | null = null
 // Services 初始化超时定时器
 let initTimeoutId: number | null = null
 
+const compactAutosave = useCompactSessionAutosave({
+  enabled: computed(() => isCompact.value && isReady.value),
+  subscribe: sessionManager.subscribeToSessionChanges,
+  save: () => sessionManager.isSwitching
+    ? Promise.resolve(false)
+    : sessionManager.saveSubModeSession(sessionManager.getActiveSubModeKey()),
+});
+
+// Optional Web/PWA host API. No service worker or browser update state enters UI stores.
+const isWorkspaceBusy = () => !isReady.value || sessionManager.isSwitching ||
+  !!activeWorkspaceRef.value?.isUpdateBusy?.();
+const prepareSessionRestore = async (): Promise<(() => void) | null> => {
+  if (isWorkspaceBusy()) return null;
+  const resume = await sessionManager.beginSessionRestore();
+  if (isWorkspaceBusy()) { resume(); return null; }
+  compactAutosave.cancelPending();
+  return resume;
+};
+const prepareForUpdate = createAppUpdatePreparation({
+  isBusy: () => isWorkspaceBusy() || sessionManager.isRestoring || hasCompactModalLayers() ||
+    modelManager.showConfig || templateManagerState.showTemplates || historyManager.showHistory ||
+    showDataManager.value || showFavoriteManager.value || showSaveFavoriteDialog.value ||
+    showVariableManager.value || showToolManager.value || showContextEditor.value,
+  subscribeToChanges: sessionManager.subscribeToSessionChanges,
+  flush: async () => {
+    compactAutosave.cancelPending();
+    await nextTick();
+    return sessionManager.saveAllSessions();
+  },
+});
+defineExpose({ prepareForUpdate });
+
 // ⚠️ 具名函数：pagehide 事件处理器（Codex 建议）
 const handlePagehide = () => {
+  compactAutosave.cancelPending();
   // 注意：这里不能用 await，因为浏览器不会等异步完成
   sessionManager.saveAllSessions().catch(err => {
     console.error('[PromptOptimizerApp] Async save failed during pagehide:', err)
@@ -2282,6 +2407,7 @@ const handlePagehide = () => {
 // ⚠️ 具名函数：visibilitychange 事件处理器（Codex 建议）
 const handleVisibilityChange = () => {
   if (document.visibilityState === 'hidden') {
+    compactAutosave.cancelPending();
     sessionManager.saveAllSessions().catch(err => {
       console.error('[PromptOptimizerApp] Save failed during visibilitychange:', err)
     })

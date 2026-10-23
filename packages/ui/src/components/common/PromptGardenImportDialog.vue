@@ -30,8 +30,9 @@
 </template>
 
 <script setup lang="ts">
+import NModal from "./AdaptiveModal.vue"
 import { computed, ref } from 'vue'
-import { NInput, NModal } from 'naive-ui'
+import { NInput, } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import {
   parsePromptGardenImportInput,

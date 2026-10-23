@@ -1281,4 +1281,24 @@ describe('useAppFavorite', () => {
 
     consoleErrorSpy.mockRestore()
   })
+  it('does not navigate or overwrite a draft when applying a favorite is declined', async () => {
+    const navigate = vi.fn()
+    const clearWorkspace = vi.fn()
+    const prompt = ref('unsaved original')
+    const loading = ref(false)
+    const beforeApplyToWorkspace = vi.fn(async () => false)
+    const { handleUseFavorite } = useAppFavorite({
+      navigateToSubModeKey: navigate, beforeApplyToWorkspace,
+      handleContextModeChange: vi.fn(async () => {}), optimizerPrompt: prompt,
+      t: key => key, isLoadingExternalData: loading,
+      basicSystemSession: { clearWorkspace, updateAssetBinding: vi.fn() } as any,
+    })
+    expect(await handleUseFavorite({ content: 'replacement', functionMode: 'basic', optimizationMode: 'system' })).toBe(false)
+    expect(beforeApplyToWorkspace).toHaveBeenCalledWith('basic-system')
+    expect(navigate).not.toHaveBeenCalled()
+    expect(clearWorkspace).not.toHaveBeenCalled()
+    expect(prompt.value).toBe('unsaved original')
+    expect(loading.value).toBe(false)
+  })
+
 })

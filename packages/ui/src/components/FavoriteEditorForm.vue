@@ -1,8 +1,8 @@
 <template>
-  <div class="favorite-editor-form" :class="{ 'favorite-editor-form--embedded': embedded }">
+  <div class="favorite-editor-form" :class="{ 'favorite-editor-form--embedded': embedded, 'favorite-editor-form--compact': isCompact }">
     <NScrollbar class="favorite-editor-form__scroll">
       <div class="favorite-editor-form__content">
-        <NSpace vertical :size="16">
+        <NSpace vertical :size="isCompact ? 10 : 16">
           <NAlert
             v-if="pendingChangeMessages.length > 0"
             type="info"
@@ -29,14 +29,17 @@
             :changed="isBasicInfoChanged"
           >
             <template #headerExtra>
+              <NButton v-if="isCompact" text size="small" :aria-expanded="metadataExpanded" @click="metadataExpanded = !metadataExpanded">
+                {{ t('favorites.manager.preview.extraTitle') }}
+              </NButton>
               <NTag v-if="isBasicInfoChanged" size="small" type="warning" :bordered="false">
                 {{ t('favorites.dialog.changed') }}
               </NTag>
             </template>
             <NForm label-placement="top">
-              <NGrid :cols="isMobile ? 1 : 2" :x-gap="16">
-                <NGridItem>
-                  <NFormItem :label="t('favorites.dialog.titleLabel')" required>
+              <NGrid :cols="2" :x-gap="isCompact ? 8 : 16">
+                <NGridItem :span="isCompact ? 2 : 1">
+                  <NFormItem :show-feedback="!isCompact" :label="t('favorites.dialog.titleLabel')" required>
                     <NInput
                       data-testid="favorite-editor-title"
                       v-model:value="formData.title"
@@ -47,8 +50,8 @@
                   </NFormItem>
                 </NGridItem>
 
-                <NGridItem>
-                  <NFormItem :label="t('favorites.dialog.categoryLabel')">
+                <NGridItem v-show="!isCompact || metadataExpanded" :span="isCompact ? 2 : 1">
+                  <NFormItem :show-feedback="!isCompact" :label="t('favorites.dialog.categoryLabel')">
                     <CategoryTreeSelect
                       v-model="formData.category"
                       :placeholder="t('favorites.dialog.categoryPlaceholder')"
@@ -58,7 +61,7 @@
                 </NGridItem>
 
                 <NGridItem>
-                  <NFormItem :label="t('favorites.dialog.functionModeLabel')" required>
+                  <NFormItem :show-feedback="!isCompact" :label="t('favorites.dialog.functionModeLabel')" required>
                     <NSelect
                       v-model:value="formData.functionMode"
                       :options="functionModeOptions"
@@ -69,7 +72,7 @@
                 </NGridItem>
 
                 <NGridItem>
-                  <NFormItem
+                  <NFormItem :show-feedback="!isCompact"
                     v-if="formData.functionMode === 'basic' || formData.functionMode === 'context'"
                     :label="t('favorites.dialog.optimizationModeLabel')"
                   >
@@ -81,7 +84,7 @@
                     />
                   </NFormItem>
 
-                  <NFormItem
+                  <NFormItem :show-feedback="!isCompact"
                     v-else
                     :label="t('favorites.dialog.imageModeLabel')"
                   >
@@ -95,7 +98,7 @@
                 </NGridItem>
               </NGrid>
 
-              <NFormItem :label="t('favorites.dialog.descriptionLabel')">
+              <NFormItem :show-feedback="!isCompact" v-show="!isCompact || metadataExpanded" :label="t('favorites.dialog.descriptionLabel')">
                 <NInput
                   data-testid="favorite-editor-description"
                   v-model:value="formData.description"
@@ -107,7 +110,7 @@
                 />
               </NFormItem>
 
-              <NFormItem :label="t('favorites.dialog.tagsLabel')">
+              <NFormItem :show-feedback="!isCompact" v-show="!isCompact || metadataExpanded" :label="t('favorites.dialog.tagsLabel')">
                 <div class="favorite-editor-form__tag-field">
                   <NSpace v-if="formData.tags.length > 0" :size="[8, 8]" class="favorite-editor-form__tag-list">
                     <NTag
@@ -137,6 +140,7 @@
 
           <FavoriteSurfaceSection
             :title="t('favorites.dialog.imagesLabel')"
+            :collapsible="isCompact"
             variant="media"
             :changed="isMediaChanged"
           >
@@ -271,6 +275,7 @@
           <FavoriteSurfaceSection
             v-if="promptAsset"
             :title="t('favorites.version.title')"
+            :collapsible="isCompact"
           >
             <template #headerExtra>
               <NSpace :size="6" align="center" wrap>
@@ -298,6 +303,7 @@
 
           <FavoriteSurfaceSection
             :title="t('favorites.dialog.reproducibility.variables')"
+            :collapsible="isCompact"
             :changed="isReproducibilityVariablesChanged"
           >
             <template #headerExtra>
@@ -324,6 +330,7 @@
 
           <FavoriteSurfaceSection
             :title="t('favorites.dialog.reproducibility.examples')"
+            :collapsible="isCompact"
             :changed="isReproducibilityExamplesChanged || hasAddedReviewExamples"
           >
             <template #headerExtra>
@@ -395,6 +402,7 @@ import {
 import { useI18n } from 'vue-i18n'
 import type { FavoritePrompt, PromptContentVersion } from '@prompt-optimizer/core'
 
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
 import { useToast } from '../composables/ui/useToast'
 import { useTagSuggestions } from '../composables/ui/useTagSuggestions'
 import type { AppServices } from '../types/services'
@@ -433,6 +441,8 @@ import AppPreviewImage from './media/AppPreviewImage.vue'
 import AppPreviewImageGroup from './media/AppPreviewImageGroup.vue'
 
 const { t } = useI18n()
+const { isCompact } = useWorkspaceLayout()
+const metadataExpanded = ref(false)
 const { filterTags, loadTags } = useTagSuggestions()
 
 interface Props {
@@ -589,6 +599,21 @@ const pendingChangeMessages = computed(() => {
   }
   return messages
 })
+
+// Read by the hosting mobile dialog; desktop close semantics stay with its host.
+const hasUnsavedChanges = computed(() => {
+  if (props.mode === 'edit') {
+    return isBasicInfoChanged.value || isContentChanged.value || isMediaChanged.value || isReproducibilityChanged.value
+  }
+  return Boolean(
+    formData.title || formData.content || formData.description || formData.category ||
+    formData.tags.length || mediaDraft.sources.length ||
+    reproducibilityVariables.value.length || reproducibilityExamples.value.length ||
+    formData.functionMode !== 'basic' || formData.optimizationMode !== 'system' ||
+    formData.imageSubMode !== undefined,
+  )
+})
+defineExpose({ hasUnsavedChanges, saving })
 
 const tagSuggestions = computed(() => {
   const suggestions = filterTags(tagInputValue.value, formData.tags)
@@ -1593,5 +1618,27 @@ onBeforeUnmount(() => {
   .favorite-editor-form__actions {
     padding: 14px 16px;
   }
+}
+
+.favorite-editor-form--compact .favorite-editor-form__content,
+.favorite-editor-form--compact.favorite-editor-form--embedded .favorite-editor-form__content {
+  padding: 10px;
+}
+.favorite-editor-form--compact .favorite-editor-form__actions {
+  padding: 8px 10px;
+}
+.favorite-editor-form--compact :deep(.favorite-surface-section > .n-card-header) {
+  min-height: 0;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+.favorite-editor-form--compact :deep(.n-card-content) {
+  padding: 10px;
+}
+.favorite-editor-form--compact :deep(.n-form-item) {
+  --n-blank-height: 34px;
+}
+.favorite-editor-form--compact .favorite-editor-form__media-grid {
+  gap: 8px;
 }
 </style>

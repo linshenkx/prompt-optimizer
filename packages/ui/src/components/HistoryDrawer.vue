@@ -1,6 +1,8 @@
 <template>
   <NModal
     :show="show"
+    compact-class="history-manager--compact"
+    :auto-focus="!isCompact"
     preset="card"
     :style="{ width: '90vw', maxWidth: '1200px', maxHeight: '85vh' }"
     :title="t('history.title')"
@@ -9,7 +11,7 @@
     :segmented="true"
     @update:show="(value: boolean) => !value && close()"
   >
-    <template #header-extra>
+    <template v-if="!isCompact" #header-extra>
       <NSpace align="center" :size="12">
         <NInput
           v-model:value="searchQuery"
@@ -33,7 +35,31 @@
       </NSpace>
     </template>
 
-    <NScrollbar style="max-height: 65vh;">
+    <div v-if="isCompact" class="mobile-history" data-testid="mobile-history-list">
+      <div class="mobile-history-filters">
+        <NInput v-model:value="searchQuery" :placeholder="t('history.searchPlaceholder')" clearable :aria-label="t('common.search')" />
+        <NSelect v-model:value="mobileModeFilter" :options="mobileModeOptions" :placeholder="t('workspace.switchMode')" clearable :aria-label="t('workspace.switchMode')" />
+      </div>
+      <div class="mobile-history-list-actions">
+        <NText depth="3">{{ t('history.title') }} · {{ mobileHistory.length }}</NText>
+        <NButton v-if="sortedHistory.length" quaternary size="small" @click="handleClear">{{ t('common.clear') }}</NButton>
+      </div>
+      <article v-for="chain in mobileHistory" :key="chain.chainId" class="mobile-history-row">
+        <button class="mobile-history-open" type="button" @click="openMobileChain(chain)">
+          <span class="mobile-history-row-meta">
+            <strong>{{ getMobileModeLabel(chain) }}</strong>
+            <span>{{ t('common.version', { version: chain.currentRecord.version }) }}</span>
+          </span>
+          <span class="mobile-history-summary">{{ chain.rootRecord.originalPrompt }}</span>
+          <time>{{ formatDate(chain.currentRecord.timestamp) }}</time>
+        </button>
+        <NDropdown trigger="click" :options="[{ key: 'delete', label: t('common.delete') }]" @select="deleteChain(chain.chainId)">
+          <NButton quaternary size="small" :aria-label="t('common.actions')">···</NButton>
+        </NDropdown>
+      </article>
+      <NEmpty v-if="!mobileHistory.length" :description="t('history.noHistory')" />
+    </div>
+    <NScrollbar v-else style="max-height: 65vh;">
       <NSpace vertical :size="16" v-if="sortedHistory && sortedHistory.length > 0">
         <NCard
           v-for="chain in filteredHistory"
@@ -215,20 +241,60 @@
         </template>
       </NEmpty>
     </NScrollbar>
+
+    <!-- A separate presentation layer keeps the list mounted, including its scroll position. -->
+    <NModal
+      :show="show && isCompact && !!mobileChain"
+      preset="card"
+      compact-class="mobile-history-detail"
+      :auto-focus="false"
+      @update:show="(value: boolean) => !value && (mobileChainId = null)"
+    >
+      <template #header>
+        <NButton text @click="mobileChainId = null">‹ {{ t('history.title') }}</NButton>
+      </template>
+      <template #header-extra>
+        <NSelect v-model:value="mobileVersionId" :options="mobileVersionOptions" :aria-label="t('workspace.promptVersion')" />
+      </template>
+      <div v-if="mobileChain && mobileRecord" class="mobile-history-content" data-testid="mobile-history-detail">
+        <div class="mobile-history-record-meta">
+          <span>{{ mobileRecord.modelName || mobileRecord.modelKey }}</span>
+          <time>{{ formatDate(mobileRecord.timestamp) }}</time>
+        </div>
+        <SourceAssetBadge v-if="getChainSource(mobileChain)" :source="getChainSource(mobileChain)!" />
+        <details class="mobile-history-original">
+          <summary>{{ t('promptOptimizer.originalPrompt') }}</summary>
+          <pre>{{ mobileChain.rootRecord.originalPrompt }}</pre>
+        </details>
+        <details v-if="mobileRecord.iterationNote" class="mobile-history-original">
+          <summary>{{ t('history.iterationNote') }}</summary>
+          <pre>{{ mobileRecord.iterationNote }}</pre>
+        </details>
+        <pre class="mobile-history-body">{{ mobileRecord.optimizedPrompt }}</pre>
+      </div>
+      <template #footer>
+        <div v-if="mobileChain && mobileRecord" class="mobile-history-restore">
+          <span>{{ t('workspace.title') }} · {{ getMobileModeLabel(mobileChain, mobileRecord) }}</span>
+          <NButton type="primary" @click="reuse(mobileRecord, mobileChain)">{{ t('history.useThisVersion') }}</NButton>
+        </div>
+      </template>
+    </NModal>
   </NModal>
 </template>
 
 <script setup lang="ts">
+import NModal from "./common/AdaptiveModal.vue"
 import { ref, watch, computed, type PropType } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import {
-  NModal, NScrollbar, NSpace, NCard, NText, NTag, NButton, 
-  NDivider, NCollapse, NCollapseItem, NEmpty, NInput
+   NScrollbar, NSpace, NCard, NText, NTag, NButton,
+  NDivider, NCollapse, NCollapseItem, NEmpty, NInput, NSelect, NDropdown
 } from 'naive-ui'
 import type { PromptRecord, PromptRecordChain } from '@prompt-optimizer/core'
 import { useConfirmDialog } from '../composables/ui/useConfirmDialog'
 import { useToast } from '../composables/ui/useToast'
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
 import SourceAssetBadge from './source/SourceAssetBadge.vue'
 import { extractHistorySourceBinding } from '../utils/history-source-binding'
 import { resolveSourceAssetRef } from '../utils/source-asset'
@@ -242,6 +308,7 @@ const props = defineProps({
 })
 
 const { t } = useI18n()
+const { isCompact } = useWorkspaceLayout()
 
 const emit = defineEmits<{
   (e: 'update:show', value: boolean): void
@@ -260,6 +327,51 @@ const _toast = useToast()
 const confirmDialog = useConfirmDialog()
 const expandedVersions = ref<Record<string, boolean>>({})
 const searchQuery = ref('')
+const mobileModeFilter = ref<string | null>(null)
+const mobileChainId = ref<string | null>(null)
+const mobileVersionId = ref<string | null>(null)
+const mobileChain = computed(() => props.history.find(chain => chain.chainId === mobileChainId.value))
+const mobileRecord = computed(() => mobileChain.value?.versions.find(record => record.id === mobileVersionId.value)
+  ?? mobileChain.value?.currentRecord)
+const mobileVersionOptions = computed(() => (mobileChain.value?.versions ?? []).slice().reverse().map(record => ({
+  label: t('common.version', { version: record.version }), value: record.id,
+})))
+const mobileModeOptions = computed(() => [
+  { value: 'system', label: t('workspace.systemMode') },
+  { value: 'user', label: t('workspace.userMode') },
+  { value: 'multi', label: t('contextMode.optimizationMode.message') },
+  { value: 'variable', label: t('contextMode.optimizationMode.variable') },
+  { value: 'text2image', label: t('image.capability.text2image') },
+  { value: 'image2image', label: t('image.capability.image2image') },
+  { value: 'multiimage', label: t('imageMode.multiimage') },
+])
+
+// Match the existing restore destination, including old image records' metadata.
+const getMobileMode = (chain: PromptRecordChain, record = chain.currentRecord): string => {
+  const type = chain.rootRecord.type as string
+  if (type === 'userOptimize') return 'user'
+  if (type === 'conversationMessageOptimize') return 'multi'
+  if (type === 'contextUserOptimize') return 'variable'
+  if (type === 'contextSystemOptimize' || type === 'contextIterate') {
+    return chain.rootRecord.metadata?.optimizationMode === 'user' ? 'variable' : 'multi'
+  }
+  if (type === 'multiimageOptimize') return 'multiimage'
+  if (type === 'image2imageOptimize') return 'image2image'
+  if (type === 'text2imageOptimize') return 'text2image'
+  if (['imageOptimize', 'contextImageOptimize', 'imageIterate'].includes(type)) {
+    const metadata = record.metadata ?? chain.rootRecord.metadata
+    return metadata?.hasInputImage === true ? 'image2image' : 'text2image'
+  }
+  return type !== 'optimize' && chain.rootRecord.metadata?.optimizationMode === 'user' ? 'user' : 'system'
+}
+const getMobileModeLabel = (chain: PromptRecordChain, record = chain.currentRecord) =>
+  mobileModeOptions.value.find(option => option.value === getMobileMode(chain, record))?.label ?? ''
+const mobileHistory = computed(() => filteredHistory.value.filter(chain =>
+  !mobileModeFilter.value || getMobileMode(chain) === mobileModeFilter.value))
+const openMobileChain = (chain: PromptRecordChain) => {
+  mobileVersionId.value = chain.currentRecord.id
+  mobileChainId.value = chain.chainId
+}
 
 // --- Close Logic ---
 const close = () => {
@@ -318,6 +430,9 @@ watch(() => props.show, (newShow) => {
     // 关闭时重置所有展开状态和搜索词
     expandedVersions.value = {}
     searchQuery.value = ''
+    mobileModeFilter.value = null
+    mobileChainId.value = null
+    mobileVersionId.value = null
   }
 })
 
@@ -393,4 +508,113 @@ const deleteChain = async (chainId: string) => {
 </script>
 
 <style scoped>
+:global(.workspace-compact .history-manager--compact.adaptive-modal-page > .n-card-header),
+:global(.workspace-compact .mobile-history-detail.adaptive-modal-page > .n-card-header) {
+  padding: 10px 12px;
+  gap: 8px;
+}
+:global(.workspace-compact .history-manager--compact.adaptive-modal-page > .n-card-content),
+:global(.workspace-compact .mobile-history-detail.adaptive-modal-page > .n-card-content) {
+  padding: 12px !important;
+}
+:global(.workspace-compact .mobile-history-detail.adaptive-modal-page > .n-card__footer) {
+  padding: 10px 12px max(10px, env(safe-area-inset-bottom));
+}
+.mobile-history-filters {
+  display: grid;
+  gap: 8px;
+}
+.mobile-history-list-actions, .mobile-history-row-meta, .mobile-history-record-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mobile-history-list-actions {
+  margin: 4px 0;
+}
+.mobile-history-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  border-bottom: 1px solid var(--compact-border);
+}
+.mobile-history-open {
+  appearance: none;
+  border: 0;
+  padding: 12px 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  min-width: 0;
+  flex: 1;
+  cursor: pointer;
+  font: inherit;
+}
+.mobile-history-row-meta {
+  font-size: 12px;
+  color: var(--compact-muted);
+}
+.mobile-history-row-meta strong {
+  color: var(--compact-ink);
+  font-weight: 600;
+}
+.mobile-history-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+  margin: 6px 0;
+  font-size: 14px;
+}
+.mobile-history-open time, .mobile-history-record-meta {
+  color: var(--compact-muted);
+  font-size: 11px;
+}
+.mobile-history-row > :deep(.n-button) {
+  margin-top: 4px;
+}
+.mobile-history-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.mobile-history-original {
+  border-bottom: 1px solid var(--compact-border);
+  padding-bottom: 8px;
+}
+.mobile-history-original summary {
+  cursor: pointer;
+  color: var(--compact-muted);
+  font-size: 12px;
+}
+.mobile-history-content pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 0;
+}
+.mobile-history-original pre {
+  margin-top: 8px;
+  font-size: 13px;
+}
+.mobile-history-restore {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+.mobile-history-restore > span {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--compact-muted);
+}
+.mobile-history-restore > :deep(.n-button) {
+  flex-shrink: 0;
+}
 </style> 

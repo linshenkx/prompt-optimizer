@@ -1,11 +1,11 @@
 <template>
-  <div class="function-model-manager">
+  <div class="function-model-manager" :class="{ 'function-model-manager--compact': isCompact }">
     <NSpace vertical :size="12">
       <NCard embedded size="small" :bordered="false" class="function-config-card">
         <template #header>
           <NSpace justify="space-between" align="center" :size="8" class="section-header">
             <NText strong>{{ t('functionModel.evaluationModel') }}</NText>
-            <NTag size="small" type="default" round :bordered="false">
+            <NTag v-if="!isCompact" size="small" type="default" round :bordered="false">
               {{ t('modelManager.textModels') }}
             </NTag>
           </NSpace>
@@ -19,7 +19,7 @@
             {{ t('functionModel.evaluationModelUnavailable') }}
           </NText>
 
-          <NSpace align="center" :size="8" class="model-select-row">
+          <NSpace align="center" :size="8" class="model-select-row" item-class="function-model-select-item">
             <SelectWithConfig
               :model-value="evaluationModel || null"
               :options="evaluationModelOptions"
@@ -37,7 +37,7 @@
               @config="handleOpenModelManager"
               @update:model-value="handleEvaluationModelChange"
             />
-            <template v-if="selectedEvaluationModelInfo">
+            <template v-if="!isCompact && selectedEvaluationModelInfo">
               <NTag v-if="selectedEvaluationModelInfo.provider" size="small" type="default" round :bordered="false">
                 {{ selectedEvaluationModelInfo.provider }}
               </NTag>
@@ -53,7 +53,7 @@
         <template #header>
           <NSpace justify="space-between" align="center" :size="8" class="section-header">
             <NText strong>{{ t('functionModel.imageRecognitionModel') }}</NText>
-            <NTag size="small" type="default" round :bordered="false">
+            <NTag v-if="!isCompact" size="small" type="default" round :bordered="false">
               {{ t('modelManager.textModels') }}
             </NTag>
           </NSpace>
@@ -67,7 +67,7 @@
             {{ t('functionModel.imageRecognitionModelUnavailable') }}
           </NText>
 
-          <NSpace align="center" :size="8" class="model-select-row">
+          <NSpace align="center" :size="8" class="model-select-row" item-class="function-model-select-item">
             <SelectWithConfig
               :model-value="imageRecognitionModel || null"
               :options="imageRecognitionModelOptions"
@@ -84,7 +84,7 @@
               @config="handleOpenModelManager"
               @update:model-value="handleImageRecognitionModelChange"
             />
-            <template v-if="selectedImageRecognitionModelInfo">
+            <template v-if="!isCompact && selectedImageRecognitionModelInfo">
               <NTag v-if="selectedImageRecognitionModelInfo.provider" size="small" type="default" round :bordered="false">
                 {{ selectedImageRecognitionModelInfo.provider }}
               </NTag>
@@ -109,10 +109,12 @@ import { DataTransformer, OptionAccessors } from '../utils/data-transformer'
 import { getProviderDisplayName, getTextModelConfigDisplayName } from '../utils/provider-display'
 import type { AppServices } from '../types/services'
 import type { ModelSelectOption } from '../types/select-options'
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
 import { useToast } from '../composables/ui/useToast'
 import { formatErrorSummary } from '../utils/error'
 
 const { t } = useI18n()
+const { isCompact } = useWorkspaceLayout()
 const toast = useToast()
 
 // 获取服务
@@ -302,4 +304,10 @@ defineExpose({ refresh })
   flex: 1;
   max-width: 300px;
 }
+.function-model-manager--compact .function-config-card { border-radius: 12px; }
+.function-model-manager--compact .function-config-card :deep(> .n-card-header) { padding: 12px 12px 0; }
+.function-model-manager--compact .function-config-card :deep(> .n-card-content) { padding: 8px 12px 12px; }
+.function-model-manager--compact .section-hint { line-height: 1.6; }
+.function-model-manager--compact .model-select { min-width: 0; max-width: none; width: 100%; }
+.function-model-manager--compact :deep(.function-model-select-item) { width: 100%; min-width: 0; }
 </style>

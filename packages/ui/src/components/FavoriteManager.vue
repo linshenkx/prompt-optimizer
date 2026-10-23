@@ -20,8 +20,9 @@
 </template>
 
 <script setup lang="ts">
+import NModal from "./common/AdaptiveModal.vue"
 import { useI18n } from 'vue-i18n'
-import { NModal } from 'naive-ui'
+import { } from 'naive-ui'
 import type { FavoritePrompt } from '@prompt-optimizer/core'
 
 import FavoriteLibraryWorkspace from './FavoriteLibraryWorkspace.vue'

@@ -1,10 +1,10 @@
 <!-- 输入面板组件 - 纯Naive UI实现 -->
 <template>
-    <NSpace vertical :size="16">
+    <NSpace vertical :size="16" class="input-panel-stack" :class="{ 'input-panel--compact': compact }">
         <!-- 标题区域 -->
-        <NFlex justify="space-between" align="center" :wrap="false">
-            <NFlex align="center" :size="8">
-                <NText :depth="1" style="font-size: 18px; font-weight: 500">{{
+        <NFlex class="input-panel-heading" justify="space-between" align="center" :wrap="false">
+            <NFlex class="input-panel-heading-group" align="center" :size="8">
+                <NText class="input-panel-title" :depth="1" style="font-size: 18px; font-weight: 500">{{
                     label
                 }}</NText>
                 <!-- 🆕 帮助提示图标 -->
@@ -45,7 +45,7 @@
                     </div>
                 </NPopover>
             </NFlex>
-            <NFlex align="center" :size="12">
+            <NFlex class="input-panel-heading-group input-panel-heading-actions" align="center" :size="12">
                 <!-- 🆕 AI提取变量按钮（带文字） -->
                 <NButton
                     v-if="enableVariableExtraction && showExtractButton"
@@ -54,6 +54,8 @@
                     @click="$emit('extract-variables')"
                     :loading="extracting"
                     :disabled="extracting || !modelValue.trim()"
+                    :title="extracting ? $t('evaluation.variableExtraction.extracting') : $t('evaluation.variableExtraction.extractButton')"
+                    :aria-label="$t('evaluation.variableExtraction.extractButton')"
                     ghost
                     round
                 >
@@ -64,7 +66,7 @@
                             </svg>
                         </NIcon>
                     </template>
-                    {{ extracting ? $t('evaluation.variableExtraction.extracting') : $t('evaluation.variableExtraction.extractButton') }}
+                    <template v-if="!compact">{{ extracting ? $t('evaluation.variableExtraction.extracting') : $t('evaluation.variableExtraction.extractButton') }}</template>
                 </NButton>
                 <!-- 预览按钮 -->
                 <NButton
@@ -137,7 +139,7 @@
             :model-value="modelValue"
             @update:model-value="$emit('update:modelValue', $event)"
             :placeholder="placeholder"
-            :autosize="{ minRows: 4, maxRows: 12 }"
+            :autosize="compact ? { minRows: 2, maxRows: compactInputRows } : { minRows: 4, maxRows: 12 }"
             clearable
             show-count
             :data-testid="`${testIdPrefix}-input`"
@@ -154,24 +156,27 @@
         <!-- 原生输入框 (不支持变量提取) -->
         <NInput
             v-else
+            class="input-panel-primary-editor"
             :value="modelValue"
             @update:value="$emit('update:modelValue', $event)"
             type="textarea"
             :placeholder="placeholder"
             :rows="4"
-            :autosize="{ minRows: 4, maxRows: 12 }"
+            :resizable="!compact"
+            :autosize="compact ? { minRows: 2, maxRows: compactInputRows } : { minRows: 4, maxRows: 12 }"
             clearable
             show-count
             :data-testid="`${testIdPrefix}-input`"
         />
 
         <!-- 控制面板 -->
-        <NGrid :cols="24" :x-gap="8" responsive="screen">
+        <NGrid class="input-panel-controls" :cols="24" :x-gap="8" responsive="screen">
             <!-- 模型选择 -->
-            <NGridItem :span="6" :xs="24" :sm="6">
-                <NSpace vertical :size="8">
+            <NGridItem class="input-panel-control" :span="6" :xs="24" :sm="6">
+                <NSpace class="input-panel-field" item-class="input-panel-field-item" vertical :size="8">
                     <NFlex align="center" :size="6" :wrap="false" class="input-panel-label-row">
                         <NText
+                            class="input-panel-label"
                             :depth="2"
                             style="font-size: 14px; font-weight: 500; flex-shrink: 0;"
                             >{{ modelLabel }}</NText
@@ -183,9 +188,10 @@
             </NGridItem>
 
             <!-- 提示词模板选择 -->
-            <NGridItem v-if="templateLabel" :span="11" :xs="24" :sm="11">
-                <NSpace vertical :size="8">
+            <NGridItem class="input-panel-control" v-if="templateLabel" :span="11" :xs="24" :sm="11">
+                <NSpace class="input-panel-field" item-class="input-panel-field-item" vertical :size="8">
                     <NText
+                        class="input-panel-label"
                         :depth="2"
                         style="font-size: 14px; font-weight: 500"
                         >{{ templateLabel }}</NText
@@ -196,18 +202,19 @@
 
             <!-- 控制按钮组 -->
             <NGridItem
+                class="input-panel-control input-panel-secondary-actions"
                 :span="templateLabel ? 2 : 13"
                 :xs="24"
                 :sm="templateLabel ? 2 : 13"
             >
-                <NSpace vertical :size="8" align="end">
+                <NSpace class="input-panel-field" item-class="input-panel-field-item" vertical :size="8" align="end">
                     <slot name="control-buttons"></slot>
                 </NSpace>
             </NGridItem>
 
             <!-- 提交按钮区域 -->
-            <NGridItem :span="5" :xs="24" :sm="5" class="flex items-end">
-                <NSpace :size="8" justify="end" style="width: 100%">
+            <NGridItem :span="5" :xs="24" :sm="5" class="input-panel-control input-panel-submit flex items-end">
+                <NSpace class="input-panel-submit-actions" item-class="input-panel-submit-item" :size="8" justify="end" style="width: 100%">
                     <!-- 分析按钮（与优化同级） -->
                     <NButton
                         v-if="showAnalyzeButton"
@@ -225,11 +232,13 @@
                         type="primary"
                         size="medium"
                         :data-testid="`${testIdPrefix}-optimize-button`"
+                        :aria-label="compact ? buttonText : undefined"
+                        :aria-busy="compact ? loading : undefined"
                         @click="$emit('submit')"
                         :loading="loading"
                         :disabled="analyzeLoading || loading || disabled || !modelValue.trim()"
                     >
-                        {{ loading ? loadingText : buttonText }}
+                        {{ compact ? buttonText : loading ? loadingText : buttonText }}
                     </NButton>
                 </NSpace>
             </NGridItem>
@@ -252,6 +261,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
+const { compactInputRows } = useWorkspaceLayout()
 
 import {
     NInput,
@@ -279,6 +290,7 @@ import { VariableAwareInput } from "./variable-extraction";
  */
 
 interface Props {
+    compact?: boolean
     /** 输入框的值 */
     modelValue: string;
     /** 选中的模型 */
@@ -334,6 +346,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+    compact: false,
     placeholder: "",
     templateLabel: "",
     loading: false,

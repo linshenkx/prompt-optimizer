@@ -30,10 +30,11 @@ vi.mock('../../src/composables/ui/useToast', () => ({
   }),
 }))
 
-vi.mock('@vueuse/core', () => ({
+vi.mock('@vueuse/core', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@vueuse/core')>(),
   useElementSize: () => ({
-    width: { value: 1200 },
-    height: { value: 800 },
+    width: ref(1200),
+    height: ref(800),
   }),
 }))
 

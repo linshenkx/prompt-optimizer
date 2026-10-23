@@ -1,6 +1,6 @@
 <template>
   <FullscreenDialog v-model="internalVisible" :title="title || t('common.content')">
-    <NFlex vertical :wrap="false" style="flex: 1; min-height: 0; overflow: hidden;">
+    <NFlex vertical :wrap="false" class="output-fullscreen-layout" style="flex: 1; min-height: 0; overflow: hidden;">
       <NFlex vertical :wrap="false" style="flex: 1; min-height: 0; overflow: hidden;">
         <OutputDisplayCore
             ref="coreDisplayRef"

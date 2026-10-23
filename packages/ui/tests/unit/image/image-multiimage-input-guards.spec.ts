@@ -13,7 +13,8 @@ describe('image multiimage input UI guards', () => {
     const source = readWorkspaceSource()
 
     expect(source).toMatch(/ref="splitRootRef"/)
-    expect(source).toMatch(/:style="\{ gridTemplateColumns: `\$\{mainSplitLeftPct\}% 12px 1fr` \}"/)
+    // Keep the desktop split contract without forbidding a compact layout branch.
+    expect(source).toContain('`${mainSplitLeftPct}% 12px 1fr`')
     expect(source).toMatch(/class="split-divider"/)
     expect(source).toMatch(/@pointerdown="onSplitPointerDown"/)
     expect(source).toMatch(/@keydown="onSplitKeydown"/)

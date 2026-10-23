@@ -1,14 +1,14 @@
 <template>
-  <div class="favorite-import-panel">
+  <div class="favorite-import-panel" :class="{ 'favorite-import-panel--compact': isCompact }">
     <NScrollbar class="favorite-import-panel__scroll">
       <div class="favorite-import-panel__content">
-        <NSpace vertical :size="16">
+        <NSpace vertical :size="isCompact ? 12 : 16">
           <NCard
             size="small"
             :title="t('favorites.manager.importDialog.sourceLabel')"
             :segmented="{ content: true }"
           >
-            <NSpace vertical :size="16">
+            <NSpace vertical :size="isCompact ? 12 : 16">
               <NRadioGroup v-model:value="source">
                 <NSpace :size="16" align="center" wrap>
                   <NRadio value="file">{{ t('favorites.manager.importDialog.sourceFile') }}</NRadio>
@@ -97,9 +97,10 @@
               <NInput
                 v-else
                 v-model:value="rawJson"
+                data-testid="favorite-import-paste"
                 type="textarea"
                 :placeholder="t('favorites.manager.importDialog.pastePlaceholder')"
-                :autosize="{ minRows: 8, maxRows: 16 }"
+                :autosize="isCompact ? { minRows: 4, maxRows: 8 } : { minRows: 8, maxRows: 16 }"
               />
             </NSpace>
           </NCard>
@@ -111,7 +112,7 @@
             :segmented="{ content: true }"
           >
             <NRadioGroup v-model:value="mergeStrategy">
-              <NSpace vertical :size="12" class="favorite-import-panel__strategy-list">
+              <NSpace vertical :size="isCompact ? 6 : 12" class="favorite-import-panel__strategy-list">
                 <label class="favorite-import-panel__strategy-option">
                   <NRadio value="skip">{{ t('favorites.manager.importDialog.skipDuplicate') }}</NRadio>
                   <NText depth="3">{{ t('favorites.manager.importDialog.resultHintSkip') }}</NText>
@@ -133,8 +134,8 @@
 
     <div class="favorite-import-panel__actions">
       <NSpace justify="space-between" align="center" class="favorite-import-panel__action-row">
-        <NText depth="3">{{ mergeStrategyHint }}</NText>
-        <NSpace :size="8">
+        <NText v-if="!isCompact" depth="3">{{ mergeStrategyHint }}</NText>
+        <NSpace :size="8" class="favorite-import-panel__buttons">
           <NButton :disabled="importing" @click="$emit('cancel')">
             {{ t('favorites.manager.importDialog.cancel') }}
           </NButton>
@@ -171,6 +172,7 @@ import { useI18n } from 'vue-i18n'
 
 import { getEnvVar } from '@prompt-optimizer/core'
 import { useToast } from '../composables/ui/useToast'
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
 import type { AppServices } from '../types/services'
 import { getI18nErrorMessage } from '../utils/error'
 import { openExternalUrl } from '../utils/open-external-url'
@@ -187,6 +189,7 @@ import {
 } from '../utils/favorite-share-export'
 
 const { t } = useI18n()
+const { isCompact } = useWorkspaceLayout()
 const router = useRouter()
 const message = useToast()
 const services = inject<Ref<AppServices | null> | null>('services', null)
@@ -499,6 +502,53 @@ const handleImportConfirm = async () => {
 
 .favorite-import-panel__action-row {
   width: 100%;
+}
+
+.favorite-import-panel--compact .favorite-import-panel__content {
+  padding: 12px;
+}
+
+.favorite-import-panel--compact :deep(.n-card-header),
+.favorite-import-panel--compact :deep(.n-card__content) {
+  padding: 10px 12px;
+}
+
+.favorite-import-panel--compact .favorite-import-panel__upload {
+  padding: 8px 0;
+}
+
+.favorite-import-panel--compact .favorite-import-panel__strategy-option {
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.favorite-import-panel--compact .favorite-import-panel__strategy-option > .n-text {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.favorite-import-panel--compact .favorite-import-panel__actions {
+  padding: 8px 12px max(10px, env(safe-area-inset-bottom));
+}
+
+.favorite-import-panel--compact .favorite-import-panel__action-row {
+  justify-content: flex-end !important;
+  flex-direction: row;
+}
+
+.favorite-import-panel--compact .favorite-import-panel__buttons {
+  flex-wrap: nowrap !important;
+}
+
+.favorite-import-panel--compact .favorite-import-panel__garden-guide {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.favorite-import-panel--compact .favorite-import-panel__garden-guide .n-button {
+  grid-column: 1 / -1;
+  justify-self: start;
 }
 
 @media (max-width: 767px) {

@@ -1,6 +1,6 @@
 <template>
   <section class="favorites-page" data-testid="favorites-page">
-    <h1 class="favorites-page-heading">{{ t('favorites.page.title') }}</h1>
+    <h1 v-if="!isCompact" class="favorites-page-heading">{{ t('favorites.page.title') }}</h1>
 
     <FavoriteLibraryWorkspace
       layout="page"
@@ -8,7 +8,7 @@
       :initial-mode-filter="initialModeFilter"
       :use-favorite="handleUseFavorite"
     >
-      <template #toolbar-leading>
+      <template v-if="!isCompact" #toolbar-leading>
         <NButton
           secondary
           class="favorites-page-return"
@@ -34,6 +34,7 @@ import { ArrowBackUp } from '@vicons/tabler'
 import type { FavoritePrompt } from '@prompt-optimizer/core'
 
 import FavoriteLibraryWorkspace from '../FavoriteLibraryWorkspace.vue'
+import { useWorkspaceLayout } from '../../composables/ui/useWorkspaceLayout'
 import { router as routerInstance } from '../../router'
 import {
   DEFAULT_WORKSPACE_PATH,
@@ -43,6 +44,7 @@ import {
 import { favoritesPageActionsKey } from './favorites-page-context'
 
 const { t } = useI18n()
+const { isCompact } = useWorkspaceLayout()
 const actions = inject(favoritesPageActionsKey, null)
 
 type FavoriteInitialModeFilter =

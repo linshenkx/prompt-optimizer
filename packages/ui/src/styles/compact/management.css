@@ -1,0 +1,64 @@
+/* Compatibility rules for management-page shells and existing controls. Business compact lists, details, and forms own their styles in their SFCs. */
+
+.workspace-compact .adaptive-modal-page .model-card-actions {
+  flex-wrap: wrap;
+}
+
+.workspace-compact .favorites-page {
+  padding: 16px;
+  overflow: auto;
+}
+
+.workspace-compact .favorites-manager-toolbar-row {
+  flex-wrap: wrap;
+}
+
+.workspace-compact .favorites-manager-mode-filter {
+  overflow-x: auto;
+  max-width: 100%;
+  padding-bottom: 6px;
+}
+
+.workspace-compact .favorites-manager-search,
+.workspace-compact .favorites-manager-filters,
+.workspace-compact .favorites-manager-tag-select {
+  min-width: 0 !important;
+  width: 100% !important;
+}
+
+.workspace-compact .favorites-manager-shell--page {
+  height: auto;
+  min-height: 100%;
+}
+
+.workspace-compact .favorites-manager-shell--page .favorites-manager-content {
+  overflow: visible;
+}
+
+.workspace-compact .image-model-picker-row .image-model-picker-item {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.workspace-compact .image-model-picker-row .image-model-picker-item:has(> .image-model-select) {
+  flex: 1 1 100%;
+}
+
+.workspace-compact .image-model-picker-row .n-select {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+.workspace-compact .template-editor-modal.adaptive-modal-page > .n-card-header {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.workspace-compact .template-editor-modal.adaptive-modal-page > .n-card-header > .n-card-header__extra {
+  grid-row: 1;
+  grid-column: 2;
+}
+
+.workspace-compact .template-editor-modal.adaptive-modal-page > .n-card-header > .n-base-close {
+  grid-column: 3;
+}

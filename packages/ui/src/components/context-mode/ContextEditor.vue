@@ -1,5 +1,6 @@
 <template>
-    <NModal
+    <AdaptiveModal
+        class="context-editor-modal"
         v-model:show="localVisible"
         preset="card"
         :title="modalTitle"
@@ -322,7 +323,7 @@
                 </NSpace>
             </NSpace>
         </template>
-    </NModal>
+    </AdaptiveModal>
 
     <!-- 导入对话框 -->
     <ImportExportDialog
@@ -344,7 +345,7 @@
     />
 
     <!-- 变量编辑对话框 -->
-    <NModal
+    <AdaptiveModal
         v-model:show="variableEditState.show"
         preset="card"
         :title="
@@ -446,7 +447,7 @@
                 </NButton>
             </NSpace>
         </template>
-    </NModal>
+    </AdaptiveModal>
 
     <!-- 实时区域用于屏幕阅读器 -->
     <div
@@ -472,6 +473,7 @@
 </template>
 
 <script setup lang="ts">
+import AdaptiveModal from '../common/AdaptiveModal.vue'
 import {
     ref,
     computed,
@@ -484,7 +486,7 @@ import {
 
 import { useI18n } from "vue-i18n";
 import {
-    NModal,
+
     NCard,
     NButton,
     NSpace,
@@ -498,6 +500,7 @@ import {
     NRadio,
 } from "naive-ui";
 import { useResponsive } from "../../composables/ui/useResponsive";
+import { useWorkspaceLayout } from "../../composables/ui/useWorkspaceLayout";
 import { usePerformanceMonitor } from "../../composables/performance/usePerformanceMonitor";
 import { useDebounceThrottle } from '../../composables/performance/useDebounceThrottle';
 import { useAccessibility } from "../../composables/accessibility/useAccessibility";
@@ -521,6 +524,7 @@ import {
 
 const { t } = useI18n();
 const toast = useToast();
+const { isCompact } = useWorkspaceLayout();
 
 // 性能监控
 const { recordUpdate } = usePerformanceMonitor("ContextEditor");
@@ -802,7 +806,7 @@ const moveMessage = (index: number, direction: number) => {
     }
 };
 
-const handleMessageUpdate = debounce(
+const handleDebouncedMessageUpdate = debounce(
     (index: number, message: ConversationMessage) => {
         batchStateUpdate(() => {
             localState.value.messages[index] = { ...message };
@@ -813,6 +817,21 @@ const handleMessageUpdate = debounce(
     false,
     "messageUpdate",
 );
+
+const handleMessageUpdate = (index: number, message: ConversationMessage) => {
+    if (!isCompact.value) {
+        handleDebouncedMessageUpdate(index, message);
+        return;
+    }
+    // The compact editor keeps Save within reach: a paste followed by Save
+    // must include the final edit, even before the desktop debounce expires.
+    localState.value = {
+        ...localState.value,
+        messages: localState.value.messages.map((item, i) => i === index ? { ...message } : item),
+    };
+    recordUpdate();
+    handleStateChange();
+};
 
 // 变量提取处理
 const handleVariableExtracted = (data: {

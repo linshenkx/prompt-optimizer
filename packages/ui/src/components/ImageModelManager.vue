@@ -7,7 +7,49 @@
       </template>
     </NEmpty>
 
-    <!-- 模型列表 -->
+    <!-- Presentation changes do not recreate the manager or its test results. -->
+    <div v-else-if="isCompact" class="image-model-mobile-list">
+      <NInput v-model:value="searchQuery" :placeholder="t('common.search')" :aria-label="t('common.search')" clearable />
+      <NEmpty v-if="filteredConfigs.length === 0" :description="t('common.noContent')" />
+      <MobileModelRow
+        v-for="config in filteredConfigs"
+        :key="config.id"
+        :title="config.name || config.id"
+        :subtitle="`${providerDisplayName(config)} · ${config.model?.name || config.modelId}`"
+        :enabled="config.enabled"
+        :testing="isTestingConnectionFor(config.id)"
+        :test-disabled="isTestingConnectionFor(config.id)"
+        :test-label="t('common.test')"
+        :menu-options="mobileActions(config)"
+        @edit="editConfig(config.id)"
+        @test="testConnection(config.id)"
+        @action="handleMobileAction($event, config)"
+      >
+        <div class="image-model-mobile-capabilities">
+          <NText v-if="config.model?.capabilities?.text2image" depth="3">{{ t('image.capability.text2image') }}</NText>
+          <NText v-if="config.model?.capabilities?.image2image" depth="3">{{ t('image.capability.image2image') }}</NText>
+          <NText v-if="config.provider?.corsRestricted && !isElectronEnv" type="warning">{{ t('modelManager.corsRestrictedTag') }}</NText>
+        </div>
+        <template v-if="testResults[config.id]" #test-result>
+          <div class="image-model-mobile-result" role="status">
+            <AppPreviewImage
+              v-if="testResults[config.id]?.success && testResults[config.id]?.image"
+              :src="getPreviewImageSrc(config.id) || ''"
+              width="48"
+              height="48"
+              object-fit="cover"
+              :preview-disabled="false"
+              :alt="t('image.connection.testImagePreview')"
+            />
+            <NText :type="testResults[config.id].success ? 'success' : 'error'">
+              {{ t(testResults[config.id].success ? 'image.connection.testSuccess' : 'image.connection.testError') }}
+            </NText>
+          </div>
+        </template>
+      </MobileModelRow>
+    </div>
+
+    <!-- Desktop model list retains its existing presentation. -->
     <NSpace v-else vertical :size="12" class="image-model-stack">
       <NCard
         v-for="config in configs"
@@ -163,11 +205,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, inject, h } from 'vue'
+import { ref, onMounted, inject, h, computed } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import {
-  NSpace, NCard, NText, NTag, NButton, NEmpty, useDialog
+  NSpace, NCard, NText, NTag, NButton, NEmpty, NInput, useDialog
 } from 'naive-ui'
 import { useImageModelManager } from '../composables/model/useImageModelManager'
 import { useConfirmDialog } from '../composables/ui/useConfirmDialog'
@@ -176,8 +218,11 @@ import { getI18nErrorMessage } from '../utils/error'
 import { isRunningInElectron, type IImageService, type ImageModel } from '@prompt-optimizer/core'
 import { getProviderDisplayName } from '../utils/provider-display'
 import AppPreviewImage from './media/AppPreviewImage.vue'
+import MobileModelRow from './common/MobileModelRow.vue'
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
 
 const { t } = useI18n()
+const { isCompact } = useWorkspaceLayout()
 const toast = useToast()
 const dialog = useDialog()
 const confirmDialog = useConfirmDialog()
@@ -216,6 +261,26 @@ const testResults = ref<Record<string, {
 const isTestingConnectionFor = (configId: string) => !!testingConnections.value[configId]
 const providerDisplayName = (config: { provider?: { id?: string; name?: string }; providerId?: string }) =>
   getProviderDisplayName(config.provider || { id: config.providerId }, t)
+
+const searchQuery = ref('')
+const filteredConfigs = computed(() => {
+  const query = searchQuery.value.trim().toLocaleLowerCase()
+  if (!query) return configs.value
+  return configs.value.filter(config => [config.name, config.id, config.modelId, config.model?.name, providerDisplayName(config)]
+    .some(value => value?.toLocaleLowerCase().includes(query)))
+})
+
+const mobileActions = (config: { enabled: boolean }) => [
+  { key: 'clone', label: t('modelManager.cloneModel') },
+  { key: 'toggle', label: t(config.enabled ? 'common.disable' : 'common.enable') },
+  { key: 'delete', label: t('common.delete') },
+]
+
+const handleMobileAction = (action: string, config: { id: string; enabled: boolean }) => {
+  if (action === 'clone') cloneConfig(config.id)
+  else if (action === 'toggle') void toggleConfig(config)
+  else if (action === 'delete') void deleteConfig(config.id)
+}
 
 // 辅助函数：根据模型能力选择测试类型
 const selectTestType = (model: ImageModel): 'text2image' | 'image2image' => {
@@ -400,6 +465,24 @@ defineExpose({
 <style scoped>
 .image-model-list {
   width: 100%;
+}
+
+.image-model-mobile-list {
+  display: grid;
+  gap: 10px;
+}
+
+.image-model-mobile-capabilities,
+.image-model-mobile-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 12px;
+}
+
+.image-model-mobile-result {
+  overflow-wrap: anywhere;
 }
 
 .image-model-stack {

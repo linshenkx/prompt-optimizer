@@ -1,34 +1,31 @@
 <template>
-    <div class="context-system-workspace" data-testid="workspace" data-mode="pro-multi">
+    <div :class="{ 'compact-two-region': isCompact }" class="context-system-workspace" data-testid="workspace" data-mode="pro-multi">
         <div class="workspace-page-tools">
-            <WorkspaceUtilityMenu
+            <Teleport defer to="#compact-workspace-tools" :disabled="!isCompact"><WorkspaceUtilityMenu :compact="isCompact"
                 :disabled="displayAdapter.displayedIsOptimizing.value || isIterating || isAnyVariantRunning"
                 :source="resolveSourceAssetRef(proMultiSession.origin, proMultiSession.assetBinding)"
                 test-id="pro-multi-workspace-utility-menu"
                 @clear="handleClearContent"
-            />
+            /></Teleport>
         </div>
         <div
             ref="splitRootRef"
-            class="context-system-split"
-            :style="{ gridTemplateColumns: `${mainSplitLeftPct}% 12px 1fr` }"
+            class="context-system-split compact-workspace-pane"
+            :style="{ gridTemplateColumns: isCompact ? 'minmax(0, 1fr)' : `${mainSplitLeftPct}% 12px 1fr` }"
         >
             <!-- 左侧：优化区域 -->
-            <div class="split-pane" style="min-width: 0; height: 100%; overflow: hidden;">
-                <NFlex
-                    vertical
-                    :style="{ overflow: 'auto', height: '100%', minHeight: 0 }"
-                    :size="12"
-                >
+            <div v-show="!isCompact || mobileRegion === 'optimize'" :class="{ 'compact-optimize-region': isCompact }" class="split-pane" style="min-width: 0; height: 100%; overflow: hidden;">
+                <OptimizeWorkspaceLayout ref="optimizeLayoutRef" :compact="isCompact" @scroll="rememberOptimizeScroll">
+    <template #original>
                     <!-- 会话管理器 (系统模式专属，也是消息输入界面) -->
-                    <TestSourceLinkedCard
+                    <TestSourceLinkedCard class="compact-original-card"
                         :style="{ flexShrink: 0, overflow: 'auto' }"
                         content-style="padding: 0;"
                         :feedback-key="sourceAreaFeedback.original.key"
                         :feedback-tone="sourceAreaFeedback.original.tone"
                         :source-tone="sourceAreaFeedback.original.sourceTone"
                     >
-                        <ConversationManager
+                        <ConversationManager ref="conversationManagerRef"
                             :messages="conversationMessages"
                             @update:messages="handleConversationMessagesUpdated"
                             @message-change="(index, message, action) => {
@@ -48,7 +45,7 @@
                             @open-tool-manager="handleOpenToolManager"
                             :enable-tool-management="true"
                             :collapsible="true"
-                            :max-height="300"
+                            :max-height="isCompact ? 0 : 300"
                             :selected-message-id="selectedMessageId"
                             :enable-message-optimization="enableMessageOptimization"
                             :is-message-optimizing="conversationOptimization.isOptimizing.value"
@@ -60,17 +57,17 @@
                     </TestSourceLinkedCard>
 
                     <!-- 优化控制区 -->
-                    <NCard :style="{ flexShrink: 0 }" size="small">
-                        <NFlex vertical :size="12">
+                    <NCard class="multi-optimize-controls" :style="{ flexShrink: 0 }" size="small">
+                        <NFlex class="multi-optimize-grid" vertical :size="12">
                             <!-- 模型和模板选择行 -->
-                            <NFlex :size="12" :wrap="false">
+                            <NFlex class="multi-optimize-selectors" :size="12" :wrap="false">
                                 <!-- 优化模型选择 -->
-                                <NFlex vertical :size="4" style="flex: 1">
+                                <NFlex class="multi-optimize-field" vertical :size="4" style="flex: 1">
                                     <NFlex align="center" :size="6" :wrap="false">
-                                        <NText :depth="3" style="font-size: 12px; flex-shrink: 0;">
+                                        <NText class="multi-optimize-label" :depth="3" style="font-size: 12px; flex-shrink: 0;">
                                             {{ $t('promptOptimizer.optimizeModel') }}
                                         </NText>
-                                        <TextModelQuickSwitch
+                                        <TextModelQuickSwitch v-if="!isCompact"
                                             :model-key="selectedOptimizeModelKeyModel"
                                             :options="modelSelection.textModelOptions.value"
                                             :refresh-models="modelSelection.refreshTextModels"
@@ -95,8 +92,8 @@
                                 </NFlex>
 
                                 <!-- 模板选择 -->
-                                <NFlex vertical :size="4" style="flex: 1">
-                                    <NText :depth="3" style="font-size: 12px">
+                                <NFlex class="multi-optimize-field" vertical :size="4" style="flex: 1">
+                                    <NText class="multi-optimize-label" :depth="3" style="font-size: 12px">
                                         {{ $t('promptOptimizer.templateLabel') }}
                                     </NText>
                                     <SelectWithConfig
@@ -124,14 +121,16 @@
                                 @click="handleOptimizeClick"
                                 block
                                 data-testid="pro-multi-optimize-button"
+                                :aria-label="isCompact ? t('promptOptimizer.optimize') : undefined"
                             >
-                                {{ displayAdapter.displayedIsOptimizing.value ? $t('common.loading') : $t('promptOptimizer.optimize') }}
+                                {{ displayAdapter.displayedIsOptimizing.value && !isCompact ? $t('common.loading') : $t('promptOptimizer.optimize') }}
                             </NButton>
                         </NFlex>
                     </NCard>
 
                     <!-- 优化结果面板 -->
-                    <TestSourceLinkedCard
+                    </template>
+    <template #workspace><TestSourceLinkedCard class="compact-result-card"
                         :style="{ flex: 1, minHeight: '200px', overflow: 'hidden' }"
                         content-style="height: 100%; max-height: 100%; overflow: hidden;"
                         :feedback-key="sourceAreaFeedback.workspace.key"
@@ -139,7 +138,7 @@
                         :source-tone="sourceAreaFeedback.workspace.sourceTone"
                     >
                         <template v-if="displayAdapter.isInMessageOptimizationMode.value">
-                            <PromptPanelUI
+                            <PromptPanelUI :mobile-layout="isCompact" :enable-evaluation="!isCompact"
                                 test-id="pro-multi"
                                 ref="promptPanelRef"
                                 :original-prompt="displayAdapter.displayedOriginalPrompt.value"
@@ -177,11 +176,11 @@
                                 size="large"
                             />
                         </template>
-                    </TestSourceLinkedCard>
-                </NFlex>
+                    </TestSourceLinkedCard></template>
+  </OptimizeWorkspaceLayout>
             </div>
 
-            <div
+            <div v-if="!isCompact"
                 class="split-divider"
                 role="separator"
                 tabindex="0"
@@ -193,10 +192,11 @@
             />
 
             <!-- 右侧：测试区域（变量共享 + 多列 variants） -->
-            <div ref="testPaneRef" class="split-pane" style="min-width: 0; height: 100%; overflow: hidden;">
-                <NFlex vertical :style="{ height: '100%', gap: '12px' }">
-                    <!-- 变量表单（共享所有列） -->
-                    <ConversationTestPanel
+            <div v-show="!isCompact || mobileRegion === 'test'" :class="{ 'compact-test-region': isCompact }" ref="testPaneRef" class="split-pane" style="min-width: 0; height: 100%; overflow: hidden;">
+                <VariantTestWorkspaceLayout ref="testLayoutRef" :compact="isCompact" v-model:config-expanded="testConfigExpanded"
+    :variants="mobileVariants" @run-all="runAllVariants"
+    @scroll="rememberTestScroll">
+    <template #input><ConversationTestPanel :compact="isCompact"
                         ref="testAreaPanelRef"
                         mode="variables-only"
                         :optimization-mode="optimizationMode"
@@ -209,14 +209,12 @@
                         @save-to-global="handleSaveToGlobal"
                         @temporary-variable-remove="handleVariableRemove"
                         @temporary-variables-clear="handleVariablesClear"
-                    />
-
-                    <!-- 顶部：列数与全局操作 -->
-                    <NCard size="small" :style="{ flexShrink: 0 }">
+                    /></template>
+    <template #global-controls><NCard class="test-global-controls" size="small" :style="{ flexShrink: 0 }">
                         <div class="test-area-top">
-                            <NFlex align="center" :size="8" :wrap="false" style="min-width: 0;">
+                            <NFlex class="test-group-count" align="center" :size="8" :wrap="false" style="min-width: 0;">
                                 <NText :depth="2" class="test-area-label">
-                                    {{ t('test.layout.columns') }}：
+                                    {{ t(isCompact ? 'workspace.testGroups' : 'test.layout.columns') }}：
                                 </NText>
                                 <NRadioGroup
                                     v-model:value="testColumnCountModel"
@@ -229,7 +227,7 @@
                                 </NRadioGroup>
                             </NFlex>
 
-                            <NFlex align="center" justify="end" :size="8" :wrap="false">
+                            <NFlex v-if="!isCompact" align="center" justify="end" :size="8" :wrap="false">
                                 <NButton
                                     type="primary"
                                     size="small"
@@ -276,7 +274,7 @@
                                         </template>
                                     </FocusAnalyzeButton>
                                 </template>
-                                <CompareHelpButton v-if="activeVariantIds.length >= 2" />
+                                <CompareHelpButton v-if="!isCompact && (activeVariantIds.length >= 2)" />
                                 <NTag
                                     v-if="compareToolbarStatus"
                                     size="small"
@@ -287,17 +285,15 @@
                                 </NTag>
                             </NFlex>
                         </div>
-                    </NCard>
-
-                    <!-- 配置区：与结果列对齐 -->
-                    <NCard size="small" :style="{ flexShrink: 0 }">
-                        <div class="variant-deck" :style="{ gridTemplateColumns: testGridTemplateColumns }">
-                            <div v-for="id in activeVariantIds" :key="id" class="variant-cell">
+                    </NCard></template>
+    <template #variant-controls><NCard class="test-variant-controls" size="small" :style="{ flexShrink: 0 }">
+                        <div class="variant-deck" :style="{ gridTemplateColumns: isCompact ? 'minmax(0, 1fr)' : testGridTemplateColumns }">
+                            <div  v-for="id in activeVariantIds" :key="id" class="variant-cell">
                                 <div
                                     class="variant-cell__controls"
                                     :class="{ 'variant-cell__controls--stacked': useStackedVariantControls }"
                                 >
-                                    <div class="variant-cell__meta">
+                                    <div v-if="!isCompact" class="variant-cell__meta">
                                         <TestVariantSourceTag
                                             class="variant-cell__label"
                                             :variant-label="getVariantLabel(id)"
@@ -306,15 +302,15 @@
                                             :labels="getTestPanelVersionLabels()"
                                             :feedback-key="variantSourceFeedback[id].key"
                                             :feedback-tone="variantSourceFeedback[id].tone"
-                                            @activate="activateVariantSource(id)"
+                                            @activate="isCompact ? previewMobileSource(id) : activateVariantSource(id)"
                                         />
                                         <CompareRoleBadge
-                                            v-if="activeVariantIds.length >= 2"
+                                            v-if="!isCompact && (activeVariantIds.length >= 2)"
                                             :entry="compareRoleEntryMap[id]"
                                             clickable
                                             @click="openCompareRoleConfig"
                                         />
-                                        <TextModelQuickSwitch
+                                        <TextModelQuickSwitch v-if="!isCompact"
                                             :model-key="variantModelKeyModels[id].value"
                                             :options="modelSelection.textModelOptions.value"
                                             :refresh-models="modelSelection.refreshTextModels"
@@ -323,14 +319,15 @@
                                     </div>
 
                                     <div class="variant-cell__actions">
-                                        <TestPanelVersionSelect
+                                        <button v-if="isCompact" type="button" class="test-config-group-label" :aria-label="t('workspace.viewPrompt') + ' ' + id.toUpperCase()" @click="previewMobileSource(id)">{{ id.toUpperCase() }}</button>
+                                        <div class="variant-cell__version"><NText v-if="isCompact" depth="2" class="test-settings-label">{{ t('workspace.promptVersion') }}</NText><TestPanelVersionSelect
                                             :value="variantVersionModels[id].value"
                                             :options="versionOptions"
                                             :disabled="variantRunning[id] || isAnyVariantRunning"
                                             :test-id="getVariantVersionTestId(id)"
                                             @update:value="(value) => handleVariantVersionChange(id, value)"
-                                        />
-                                        <div class="variant-cell__model">
+                                        /></div>
+                                        <div class="variant-cell__model"><NText v-if="isCompact" depth="2" class="test-settings-label">{{ t('test.model') }}</NText>
                                             <SelectWithConfig
                                                 :data-testid="getVariantModelTestId(id)"
                                                 :model-value="variantModelKeyModels[id].value"
@@ -351,7 +348,7 @@
                                             />
                                         </div>
 
-                                        <div class="variant-cell__run">
+                                        <div v-if="!isCompact" class="variant-cell__run">
                                             <ThemedTooltip :label="t('test.layout.runThisColumn')">
                                                 <NButton
                                                     type="primary"
@@ -374,11 +371,9 @@
                                 </div>
                             </div>
                         </div>
-                    </NCard>
-
-                    <!-- 结果区：多列网格（无横向滚动） -->
-                    <div class="variant-results-wrap">
-                        <div class="variant-results" :style="{ gridTemplateColumns: testGridTemplateColumns }">
+                    </NCard></template>
+    <template #results><div class="variant-results-wrap">
+                        <div class="variant-results" :style="{ gridTemplateColumns: isCompact ? 'repeat(2, minmax(0, 1fr))' : testGridTemplateColumns }">
                             <NCard
                                 v-for="id in activeVariantIds"
                                 :key="id"
@@ -386,6 +381,8 @@
                                 class="variant-result-card"
                                 content-style="padding: 0; height: 100%; max-height: 100%; overflow: hidden;"
                             >
+                                <MobileTestResultHeader v-if="isCompact" :variant="mobileVariants.find(item => item.id === id)!"
+                                  :busy="isAnyVariantRunning" @run="runVariant(id)" />
                                 <div class="result-container">
                                     <ToolCallDisplay
                                         v-if="variantToolCalls[id].length > 0"
@@ -395,7 +392,7 @@
                                     />
 
                                     <div class="result-body">
-                                        <OutputDisplay
+                                        <OutputDisplay :fit-content="isCompact"
                                             :test-id="getVariantOutputTestId(id)"
                                             :content="getVariantResult(id).result"
                                             :reasoning="getVariantResult(id).reasoning"
@@ -411,7 +408,7 @@
                                         >
                                             <template #toolbar-right-extra>
                                                 <div
-                                                    v-if="hasVariantResult(id)"
+                                                    v-if="!isCompact && (hasVariantResult(id))"
                                                     class="output-evaluation-entry"
                                                 >
                                                     <SaveTestResultExampleButton
@@ -463,10 +460,14 @@
                                 </div>
                             </NCard>
                         </div>
-                    </div>
-                </NFlex>
+                    </div></template>
+  </VariantTestWorkspaceLayout>
             </div>
         </div>
+    <WorkspaceRegionSwitch v-if="isCompact" v-model="mobileRegion" :optimizing="displayAdapter.displayedIsOptimizing.value" :testing="isAnyVariantRunning" />
+    <TestSourcePreview v-model:show="showMobileSource" :title="t('workspace.viewPrompt')" :content="mobileSourceContent"
+      :editable="mobileSourceEditable" @edit="editMobileSource" />
+
 
         <EvaluationPanel
             v-model:show="evaluation.isPanelVisible.value"
@@ -513,6 +514,13 @@
 </template>
 
 <script setup lang="ts">
+import OptimizeWorkspaceLayout from '../common/OptimizeWorkspaceLayout.vue'
+import VariantTestWorkspaceLayout from '../common/VariantTestWorkspaceLayout.vue'
+import MobileTestResultHeader from '../common/MobileTestResultHeader.vue'
+import WorkspaceRegionSwitch from '../common/WorkspaceRegionSwitch.vue'
+import TestSourcePreview from '../common/TestSourcePreview.vue'
+import { useWorkspacePresentation } from '../../composables/ui/useWorkspacePresentation'
+
 import {
     ref,
     reactive,
@@ -978,6 +986,11 @@ const refreshTemplatesHandler = async () => {
 
 // ==================== 主布局：可拖拽分栏（左侧 25%~50%） ====================
 
+const {
+    isCompact, mobileRegion, testConfigExpanded, optimizeLayoutRef, testLayoutRef,
+    rememberOptimizeScroll, rememberTestScroll,
+    showOptimization, showOptimizationSection, showTestResult, resetMobileView,
+  } = useWorkspacePresentation('pro-multi')
 const splitRootRef = ref<HTMLElement | null>(null)
 const testPaneRef = ref<HTMLElement | null>(null)
 
@@ -1143,7 +1156,7 @@ const mergedTestVariables = computed<Record<string, string>>(() => ({
 
 // 测试区宽度：用于禁用 4 列（避免横向滚动）
 const { width: testPaneWidth } = useElementSize(testPaneRef)
-const canUseFourColumns = computed(() => testPaneWidth.value >= 1000)
+const canUseFourColumns = computed(() => isCompact.value || testPaneWidth.value >= 1000)
 
 watch(
     canUseFourColumns,
@@ -1541,9 +1554,11 @@ const runVariant = async (
         evaluationHandler.clearBeforeTest()
     }
 
-    variantResults.value[id] = { result: '', reasoning: '' }
+    variantResults.value[id] = { result: '', reasoning: '', requestPrompt: formatConversationAsText(input.messages) }
     variantToolCalls[id] = []
+    showTestResult(id, !!opts?.silentSuccess)
     variantRunning[id] = true
+    const runFingerprint = getVariantFingerprint(id)
 
     try {
         await promptService.testCustomConversationStream(
@@ -1590,7 +1605,7 @@ const runVariant = async (
         return false
     } finally {
         variantRunning[id] = false
-        variantLastRunFingerprint.value[id] = getVariantFingerprint(id)
+        variantLastRunFingerprint.value[id] = runFingerprint
         if (opts?.persist !== false) {
             void proMultiSession.saveSession()
         }
@@ -2031,6 +2046,7 @@ const handleClearEvaluation = () => {
 }
 
 const handleClearContent = () => {
+    resetMobileView()
     conversationOptimization.clearContent()
     handleClearEvaluation()
     emit('update:optimizationContext', [])
@@ -2220,6 +2236,7 @@ const handleSaveLocalEdit = async (payload: { note?: string }) => {
 
 // 暴露引用
 defineExpose({
+  isUpdateBusy: () => conversationOptimization.isOptimizing.value || props.isIterating || isAnyVariantRunning.value,
     testAreaPanelRef,
     restoreFromHistory,
     openIterateDialog: (initialContent?: string) => {
@@ -2236,6 +2253,40 @@ defineExpose({
         conversationOptimization.restoreFromSessionStore();
     },
 });
+
+// The mobile shell shares the same prompt, variants and business actions as desktop.
+const mobileVariants = computed(() => activeVariantIds.value.map(id => {
+  const option = (modelSelection.textModelOptions.value).find(item => String(OptionAccessors.getValue(item)) === variantModelKeyModels[id].value)
+  return {
+    id,
+    sourceLabel: String(versionOptions.value.find(item => item.value === variantVersionModels[id].value)?.label || ''),
+    modelLabel: option ? String(OptionAccessors.getPrimary(option)) : t('model.select.placeholder'),
+    running: variantRunning[id],
+    promptContent: variantResults.value[id].requestPrompt ?? formatConversationAsText(buildMessagesForSelection(variantVersionModels[id].value)),
+    hasPromptSnapshot: variantResults.value[id].requestPrompt !== undefined,
+
+  }
+}))
+const conversationManagerRef = ref<{ expand: () => void } | null>(null)
+const showMobileSource = ref(false)
+const mobileSourceContent = ref('')
+const mobileSourceEditable = ref(false)
+const mobileSourceView = ref<'original' | 'workspace'>('original')
+const previewMobileSource = (id: TestVariantId) => {
+  const selection = variantVersionModels[id].value
+  mobileSourceContent.value = formatConversationAsText(buildMessagesForSelection(selection))
+  mobileSourceEditable.value = selection === 'workspace' || selection === 0
+  mobileSourceView.value = selection === 'workspace' ? 'workspace' : 'original'
+  showMobileSource.value = true
+}
+const editMobileSource = async () => {
+  showMobileSource.value = false
+  if (mobileSourceView.value === 'original') { conversationManagerRef.value?.expand() }
+  await showOptimizationSection(mobileSourceView.value)
+}
+watch(() => displayAdapter.displayedIsOptimizing.value, (running, previous) => {
+  if (running && !previous) showOptimization()
+})
 </script>
 
 <style scoped>

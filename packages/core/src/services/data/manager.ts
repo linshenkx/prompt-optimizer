@@ -11,6 +11,7 @@ import {
   DataInvalidJsonError,
 } from './errors';
 import { stripErrorCodeMarkers, toErrorWithCode } from '../../utils/error';
+import { WorkspaceSessionTransfer } from './workspace-session-transfer';
 
 /**
  * 数据导入导出管理器
@@ -47,6 +48,7 @@ export class DataManager implements IDataManager {
   private historyManager: IHistoryManager;
   private preferenceService: IPreferenceService;
   private contextRepo: ContextRepo;
+  private workspaceSessions: WorkspaceSessionTransfer;
 
   constructor(
     modelManager: IModelManager,
@@ -62,6 +64,7 @@ export class DataManager implements IDataManager {
     this.historyManager = historyManager;
     this.preferenceService = preferenceService;
     this.contextRepo = contextRepo;
+    this.workspaceSessions = new WorkspaceSessionTransfer(preferenceService);
   }
 
   async exportAllData(): Promise<string> {
@@ -77,6 +80,7 @@ export class DataManager implements IDataManager {
       data['userTemplates'] = await this.templateManager.exportData();
       data['userSettings'] = await this.preferenceService.exportData();
       data['contexts'] = await this.contextRepo.exportData();
+      data['workspaceSessions'] = await this.workspaceSessions.exportData();
     } catch (error) {
       console.error('Failed to export data:', error);
       if (typeof (error as any)?.code === 'string') {
@@ -117,7 +121,7 @@ export class DataManager implements IDataManager {
       dataToImport = exportData.data;
     }
     // Old format: direct data object { history: [...], models: [...], ... }
-    else if (exportData.history || exportData.models || exportData.imageModels || exportData.userTemplates || exportData.userSettings || exportData.contexts) {
+    else if (exportData.history || exportData.models || exportData.imageModels || exportData.userTemplates || exportData.userSettings || exportData.contexts || exportData.workspaceSessions) {
       dataToImport = exportData;
     }
     else {
@@ -126,6 +130,12 @@ export class DataManager implements IDataManager {
 
     const errors: string[] = [];
 
+    // Fail before importing any section when workspace data cannot be restored
+    // safely. Old backups without this section continue to leave drafts intact.
+    if (dataToImport.workspaceSessions !== undefined) {
+      this.workspaceSessions.assertValidData(dataToImport.workspaceSessions);
+    }
+
     // 使用各服务的importData接口
     const serviceMap = [
       { service: this.historyManager, dataKey: 'history' },
@@ -133,10 +143,15 @@ export class DataManager implements IDataManager {
       ...(this.imageModelManager ? [{ service: this.imageModelManager, dataKey: 'imageModels' }] : []),
       { service: this.templateManager, dataKey: 'userTemplates' },
       { service: this.preferenceService, dataKey: 'userSettings' },
-      { service: this.contextRepo, dataKey: 'contexts' }
+      { service: this.contextRepo, dataKey: 'contexts' },
+      { service: this.workspaceSessions, dataKey: 'workspaceSessions' }
     ];
 
     for (const { service, dataKey } of serviceMap) {
+      // Workspace snapshots are the final commit. If an earlier service failed,
+      // the UI resumes its old in-memory sessions instead of reloading. Do not
+      // publish new snapshots that would then be overwritten by that autosave.
+      if (dataKey === 'workspaceSessions' && errors.length > 0) continue;
       if (dataToImport[dataKey] !== undefined) {
         try {
           await service.importData(dataToImport[dataKey]);

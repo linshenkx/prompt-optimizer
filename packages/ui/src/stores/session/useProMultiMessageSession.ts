@@ -9,6 +9,7 @@
  */
 
 import { defineStore } from 'pinia'
+import { runSessionWrite, type SessionWritePermit } from './sessionPersistence'
 import { ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { TEMPLATE_SELECTION_KEYS, type ConversationMessage, type PromptAssetBinding, type PromptSessionOrigin } from '@prompt-optimizer/core'
@@ -89,6 +90,8 @@ export interface TestVariantConfig {
 }
 
 export interface TestVariantResult {
+  /** Resolved prompt sent for this answer, independent of later edits. */
+  requestPrompt?: string
   result: string
   reasoning: string
 }
@@ -473,11 +476,14 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
   /**
    * 保存会话
    */
-  const saveSession = async () => {
+  const saveSession = (permit?: SessionWritePermit): Promise<boolean> =>
+    runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit)
+
+  const persistSession = async (): Promise<boolean> => {
     const $services = getPiniaServices()
     if (!$services?.preferenceService) {
       console.warn('[ProMultiMessageSession] PreferenceService is unavailable; cannot save session')
-      return
+      return false
     }
 
     try {
@@ -510,8 +516,10 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
         'session/v1/pro-multi',
         sessionState
       )
+      return true
     } catch (error) {
       console.error('[ProMultiMessageSession] Failed to save session:', error)
+      return false
     }
   }
 
@@ -609,7 +617,7 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
             const oneRecord = one as Record<string, unknown>
             const r = typeof oneRecord['result'] === 'string' ? (oneRecord['result'] as string) : ''
             const reasoning = typeof oneRecord['reasoning'] === 'string' ? (oneRecord['reasoning'] as string) : ''
-            return { result: r, reasoning }
+            return { result: r, reasoning, ...(typeof oneRecord['requestPrompt'] === 'string' ? { requestPrompt: oneRecord['requestPrompt'] } : {}) }
           }
 
           testVariantResults.value = {

@@ -21,6 +21,8 @@
     "@vitejs/plugin-vue": "^6.0.5",
     "jsdom": "^29.0.1",
     "vite": "^8.3.3",
-    "vitest": "^4.1.12"
+    "vite-plugin-pwa": "2.0.0",
+    "vitest": "^4.1.12",
+    "workbox-precaching": "7.4.1"
   }
 }

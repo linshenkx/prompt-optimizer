@@ -30,14 +30,16 @@ vi.mock('../../src/composables/ui/useToast', () => ({
   }),
 }))
 
-vi.mock('@vueuse/core', () => ({
+vi.mock('@vueuse/core', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@vueuse/core')>(),
   useElementSize: () => ({
     width: ref(1200),
     height: ref(800),
   }),
 }))
 
-vi.mock('naive-ui', () => {
+vi.mock('naive-ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('naive-ui')>()
   const passthrough = (name: string) => defineComponent({
     name,
     inheritAttrs: false,
@@ -46,6 +48,7 @@ vi.mock('naive-ui', () => {
   })
 
   return {
+    ...actual,
     NButton: defineComponent({
       name: 'NButton',
       emits: ['click'],

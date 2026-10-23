@@ -595,10 +595,10 @@ export function useImageModelManager() {
   }
 
   // 保存配置（优化版本：使用缓存的模型对象）
-  const saveConfig = async () => {
+  const saveConfig = async (): Promise<boolean> => {
     if (!configForm.value.name || !selectedProviderId.value || !selectedModelId.value) {
       toast.error(t('image.config.incomplete'))
-      return
+      return false
     }
 
     isSaving.value = true
@@ -646,10 +646,12 @@ export function useImageModelManager() {
 
       // 重置表单
       resetForm()
+      return true
 
     } catch (error) {
       console.error('Failed to save config:', error)
       toast.error(formatErrorSummary(t('image.config.saveFailed'), error))
+      return false
     } finally {
       isSaving.value = false
     }

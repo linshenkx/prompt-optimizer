@@ -611,16 +611,21 @@ export const restoreRemoteSnapshotBackup = async (
     prepared.report.restored += 1
   }
 
+  if (prepared.favoritesJson !== null && options.favoriteManager) {
+    options.onProgress?.({ phase: 'restore-write', item: FAVORITES_FILE_NAME })
+    const result = await options.favoriteManager.importFavorites(prepared.favoritesJson, {
+      mergeStrategy: options.favoriteMergeStrategy ?? 'overwrite',
+    })
+    if (result.errors.length > 0) {
+      throw new Error(`Favorites import failed: ${result.errors.join('; ')}`)
+    }
+  }
+
+  // Keep workspace snapshots as the last durable commit, matching local ZIP
+  // restore. A preceding failure must leave the old workspace safe to resume.
   if (prepared.appDataJson !== null) {
     options.onProgress?.({ phase: 'restore-write', item: APP_DATA_FILE_NAME })
     await options.dataManager.importAllData(prepared.appDataJson)
-  }
-
-  if (prepared.favoritesJson !== null && options.favoriteManager) {
-    options.onProgress?.({ phase: 'restore-write', item: FAVORITES_FILE_NAME })
-    await options.favoriteManager.importFavorites(prepared.favoritesJson, {
-      mergeStrategy: options.favoriteMergeStrategy ?? 'overwrite',
-    })
   }
 
   options.onProgress?.({

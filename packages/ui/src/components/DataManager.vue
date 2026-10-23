@@ -4,17 +4,37 @@
     preset="card"
     :style="dataManagerModalStyle"
     class="data-manager-modal"
-    :title="$t('dataManager.title')"
+    compact-class="data-manager--compact"
+    :title="isCompact ? undefined : t('dataManager.title')"
     size="large"
     :bordered="false"
     :segmented="true"
     @update:show="(value: boolean) => !value && close()"
   >
-    <div class="data-manager-scroll-shell">
-      <section class="data-manager-section data-manager-section--storage">
+    <template v-if="isCompact" #header>
+      <div class="data-manager-mobile-heading">
+        <NButton v-if="mobileTask" text size="small" data-testid="data-manager-task-back" :aria-label="t('dataManager.title')" @click="mobileTask = null">
+          <template #icon><NIcon><ArrowLeft /></NIcon></template>
+        </NButton>
+        <span>{{ modalTitle }}</span>
+      </div>
+    </template>
+    <div ref="scrollShell" class="data-manager-scroll-shell" :class="{ 'data-manager-scroll-shell--compact': isCompact }">
+      <div v-if="isCompact && !mobileTask" class="data-manager-task-list" data-testid="data-manager-tasks">
+        <NButton v-for="task in mobileTasks" :key="task.key" secondary class="data-manager-task"
+          :data-testid="`data-manager-task-${task.key}`" @click="mobileTask = task.key">
+          <span class="data-manager-task__copy">
+            <strong>{{ t(task.title) }}</strong>
+            <span>{{ t(task.description) }}</span>
+            <span v-if="task.key === 'remote' && remoteProgress.active">{{ remoteProgress.message }}</span>
+          </span>
+          <NIcon><ChevronRight /></NIcon>
+        </NButton>
+      </div>
+      <section v-show="!isCompact || mobileTask === 'storage'" class="data-manager-section data-manager-section--storage">
         <div class="section-heading">
           <div>
-            <NText tag="h3" :depth="1" strong class="section-title">
+            <NText v-if="!isCompact" tag="h3" :depth="1" strong class="section-title">
               {{ $t('dataManager.storage.title') }}
             </NText>
             <NText depth="3" class="section-description">
@@ -60,7 +80,7 @@
         </div>
       </section>
 
-      <section class="data-manager-section">
+      <section v-show="!isCompact || mobileTask === 'export' || mobileTask === 'import'" class="data-manager-section data-manager-section--local">
         <div class="section-heading">
           <div>
             <NText tag="h3" :depth="1" strong class="section-title">
@@ -73,9 +93,9 @@
         </div>
 
         <div class="local-transfer-panel">
-          <div class="local-transfer-row">
+          <div v-show="!isCompact || mobileTask === 'export'" class="local-transfer-row">
             <div class="local-transfer-copy">
-              <NText strong class="local-transfer-title">
+              <NText v-if="!isCompact" strong class="local-transfer-title">
                 {{ $t('dataManager.backupWorkspace.exportTitle') }}
               </NText>
               <NText depth="3" class="local-transfer-description">
@@ -116,11 +136,11 @@
             </NButton>
           </div>
 
-          <div class="local-transfer-divider" />
+          <div v-show="!isCompact" class="local-transfer-divider" />
 
-          <div class="local-transfer-row local-transfer-row--import">
+          <div v-show="!isCompact || mobileTask === 'import'" class="local-transfer-row local-transfer-row--import">
             <div class="local-transfer-copy">
-              <NText strong class="local-transfer-title">
+              <NText v-if="!isCompact" strong class="local-transfer-title">
                 {{ $t('dataManager.backupWorkspace.importTitle') }}
               </NText>
               <NText depth="3" class="local-transfer-description">
@@ -178,7 +198,7 @@
             </NButton>
           </div>
 
-          <NCollapse v-if="selectedFile" class="local-import-settings" :default-expanded-names="['import-settings']">
+          <NCollapse v-if="selectedFile" v-show="!isCompact || mobileTask === 'import'" class="local-import-settings" :default-expanded-names="['import-settings']">
             <NCollapseItem :title="$t('dataManager.import.settingsTitle')" name="import-settings">
               <div class="local-import-settings-body">
               <div class="local-settings-group">
@@ -235,16 +255,16 @@
             </NCollapseItem>
           </NCollapse>
 
-          <NText depth="3" class="local-import-warning">
+          <NText v-show="!isCompact || mobileTask === 'import'" depth="3" class="local-import-warning">
             {{ $t('dataManager.warning') }}
           </NText>
         </div>
       </section>
 
-      <section class="data-manager-section">
+      <section v-show="!isCompact || mobileTask === 'remote'" class="data-manager-section data-manager-section--remote">
         <div class="section-heading">
           <div>
-            <NText tag="h3" :depth="1" strong class="section-title">
+            <NText v-if="!isCompact" tag="h3" :depth="1" strong class="section-title">
               {{ $t('dataManager.remote.title') }}
             </NText>
             <NText depth="3" class="section-description">
@@ -657,6 +677,9 @@
               <NText depth="3" class="remote-field-label">
                 {{ $t('dataManager.remote.restoreScope') }}
               </NText>
+              <NText v-if="isCompact && remoteRestoreAppData" depth="3" class="storage-note">
+                {{ $t('dataManager.remote.restoreWorkspaceHint') }}
+              </NText>
               <NText
                 v-if="selectedRemoteBackupMissingAssetsCount > 0"
                 depth="3"
@@ -736,7 +759,7 @@
         </div>
       </section>
 
-      <section v-if="isDesktopRuntime" class="data-manager-section data-manager-section--desktop">
+      <section v-if="isDesktopRuntime" v-show="!isCompact || mobileTask === 'storage'" class="data-manager-section data-manager-section--desktop">
         <div class="desktop-storage-row">
           <div class="storage-path-block">
             <NText depth="3" class="storage-path-label">{{ $t('dataManager.storage.path') }}</NText>
@@ -765,16 +788,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject, onMounted, onUnmounted, watch, type Ref } from 'vue'
+import NModal from "./common/AdaptiveModal.vue"
+import { ref, computed, inject, nextTick, onMounted, onUnmounted, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-  NModal, NText, NButton, NUpload, NUploadDragger,
+   NText, NButton, NUpload, NUploadDragger,
   NIcon, NCheckbox, NRadio, NRadioGroup, NSelect, NInput, NProgress, NTag,
   NCollapse, NCollapseItem,
   type UploadFileInfo,
 } from 'naive-ui'
 import { isRunningInElectron } from '@prompt-optimizer/core'
-import { ChevronDown, Clipboard, Download, ExternalLink, Folder, Refresh, Trash, Upload } from '@vicons/tabler'
+import { ArrowLeft, ChevronRight, ChevronDown, Clipboard, Download, ExternalLink, Folder, Refresh, Trash, Upload } from '@vicons/tabler'
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
+import { useCompactModalBack } from '../composables/ui/useCompactModalBack'
 import { useToast } from '../composables/ui/useToast'
 import { useConfirmDialog } from '../composables/ui/useConfirmDialog'
 import type { AppServices } from '../types/services'
@@ -827,9 +853,12 @@ import {
 import { recordDataBackupCompleted } from '../utils/data-backup-reminder'
 import { openExternalUrl } from '../utils/open-external-url'
 import { formatErrorSummary } from '../utils/error'
+import { useSessionManager } from '../stores/session/useSessionManager'
 
 interface Props {
   show: boolean
+  /** The app can defer import while model generation or mode switching is active. */
+  prepareRestore?: () => Promise<(() => void) | null>
 }
 
 interface Emits {
@@ -842,6 +871,34 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const { t } = useI18n()
+const sessionManager = useSessionManager()
+const { isCompact } = useWorkspaceLayout()
+type MobileDataTask = 'export' | 'import' | 'remote' | 'storage'
+const mobileTask = ref<MobileDataTask | null>(null)
+const scrollShell = ref<HTMLElement | null>(null)
+const mobileScrollPositions = new Map<MobileDataTask | null, number>()
+const mobileTasks: Array<{ key: MobileDataTask; title: string; description: string }> = [
+  { key: 'export', title: 'dataManager.backupWorkspace.exportTitle', description: 'dataManager.export.description' },
+  { key: 'import', title: 'dataManager.backupWorkspace.importTitle', description: 'dataManager.import.description' },
+  { key: 'remote', title: 'dataManager.remote.title', description: 'dataManager.remote.restoreFrom' },
+  { key: 'storage', title: 'dataManager.storage.title', description: 'dataManager.storage.totalNoteShort' },
+]
+const modalTitle = computed(() => t(
+  isCompact.value ? mobileTasks.find(task => task.key === mobileTask.value)?.title ?? 'dataManager.title' : 'dataManager.title',
+))
+// This is a presentation layer in the existing manager. No controller is recreated
+// when entering a task or crossing the responsive breakpoint.
+useCompactModalBack(computed(() => props.show && mobileTask.value !== null), isCompact, () => { mobileTask.value = null })
+watch(mobileTask, async (task, previousTask) => {
+  if (!isCompact.value) return
+  // Capture before v-show changes the scroll range. Returning to a task keeps
+  // its position and the existing form/controller instance.
+  mobileScrollPositions.set(previousTask, scrollShell.value?.scrollTop ?? 0)
+  await nextTick()
+  if (isCompact.value && mobileTask.value === task && scrollShell.value) {
+    scrollShell.value.scrollTop = mobileScrollPositions.get(task) ?? 0
+  }
+})
 const toast = useToast()
 const confirmDialog = useConfirmDialog()
 const isDesktopRuntime = isRunningInElectron()
@@ -1549,6 +1606,7 @@ const handleRemoteUpload = async () => {
     if (!servicesValue) {
       throw new Error('[DataManager] Services are not initialized. Make sure the application has started correctly.')
     }
+    await flushWorkspaceSnapshots()
     const result = await createRemoteSnapshotBackup({
       objectStore: getRemoteStore(),
       dataManager: getDataManager.value,
@@ -1588,6 +1646,7 @@ const handleRemoteRestore = async () => {
   if (!entry) return
   if (!(await ensureRemoteConnectionReady())) return
 
+  let releaseSessionRestore: (() => void) | undefined
   try {
     isRestoringRemote.value = true
     startRemoteProgress('restore', 'dataManager.remote.progress.restore.start')
@@ -1595,6 +1654,8 @@ const handleRemoteRestore = async () => {
     if (!servicesValue) {
       throw new Error('[DataManager] Services are not initialized. Make sure the application has started correctly.')
     }
+    releaseSessionRestore = await prepareSessionRestore() ?? undefined
+    if (!releaseSessionRestore) return
     const result = await restoreRemoteSnapshotBackup({
       objectStore: getRemoteStore(),
       snapshotId: entry.id,
@@ -1615,9 +1676,13 @@ const handleRemoteRestore = async () => {
     if (warning) {
       toast.warning(warning)
     }
+    // Imported snapshots must survive the App's existing reload. Its pagehide
+    // handler and autosave must not write the pre-import in-memory sessions.
+    releaseSessionRestore = undefined
     emit('imported')
     emit('close')
   } catch (error) {
+    releaseSessionRestore?.()
     console.error('[DataManager] Remote restore failed:', error)
     toast.error(t('dataManager.remote.restoreFailed', { message: (error as Error).message }))
   } finally {
@@ -1776,6 +1841,10 @@ const readFileAsArrayBuffer = (file: File) =>
   })
 
 const close = () => {
+  if (isCompact.value && mobileTask.value) {
+    mobileTask.value = null
+    return
+  }
   emit('update:show', false)
   emit('close')
 }
@@ -1804,6 +1873,20 @@ watch(
   { immediate: true },
 )
 
+const flushWorkspaceSnapshots = async () => {
+  if (!await sessionManager.saveAllSessions()) {
+    throw new Error(t('dataManager.export.failed'))
+  }
+}
+
+const prepareSessionRestore = async () => {
+  const resume = await (props.prepareRestore
+    ? props.prepareRestore()
+    : sessionManager.beginSessionRestore())
+  if (!resume) toast.warning(t('dataManager.import.workspaceBusy'))
+  return resume
+}
+
 const handleExport = async () => {
   try {
     const servicesValue = services.value
@@ -1812,6 +1895,7 @@ const handleExport = async () => {
     }
     isExporting.value = true
 
+    await flushWorkspaceSnapshots()
     const exportPackage = await createDataManagerResourcePackage({
       dataManager: getDataManager.value,
       favoriteManager: servicesValue.favoriteManager,
@@ -1898,6 +1982,7 @@ const buildRemoteSnapshotRestoreWarning = (
 const handleImport = async () => {
   if (!selectedFile.value) return
 
+  let releaseSessionRestore: (() => void) | undefined
   try {
     isImporting.value = true
 
@@ -1909,8 +1994,15 @@ const handleImport = async () => {
 
     const buffer = await readFileAsArrayBuffer(file)
     const bytes = new Uint8Array(buffer)
+    const isResourcePackage = looksLikeDataManagerZipPackage(file.name, bytes)
+    if (!isResourcePackage && !importAppData.value) {
+      toast.warning(t('dataManager.import.noSelectedContent'))
+      return
+    }
 
-    if (looksLikeDataManagerZipPackage(file.name, bytes)) {
+    releaseSessionRestore = await prepareSessionRestore() ?? undefined
+    if (!releaseSessionRestore) return
+    if (isResourcePackage) {
       const servicesValue = services.value
       if (!servicesValue) {
         throw new Error('[DataManager] Services are not initialized. Make sure the application has started correctly.')
@@ -1935,20 +2027,19 @@ const handleImport = async () => {
         toast.warning(warning)
       }
     } else {
-      if (!importAppData.value) {
-        toast.warning(t('dataManager.import.noSelectedContent'))
-        return
-      }
       const content = new TextDecoder().decode(bytes)
       const dataManager = getDataManager.value
       await dataManager.importAllData(content)
       toast.success(t('dataManager.import.success'))
     }
 
+    // Keep saving paused until App reloads; release only failed attempts below.
+    releaseSessionRestore = undefined
     emit('imported')
     emit('close')
     clearSelectedFile()
   } catch (error) {
+    releaseSessionRestore?.()
     console.error('Import failed:', error)
     toast.error(formatErrorSummary(t('dataManager.import.failed'), error))
   } finally {
@@ -2584,5 +2675,104 @@ const getStorageItemDetail = (item: Pick<StorageBreakdownItem, 'key' | 'count'>)
   .remote-action-row--compact > :deep(.n-button) {
     width: 100%;
   }
+}
+
+:global(.workspace-compact .data-manager--compact.adaptive-modal-page > .n-card-content) {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 10px 12px !important;
+}
+.data-manager-scroll-shell--compact {
+  max-height: none;
+  height: 100%;
+  flex: 1;
+  padding: 0;
+}
+.data-manager-mobile-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+}
+.data-manager-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.data-manager-task {
+  width: 100%;
+  height: auto;
+  min-height: 72px;
+  padding: 12px;
+  text-align: left;
+}
+.data-manager-task :deep(.n-button__content) {
+  width: 100%;
+  justify-content: space-between;
+  gap: 12px;
+}
+.data-manager-task__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  white-space: normal;
+}
+.data-manager-task__copy strong {
+  font-size: 14px;
+}
+.data-manager-task__copy > span {
+  font-size: 12px;
+  line-height: 1.5;
+  opacity: .75;
+}
+.data-manager-scroll-shell--compact .data-manager-section {
+  padding: 0;
+  border: 0;
+}
+.data-manager-scroll-shell--compact .section-title {
+  font-size: 14px;
+}
+.data-manager-scroll-shell--compact .section-description {
+  font-size: 12px;
+}
+.data-manager-scroll-shell--compact .data-manager-section--local > .section-heading {
+  display: none;
+}
+.data-manager-scroll-shell--compact .storage-cards-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.data-manager-scroll-shell--compact .storage-stat-card--total {
+  grid-column: 1 / -1;
+}
+.data-manager-scroll-shell--compact .section-heading {
+  flex-direction: row;
+  gap: 8px;
+  align-items: center;
+}
+.data-manager-scroll-shell--compact .remote-action-row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.data-manager-scroll-shell--compact .remote-action-row > :deep(.n-button) {
+  flex: 1 1 auto;
+  width: auto;
+}
+.data-manager-scroll-shell--compact .local-transfer-panel,
+.data-manager-scroll-shell--compact .remote-config-panel {
+  padding: 10px;
+}
+
+:global(.workspace-compact .data-manager--compact.adaptive-modal-page > .n-card-header) {
+  padding: 8px 12px;
+}
+:global(.workspace-compact .data-manager--compact.adaptive-modal-page > .n-card-header > .n-base-close) {
+  width: 36px;
+  height: 36px;
 }
 </style>

@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { runSessionWrite, type SessionWritePermit } from './sessionPersistence'
 import { ref } from 'vue'
 import { getPiniaServices } from '../../plugins/pinia'
 import { isValidVariableName, sanitizeVariableRecord } from '../../types/variable'
@@ -572,7 +573,10 @@ export const useImageMultiImageSession = defineStore('imageMultiImageSession', (
     }
   }
 
-  const saveSession = async () => {
+  const saveSession = (permit?: SessionWritePermit): Promise<boolean> =>
+    runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit)
+
+  const persistSession = async () => {
     return await queueImageStorageMaintenance(async () => {
       const $services = getPiniaServices()
       if (!$services?.preferenceService) {
@@ -591,10 +595,20 @@ export const useImageMultiImageSession = defineStore('imageMultiImageSession', (
         })),
       )
 
-      inputImages.value = inputImages.value.map((image, index) => ({
-        ...image,
-        assetId: persistedImages[index]?.assetId || image.assetId,
-      }))
+      // Keep an idle save observationally quiet. Replacing an unchanged array
+      // looks like a new edit to autosave and the app-update checkpoint.
+      // Match IDs rather than positions: the list may be reordered while the
+      // image storage writes are pending.
+      const savedAssetIds = new Map(persistedImages.map(image => [image.id, image.assetId]))
+      if (inputImages.value.some(image => {
+        const assetId = savedAssetIds.get(image.id)
+        return assetId && assetId !== image.assetId
+      })) {
+        inputImages.value = inputImages.value.map(image => {
+          const assetId = savedAssetIds.get(image.id)
+          return assetId && assetId !== image.assetId ? { ...image, assetId } : image
+        })
+      }
 
       const baseVariantResults = {
         a: testVariantResults.value.a ?? originalImageResult.value,

@@ -1,0 +1,172 @@
+/* AdaptiveModal and shared overlay primitives. Naive card/dialog slots are the deliberate framework boundary. */
+
+.workspace-compact .compact-viewport-frame,
+.workspace-compact .n-modal-body-wrapper {
+  top: var(--compact-viewport-top, 0px) !important;
+  bottom: auto !important;
+  height: var(--compact-viewport-height, 100dvh) !important;
+  max-height: var(--compact-viewport-height, 100dvh) !important;
+}
+
+.workspace-compact .adaptive-modal-page.n-card {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  height: var(--compact-viewport-height, 100dvh) !important;
+  max-height: var(--compact-viewport-height, 100dvh) !important;
+  margin: 0 !important;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-compact .adaptive-modal-page > .n-card-header {
+  flex: 0 0 auto;
+  padding: max(14px, env(safe-area-inset-top)) 16px 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  border-bottom: 1px solid var(--compact-border);
+}
+
+.workspace-compact .adaptive-modal-page > .n-card-header > .n-card-header__main {
+  font-size: 18px;
+}
+
+.workspace-compact .adaptive-modal-page > .n-card-header > .n-card-header__extra {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  margin: 0;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.workspace-compact .adaptive-modal-page > .n-card-header > .n-base-close {
+  grid-row: 1;
+  grid-column: 2;
+  width: 44px;
+  height: 44px;
+}
+
+.workspace-compact .adaptive-modal-page > .n-card-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px !important;
+  height: auto !important;
+}
+
+.workspace-compact .adaptive-modal-page > .n-card__footer,
+.workspace-compact .adaptive-modal-page > .n-card__action {
+  flex: 0 0 auto;
+  padding: 12px 16px max(16px, env(safe-area-inset-bottom));
+}
+
+.workspace-compact .adaptive-modal-picker {
+  width: min(94vw, 520px) !important;
+  max-height: calc(var(--compact-viewport-height, 100dvh) * .85);
+  margin: auto !important;
+}
+
+.workspace-compact .adaptive-modal-picker > .n-card-content {
+  overflow: auto;
+}
+
+.workspace-compact .n-dialog {
+  width: min(92vw, 440px) !important;
+  max-height: calc(var(--compact-viewport-height, 100dvh) - 24px);
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-compact .n-dialog__content {
+  min-height: 0;
+  overflow: auto;
+}
+
+.workspace-compact .n-dialog__title,
+.workspace-compact .n-dialog__action {
+  flex-shrink: 0;
+}
+
+.workspace-compact .n-modal textarea,
+.workspace-compact .n-modal input {
+  font-size: 16px !important;
+}
+
+.workspace-compact .n-modal .n-form-item {
+  min-width: 0;
+}
+
+.workspace-compact .adaptive-modal-page .n-form-item {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.workspace-compact .adaptive-modal-page .n-form-item-label {
+  justify-content: flex-start;
+  text-align: left;
+  padding-top: 4px;
+}
+
+.workspace-compact .adaptive-modal-page .n-card-header__extra {
+  flex-wrap: wrap;
+}
+
+.workspace-compact .adaptive-modal-page .n-card .n-card-header {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.workspace-compact .adaptive-modal-page .n-card .n-card-header__extra {
+  margin-left: 0;
+}
+
+.workspace-compact .adaptive-modal-page .n-button {
+  min-height: 40px;
+}
+
+.workspace-compact .adaptive-modal-page .n-button--circle {
+  min-width: 40px;
+}
+
+.workspace-compact .adaptive-modal-page .n-base-selection {
+  --n-height: 40px !important;
+}
+
+.workspace-compact .adaptive-modal-sheet.n-card {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin: 0 auto !important;
+  width: min(100vw, 520px) !important;
+  max-width: 100vw !important;
+  max-height: calc(var(--compact-viewport-height, 100dvh) - 16px) !important;
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px 18px 0 0;
+  color: var(--compact-ink);
+  background: var(--compact-paper);
+}
+
+.workspace-compact .adaptive-modal-sheet > .n-card-header {
+  flex-shrink: 0;
+  padding: 10px 16px 6px;
+  min-height: 54px;
+}
+
+.workspace-compact .adaptive-modal-sheet > .n-card-header .n-card-header__main {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.workspace-compact .adaptive-modal-sheet > .n-card-header .n-base-close {
+  width: 40px;
+  height: 40px;
+}
+
+.workspace-compact .adaptive-modal-sheet > .n-card-content {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px 16px max(16px, env(safe-area-inset-bottom)) !important;
+}

@@ -364,4 +364,25 @@ describe('useAppHistoryRestore', () => {
 
     consoleErrorSpy.mockRestore()
   })
+  it('leaves the workspace unchanged when history replacement is declined', async () => {
+    const record = createBasicRecord('optimize')
+    const chain = { chainId: record.chainId!, rootRecord: record, currentRecord: record, versions: [record] }
+    const navigate = vi.fn()
+    const select = vi.fn()
+    const beforeApplyToWorkspace = vi.fn(async () => false)
+    const loading = ref(false)
+    const { handleHistoryReuse } = useAppHistoryRestore({
+      services: ref(null), navigateToSubModeKey: navigate, beforeApplyToWorkspace,
+      handleContextModeChange: vi.fn(), handleSelectHistory: select,
+      proMultiMessageSession: { conversationMessagesSnapshot: [] } as any,
+      systemWorkspaceRef: ref(null), userWorkspaceRef: ref(null), t: key => key,
+      isLoadingExternalData: loading,
+    })
+    await handleHistoryReuse({ record, chain, chainId: chain.chainId, rootPrompt: record.originalPrompt })
+    expect(beforeApplyToWorkspace).toHaveBeenCalledWith('basic-system')
+    expect(navigate).not.toHaveBeenCalled()
+    expect(select).not.toHaveBeenCalled()
+    expect(loading.value).toBe(false)
+  })
+
 })

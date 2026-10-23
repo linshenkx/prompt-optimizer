@@ -1,5 +1,36 @@
 <template>
-  <NSpace vertical :size="12" class="model-list-stack">
+  <div v-if="isCompact" class="mobile-text-model-list" data-testid="mobile-text-model-list">
+    <NInput
+      v-model:value="search"
+      :placeholder="t('common.search')"
+      :aria-label="t('common.search')"
+      clearable
+      data-testid="text-model-search"
+    />
+    <MobileModelRow
+      v-for="model in filteredModels"
+      :key="model.id"
+      :title="modelDisplayName(model)"
+      :subtitle="[providerDisplayName(model), model.modelMeta?.name || model.modelMeta?.id].filter(Boolean).join(' · ')"
+      :enabled="model.enabled"
+      :testing="isTestingConnectionFor(model.id)"
+      :test-label="t('common.test')"
+      :menu-options="mobileActions(model)"
+      @edit="emit('edit', model.id)"
+      @test="emit('test', model.id)"
+      @action="handleMobileAction($event, model)"
+    >
+      <div v-if="hasMobileCapabilities(model)" class="mobile-text-model-capabilities">
+        <span v-if="model.modelMeta?.capabilities?.supportsTools">{{ t('modelManager.capabilities.tools') }}</span>
+        <span v-if="model.modelMeta?.capabilities?.supportsReasoning">{{ t('modelManager.capabilities.reasoning') }}</span>
+        <span v-if="model.providerMeta?.corsRestricted && !isElectronEnv" class="mobile-text-model-restriction">
+          {{ t('modelManager.corsRestrictedTag') }}
+        </span>
+      </div>
+    </MobileModelRow>
+    <NEmpty v-if="!filteredModels.length" :description="t('common.noContent')" size="small" />
+  </div>
+  <NSpace v-else vertical :size="12" class="model-list-stack">
     <NCard
       v-for="model in models"
       :key="model.id"
@@ -197,10 +228,12 @@
 </template>
 
 <script setup lang="ts">
-import { type PropType } from 'vue'
+import { computed, ref, type PropType } from 'vue'
 
 import { useI18n } from 'vue-i18n'
-import { NButton, NCard, NTag, NText, NSpace } from 'naive-ui'
+import { NButton, NCard, NTag, NText, NSpace, NInput, NEmpty, type DropdownOption } from 'naive-ui'
+import MobileModelRow from './common/MobileModelRow.vue'
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
 import { isRunningInElectron, type TextModelConfig } from '@prompt-optimizer/core'
 import { getProviderDisplayName, getTextModelConfigDisplayName } from '../utils/provider-display'
 
@@ -223,12 +256,51 @@ const emit = defineEmits(['test', 'edit', 'clone', 'enable', 'disable', 'delete'
 
 const { t } = useI18n()
 
+const { isCompact } = useWorkspaceLayout()
+const search = ref('')
+const filteredModels = computed(() => {
+  const query = search.value.trim().toLocaleLowerCase()
+  if (!query) return models
+  return models.filter(model => [modelDisplayName(model), providerDisplayName(model), model.modelMeta?.name, model.modelMeta?.id]
+    .some(value => value?.toLocaleLowerCase().includes(query)))
+})
 const isElectronEnv = isRunningInElectron()
+const mobileActions = (model: TextModelConfig): DropdownOption[] => [
+  { label: t('modelManager.cloneModel'), key: 'clone' },
+  { label: model.enabled ? t('common.disable') : t('common.enable'), key: model.enabled ? 'disable' : 'enable' },
+  ...(!isDefaultModel(model.id) ? [{ label: t('common.delete'), key: 'delete' }] : []),
+]
+const handleMobileAction = (action: string, model: TextModelConfig) => {
+  if (action === 'clone' || action === 'enable' || action === 'disable') emit(action, model.id)
+  else if (action === 'delete' && !isDefaultModel(model.id)) emit('delete', model.id)
+}
+const hasMobileCapabilities = (model: TextModelConfig) =>
+  model.modelMeta?.capabilities?.supportsTools || model.modelMeta?.capabilities?.supportsReasoning ||
+  (model.providerMeta?.corsRestricted && !isElectronEnv)
 const modelDisplayName = (model: TextModelConfig) => getTextModelConfigDisplayName(model, t)
 const providerDisplayName = (model: TextModelConfig) => getProviderDisplayName(model.providerMeta, t)
 </script>
 
 <style scoped>
+.mobile-text-model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobile-text-model-capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--compact-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.mobile-text-model-restriction {
+  color: var(--n-error-color);
+}
+
 .model-list-stack {
   width: 100%;
 }

@@ -3,8 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="apple-touch-icon" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="apple-touch-icon" href="%BASE_URL%pwa/apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <!-- 运行时配置，必须在应用代码之前加载 -->
     <script src="/config.js"></script>
     <title>提示词优化器</title>
@@ -13,4 +16,4 @@
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
-</html> 
+</html>

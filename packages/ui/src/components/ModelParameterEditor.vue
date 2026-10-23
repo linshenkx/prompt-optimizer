@@ -1,5 +1,5 @@
 <template>
-  <div class="model-parameter-editor">
+  <div class="model-parameter-editor" :class="{ 'model-parameter-editor--compact': isCompact }">
     <template v-if="mode === 'text'">
       <NAlert
         v-if="definedEntries.length === 0 && customEntries.length === 0"
@@ -12,9 +12,9 @@
 
       <NForm
         v-else
-        label-placement="left"
+        :label-placement="isCompact ? 'top' : 'left'"
         label-width="auto"
-        label-align="right"
+        :label-align="isCompact ? 'left' : 'right'"
         size="small"
         :show-label="true"
         :show-feedback="true"
@@ -172,9 +172,9 @@
       </NAlert>
       <NForm
         v-else
-        label-placement="left"
+        :label-placement="isCompact ? 'top' : 'left'"
         label-width="auto"
-        label-align="right"
+        :label-align="isCompact ? 'left' : 'right'"
         size="small"
         :show-label="true"
         :show-feedback="true"
@@ -328,6 +328,7 @@
 import { computed, ref, watch, type PropType } from 'vue'
 
 import { useI18n } from 'vue-i18n'
+import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
 import { useMessage, createDiscreteApi, NAlert, NButton, NCheckbox, NForm, NFormItem, NInput, NInputNumber, NSelect, NSpace, NTag, NText } from 'naive-ui'
 import { parseCustomValue, type UnifiedParameterDefinition } from '@prompt-optimizer/core'
 
@@ -355,6 +356,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { isCompact } = useWorkspaceLayout()
 const message = resolveMessageApi()
 
 const schemaMap = computed(() => {
@@ -686,4 +688,9 @@ function resolveMessageApi(): ReturnType<typeof useMessage> {
   max-width: 320px;
   width: 100%;
 }
+.model-parameter-editor--compact .advanced-form :deep(.n-form-item) {
+  --n-label-text-align: left;
+  align-items: stretch;
+}
+.model-parameter-editor--compact .advanced-control { min-width: 0; max-width: none; }
 </style>

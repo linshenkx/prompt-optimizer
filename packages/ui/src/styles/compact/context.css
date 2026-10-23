@@ -1,0 +1,245 @@
+/* ConversationManager, temporary variables and context optimization controls own their compact presentation. */
+
+.compact-two-region .conversation-manager > .n-card-header > .n-card-header__main {
+  font-size: 14px;
+}
+
+.compact-two-region .conversation-manager > .n-card-content {
+  padding: 0;
+}
+
+.compact-two-region .conversation-manager .n-list-item {
+  margin-bottom: 10px;
+}
+
+.compact-two-region .conversation-manager .message-card {
+  border: 1px solid var(--compact-border);
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.compact-two-region .conversation-manager .message-card:hover {
+  transform: none;
+}
+
+.compact-two-region .conversation-manager .message-card-selected {
+  border-color: var(--compact-accent, #7295c3);
+  box-shadow: none !important;
+  background: var(--compact-soft);
+}
+
+.compact-two-region .conversation-manager .cm-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+}
+
+.compact-two-region .conversation-manager .cm-row > .left {
+  grid-row: 1;
+  align-self: center;
+}
+
+.compact-two-region .conversation-manager .cm-row > .actions {
+  grid-row: 1;
+  grid-column: 2;
+  opacity: 1;
+}
+
+.compact-two-region .conversation-manager .cm-row > .content {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+.compact-two-region .conversation-manager .cm-row > .actions .n-button {
+  width: 36px;
+  height: 36px;
+}
+
+.compact-two-region .conversation-manager .cm-row .cm-scroller {
+  min-height: 56px;
+  max-height: 180px;
+}
+
+.compact-two-region .conversation-manager > .n-card__footer {
+  padding: 8px 0;
+}
+
+.compact-two-region .conversation-manager .n-button {
+  min-height: 36px;
+}
+
+.compact-two-region .temporary-variable-row {
+  display: grid !important;
+  grid-template-columns: minmax(60px, .48fr) minmax(0, 1fr) auto;
+  gap: 6px !important;
+  align-items: center !important;
+}
+
+.compact-two-region .temporary-variable-meta {
+  grid-column: 1;
+  grid-row: 1;
+  width: auto !important;
+  min-width: 0;
+  align-self: center;
+}
+
+.compact-two-region .temporary-variable-actions {
+  grid-column: 3;
+  grid-row: 1;
+  width: auto !important;
+}
+
+.compact-two-region .temporary-variable-actions .n-button {
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.compact-two-region .temporary-variable-value {
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+}
+
+.compact-two-region .temporary-variables-panel > .n-card-header {
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 0;
+}
+
+.compact-two-region .temporary-variables-panel .n-card-header__extra {
+  margin-left: 0;
+}
+
+.compact-two-region .temporary-variables-panel .n-card-header__extra .n-button {
+  min-height: 36px;
+}
+
+.workspace-compact .context-editor-modal > .n-card-content > .n-scrollbar {
+  max-height: none !important;
+}
+
+.workspace-compact .context-editor-modal .cm-scroller {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+  font-size: 16px;
+}
+
+.workspace-compact .context-editor-modal .n-card {
+  border-radius: 12px;
+}
+
+.compact-two-region[data-mode="pro-variable"] .workspace-input-panel .cm-scroller {
+  min-height: 80px;
+  max-height: var(--compact-editor-max);
+}
+
+.compact-two-region .temporary-variables-panel > .n-card-content {
+  padding: 0 0 6px;
+}
+
+.compact-two-region .temporary-variables-panel {
+  border: 0;
+}
+
+.compact-two-region .multi-optimize-controls .multi-optimize-grid {
+  display: grid !important;
+  align-items: end;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr) var(--compact-submit-width) !important;
+  gap: var(--compact-gap) !important;
+}
+
+.compact-two-region .multi-optimize-controls .multi-optimize-selectors {
+  display: contents !important;
+}
+
+.compact-two-region .multi-optimize-controls .multi-optimize-field {
+  min-width: 0;
+}
+
+.compact-two-region .multi-optimize-controls .n-base-selection {
+  --n-height: 36px !important;
+  --n-font-size: 13px !important;
+}
+
+.compact-two-region .multi-optimize-controls .multi-optimize-label {
+  display: none;
+}
+
+.compact-two-region .optimize-original-scroll .multi-optimize-controls .n-button--block {
+  min-height: 36px;
+  height: 36px;
+  font-size: 13px;
+  padding: 0 12px;
+}
+
+.compact-two-region .conversation-collapsed-preview {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--compact-muted);
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.compact-two-region .compact-empty-variables {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 28px;
+}
+
+.compact-two-region .compact-empty-variables .n-button {
+  min-height: 28px;
+  padding: 0 6px;
+  color: var(--compact-muted);
+  font-size: 12px;
+}
+
+.compact-two-region .multi-optimize-controls .n-button--block {
+  height: 36px;
+  padding: 0 6px;
+  width: 100%;
+}
+
+.compact-two-region .multi-optimize-controls .n-button--loading .n-base-loading {
+  position: absolute;
+}
+
+.compact-two-region .multi-optimize-controls .n-button--loading .n-button__content {
+  visibility: hidden;
+}
+
+.compact-two-region .conversation-manager .conversation-heading-item:has(> .conversation-manager-title) {
+  display: none;
+}
+
+.compact-two-region .conversation-manager > .n-card-header {
+  padding: 4px 0;
+}
+
+.compact-two-region .conversation-manager .conversation-heading {
+  gap: 4px !important;
+}
+
+@container mobile-pane (min-width: 560px) {
+  .compact-two-region .multi-optimize-controls .multi-optimize-grid {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) 80px !important;
+  }
+
+  .compact-two-region .temporary-variable-row {
+    grid-template-columns: minmax(100px, .35fr) minmax(0, 1fr) auto;
+  }
+
+}
+
+@container mobile-viewport (max-height: 620px) {
+  .compact-two-region .conversation-manager .cm-row .cm-scroller {
+    max-height: clamp(56px, 16dvh, 108px);
+  }
+
+  .compact-two-region .temporary-variables-panel > .n-card-header {
+    padding: 2px 0;
+  }
+
+}

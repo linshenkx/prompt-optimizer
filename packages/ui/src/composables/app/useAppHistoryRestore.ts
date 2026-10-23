@@ -50,6 +50,7 @@ export interface AppHistoryRestoreOptions {
     /** 服务实例 */
     services: Ref<{ historyManager: IHistoryManager } | null>
     /** 🔧 Step D: 路由导航函数（替代 setFunctionMode/set*SubMode） */
+    beforeApplyToWorkspace?: (targetKey: string) => Promise<boolean>
     navigateToSubModeKey: (toKey: string, opts?: { replace?: boolean }) => boolean | void | Promise<boolean | void>
     /** 处理上下文模式变更 */
     handleContextModeChange: (mode: ContextMode) => Promise<void>
@@ -98,6 +99,7 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
     const {
         services,
         navigateToSubModeKey,
+        beforeApplyToWorkspace,
         handleContextModeChange,
         handleSelectHistory,
         proMultiMessageSession,
@@ -157,6 +159,7 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
 
             // 🔧 Step D: 使用 navigateToSubModeKey 替代 setImageSubMode
             const targetKey = `image-${imageMode}`
+            if (beforeApplyToWorkspace && !(await beforeApplyToWorkspace(targetKey))) return
             const didNavigate = await navigateToSubModeKey(targetKey)
             if (didNavigate === false) {
                 throw new Error(`Invalid image workspace target: ${targetKey}`)
@@ -221,6 +224,7 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
                 targetFunctionMode === 'pro'
                     ? `pro-${targetMode === 'system' ? 'multi' : 'variable'}`
                     : `basic-${targetMode}`
+            if (beforeApplyToWorkspace && !(await beforeApplyToWorkspace(targetKey))) return
             const didNavigate = await navigateToSubModeKey(targetKey)
             if (didNavigate === false) {
                 throw new Error(`Invalid workspace target: ${targetKey}`)

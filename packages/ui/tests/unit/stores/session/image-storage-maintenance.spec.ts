@@ -6,6 +6,8 @@ import {
   IMAGE_IMAGE2IMAGE_SESSION_KEY,
   IMAGE_MULTIIMAGE_SESSION_KEY,
   IMAGE_TEXT2IMAGE_SESSION_KEY,
+  pauseImageStorageGc,
+  queueImageStorageMaintenance,
   scheduleImageStorageGc,
 } from '../../../../src/stores/session/imageStorageMaintenance'
 
@@ -23,6 +25,53 @@ describe('imageStorageMaintenance GC', () => {
     await vi.runOnlyPendingTimersAsync()
     vi.useRealTimers()
     vi.restoreAllMocks()
+  })
+
+  it('defers both queued and newly scheduled GC until imported assets have references', async () => {
+    let releaseJob!: () => void
+    const blocked = new Promise<void>(resolve => { releaseJob = resolve })
+    const oldJob = queueImageStorageMaintenance(async () => { await blocked })
+    let importedSnapshot: unknown = null
+    const preferenceService = {
+      get: vi.fn(async (key: string) => key === IMAGE_TEXT2IMAGE_SESSION_KEY ? importedSnapshot : null),
+    }
+    const imageStorageService = {
+      listAllMetadata: vi.fn(async () => [{ id: 'imported-image' }, { id: 'orphan' }]),
+      deleteImages: vi.fn(async (_ids: string[]) => {}),
+    }
+    scheduleImageStorageGc(preferenceService as any, imageStorageService as any, { getFavoritesPayload: null })
+    await vi.advanceTimersByTimeAsync(0) // GC queued behind an existing writer
+    const resume = pauseImageStorageGc()
+    releaseJob()
+    await oldJob
+    await queueImageStorageMaintenance(async () => {})
+    scheduleImageStorageGc(preferenceService as any, imageStorageService as any)
+    await vi.advanceTimersByTimeAsync(2000) // import writes images before references
+    expect(imageStorageService.listAllMetadata).not.toHaveBeenCalled()
+    expect(imageStorageService.deleteImages).not.toHaveBeenCalled()
+    importedSnapshot = { testVariantResults: { a: { images: [{ _type: 'image-ref', id: 'imported-image' }] } } }
+    resume()
+    resume() // safe failure cleanup calls cannot release another lease
+    await flushScheduledGc()
+    expect(imageStorageService.deleteImages).toHaveBeenCalledExactlyOnceWith(['orphan'])
+  })
+
+  it('cancels a pending timer and waits for every restore lease to release', async () => {
+    const preferenceService = { get: vi.fn(async () => null) }
+    const imageStorageService = {
+      listAllMetadata: vi.fn(async () => [{ id: 'orphan' }]),
+      deleteImages: vi.fn(async (_ids: string[]) => {}),
+    }
+    scheduleImageStorageGc(preferenceService as any, imageStorageService as any, { delayMs: 100, getFavoritesPayload: null })
+    const outer = pauseImageStorageGc()
+    const inner = pauseImageStorageGc()
+    await vi.advanceTimersByTimeAsync(200)
+    outer()
+    await vi.advanceTimersByTimeAsync(200)
+    expect(imageStorageService.deleteImages).not.toHaveBeenCalled()
+    inner()
+    await flushScheduledGc()
+    expect(imageStorageService.deleteImages).toHaveBeenCalledExactlyOnceWith(['orphan'])
   })
 
   it('keeps Prompt Garden favorite asset ids referenced in metadata', async () => {

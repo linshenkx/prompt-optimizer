@@ -405,4 +405,48 @@ describe('TemporaryVariablesPanel', () => {
     expect(fixture.handleDeleteVariable).toHaveBeenCalledWith('rules')
     expect(wrapper.text()).not.toContain('rules')
   })
+
+  it('移动端空变量区保留添加入口，并沿用原有添加对话框', async () => {
+    const fixture = createPanelManagerFixture()
+    fixture.tempVars.value = {}
+    const wrapper = mount(TemporaryVariablesPanel, {
+      props: { manager: fixture.manager as any, compact: true },
+      global: { stubs: globalStubs },
+    })
+
+    expect(wrapper.find('[data-testid="ncard"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('No variables detected')
+    await wrapper.get('.compact-empty-variables button').trigger('click')
+    expect(fixture.manager.showAddVariableDialog.value).toBe(true)
+
+    fixture.manager.showAddVariableDialog.value = false
+    fixture.tempVars.value = { rules: 'restored' }
+    await nextTick()
+    expect(wrapper.find('[data-testid="ncard"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('rules')
+  })
+
+  it('智能填充仅在移动端移入操作菜单，禁用状态仍阻止触发', async () => {
+    const fixture = createPanelManagerFixture()
+    const wrapper = mount(TemporaryVariablesPanel, {
+      props: { manager: fixture.manager as any, showGenerateValues: true },
+      global: { stubs: globalStubs },
+    })
+
+    // Desktop keeps the original direct action, with no duplicate menu item.
+    expect(wrapper.find('button[data-key="generate-values"]').exists()).toBe(false)
+    const desktopGenerate = wrapper.findAll('button').find(button => button.text() === 'Smart Fill Variable Values')
+    expect(desktopGenerate).toBeTruthy()
+    await desktopGenerate!.trigger('click')
+    expect(wrapper.emitted('generate-values')).toHaveLength(1)
+
+    await wrapper.setProps({ compact: true })
+    const menuAction = wrapper.get('button[data-key="generate-values"]')
+    await menuAction.trigger('click')
+    expect(wrapper.emitted('generate-values')).toHaveLength(2)
+    await wrapper.setProps({ isGenerating: true })
+    expect(menuAction.attributes('disabled')).toBeDefined()
+    await menuAction.trigger('click')
+    expect(wrapper.emitted('generate-values')).toHaveLength(2)
+  })
 })
