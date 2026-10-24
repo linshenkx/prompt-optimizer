@@ -141,32 +141,28 @@ describe('MinimaxAdapter', () => {
       expect(m3?.capabilities.maxContextLength).toBe(1000000);
       expect(m3?.capabilities.supportsReasoning).toBe(true);
 
-      const m27 = models.find(m => m.id === 'MiniMax-M2.7');
-      expect(m27?.capabilities.supportsReasoning).toBe(true);
-      expect(m27?.capabilities.maxContextLength).toBe(204800);
-
-      const m27Highspeed = models.find(m => m.id === 'MiniMax-M2.7-highspeed');
-      expect(m27Highspeed?.capabilities.maxContextLength).toBe(204800);
-      expect(m27Highspeed?.capabilities.supportsReasoning).toBe(true);
+      const flash = models.find(m => m.id === 'MiniMax-M3.1-Flash');
+      expect(flash?.capabilities.supportsReasoning).toBe(true);
+      expect(flash?.capabilities.maxContextLength).toBe(1000000);
+      expect(flash?.defaultParameterValues).toEqual({ reasoning_effort: 'max' });
+      expect(flash?.parameterDefinitions.find(p => p.name === 'reasoning_effort')?.allowedValues)
+        .toEqual(['low', 'medium', 'high', 'xhigh', 'max']);
+      expect(flash?.parameterDefinitions.find(p => p.name === 'max_completion_tokens')?.maxValue).toBe(524288);
+      expect(m3?.parameterDefinitions.some(p => p.name === 'reasoning_effort')).toBe(false);
     });
 
     it('should include all expected models', () => {
       const models = adapter.getModels();
       const modelIds = models.map(m => m.id);
 
-      expect(modelIds).toContain('MiniMax-M3');
-      expect(modelIds).toContain('MiniMax-M2.7');
-      expect(modelIds).toContain('MiniMax-M2.7-highspeed');
-      expect(modelIds).not.toContain('MiniMax-M2.5');
-      expect(modelIds).not.toContain('MiniMax-M2.5-highspeed');
-      expect(models.length).toBe(3);
+      expect(modelIds).toEqual(['MiniMax-M3.1-Flash', 'MiniMax-M3']);
     });
 
-    it('should have M3 as the first model', () => {
+    it('should have Flash as the first model', () => {
       const models = adapter.getModels();
 
-      expect(models[0].id).toBe('MiniMax-M3');
-      expect(models[1].id).toBe('MiniMax-M2.7');
+      expect(models[0].id).toBe('MiniMax-M3.1-Flash');
+      expect(models[1].id).toBe('MiniMax-M3');
     });
 
     it('should have capabilities for each model', () => {
