@@ -2,6 +2,10 @@
 
 Full release narratives now live in versioned files under `releases/`. This file stays as the index and summary entry point.
 
+## [2.12.0] - 2026-10-25
+- EN: Add mobile layouts across seven workspaces and management views, side-by-side testing and an installable Web PWA, with protected updates and workspace recovery. Fix global settings restoration and reconnect automatic variable extraction, including phone verification. See [Release Notes (EN)](releases/v2.12.0.en.md).
+- 中文：新增七工作区与管理功能的移动布局、测试结果并排对比和可安装 Web PWA，完善更新保护与工作区恢复；修复全局设置恢复和自动提取变量，并完成手机验证。参见 [版本说明（中文）](releases/v2.12.0.zh-CN.md)。
+
 ## [2.12.0-beta.1] - 2026-10-23
 - EN: This preview adds mobile layouts across seven workspaces, phone-friendly management views, and an installable Web PWA. It strengthens workspace recovery, cross-window saves and update protection, with preview images isolated from stable latest tags. See [Release Notes (EN)](releases/v2.12.0-beta.1.en.md).
 - 中文：本预览版新增七工作区移动布局、适合手机的管理页面和可安装 Web PWA，增强工作区恢复、跨窗口保存与更新保护，并将预览镜像与稳定版 latest 标签隔离。参见 [版本说明（中文）](releases/v2.12.0-beta.1.zh-CN.md)。

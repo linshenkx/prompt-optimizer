@@ -30,6 +30,5 @@
   "offline_enabled": true,
   "incognito": "split",
   "short_name": "__MSG_extShortName__",
-  "minimum_chrome_version": "88",
-  "version_name": "2.12.0-beta.1"
+  "minimum_chrome_version": "88"
 }
