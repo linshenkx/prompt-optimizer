@@ -114,7 +114,7 @@
 
 .compact-two-region .input-panel--compact .input-panel-controls {
   align-items: end;
-  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr) var(--compact-submit-width) !important;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr) minmax(var(--compact-submit-width), max-content) !important;
   gap: var(--compact-gap) !important;
 }
 
@@ -181,7 +181,7 @@
 
 @container mobile-pane (min-width: 560px) {
   .compact-two-region .input-panel--compact .input-panel-controls {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) 80px !important;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(80px, max-content) !important;
   }
 
 }

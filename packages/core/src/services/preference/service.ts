@@ -427,6 +427,12 @@ export class PreferenceService implements IPreferenceService {
         await this.set(GLOBAL_SETTINGS_STORAGE_KEY, JSON.stringify({
           ...current, ...legacySnapshot, ...importedGlobalSettings,
         }));
+        // Language/bootstrap consumers still read these compatibility keys.
+        // Mirror only explicitly imported fields, with the same v1 priority.
+        for (const [legacyKey, field] of Object.entries(LEGACY_GLOBAL_SETTING_FIELDS)) {
+          const value = importedGlobalSettings?.[field];
+          if (value !== undefined) await this.set(legacyKey, value);
+        }
       } catch (error) {
         // Do not report a successful restore when the authoritative UI snapshot was not written.
         throw new ImportExportError('Failed to import global settings', await this.getDataType(), error as Error);

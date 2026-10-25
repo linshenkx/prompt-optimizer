@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { PreferenceService } from '../../../src/services/preference/service';
 import { MemoryStorageProvider } from '../../../src/services/storage/memoryStorageProvider';
 import { GLOBAL_SETTINGS_STORAGE_KEY as key } from '../../../src/services/preference/global-settings';
+import { UI_SETTINGS_KEYS } from '../../../src/constants/storage-keys';
 
 const saved = {
   selectedThemeId: 'light', preferredLanguage: 'en-US', builtinTemplateLanguage: 'en-US',
@@ -33,6 +34,27 @@ describe('global settings backup restore', () => {
     const entries = [[key, JSON.stringify(saved)], ['theme-id', 'dark'], ['preferred-language', 'zh-CN']];
     await service.importData(Object.fromEntries(reverse ? entries.reverse() : entries));
     expect(await snapshot(service)).toEqual(saved);
+    expect(await service.get(UI_SETTINGS_KEYS.THEME_ID, '')).toBe('light');
+    expect(await service.get(UI_SETTINGS_KEYS.PREFERRED_LANGUAGE, '')).toBe('en-US');
+    expect(await service.get(UI_SETTINGS_KEYS.BUILTIN_TEMPLATE_LANGUAGE, '')).toBe('en-US');
+  });
+
+  it('mirrors partial snapshot fields without replacing unrelated language preferences', async () => {
+    const service = create();
+    await service.set(UI_SETTINGS_KEYS.PREFERRED_LANGUAGE, 'zh-TW');
+    await service.importData({ [key]: JSON.stringify({ builtinTemplateLanguage: 'en-US' }) });
+    expect(await service.get(UI_SETTINGS_KEYS.PREFERRED_LANGUAGE, '')).toBe('zh-TW');
+    expect(await service.get(UI_SETTINGS_KEYS.BUILTIN_TEMPLATE_LANGUAGE, '')).toBe('en-US');
+  });
+
+  it('reports a compatibility-key write failure instead of claiming restoration succeeded', async () => {
+    const service = create();
+    const set = service.set.bind(service);
+    vi.spyOn(service, 'set').mockImplementation(async (settingKey, value) => {
+      if (settingKey === UI_SETTINGS_KEYS.PREFERRED_LANGUAGE) throw new Error('storage unavailable');
+      return set(settingKey, value);
+    });
+    await expect(service.importData({ [key]: JSON.stringify(saved) })).rejects.toThrow('Failed to import global settings');
   });
 
   it.each(['{', '[]', 'null', '{}', '{"unknown":"value"}', '{"functionMode":"other"}',

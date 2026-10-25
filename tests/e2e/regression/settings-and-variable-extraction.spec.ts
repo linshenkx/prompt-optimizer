@@ -62,6 +62,18 @@ for (const compact of [true, false]) {
         const store = (document.querySelector('#app') as any)?.__vue_app__?.config.globalProperties.$pinia?._s.get('globalSettings')
         return store && [store.state.selectedThemeId, store.state.preferredLanguage, store.state.builtinTemplateLanguage]
       })).toEqual(['light', 'en-US', 'en-US'])
+      // Check the rendered language too: restoring only the Pinia snapshot
+      // misses bootstrap consumers that still read the compatibility key.
+      await expect(page.getByTestId('basic-system-optimize-button')).toHaveText('Optimize')
+      const buttonBounds = await page.getByTestId('basic-system-optimize-button').evaluate(button => {
+        const outer = button.getBoundingClientRect()
+        const range = document.createRange()
+        range.selectNodeContents(button.querySelector('.n-button__content')!)
+        const content = range.getBoundingClientRect()
+        return { left: outer.left, right: outer.right, contentLeft: content.left, contentRight: content.right }
+      })
+      expect(buttonBounds.contentLeft).toBeGreaterThanOrEqual(buttonBounds.left - 1)
+      expect(buttonBounds.contentRight).toBeLessThanOrEqual(buttonBounds.right + 1)
       await page.screenshot({ path: testInfo.outputPath('restored-settings.png') })
     })
 

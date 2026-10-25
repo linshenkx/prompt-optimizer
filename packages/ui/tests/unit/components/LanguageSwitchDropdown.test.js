@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import LanguageSwitchDropdown from '../../../src/components/LanguageSwitchDropdown.vue'
+import { createTestPinia } from '../../utils/pinia-test-helpers'
+import { useGlobalSettings } from '../../../src/stores/settings/useGlobalSettings'
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal()
@@ -57,8 +59,10 @@ describe('LanguageSwitchDropdown', () => {
   })
 
   const createWrapper = (props = {}) => {
+    const { pinia } = createTestPinia(mockServices.value)
     return mount(LanguageSwitchDropdown, {
       global: {
+        plugins: [pinia],
         provide: {
           services: mockServices
         }
@@ -96,10 +100,20 @@ describe('LanguageSwitchDropdown', () => {
       wrapper = createWrapper()
       const vm = wrapper.vm
 
-      // 只验证方法能被调用，不测试具体的切换逻辑
+      // The visible language and the backup snapshot must follow the same selection.
       expect(typeof vm.handleLanguageSelect).toBe('function')
       await vm.handleLanguageSelect('en-US')
       expect(mockServices.value.preferenceService.set).toHaveBeenCalled()
+      expect(useGlobalSettings().state.preferredLanguage).toBe('en-US')
+    })
+
+    it('keeps the snapshot unchanged for unsupported language selections', async () => {
+      wrapper = createWrapper()
+      const settings = useGlobalSettings()
+      const original = settings.state.preferredLanguage
+      await wrapper.vm.handleLanguageSelect('unknown')
+      expect(settings.state.preferredLanguage).toBe(original)
+      expect(mockServices.value.preferenceService.set).not.toHaveBeenCalled()
     })
   })
 })

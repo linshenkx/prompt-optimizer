@@ -34,9 +34,11 @@ import { NButton } from 'naive-ui'
 import { useToast } from '../composables/ui/useToast'
 import type { BuiltinTemplateLanguage } from '@prompt-optimizer/core'
 import type { AppServices } from '../types/services'
+import { useGlobalSettings } from '../stores/settings/useGlobalSettings'
 
 const { t } = useI18n()
 const toast = useToast()
+const globalSettings = useGlobalSettings()
 
 // 移除props定义，现在统一通过inject获取services
 // const props = defineProps({
@@ -164,6 +166,7 @@ const handleLanguageToggle = async () => {
 
     // Change the built-in template language
     await manager.changeBuiltinTemplateLanguage(newLanguage)
+    globalSettings.updateBuiltinTemplateLanguage(newLanguage)
 
     // Update local state
     currentLanguage.value = newLanguage

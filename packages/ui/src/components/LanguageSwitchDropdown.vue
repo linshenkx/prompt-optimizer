@@ -61,12 +61,14 @@ import { useI18n } from 'vue-i18n'
 import { NButton, NDropdown, type DropdownOption } from 'naive-ui'
 import { i18n, type SupportedLocale } from '../plugins/i18n'
 import { UI_SETTINGS_KEYS } from '@prompt-optimizer/core'
+import { useGlobalSettings } from '../stores/settings/useGlobalSettings'
 import { usePreferences } from '../composables/storage/usePreferenceManager'
 import type { AppServices } from '../types/services'
 
 // 服务注入
 const services = inject<Ref<AppServices | null>>('services')!
 const { setPreference } = usePreferences(services)
+const globalSettings = useGlobalSettings()
 const { t } = useI18n()
 
 interface LanguageOption {
@@ -126,6 +128,7 @@ const handleLanguageSelect = async (key: string) => {
   // 保存用户偏好
   try {
     await setPreference(UI_SETTINGS_KEYS.PREFERRED_LANGUAGE, selectedLanguage.locale)
+    globalSettings.updatePreferredLanguage(selectedLanguage.locale)
     console.log(`[LanguageSwitchDropdown] Language switched to: ${selectedLanguage.label}`)
   } catch (error) {
     console.error('[LanguageSwitchDropdown] Failed to save language preference:', error)
