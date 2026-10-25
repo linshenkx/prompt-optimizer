@@ -4,7 +4,7 @@
  * 提供 AI 智能变量提取功能的响应式接口
  */
 
-import { ref, type Ref } from 'vue'
+import { ref, getCurrentScope, onScopeDispose, type Ref } from 'vue'
 import { useToast } from '../ui/useToast'
 import { useI18n } from 'vue-i18n'
 import { formatErrorSummary } from '../../utils/error'
@@ -46,7 +46,11 @@ export interface UseVariableExtractionReturn {
 export function useVariableExtraction(
   services: Ref<AppServices | null>,
   onVariableCreated?: (name: string, value: string) => void,
-  onPromptReplaced?: (replacedPrompt: string) => void
+  onPromptReplaced?: (replacedPrompt: string) => void,
+  context: {
+    getCurrentPrompt?: () => string
+    getExistingVariableNames?: () => string[]
+  } = {},
 ): UseVariableExtractionReturn {
   const toast = useToast()
   const { t } = useI18n()
@@ -57,6 +61,16 @@ export function useVariableExtraction(
   const showResultDialog = ref(false)
   // 保存原始提示词内容用于替换
   const originalPrompt = ref('')
+  let disposed = false
+  if (getCurrentScope()) onScopeDispose(() => { disposed = true })
+
+  const promptChanged = () => context.getCurrentPrompt
+    && context.getCurrentPrompt() !== originalPrompt.value
+  const discardStaleResult = () => {
+    showResultDialog.value = false
+    extractionResult.value = null
+    toast.warning(t('evaluation.variableExtraction.staleResult'))
+  }
 
   /**
    * 提取变量
@@ -66,6 +80,15 @@ export function useVariableExtraction(
     extractionModelKey: string,
     existingVariableNames: string[] = []
   ): Promise<void> => {
+    if (disposed || isExtracting.value || showResultDialog.value) return
+    if (!promptContent.trim()) {
+      toast.warning(t('evaluation.variableExtraction.noPromptContent'))
+      return
+    }
+    if (!extractionModelKey) {
+      toast.warning(t('evaluation.variableExtraction.noEvaluationModel'))
+      return
+    }
     if (!services.value) {
       toast.error(t('evaluation.error.serviceNotReady'))
       return
@@ -78,6 +101,7 @@ export function useVariableExtraction(
     }
 
     isExtracting.value = true
+    extractionResult.value = null
     // 保存原始提示词用于后续替换
     originalPrompt.value = promptContent
 
@@ -88,6 +112,11 @@ export function useVariableExtraction(
         existingVariableNames,
       })
 
+      if (disposed) return
+      if (promptChanged()) {
+        discardStaleResult()
+        return
+      }
       extractionResult.value = result
 
       if (result.variables.length > 0) {
@@ -96,6 +125,7 @@ export function useVariableExtraction(
         toast.info(t('evaluation.variableExtraction.noVariables'))
       }
     } catch (error) {
+      if (disposed) return
       toast.error(formatErrorSummary(t('evaluation.variableExtraction.extractFailed'), error))
       console.error('[useVariableExtraction] Extract failed:', error)
     } finally {
@@ -163,6 +193,12 @@ export function useVariableExtraction(
    * 批量创建变量
    */
   const confirmBatchCreate = (selectedVariables: ExtractedVariable[]): void => {
+    if (disposed || !showResultDialog.value || !extractionResult.value) return
+    const existing = new Set(context.getExistingVariableNames?.().map(name => name.trim().toLowerCase()))
+    if (promptChanged() || selectedVariables.some(variable => existing.has(variable.name.trim().toLowerCase()))) {
+      discardStaleResult()
+      return
+    }
     // 🔧 校验变量名合法性，过滤掉不合法的变量
     const validVariables: ExtractedVariable[] = []
     const invalidVariables: string[] = []
@@ -191,14 +227,14 @@ export function useVariableExtraction(
       return
     }
 
-    let successCount = 0
+    const createdVariables: ExtractedVariable[] = []
 
     // 创建变量（只创建合法的变量）
     for (const variable of validVariables) {
       try {
         if (onVariableCreated) {
           onVariableCreated(variable.name, variable.value)
-          successCount++
+          createdVariables.push(variable)
         }
       } catch (error) {
         console.error(`[useVariableExtraction] Failed to create variable ${variable.name}:`, error)
@@ -206,15 +242,15 @@ export function useVariableExtraction(
     }
 
     // 替换提示词中的变量值为 {{变量名}}（只替换合法的变量）
-    if (successCount > 0 && onPromptReplaced && originalPrompt.value) {
-      const replacedPrompt = replaceVariablesInPrompt(originalPrompt.value, validVariables)
+    if (createdVariables.length > 0 && onPromptReplaced && originalPrompt.value) {
+      const replacedPrompt = replaceVariablesInPrompt(originalPrompt.value, createdVariables)
       onPromptReplaced(replacedPrompt)
     }
 
     showResultDialog.value = false
 
-    if (successCount > 0) {
-      toast.success(t('evaluation.variableExtraction.createSuccess', { count: successCount }))
+    if (createdVariables.length > 0) {
+      toast.success(t('evaluation.variableExtraction.createSuccess', { count: createdVariables.length }))
     }
   }
 

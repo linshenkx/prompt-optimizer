@@ -14,28 +14,16 @@
 
 import { defineStore } from 'pinia'
 import { ref, watch, type Ref } from 'vue'
-import { UI_SETTINGS_KEYS } from '@prompt-optimizer/core'
+import { UI_SETTINGS_KEYS, GLOBAL_SETTINGS_STORAGE_KEY, type GlobalSettingsSnapshot } from '@prompt-optimizer/core'
 import { getPiniaServices } from '../../plugins/pinia'
 
-export type FunctionMode = 'basic' | 'pro' | 'image'
-export type BasicSubMode = 'system' | 'user'
-export type ProSubMode = 'multi' | 'variable'
-export type ImageSubMode = 'text2image' | 'image2image' | 'multiimage'
+export type FunctionMode = GlobalSettingsSnapshot['functionMode']
+export type BasicSubMode = GlobalSettingsSnapshot['basicSubMode']
+export type ProSubMode = GlobalSettingsSnapshot['proSubMode']
+export type ImageSubMode = GlobalSettingsSnapshot['imageSubMode']
+export type GlobalSettingsState = GlobalSettingsSnapshot
 
-export interface GlobalSettingsState {
-  selectedThemeId: string
-  preferredLanguage: string
-  builtinTemplateLanguage: string
-
-  functionMode: FunctionMode
-  basicSubMode: BasicSubMode
-  proSubMode: ProSubMode
-  imageSubMode: ImageSubMode
-
-  lastActiveAt: number
-}
-
-const STORAGE_KEY = 'global-settings/v1'
+const STORAGE_KEY = GLOBAL_SETTINGS_STORAGE_KEY
 
 const createDefaultState = (): GlobalSettingsState => ({
   selectedThemeId: 'auto',

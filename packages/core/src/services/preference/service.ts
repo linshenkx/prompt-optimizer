@@ -5,6 +5,7 @@ import { IMPORT_EXPORT_ERROR_CODES } from "../../constants/error-codes";
 import { StorageError } from "../storage/errors";
 import { toErrorWithCode } from "../../utils/error";
 import { FUNCTION_MODEL_KEYS } from "../../constants/storage-keys";
+import { GLOBAL_SETTINGS_STORAGE_KEY, LEGACY_GLOBAL_SETTING_FIELDS, parseGlobalSettingsSnapshot } from './global-settings';
 
 const SESSION_KEY_PREFIX = "session/";
 export const MAX_SESSION_SNAPSHOT_BYTES = 1024 * 1024;
@@ -372,9 +373,16 @@ export class PreferenceService implements IPreferenceService {
 
     const preferences = data as Record<string, string>;
     const failedSettings: { key: string; error: Error }[] = [];
+    const legacyGlobalSettings: Record<string, string> = {};
+    const importedGlobalSettings = parseGlobalSettingsSnapshot(preferences[GLOBAL_SETTINGS_STORAGE_KEY]);
 
     for (const [key, value] of Object.entries(preferences)) {
       try {
+        // The structured snapshot has its own field validation, not the legacy key whitelist.
+        if (key === GLOBAL_SETTINGS_STORAGE_KEY) {
+          if (!importedGlobalSettings) console.warn('Skipping invalid global settings snapshot');
+          continue;
+        }
         // 验证键名是否安全且在白名单中
         if (!isValidSettingKey(key)) {
           console.warn(`Skipping invalid UI configuration key: ${key}`);
@@ -393,6 +401,8 @@ export class PreferenceService implements IPreferenceService {
         const normalizedKey = normalizeSettingKey(key);
 
         await this.set(normalizedKey, value);
+        const globalField = LEGACY_GLOBAL_SETTING_FIELDS[normalizedKey as keyof typeof LEGACY_GLOBAL_SETTING_FIELDS];
+        if (globalField) legacyGlobalSettings[globalField] = value;
 
         // 如果键名被转换了，显示转换信息
         if (normalizedKey !== key) {
@@ -405,6 +415,21 @@ export class PreferenceService implements IPreferenceService {
       } catch (error) {
         console.warn(`Failed to import UI setting ${key}:`, error);
         failedSettings.push({ key, error: error as Error });
+      }
+    }
+
+    // Old backups must also update the current snapshot, otherwise it masks the imported legacy keys.
+    // A v1 snapshot is authoritative over mirrored legacy values, regardless of property order.
+    const legacySnapshot = parseGlobalSettingsSnapshot(JSON.stringify(legacyGlobalSettings));
+    if (importedGlobalSettings || legacySnapshot) {
+      try {
+        const current = parseGlobalSettingsSnapshot(await this.get(GLOBAL_SETTINGS_STORAGE_KEY, ''));
+        await this.set(GLOBAL_SETTINGS_STORAGE_KEY, JSON.stringify({
+          ...current, ...legacySnapshot, ...importedGlobalSettings,
+        }));
+      } catch (error) {
+        // Do not report a successful restore when the authoritative UI snapshot was not written.
+        throw new ImportExportError('Failed to import global settings', await this.getDataType(), error as Error);
       }
     }
 

@@ -1,9 +1,9 @@
 <template>
-  <NModal
+  <AdaptiveModal
     v-model:show="visible"
     preset="dialog"
     :title="t('evaluation.variableExtraction.dialogTitle')"
-    style="width: 800px"
+    style="width: min(800px, calc(100vw - 24px))"
     :positive-text="t('evaluation.variableExtraction.batchCreate', { count: selectedKeys.length })"
     :negative-text="t('common.cancel')"
     :positive-button-props="{ disabled: selectedKeys.length === 0 }"
@@ -18,9 +18,21 @@
       style="margin-bottom: 16px"
     />
 
+    <div v-if="isCompact && result && result.variables.length > 0" class="extraction-mobile-list">
+      <div v-for="variable in result.variables" :key="variable.name" class="extraction-mobile-item">
+        <NCheckbox :checked="selectedKeys.includes(variable.name)"
+          @update:checked="checked => toggleSelection(variable.name, checked)">
+          {{ variable.name }}
+        </NCheckbox>
+        <div class="extraction-mobile-value">{{ variable.value }}</div>
+        <NText depth="3">{{ variable.reason }}</NText>
+        <NText v-if="variable.category" depth="3">{{ variable.category }}</NText>
+      </div>
+    </div>
+
     <!-- 变量表格 (支持多选) -->
     <NDataTable
-      v-if="result && result.variables.length > 0"
+      v-else-if="result && result.variables.length > 0"
       :columns="columns"
       :data="result.variables"
       :checked-row-keys="selectedKeys"
@@ -44,14 +56,14 @@
         </NText>
       </NSpace>
     </template>
-  </NModal>
+  </AdaptiveModal>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import {
-  NModal,
   NAlert,
+  NCheckbox,
   NDataTable,
   NEmpty,
   NSpace,
@@ -59,6 +71,8 @@ import {
   type DataTableColumns,
 } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
+import AdaptiveModal from '../common/AdaptiveModal.vue'
+import { useWorkspaceLayout } from '../../composables/ui/useWorkspaceLayout'
 import type { ExtractedVariable, VariableExtractionResponse } from '@prompt-optimizer/core'
 
 /**
@@ -84,6 +98,7 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 const { t } = useI18n()
+const { isCompact } = useWorkspaceLayout()
 
 // 双向绑定显示状态
 const visible = computed({
@@ -146,6 +161,12 @@ const handleSelectionChange = (keys: Array<string | number>) => {
   selectedKeys.value = keys.map(String)
 }
 
+const toggleSelection = (name: string, checked: boolean) => {
+  selectedKeys.value = checked
+    ? [...new Set([...selectedKeys.value, name])]
+    : selectedKeys.value.filter(key => key !== name)
+}
+
 // 处理确认
 const handleConfirm = () => {
   if (!props.result || selectedKeys.value.length === 0) {
@@ -165,3 +186,18 @@ const handleCancel = () => {
   visible.value = false
 }
 </script>
+
+<style scoped>
+.extraction-mobile-list {
+  display: grid;
+  gap: 12px;
+  max-height: min(400px, 50dvh);
+  overflow: auto;
+}
+.extraction-mobile-item {
+  display: grid;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+.extraction-mobile-value { white-space: pre-wrap; }
+</style>

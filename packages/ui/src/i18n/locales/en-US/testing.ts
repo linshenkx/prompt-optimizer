@@ -576,6 +576,7 @@ const messages = {
       "batchCreate": "Batch Create",
       "noVariables": "No extractable variables identified",
       "extractFailed": "Auto extraction failed",
+      "staleResult": "The prompt or variables have changed. Please extract again.",
       "createSuccess": "Successfully created {count} variables",
       "summary": "Summary",
       "workspaceNotReady": "Unable to access workspace state",

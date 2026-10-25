@@ -576,6 +576,7 @@ const messages = {
       "batchCreate": "批量创建",
       "noVariables": "未识别到可提取的变量",
       "extractFailed": "自动提取失败",
+      "staleResult": "提示词或变量已更改，请重新提取。",
       "createSuccess": "成功创建 {count} 个变量",
       "summary": "总结",
       "workspaceNotReady": "无法访问工作区状态",

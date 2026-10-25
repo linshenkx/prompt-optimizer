@@ -14,7 +14,7 @@
     <div :class="{ 'compact-two-region': isCompact }" class="context-user-workspace" data-testid="workspace" data-mode="pro-variable">
         <div class="workspace-page-tools">
             <Teleport defer to="#compact-workspace-tools" :disabled="!isCompact"><WorkspaceUtilityMenu :compact="isCompact"
-                :disabled="contextUserOptimization.isOptimizing || contextUserOptimization.isIterating || isAnyVariantRunning"
+                :disabled="contextUserOptimization.isOptimizing || contextUserOptimization.isIterating || isAnyVariantRunning || variableExtraction.isExtracting.value"
                 :source="resolveSourceAssetRef(proVariableSession.origin, proVariableSession.assetBinding)"
                 test-id="pro-variable-workspace-utility-menu"
                 @clear="handleClearContent"
@@ -86,7 +86,7 @@
                     :button-text="t('promptOptimizer.optimize')"
                     :loading-text="t('common.loading')"
                     :loading="contextUserOptimization.isOptimizing"
-                    :disabled="contextUserOptimization.isOptimizing"
+                    :disabled="contextUserOptimization.isOptimizing || variableExtraction.isExtracting.value"
                      :show-preview="true"
                      :show-analyze-button="!isCompact"
                      :analyze-loading="isAnalyzing"
@@ -96,7 +96,7 @@
                       @open-preview="handleOpenInputPreview"
                       :enable-variable-extraction="true"
                      :show-extract-button="true"
-                     :extracting="props.isExtracting"
+                     :extracting="variableExtraction.isExtracting.value || props.isExtracting"
                      v-bind="inputPanelVariableData || {}"
                      @extract-variables="handleExtractVariables"
                     @variable-extracted="handleVariableExtracted"
@@ -535,6 +535,12 @@
             @confirm="handleCompareRoleConfigConfirm"
         />
 
+        <VariableExtractionResultDialog
+            v-model:show="variableExtraction.showResultDialog.value"
+            :result="variableExtraction.extractionResult.value"
+            @confirm="variableExtraction.confirmBatchCreate"
+        />
+
         <!-- 子模式本地预览面板：不再依赖 PromptOptimizerApp 的全局预览状态 -->
         <PromptPreviewPanel
             v-model:show="showPromptPreview"
@@ -549,6 +555,8 @@
 </template>
 
 <script setup lang="ts">
+import { useVariableExtraction } from '../../composables/prompt/useVariableExtraction'
+import VariableExtractionResultDialog from '../variable-extraction/VariableExtractionResultDialog.vue'
 import OptimizeWorkspaceLayout from '../common/OptimizeWorkspaceLayout.vue'
 import VariantTestWorkspaceLayout from '../common/VariantTestWorkspaceLayout.vue'
 import MobileTestResultHeader from '../common/MobileTestResultHeader.vue'
@@ -748,8 +756,6 @@ const emit = defineEmits<{
     "variable-change": [name: string, value: string];
     /** 保存测试变量到全局 */
     "save-to-global": [name: string, value: string];
-    /** 🆕 AI变量提取事件 */
-    "extract-variables": [];
     /** 🆕 变量提取事件 (用于处理文本选择提取的变量) */
     "variable-extracted": [
         data: {
@@ -1963,20 +1969,23 @@ const promptPanelRef = ref<InstanceType<typeof PromptPanelUI> | null>(null);
 // ========================
 // handleVariableExtracted / handleAddMissingVariable are provided by useVariableAwareInputBridge
 
-/**
- * 🆕 处理AI变量提取事件
- *
- * 当用户点击"AI提取变量"按钮时触发
- *
- * 工作流程:
- * 1. 验证提示词内容和模型选择
- * 2. 收集已存在的变量名（全局+临时）
- * 3. 触发父组件的extract-variables事件
- * 4. 父组件调用AI服务并显示结果对话框
- */
+// Own the request and result in this workspace. Never write through the active-route variable manager.
+const variableExtraction = useVariableExtraction(
+    servicesRef,
+    (name, value) => proVariableSession.setTemporaryVariable(name, value),
+    (prompt) => { contextUserOptimization.prompt = prompt; },
+    {
+        getCurrentPrompt: () => contextUserOptimization.prompt || '',
+        getExistingVariableNames: () => Object.keys(previewVariables.value),
+    },
+)
+
 const handleExtractVariables = () => {
-    // 触发父组件事件，由App层处理AI提取逻辑
-    emit('extract-variables');
+    return variableExtraction.extractVariables(
+        contextUserOptimization.prompt || '',
+        effectiveEvaluationModelKey.value,
+        Object.keys(previewVariables.value),
+    );
 };
 
 /**
@@ -2127,7 +2136,7 @@ const handleSaveLocalEdit = async (payload: { note?: string }) => {
 
 // 暴露 TestAreaPanel 引用给父组件（用于工具调用等高级功能）
 defineExpose({
-  isUpdateBusy: () => contextUserOptimization.isOptimizing || contextUserOptimization.isIterating || isAnyVariantRunning.value || evaluation.isAnyEvaluating.value,
+  isUpdateBusy: () => contextUserOptimization.isOptimizing || contextUserOptimization.isIterating || isAnyVariantRunning.value || evaluation.isAnyEvaluating.value || variableExtraction.isExtracting.value || variableExtraction.showResultDialog.value,
     testAreaPanelRef,
     restoreFromHistory,
     contextUserOptimization,  // 🆕 暴露优化器状态，供父组件访问（如AI变量提取）

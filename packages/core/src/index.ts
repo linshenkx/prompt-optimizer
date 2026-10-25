@@ -165,6 +165,8 @@ export { ElectronDataManagerProxy } from './services/data/electron-proxy'
 
 // 导出偏好设置服务相关
 export * from './services/preference/types'
+export { GLOBAL_SETTINGS_STORAGE_KEY } from './services/preference/global-settings'
+export type { GlobalSettingsSnapshot } from './services/preference/global-settings'
 export { ElectronPreferenceServiceProxy } from './services/preference/electron-proxy'
 export { PreferenceService, createPreferenceService } from './services/preference/service'
 

@@ -53,7 +53,7 @@
                     size="small"
                     @click="$emit('extract-variables')"
                     :loading="extracting"
-                    :disabled="extracting || !modelValue.trim()"
+              :disabled="disabled || extracting || !modelValue.trim()"
                     :title="extracting ? $t('evaluation.variableExtraction.extracting') : $t('evaluation.variableExtraction.extractButton')"
                     :aria-label="$t('evaluation.variableExtraction.extractButton')"
                     ghost
