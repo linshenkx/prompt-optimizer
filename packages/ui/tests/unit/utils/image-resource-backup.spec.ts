@@ -1,7 +1,10 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import '../../../../core/node_modules/fake-indexeddb/auto/index.mjs'
+import { ImageStorageService } from '../../../../core/src/services/image/storage'
 
 import {
   assertImageResourceRestoreReportSafe,
+  assertImageRestoreCapacity,
   createFullImageDataFromResource,
   restoreImageResource,
   safeImageResourceFileName,
@@ -16,6 +19,7 @@ const sha256Hex = async (bytes: Uint8Array): Promise<string> => {
 }
 
 describe('image resource backup helpers', () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
   it('creates stable safe file names with optional content hashes', () => {
     expect(safeImageResourceFileName('cover asset', 'image/png')).toBe('cover%20asset.png')
     expect(safeImageResourceFileName('cover asset', 'image/png', 'abc')).toBe('cover%20asset.abc.png')
@@ -64,7 +68,7 @@ describe('image resource backup helpers', () => {
     expect(image.metadata.source).toBe('generated')
   })
 
-  it('skips only when local storage can return complete image bytes', async () => {
+  it('skips only when local storage has matching image bytes', async () => {
     const bytes = new TextEncoder().encode('backup-image')
     const entry = {
       kind: 'image' as const,
@@ -92,12 +96,88 @@ describe('image resource backup helpers', () => {
           createdAt: 1,
           source: 'uploaded' as const,
         },
-        data: 'x',
+        data: globalThis.btoa('backup-image'),
       })),
       saveImage: vi.fn(async () => 'asset-3'),
     }
 
     await expect(restoreImageResource(entry, bytes, completeStorage)).resolves.toBe('skipped')
     expect(completeStorage.saveImage).not.toHaveBeenCalled()
+  })
+
+  it('rejects same-ID different content without overwriting the local image', async () => {
+    const existing = createFullImageDataFromResource({ kind: 'image', id: 'shared', path: 'shared.png' },
+      new TextEncoder().encode('target-image'))
+    const storage = { getImage: vi.fn(async () => existing), saveImage: vi.fn() }
+    await expect(restoreImageResource({ kind: 'image', id: 'shared', path: 'shared.png' },
+      new TextEncoder().encode('backup-image'), storage)).rejects.toThrow('Image ID conflict: shared')
+    expect(storage.saveImage).not.toHaveBeenCalled()
+  })
+
+  it('does not silently accept a declared hash when digest verification is unavailable', async () => {
+    const bytes = new TextEncoder().encode('image-bytes')
+    const hash = await sha256Hex(bytes)
+    vi.stubGlobal('crypto', {})
+    await expect(validateImageResourceBytes({ kind: 'image', id: 'one', path: 'one.png',
+      sha256: hash, sizeBytes: bytes.byteLength }, bytes)).rejects.toThrow('SHA-256 verification is unavailable')
+    // LAN HTTP exports without WebCrypto already omit hashes; their length check still works.
+    await expect(validateImageResourceBytes({ kind: 'image', id: 'one', path: 'one.png',
+      sizeBytes: bytes.byteLength }, bytes)).resolves.toBe('ok')
+    await expect(validateImageResourceBytes({ kind: 'image', id: 'one', path: 'one.png',
+      sizeBytes: 1 }, bytes)).resolves.toBe('corrupt')
+  })
+
+  it('rejects invalid declared sizes even when the bytes are nonempty', async () => {
+    for (const sizeBytes of [-1, Number.NaN, Number.POSITIVE_INFINITY, 0]) {
+      await expect(validateImageResourceBytes({ kind: 'image', id: 'one', path: 'one.png', sizeBytes },
+        new Uint8Array([1]))).resolves.toBe('corrupt')
+    }
+  })
+
+  it('checks the union capacity before writes and accounts for duplicate and existing IDs', async () => {
+    const entry = (id: string, text: string) => createFullImageDataFromResource({kind: 'image', id, path: `${id}.png`},
+      new TextEncoder().encode(text))
+    const existing = entry('old', '1234')
+    const storage = {
+      getImage: vi.fn(async () => null), saveImage: vi.fn(),
+      getConfig: () => ({ maxCount: 2, maxCacheSize: 8, quotaStrategy: 'evict' as const }),
+      getStorageStats: async () => ({ count: 1, totalBytes: 4, oldestAt: 1, newestAt: 1 }),
+      getMetadata: async (id: string) => id === 'old' ? existing.metadata : null,
+    }
+    await expect(assertImageRestoreCapacity([entry('new', '1234'), entry('new', '1234'), existing], storage))
+      .resolves.toBeUndefined()
+    await expect(assertImageRestoreCapacity([entry('new', '1234'), entry('another', '1')], storage))
+      .rejects.toThrow('3 images exceeds 2')
+    await expect(assertImageRestoreCapacity([entry('new', '12345')], storage))
+      .rejects.toThrow('9 bytes exceeds 8')
+    expect(storage.saveImage).not.toHaveBeenCalled()
+  })
+
+  it('restores under the cap without age-evicting retained target images; ordinary saves still clean up', async () => {
+    let now = 1
+    vi.spyOn(Date, 'now').mockImplementation(() => now)
+    const storage = new ImageStorageService({ dbName: `restore-age-${Math.random()}`,
+      maxCount: 3, maxCacheSize: 10000, maxAge: 10, autoCleanupThreshold: 0.5, quotaStrategy: 'evict' })
+    const entry = (id: string) => ({ kind: 'image' as const, id, path: `${id}.png` })
+    try {
+      await storage.saveImage(createFullImageDataFromResource(entry('retained'), new Uint8Array([1])))
+      now = 100
+      await restoreImageResource(entry('restored'), new Uint8Array([2]), storage)
+      expect((await storage.listAllMetadata()).map(image => image.id).sort()).toEqual(['restored', 'retained'])
+      await storage.saveImage(createFullImageDataFromResource(entry('ordinary'), new Uint8Array([3])))
+      expect((await storage.listAllMetadata()).map(image => image.id).sort()).toEqual(['ordinary', 'restored'])
+    } finally { await storage.clearAll(); await storage.close() }
+  })
+
+  it('rejects guarded saves over the cap without evicting or writing even under an evict configuration', async () => {
+    const storage = new ImageStorageService({ dbName: `restore-quota-${Math.random()}`,
+      maxCount: 1, maxCacheSize: 10000, maxAge: undefined, quotaStrategy: 'evict' })
+    const entry = (id: string) => ({ kind: 'image' as const, id, path: `${id}.png` })
+    try {
+      await storage.saveImage(createFullImageDataFromResource(entry('retained'), new Uint8Array([1])))
+      await expect(restoreImageResource(entry('new'), new Uint8Array([2]), storage))
+        .rejects.toThrow('Image storage quota exceeded')
+      expect((await storage.listAllMetadata()).map(image => image.id)).toEqual(['retained'])
+    } finally { await storage.clearAll(); await storage.close() }
   })
 })

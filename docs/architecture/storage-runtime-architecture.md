@@ -49,6 +49,7 @@
 - 主文件：`<userData>/prompt-optimizer-data.json`
 - 备份文件：`<userData>/prompt-optimizer-data.json.backup`
 - 写入方式：内存镜像 + 延迟写盘 + 原子替换 + 备份恢复
+- `.backup` 只覆盖这个结构化主文件，不包含两个图片 IndexedDB 或远程连接的 localStorage，不能单独用作完整设备迁移包。
 
 相关文件：
 
@@ -426,32 +427,50 @@ Desktop 主存储没有应用层固定大小上限，但有运行时写盘策略
 
 ## 🔄 五、导入导出边界
 
-当前 `DataManager.exportAllData()` 导出的不是整套运行态存储，而是一个经过裁剪的业务数据集合。
+导出范围取决于入口，不能把核心 JSON、数据管理页备份包和 Desktop 文件副本混为一谈。
 
-当前导出包含：
+### 1. 核心 DataManager JSON
+
+`DataManager.exportAllData()` 包含：
 
 - `history`
 - `models`
+- `imageModels`（图像模型服务可用时）
 - `userTemplates`
 - `userSettings`
 - `contexts`
+- `workspaceSessions`（七种工作区的草稿、选择、测试/评估结果及图片引用）
 
-当前不包含：
+`userSettings` 使用明确的受支持键集合，包含 `global-settings/v1` 和结构化的全局变量快照；工作区临时变量随对应 session 保存。导入会先检查版本和各区数据，再依次写入，工作区最后提交。历史先准备完整替换再单次写入；各服务失败会向上报告，不能当作完整恢复成功。
 
-- `favorites`
-- `favorite image assets`
-- `session snapshots`
-- `session image assets`
+这个 JSON 不包含独立收藏区和图片二进制，不能只靠它还原图片引用。
 
-因此必须明确：
+### 2. 数据管理页的本地 ZIP 与远程快照
 
-- **导入导出边界 != 运行时存储边界**
-- 当前导入导出不能视为完整灾备备份
+默认备份范围为应用数据、收藏、会话图片和收藏图片四区；用户可以选择部分区。收藏区包括分类、标签、提示词资产、版本及示例元数据。本地 ZIP 将 JSON、资源清单和图片打包；远程快照分开保存这些对象，最后上传 manifest。
+
+- 导出同时检查业务图片引用，缺失实体会进入缺失清单；未缓存外链仍只保留 URL。
+- 恢复先校验所选业务数据、图片内容/同 ID 冲突和联合容量，再写入图片、收藏及应用数据；全应用备份按收藏 ID 匹配恢复，分类身份与层级一并处理。
+- 会话图片和收藏图片仍受各自既有配额约束，恢复不能通过静默淘汰图片绕过配额。
+- 不选择图片区的包不保证图片可离线恢复；不选择收藏区也不会自动补齐工作区指向收藏资产的引用。
+- 远程连接参数/凭据、PWA/更新缓存及机器网络配置不在这些业务备份中，新设备需重配或重建。
+
+### 3. Desktop 主文件副本与失败边界
+
+`prompt-optimizer-data.json.backup` 是主进程结构化 KV 文件的恢复副本，包含该文件内的收藏和 session 等键，但不包含渲染进程的两个图片库。它与上述 ZIP/远程快照的范围不同。
+
+恢复预检和工作区局部回滚不等于全局事务：图片、收藏、模型、历史、设置等跨存储没有统一提交/回滚。预检通过后若发生运行时存储错误，仍可能留下部分写入；恢复会报错，不能承诺整个目标回到导入前。Desktop 完整应用导入成功响应前会执行文件 flush，但这也不把多个存储变成同一事务。
+
+**导入导出边界仍不等于整个运行环境的克隆；包中字段或资源存在，也不单独证明干净设备上的完整业务恢复。**
 
 相关文件：
 
 - `packages/core/src/services/data/manager.ts`
 - `packages/core/src/services/preference/service.ts`
+- `packages/core/src/services/data/workspace-session-transfer.ts`
+- `packages/ui/src/utils/data-manager-resource-package.ts`
+- `packages/ui/src/utils/remote-snapshot-backup.ts`
+- `packages/ui/src/utils/image-resource-backup.ts`
 
 ## 🚨 六、当前已经建立的防线
 
@@ -518,14 +537,13 @@ Desktop 主存储没有应用层固定大小上限，但有运行时写盘策略
 
 这不一定立即导致数据损坏，但会提高认知成本，也会增加后续修改时误写双真源的风险。
 
-### 5. 导出数据不覆盖图片资产
+### 5. 图片恢复取决于备份入口、资源范围与实际实体
 
-当前导出文件不能还原：
+核心 DataManager JSON 和 Desktop 主文件 `.backup` 不包含图片二进制；数据管理页完整 ZIP/远程快照已经支持两个图片库，不能再统称“导出不覆盖图片”。
 
-- 收藏图片库
-- session 图片库
+完整恢复仍要求选中对应图片区、资源无缺失/冲突、目标容量足够，且未缓存的外链在新设备仍可访问。跨存储运行时失败也可能留下部分状态，须保留源备份并按具体错误处理。
 
-这也是为什么“运行时数据完整性”和“导出文件完整性”必须分开讨论。
+因此仍需分别验证备份内容、导入结果、重启持久化与真实设备业务行为，不能仅以导出成功或资源计数作为完整恢复验收。
 
 ## 🛡️ 八、必须遵守的存储红线
 

@@ -41,7 +41,7 @@ describe('DataManager Import/Export Integration', () => {
     imageModelManager = new ImageModelManager(storageProvider, imageRegistry);
     await imageModelManager.ensureInitialized();
 
-    const languageService = new TemplateLanguageService(storageProvider, preferenceService);
+    const languageService = new TemplateLanguageService(preferenceService);
     await languageService.initialize();
     templateManager = new TemplateManager(storageProvider, languageService);
 
@@ -298,7 +298,7 @@ describe('DataManager Import/Export Integration', () => {
       expect(language).toBe('en-US');
     });
 
-    it('should handle partial import failures gracefully', async () => {
+    it('rejects a malformed section before any valid section changes stored data', async () => {
       // 准备部分有效、部分无效的数据
       const mixedData = {
         version: 1,
@@ -361,24 +361,27 @@ describe('DataManager Import/Export Integration', () => {
       };
 
       const mixedDataString = JSON.stringify(mixedData);
+      const storedValues = async () => Promise.all(storageProvider.getAllKeys().sort()
+        .map(async key => [key, await storageProvider.getItem(key)]));
+      const before = await storedValues();
 
-      // 导入混合数据，应该不抛出错误
-      await expect(dataManager.importAllData(mixedDataString)).resolves.not.toThrow();
+      await expect(dataManager.importAllData(mixedDataString))
+        .rejects.toMatchObject({ code: DATA_ERROR_CODES.INVALID_FORMAT });
+      expect(await storedValues()).toEqual(before);
 
-      // 验证有效数据被导入
       const validModel = await modelManager.getModel('valid-model');
-      expect(validModel).toBeDefined();
+      expect(validModel).toBeUndefined();
 
       const templates = await templateManager.listTemplates();
       const validTemplate = templates.find(t => t.id === 'valid-template');
-      expect(validTemplate).toBeDefined();
+      expect(validTemplate).toBeUndefined();
 
       const records = await historyManager.getRecords();
       const validRecord = records.find(r => r.id === 'valid-record');
-      expect(validRecord).toBeDefined();
+      expect(validRecord).toBeUndefined();
 
       const theme = await preferenceService.get('app:settings:ui:theme-id', null);
-      expect(theme).toBe('dark');
+      expect(theme).toBe(null);
 
       // 验证无效数据被跳过
       const maliciousValue = await preferenceService.get('malicious-key', null);

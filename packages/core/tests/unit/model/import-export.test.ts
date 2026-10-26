@@ -170,7 +170,7 @@ describe('ModelManager Import/Export', () => {
       expect(openaiModel?.enabled).toBe(false); // 应该使用导入的状态
     });
 
-    it('should skip invalid models', async () => {
+    it('should reject invalid models before importing any valid entries', async () => {
       const importData = [
         {
           // 缺少key字段
@@ -192,12 +192,10 @@ describe('ModelManager Import/Export', () => {
         }
       ];
 
-      // 应该不抛出错误，只是跳过无效模型
-      await expect(modelManager.importData(importData)).resolves.not.toThrow();
+      await expect(modelManager.importData(importData)).rejects.toThrow('Invalid model configuration at index 0');
 
-      // 验证有效模型被导入
       const validModel = await modelManager.getModel('valid-model');
-      expect(validModel).toBeDefined();
+      expect(validModel).toBeUndefined();
     });
 
     it('should handle import errors gracefully', async () => {
@@ -216,8 +214,17 @@ describe('ModelManager Import/Export', () => {
       // 模拟addModel错误
       vi.spyOn(modelManager, 'addModel').mockRejectedValue(new Error('Add model error'));
 
-      // 应该不抛出错误，只是记录失败
-      await expect(modelManager.importData(importData)).resolves.not.toThrow();
+      await expect(modelManager.importData(importData)).rejects.toThrow('Failed to import 1 models');
+    });
+
+    it('should preflight semantic errors before writing earlier models', async () => {
+      const valid = {
+        key: 'not-written', name: 'Valid', baseURL: 'https://example.test/v1',
+        defaultModel: 'model', provider: 'openai', enabled: false,
+      };
+      await expect(modelManager.importData([valid, { ...valid, key: 'invalid', name: '' }]))
+        .rejects.toThrow('Invalid model configuration at index 1');
+      expect(await modelManager.getModel('not-written')).toBeUndefined();
     });
   });
 
@@ -243,6 +250,7 @@ describe('ModelManager Import/Export', () => {
       expect(await modelManager.validateData({})).toBe(false);
       expect(await modelManager.validateData('string')).toBe(false);
       expect(await modelManager.validateData(null)).toBe(false);
+      expect(await modelManager.validateData([null])).toBe(false);
 
       // 缺少必需字段
       expect(await modelManager.validateData([

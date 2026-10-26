@@ -657,6 +657,25 @@ describe('ContextRepo', () => {
       
       expect(spy).toHaveBeenCalledWith(testData, 'replace');
     });
+
+    it('完整恢复应该在写入前拒绝坏上下文及未知版本', async () => {
+      const before = await repo.exportData();
+      const valid = before.contexts[0];
+      const badBundles = [
+        { ...before, version: '999' },
+        { ...before, contexts: [valid, { ...valid, id: 'bad', variables: null }] },
+        { ...before, contexts: [valid, { ...valid, id: 'bad', messages: [{ role: 'user', content: 123 }] }] },
+        { ...before, contexts: [valid, { ...valid, id: 'bad', tools: [{ type: 'function', function: null }] }] },
+        { ...before, contexts: [valid, { ...valid }] },
+      ];
+      const writeSpy = vi.spyOn(storage, 'updateData');
+      for (const bundle of badBundles) {
+        expect(await repo.validateData(bundle)).toBe(false);
+        await expect(repo.importData(bundle)).rejects.toThrow('Invalid import data format');
+      }
+      expect(writeSpy).not.toHaveBeenCalled();
+      expect(await repo.exportData()).toEqual(before);
+    });
   });
 
   describe('错误处理', () => {

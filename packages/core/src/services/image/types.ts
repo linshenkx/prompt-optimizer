@@ -292,7 +292,7 @@ export interface ImageStorageConfig {
  */
 export interface IImageStorageService {
   // 基础 CRUD 操作
-  saveImage(data: FullImageData): Promise<string>  // 返回图像ID
+  saveImage(data: FullImageData, options?: { preventEviction?: boolean }): Promise<string>  // 返回图像ID
   getImage(id: string): Promise<FullImageData | null>
   getMetadata(id: string): Promise<ImageMetadata | null>
   deleteImage(id: string): Promise<void>

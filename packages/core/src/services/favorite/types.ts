@@ -121,6 +121,13 @@ export interface TagStatistics {
 /**
  * 收藏管理器接口
  */
+export interface FavoriteImportOptions {
+  mergeStrategy?: 'skip' | 'overwrite' | 'merge';
+  categoryMapping?: Record<string, string>;
+  /** Full backup restore matches stable identities; manual imports default to content matching. */
+  matchBy?: 'content' | 'id';
+}
+
 export interface IFavoriteManager {
   /** 添加收藏 */
   addFavorite(favorite: Omit<FavoritePrompt, 'id' | 'createdAt' | 'updatedAt' | 'useCount'>): Promise<string>;
@@ -182,14 +189,14 @@ export interface IFavoriteManager {
   exportFavorites(ids?: string[]): Promise<string>;
 
   /** 导入收藏 */
-  importFavorites(data: string, options?: {
-    mergeStrategy?: 'skip' | 'overwrite' | 'merge';
-    categoryMapping?: Record<string, string>;
-  }): Promise<{
+  importFavorites(data: string, options?: FavoriteImportOptions): Promise<{
     imported: number;
     skipped: number;
     errors: string[];
   }>;
+
+  /** Validate a restore against current data before any image or application data is written. */
+  validateImportData?(data: string, options?: FavoriteImportOptions): Promise<void>;
 
   /** 获取所有标签及其使用统计（包含独立标签和使用中的标签） */
   getAllTags(): Promise<Array<{ tag: string; count: number }>>;

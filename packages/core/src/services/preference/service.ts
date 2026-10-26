@@ -73,6 +73,54 @@ const UI_SETTINGS_KEYS = [
   "app:selected-iterate-template", // 迭代模板
 ] as const;
 
+const VARIABLE_STORAGE_KEY = 'variableManager.storage';
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+
+// Keep VariableManager's existing object storage while carrying it through the
+// string-valued userSettings transport. Do not open arbitrary preference keys.
+const parseVariableStorageSnapshot = (value: unknown): Record<string, unknown> | null => {
+  if (typeof value !== 'string') return null;
+  try {
+    const data: unknown = JSON.parse(value);
+    if (!isRecord(data) || !isRecord(data.customVariables)) return null;
+    const safeName = (name: string) => name.length > 0 && name.length <= 50 &&
+      !/^[\d#/^!>&]|[\s{}]/u.test(name) &&
+      !['__proto__', 'prototype', 'constructor'].includes(name);
+    if (!Object.entries(data.customVariables).every(([name, item]) => safeName(name) && typeof item === 'string')) {
+      return null;
+    }
+    if (data.advancedModeEnabled !== undefined && typeof data.advancedModeEnabled !== 'boolean') return null;
+    if (data.lastConversationMessages !== undefined && (!Array.isArray(data.lastConversationMessages) ||
+      !data.lastConversationMessages.every(message => isRecord(message) &&
+        typeof message.role === 'string' && ['system', 'user', 'assistant', 'tool'].includes(message.role) &&
+        typeof message.content === 'string'))) {
+      return null;
+    }
+    const hasUnsafeKey = (item: unknown): boolean => {
+      const pending = [item];
+      while (pending.length > 0) {
+        const current = pending.pop();
+        if (!current || typeof current !== 'object') continue;
+        for (const [key, nested] of Object.entries(current)) {
+          if (['__proto__', 'prototype', 'constructor'].includes(key)) return true;
+          if (nested && typeof nested === 'object') pending.push(nested);
+        }
+      }
+      return false;
+    };
+    if (hasUnsafeKey(data)) return null;
+    return {
+      customVariables: data.customVariables,
+      ...(data.advancedModeEnabled !== undefined ? { advancedModeEnabled: data.advancedModeEnabled } : {}),
+      ...(data.lastConversationMessages !== undefined ? { lastConversationMessages: data.lastConversationMessages } : {}),
+    };
+  } catch {
+    return null;
+  }
+};
+
 // 旧版本键名映射表 - 用于兼容性处理
 const LEGACY_KEY_MAPPING: Record<string, string> = {
   // 旧版本的简短键名 -> 新版本的完整键名
@@ -81,6 +129,13 @@ const LEGACY_KEY_MAPPING: Record<string, string> = {
   "builtin-template-language": "app:settings:ui:builtin-template-language",
   // 其他键名保持不变，因为它们已经有正确的前缀
 };
+
+const BACKUP_SETTINGS_KEYS: readonly string[] = [
+  ...UI_SETTINGS_KEYS,
+  ...Object.keys(LEGACY_KEY_MAPPING),
+  GLOBAL_SETTINGS_STORAGE_KEY,
+  VARIABLE_STORAGE_KEY,
+];
 
 /**
  * 将旧版本键名转换为新版本键名
@@ -303,17 +358,18 @@ export class PreferenceService implements IPreferenceService {
    */
   async getAll(): Promise<Record<string, string>> {
     try {
-      // 重启后缓存只包含本次访问过的键，已知 UI 设置仍需从存储读取。
-      const allKeys = new Set([...await this.keys(), ...UI_SETTINGS_KEYS]);
+      // Known backup keys must not depend on what this instance has read.
+      const allKeys = new Set([...await this.keys(), ...BACKUP_SETTINGS_KEYS]);
       const result: Record<string, string> = {};
 
       for (const key of allKeys) {
         try {
           const value = await this.get(key, null);
           if (value !== null) {
-            result[key] = String(value);
+            result[key] = typeof value === 'object' ? JSON.stringify(value) : String(value);
           }
         } catch (error) {
+          if (BACKUP_SETTINGS_KEYS.includes(key)) throw error;
           console.warn(
             `[PreferenceService] Failed to get preference for key "${key}":`,
             error,
@@ -343,11 +399,20 @@ export class PreferenceService implements IPreferenceService {
    */
   async exportData(): Promise<Record<string, string>> {
     try {
-      // Session snapshots have their own structured DataManager section. They must
-      // not be exported as "[object Object]" UI settings or bypass its whitelist.
-      return Object.fromEntries(
-        Object.entries(await this.getAll()).filter(([key]) => !key.startsWith(SESSION_KEY_PREFIX)),
-      );
+      // Export only supported business preferences. Sessions have their own
+      // structured section and unrelated machine/runtime keys stay local.
+      const data: Record<string, string> = {};
+      for (const key of BACKUP_SETTINGS_KEYS) {
+        const value = await this.get(key, null);
+        if (value !== null) data[key] = typeof value === 'object' ? JSON.stringify(value) : String(value);
+      }
+      // A leftover legacy alias must not overwrite the current canonical value
+      // when this backup is imported in a different property order.
+      for (const [legacyKey, canonicalKey] of Object.entries(LEGACY_KEY_MAPPING)) {
+        if (Object.prototype.hasOwnProperty.call(data, canonicalKey)) delete data[legacyKey];
+      }
+      if (!await this.validateData(data)) throw new Error('Stored preference data is invalid');
+      return data;
     } catch (error) {
       throw new ImportExportError(
         "Failed to export preference data",
@@ -380,7 +445,10 @@ export class PreferenceService implements IPreferenceService {
       try {
         // The structured snapshot has its own field validation, not the legacy key whitelist.
         if (key === GLOBAL_SETTINGS_STORAGE_KEY) {
-          if (!importedGlobalSettings) console.warn('Skipping invalid global settings snapshot');
+          continue;
+        }
+        if (key === VARIABLE_STORAGE_KEY) {
+          await this.set(key, parseVariableStorageSnapshot(value)!);
           continue;
         }
         // 验证键名是否安全且在白名单中
@@ -440,8 +508,11 @@ export class PreferenceService implements IPreferenceService {
     }
 
     if (failedSettings.length > 0) {
-      console.warn(`Failed to import ${failedSettings.length} UI settings`);
-      // 不抛出错误，允许部分成功的导入
+      throw new ImportExportError(
+        `Failed to import ${failedSettings.length} preference setting(s): ${failedSettings.map(setting => setting.key).join(', ')}`,
+        await this.getDataType(),
+        failedSettings[0].error,
+      );
     }
   }
 
@@ -460,13 +531,14 @@ export class PreferenceService implements IPreferenceService {
       return false;
     }
 
-    return Object.entries(data).every(
-      ([key, value]) =>
-        typeof key === "string" &&
-        (typeof value === "string" ||
-          typeof value === "number" ||
-          typeof value === "boolean"),
-    );
+    return Object.entries(data).every(([key, value]) => {
+      if (!['string', 'number', 'boolean'].includes(typeof value)) return false;
+      if (key === GLOBAL_SETTINGS_STORAGE_KEY) return parseGlobalSettingsSnapshot(value) !== null;
+      if (key === VARIABLE_STORAGE_KEY) return parseVariableStorageSnapshot(value) !== null;
+      // Ignore unsupported legacy/runtime keys, but never silently discard a
+      // malformed value for a key this backup claims to restore.
+      return !isValidSettingKey(key) || isValidSettingValue(value);
+    });
   }
 
   /**

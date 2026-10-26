@@ -52,8 +52,7 @@ describe('PreferenceService Import/Export', () => {
     });
 
     it('should handle export error gracefully', async () => {
-      // 模拟getAll错误
-      vi.spyOn(preferenceService, 'getAll').mockRejectedValue(new Error('Storage error'));
+      vi.spyOn(storageProvider, 'getItem').mockRejectedValue(new Error('Storage error'));
 
       await expect(preferenceService.exportData()).rejects.toThrow('Failed to export preference data');
     });
@@ -120,18 +119,17 @@ describe('PreferenceService Import/Export', () => {
       expect(await preferenceService.get('malicious-key', null)).toBe(null);
     });
 
-    it('should skip invalid values', async () => {
+    it('rejects malformed supported values before writing any settings', async () => {
       const importData = {
         'app:settings:ui:theme-id': 'dark', // 有效值
         'app:settings:ui:preferred-language': 123, // 无效值（非字符串）
         'app:selected-optimize-model': 'openai' // 有效值
       };
 
-      await expect(preferenceService.importData(importData)).resolves.not.toThrow();
+      await expect(preferenceService.importData(importData)).rejects.toThrow('Invalid preference data format');
 
-      // 验证有效值被导入
-      expect(await preferenceService.get('app:settings:ui:theme-id', null)).toBe('dark');
-      expect(await preferenceService.get('app:selected-optimize-model', null)).toBe('openai');
+      expect(await preferenceService.get('app:settings:ui:theme-id', null)).toBe(null);
+      expect(await preferenceService.get('app:selected-optimize-model', null)).toBe(null);
 
       // 验证无效值被跳过
       expect(await preferenceService.get('app:settings:ui:preferred-language', null)).toBe(null);
@@ -151,24 +149,23 @@ describe('PreferenceService Import/Export', () => {
       expect(await preferenceService.get('app:settings:ui:preferred-language', null)).toBe('zh-CN');
     });
 
-    it('should skip values with control characters', async () => {
+    it('rejects supported values with control characters before writing', async () => {
       const importData = {
         'app:settings:ui:theme-id': 'dark', // 有效值
         'app:settings:ui:preferred-language': 'zh-CN\x00\x01', // 包含控制字符的值
         'app:selected-optimize-model': 'openai' // 有效值
       };
 
-      await expect(preferenceService.importData(importData)).resolves.not.toThrow();
+      await expect(preferenceService.importData(importData)).rejects.toThrow('Invalid preference data format');
 
-      // 验证有效值被导入
-      expect(await preferenceService.get('app:settings:ui:theme-id', null)).toBe('dark');
-      expect(await preferenceService.get('app:selected-optimize-model', null)).toBe('openai');
+      expect(await preferenceService.get('app:settings:ui:theme-id', null)).toBe(null);
+      expect(await preferenceService.get('app:selected-optimize-model', null)).toBe(null);
 
       // 验证包含控制字符的值被跳过
       expect(await preferenceService.get('app:settings:ui:preferred-language', null)).toBe(null);
     });
 
-    it('should handle import errors gracefully', async () => {
+    it('reports setting write failures to the caller', async () => {
       const importData = {
         'app:settings:ui:theme-id': 'dark'
       };
@@ -176,8 +173,7 @@ describe('PreferenceService Import/Export', () => {
       // 模拟set错误
       vi.spyOn(preferenceService, 'set').mockRejectedValue(new Error('Set error'));
 
-      // 应该不抛出错误，只是记录失败
-      await expect(preferenceService.importData(importData)).resolves.not.toThrow();
+      await expect(preferenceService.importData(importData)).rejects.toThrow('Failed to import 1 preference setting');
     });
   });
 
@@ -192,14 +188,14 @@ describe('PreferenceService Import/Export', () => {
       expect(await preferenceService.validateData(validData)).toBe(true);
     });
 
-    it('should accept numeric and boolean values (converted to string)', async () => {
+    it('rejects numeric and boolean values for supported string settings', async () => {
       const validData = {
         'app:settings:ui:theme-id': 'dark',
         'app:settings:ui:preferred-language': 123,
         'app:selected-optimize-model': true
       };
 
-      expect(await preferenceService.validateData(validData)).toBe(true);
+      expect(await preferenceService.validateData(validData)).toBe(false);
     });
 
     it('should reject invalid data formats', async () => {
@@ -238,7 +234,7 @@ describe('PreferenceService Import/Export', () => {
         'app:settings:ui:theme-id': longValue
       };
 
-      await expect(preferenceService.importData(importData)).resolves.not.toThrow();
+      await expect(preferenceService.importData(importData)).rejects.toThrow('Invalid preference data format');
 
       // 验证长值被跳过
       expect(await preferenceService.get('app:settings:ui:theme-id', null)).toBe(null);

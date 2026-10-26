@@ -335,14 +335,23 @@ export class ImageModelManager implements IImageModelManager {
       )
     }
 
-    const configs = data as ImageModelConfigInput[]
-    const failed: { config: ImageModelConfigInput, error: Error }[] = []
-
-    for (const config of configs) {
+    const configs: ImageModelConfig[] = []
+    for (const [index, config] of data.entries()) {
       try {
         const completeConfig = this.ensureSelfContained(config)
         this.validateConfig(completeConfig)
+        configs.push(completeConfig)
+      } catch (error) {
+        throw new ImportExportError(
+          `Invalid image model configuration at index ${index}`,
+          await this.getDataType(), error as Error, IMPORT_EXPORT_ERROR_CODES.VALIDATION_ERROR,
+        )
+      }
+    }
+    const failed: Error[] = []
 
+    for (const completeConfig of configs) {
+      try {
         // 检查是否已存在
         const existing = await this.getConfig(completeConfig.id)
         if (existing) {
@@ -353,13 +362,15 @@ export class ImageModelManager implements IImageModelManager {
           await this.addConfig(completeConfig)
         }
       } catch (error) {
-        failed.push({ config, error: error as Error })
+        failed.push(error as Error)
       }
     }
 
     if (failed.length > 0) {
-      console.warn(`[ImageModelManager] Failed to import ${failed.length} configurations`)
-      // 可以选择抛出异常或者只记录警告
+      throw new ImportExportError(
+        `Failed to import ${failed.length} image model configurations`,
+        await this.getDataType(), failed[0],
+      )
     }
   }
 

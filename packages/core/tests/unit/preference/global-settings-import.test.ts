@@ -64,7 +64,7 @@ describe('global settings backup restore', () => {
       vi.spyOn(console, 'warn').mockImplementation(() => {});
       const service = create();
       await service.set(key, JSON.stringify(saved));
-      await service.importData({ [key]: invalid });
+      await expect(service.importData({ [key]: invalid })).rejects.toThrow('Invalid preference data format');
       expect(await snapshot(service)).toEqual(saved);
     },
   );

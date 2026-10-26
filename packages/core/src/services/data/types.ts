@@ -21,6 +21,8 @@ export interface IDataManager {
    */
   exportAllData(): Promise<string>;
 
+  validateImportData(dataString: string): Promise<void>;
+
   /**
    * 导入所有数据
    * @param dataString JSON格式的数据字符串

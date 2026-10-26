@@ -8,20 +8,29 @@ import type {
 
 import {
   DEFAULT_DATA_MANAGER_PACKAGE_SECTIONS,
+  preflightBackupData,
+  includeLegacyFavoriteImageResources,
+  rollbackAddedBackupImages,
+  type BackupImportDataManager,
+  type BackupImportFavoriteManager,
+  type BackupImageRestoreStorage,
   type DataManagerFavoritesMergeStrategy,
   type DataManagerImageStoreKey,
   type DataManagerPackageSection,
   type DataManagerPackageSectionSelection,
 } from './data-manager-resource-package'
 import {
+  assertImageRestoreCapacity,
   base64ToBytes,
   createFullImageDataFromResource,
+  hasMatchingImageResource,
   resolveResourceMimeType,
   safeImageResourceFileName,
   sha256Hex,
   validateImageResourceBytes,
   type ImageResourceRestoreReport,
 } from './image-resource-backup'
+import { collectBackupImageReferences, findMissingBackupImageReferences } from './image-resource-references'
 import { joinRemotePath, type RemoteObjectEntry, type RemoteObjectStore } from './remote-backup'
 
 export const REMOTE_SNAPSHOT_SCHEMA_VERSION = 'prompt-optimizer/remote-snapshot/v1' as const
@@ -141,10 +150,10 @@ type ExportRemoteSnapshotOptions = {
 type RestoreRemoteSnapshotOptions = {
   objectStore: RemoteObjectStore
   snapshotId: string
-  dataManager: Pick<IDataManager, 'importAllData'>
-  favoriteManager: Pick<IFavoriteManager, 'importFavorites'> | null | undefined
-  imageStorageService?: Pick<IImageStorageService, 'getImage' | 'saveImage'> | null
-  favoriteImageStorageService?: Pick<IImageStorageService, 'getImage' | 'saveImage'> | null
+  dataManager: BackupImportDataManager
+  favoriteManager: BackupImportFavoriteManager | null | undefined
+  imageStorageService?: BackupImageRestoreStorage | null
+  favoriteImageStorageService?: BackupImageRestoreStorage | null
   sections?: Partial<DataManagerPackageSectionSelection>
   favoriteMergeStrategy?: DataManagerFavoritesMergeStrategy
   onProgress?: RemoteSnapshotProgressReporter
@@ -159,6 +168,7 @@ type PreparedImageRestore = {
   store: DataManagerImageStoreKey
   image: FullImageData
 }
+type PreparedImageCheck = { store: DataManagerImageStoreKey; id: string; bytes: Uint8Array }
 
 const EMPTY_APP_DATA_JSON = JSON.stringify({ version: 1, data: {} }, null, 2)
 const EMPTY_FAVORITES_JSON = JSON.stringify({ version: '1.0', favorites: [], categories: [], tags: [] }, null, 2)
@@ -190,6 +200,9 @@ const getManifestIncludedSectionSet = (
     'appData',
     'favorites',
     ...manifest.assets.map((asset) => asset.store),
+    ...manifest.missingAssets.map((asset) => asset.store),
+    // Older snapshots could keep favorite assets in imageCache.
+    ...(manifest.assets.some(asset => asset.store === 'imageCache') || manifest.missingAssets.some(asset => asset.store === 'imageCache') ? ['favoriteImages' as const] : []),
   ])
 }
 
@@ -247,6 +260,34 @@ const parseManifest = (json: string): RemoteSnapshotManifest => {
   ) {
     throw new Error('Invalid remote snapshot manifest')
   }
+  const identities = new Set<string>()
+  for (const asset of parsed.assets) {
+    if (!isRecord(asset) || asset.kind !== 'image' ||
+      (asset.store !== 'imageCache' && asset.store !== 'favoriteImages') ||
+      typeof asset.id !== 'string' || !asset.id.trim() ||
+      typeof asset.path !== 'string' || !asset.path.startsWith(`${REMOTE_SNAPSHOT_ROOT}/assets/${asset.store}/`)) {
+      throw new Error('Invalid remote snapshot image resource')
+    }
+    const identity = `${asset.store}:${asset.id}`
+    if (identities.has(identity)) throw new Error(`Duplicate remote snapshot image resource: ${identity}`)
+    identities.add(identity)
+  }
+  for (const missing of parsed.missingAssets) {
+    if (!isRecord(missing) || (missing.store !== 'imageCache' && missing.store !== 'favoriteImages') ||
+      typeof missing.id !== 'string' || !missing.id.trim()) throw new Error('Invalid missing image resource')
+  }
+  if (parsed.includedSections !== undefined && (!Array.isArray(parsed.includedSections) ||
+    !parsed.includedSections.every(section => ALL_DATA_MANAGER_PACKAGE_SECTIONS.includes(section)))) {
+    throw new Error('Invalid remote snapshot included sections')
+  }
+  if (parsed.assetCounts !== undefined) {
+    const counts = parsed.assetCounts
+    const assets = parsed.assets
+    if (!isRecord(counts) || ['imageCache', 'favoriteImages'].some(store =>
+      counts[store] !== assets.filter(asset => asset.store === store).length)) {
+      throw new Error('Remote snapshot asset counts do not match its manifest')
+    }
+  }
   return parsed as RemoteSnapshotManifest
 }
 
@@ -263,7 +304,7 @@ const validateJsonText = (text: string, label: string): void => {
 const getImportStorageService = (
   store: DataManagerImageStoreKey,
   options: RestoreRemoteSnapshotOptions,
-): Pick<IImageStorageService, 'getImage' | 'saveImage'> | null | undefined =>
+): BackupImageRestoreStorage | null | undefined =>
   store === 'favoriteImages'
     ? options.favoriteImageStorageService
     : options.imageStorageService
@@ -293,21 +334,21 @@ const collectStoreAssets = async (
   objectStore: RemoteObjectStore,
   config: ImageStoreExportConfig,
   onProgress: RemoteSnapshotProgressReporter | undefined,
+  requiredIds: Set<string>,
+  legacyStorage?: ExportRemoteSnapshotOptions['imageStorageService'],
 ): Promise<{
   assets: RemoteSnapshotAsset[]
   missing: Array<{ store: DataManagerImageStoreKey; id: string }>
   uploaded: number
   skipped: number
 }> => {
-  if (!config.service) {
-    return { assets: [], missing: [], uploaded: 0, skipped: 0 }
-  }
-
-  const metadataList = await config.service.listAllMetadata()
+  const metadataList = await config.service?.listAllMetadata() ?? []
+  const metadataById = new Map(metadataList.map(metadata => [metadata.id, metadata]))
+  const ids = [...new Set([...metadataById.keys(), ...requiredIds])]
   onProgress?.({
     phase: 'scan',
     current: 0,
-    total: metadataList.length,
+    total: ids.length,
     item: config.key,
   })
   const assets: RemoteSnapshotAsset[] = []
@@ -315,12 +356,14 @@ const collectStoreAssets = async (
   let uploaded = 0
   let skipped = 0
 
-  for (const [index, metadata] of metadataList.entries()) {
-    const image: FullImageData | null = await config.service.getImage(metadata.id)
+  for (const [index, id] of ids.entries()) {
+    const primaryImage = await config.service?.getImage(id)
+    const image = primaryImage?.data ? primaryImage : await legacyStorage?.getImage(id)
     if (!image?.data) {
-      missing.push({ store: config.key, id: metadata.id })
+      missing.push({ store: config.key, id })
       continue
     }
+    const metadata = metadataById.get(id) ?? image.metadata
 
     const bytes = base64ToBytes(image.data)
     const mimeType = resolveResourceMimeType(image.metadata.mimeType || metadata.mimeType, bytes)
@@ -330,7 +373,7 @@ const collectStoreAssets = async (
     onProgress?.({
       phase: 'asset-check',
       current: index + 1,
-      total: metadataList.length,
+      total: ids.length,
       item: metadata.id,
       uploaded,
       skipped,
@@ -342,7 +385,7 @@ const collectStoreAssets = async (
       onProgress?.({
         phase: 'asset-upload',
         current: index + 1,
-        total: metadataList.length,
+        total: ids.length,
         item: metadata.id,
         uploaded,
         skipped,
@@ -400,13 +443,21 @@ export const createRemoteSnapshotBackup = async (
   const missingAssets: Array<{ store: DataManagerImageStoreKey; id: string }> = []
   let uploadedAssets = 0
   let skippedAssets = 0
+  const references = collectBackupImageReferences(appDataJson, favoritesJson)
 
   for (const config of storeConfigs) {
-    const result = await collectStoreAssets(options.objectStore, config, options.onProgress)
+    if (!sections[config.key]) continue
+    const result = await collectStoreAssets(options.objectStore, config, options.onProgress, references[config.key],
+      config.key === 'favoriteImages' ? options.imageStorageService : undefined)
     assets.push(...result.assets)
     missingAssets.push(...result.missing)
     uploadedAssets += result.uploaded
     skippedAssets += result.skipped
+  }
+  for (const missing of findMissingBackupImageReferences(references, assets)) {
+    if (sections[missing.store] && !missingAssets.some(item => item.store === missing.store && item.id === missing.id)) {
+      missingAssets.push(missing)
+    }
   }
 
   const manifest: RemoteSnapshotManifest = {
@@ -489,6 +540,7 @@ const prepareRemoteSnapshotRestore = async (
   appDataJson: string | null
   favoritesJson: string | null
   images: PreparedImageRestore[]
+  checks: PreparedImageCheck[]
   report: RemoteSnapshotRestoreReport
 }> => {
   const sections = resolveRestoreSectionSelection(manifest, options.sections)
@@ -512,21 +564,20 @@ const prepareRemoteSnapshotRestore = async (
   const appDataJson = sections.appData
     ? await options.objectStore.getText(manifest.appDataPath)
     : null
-  const favoritesJson = sections.favorites && options.favoriteManager
+  const favoritesJson = sections.favorites
     ? await options.objectStore.getText(manifest.favoritesPath)
     : null
 
   if (appDataJson !== null) validateJsonText(appDataJson, 'app-data.json')
   if (favoritesJson !== null) validateJsonText(favoritesJson, 'favorites.json')
+  await preflightBackupData(appDataJson, favoritesJson, options.dataManager, options.favoriteManager, options.favoriteMergeStrategy)
 
   const images: PreparedImageRestore[] = []
-  for (const [index, asset] of manifest.assets.entries()) {
-    if (
-      asset.kind !== 'image' ||
-      !asset.id ||
-      !asset.path ||
-      !selectedStores.has(asset.store)
-    ) {
+  const checks: PreparedImageCheck[] = []
+  const references = collectBackupImageReferences(appDataJson, favoritesJson)
+  const restoreAssets = includeLegacyFavoriteImageResources(manifest.assets, references.favoriteImages, sections.favoriteImages)
+  for (const [index, asset] of restoreAssets.entries()) {
+    if (!selectedStores.has(asset.store)) {
       report.skipped += 1
       continue
     }
@@ -550,9 +601,9 @@ const prepareRemoteSnapshotRestore = async (
         report.corrupt.push({ store: asset.store, id: asset.id })
         continue
       }
+      checks.push({ store: asset.store, id: asset.id, bytes })
 
-      const existing = await storageService.getImage(asset.id)
-      if (existing?.data) {
+      if (await hasMatchingImageResource(asset, bytes, storageService)) {
         report.skipped += 1
         continue
       }
@@ -571,6 +622,11 @@ const prepareRemoteSnapshotRestore = async (
   }
 
   report.missing.push(...manifest.missingAssets.filter((asset) => selectedStores.has(asset.store)))
+  for (const missing of findMissingBackupImageReferences(references, restoreAssets)) {
+    if (selectedStores.has(missing.store) && !report.missing.some(item => item.store === missing.store && item.id === missing.id)) {
+      report.missing.push(missing)
+    }
+  }
 
   if (report.missing.length > 0 || report.corrupt.length > 0 || report.errors.length > 0) {
     const details = [
@@ -580,11 +636,16 @@ const prepareRemoteSnapshotRestore = async (
     ].filter(Boolean).join(', ')
     throw new Error(`Remote snapshot restore validation failed: ${details}`)
   }
+  for (const store of selectedStores) {
+    const storage = getImportStorageService(store, options)
+    if (storage) await assertImageRestoreCapacity(images.filter(item => item.store === store).map(item => item.image), storage)
+  }
 
   return {
     appDataJson,
     favoritesJson,
     images,
+    checks,
     report,
   }
 }
@@ -595,37 +656,51 @@ export const restoreRemoteSnapshotBackup = async (
   options.onProgress?.({ phase: 'restore-validate', current: 0, total: 1, item: MANIFEST_FILE_NAME })
   const manifest = parseManifest(await options.objectStore.getText(snapshotManifestPath(options.snapshotId)))
   const prepared = await prepareRemoteSnapshotRestore(manifest, options)
-
-  for (const [index, item] of prepared.images.entries()) {
-    const storageService = getImportStorageService(item.store, options)
-    if (!storageService) {
-      throw new Error(`${item.store}:${item.image.metadata.id}: image storage service is unavailable`)
+  const written: Array<{ storage: BackupImageRestoreStorage; image: FullImageData }> = []
+  let publishingReferences = false
+  try {
+    for (const [index, item] of prepared.images.entries()) {
+      const storageService = getImportStorageService(item.store, options)
+      if (!storageService) {
+        throw new Error(`${item.store}:${item.image.metadata.id}: image storage service is unavailable`)
+      }
+      options.onProgress?.({
+        phase: 'restore-write',
+        current: index + 1,
+        total: prepared.images.length,
+        item: item.image.metadata.id,
+      })
+      written.push({ storage: storageService, image: item.image })
+      await storageService.saveImage(item.image, { preventEviction: true })
+      prepared.report.restored += 1
     }
-    options.onProgress?.({
-      phase: 'restore-write',
-      current: index + 1,
-      total: prepared.images.length,
-      item: item.image.metadata.id,
-    })
-    await storageService.saveImage(item.image)
-    prepared.report.restored += 1
-  }
-
-  if (prepared.favoritesJson !== null && options.favoriteManager) {
-    options.onProgress?.({ phase: 'restore-write', item: FAVORITES_FILE_NAME })
-    const result = await options.favoriteManager.importFavorites(prepared.favoritesJson, {
-      mergeStrategy: options.favoriteMergeStrategy ?? 'overwrite',
-    })
-    if (result.errors.length > 0) {
-      throw new Error(`Favorites import failed: ${result.errors.join('; ')}`)
+    for (const check of prepared.checks) {
+      const storage = getImportStorageService(check.store, options)!
+      if (!await hasMatchingImageResource(check, check.bytes, storage)) throw new Error(`Restored image is missing: ${check.id}`)
     }
-  }
 
-  // Keep workspace snapshots as the last durable commit, matching local ZIP
-  // restore. A preceding failure must leave the old workspace safe to resume.
-  if (prepared.appDataJson !== null) {
-    options.onProgress?.({ phase: 'restore-write', item: APP_DATA_FILE_NAME })
-    await options.dataManager.importAllData(prepared.appDataJson)
+    if (prepared.favoritesJson !== null && options.favoriteManager) {
+      publishingReferences = true
+      options.onProgress?.({ phase: 'restore-write', item: FAVORITES_FILE_NAME })
+      const result = await options.favoriteManager.importFavorites(prepared.favoritesJson, {
+        mergeStrategy: options.favoriteMergeStrategy ?? 'overwrite', matchBy: 'id',
+      })
+      if (result.errors.length > 0) {
+        throw new Error(`Favorites import failed: ${result.errors.join('; ')}`)
+      }
+    }
+
+    // Keep workspace snapshots as the last durable commit, matching local ZIP restore.
+    if (prepared.appDataJson !== null) {
+      publishingReferences = true
+      options.onProgress?.({ phase: 'restore-write', item: APP_DATA_FILE_NAME })
+      await options.dataManager.importAllData(prepared.appDataJson)
+    }
+  } catch (error) {
+    try { if (!publishingReferences) await rollbackAddedBackupImages(written) } catch (rollbackError) {
+      throw new Error(`${error instanceof Error ? error.message : String(error)}; ${(rollbackError as Error).message}`, { cause: error })
+    }
+    throw error
   }
 
   options.onProgress?.({

@@ -4,6 +4,8 @@ import type { FullImageData } from '@prompt-optimizer/core'
 import { DataManager } from '../../../../core/src/services/data/manager'
 import { PreferenceService } from '../../../../core/src/services/preference/service'
 import { MemoryStorageProvider } from '../../../../core/src/services/storage/memoryStorageProvider'
+import '../../../../core/node_modules/fake-indexeddb/auto/index.mjs'
+import { ImageStorageService } from '../../../../core/src/services/image/storage'
 
 import {
   DATA_MANAGER_RESOURCE_PACKAGE_SCHEMA_VERSION,
@@ -54,6 +56,7 @@ const createStorage = (images: FullImageData[]) => {
       store.set(image.metadata.id, image)
       return image.metadata.id
     }),
+    deleteImage: vi.fn(async (id: string) => { store.delete(id) }),
   }
 }
 
@@ -145,13 +148,13 @@ describe('dataManagerResourcePackage', () => {
 
   it('round-trips workspace input and A/B output images through the unified app-data backup without favorites', async () => {
     const createManager = (preferences: PreferenceService) => {
-      const collection = { exportData: async () => [], importData: async () => {} }
+      const collection = { exportData: async () => [], importData: async () => {}, validateData: async () => true }
       return new DataManager(
         collection as ConstructorParameters<typeof DataManager>[0],
         collection as ConstructorParameters<typeof DataManager>[1],
         collection as ConstructorParameters<typeof DataManager>[2],
         preferences,
-        { exportData: async () => ({}), importData: async () => {} } as ConstructorParameters<typeof DataManager>[4],
+        { exportData: async () => ({}), importData: async () => {}, validateData: async () => true } as ConstructorParameters<typeof DataManager>[4],
       )
     }
     const sourcePreferences = new PreferenceService(new MemoryStorageProvider())
@@ -475,10 +478,179 @@ describe('dataManagerResourcePackage', () => {
     expect(importAllData).not.toHaveBeenCalled()
     expect(importFavorites).toHaveBeenCalledWith(expect.stringContaining('fav-1'), {
       mergeStrategy: 'merge',
+      matchBy: 'id',
     })
     expect(result.resources.restored).toBe(1)
     expect(result.resources.skipped).toBe(1)
     expect(targetSession.store.has('session-1')).toBe(false)
     expect(targetFavorite.store.has('favorite-1')).toBe(true)
+  })
+
+  it('reports referenced session and favorite images missing even without metadata or a storage service', async () => {
+    const result = await createDataManagerResourcePackage({
+      dataManager: { exportAllData: async () => JSON.stringify({ version: 1, data: {
+        workspaceSessions: { version: 1, sessions: { 'image-image2image': { inputImageId: 'gone-session' } } },
+      } }) },
+      favoriteManager: { exportFavorites: async () => JSON.stringify({ favorites: [{ metadata: { media: { assetIds: ['gone-favorite'] } } }] }) },
+      imageStorageService: createStorage([]),
+      favoriteImageStorageService: null,
+    })
+    expect(result.missingResources).toEqual([
+      { store: 'imageCache', id: 'gone-session' }, { store: 'favoriteImages', id: 'gone-favorite' },
+    ])
+  })
+
+  it('copies legacy favorite images out of the session library into the favorite backup section', async () => {
+    const result = await createDataManagerResourcePackage({
+      dataManager: { exportAllData: async () => JSON.stringify({ version: 1, data: {} }) },
+      favoriteManager: { exportFavorites: async () => JSON.stringify({ favorites: [{ metadata: { media: { assetIds: ['legacy'] } } }] }) },
+      imageStorageService: createStorage([createImage('legacy', 'legacy-image')]),
+      favoriteImageStorageService: createStorage([]),
+      sections: { appData: false, imageCache: false, favorites: true, favoriteImages: true },
+    })
+    expect(result.missingResources).toEqual([])
+    expect(result.manifest.resources.map(item => [item.store, item.id])).toEqual([['favoriteImages', 'legacy']])
+  })
+
+  it('preflights application semantics before the first image or favorite write', async () => {
+    const exported = await createDataManagerResourcePackage({
+      dataManager: { exportAllData: async () => JSON.stringify({ version: 1, data: { workspaceSessions: { version: 999 } } }) },
+      favoriteManager: null, imageStorageService: createStorage([createImage('one', 'image')]),
+    })
+    const target = createStorage([])
+    const importAllData = vi.fn(async () => {})
+    await expect(importDataManagerResourcePackage(await exported.blob.arrayBuffer(), {
+      dataManager: { importAllData, validateImportData: async () => { throw new Error('Invalid workspace version') } },
+      favoriteManager: null, imageStorageService: target,
+    })).rejects.toThrow('Invalid workspace version')
+    expect(target.saveImage).not.toHaveBeenCalled()
+    expect(importAllData).not.toHaveBeenCalled()
+  })
+
+  it('checks every resource before writing any when a later image is corrupt', async () => {
+    const exported = await createDataManagerResourcePackage({
+      dataManager: { exportAllData: async () => JSON.stringify({ version: 1, data: {} }) },
+      favoriteManager: null, imageStorageService: createStorage([createImage('one', 'first'), createImage('two', 'second')]),
+    })
+    const files = unzipSync(new Uint8Array(await exported.blob.arrayBuffer()))
+    files['resources/image-cache/two.png'] = new Uint8Array()
+    const target = createStorage([])
+    await expect(importDataManagerResourcePackage(zipSync(files), {
+      dataManager: { importAllData: vi.fn(async () => {}) }, favoriteManager: null, imageStorageService: target,
+    })).rejects.toThrow('corrupt=1')
+    expect(target.saveImage).not.toHaveBeenCalled()
+  })
+
+  it('rejects a same-ID different-content target image before any write', async () => {
+    const exported = await createDataManagerResourcePackage({
+      dataManager: { exportAllData: async () => JSON.stringify({ version: 1, data: {} }) },
+      favoriteManager: null, imageStorageService: createStorage([createImage('one', 'backup')]),
+    })
+    const target = createStorage([createImage('one', 'target')])
+    await expect(importDataManagerResourcePackage(await exported.blob.arrayBuffer(), {
+      dataManager: { importAllData: vi.fn(async () => {}) }, favoriteManager: null, imageStorageService: target,
+    })).rejects.toThrow('errors=1')
+    expect(target.saveImage).not.toHaveBeenCalled()
+    expect(target.store.get('one')?.data).toBe(encode('target'))
+  })
+
+  it('rejects real image-library union over quota without evicting existing data', async () => {
+    const exported = await createDataManagerResourcePackage({
+      dataManager: { exportAllData: async () => JSON.stringify({ version: 1, data: {} }) },
+      favoriteManager: null, imageStorageService: createStorage([createImage('incoming', 'backup')]),
+    })
+    const target = new ImageStorageService({ dbName: `BackupCapacity-${Date.now()}`, maxCount: 1, maxAge: undefined })
+    try {
+      await target.saveImage(createImage('existing', 'target'))
+      await expect(importDataManagerResourcePackage(await exported.blob.arrayBuffer(), {
+        dataManager: { importAllData: vi.fn(async () => {}) }, favoriteManager: null, imageStorageService: target,
+      })).rejects.toThrow('exceeds storage quota')
+      expect((await target.listAllMetadata()).map(item => item.id)).toEqual(['existing'])
+    } finally { await target.clearAll(); await target.close() }
+  })
+
+  it('removes newly added images if a later image save fails before references are published', async () => {
+    const exported = await createDataManagerResourcePackage({
+      dataManager: { exportAllData: async () => JSON.stringify({ version: 1, data: {} }) },
+      favoriteManager: null, imageStorageService: createStorage([createImage('one', 'first'), createImage('two', 'second')]),
+    })
+    const target = createStorage([])
+    target.saveImage.mockImplementation(async image => {
+      if (image.metadata.id === 'two') throw new Error('Storage unavailable')
+      target.store.set(image.metadata.id, image)
+      return image.metadata.id
+    })
+    await expect(importDataManagerResourcePackage(await exported.blob.arrayBuffer(), {
+      dataManager: { importAllData: vi.fn(async () => {}) }, favoriteManager: null, imageStorageService: target,
+    })).rejects.toThrow('Storage unavailable')
+    expect(target.store.size).toBe(0)
+  })
+
+  it('rejects legacy manifest counts that would conceal actual image resources', async () => {
+    const exported = await createDataManagerResourcePackage({
+      dataManager: { exportAllData: async () => JSON.stringify({ version: 1, data: {
+        workspaceSessions: { version: 1, sessions: { 'basic-system': { testImageAssetId: 'one' } } },
+      } }) },
+      favoriteManager: null, imageStorageService: createStorage([createImage('one', 'image')]),
+    })
+    const files = unzipSync(new Uint8Array(await exported.blob.arrayBuffer()))
+    const manifest = { ...exported.manifest, includedSections: undefined, resourceCounts: { imageCache: 0, favoriteImages: 0 } }
+    files['manifest.json'] = toZipBytes(strToU8(JSON.stringify(manifest)))
+    const target = createStorage([])
+    const importAllData = vi.fn(async () => {})
+    await expect(importDataManagerResourcePackage(zipSync(files), {
+      dataManager: { importAllData }, favoriteManager: null, imageStorageService: target,
+    })).rejects.toThrow('resource counts do not match')
+    expect(importAllData).not.toHaveBeenCalled()
+    expect(target.saveImage).not.toHaveBeenCalled()
+  })
+
+  it.each([true, false])('restores legacy favorite assets from imageCache only when favoriteImages is selected (%s)', async favoriteImages => {
+    const exported = await createDataManagerResourcePackage({
+      dataManager: { exportAllData: async () => JSON.stringify({ version: 1, data: {} }) },
+      favoriteManager: { exportFavorites: async () => JSON.stringify({ favorites: [{ metadata: { media: { assetIds: ['legacy'] } } }] }) },
+      imageStorageService: createStorage([createImage('legacy', 'image')]), favoriteImageStorageService: createStorage([]),
+    })
+    const files = unzipSync(new Uint8Array(await exported.blob.arrayBuffer()))
+    const resources = exported.manifest.resources.filter(item => item.store === 'imageCache')
+    const manifest = { ...exported.manifest, resources, includedSections: undefined, resourceCounts: { imageCache: 1, favoriteImages: 0 } }
+    files['manifest.json'] = toZipBytes(strToU8(JSON.stringify(manifest)))
+    const sessionTarget = createStorage([])
+    const favoriteTarget = createStorage([])
+    const result = await importDataManagerResourcePackage(zipSync(files), {
+      dataManager: { importAllData: vi.fn(async () => {}) },
+      favoriteManager: { importFavorites: vi.fn(async () => ({ imported: 1, skipped: 0, errors: [] })) },
+      imageStorageService: sessionTarget, favoriteImageStorageService: favoriteTarget,
+      sections: { appData: false, favorites: true, imageCache: false, favoriteImages },
+    })
+    expect(result.resources.restored).toBe(favoriteImages ? 1 : 0)
+    expect(sessionTarget.store.size).toBe(0)
+    expect(favoriteTarget.store.has('legacy')).toBe(favoriteImages)
+  })
+
+  it.each([true, false])('handles missing-only legacy favorite images with favoriteImages selected=%s', async favoriteImages => {
+    const manifest = {
+      schemaVersion: DATA_MANAGER_RESOURCE_PACKAGE_SCHEMA_VERSION, createdAt: new Date(0).toISOString(),
+      appDataPath: 'app-data.json', favoritesPath: 'favorites.json', resources: [],
+      missingResources: [{ store: 'imageCache', id: 'legacy-missing' }], resourceCounts: { imageCache: 0, favoriteImages: 0 },
+    }
+    const bytes = zipSync({
+      'manifest.json': toZipBytes(strToU8(JSON.stringify(manifest))),
+      'app-data.json': toZipBytes(strToU8(JSON.stringify({ version: 1, data: {} }))),
+      'favorites.json': toZipBytes(strToU8(JSON.stringify({ favorites: [{ metadata: { media: { assetIds: ['legacy-missing'] } } }] }))),
+    })
+    const importFavorites = vi.fn(async () => ({ imported: 1, skipped: 0, errors: [] }))
+    const attempt = importDataManagerResourcePackage(bytes, {
+      dataManager: { importAllData: vi.fn(async () => {}) }, favoriteManager: { importFavorites },
+      imageStorageService: createStorage([]), favoriteImageStorageService: createStorage([]),
+      sections: { appData: false, favorites: true, imageCache: false, favoriteImages },
+    })
+    if (favoriteImages) {
+      await expect(attempt).rejects.toThrow('missing=1')
+      expect(importFavorites).not.toHaveBeenCalled()
+    } else {
+      expect((await attempt).resources.restored).toBe(0)
+      expect(importFavorites).toHaveBeenCalledOnce()
+    }
   })
 })

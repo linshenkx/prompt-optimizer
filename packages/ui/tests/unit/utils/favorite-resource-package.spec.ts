@@ -311,7 +311,7 @@ describe('favoriteResourcePackage', () => {
 
     const order: string[] = []
     const targetStorage = createStorage([
-      createImage('cover-asset', 'existing-cover'),
+      createImage('cover-asset', 'cover'),
     ])
     targetStorage.saveImage.mockImplementation(async (image: FullImageData) => {
       order.push(`save:${image.metadata.id}`)
@@ -390,7 +390,7 @@ describe('favoriteResourcePackage', () => {
     }
     const packageBytes = zipSync({
       'manifest.json': toZipBytes(strToU8(JSON.stringify(manifest))),
-      'favorites.json': toZipBytes(strToU8(JSON.stringify({ version: '1.0', favorites: [createFavorite()] }))),
+      'favorites.json': toZipBytes(strToU8(JSON.stringify({ version: '1.0', favorites: [{ ...createFavorite(), metadata: { media: { assetIds: ['bad-asset'] } } }] }))),
       'resources/images/bad-asset.png': toZipBytes(strToU8('bad')),
     })
     const importManager = {
@@ -420,7 +420,7 @@ describe('favoriteResourcePackage', () => {
 
     await expect(importFavoriteResourcePackage(zipSync({
       'manifest.json': toZipBytes(strToU8(JSON.stringify(manifest))),
-      'favorites.json': toZipBytes(strToU8(JSON.stringify({ version: '1.0', favorites: [createFavorite()] }))),
+      'favorites.json': toZipBytes(strToU8(JSON.stringify({ version: '1.0', favorites: [{ ...createFavorite(), metadata: { media: { assetIds: ['missing-cover'] } } }] }))),
     }), {
       favoriteManager: importManager,
       imageStorageService: createStorage([]),
@@ -494,7 +494,7 @@ describe('favoriteResourcePackage', () => {
 
     const result = await importFavoriteResourcePackage(zipSync({
       'manifest.json': toZipBytes(strToU8(JSON.stringify(manifest))),
-      'favorites.json': toZipBytes(strToU8(JSON.stringify({ version: '1.0', favorites: [createFavorite()] }))),
+      'favorites.json': toZipBytes(strToU8(JSON.stringify({ version: '1.0', favorites: [{ ...createFavorite(), metadata: { media: { assetIds: ['legacy-jpeg'] } } }] }))),
       'resources/images/legacy-jpeg.png': toZipBytes(jpegBytes),
     }), {
       favoriteManager: importManager,
@@ -503,5 +503,49 @@ describe('favoriteResourcePackage', () => {
 
     expect(result.resources.corrupt).toEqual([])
     expect(target.store.get('legacy-jpeg')?.metadata.mimeType).toBe('image/jpeg')
+  })
+
+  it('rejects an existing image ID with different content before importing favorites', async () => {
+    const exported = await createFavoriteResourcePackage({
+      favoriteManager: { exportFavorites: async () => JSON.stringify({ favorites: [createMediaOnlyFavorite([])] }) },
+      imageStorageService: createStorage([createImage('cover-asset', 'backup')]),
+    })
+    const target = createStorage([createImage('cover-asset', 'target')])
+    const importFavorites = vi.fn(async () => ({ imported: 1, skipped: 0, errors: [] }))
+    await expect(importFavoriteResourcePackage(await exported.blob.arrayBuffer(), {
+      favoriteManager: { importFavorites }, imageStorageService: target,
+    })).rejects.toThrow('errors=1')
+    expect(target.saveImage).not.toHaveBeenCalled()
+    expect(importFavorites).not.toHaveBeenCalled()
+  })
+
+  it('preflights favorite business data before saving images', async () => {
+    const exported = await createFavoriteResourcePackage({
+      favoriteManager: { exportFavorites: async () => JSON.stringify({ favorites: [createMediaOnlyFavorite([])] }) },
+      imageStorageService: createStorage([createImage('cover-asset', 'cover')]),
+    })
+    const target = createStorage([])
+    const importFavorites = vi.fn(async () => ({ imported: 1, skipped: 0, errors: [] }))
+    await expect(importFavoriteResourcePackage(await exported.blob.arrayBuffer(), {
+      favoriteManager: { importFavorites, validateImportData: async () => { throw new Error('Invalid favorite') } },
+      imageStorageService: target,
+    })).rejects.toThrow('Invalid favorite')
+    expect(target.saveImage).not.toHaveBeenCalled()
+    expect(importFavorites).not.toHaveBeenCalled()
+  })
+
+  it('detects a referenced asset omitted from the manifest even if the missing list is empty', async () => {
+    const exported = await createFavoriteResourcePackage({
+      favoriteManager: { exportFavorites: async () => JSON.stringify({ favorites: [createMediaOnlyFavorite([])] }) },
+      imageStorageService: createStorage([createImage('cover-asset', 'cover')]),
+    })
+    const files = unzipSync(new Uint8Array(await exported.blob.arrayBuffer()))
+    const manifest = { ...exported.manifest, resources: [], resourceCount: 0, missingResourceIds: [] }
+    files['manifest.json'] = toZipBytes(strToU8(JSON.stringify(manifest)))
+    const importFavorites = vi.fn(async () => ({ imported: 1, skipped: 0, errors: [] }))
+    await expect(importFavoriteResourcePackage(zipSync(files), {
+      favoriteManager: { importFavorites }, imageStorageService: createStorage([]),
+    })).rejects.toThrow('missing=1')
+    expect(importFavorites).not.toHaveBeenCalled()
   })
 })

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { CORE_SERVICE_KEYS } from '../../../src/constants/storage-keys'
 import { ImageAdapterRegistry } from '../../../src/services/image/adapters/registry'
@@ -230,6 +230,28 @@ describe('ImageModelManager initialization behavior', () => {
     expect(imported?.modelId).toBe('gpt-image-2')
     expect(imported?.model.id).toBe('gpt-image-2')
     expect(imported?.model.providerId).toBe('openai')
+  })
+
+  it('should reject invalid import entries before changing earlier configs', async () => {
+    const valid = {
+      id: 'not-written', name: 'Valid', providerId: 'openai', modelId: 'gpt-image-2',
+      enabled: false, connectionConfig: {}, paramOverrides: {},
+    }
+    const before = await modelManager.exportData()
+    expect(await modelManager.validateData([valid, { ...valid, id: 'broken', name: '' }])).toBe(false)
+    await expect(modelManager.importData([valid, { ...valid, id: 'broken', name: '' }]))
+      .rejects.toThrow('Invalid image model configuration at index 1')
+    expect(await modelManager.exportData()).toEqual(before)
+  })
+
+  it('should propagate image model storage failures', async () => {
+    const valid = {
+      id: 'write-failed', name: 'Valid', providerId: 'openai', modelId: 'gpt-image-2',
+      enabled: false, connectionConfig: {}, paramOverrides: {},
+    }
+    vi.spyOn(modelManager, 'addConfig').mockRejectedValueOnce(new Error('Storage write failed'))
+    await expect(modelManager.importData([valid])).rejects.toThrow('Failed to import 1 image model configurations')
+    expect(await modelManager.getConfig(valid.id)).toBeNull()
   })
 
   it('should infer identity from legacy provider/model snapshots on read', async () => {

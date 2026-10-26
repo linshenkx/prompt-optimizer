@@ -1,4 +1,4 @@
-import type { FavoritePrompt, FavoriteCategory, FavoriteStats, IFavoriteManager } from './types';
+import type { FavoritePrompt, FavoriteCategory, FavoriteStats, IFavoriteManager, FavoriteImportOptions } from './types';
 import {
   FavoriteError,
   FavoriteNotFoundError,
@@ -167,15 +167,16 @@ export class FavoriteManagerElectronProxy implements IFavoriteManager {
     return this.invokeMethod('exportFavorites', ids);
   }
 
-  async importFavorites(data: string, options?: {
-    mergeStrategy?: 'skip' | 'overwrite' | 'merge';
-    categoryMapping?: Record<string, string>;
-  }): Promise<{
+  async importFavorites(data: string, options?: FavoriteImportOptions): Promise<{
     imported: number;
     skipped: number;
     errors: string[];
   }> {
     return this.invokeMethod('importFavorites', data, options);
+  }
+
+  async validateImportData(data: string, options?: FavoriteImportOptions): Promise<void> {
+    await this.invokeMethod('validateImportData', data, options);
   }
 
   async getAllTags(): Promise<Array<{ tag: string; count: number }>> {

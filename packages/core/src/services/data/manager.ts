@@ -12,6 +12,7 @@ import {
 } from './errors';
 import { stripErrorCodeMarkers, toErrorWithCode } from '../../utils/error';
 import { WorkspaceSessionTransfer } from './workspace-session-transfer';
+import type { IImportExportable } from '../../interfaces/import-export';
 
 /**
  * 数据导入导出管理器
@@ -33,6 +34,9 @@ export interface IDataManager {
    * @returns JSON格式的数据字符串
    */
   exportAllData(): Promise<string>;
+
+  /** Validate every supplied section before a package restores any resources. */
+  validateImportData(dataString: string): Promise<void>;
 
   /**
    * 导入所有数据
@@ -97,7 +101,7 @@ export class DataManager implements IDataManager {
     return JSON.stringify(exportFormat, null, 2); // 格式化输出，便于调试
   }
 
-  async importAllData(dataString: string): Promise<void> {
+  private parseImportData(dataString: string): Record<string, unknown> {
     let exportData: any;
 
     try {
@@ -114,7 +118,10 @@ export class DataManager implements IDataManager {
     let dataToImport: Record<string, any>;
 
     // New format: { version: 1, data: { ... } }
-    if (exportData.version) {
+    if (Object.prototype.hasOwnProperty.call(exportData, 'version')) {
+      if (exportData.version !== 1) {
+        throw new DataInvalidFormatError('Unsupported app backup version')
+      }
       if (!exportData.data || typeof exportData.data !== 'object' || Array.isArray(exportData.data)) {
         throw new DataInvalidFormatError('"data" property is missing or not an object')
       }
@@ -128,16 +135,15 @@ export class DataManager implements IDataManager {
       throw new DataInvalidFormatError('Unrecognized data structure')
     }
 
-    const errors: string[] = [];
-
-    // Fail before importing any section when workspace data cannot be restored
-    // safely. Old backups without this section continue to leave drafts intact.
-    if (dataToImport.workspaceSessions !== undefined) {
-      this.workspaceSessions.assertValidData(dataToImport.workspaceSessions);
+    const supported = new Set(['history', 'models', 'imageModels', 'userTemplates', 'userSettings', 'contexts', 'workspaceSessions']);
+    if (Object.keys(dataToImport).some(key => !supported.has(key))) {
+      throw new DataInvalidFormatError('Unsupported app backup section')
     }
+    return dataToImport;
+  }
 
-    // 使用各服务的importData接口
-    const serviceMap = [
+  private importServices(): Array<{ service: IImportExportable; dataKey: string }> {
+    return [
       { service: this.historyManager, dataKey: 'history' },
       { service: this.modelManager, dataKey: 'models' },
       ...(this.imageModelManager ? [{ service: this.imageModelManager, dataKey: 'imageModels' }] : []),
@@ -146,30 +152,57 @@ export class DataManager implements IDataManager {
       { service: this.contextRepo, dataKey: 'contexts' },
       { service: this.workspaceSessions, dataKey: 'workspaceSessions' }
     ];
+  }
 
-    for (const { service, dataKey } of serviceMap) {
-      // Workspace snapshots are the final commit. If an earlier service failed,
-      // the UI resumes its old in-memory sessions instead of reloading. Do not
-      // publish new snapshots that would then be overwritten by that autosave.
-      if (dataKey === 'workspaceSessions' && errors.length > 0) continue;
+  private async validateSections(data: Record<string, unknown>): Promise<void> {
+    if (!this.imageModelManager && data.imageModels !== undefined &&
+      (!Array.isArray(data.imageModels) || data.imageModels.length > 0)) {
+      throw new DataInvalidFormatError('Image model restoration is unavailable')
+    }
+    for (const { service, dataKey } of this.importServices()) {
+      if (data[dataKey] === undefined) continue;
+      if (dataKey === 'workspaceSessions') {
+        this.workspaceSessions.assertValidData(data[dataKey]);
+      } else if (!await service.validateData(data[dataKey])) {
+        throw new DataInvalidFormatError(`Invalid ${dataKey} backup data`)
+      }
+    }
+    // Standalone template import may rename a built-in collision. A full
+    // backup must not silently leave its history/session references on that ID.
+    if (Array.isArray(data.userTemplates) && data.userTemplates.length > 0) {
+      const builtinIds = new Set((await this.templateManager.listTemplates())
+        .filter(template => template.isBuiltin).map(template => template.id));
+      if (data.userTemplates.some(template => builtinIds.has(template.id))) {
+        throw new DataInvalidFormatError('User template ID conflicts with a built-in template')
+      }
+    }
+  }
+
+  async validateImportData(dataString: string): Promise<void> {
+    await this.validateSections(this.parseImportData(dataString));
+  }
+
+  async importAllData(dataString: string): Promise<void> {
+    const dataToImport = this.parseImportData(dataString);
+    await this.validateSections(dataToImport);
+    const imported: string[] = [];
+    for (const { service, dataKey } of this.importServices()) {
       if (dataToImport[dataKey] !== undefined) {
         try {
           await service.importData(dataToImport[dataKey]);
-          console.log(`Successfully imported ${dataKey}`);
+          imported.push(dataKey);
         } catch (error) {
           // Nested structured errors may contain markers outside the leading position.
           const detail = stripErrorCodeMarkers(
             error instanceof Error ? error.message : String(error)
           );
           const errorMessage = `Failed to import ${dataKey}: ${detail}`;
-          errors.push(errorMessage);
-          console.error(errorMessage, error);
+          // Stop immediately. The workspace remains the final commit; a runtime
+          // storage failure must never be presented as a complete restore.
+          const partial = imported.length ? `; already imported: ${imported.join(', ')}` : '';
+          throw new DataImportPartialFailedError(1, errorMessage + partial)
         }
       }
-    }
-
-    if (errors.length > 0) {
-      throw new DataImportPartialFailedError(errors.length, errors.join('; '))
     }
   }
 }

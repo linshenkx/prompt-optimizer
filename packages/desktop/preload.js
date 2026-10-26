@@ -787,6 +787,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     importFavorites: async (data, options) => {
       return await invokeFavorite('favorite-importFavorites', data, options);
     },
+    validateImportData: async (data, options) => {
+      return await invokeFavorite('favorite-validateImportData', data, options);
+    },
     getAllTags: async () => {
       return await invokeFavorite('favorite-getAllTags');
     },
@@ -1062,6 +1065,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Data Manager interface
   data: {
+    validateImportData: async (dataString) => {
+      const result = await ipcRenderer.invoke('data-validateImportData', dataString);
+      if (!result.success) throw createIpcError(result.error);
+    },
     // Export all data
     exportAllData: async () => {
       const result = await ipcRenderer.invoke('data-exportAllData');

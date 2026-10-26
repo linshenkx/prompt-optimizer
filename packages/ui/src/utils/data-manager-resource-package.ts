@@ -1,6 +1,7 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
 import type {
   IDataManager,
+  FullImageData,
   IFavoriteManager,
   IImageStorageService,
   ImageMetadata,
@@ -8,16 +9,20 @@ import type {
 
 import {
   assertImageResourceRestoreReportSafe,
+  assertImageRestoreCapacity,
   base64ToBytes,
   bytesToArrayBuffer,
   copyBytes,
+  createFullImageDataFromResource,
+  hasMatchingImageResource,
   resolveResourceMimeType,
-  restoreImageResource,
   safeImageResourceFileName,
   sha256Hex,
   validateImageResourceBytes,
   type ImageResourceRestoreReport,
+  type ImageResourceStorage,
 } from './image-resource-backup'
+import { collectBackupImageReferences, findMissingBackupImageReferences } from './image-resource-references'
 
 export const DATA_MANAGER_RESOURCE_PACKAGE_SCHEMA_VERSION = 'prompt-optimizer/app-backup/v1' as const
 
@@ -82,11 +87,16 @@ type ExportDataManagerResourcePackageOptions = {
   sections?: Partial<DataManagerPackageSectionSelection>
 }
 
+export type BackupImportDataManager = Pick<IDataManager, 'importAllData'> &
+  Partial<Pick<IDataManager, 'validateImportData'>>
+export type BackupImportFavoriteManager = Pick<IFavoriteManager, 'importFavorites' | 'validateImportData'>
+export type BackupImageRestoreStorage = ImageResourceStorage & Partial<Pick<IImageStorageService, 'deleteImage'>>
+
 type ImportDataManagerResourcePackageOptions = {
-  dataManager: Pick<IDataManager, 'importAllData'>
-  favoriteManager: Pick<IFavoriteManager, 'importFavorites'> | null | undefined
-  imageStorageService?: Pick<IImageStorageService, 'getImage' | 'saveImage'> | null
-  favoriteImageStorageService?: Pick<IImageStorageService, 'getImage' | 'saveImage'> | null
+  dataManager: BackupImportDataManager
+  favoriteManager: BackupImportFavoriteManager | null | undefined
+  imageStorageService?: BackupImageRestoreStorage | null
+  favoriteImageStorageService?: BackupImageRestoreStorage | null
   sections?: Partial<DataManagerPackageSectionSelection>
   favoriteMergeStrategy?: DataManagerFavoritesMergeStrategy
 }
@@ -137,8 +147,9 @@ export const getIncludedDataManagerPackageSections = (
   return [
     'appData',
     'favorites',
-    ...(manifest.resourceCounts?.imageCache ? ['imageCache' as const] : []),
-    ...(manifest.resourceCounts?.favoriteImages ? ['favoriteImages' as const] : []),
+    ...(manifest.resources.some(resource => resource.store === 'imageCache') || manifest.missingResources.some(resource => resource.store === 'imageCache') ? ['imageCache' as const] : []),
+    // Old favorites could reference the session library; restore can copy those assets into the favorite library.
+    ...(manifest.resources.length > 0 || manifest.missingResources.length > 0 ? ['favoriteImages' as const] : []),
   ]
 }
 
@@ -159,30 +170,59 @@ const parseManifest = (json: string): DataManagerResourcePackageManifest => {
   ) {
     throw new Error('Invalid app backup package manifest')
   }
+  const identities = new Set<string>()
+  for (const resource of parsed.resources) {
+    if (!isRecord(resource) || resource.kind !== 'image' ||
+      (resource.store !== 'imageCache' && resource.store !== 'favoriteImages') ||
+      typeof resource.id !== 'string' || !resource.id.trim() ||
+      typeof resource.path !== 'string' || !resource.path.startsWith(IMAGE_STORE_ROOTS[resource.store])) {
+      throw new Error('Invalid app backup image resource')
+    }
+    const identity = `${resource.store}:${resource.id}`
+    if (identities.has(identity)) throw new Error(`Duplicate app backup image resource: ${identity}`)
+    identities.add(identity)
+  }
+  for (const missing of parsed.missingResources) {
+    if (!isRecord(missing) || (missing.store !== 'imageCache' && missing.store !== 'favoriteImages') ||
+      typeof missing.id !== 'string' || !missing.id.trim()) throw new Error('Invalid missing image resource')
+  }
+  if (parsed.includedSections !== undefined && (!Array.isArray(parsed.includedSections) ||
+    !parsed.includedSections.every(section => ['appData', 'favorites', 'imageCache', 'favoriteImages'].includes(section)))) {
+    throw new Error('Invalid app backup included sections')
+  }
+  if (parsed.resourceCounts !== undefined) {
+    const counts = parsed.resourceCounts
+    const resources = parsed.resources
+    if (!isRecord(counts) || ['imageCache', 'favoriteImages'].some(store =>
+      counts[store] !== resources.filter(resource => resource.store === store).length)) {
+      throw new Error('App backup resource counts do not match its manifest')
+    }
+  }
   return parsed as DataManagerResourcePackageManifest
 }
 
 const collectStoreResources = async (
   config: ImageStoreExportConfig,
   files: Record<string, Uint8Array>,
+  requiredIds: Set<string>,
+  legacyStorage?: ExportDataManagerResourcePackageOptions['imageStorageService'],
 ): Promise<{
   resources: DataManagerResourceManifestEntry[]
   missing: Array<{ store: DataManagerImageStoreKey; id: string }>
 }> => {
-  if (!config.service) {
-    return { resources: [], missing: [] }
-  }
-
-  const metadataList = await config.service.listAllMetadata()
+  const metadataList = await config.service?.listAllMetadata() ?? []
+  const metadataById = new Map(metadataList.map(metadata => [metadata.id, metadata]))
   const resources: DataManagerResourceManifestEntry[] = []
   const missing: Array<{ store: DataManagerImageStoreKey; id: string }> = []
 
-  for (const metadata of metadataList) {
-    const image = await config.service.getImage(metadata.id)
+  for (const id of new Set([...metadataById.keys(), ...requiredIds])) {
+    const primaryImage = await config.service?.getImage(id)
+    const image = primaryImage?.data ? primaryImage : await legacyStorage?.getImage(id)
     if (!image?.data) {
-      missing.push({ store: config.key, id: metadata.id })
+      missing.push({ store: config.key, id })
       continue
     }
+    const metadata = metadataById.get(id) ?? image.metadata
 
     const bytes = base64ToBytes(image.data)
     const mimeType = resolveResourceMimeType(
@@ -228,6 +268,7 @@ export const createDataManagerResourcePackage = async (
   }
   const resources: DataManagerResourceManifestEntry[] = []
   const missingResources: Array<{ store: DataManagerImageStoreKey; id: string }> = []
+  const references = collectBackupImageReferences(appDataJson, favoritesJson)
 
   const storeConfigs: ImageStoreExportConfig[] = [
     {
@@ -243,9 +284,16 @@ export const createDataManagerResourcePackage = async (
   ]
 
   for (const config of storeConfigs) {
-    const result = await collectStoreResources(config, files)
+    if (!sections[config.key]) continue
+    const result = await collectStoreResources(config, files, references[config.key],
+      config.key === 'favoriteImages' ? options.imageStorageService : undefined)
     resources.push(...result.resources)
     missingResources.push(...result.missing)
+  }
+  for (const missing of findMissingBackupImageReferences(references, resources)) {
+    if (sections[missing.store] && !missingResources.some(item => item.store === missing.store && item.id === missing.id)) {
+      missingResources.push(missing)
+    }
   }
 
   const manifest: DataManagerResourcePackageManifest = {
@@ -307,16 +355,71 @@ export const readDataManagerResourcePackage = (
 const getImportStorageService = (
   store: DataManagerImageStoreKey,
   options: ImportDataManagerResourcePackageOptions,
-): Pick<IImageStorageService, 'getImage' | 'saveImage'> | null | undefined =>
+): BackupImageRestoreStorage | null | undefined =>
   store === 'favoriteImages'
     ? options.favoriteImageStorageService
     : options.imageStorageService
 
-const restorePackageResources = async (
+type PreparedPackageImage = {
+  store: DataManagerImageStoreKey
+  image: FullImageData
+}
+type PreparedPackageImageCheck = { store: DataManagerImageStoreKey; id: string; bytes: Uint8Array }
+
+/** Older full backups could keep favorite assets in the session image library. */
+export const includeLegacyFavoriteImageResources = <T extends { store: DataManagerImageStoreKey; id: string }>(
+  resources: T[],
+  favoriteImageIds: Set<string>,
+  restoreFavoriteImages: boolean,
+): T[] => {
+  if (!restoreFavoriteImages) return resources
+  const favoriteIds = new Set(resources.filter(item => item.store === 'favoriteImages').map(item => item.id))
+  return [...resources, ...resources.filter(item => item.store === 'imageCache' && favoriteImageIds.has(item.id) && !favoriteIds.has(item.id))
+    .map(item => ({ ...item, store: 'favoriteImages' as const }))]
+}
+
+export const preflightBackupData = async (
+  appDataJson: string | null,
+  favoritesJson: string | null,
+  dataManager: BackupImportDataManager,
+  favoriteManager: BackupImportFavoriteManager | null | undefined,
+  favoriteMergeStrategy: DataManagerFavoritesMergeStrategy = 'overwrite',
+): Promise<void> => {
+  if (appDataJson !== null) {
+    JSON.parse(appDataJson)
+    await dataManager.validateImportData?.(appDataJson)
+  }
+  if (favoritesJson !== null) {
+    const favorites = JSON.parse(favoritesJson)
+    if (!isRecord(favorites) || !Array.isArray(favorites.favorites)) throw new Error('Invalid favorites JSON payload')
+    if (!favoriteManager && favorites.favorites.length) throw new Error('Favorite manager is unavailable')
+    await favoriteManager?.validateImportData?.(favoritesJson, { mergeStrategy: favoriteMergeStrategy, matchBy: 'id' })
+  }
+}
+
+/** Best-effort cleanup before publishing references; preserve different bytes written concurrently. */
+export const rollbackAddedBackupImages = async (
+  written: Array<{ storage: BackupImageRestoreStorage; image: FullImageData }>,
+): Promise<void> => {
+  const failures: string[] = []
+  for (const { storage, image } of [...written].reverse()) {
+    if (!storage.deleteImage) { failures.push(image.metadata.id); continue }
+    try {
+      if (await hasMatchingImageResource(image.metadata, base64ToBytes(image.data), storage)) {
+        await storage.deleteImage(image.metadata.id)
+      }
+    } catch { failures.push(image.metadata.id) }
+  }
+  if (failures.length) throw new Error(`Image restore rollback incomplete: ${failures.join(', ')}`)
+}
+
+const preparePackageResources = async (
   manifest: DataManagerResourcePackageManifest,
   files: Record<string, Uint8Array>,
   options: ImportDataManagerResourcePackageOptions,
-): Promise<DataManagerResourceRestoreReport> => {
+  appDataJson: string,
+  favoritesJson: string,
+): Promise<{ report: DataManagerResourceRestoreReport; images: PreparedPackageImage[]; checks: PreparedPackageImageCheck[] }> => {
   const report: DataManagerResourceRestoreReport = {
     restored: 0,
     skipped: 0,
@@ -326,21 +429,22 @@ const restorePackageResources = async (
   }
 
   const sections = resolveSectionSelection(options.sections)
+  const images: PreparedPackageImage[] = []
+  const checks: PreparedPackageImageCheck[] = []
   const selectedStores = new Set<DataManagerImageStoreKey>([
     ...(sections.imageCache ? ['imageCache' as const] : []),
     ...(sections.favoriteImages ? ['favoriteImages' as const] : []),
   ])
   report.missing.push(...manifest.missingResources.filter((resource) => selectedStores.has(resource.store)))
-
-  for (const resource of manifest.resources) {
-    if (
-      resource.kind !== 'image' ||
-      !resource.id ||
-      !resource.path.startsWith(IMAGE_STORE_ROOTS[resource.store])
-    ) {
-      report.skipped += 1
-      continue
+  const references = collectBackupImageReferences(sections.appData ? appDataJson : null, sections.favorites ? favoritesJson : null)
+  const restoreResources = includeLegacyFavoriteImageResources(manifest.resources, references.favoriteImages, sections.favoriteImages)
+  for (const missing of findMissingBackupImageReferences(references, restoreResources)) {
+    if (selectedStores.has(missing.store) && !report.missing.some(item => item.store === missing.store && item.id === missing.id)) {
+      report.missing.push(missing)
     }
+  }
+
+  for (const resource of restoreResources) {
     if (!selectedStores.has(resource.store)) {
       report.skipped += 1
       continue
@@ -364,12 +468,12 @@ const restorePackageResources = async (
         report.corrupt.push({ store: resource.store, id: resource.id })
         continue
       }
+      checks.push({ store: resource.store, id: resource.id, bytes })
 
-      const restoreResult = await restoreImageResource(resource, bytes, storageService)
-      if (restoreResult === 'skipped') {
+      if (await hasMatchingImageResource(resource, bytes, storageService)) {
         report.skipped += 1
       } else {
-        report.restored += 1
+        images.push({ store: resource.store, image: createFullImageDataFromResource(resource, bytes) })
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -377,7 +481,12 @@ const restorePackageResources = async (
     }
   }
 
-  return report
+  assertImageResourceRestoreReportSafe(report, 'App backup package')
+  for (const store of selectedStores) {
+    const storage = getImportStorageService(store, options)
+    if (storage) await assertImageRestoreCapacity(images.filter(item => item.store === store).map(item => item.image), storage)
+  }
+  return { report, images, checks }
 }
 
 export const importDataManagerResourcePackage = async (
@@ -385,22 +494,45 @@ export const importDataManagerResourcePackage = async (
   options: ImportDataManagerResourcePackageOptions,
 ): Promise<DataManagerResourcePackageImportResult> => {
   const { manifest, appDataJson, favoritesJson, files } = readDataManagerResourcePackage(input)
-  const sections = resolveSectionSelection(options.sections)
-  const resources = await restorePackageResources(manifest, files, options)
-  assertImageResourceRestoreReportSafe(resources, 'App backup package')
-
-  if (sections.favorites && options.favoriteManager) {
-    const result = await options.favoriteManager.importFavorites(favoritesJson, {
-      mergeStrategy: options.favoriteMergeStrategy ?? 'overwrite',
-    })
-    if (result.errors.length > 0) {
-      throw new Error(`Favorites import failed: ${result.errors.join('; ')}`)
+  const included = new Set(getIncludedDataManagerPackageSections(manifest))
+  const requested = resolveSectionSelection(options.sections)
+  const sections = Object.fromEntries(Object.entries(requested).map(([key, value]) => [key, value && included.has(key as DataManagerPackageSection)])) as DataManagerPackageSectionSelection
+  const effectiveOptions = { ...options, sections }
+  await preflightBackupData(sections.appData ? appDataJson : null, sections.favorites ? favoritesJson : null,
+    options.dataManager, options.favoriteManager, options.favoriteMergeStrategy)
+  const { report: resources, images, checks } = await preparePackageResources(manifest, files, effectiveOptions, appDataJson, favoritesJson)
+  const written: Array<{ storage: BackupImageRestoreStorage; image: FullImageData }> = []
+  let publishingReferences = false
+  try {
+    for (const item of images) {
+      const storage = getImportStorageService(item.store, options)!
+      written.push({ storage, image: item.image })
+      await storage.saveImage(item.image, { preventEviction: true })
+      resources.restored += 1
     }
-  }
-  // DataManager commits workspace snapshots last. Nothing that can fail during
-  // this package import may run after that commit and resume old session saves.
-  if (sections.appData) {
-    await options.dataManager.importAllData(appDataJson)
+    // Check durable images before publishing any new business references.
+    for (const check of checks) {
+      const storage = getImportStorageService(check.store, options)!
+      if (!await hasMatchingImageResource(check, check.bytes, storage)) throw new Error(`Restored image is missing: ${check.id}`)
+    }
+    if (sections.favorites && options.favoriteManager) {
+      publishingReferences = true
+      const result = await options.favoriteManager.importFavorites(favoritesJson, {
+        mergeStrategy: options.favoriteMergeStrategy ?? 'overwrite', matchBy: 'id',
+      })
+      if (result.errors.length > 0) throw new Error(`Favorites import failed: ${result.errors.join('; ')}`)
+    }
+    // Workspace snapshots remain the final commit; no fallible post-check may resume old autosaves.
+    if (sections.appData) {
+      publishingReferences = true
+      await options.dataManager.importAllData(appDataJson)
+    }
+  } catch (error) {
+    // A service may have published references before a storage error. Keep their images alive.
+    try { if (!publishingReferences) await rollbackAddedBackupImages(written) } catch (rollbackError) {
+      throw new Error(`${error instanceof Error ? error.message : String(error)}; ${(rollbackError as Error).message}`, { cause: error })
+    }
+    throw error
   }
 
   return {

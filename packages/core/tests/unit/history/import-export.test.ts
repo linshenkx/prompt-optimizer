@@ -212,7 +212,7 @@ describe('HistoryManager Import/Export', () => {
       expect(importedRecord?.previousId).toBeUndefined();
     });
 
-    it('should handle import errors gracefully', async () => {
+    it('should report a failed replacement write and retain the old history', async () => {
       const importData: PromptRecord[] = [
         {
           id: 'error-record',
@@ -227,14 +227,15 @@ describe('HistoryManager Import/Export', () => {
         }
       ];
 
-      // 模拟addRecord错误
-      vi.spyOn(historyManager, 'addRecord').mockRejectedValue(new Error('Add record error'));
+      await historyManager.addRecord({ ...importData[0], id: 'old-record' });
+      const before = await historyManager.exportData();
+      vi.spyOn(storageProvider, 'setItem').mockRejectedValueOnce(new Error('Storage write failed'));
 
-      // 应该不抛出错误，只是记录失败
-      await expect(historyManager.importData(importData)).resolves.not.toThrow();
+      await expect(historyManager.importData(importData)).rejects.toThrow('Failed to import history data');
+      expect(await historyManager.exportData()).toEqual(before);
     });
 
-    it('should clear history before importing', async () => {
+    it('should replace history in one write without clearing it first', async () => {
       // 添加现有记录
       const existingRecord: PromptRecord = {
         id: 'existing-record',
@@ -252,6 +253,7 @@ describe('HistoryManager Import/Export', () => {
 
       // 验证clearHistory被调用
       const clearHistorySpy = vi.spyOn(historyManager, 'clearHistory');
+      const writeSpy = vi.spyOn(storageProvider, 'setItem');
 
       const importData: PromptRecord[] = [
         {
@@ -269,7 +271,8 @@ describe('HistoryManager Import/Export', () => {
 
       await historyManager.importData(importData);
 
-      expect(clearHistorySpy).toHaveBeenCalledOnce();
+      expect(clearHistorySpy).not.toHaveBeenCalled();
+      expect(writeSpy.mock.calls.filter(([key]) => key === 'prompt_history')).toHaveLength(1);
     });
   });
 
@@ -346,6 +349,21 @@ describe('HistoryManager Import/Export', () => {
           timestamp: 'invalid-timestamp' // 应该是数字
         }
       ])).toBe(false);
+    });
+
+    it('should reject empty required content and duplicate IDs before replacing history', async () => {
+      const record: PromptRecord = {
+        id: 'kept', originalPrompt: 'original', optimizedPrompt: 'optimized', type: 'optimize',
+        chainId: 'chain', version: 1, timestamp: 1, modelKey: 'openai', templateId: 'template',
+      };
+      await historyManager.addRecord(record);
+      const before = await historyManager.exportData();
+
+      for (const invalid of [[{ ...record, originalPrompt: '' }], [record, { ...record }]]) {
+        expect(await historyManager.validateData(invalid)).toBe(false);
+        await expect(historyManager.importData(invalid)).rejects.toThrow();
+        expect(await historyManager.exportData()).toEqual(before);
+      }
     });
   });
 

@@ -25,7 +25,8 @@ export type ImageResourceRestoreReport<Problem> = {
   errors: string[]
 }
 
-export type ImageResourceStorage = Pick<IImageStorageService, 'getImage' | 'saveImage'>
+export type ImageResourceStorage = Pick<IImageStorageService, 'getImage' | 'saveImage'> &
+  Partial<Pick<IImageStorageService, 'getConfig' | 'getStorageStats' | 'getMetadata'>>
 
 export const copyBytes = (bytes: Uint8Array): Uint8Array => {
   const out = new globalThis.Uint8Array(bytes.byteLength)
@@ -168,17 +169,22 @@ export const validateImageResourceBytes = async (
 
   if (entry.sha256) {
     const actualHash = await sha256Hex(bytes)
-    if (actualHash && actualHash !== entry.sha256) {
+    if (!actualHash) {
+      throw new Error('Image SHA-256 verification is unavailable in this browser context')
+    }
+    if (actualHash !== entry.sha256) {
       return 'corrupt'
     }
   }
 
+  if (entry.sizeBytes !== undefined && (
+    typeof entry.sizeBytes !== 'number' || !Number.isFinite(entry.sizeBytes) || entry.sizeBytes < 0
+  )) return 'corrupt'
+
   if (
     !entry.sha256 &&
     typeof entry.sizeBytes === 'number' &&
-    Number.isFinite(entry.sizeBytes) &&
-    entry.sizeBytes > 0 &&
-    Math.abs(entry.sizeBytes - bytes.byteLength) > 2
+    (entry.sizeBytes === 0 || Math.abs(entry.sizeBytes - bytes.byteLength) > 2)
   ) {
     return 'corrupt'
   }
@@ -198,17 +204,74 @@ export const createFullImageDataFromResource = (
   data: bytesToBase64(bytes),
 })
 
+/** Reusing an ID is safe only when the target has the same actual bytes. */
+export const hasMatchingImageResource = async (
+  entry: Pick<ImageResourceManifestEntryBase, 'id'>,
+  bytes: Uint8Array,
+  storageService: Pick<IImageStorageService, 'getImage'>,
+): Promise<boolean> => {
+  const existing = await storageService.getImage(entry.id)
+  if (!existing?.data) return false
+
+  let existingBytes: Uint8Array
+  try {
+    existingBytes = base64ToBytes(existing.data)
+  } catch {
+    throw new Error(`Image ID conflict: ${entry.id} has invalid local image bytes`)
+  }
+  if (existingBytes.byteLength !== bytes.byteLength ||
+    !existingBytes.every((byte, index) => byte === bytes[index])) {
+    throw new Error(`Image ID conflict: ${entry.id} has different local image content`)
+  }
+  return true
+}
+
+/** Check the union before the first write, so a restore cannot silently evict images. */
+export const assertImageRestoreCapacity = async (
+  images: FullImageData[],
+  storageService: ImageResourceStorage,
+): Promise<void> => {
+  if (!images.length || !storageService.getConfig || !storageService.getStorageStats) return
+  const config = storageService.getConfig()
+  const stats = await storageService.getStorageStats()
+  let nextCount = stats.count
+  let nextBytes = stats.totalBytes
+  const planned = new Map<string, FullImageData>()
+  for (const image of images) {
+    const previous = planned.get(image.metadata.id)
+    if (previous && previous.data !== image.data) {
+      throw new Error(`Image ID conflict: ${image.metadata.id} occurs with different backup content`)
+    }
+    planned.set(image.metadata.id, image)
+  }
+
+  for (const image of planned.values()) {
+    const existing = storageService.getMetadata
+      ? await storageService.getMetadata(image.metadata.id)
+      : (await storageService.getImage(image.metadata.id))?.metadata
+    if (!existing) nextCount += 1
+    nextBytes += base64ToBytes(image.data).byteLength - (existing?.sizeBytes ?? 0)
+  }
+  if (typeof config.maxCount === 'number' && Number.isFinite(config.maxCount) &&
+    nextCount > config.maxCount) {
+    throw new Error(`Image restore exceeds storage quota: ${nextCount} images exceeds ${config.maxCount}`)
+  }
+  if (typeof config.maxCacheSize === 'number' && Number.isFinite(config.maxCacheSize) &&
+    nextBytes > config.maxCacheSize) {
+    throw new Error(`Image restore exceeds storage quota: ${nextBytes} bytes exceeds ${config.maxCacheSize}`)
+  }
+}
+
 export const restoreImageResource = async (
   entry: ImageResourceManifestEntryBase,
   bytes: Uint8Array,
   storageService: ImageResourceStorage,
 ): Promise<'restored' | 'skipped'> => {
-  const existing = await storageService.getImage(entry.id)
-  if (existing?.data) {
+  if (await hasMatchingImageResource(entry, bytes, storageService)) {
     return 'skipped'
   }
 
-  await storageService.saveImage(createFullImageDataFromResource(entry, bytes))
+  await storageService.saveImage(createFullImageDataFromResource(entry, bytes), { preventEviction: true })
   return 'restored'
 }
 

@@ -405,27 +405,23 @@ export class HistoryManager implements IHistoryManager {
       );
     }
 
-    const records = data as PromptRecord[];
-
-    // 先清空所有现有历史记录（替换模式）
-    await this.clearHistory();
-
-    const failedRecords: { record: PromptRecord; error: Error }[] = [];
-
-    // addRecord prepends, so replay the exported order backwards without mutating it.
-    for (const record of [...records].reverse()) {
-      try {
-        // 保持原始ID，维护数据关联性（chainId、previousId等）
-        await this.addRecord(record);
-      } catch (error) {
-        console.warn('Failed to import history record:', error);
-        failedRecords.push({ record, error: error as Error });
-      }
+    // Prepare the complete replacement before its only write. A failed write
+    // must not leave the old history cleared or publish only part of a chain.
+    const records: PromptRecord[] = [];
+    for (const record of (data as PromptRecord[]).slice(0, this.maxRecords)) {
+      records.push({
+        ...record,
+        ...(!record.modelName && record.modelKey
+          ? { modelName: await this.getModelNameByKey(record.modelKey) }
+          : {}),
+      });
     }
-
-    if (failedRecords.length > 0) {
-      console.warn(`Failed to import ${failedRecords.length} history records`);
-      // 不抛出错误，允许部分导入成功
+    try {
+      await this.saveToStorage(records);
+    } catch (error) {
+      throw new ImportExportError(
+        'Failed to import history data', await this.getDataType(), error as Error,
+      );
     }
   }
 
@@ -444,19 +440,21 @@ export class HistoryManager implements IHistoryManager {
       return false;
     }
 
-    return data.every(item =>
-      typeof item === 'object' &&
-      item !== null &&
-      typeof item.id === 'string' &&
-      typeof item.originalPrompt === 'string' &&
-      typeof item.optimizedPrompt === 'string' &&
-      typeof item.type === 'string' &&
-      typeof item.chainId === 'string' &&
-      typeof item.version === 'number' &&
-      typeof item.timestamp === 'number' &&
-      typeof item.modelKey === 'string' &&
-      typeof item.templateId === 'string'
-    );
+    const ids = new Set<string>();
+    return data.every(item => {
+      if (typeof item !== 'object' || item === null ||
+        typeof item.id !== 'string' || item.id.length === 0 || ids.has(item.id)) return false;
+      ids.add(item.id);
+      return typeof item.originalPrompt === 'string' && item.originalPrompt.length > 0 &&
+        typeof item.optimizedPrompt === 'string' && item.optimizedPrompt.length > 0 &&
+        typeof item.type === 'string' && item.type.length > 0 &&
+        typeof item.chainId === 'string' && item.chainId.length > 0 &&
+        Number.isInteger(item.version) && item.version >= 1 &&
+        typeof item.timestamp === 'number' && Number.isFinite(item.timestamp) &&
+        typeof item.modelKey === 'string' &&
+        typeof item.templateId === 'string' &&
+        (item.previousId === undefined || typeof item.previousId === 'string');
+    });
   }
 }
 

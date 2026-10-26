@@ -2113,7 +2113,17 @@ function setupIPC() {
       const safeData = typeof data === 'string' ? data : safeSerialize(data);
       const safeOptions = safeSerialize(options);
       const result = await favoriteManager.importFavorites(safeData, safeOptions || undefined);
+      await storageProvider.flush();
       return createSuccessResponse(result);
+    } catch (error) {
+      return createFavoriteErrorResponse(error);
+    }
+  });
+
+  ipcMain.handle('favorite-validateImportData', async (event, data, options) => {
+    try {
+      await favoriteManager.validateImportData(data, safeSerialize(options) || undefined);
+      return createSuccessResponse(null);
     } catch (error) {
       return createFavoriteErrorResponse(error);
     }
@@ -2207,6 +2217,16 @@ function setupIPC() {
   ipcMain.handle('data-importAllData', async (event, dataString) => {
     try {
       await dataManager.importAllData(dataString);
+      await storageProvider.flush();
+      return createSuccessResponse(null);
+    } catch (error) {
+      return createErrorResponse(error);
+    }
+  });
+
+  ipcMain.handle('data-validateImportData', async (event, dataString) => {
+    try {
+      await dataManager.validateImportData(dataString);
       return createSuccessResponse(null);
     } catch (error) {
       return createErrorResponse(error);

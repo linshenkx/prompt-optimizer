@@ -2,8 +2,20 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FavoriteManagerElectronProxy } from '../../../src/services/favorite/electron-proxy'
 
 describe('FavoriteManagerElectronProxy', () => {
+  it('passes identity restore options through the read-only preflight bridge', async () => {
+    const validateImportData = vi.fn().mockResolvedValue(undefined)
+    const importFavorites = vi.fn().mockResolvedValue({ imported: 1, skipped: 0, errors: [] })
+    vi.stubGlobal('window', { electronAPI: { favoriteManager: { validateImportData, importFavorites } } })
+    const proxy = new FavoriteManagerElectronProxy()
+    const options = { matchBy: 'id' as const, mergeStrategy: 'overwrite' as const }
+    await proxy.validateImportData('{"favorites":[]}', options)
+    await proxy.importFavorites('{"favorites":[]}', options)
+    expect(validateImportData).toHaveBeenCalledWith('{"favorites":[]}', options)
+    expect(importFavorites).toHaveBeenCalledWith('{"favorites":[]}', options)
+  })
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
     delete (globalThis as typeof globalThis & { window?: unknown }).window
   })
 

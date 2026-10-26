@@ -245,11 +245,9 @@
                     <label class="local-strategy-pill">
                       <NRadio value="overwrite">{{ $t('dataManager.import.overwriteDuplicate') }}</NRadio>
                     </label>
-                    <label class="local-strategy-pill">
-                      <NRadio value="merge">{{ $t('dataManager.import.createCopy') }}</NRadio>
-                    </label>
                   </div>
                 </NRadioGroup>
+                <NText depth="3">{{ $t('dataManager.import.favoriteIdentityHint') }}</NText>
               </div>
               </div>
             </NCollapseItem>
@@ -735,11 +733,9 @@
                   <label class="local-strategy-pill">
                     <NRadio value="overwrite">{{ $t('dataManager.import.overwriteDuplicate') }}</NRadio>
                   </label>
-                  <label class="local-strategy-pill">
-                    <NRadio value="merge">{{ $t('dataManager.import.createCopy') }}</NRadio>
-                  </label>
                 </div>
               </NRadioGroup>
+              <NText depth="3">{{ $t('dataManager.import.favoriteIdentityHint') }}</NText>
             </div>
 
             <NButton

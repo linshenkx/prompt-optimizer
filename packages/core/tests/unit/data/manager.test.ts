@@ -210,6 +210,52 @@ describe('DataManager', () => {
       expect(mockPreferenceService.importData).toHaveBeenCalledWith(importData.data.userSettings);
     });
 
+    it('validates every section before importing any of them', async () => {
+      vi.mocked(mockTemplateManager.validateData).mockResolvedValue(false);
+      await expect(dataManager.importAllData(JSON.stringify(importData)))
+        .rejects.toMatchObject({ code: DATA_ERROR_CODES.INVALID_FORMAT });
+      for (const service of [mockHistoryManager, mockModelManager, mockImageModelManager,
+        mockTemplateManager, mockPreferenceService, mockContextRepo]) {
+        expect(service.importData).not.toHaveBeenCalled();
+      }
+    });
+
+    it('provides a read-only package preflight', async () => {
+      await dataManager.validateImportData(JSON.stringify(importData));
+      expect(mockHistoryManager.validateData).toHaveBeenCalledWith(importData.data.history);
+      expect(mockModelManager.importData).not.toHaveBeenCalled();
+      expect(mockPreferenceService.set).not.toHaveBeenCalled();
+    });
+
+    it.each([0, 2, 999, '1'])('rejects unsupported backup version %s before writes', async version => {
+      await expect(dataManager.importAllData(JSON.stringify({ ...importData, version })))
+        .rejects.toMatchObject({ code: DATA_ERROR_CODES.INVALID_FORMAT });
+      expect(mockHistoryManager.importData).not.toHaveBeenCalled();
+    });
+
+    it('rejects unsupported sections instead of reporting a no-op restore', async () => {
+      await expect(dataManager.validateImportData(JSON.stringify({ version: 1, data: { futureData: [] } })))
+        .rejects.toMatchObject({ code: DATA_ERROR_CODES.INVALID_FORMAT });
+    });
+
+    it('rejects built-in template ID collisions before references can become detached', async () => {
+      vi.mocked(mockTemplateManager.listTemplates).mockResolvedValue([
+        { ...importData.data.userTemplates[0], isBuiltin: true } as Template,
+      ]);
+      await expect(dataManager.importAllData(JSON.stringify(importData)))
+        .rejects.toMatchObject({ code: DATA_ERROR_CODES.INVALID_FORMAT });
+      expect(mockHistoryManager.importData).not.toHaveBeenCalled();
+    });
+
+    it('stops on storage failure and identifies earlier committed sections', async () => {
+      vi.mocked(mockModelManager.importData).mockRejectedValue(new Error('Write failed'));
+      const error = await dataManager.importAllData(JSON.stringify(importData)).catch(error => error);
+      expect(error).toMatchObject({ code: DATA_ERROR_CODES.IMPORT_PARTIAL_FAILED });
+      expect(error.params.details).toContain('already imported: history');
+      expect(mockImageModelManager.importData).not.toHaveBeenCalled();
+      expect(mockTemplateManager.importData).not.toHaveBeenCalled();
+    });
+
     it('should throw an error for invalid JSON string', async () => {
       await expect(dataManager.importAllData('invalid-json'))
         .rejects.toMatchObject({ code: DATA_ERROR_CODES.INVALID_JSON });

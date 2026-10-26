@@ -42,10 +42,10 @@ const snapshotFor = (mode: LegacySessionSubModeKey) => ({
 })
 
 const createDataManager = (preferences: PreferenceService) => {
-  const history = { exportData: vi.fn().mockResolvedValue([{ id: 'version-2', chainId: 'chain-1', version: 2 }]), importData: vi.fn().mockResolvedValue(undefined) }
-  const models = { exportData: vi.fn().mockResolvedValue([]), importData: vi.fn().mockResolvedValue(undefined) }
-  const templates = { exportData: vi.fn().mockResolvedValue([]), importData: vi.fn().mockResolvedValue(undefined) }
-  const contexts = { exportData: vi.fn().mockResolvedValue({}), importData: vi.fn().mockResolvedValue(undefined) }
+  const history = { exportData: vi.fn().mockResolvedValue([{ id: 'version-2', chainId: 'chain-1', version: 2 }]), importData: vi.fn().mockResolvedValue(undefined), validateData: vi.fn().mockResolvedValue(true) }
+  const models = { exportData: vi.fn().mockResolvedValue([]), importData: vi.fn().mockResolvedValue(undefined), validateData: vi.fn().mockResolvedValue(true) }
+  const templates = { exportData: vi.fn().mockResolvedValue([]), importData: vi.fn().mockResolvedValue(undefined), validateData: vi.fn().mockResolvedValue(true) }
+  const contexts = { exportData: vi.fn().mockResolvedValue({}), importData: vi.fn().mockResolvedValue(undefined), validateData: vi.fn().mockResolvedValue(true) }
   const manager = new DataManager(models as unknown as IModelManager, templates as unknown as ITemplateManager,
     history as unknown as IHistoryManager, preferences, contexts as unknown as ContextRepo)
   return { manager, models, history, templates, contexts }

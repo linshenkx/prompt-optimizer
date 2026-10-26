@@ -208,6 +208,7 @@ interface DataAPI {
   // Export/import all app data as JSON string
   exportAllData(): Promise<string>
   importAllData(dataString: string): Promise<void>
+  validateImportData(dataString: string): Promise<void>
 
   // Desktop-only helpers
   getStorageInfo(): Promise<DataStorageInfo>

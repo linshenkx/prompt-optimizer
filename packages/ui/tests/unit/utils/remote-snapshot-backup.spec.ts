@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { FullImageData } from '@prompt-optimizer/core'
+import '../../../../core/node_modules/fake-indexeddb/auto/index.mjs'
+import { ImageStorageService } from '../../../../core/src/services/image/storage'
 
 import {
   REMOTE_SNAPSHOT_SCHEMA_VERSION,
@@ -51,6 +53,7 @@ const createStorage = (images: FullImageData[]) => {
       store.set(image.metadata.id, image)
       return image.metadata.id
     }),
+    deleteImage: vi.fn(async (id: string) => { store.delete(id) }),
   }
 }
 
@@ -452,6 +455,7 @@ describe('remote snapshot backup', () => {
 
       expect(importFavorites).toHaveBeenCalledWith(favoritesJson, {
         mergeStrategy: favoriteMergeStrategy,
+        matchBy: 'id',
       })
     },
   )
@@ -633,5 +637,131 @@ describe('remote snapshot backup', () => {
 
     expect(objectStore.deleteCalls).toEqual([])
     expect(objectStore.objects.has('v1/assets/imageCache/orphan.png')).toBe(true)
+  })
+
+  it('reports references whose metadata and bytes are both absent during backup', async () => {
+    const result = await createRemoteSnapshotBackup({
+      objectStore: createObjectStore(),
+      dataManager: { exportAllData: async () => JSON.stringify({ version: 1, data: {
+        workspaceSessions: { version: 1, sessions: { 'basic-system': { testImageAssetId: 'gone' } } },
+      } }) },
+      favoriteManager: null, imageStorageService: createStorage([]),
+    })
+    expect(result.missingAssets).toEqual([{ store: 'imageCache', id: 'gone' }])
+  })
+
+  it('validates application semantics before restoring images or favorites', async () => {
+    const objectStore = createObjectStore()
+    const result = await createRemoteSnapshotBackup({
+      objectStore, dataManager: { exportAllData: async () => JSON.stringify({ version: 1, data: {} }) },
+      favoriteManager: null, imageStorageService: createStorage([createImage('one', 'image')]),
+    })
+    const target = createStorage([])
+    const importAllData = vi.fn(async () => {})
+    await expect(restoreRemoteSnapshotBackup({
+      objectStore, snapshotId: result.entry.id,
+      dataManager: { importAllData, validateImportData: async () => { throw new Error('Invalid application backup') } },
+      favoriteManager: null, imageStorageService: target,
+    })).rejects.toThrow('Invalid application backup')
+    expect(target.saveImage).not.toHaveBeenCalled()
+    expect(importAllData).not.toHaveBeenCalled()
+  })
+
+  it('rejects same-ID different local bytes before any restore write', async () => {
+    const objectStore = createObjectStore()
+    const result = await createRemoteSnapshotBackup({
+      objectStore, dataManager: { exportAllData: async () => JSON.stringify({ version: 1, data: {} }) },
+      favoriteManager: null, imageStorageService: createStorage([createImage('one', 'backup')]),
+    })
+    const target = createStorage([createImage('one', 'target')])
+    await expect(restoreRemoteSnapshotBackup({
+      objectStore, snapshotId: result.entry.id,
+      dataManager: { importAllData: vi.fn(async () => {}) }, favoriteManager: null, imageStorageService: target,
+    })).rejects.toThrow('errors=1')
+    expect(target.saveImage).not.toHaveBeenCalled()
+    expect(target.store.get('one')?.data).toBe(encode('target'))
+  })
+
+  it('prevents quota rejection after partial restore into a real favorite image library', async () => {
+    const objectStore = createObjectStore()
+    const result = await createRemoteSnapshotBackup({
+      objectStore, dataManager: { exportAllData: async () => JSON.stringify({ version: 1, data: {} }) },
+      favoriteManager: null, favoriteImageStorageService: createStorage([createImage('one', 'first'), createImage('two', 'second')]),
+    })
+    const target = new ImageStorageService({ dbName: `RemoteCapacity-${Date.now()}`, maxCount: 1, maxAge: undefined, quotaStrategy: 'reject' })
+    try {
+      await expect(restoreRemoteSnapshotBackup({
+        objectStore, snapshotId: result.entry.id,
+        dataManager: { importAllData: vi.fn(async () => {}) }, favoriteManager: null, favoriteImageStorageService: target,
+      })).rejects.toThrow('exceeds storage quota')
+      expect(await target.listAllMetadata()).toEqual([])
+    } finally { await target.clearAll(); await target.close() }
+  })
+
+  it('does not accept a manifest that silently omits a referenced image', async () => {
+    const objectStore = createObjectStore()
+    const result = await createRemoteSnapshotBackup({
+      objectStore, dataManager: { exportAllData: async () => JSON.stringify({ version: 1, data: {
+        workspaceSessions: { version: 1, sessions: { 'basic-system': { testImageAssetId: 'one' } } },
+      } }) },
+      favoriteManager: null, imageStorageService: createStorage([createImage('one', 'image')]),
+    })
+    const manifest = { ...result.manifest, assets: [], assetCounts: { imageCache: 0, favoriteImages: 0 }, missingAssets: [] }
+    await objectStore.put(result.entry.manifestPath, JSON.stringify(manifest))
+    const importAllData = vi.fn(async () => {})
+    await expect(restoreRemoteSnapshotBackup({
+      objectStore, snapshotId: result.entry.id, dataManager: { importAllData }, favoriteManager: null, imageStorageService: createStorage([]),
+    })).rejects.toThrow('missing=1')
+    expect(importAllData).not.toHaveBeenCalled()
+  })
+
+  it.each([true, false])('restores legacy favorite assets from imageCache only when favoriteImages is selected (%s)', async favoriteImages => {
+    const objectStore = createObjectStore()
+    const backup = await createRemoteSnapshotBackup({
+      objectStore, dataManager: { exportAllData: async () => JSON.stringify({ version: 1, data: {} }) },
+      favoriteManager: { exportFavorites: async () => JSON.stringify({ favorites: [{ metadata: { media: { assetIds: ['legacy'] } } }] }) },
+      imageStorageService: createStorage([createImage('legacy', 'image')]), favoriteImageStorageService: createStorage([]),
+    })
+    const manifest = { ...backup.manifest, assets: backup.manifest.assets.filter(item => item.store === 'imageCache'),
+      assetCounts: { imageCache: 1, favoriteImages: 0 }, includedSections: undefined }
+    await objectStore.put(backup.entry.manifestPath, JSON.stringify(manifest))
+    const sessionTarget = createStorage([])
+    const favoriteTarget = createStorage([])
+    const result = await restoreRemoteSnapshotBackup({
+      objectStore, snapshotId: backup.entry.id, dataManager: { importAllData: vi.fn(async () => {}) },
+      favoriteManager: { importFavorites: vi.fn(async () => ({ imported: 1, skipped: 0, errors: [] })) },
+      imageStorageService: sessionTarget, favoriteImageStorageService: favoriteTarget,
+      sections: { appData: false, favorites: true, imageCache: false, favoriteImages },
+    })
+    expect(result.restored).toBe(favoriteImages ? 1 : 0)
+    expect(sessionTarget.store.size).toBe(0)
+    expect(favoriteTarget.store.has('legacy')).toBe(favoriteImages)
+  })
+
+  it.each([true, false])('handles missing-only legacy favorite images with favoriteImages selected=%s', async favoriteImages => {
+    const snapshotId = 'legacy-missing-only'
+    const manifest = {
+      schemaVersion: REMOTE_SNAPSHOT_SCHEMA_VERSION, snapshotId, createdAt: new Date(0).toISOString(),
+      appDataPath: `v1/snapshots/${snapshotId}/app-data.json`, favoritesPath: `v1/snapshots/${snapshotId}/favorites.json`,
+      assets: [], missingAssets: [{ store: 'imageCache', id: 'legacy-missing' }], assetCounts: { imageCache: 0, favoriteImages: 0 },
+    }
+    const objectStore = createObjectStore({
+      [`v1/snapshots/${snapshotId}/manifest.json`]: JSON.stringify(manifest),
+      [manifest.appDataPath]: JSON.stringify({ version: 1, data: {} }),
+      [manifest.favoritesPath]: JSON.stringify({ favorites: [{ metadata: { media: { assetIds: ['legacy-missing'] } } }] }),
+    })
+    const importFavorites = vi.fn(async () => ({ imported: 1, skipped: 0, errors: [] }))
+    const attempt = restoreRemoteSnapshotBackup({
+      objectStore, snapshotId, dataManager: { importAllData: vi.fn(async () => {}) }, favoriteManager: { importFavorites },
+      imageStorageService: createStorage([]), favoriteImageStorageService: createStorage([]),
+      sections: { appData: false, favorites: true, imageCache: false, favoriteImages },
+    })
+    if (favoriteImages) {
+      await expect(attempt).rejects.toThrow('missing=1')
+      expect(importFavorites).not.toHaveBeenCalled()
+    } else {
+      expect((await attempt).restored).toBe(0)
+      expect(importFavorites).toHaveBeenCalledOnce()
+    }
   })
 })

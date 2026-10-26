@@ -28,4 +28,8 @@ export class ElectronDataManagerProxy implements IDataManager {
   async importAllData(dataString: string): Promise<void> {
     await this.electronAPI.data.importAllData(safeSerializeForIPC(dataString));
   }
+
+  async validateImportData(dataString: string): Promise<void> {
+    await this.electronAPI.data.validateImportData(safeSerializeForIPC(dataString));
+  }
 } 

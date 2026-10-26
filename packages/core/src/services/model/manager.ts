@@ -1311,39 +1311,23 @@ export class ModelManager implements IModelManager {
       );
     }
 
-    const models = data as Array<TextModelConfig | (ModelConfig & { key: string })>;
-    const failedModels: { model: any; error: Error }[] = [];
-
-    // Import each model individually, capturing failures
-    for (const model of models) {
+    // Normalize and validate the whole input before updating the first model.
+    const models: TextModelConfig[] = [];
+    for (const [index, model] of data.entries()) {
       try {
-        // 判断是新格式还是旧格式
-        let textModelConfig: TextModelConfig;
-        let key: string;
+        models.push(await this.prepareImportedModel(model));
+      } catch (error) {
+        throw new ImportExportError(
+          `Invalid model configuration at index ${index}`,
+          await this.getDataType(), error as Error, IMPORT_EXPORT_ERROR_CODES.VALIDATION_ERROR,
+        );
+      }
+    }
+    const failedModels: Error[] = [];
 
-        if (isTextModelConfig(model) || this.validateSingleTextModel(model)) {
-          // 新格式：直接使用
-          textModelConfig = model as TextModelConfig;
-          key = textModelConfig.id;
-        } else {
-          // 旧格式：转换后使用
-          const legacyModel = model as ModelConfig & { key: string };
-          if (!legacyModel.key) {
-            console.warn(`Skipping model without key:`, model);
-            failedModels.push({ model, error: new Error('Missing key field') });
-            continue;
-          }
-          key = legacyModel.key;
-          textModelConfig = convertLegacyToTextModelConfig(key, legacyModel);
-        }
-
-        // 验证单个模型
-        if (!this.validateSingleTextModel(textModelConfig)) {
-          console.warn(`Skipping invalid model configuration:`, model);
-          failedModels.push({ model, error: new Error('Invalid model configuration') });
-          continue;
-        }
-
+    for (const textModelConfig of models) {
+      try {
+        const key = textModelConfig.id;
         // 检查模型是否已存在
         const existingModel = await this.getModel(key);
 
@@ -1360,14 +1344,15 @@ export class ModelManager implements IModelManager {
           console.log(`Imported new model ${key}`);
         }
       } catch (error) {
-        console.warn(`Error importing model:`, error);
-        failedModels.push({ model, error: error as Error });
+        failedModels.push(error as Error);
       }
     }
 
     if (failedModels.length > 0) {
-      console.warn(`Failed to import ${failedModels.length} models`);
-      // 不抛出错误，允许部分成功的导入
+      throw new ImportExportError(
+        `Failed to import ${failedModels.length} models`,
+        await this.getDataType(), failedModels[0],
+      );
     }
   }
 
@@ -1386,20 +1371,35 @@ export class ModelManager implements IModelManager {
       return false;
     }
 
-    return data.every(item => {
-      // 检查是否为新格式
-      if (isTextModelConfig(item) || this.validateSingleTextModel(item)) {
-        return this.validateSingleTextModel(item);
-      }
-      // 检查是否为旧格式
-      return this.validateSingleModel(item);
-    });
+    try {
+      for (const item of data) await this.prepareImportedModel(item);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async prepareImportedModel(item: unknown): Promise<TextModelConfig> {
+    let config: TextModelConfig;
+    if (this.validateSingleTextModel(item)) {
+      config = item as TextModelConfig;
+    } else if (this.validateSingleModel(item)) {
+      const legacy = item as ModelConfig & { key: string };
+      config = convertLegacyToTextModelConfig(legacy.key, legacy);
+    } else {
+      throw new ModelConfigError('Invalid model configuration');
+    }
+    const registry = await this.getRegistry();
+    const normalized = this.normalizeTextModelConfig(config, registry);
+    this.validateTextModelConfig(normalized);
+    return normalized;
   }
 
   /**
    * 验证单个 TextModelConfig 配置
    */
   private validateSingleTextModel(item: any): boolean {
+    if (typeof item !== 'object' || item === null || Array.isArray(item)) return false;
     const hasMetadata =
       item.providerMeta !== undefined &&
       typeof item.providerMeta === 'object' &&
@@ -1416,7 +1416,8 @@ export class ModelManager implements IModelManager {
       typeof item.enabled === 'boolean' &&
       (hasMetadata || hasIdentity) &&
       item.connectionConfig !== undefined &&
-      typeof item.connectionConfig === 'object';
+      typeof item.connectionConfig === 'object' && item.connectionConfig !== null &&
+      !Array.isArray(item.connectionConfig);
   }
 
   /**

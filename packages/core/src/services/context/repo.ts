@@ -85,6 +85,34 @@ function sanitizeVariables(variables: Record<string, string>): [Record<string, s
   return [sanitized, removedCount];
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+const isSafeKey = (value: string): boolean =>
+  value.length > 0 && !['__proto__', 'prototype', 'constructor'].includes(value);
+
+/** Validate fields consumed by restore before replacing any existing contexts. */
+function isImportableContext(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return typeof value.id === 'string' && isSafeKey(value.id) &&
+    typeof value.title === 'string' &&
+    (value.mode === undefined || value.mode === 'system' || value.mode === 'user') &&
+    (value.version === undefined || typeof value.version === 'string') &&
+    typeof value.createdAt === 'string' && typeof value.updatedAt === 'string' &&
+    isRecord(value.variables) && Object.entries(value.variables).every(([name, item]) =>
+      isSafeKey(name) && typeof item === 'string') &&
+    Array.isArray(value.messages) && value.messages.every(message =>
+      isRecord(message) && typeof message.content === 'string' &&
+      typeof message.role === 'string' && ['system', 'user', 'assistant', 'tool'].includes(message.role)) &&
+    Array.isArray(value.tools) && value.tools.every(tool =>
+      isRecord(tool) && tool.type === 'function' && isRecord(tool.function) &&
+      typeof tool.function.name === 'string' &&
+      (tool.function.description === undefined || typeof tool.function.description === 'string') &&
+      (tool.function.parameters === undefined || isRecord(tool.function.parameters))) &&
+    (value.tags === undefined || (Array.isArray(value.tags) && value.tags.every(tag => typeof tag === 'string'))) &&
+    (value.description === undefined || typeof value.description === 'string') &&
+    (value.meta === undefined || isRecord(value.meta));
+}
+
 /**
  * 上下文仓库实现类
  */
@@ -599,14 +627,22 @@ export class ContextRepoImpl implements ContextRepo {
   }
 
   async validateData(data: any): Promise<boolean> {
-    return !!(
-      data &&
+    if (!(
+      isRecord(data) &&
       data.type === 'context-bundle' &&
-      typeof data.version === 'string' &&
+      data.version === CONTEXT_STORE_VERSION &&
       typeof data.currentId === 'string' &&
       Array.isArray(data.contexts) &&
       data.contexts.length > 0
-    );
+    )) return false;
+    const ids = new Set<string>();
+    for (const context of data.contexts) {
+      if (!isImportableContext(context)) return false;
+      const id = (context as ContextPackage).id;
+      if (ids.has(id)) return false;
+      ids.add(id);
+    }
+    return true;
   }
 }
 

@@ -4,7 +4,8 @@ import type {
   FavoriteCategory,
   FavoriteStats,
   FavoriteTag,
-  IFavoriteManager
+  IFavoriteManager,
+  FavoriteImportOptions
 } from './types';
 import {
   FavoriteError,
@@ -1195,258 +1196,262 @@ export class FavoriteManager implements IFavoriteManager {
     }
   }
 
-  async importFavorites(data: string, options?: {
-    mergeStrategy?: 'skip' | 'overwrite' | 'merge';
-    categoryMapping?: Record<string, string>;
-  }): Promise<{
+  /** Preflight is shared by resource packages and the actual import. It never writes. */
+  async validateImportData(data: string, options?: FavoriteImportOptions): Promise<void> {
+    await this.prepareImport(data, options);
+  }
+
+  async importFavorites(data: string, options?: FavoriteImportOptions): Promise<{
     imported: number;
     skipped: number;
     errors: string[];
   }> {
-    const mergeStrategy = options?.mergeStrategy || 'skip';
-    const categoryMapping = options?.categoryMapping || {};
-    const result = { imported: 0, skipped: 0, errors: [] as string[] };
-
     try {
-      await this.ensureInitialized();
-      const importData = JSON.parse(data);
-
-      if (!importData.favorites || !Array.isArray(importData.favorites)) {
-        throw new FavoriteValidationError('Invalid import data format');
-      }
-      // 预处理分类：避免重复获取
-      if (importData.categories && Array.isArray(importData.categories)) {
-        const existingCategories = await this.getCategories();
-        const existingCategoryIds = new Set(existingCategories.map(c => c.id));
-        const existingCategoryNames = new Set(existingCategories.map(c => c.name));
-
-        for (const category of importData.categories) {
-          if (!category || typeof category.name !== 'string') continue;
-          try {
-            const exists =
-              (category.id && existingCategoryIds.has(category.id)) ||
-              existingCategoryNames.has(category.name);
-
-            if (!exists) {
-              await this.addCategory({
-                name: category.name,
-                description: category.description,
-                color: category.color,
-                sortOrder: category.sortOrder
-              });
-              existingCategoryNames.add(category.name);
+      const plan = await this.prepareImport(data, options);
+      const writes = [
+        { key: this.STORAGE_KEYS.CATEGORIES, before: plan.previous.categories, after: plan.categories },
+        { key: this.STORAGE_KEYS.TAGS, before: plan.previous.tags, after: plan.tags },
+        { key: this.STORAGE_KEYS.FAVORITES, before: plan.previous.favorites, after: plan.favorites },
+      ].filter(write => JSON.stringify(write.before) !== JSON.stringify(write.after));
+      const committed: typeof writes = [];
+      try {
+        for (const write of writes) {
+          // Keep the provider's atomic read/modify/write boundary. An edit made
+          // after preflight must be preserved, not replaced with the stale plan.
+          await this.storageProvider.updateData(write.key, current => {
+            if (JSON.stringify(current ?? []) !== JSON.stringify(write.before)) {
+              throw new FavoriteValidationError(`Favorite data changed during import: ${write.key}`);
             }
-          } catch (error) {
-            console.warn('Failed to import category:', category?.name, error);
-          }
-        }
-      }
-
-      // 预处理独立标签：一次性合并，避免重复刷新统计
-      if (importData.tags && Array.isArray(importData.tags) && importData.tags.length > 0) {
-        const tagsToMerge = new Set<string>();
-        importData.tags.forEach((tag: unknown) => {
-          if (typeof tag === 'string' && tag.trim()) {
-            tagsToMerge.add(tag.trim());
-          }
-        });
-
-        if (tagsToMerge.size > 0) {
-          await this.storageProvider.updateData(this.STORAGE_KEYS.TAGS, (tags: FavoriteTag[] | null) => {
-            const tagsList = tags ? [...tags] : [];
-            const existing = new Set(tagsList.map(t => t.tag));
-            const now = Date.now();
-
-            tagsToMerge.forEach((tag: string) => {
-              if (!existing.has(tag)) {
-                tagsList.push({ tag, createdAt: now });
-                existing.add(tag);
-              }
-            });
-
-            return tagsList;
+            return write.after;
           });
+          committed.push(write);
         }
-      }
-
-      const parseTimestamp = (value: unknown, fallback: number): number => {
-        if (typeof value === 'number' && Number.isFinite(value)) {
-          return value;
-        }
-        if (typeof value === 'string') {
-          const parsed = Date.parse(value);
-          if (!Number.isNaN(parsed)) {
-            return parsed;
-          }
-        }
-        return fallback;
-      };
-
-      const sanitizeTags = (rawTags: unknown): string[] => {
-        if (!Array.isArray(rawTags)) return [];
-        const tagSet = new Set<string>();
-        rawTags.forEach(tag => {
-          if (typeof tag === 'string' && tag.trim()) {
-            tagSet.add(tag.trim());
-          }
-        });
-        return Array.from(tagSet);
-      };
-
-      const baseTimestamp = Date.now();
-      let timestampOffset = 0;
-
-      await this.storageProvider.updateData(this.STORAGE_KEYS.FAVORITES, (favorites: FavoritePrompt[] | null) => {
-        const favoritesList = favorites ? [...favorites] : [];
-        const existingFavoritesMap = new Map<string, FavoritePrompt>();
-        const existingIds = new Set<string>();
-        favoritesList.forEach(f => {
-          existingFavoritesMap.set(f.content, f);
-          existingIds.add(f.id);
-        });
-
-        const generateId = (preferredId?: unknown) => {
-          if (typeof preferredId === 'string' && preferredId.trim() && !existingIds.has(preferredId)) {
-            existingIds.add(preferredId);
-            return preferredId;
-          }
-          let newId = '';
-          do {
-            newId = `fav_${baseTimestamp + timestampOffset}_${Math.random().toString(36).slice(2, 11)}`;
-          } while (existingIds.has(newId));
-          existingIds.add(newId);
-          return newId;
-        };
-
-        const buildTitle = (title: unknown, content: string) => {
-          if (typeof title === 'string' && title.trim()) {
-            return title.trim();
-          }
-          const trimmed = content.trim();
-          return trimmed.length > 50 ? `${trimmed.slice(0, 50)}...` : trimmed;
-        };
-
-        const normalizeMetadata = (metadata: unknown) => {
-          if (metadata && typeof metadata === 'object') {
-            assertFavoriteMetadataHasNoInlineImages(metadata);
-            return metadata as Record<string, unknown>;
-          }
-          return undefined;
-        };
-
-        const favoritesToImport = Array.isArray(importData.favorites) ? importData.favorites : [];
-
-        favoritesToImport.forEach((favorite: any) => {
+      } catch (error) {
+        const rollbackFailures: string[] = [];
+        for (const write of committed.reverse()) {
           try {
-            if (!favorite || typeof favorite.content !== 'string' || !favorite.content.trim()) {
-              throw new FavoriteValidationError('Import data contains favorite with empty content');
-            }
-
-            const functionMode = favorite.functionMode || 'basic';
-            const optimizationMode =
-              favorite.optimizationMode ||
-              (functionMode !== 'image' ? 'system' : undefined);
-            const imageSubMode =
-              favorite.imageSubMode ||
-              (functionMode === 'image' ? 'text2image' : undefined);
-
-            const mapping = { functionMode, optimizationMode, imageSubMode };
-            if (!TypeMapper.validateMapping(mapping)) {
-              throw new FavoriteValidationError(
-                `Invalid function mode in import data: functionMode=${functionMode}, optimizationMode=${optimizationMode}, imageSubMode=${imageSubMode}`
-              );
-            }
-
-            const category = categoryMapping[favorite.category] || favorite.category;
-            const tags = sanitizeTags(favorite.tags);
-            const createdAt = parseTimestamp(favorite.createdAt, baseTimestamp + timestampOffset);
-            const updatedAt = parseTimestamp(favorite.updatedAt, createdAt);
-            const useCount = typeof favorite.useCount === 'number' && favorite.useCount >= 0
-              ? favorite.useCount
-              : 0;
-
-            const existingFavorite = existingFavoritesMap.get(favorite.content);
-
-            if (existingFavorite) {
-              if (mergeStrategy === 'skip') {
-                result.skipped++;
-                return;
+            await this.storageProvider.updateData(write.key, current => {
+              if (JSON.stringify(current) !== JSON.stringify(write.after)) {
+                throw new FavoriteValidationError('Favorite data changed after import; preserve the new edit');
               }
-
-              if (mergeStrategy === 'overwrite') {
-                const nextFavorite = this.attachPromptAssetMetadata({
-                  ...existingFavorite,
-                  title: buildTitle(favorite.title, favorite.content),
-                  content: favorite.content,
-                  description: typeof favorite.description === 'string'
-                    ? favorite.description
-                    : favorite.description ?? existingFavorite.description,
-                  tags,
-                  category,
-                  functionMode,
-                  optimizationMode,
-                  imageSubMode,
-                  metadata: normalizeMetadata(favorite.metadata),
-                  createdAt: parseTimestamp(favorite.createdAt, existingFavorite.createdAt),
-                  updatedAt,
-                  useCount,
-                });
-                assertFavoriteFitsItemBudget(nextFavorite);
-                const existingIndex = favoritesList.findIndex(item => item.id === existingFavorite.id);
-                if (existingIndex >= 0) {
-                  favoritesList[existingIndex] = nextFavorite;
-                }
-                existingFavoritesMap.set(nextFavorite.content, nextFavorite);
-                result.imported++;
-                return;
-              }
-              // merge 策略 fallthrough 到新增逻辑
-            }
-
-            const id = generateId(favorite.id);
-            const newFavorite: FavoritePrompt = {
-              id,
-              title: buildTitle(favorite.title, favorite.content),
-              content: favorite.content,
-              description: typeof favorite.description === 'string' ? favorite.description : undefined,
-              category,
-              tags,
-              functionMode,
-              optimizationMode,
-              imageSubMode,
-              metadata: normalizeMetadata(favorite.metadata),
-              createdAt,
-              updatedAt,
-              useCount
-            };
-            const normalizedFavorite = this.attachPromptAssetMetadata(newFavorite);
-            assertFavoriteFitsItemBudget(normalizedFavorite);
-
-            favoritesList.push(normalizedFavorite);
-            timestampOffset++;
-            result.imported++;
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            result.errors.push(`Failed to import favorite: ${errorMessage}`);
-          }
-        });
-
-        assertFavoritesPayloadWithinBudget(favoritesList, {
-          warnOnSoftLimit: true,
-        });
-
-        return favoritesList;
-      });
-
+              return write.before;
+            });
+          } catch { rollbackFailures.push(write.key); }
+        }
+        if (rollbackFailures.length) {
+          throw new FavoriteValidationError(`Favorite import failed; rollback incomplete for ${rollbackFailures.join(', ')}`);
+        }
+        throw error;
+      }
       await this.updateStats();
-      return result;
+      return plan.result;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new FavoriteImportExportError(
-        `Failed to import favorites: ${errorMessage}`,
-        error instanceof Error ? error : undefined,
-        result.errors.length > 0 ? result.errors : undefined
-      );
+      const message = error instanceof Error ? error.message : String(error);
+      throw new FavoriteImportExportError(`Failed to import favorites: ${message}`, error instanceof Error ? error : undefined);
     }
   }
+
+  private async prepareImport(data: string, options?: FavoriteImportOptions): Promise<{
+    categories: FavoriteCategory[];
+    favorites: FavoritePrompt[];
+    tags: FavoriteTag[];
+    previous: { categories: FavoriteCategory[]; favorites: FavoritePrompt[]; tags: FavoriteTag[] };
+    result: { imported: number; skipped: number; errors: string[] };
+  }> {
+    await this.ensureInitialized();
+    const source = JSON.parse(data);
+    if (!source || !Array.isArray(source.favorites) ||
+      (source.version !== undefined && source.version !== '1.0') ||
+      (source.categories !== undefined && !Array.isArray(source.categories)) ||
+      (source.tags !== undefined && !Array.isArray(source.tags))) {
+      throw new FavoriteValidationError('Invalid or unsupported favorites import format');
+    }
+    const mergeStrategy = options?.mergeStrategy ?? 'skip';
+    const matchBy = options?.matchBy ?? 'content';
+    const result = { imported: 0, skipped: 0, errors: [] as string[] };
+    const now = Date.now();
+    const timestamp = (value: unknown, fallback: number): number => {
+      if (typeof value === 'number' && Number.isFinite(value) && value >= 0) return value;
+      if (typeof value === 'string' && Number.isFinite(Date.parse(value))) return Date.parse(value);
+      return fallback;
+    };
+    const textId = (value: unknown): string | undefined =>
+      typeof value === 'string' && value.trim() ? value : undefined;
+    const previousCategories = await this.getCategories();
+    const rawFavorites = await this.storageProvider.getItem(this.STORAGE_KEYS.FAVORITES);
+    const previousFavorites: FavoritePrompt[] = rawFavorites ? JSON.parse(rawFavorites) : [];
+    const rawTags = await this.storageProvider.getItem(this.STORAGE_KEYS.TAGS);
+    const previousTags: FavoriteTag[] = rawTags ? JSON.parse(rawTags) : [];
+    const categories = previousCategories.map(category => ({ ...category }));
+    const favorites = previousFavorites.map(favorite => ({ ...favorite }));
+    const tags = previousTags.map(tag => ({ ...tag }));
+    const categoryMapping = new Map(Object.entries(options?.categoryMapping ?? {}));
+    const importedCategories = new Map<string, FavoriteCategory>();
+    const newId = (prefix: string, used: Set<string>): string => {
+      let id: string;
+      do { id = `${prefix}_${now}_${Math.random().toString(36).slice(2, 11)}`; } while (used.has(id));
+      used.add(id);
+      return id;
+    };
+    const categoryIds = new Set(categories.map(category => category.id));
+    for (const raw of source.categories ?? []) {
+      if (!raw || typeof raw.name !== 'string' || !raw.name.trim() ||
+        (raw.parentId !== undefined && typeof raw.parentId !== 'string')) {
+        throw new FavoriteValidationError('Invalid imported category');
+      }
+      const id = textId(raw.id) ?? newId('cat', categoryIds);
+      if (importedCategories.has(id)) throw new FavoriteValidationError(`Duplicate category ID: ${id}`);
+      importedCategories.set(id, {
+        id, name: raw.name.trim(),
+        ...(typeof raw.description === 'string' ? { description: raw.description } : {}),
+        ...(typeof raw.color === 'string' ? { color: raw.color } : {}),
+        ...(textId(raw.parentId) ? { parentId: raw.parentId } : {}),
+        createdAt: timestamp(raw.createdAt, now),
+        sortOrder: typeof raw.sortOrder === 'number' && Number.isFinite(raw.sortOrder) ? raw.sortOrder : 0,
+      });
+    }
+    const resolving = new Set<string>();
+    const resolveCategory = (sourceId: string): string => {
+      const mapped = categoryMapping.get(sourceId);
+      if (mapped) {
+        if (!categories.some(category => category.id === mapped)) {
+          throw new FavoriteValidationError(`Mapped category not found: ${mapped}`);
+        }
+        return mapped;
+      }
+      const incoming = importedCategories.get(sourceId);
+      if (!incoming) {
+        if (categoryIds.has(sourceId)) return sourceId;
+        throw new FavoriteValidationError(`Category not found: ${sourceId}`);
+      }
+      if (resolving.has(sourceId)) throw new FavoriteValidationError('Imported categories contain a parent cycle');
+      resolving.add(sourceId);
+      const parentId = incoming.parentId ? resolveCategory(incoming.parentId) : undefined;
+      const existing = categories.find(category => category.id === sourceId) ??
+        (matchBy === 'content' ? categories.find(category => category.name === incoming.name && category.parentId === parentId) : undefined);
+      const id = existing?.id ?? sourceId;
+      const category = { ...incoming, id, parentId };
+      if (!existing) {
+        categories.push(category);
+        categoryIds.add(id);
+      } else if (mergeStrategy === 'overwrite') {
+        categories[categories.findIndex(item => item.id === id)] = category;
+      }
+      categoryMapping.set(sourceId, id);
+      resolving.delete(sourceId);
+      return id;
+    };
+    for (const id of importedCategories.keys()) resolveCategory(id);
+    for (const sourceId of importedCategories.keys()) {
+      const seen = new Set<string>();
+      let id: string | undefined = categoryMapping.get(sourceId);
+      while (id) {
+        if (seen.has(id)) throw new FavoriteValidationError('Imported categories contain a parent cycle');
+        seen.add(id);
+        const category = categories.find(item => item.id === id);
+        if (!category) throw new FavoriteValidationError(`Category not found: ${id}`);
+        id = category.parentId;
+      }
+    }
+
+    const favoriteIds = new Set(favorites.map(favorite => favorite.id));
+    const importedIds = new Set<string>();
+    // Content matching is the existing manual import behavior. Backup restore
+    // opts into ID matching so different assets with identical text stay distinct.
+    const contentMatches = new Map(favorites.map(favorite => [favorite.content, favorite]));
+    const rebaseMetadata = (value: unknown, fromId: string | undefined, toId: string): FavoritePrompt['metadata'] => {
+      if (value === undefined || value === null) return undefined;
+      if (typeof value !== 'object' || Array.isArray(value)) throw new FavoriteValidationError('Invalid favorite metadata');
+      assertFavoriteMetadataHasNoInlineImages(value);
+      const oldAssetId = fromId ? `favorite:${fromId}` : '';
+      const identityKeys = new Set(['id', 'assetId', 'versionId', 'currentVersionId', 'basedOnVersionId', 'sourceVersionId']);
+      const clone = (item: any, key = '', parent?: any): any => {
+        if (typeof item === 'string' && fromId && fromId !== toId) {
+          if ((key === 'favoriteId' || (key === 'id' && parent?.kind === 'favorite')) && item === fromId) return toId;
+          if (identityKeys.has(key) && (item === oldAssetId || item.startsWith(`${oldAssetId}:`))) {
+            return `favorite:${toId}${item.slice(oldAssetId.length)}`;
+          }
+        }
+        if (Array.isArray(item)) return item.map(value => clone(value));
+        if (item && typeof item === 'object') return Object.fromEntries(Object.entries(item).map(([name, value]) => [name, clone(value, name, item)]));
+        return item;
+      };
+      const metadata = clone(value);
+      if (metadata.promptAsset !== undefined && !isPromptAsset(metadata.promptAsset)) {
+        throw new FavoriteValidationError('Invalid or unsupported prompt asset');
+      }
+      return metadata;
+    };
+    for (const [index, raw] of source.favorites.entries()) {
+      if (!raw || typeof raw.content !== 'string' || !raw.content.trim()) {
+        throw new FavoriteValidationError(`Invalid favorite content at index ${index}`);
+      }
+      const sourceId = textId(raw.id);
+      if (matchBy === 'id' && sourceId) {
+        if (importedIds.has(sourceId)) throw new FavoriteValidationError(`Duplicate favorite ID: ${sourceId}`);
+        importedIds.add(sourceId);
+      }
+      const existing = matchBy === 'id' && sourceId
+        ? favorites.find(favorite => favorite.id === sourceId)
+        : matchBy === 'content' ? contentMatches.get(raw.content) : undefined;
+      if (existing && mergeStrategy === 'skip') { result.skipped++; continue; }
+      const id = existing && (mergeStrategy === 'overwrite' || matchBy === 'id') ? existing.id :
+        sourceId && !favoriteIds.has(sourceId) ? sourceId : newId('fav', favoriteIds);
+      const functionMode = raw.functionMode || 'basic';
+      const optimizationMode = raw.optimizationMode || (functionMode !== 'image' ? 'system' : undefined);
+      const imageSubMode = raw.imageSubMode || (functionMode === 'image' ? 'text2image' : undefined);
+      if (!TypeMapper.validateMapping({ functionMode, optimizationMode, imageSubMode })) {
+        throw new FavoriteValidationError(`Invalid function mode at favorite index ${index}`);
+      }
+      const category = textId(raw.category) ? resolveCategory(raw.category) : undefined;
+      const title = typeof raw.title === 'string' && raw.title.trim() ? raw.title.trim() :
+        raw.content.trim().slice(0, 50) + (raw.content.trim().length > 50 ? '...' : '');
+      const next = this.attachPromptAssetMetadata({
+        id, title, content: raw.content,
+        description: typeof raw.description === 'string' ? raw.description : undefined,
+        category,
+        tags: Array.isArray(raw.tags) ? [...new Set<string>(raw.tags.filter((tag: unknown): tag is string => typeof tag === 'string' && Boolean(tag.trim())).map((tag: string) => tag.trim()))] : [],
+        functionMode, optimizationMode, imageSubMode,
+        metadata: rebaseMetadata(raw.metadata, sourceId, id),
+        createdAt: timestamp(raw.createdAt, existing?.createdAt ?? now + index),
+        updatedAt: timestamp(raw.updatedAt, timestamp(raw.createdAt, existing?.createdAt ?? now + index)),
+        useCount: typeof raw.useCount === 'number' && Number.isFinite(raw.useCount) && raw.useCount >= 0 ? raw.useCount : 0,
+      });
+      assertFavoriteFitsItemBudget(next);
+      if (existing && matchBy === 'id' && mergeStrategy === 'merge') {
+        // An ID collision cannot be resolved by inventing a new favorite ID:
+        // workspace origins and asset/version bindings would still point at it.
+        const canonical = (value: unknown): string => JSON.stringify(value, (_key, item) =>
+          item && typeof item === 'object' && !Array.isArray(item)
+            ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);
+        const unchanged = canonical(next) === canonical(existing);
+        if (!unchanged) throw new FavoriteValidationError(`Favorite ID conflict: ${existing.id}; use overwrite to restore this identity`);
+        result.skipped++;
+        continue;
+      }
+      if (existing && mergeStrategy === 'overwrite') {
+        favorites[favorites.findIndex(favorite => favorite.id === existing.id)] = next;
+        contentMatches.set(next.content, next);
+      } else {
+        favorites.push(next);
+        favoriteIds.add(id);
+      }
+      result.imported++;
+    }
+    const assetIds = new Set<string>();
+    for (const favorite of favorites) {
+      const asset = favorite.metadata?.promptAsset;
+      if (!isPromptAsset(asset)) continue;
+      if (assetIds.has(asset.id)) throw new FavoriteValidationError(`Duplicate prompt asset ID: ${asset.id}`);
+      assetIds.add(asset.id);
+    }
+    assertFavoritesPayloadWithinBudget(favorites);
+    const tagNames = new Set(tags.map(tag => tag.tag));
+    for (const tag of source.tags ?? []) {
+      if (typeof tag !== 'string' || !tag.trim()) throw new FavoriteValidationError('Invalid imported tag');
+      if (!tagNames.has(tag.trim())) { tags.push({ tag: tag.trim(), createdAt: now }); tagNames.add(tag.trim()); }
+    }
+    return { categories, favorites, tags, previous: { categories: previousCategories, favorites: previousFavorites, tags: previousTags }, result };
+  }
+
 }

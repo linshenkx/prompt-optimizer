@@ -10,16 +10,19 @@ import type {
 import { collectFavoritesAssetIds } from './favorite-asset-refs'
 import {
   assertImageResourceRestoreReportSafe,
+  assertImageRestoreCapacity,
   base64ToBytes,
   bytesToArrayBuffer,
   copyBytes,
+  createFullImageDataFromResource,
+  hasMatchingImageResource,
   resolveResourceMimeType,
-  restoreImageResource,
   safeImageResourceFileName,
   sha256Hex,
   validateImageResourceBytes,
   type ImageResourceRestoreReport,
 } from './image-resource-backup'
+import { rollbackAddedBackupImages, type BackupImageRestoreStorage } from './data-manager-resource-package'
 
 export const FAVORITE_RESOURCE_PACKAGE_SCHEMA_VERSION = 'prompt-optimizer/favorites-package/v1' as const
 
@@ -83,8 +86,8 @@ type CreateFavoriteResourcePackageFromJsonOptions = {
 }
 
 type ImportFavoriteResourcePackageOptions = {
-  favoriteManager: Pick<IFavoriteManager, 'importFavorites'>
-  imageStorageService?: Pick<IImageStorageService, 'getImage' | 'saveImage'> | null
+  favoriteManager: Pick<IFavoriteManager, 'importFavorites' | 'validateImportData'>
+  imageStorageService?: BackupImageRestoreStorage | null
   mergeStrategy?: 'skip' | 'overwrite' | 'merge'
 }
 
@@ -115,6 +118,16 @@ const parseManifest = (json: string): FavoriteResourcePackageManifest => {
   ) {
     throw new Error('Invalid favorites package manifest')
   }
+  const identities = new Set<string>()
+  for (const resource of parsed.resources) {
+    if (!isRecord(resource) || resource.kind !== 'image' || typeof resource.id !== 'string' || !resource.id.trim() ||
+      typeof resource.path !== 'string' || !resource.path.startsWith(IMAGE_RESOURCE_ROOT)) {
+      throw new Error('Invalid favorite image resource')
+    }
+    if (identities.has(resource.id)) throw new Error(`Duplicate favorite image resource: ${resource.id}`)
+    identities.add(resource.id)
+  }
+  if (!parsed.missingResourceIds.every(id => typeof id === 'string' && id.trim())) throw new Error('Invalid missing favorite image resource')
   return parsed as FavoriteResourcePackageManifest
 }
 
@@ -236,11 +249,12 @@ export const readFavoriteResourcePackage = (
   }
 }
 
-const restoreFavoritePackageResources = async (
+const prepareFavoritePackageResources = async (
   manifest: FavoriteResourcePackageManifest,
   files: Record<string, Uint8Array>,
   imageStorageService: ImportFavoriteResourcePackageOptions['imageStorageService'],
-): Promise<FavoriteResourceRestoreReport> => {
+  favorites: FavoritePrompt[],
+): Promise<{ report: FavoriteResourceRestoreReport; images: FullImageData[]; checks: Array<{ id: string; bytes: Uint8Array }> }> => {
   const report: FavoriteResourceRestoreReport = {
     restored: 0,
     skipped: 0,
@@ -248,21 +262,22 @@ const restoreFavoritePackageResources = async (
     corrupt: [],
     errors: [],
   }
+  const images: FullImageData[] = []
+  const checks: Array<{ id: string; bytes: Uint8Array }> = []
+  const providedIds = new Set(manifest.resources.map(resource => resource.id))
+  for (const id of collectFavoritesAssetIds(favorites)) {
+    if (!providedIds.has(id) && !report.missing.includes(id)) report.missing.push(id)
+  }
 
   if (!imageStorageService) {
     report.skipped += manifest.resources.length
     if (manifest.resources.length > 0) {
       report.errors.push('Image storage service is unavailable; package resources were not restored')
     }
-    return report
+    return { report, images, checks }
   }
 
   for (const resource of manifest.resources) {
-    if (resource.kind !== 'image' || !resource.id || !resource.path.startsWith(IMAGE_RESOURCE_ROOT)) {
-      report.skipped += 1
-      continue
-    }
-
     const bytes = files[resource.path]
     if (!bytes) {
       report.missing.push(resource.id)
@@ -275,12 +290,12 @@ const restoreFavoritePackageResources = async (
         report.corrupt.push(resource.id)
         continue
       }
+      checks.push({ id: resource.id, bytes })
 
-      const restoreResult = await restoreImageResource(resource, bytes, imageStorageService)
-      if (restoreResult === 'skipped') {
+      if (await hasMatchingImageResource(resource, bytes, imageStorageService)) {
         report.skipped += 1
       } else {
-        report.restored += 1
+        images.push(createFullImageDataFromResource(resource, bytes))
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -288,7 +303,9 @@ const restoreFavoritePackageResources = async (
     }
   }
 
-  return report
+  assertImageResourceRestoreReportSafe(report, 'Favorite package')
+  await assertImageRestoreCapacity(images, imageStorageService)
+  return { report, images, checks }
 }
 
 export const importFavoriteResourcePackage = async (
@@ -296,19 +313,37 @@ export const importFavoriteResourcePackage = async (
   options: ImportFavoriteResourcePackageOptions,
 ): Promise<FavoriteResourcePackageImportResult> => {
   const { manifest, favoritesJson, files } = readFavoriteResourcePackage(input)
-  const resources = await restoreFavoritePackageResources(
+  const payload = parseFavoriteExportJson(favoritesJson)
+  await options.favoriteManager.validateImportData?.(favoritesJson, { mergeStrategy: options.mergeStrategy })
+  const { report: resources, images, checks } = await prepareFavoritePackageResources(
     manifest,
     files,
     options.imageStorageService,
+    payload.favorites,
   )
   assertImageResourceRestoreReportSafe(resources, 'Favorite package')
-  const favorites = await options.favoriteManager.importFavorites(favoritesJson, {
-    mergeStrategy: options.mergeStrategy,
-  })
-
-  return {
-    resources,
-    favorites,
+  const written: Array<{ storage: BackupImageRestoreStorage; image: FullImageData }> = []
+  let publishingReferences = false
+  try {
+    for (const image of images) {
+      const storage = options.imageStorageService!
+      written.push({ storage, image })
+      await storage.saveImage(image, { preventEviction: true })
+      resources.restored += 1
+    }
+    for (const check of checks) {
+      if (!await hasMatchingImageResource(check, check.bytes, options.imageStorageService!)) throw new Error(`Restored image is missing: ${check.id}`)
+    }
+    publishingReferences = true
+    const favorites = await options.favoriteManager.importFavorites(favoritesJson, {
+      mergeStrategy: options.mergeStrategy,
+    })
+    return { resources, favorites }
+  } catch (error) {
+    try { if (!publishingReferences) await rollbackAddedBackupImages(written) } catch (rollbackError) {
+      throw new Error(`${error instanceof Error ? error.message : String(error)}; ${(rollbackError as Error).message}`, { cause: error })
+    }
+    throw error
   }
 }
 

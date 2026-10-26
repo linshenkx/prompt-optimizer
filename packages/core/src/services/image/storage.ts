@@ -140,10 +140,10 @@ export class ImageStorageService implements IImageStorageService {
    * @param data 完整图像数据
    * @returns 图像 ID
    */
-  async saveImage(data: FullImageData): Promise<string> {
+  async saveImage(data: FullImageData, options?: { preventEviction?: boolean }): Promise<string> {
     const now = Date.now()
 
-    await this.assertQuotaForSave(data)
+    await this.assertQuotaForSave(data, options?.preventEviction)
 
     // 准备元数据记录
     const metadataRecord: MetadataRecord = {
@@ -167,8 +167,8 @@ export class ImageStorageService implements IImageStorageService {
       await this.db.imageData.put(dataRecord)
     })
 
-    // 检查是否需要自动清理
-    await this.autoCleanupIfNeeded()
+    // Restore must preserve images referenced by workspaces that are not replaced.
+    if (!options?.preventEviction) await this.autoCleanupIfNeeded()
 
     return data.metadata.id
   }
@@ -446,8 +446,8 @@ export class ImageStorageService implements IImageStorageService {
     }
   }
 
-  private async assertQuotaForSave(data: FullImageData): Promise<void> {
-    if (this.config.quotaStrategy !== 'reject') {
+  private async assertQuotaForSave(data: FullImageData, preventEviction = false): Promise<void> {
+    if (this.config.quotaStrategy !== 'reject' && !preventEviction) {
       return
     }
 
