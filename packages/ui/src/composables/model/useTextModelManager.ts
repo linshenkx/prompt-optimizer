@@ -331,6 +331,15 @@ export function useTextModelManager() {
     }
   }
 
+  const setModelOptionsPreservingSelection = (options: readonly ModelOption[]) => {
+    const modelId = form.value.modelId
+    // A list response is discovery, not an instruction to change a saved or
+    // manually entered model. It may omit private or older model IDs.
+    modelOptions.value = modelId && !options.some(option => option.value === modelId)
+      ? [...options, { value: modelId, label: modelId }]
+      : [...options]
+  }
+
   const isUnknownIdentity = (value: unknown) => {
     return typeof value !== 'string' || value.trim().length === 0 || value === 'unknown'
   }
@@ -520,9 +529,7 @@ export function useTextModelManager() {
         modelOptions.value = []
       }
 
-      if (!modelOptions.value.some(option => option.value === form.value.modelId) && form.value.modelId) {
-        modelOptions.value.push({ value: form.value.modelId, label: form.value.modelId })
-      }
+      setModelOptionsPreservingSelection(modelOptions.value)
     } catch (error: unknown) {
       console.error('Failed to prepare clone model draft:', error)
       toast.error(t('modelManager.cloneFailed'))
@@ -664,9 +671,7 @@ export function useTextModelManager() {
       } else {
         modelOptions.value = []
       }
-      if (!modelOptions.value.some(option => option.value === form.value.modelId) && form.value.modelId) {
-        modelOptions.value.push({ value: form.value.modelId, label: form.value.modelId })
-      }
+      setModelOptionsPreservingSelection(modelOptions.value)
 
       // 编辑时不自动刷新模型列表，避免不必要的网络请求和延迟
       // 用户可以通过手动点击刷新按钮来获取最新模型列表
@@ -745,12 +750,12 @@ export function useTextModelManager() {
         modelMeta: modelMeta ? { ...modelMeta, id: form.value.modelId || modelMeta.id } : undefined
       } as Partial<TextModelConfig>)
 
-      modelOptions.value = fetchedModels
+      setModelOptionsPreservingSelection(fetchedModels)
       if (showSuccess) {
         toast.success(t('modelManager.fetchModelsSuccess', { count: fetchedModels.length }))
       }
 
-      if (fetchedModels.length > 0 && !fetchedModels.some((m: { value: string }) => m.value === form.value.modelId)) {
+      if (!form.value.modelId && fetchedModels.length > 0) {
         form.value.modelId = fetchedModels[0].value
         form.value.defaultModel = fetchedModels[0].value
       }
@@ -770,6 +775,7 @@ export function useTextModelManager() {
       }
 
       loadStaticModelsForProvider(providerTemplateId)
+      setModelOptionsPreservingSelection(modelOptions.value)
 
       if (staticCount > 0) {
         toast.warning(t('modelManager.fetchModelsFallback', { error: errorMessage, count: staticCount }))
