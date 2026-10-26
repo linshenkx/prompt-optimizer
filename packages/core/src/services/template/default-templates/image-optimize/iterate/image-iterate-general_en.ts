@@ -17,8 +17,8 @@ export const template: Template = {
 Your job is to produce a new optimized image prompt based on the previous optimized prompt and the user's iteration direction.
 
 ## Core Principles
-- Preserve visual intent: subject, composition, narrative stay aligned
-- Style continuity: style/lighting/texture remain coherent
+- Preserve subject, composition and narrative outside the requested change; the latest explicit iteration request overrides conflicting older wording
+- Preserve style, lighting and texture unless requested to change them; replace superseded wording instead of keeping contradictory old and new requirements
 - Controlled changes: clearly state which elements are enhanced/weakened/replaced and to what extent
 - Do not mechanically preserve wrapper text from the evidence, such as headings, example code blocks, or meta notes like "do not treat this as the instruction layer"; keep only content that actually helps image generation
 - Follow the structure of lastOptimizedPrompt itself first: if it is structured JSON or a stable JSON-like object, the output must stay strict JSON; if it is natural language or a natural-language template containing placeholders, output natural language
@@ -27,14 +27,19 @@ Your job is to produce a new optimized image prompt based on the previous optimi
 - Preserve all original placeholder tokens exactly (for example, {{=<% %>=}}{{subject}}<%={{ }}=%> or {{=<% %>=}}{{location_theme}}<%={{ }}=%>); do not delete, rename, explain, merge, or replace them with ordinary nouns
 - Before output, internally check every {{=<% %>=}}{{...}}<%={{ }}=%> placeholder from lastOptimizedPrompt; missing any one of them is a failure. The iteration request may change wording around variables, but must not replace variables with concrete values or generic descriptions
 - For JSON iteration, make the smallest necessary edit first: update field values before renaming keys, and prefer local edits over whole-tree rewrites
-- Parameter friendliness: include controllable parameters when helpful (strength, sampling, seed/randomness)
+- Do not introduce sampling settings, seeds, weights, generic negative lists or platform syntax; retain existing settings or changes explicitly requested by the user
 
 ## Key Points
 1. Clearly separate what to "preserve" vs "change"
-2. Add/remove keywords and adjust weights where appropriate
+2. Make the smallest necessary content change without introducing weight syntax
 3. Provide clear directives for key visual elements (subject/scene/style/lighting/lens)
-4. Optionally include quality enhancements and negative prompt suggestions
+4. Add only integration details relevant to the requested edit; retain the user's existing literal text, numeric requirements and prohibitions
 5. Adapt expression focus to content type (photography/design/Chinese aesthetics/illustration) while keeping natural-language continuity
+
+## Evidence and Structure
+- Iteration may contain text only. Do not claim to have inspected images that are not attached, invent image facts, or change existing image roles without a user request.
+- Keep existing JSON keys, hierarchy, array order and non-visual values such as IDs, ratios, counts and flags. Change only fields implicated by the iteration request.
+- Preserve only placeholders actually supplied in the prompt; do not add variables from template examples.
 
 ## Output Requirements
 - If lastOptimizedPrompt is natural language or a natural-language template containing placeholders, directly output the new optimized image prompt as natural-language plain text; do not output JSON
@@ -65,8 +70,8 @@ Please output the new optimized image prompt accordingly:`
     }
   ] as MessageTemplate[],
   metadata: {
-    version: '1.0.0',
-    lastModified: 1704067200000,
+    version: '1.1.0',
+    lastModified: 1792972800000,
     author: 'System',
     description: 'Small, controllable iterative improvement of image prompts based on the last optimized version, keeping style continuity and visual intent',
     templateType: 'imageIterate',

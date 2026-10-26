@@ -407,7 +407,7 @@ describe('Image JSON structure preservation guardrails', () => {
     }
   })
 
-  it('image2image JSON structured templates render literal placeholder examples', async () => {
+  it('image2image JSON structured templates preserve input variables without introducing example variables', async () => {
     const zhTemplateManager = new TemplateManager(
       new MemoryStorageProvider(),
       new StubTemplateLanguageService('zh-CN')
@@ -420,9 +420,24 @@ describe('Image JSON structure preservation guardrails', () => {
     const zhTemplate = await zhTemplateManager.getTemplate('image2image-json-structured-optimize')
     const enTemplate = await enTemplateManager.getTemplate('image2image-json-structured-optimize-en')
 
-    expect(getRenderedFirstMessageContent(zhTemplate, 'system')).toContain('{{subject}}')
-    expect(getRenderedFirstMessageContent(zhTemplate, 'user')).toContain('{{subject}}')
-    expect(getRenderedFirstMessageContent(enTemplate, 'system')).toContain('{{subject}}')
-    expect(getRenderedFirstMessageContent(enTemplate, 'user')).toContain('{{subject}}')
+    const originalPrompt = '编辑 "{{subject_name}}"，保留 {{style_hint}} 风格。\n背景为 {{scene}}。'
+    const expectedVariables = ['{{scene}}', '{{style_hint}}', '{{subject_name}}']
+
+    for (const template of [zhTemplate, enTemplate]) {
+      const messages = TemplateProcessor.processTemplate(template, {
+        originalPrompt,
+        inputImageCount: 1,
+      })
+      const userMessage = messages.find((message) => message.role === 'user')!.content
+      const wrappedValue = userMessage.match(/\{\s*"originalPrompt"\s*:\s*("(?:\\.|[^"\\])*")\s*\}/)
+
+      expect(wrappedValue).not.toBeNull()
+      expect(JSON.parse(wrappedValue![1])).toBe(originalPrompt)
+
+      const renderedVariables = new Set(
+        messages.flatMap((message) => message.content.match(/\{\{[^{}]+\}\}/g) ?? [])
+      )
+      expect([...renderedVariables].sort()).toEqual(expectedVariables)
+    }
   })
 })
