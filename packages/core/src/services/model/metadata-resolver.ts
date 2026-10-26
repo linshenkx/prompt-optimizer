@@ -1,5 +1,5 @@
 import type { ITextAdapterRegistry } from '../llm/types'
-import type { TextModel, TextModelConfig, TextProvider } from './types'
+import type { ParameterDefinition, TextModel, TextModelConfig, TextProvider } from './types'
 
 export interface TextModelIdentity {
   providerId: string
@@ -74,4 +74,51 @@ export function hasTextModelMetadataIdentityMismatch(
 
 export function hasExplicitTextModelIdentity(config: Partial<TextModelConfig>): boolean {
   return !!config.providerId || !!config.modelId
+}
+
+/** Current editing/validation rules, without replacing the stored snapshot or runtime defaults. */
+export function resolveTextModelParameterDefinitions({
+  providerId,
+  modelId,
+  connectionConfig,
+  savedDefinitions,
+  registry,
+}: {
+  providerId: string
+  modelId: string
+  connectionConfig: TextModelConfig['connectionConfig']
+  savedDefinitions: readonly ParameterDefinition[]
+  registry: ITextAdapterRegistry
+}): readonly ParameterDefinition[] {
+  try {
+    const adapter = registry.getAdapter(providerId)
+    const provider = adapter.getProvider()
+    // The compatible provider's catalog is a convenience list, not a schema
+    // declaration for an arbitrary gateway, even when model IDs happen to match.
+    if (provider.id === 'openai-compatible') return savedDefinitions
+
+    const normalizeEndpoint = (endpoint: string) => endpoint.trim()
+      .replace(/\{(\w+)\}/g, (placeholder, field: string) => String(connectionConfig[field] ?? placeholder))
+      .replace(/\/+$/, '')
+    const endpoint = connectionConfig.baseURL || provider.defaultBaseURL
+    if (typeof endpoint !== 'string' || !endpoint) return savedDefinitions
+    const declaredEndpoints = [
+      provider.defaultBaseURL,
+      ...(provider.regionalEndpoints ?? []).flatMap(region => [region.openaiBaseURL, region.anthropicBaseURL]),
+    ]
+    if (!declaredEndpoints.some(url => url && normalizeEndpoint(url) === normalizeEndpoint(endpoint))) {
+      return savedDefinitions
+    }
+
+    const model = adapter.getModels().find(model => model.id === modelId && model.providerId === providerId)
+    if (!model) return savedDefinitions
+    const currentNames = new Set(model.parameterDefinitions.map(definition => definition.name))
+    return [
+      ...model.parameterDefinitions,
+      ...savedDefinitions.filter(definition => !currentNames.has(definition.name)),
+    ]
+  } catch {
+    // Private/removed models and unavailable registries retain their own rules.
+    return savedDefinitions
+  }
 }

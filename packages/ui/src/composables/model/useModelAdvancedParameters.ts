@@ -1,15 +1,15 @@
 import { computed, type ComputedRef, type Ref } from 'vue'
-
-import type {
-  UnifiedParameterDefinition,
-  TextModel,
-  TextModelConfig,
-  ITextAdapterRegistry,
-  ITextProviderAdapter,
-  ImageModel,
-  ImageModelConfig,
-  IImageAdapterRegistry,
-  IImageProviderAdapter
+import {
+  resolveTextModelParameterDefinitions,
+  type UnifiedParameterDefinition,
+  type TextModel,
+  type TextModelConfig,
+  type ITextAdapterRegistry,
+  type ITextProviderAdapter,
+  type ImageModel,
+  type ImageModelConfig,
+  type IImageAdapterRegistry,
+  type IImageProviderAdapter
 } from '@prompt-optimizer/core'
 
 type ParameterizedModel = {
@@ -37,6 +37,7 @@ interface UseModelAdvancedParametersOptions extends OverrideAccessors {
   providerId: Ref<string>
   modelId: Ref<string>
   savedModelMeta: Ref<ParameterizedModel | undefined>
+  connectionConfig?: Ref<Record<string, unknown>>
 }
 
 /**
@@ -100,7 +101,16 @@ export function useModelAdvancedParameters(
   })
 
   const currentParameterDefinitions = computed(() => {
-    const definitions = currentModelMeta.value?.parameterDefinitions ?? []
+    const savedDefinitions = currentModelMeta.value?.parameterDefinitions ?? []
+    const definitions = options.mode === 'text' && options.connectionConfig
+      ? resolveTextModelParameterDefinitions({
+          providerId: options.providerId.value,
+          modelId: options.modelId.value,
+          connectionConfig: options.connectionConfig.value,
+          savedDefinitions,
+          registry: options.registry.value as ITextAdapterRegistry
+        })
+      : savedDefinitions
     return definitions.map(definition => ({ ...definition }))
   })
 

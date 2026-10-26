@@ -148,6 +148,7 @@ export function useTextModelManager() {
     providerId: computed(() => form.value.providerId || ''),
     modelId: computed(() => form.value.modelId || ''),
     savedModelMeta: computed(() => editingModelMeta.value || undefined),
+    connectionConfig: computed(() => form.value.connectionConfig),
     getParamOverrides: () => form.value.paramOverrides ?? {},
     setParamOverrides: value => {
       form.value.paramOverrides = { ...value }

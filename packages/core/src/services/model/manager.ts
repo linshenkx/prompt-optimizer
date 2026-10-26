@@ -19,7 +19,8 @@ import {
   getTextModelConfigIdentity,
   hasExplicitTextModelIdentity,
   hasTextModelMetadataIdentityMismatch,
-  resolveTextModelMetadata
+  resolveTextModelMetadata,
+  resolveTextModelParameterDefinitions
 } from './metadata-resolver';
 
 /**
@@ -933,6 +934,8 @@ export class ModelManager implements IModelManager {
           existingTextModelConfig = convertLegacyToTextModelConfig(key, existingConfig as ModelConfig);
         }
 
+        existingTextModelConfig = this.migrateConfig(existingTextModelConfig);
+
         if (
           !hasExplicitTextModelIdentity(config) &&
           config.providerMeta &&
@@ -985,7 +988,7 @@ export class ModelManager implements IModelManager {
           config.paramOverrides !== undefined ||
           config.enabled
         ) {
-          this.validateTextModelConfig(normalizedConfig);
+          this.validateTextModelConfig(normalizedConfig, existingTextModelConfig);
         }
 
         // 保存时移除 customParamOverrides（已合并到 paramOverrides）
@@ -1177,7 +1180,7 @@ export class ModelManager implements IModelManager {
   /**
    * 验证 TextModelConfig 配置
    */
-  private validateTextModelConfig(config: TextModelConfig): void {
+  private validateTextModelConfig(config: TextModelConfig, previousConfig?: TextModelConfig): void {
     const errors: string[] = [];
 
     if (!config.id) {
@@ -1220,7 +1223,18 @@ export class ModelManager implements IModelManager {
     }
 
     // Validate overrides content using unified schema
-    const schema = config.modelMeta?.parameterDefinitions ?? [];
+    const identity = getTextModelConfigIdentity(config);
+    const previousIdentity = previousConfig && getTextModelConfigIdentity(previousConfig);
+    const sameModel = !!identity && !!previousIdentity &&
+      identity.providerId === previousIdentity.providerId && identity.modelId === previousIdentity.modelId;
+    const schema = this.registry && identity
+      ? resolveTextModelParameterDefinitions({
+          ...identity,
+          connectionConfig: config.connectionConfig,
+          savedDefinitions: config.modelMeta?.parameterDefinitions ?? [],
+          registry: this.registry
+        })
+      : config.modelMeta?.parameterDefinitions ?? [];
     const validation = validateOverrides({
       schema,
       overrides: config.paramOverrides,
@@ -1230,6 +1244,14 @@ export class ModelManager implements IModelManager {
 
     if (validation.errors.length > 0) {
       validation.errors.forEach((error) => {
+        // An unrelated edit must not invalidate an existing request. Changed
+        // values and identity switches still receive full validation. Unknown
+        // parameter names retain their normal safety checks.
+        if (
+          sameModel && schema.some(definition => definition.name === error.parameterName) &&
+          Object.prototype.hasOwnProperty.call(previousConfig?.paramOverrides ?? {}, error.parameterName) &&
+          JSON.stringify(previousConfig?.paramOverrides?.[error.parameterName]) === JSON.stringify(error.parameterValue)
+        ) return;
         errors.push(`Parameter ${error.parameterName}: ${error.message}`);
       });
     }

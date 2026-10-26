@@ -66,7 +66,7 @@ test('daily gate includes Web/PWA unit tests alongside existing repo, core and U
   assert.equal(readJson('packages/web/package.json').scripts['test:unit'], 'vitest run tests/unit')
 })
 
-test('core gate includes deterministic snapshot and conditional-write regressions', () => {
+test('core gate includes deterministic storage and saved model regressions', () => {
   assert.equal(readJson('package.json').scripts['test:gate:core'], 'pnpm -F @prompt-optimizer/core test:gate')
   const gateSpecs = readJson('packages/core/package.json').scripts['test:gate'].split(/\s+/)
   for (const spec of [
@@ -75,6 +75,8 @@ test('core gate includes deterministic snapshot and conditional-write regression
     'tests/unit/preference/read-snapshot.test.ts',
     'tests/unit/preference/compare-and-set.test.ts',
     'tests/unit/preference/indexeddb-compare-and-set.test.ts',
+    'tests/unit/model/parameter-definition-compatibility.test.ts',
+    'tests/unit/model/manager.parameter-compatibility.test.ts',
   ]) {
     assert.ok(gateSpecs.includes(spec), `Missing core gate regression: ${spec}`)
     assert.ok(fs.existsSync(path.join('packages/core', spec)), `Core gate spec does not exist: ${spec}`)
