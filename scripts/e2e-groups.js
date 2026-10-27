@@ -6,6 +6,7 @@ const groups = {
   // They need neither provider credentials nor VCR recordings.
   workspaceRegression: [
     'tests/e2e/regression/settings-and-variable-extraction.spec.ts',
+    'tests/e2e/regression/html-preview.spec.ts',
     'tests/e2e/session-persistence/workspace-source-preview.spec.ts',
     'tests/e2e/session-persistence/workspace-split-bindings.spec.ts',
     'tests/e2e/session-persistence/cross-window-conflict.spec.ts',

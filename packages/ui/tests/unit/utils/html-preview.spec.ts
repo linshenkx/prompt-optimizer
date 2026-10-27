@@ -1,0 +1,48 @@
+import { describe, expect, it } from 'vitest'
+import { buildHtmlPreviewDocument, extractHtmlCandidate, htmlSourceAsMarkdown } from '../../../src/utils/html-preview'
+import { mount } from '@vue/test-utils'
+import MarkdownRenderer from '../../../src/components/MarkdownRenderer.vue'
+
+describe('HTML preview extraction', () => {
+  it('keeps document styles and markup out of the host, even with Markdown fences inside HTML', () => {
+    const source = '<html><head><style>body{display:none}</style></head><body>```\n<style>body{color:red}</style>\n```</body></html>'
+    const wrapper = mount(MarkdownRenderer, { props: { content: htmlSourceAsMarkdown(source), disableInternalScroll: true } })
+    expect(wrapper.find('style').exists()).toBe(false)
+    expect(wrapper.get('pre code').text()).toContain(source)
+    wrapper.unmount()
+  })
+  it.each([
+    '<!DOCTYPE html><html><head><style>body{color:red}</style></head><body>Hello</body></html>',
+    '<!-- Generated page -->\n<html><body>Hello</body></html>',
+    '<div><button onclick="this.textContent=123">Run</button></div>',
+  ])('recognizes raw HTML: %s', (html) => {
+    expect(extractHtmlCandidate(html)).toBe(html)
+  })
+
+  it('extracts a single HTML block surrounded by explanation and other code', () => {
+    const html = '<html><body><script>const x = "&<>";</script></body></html>'
+    expect(extractHtmlCandidate(`Here is the page:\n\n\`\`\`html\n${html}\n\`\`\`\n\nSave as index.html.`)).toBe(html)
+    expect(extractHtmlCandidate(`~~~HTML\n${html}\n~~~~`)).toBe(html)
+  })
+
+  it.each([
+    '# Markdown\n\nText with <div>an example</div>',
+    '<root><item>XML</item></root>',
+    '<?xml version="1.0"?><html/>',
+    '```xml\n<html><body>XML</body></html>\n```',
+    '```text\n```html\n<div>Nested example</div>\n```\n```',
+    '```html\n<div>Still streaming</div>',
+    '```html\n<div>A</div>\n```\n```html\n<div>B</div>\n```',
+  ])('does not offer an ambiguous or non-HTML preview: %s', (content) => {
+    expect(extractHtmlCandidate(content)).toBe('')
+  })
+
+  it('preserves scripts, head, import maps and special characters exactly in nested srcdoc', () => {
+    const html = '<!doctype html><html><head><script type="importmap">{"imports":{"x":"https://example.com/x.js?a=1&b=2"}}</script></head><body><script>const text = \'</head>"&<>\';</script></body></html>'
+    const document = new DOMParser().parseFromString(buildHtmlPreviewDocument(html), 'text/html')
+    expect(document.querySelector('iframe')?.getAttribute('srcdoc')).toBe(html)
+    expect(document.querySelector('iframe')?.getAttribute('sandbox')).toBe('allow-scripts')
+    expect(document.querySelector('meta[http-equiv]')?.getAttribute('content')).toContain("connect-src 'none'")
+    expect(document.querySelectorAll('script')).toHaveLength(0)
+  })
+})

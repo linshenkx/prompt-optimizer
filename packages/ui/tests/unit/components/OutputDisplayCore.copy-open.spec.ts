@@ -195,6 +195,70 @@ describe('OutputDisplayCore copy and open action', () => {
     expect(wrapper.emitted('copy')).toEqual([[expect.any(String), 'content']])
   })
 
+  it('requires a preview click, preserves source copying and destroys the frame when leaving', async () => {
+    const source = 'Explanation\n```html\n<html><body><button>Run</button></body></html>\n```'
+    const wrapper = mountOutputDisplayCore(source)
+    try {
+      expect(wrapper.find('iframe').exists()).toBe(false)
+      await wrapper.get('[data-testid="output-view-html"]').trigger('click')
+      const frame = wrapper.get('iframe').element
+      expect(wrapper.get('iframe').attributes('sandbox')).toBe('allow-scripts')
+      expect(wrapper.get('iframe').attributes('allow')).toContain("camera 'none'")
+      await wrapper.get('[data-testid="output-copy-action"]').trigger('click')
+      expect(copyTextMock).toHaveBeenLastCalledWith(source)
+      await wrapper.get('[data-testid="html-preview-reload"]').trigger('click')
+      expect(wrapper.get('iframe').element).not.toBe(frame)
+      await wrapper.get('[data-testid="output-view-source"]').trigger('click')
+      expect(wrapper.find('iframe').exists()).toBe(false)
+    } finally { wrapper.unmount() }
+  })
+
+  it('supports the compact HTML menu and requires reactivation after content changes or streaming', async () => {
+    const wrapper = mountOutputDisplayCore('<html><body>First</body></html>')
+    try {
+      await wrapper.setProps({ fitContent: true })
+      await selectCopyAction(wrapper, 'html')
+      expect(wrapper.find('iframe').exists()).toBe(true)
+      await wrapper.setProps({ content: '<html><body>Second</body></html>' })
+      expect(wrapper.find('iframe').exists()).toBe(false)
+      await selectCopyAction(wrapper, 'html')
+      await wrapper.setProps({ streaming: true })
+      expect(wrapper.find('iframe').exists()).toBe(false)
+      await wrapper.setProps({ streaming: false })
+      expect(wrapper.find('iframe').exists()).toBe(false)
+      await selectCopyAction(wrapper, 'html')
+      await wrapper.setProps({ previewSuspended: true })
+      expect(wrapper.find('iframe').exists()).toBe(false)
+      await wrapper.setProps({ previewSuspended: false })
+      expect(wrapper.find('iframe').exists()).toBe(true)
+    } finally { wrapper.unmount() }
+  })
+
+  it('keeps Markdown and XML rendering and never offers to execute XML', () => {
+    for (const [source, renderer] of [
+      ['# Heading', 'MarkdownRenderer'],
+      ['<root><item>value</item></root>', 'XmlRenderer'],
+      ['```xml\n<html><body>value</body></html>\n```', 'XmlRenderer'],
+    ]) {
+      const wrapper = mountOutputDisplayCore(source)
+      expect(wrapper.findComponent({ name: renderer }).exists()).toBe(true)
+      expect(wrapper.find('[data-testid="output-view-html"]').exists()).toBe(false)
+      wrapper.unmount()
+    }
+  })
+
+  it('keeps raw HTML literal when rendering a streaming response', async () => {
+    const source = '<html><head><style>body{display:none}</style></head><body>Streaming</body></html>'
+    const wrapper = mountOutputDisplayCore(source)
+    try {
+      await wrapper.setProps({ streaming: true })
+      await wrapper.get('.output-view-modes button:first-child').trigger('click')
+      expect(wrapper.findComponent({ name: 'MarkdownRenderer' }).attributes('content')).toBe(`\`\`\`html\n${source}\n\`\`\``)
+      expect(wrapper.find('[data-testid="output-view-html"]').exists()).toBe(false)
+      expect(wrapper.find('iframe').exists()).toBe(false)
+    } finally { wrapper.unmount() }
+  })
+
   it('shows the complete mobile read-only text as selectable page content, preserving literal markup', async () => {
     const content = `${'A long answer line\n'.repeat(100)}<b>Last line</b>`
     const wrapper = mountOutputDisplayCore(content)

@@ -13,6 +13,7 @@
     :placeholder="placeholder"
     :loading="loading"
     :streaming="streaming"
+    :preview-suspended="isShowingFullscreen"
     :compareService="compareService"
     :test-id="testId"
     :style="fitContent ? { height: 'auto', maxHeight: 'none', overflow: 'visible' } : { height: '100%', maxHeight: '100%', flex: 1, minHeight: 0, overflow: 'hidden' }"
@@ -42,6 +43,7 @@
     :streaming="streaming"
     :loading="loading"
     :placeholder="placeholder"
+    :initial-view-mode="fullscreenViewMode"
     @update:content="emit('update:content', $event)"
     @copy="handleCopy"
   />
@@ -107,6 +109,7 @@ const emit = defineEmits<{
 }>()
 
 const isShowingFullscreen = ref(false);
+const fullscreenViewMode = ref<'render' | 'source' | 'diff' | 'html'>('render')
 
 const testId = computed(() => props.testId || undefined)
 
@@ -145,6 +148,7 @@ const handleCopy = (content: string, type: 'content' | 'reasoning' | 'all') => {
 }
 
 const handleFullscreen = () => {
+  fullscreenViewMode.value = coreDisplayRef.value?.getViewMode() ?? 'render'
   isShowingFullscreen.value = true;
   emit('fullscreen');
 }

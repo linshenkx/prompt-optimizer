@@ -3,7 +3,10 @@
     <NFlex vertical :wrap="false" class="output-fullscreen-layout" style="flex: 1; min-height: 0; overflow: hidden;">
       <NFlex vertical :wrap="false" style="flex: 1; min-height: 0; overflow: hidden;">
         <OutputDisplayCore
+            v-if="internalVisible"
             ref="coreDisplayRef"
+            :initial-view-mode="initialViewMode"
+            test-id="output-fullscreen"
             :content="internalContent"
             :originalContent="originalContent"
             :reasoning="reasoning"
@@ -46,6 +49,7 @@ const { t } = useI18n()
 // Props
 interface Props {
   modelValue: boolean
+  initialViewMode?: 'render' | 'source' | 'diff' | 'html'
   content?: string
   originalContent?: string
   reasoning?: string

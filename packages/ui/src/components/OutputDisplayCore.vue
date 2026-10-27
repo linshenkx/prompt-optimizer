@@ -14,10 +14,11 @@
         <NDropdown v-if="foldViewControls" trigger="click" :options="[
           { key: 'render', label: t('common.render') },
           { key: 'source', label: t('workspace.sourceText') },
+          ...(canPreviewHtml ? [{ key: 'html', label: t('common.htmlPreview') }] : []),
           ...(isActionEnabled('diff') && originalContent ? [{ key: 'diff', label: t('common.compare') }] : []),
         ]" @select="selectCompactView">
           <NButton quaternary size="small" data-testid="output-view-menu" class="output-view-menu">
-            {{ t(internalViewMode === 'render' ? 'common.render' : internalViewMode === 'diff' ? 'common.compare' : 'workspace.sourceText') }}
+            {{ internalViewMode === 'html' ? 'HTML' : t(internalViewMode === 'render' ? 'common.render' : internalViewMode === 'diff' ? 'common.compare' : 'workspace.sourceText') }}
             <NIcon size="14" style="margin-left: 6px"><ChevronDown /></NIcon>
           </NButton>
         </NDropdown>
@@ -42,6 +43,17 @@
             :type="!fitContent && internalViewMode === 'source' ? 'primary' : 'default'"
           >
             {{ t(fitContent ? 'workspace.sourceText' : 'common.source') }}
+          </NButton>
+          <NButton
+            v-if="canPreviewHtml"
+            @click="internalViewMode = 'html'"
+            data-testid="output-view-html"
+            :aria-pressed="internalViewMode === 'html'"
+            :quaternary="fitContent"
+            size="small"
+            :type="!fitContent && internalViewMode === 'html' ? 'primary' : 'default'"
+          >
+            {{ t('common.htmlPreview') }}
           </NButton>
           <NButton 
             v-if="isActionEnabled('diff') && originalContent"
@@ -219,6 +231,11 @@
           />
         </template>
 
+        <HtmlPreview
+          v-else-if="internalViewMode === 'html' && canPreviewHtml && !previewSuspended"
+          :html="htmlCandidate"
+        />
+
         <!-- 渲染模式（默认） -->
         <NFlex v-else
           class="output-display-render"
@@ -235,7 +252,7 @@
           <MarkdownRenderer
             v-else-if="displayContent"
             :disable-internal-scroll="fitContent"
-            :content="displayContent"
+            :content="markdownDisplayContent"
             :streaming="streaming"
             style="flex: 1; min-height: 0; overflow: auto;"
           />
@@ -272,6 +289,8 @@ import {
 import { useClipboard } from '../composables/ui/useClipboard'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 import XmlRenderer from './XmlRenderer.vue'
+import HtmlPreview from './HtmlPreview.vue'
+import { extractHtmlCandidate, htmlSourceAsMarkdown } from '../utils/html-preview'
 import TextDiffUI from './TextDiff.vue'
 import type { CompareResult, ICompareService } from '@prompt-optimizer/core'
 import { VariableAwareInput } from './variable-extraction'
@@ -308,6 +327,8 @@ const services = inject<Ref<AppServices | null>>('services') ?? ref<AppServices 
 // 组件 Props
 interface Props {
   fitContent?: boolean
+  initialViewMode?: 'render' | 'source' | 'diff' | 'html'
+  previewSuspended?: boolean
   // 内容相关
   content?: string
   originalContent?: string
@@ -341,6 +362,7 @@ const props = withDefaults(defineProps<Props>(), {
   reasoning: '',
   testId: undefined,
   mode: 'readonly',
+  initialViewMode: 'render',
   reasoningMode: 'auto',
   enabledActions: () => ['fullscreen', 'diff', 'copy', 'edit', 'reasoning', 'favorite'],
   height: '100%',
@@ -410,9 +432,9 @@ const reasoningContentRef = ref<ScrollbarLike | null>(null)
 const userHasManuallyToggledReasoning = ref(false)
 
 // 新的视图状态机
-const internalViewMode = ref<'render' | 'source' | 'diff'>('render')
+const internalViewMode = ref<'render' | 'source' | 'diff' | 'html'>(props.initialViewMode)
 const selectCompactView = (key: string) => {
-  if (key === 'render' || key === 'source' || key === 'diff') internalViewMode.value = key
+  if (key === 'render' || key === 'source' || key === 'diff' || (key === 'html' && canPreviewHtml.value)) internalViewMode.value = key
 }
 
 const EMPTY_COMPARE_RESULT: CompareResult = {
@@ -433,6 +455,11 @@ const hasToolbar = computed(() =>
 // 计算属性
 const displayContent = computed(() => (props.content || '').trim())
 const displayReasoning = computed(() => (props.reasoning || '').trim())
+const htmlCandidate = computed(() => extractHtmlCandidate(props.content || ''))
+const canPreviewHtml = computed(() => Boolean(htmlCandidate.value) && !props.streaming && !props.loading)
+const markdownDisplayContent = computed(() => htmlCandidate.value && htmlCandidate.value === displayContent.value
+  ? htmlSourceAsMarkdown(displayContent.value)
+  : displayContent.value)
 const copyActionWorkspacePath = computed(() => routerInstance.currentRoute.value.path || '/')
 const activeCopyActionId = ref<CopyOpenActionId>(
   readCopyOpenActionFromSession(copyActionWorkspacePath.value),
@@ -444,7 +471,7 @@ const renderContentType = computed<'markdown' | 'xml'>(() => {
   // Avoid format jumps while text is still being streamed.
   if (props.streaming) return 'markdown'
 
-  return isValidXmlContent(displayContent.value) ? 'xml' : 'markdown'
+  return !htmlCandidate.value && isValidXmlContent(displayContent.value) ? 'xml' : 'markdown'
 })
 
 const hasContent = computed(() => !!displayContent.value)
@@ -616,7 +643,7 @@ watch(() => props.streaming, (isStreaming, wasStreaming) => {
   if (isStreaming) {
     // 记住当前模式，并强制切换到原文模式
     if (internalViewMode.value !== 'source') {
-      previousViewMode.value = internalViewMode.value
+      previousViewMode.value = internalViewMode.value === 'html' ? 'render' : internalViewMode.value
       internalViewMode.value = 'source'
     }
   } else {
@@ -649,6 +676,8 @@ watch(() => props.reasoning, (newReasoning, oldReasoning) => {
 }, { flush: 'post' })
 
 watch(() => props.content, (newContent, oldContent) => {
+  // Changed content requires another deliberate preview click to execute it.
+  if (internalViewMode.value === 'html' && newContent !== oldContent) internalViewMode.value = 'render'
   // 当主要内容开始流式输出时，如果用户未干预，自动折叠思考过程
   const mainContentJustStarted = newContent && !oldContent
   if (props.streaming && mainContentJustStarted && !userHasManuallyToggledReasoning.value) {
@@ -709,7 +738,7 @@ onMounted(() => {
   // - functionMode 有默认值 'basic'，可以正常工作
 
   // 如果是可编辑模式，默认显示原文
-  if (props.mode === 'editable' && !props.fitContent) {
+  if (props.mode === 'editable' && !props.fitContent && props.initialViewMode === 'render') {
     internalViewMode.value = 'source';
   }
 });
@@ -723,7 +752,7 @@ watch(() => props.mode, (newMode) => {
   }
 });
 
-defineExpose({ resetReasoningState, forceRefreshContent, forceExitEditing })
+defineExpose({ resetReasoningState, forceRefreshContent, forceExitEditing, getViewMode: () => internalViewMode.value })
 </script>
 
 <style scoped>
