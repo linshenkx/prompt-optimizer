@@ -41,6 +41,7 @@
     },
     "files": [
       "main.js",
+      "stream-runtime.js",
       "preload.js",
       "remote-storage.js",
       "config/**/*",

@@ -89,6 +89,7 @@ async function invokeFavorite(channel, ...args) {
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  cancelStream: streamId => ipcRenderer.invoke('stream-cancel', streamId),
   // IPC event listeners
   on: (channel, callback) => {
     ipcRenderer.on(channel, (event, ...args) => callback(...args));
@@ -138,6 +139,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Send streaming message
     sendMessageStream: async (messages, provider, callbacks) => {
       const streamId = generateStreamId();
+      callbacks?.onStart?.(streamId);
       
       // Set up event listeners for streaming responses
       const contentListener = (event, content) => {
@@ -179,12 +181,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
       } catch (error) {
         cleanup();
         throw error;
-      }
+      } finally { cleanup(); }
     },
 
     // Send streaming message with tools (supports tool-call events)
     sendMessageStreamWithTools: async (messages, provider, tools, callbacks) => {
       const streamId = generateStreamId();
+      callbacks?.onStart?.(streamId);
 
       // Set up event listeners for streaming responses
       const contentListener = (event, content) => {
@@ -237,7 +240,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       } catch (error) {
         cleanup();
         throw error;
-      }
+      } finally { cleanup(); }
     }
   },
 
@@ -835,6 +838,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // 统一的流式封装（与 llm.sendMessageStream 同模式）
     optimizePromptStream: async (request, callbacks) => {
       const streamId = generateStreamId();
+      callbacks?.onStart?.(streamId);
 
       const tokenListener = (event, token) => {
         if (callbacks?.onToken) callbacks.onToken(token);
@@ -863,14 +867,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on(`stream-finish-${streamId}`, finishListener);
       ipcRenderer.on(`stream-error-${streamId}`, errorListener);
 
-      const result = await ipcRenderer.invoke('prompt-optimizePromptStream', request, streamId);
+      try {
+const result = await ipcRenderer.invoke('prompt-optimizePromptStream', request, streamId);
       if (!result.success) {
         cleanup();
         throw createIpcError(result.error);
       }
-    },
+    } finally { cleanup(); }
+},
     optimizeMessageStream: async (request, callbacks) => {
       const streamId = generateStreamId();
+      callbacks?.onStart?.(streamId);
 
       const tokenListener = (event, token) => {
         if (callbacks?.onToken) callbacks.onToken(token);
@@ -899,14 +906,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on(`stream-finish-${streamId}`, finishListener);
       ipcRenderer.on(`stream-error-${streamId}`, errorListener);
 
-      const result = await ipcRenderer.invoke('prompt-optimizeMessageStream', request, streamId);
+      try {
+const result = await ipcRenderer.invoke('prompt-optimizeMessageStream', request, streamId);
       if (!result.success) {
         cleanup();
         throw createIpcError(result.error);
       }
-    },
+    } finally { cleanup(); }
+},
     iteratePromptStream: async (originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, callbacks, contextData) => {
       const streamId = generateStreamId();
+      callbacks?.onStart?.(streamId);
 
       const tokenListener = (event, token) => {
         if (callbacks?.onToken) callbacks.onToken(token);
@@ -935,14 +945,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on(`stream-finish-${streamId}`, finishListener);
       ipcRenderer.on(`stream-error-${streamId}`, errorListener);
 
-      const result = await ipcRenderer.invoke('prompt-iteratePromptStream', originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, streamId, contextData);
+      try {
+const result = await ipcRenderer.invoke('prompt-iteratePromptStream', originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, streamId, contextData);
       if (!result.success) {
         cleanup();
         throw createIpcError(result.error);
       }
-    },
+    } finally { cleanup(); }
+},
     testPromptStream: async (systemPrompt, userPrompt, modelKey, callbacks, inputImages) => {
       const streamId = generateStreamId();
+      callbacks?.onStart?.(streamId);
 
       const tokenListener = (event, token) => {
         if (callbacks?.onToken) callbacks.onToken(token);
@@ -971,15 +984,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on(`stream-finish-${streamId}`, finishListener);
       ipcRenderer.on(`stream-error-${streamId}`, errorListener);
 
-      const result = await ipcRenderer.invoke('prompt-testPromptStream', systemPrompt, userPrompt, modelKey, streamId, inputImages);
+      try {
+const result = await ipcRenderer.invoke('prompt-testPromptStream', systemPrompt, userPrompt, modelKey, streamId, inputImages);
       if (!result.success) {
         cleanup();
         throw createIpcError(result.error);
       }
-    },
+    } finally { cleanup(); }
+},
     // 自定义会话测试（支持工具调用）
     testCustomConversationStream: async (request, callbacks) => {
       const streamId = generateStreamId();
+      callbacks?.onStart?.(streamId);
 
       const tokenListener = (event, token) => {
         if (callbacks?.onToken) callbacks.onToken(token);
@@ -1013,12 +1029,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on(`stream-finish-${streamId}`, finishListener);
       ipcRenderer.on(`stream-error-${streamId}`, errorListener);
 
-      const result = await ipcRenderer.invoke('prompt-testCustomConversationStream', request, streamId);
+      try {
+const result = await ipcRenderer.invoke('prompt-testCustomConversationStream', request, streamId);
       if (!result.success) {
         cleanup();
         throw createIpcError(result.error);
       }
-    },
+    } finally { cleanup(); }
+},
     iteratePrompt: async (originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, contextData) => {
       const result = await ipcRenderer.invoke('prompt-iteratePrompt', originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, contextData);
       if (!result.success) {

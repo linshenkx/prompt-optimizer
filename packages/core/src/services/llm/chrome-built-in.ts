@@ -61,7 +61,7 @@ export const markChromeBuiltInUserConfigured = (
 
 export interface ChromeLanguageModelSession {
   prompt(input: ChromeLanguageModelPromptInput): Promise<string>
-  promptStreaming(input: ChromeLanguageModelPromptInput): AsyncIterable<string> | Promise<AsyncIterable<string>>
+  promptStreaming(input: ChromeLanguageModelPromptInput, options?: { signal?: AbortSignal }): AsyncIterable<string> | Promise<AsyncIterable<string>>
   destroy?: () => void
 }
 

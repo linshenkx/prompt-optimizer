@@ -497,7 +497,9 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
       Object.assign(requestParams, otherParams)
       this.applyThinkingConfig(requestParams, config.modelMeta.id, thinking_budget_tokens, effort)
 
-      const stream = await client.messages.stream(requestParams)
+      const stream = callbacks.signal
+        ? await client.messages.stream(requestParams, { signal: callbacks.signal })
+        : await client.messages.stream(requestParams)
 
       let accumulatedReasoning = ''
 
@@ -510,8 +512,13 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
         this.processStreamContentWithThinkTags(text, callbacks, thinkState)
       })
 
-      ;(stream as any).on('message', (message: any) => {
-        callbacks.onComplete({
+      ;(stream as any).on('error', (error: any) => {
+        callbacks.onError(error)
+      })
+
+      const message = await stream.finalMessage()
+
+        await callbacks.onComplete({
           content: this.extractContent(message),
           reasoning: accumulatedReasoning || undefined,
           metadata: {
@@ -522,13 +529,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
               : undefined
           }
         })
-      })
 
-      ;(stream as any).on('error', (error: any) => {
-        callbacks.onError(error)
-      })
-
-      await stream.finalMessage()
     } catch (error) {
       callbacks.onError(this.handleError(error))
       throw error
@@ -585,7 +586,9 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
       Object.assign(requestParams, otherParams)
       this.applyThinkingConfig(requestParams, config.modelMeta.id, thinking_budget_tokens, effort)
 
-      const stream = await client.messages.stream(requestParams)
+      const stream = callbacks.signal
+        ? await client.messages.stream(requestParams, { signal: callbacks.signal })
+        : await client.messages.stream(requestParams)
 
       let accumulatedReasoning = ''
 
@@ -603,7 +606,13 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
       })
 
       // 监听最终消息
-      ;(stream as any).on('message', (message: any) => {
+      ;(stream as any).on('error', (error: any) => {
+        callbacks.onError(error)
+      })
+
+      // 等待流完成
+      const message = await stream.finalMessage()
+
         const response: LLMResponse = {
           content: this.extractContent(message),
           reasoning: accumulatedReasoning || undefined,
@@ -613,15 +622,8 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
             tokens: message.usage ? (message.usage.input_tokens || 0) + (message.usage.output_tokens || 0) : undefined
           }
         }
-        callbacks.onComplete(response)
-      })
+        await callbacks.onComplete(response)
 
-      ;(stream as any).on('error', (error: any) => {
-        callbacks.onError(error)
-      })
-
-      // 等待流完成
-      await stream.finalMessage()
     } catch (error) {
       callbacks.onError(this.handleError(error))
       throw error
@@ -681,7 +683,9 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
       Object.assign(requestParams, otherParams)
       this.applyThinkingConfig(requestParams, config.modelMeta.id, thinking_budget_tokens, effort)
 
-      const stream = await client.messages.stream(requestParams)
+      const stream = callbacks.signal
+        ? await client.messages.stream(requestParams, { signal: callbacks.signal })
+        : await client.messages.stream(requestParams)
 
       let accumulatedContent = ''
       let accumulatedReasoning = ''
@@ -737,7 +741,13 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
       })
 
       // 监听最终消息
-      ;(stream as any).on('message', (message: any) => {
+      ;(stream as any).on('error', (error: any) => {
+        callbacks.onError(error)
+      })
+
+      // 等待流完成
+      const message = await stream.finalMessage()
+
         const response: LLMResponse = {
           content: accumulatedContent,
           reasoning: accumulatedReasoning || undefined,
@@ -748,15 +758,8 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
             tokens: message.usage ? (message.usage.input_tokens || 0) + (message.usage.output_tokens || 0) : undefined
           }
         }
-        callbacks.onComplete(response)
-      })
+        await callbacks.onComplete(response)
 
-      ;(stream as any).on('error', (error: any) => {
-        callbacks.onError(error)
-      })
-
-      // 等待流完成
-      await stream.finalMessage()
     } catch (error) {
       callbacks.onError(this.handleError(error))
       throw error

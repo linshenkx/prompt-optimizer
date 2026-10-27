@@ -11,6 +11,7 @@ interface Window {
     [key: string]: string | undefined;
   };
   electronAPI?: {
+    cancelStream?: (streamId: string) => Promise<unknown>;
     llm: {
       // Define the methods for the LLM API proxy
       sendMessage: (messages: any[], provider: string) => Promise<string>;
@@ -19,6 +20,7 @@ interface Window {
         messages: any[],
         provider: string,
         callbacks: {
+          onStart?: (streamId: string) => void;
           onContent?: (content: string) => void;
           onThinking?: (thinking: string) => void;
           onToolCall?: (toolCall: any) => void;
@@ -31,6 +33,7 @@ interface Window {
         provider: string,
         tools: any[],
         callbacks: {
+          onStart?: (streamId: string) => void;
           onContent?: (content: string) => void;
           onThinking?: (thinking: string) => void;
           onToolCall?: (toolCall: any) => void;

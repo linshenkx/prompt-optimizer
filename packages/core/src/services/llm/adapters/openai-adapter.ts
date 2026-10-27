@@ -508,7 +508,9 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       responsesConfig.tools = tools
     }
 
-    const stream = await openai.responses.create(responsesConfig)
+    const stream = callbacks.signal
+        ? await openai.responses.create(responsesConfig, { signal: callbacks.signal })
+        : await openai.responses.create(responsesConfig)
     let accumulatedContent = ''
     let accumulatedReasoning = ''
     const thinkState = { isInThinkMode: false, buffer: '' }
@@ -603,7 +605,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       }
     }
 
-    callbacks.onComplete({
+    await callbacks.onComplete({
       content: accumulatedContent,
       reasoning: accumulatedReasoning || undefined,
       toolCalls: toolCalls.size > 0 ? Array.from(toolCalls.values()) : undefined,
@@ -1102,7 +1104,9 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         ...restParams
       }
 
-      const stream = await openai.chat.completions.create(completionConfig)
+      const stream = callbacks.signal
+        ? await openai.chat.completions.create(completionConfig, { signal: callbacks.signal })
+        : await openai.chat.completions.create(completionConfig)
 
       let accumulatedReasoning = ''
       let accumulatedContent = ''
@@ -1122,7 +1126,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         }
       }
 
-      callbacks.onComplete({
+      await callbacks.onComplete({
         content: accumulatedContent,
         reasoning: accumulatedReasoning || undefined,
         metadata: {
@@ -1383,7 +1387,9 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       }
 
       // 直接使用流式响应
-      const stream = await openai.chat.completions.create(completionConfig)
+      const stream = callbacks.signal
+        ? await openai.chat.completions.create(completionConfig, { signal: callbacks.signal })
+        : await openai.chat.completions.create(completionConfig)
 
       // 累积内容
       let accumulatedReasoning = ''
@@ -1423,7 +1429,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         }
       }
 
-      callbacks.onComplete(response)
+      await callbacks.onComplete(response)
     } catch (error) {
       console.error('[OpenAIAdapter] Stream error:', error)
       callbacks.onError(error instanceof Error ? error : new Error(String(error)))
@@ -1478,7 +1484,9 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         ...restParams
       }
 
-      const stream = await openai.chat.completions.create(completionConfig)
+      const stream = callbacks.signal
+        ? await openai.chat.completions.create(completionConfig, { signal: callbacks.signal })
+        : await openai.chat.completions.create(completionConfig)
 
       let accumulatedReasoning = ''
       let accumulatedContent = ''
@@ -1554,7 +1562,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         metadata: { model: config.modelMeta.id }
       }
 
-      callbacks.onComplete(response)
+      await callbacks.onComplete(response)
     } catch (error) {
       console.error('[OpenAIAdapter] Stream with tools error:', error)
       callbacks.onError(error instanceof Error ? error : new Error(String(error)))

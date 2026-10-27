@@ -77,17 +77,22 @@ export class ChromeBuiltInAdapter extends AbstractTextProviderAdapter {
     _config: TextModelConfig,
     callbacks: StreamHandlers
   ): Promise<void> {
+    callbacks.signal?.throwIfAborted()
     const { initialPrompts, prompt } = this.buildPrompt(messages)
     const session = await this.createReadySession(initialPrompts)
     let content = ''
 
     try {
-      const stream = await session.promptStreaming(prompt)
+      callbacks.signal?.throwIfAborted()
+      const stream = await (callbacks.signal
+        ? session.promptStreaming(prompt, { signal: callbacks.signal })
+        : session.promptStreaming(prompt))
       for await (const token of stream) {
+        callbacks.signal?.throwIfAborted()
         content += token
         callbacks.onToken(token)
       }
-      callbacks.onComplete({
+      await callbacks.onComplete({
         content,
         metadata: {
           model: CHROME_BUILT_IN_MODEL_ID

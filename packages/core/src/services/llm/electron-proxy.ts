@@ -1,3 +1,4 @@
+import { runIpcStream } from '../../utils/ipc-stream';
 import { ILLMService, Message, StreamHandlers, LLMResponse, ModelOption, ToolDefinition } from './types';
 import { safeSerializeForIPC } from '../../utils/ipc-serialization';
 import { InitializationError } from './errors';
@@ -42,15 +43,19 @@ export class ElectronLLMProxy implements ILLMService {
     const safeMessages = safeSerializeForIPC(messages);
 
     // 适配回调接口：StreamHandlers 使用 onToken，而 preload 期望的是 onContent
-    const adaptedCallbacks = {
-      onContent: callbacks.onToken,  // 映射 onToken -> onContent
-      onThinking: callbacks.onReasoningToken || (() => {}),  // 映射推理流
-      onFinish: () => callbacks.onComplete(),  // 映射完成回调
-      onError: callbacks.onError
+    await runIpcStream(callbacks, async handlers => {
+const adaptedCallbacks = {
+      onStart: handlers.onStart,
+      onContent: handlers.onToken,  // 映射 onToken -> onContent
+      onThinking: handlers.onReasoningToken || (() => {}),  // 映射推理流
+      onFinish: () => handlers.onComplete(),  // 映射完成回调
+      onError: handlers.onError
     };
 
     await this.electronAPI.llm.sendMessageStream(safeMessages, provider, adaptedCallbacks);
-  }
+
+}, this.electronAPI.cancelStream);
+}
 
   async sendMessageStreamWithTools(
     messages: Message[],
@@ -63,12 +68,14 @@ export class ElectronLLMProxy implements ILLMService {
     const safeTools = safeSerializeForIPC(tools);
 
     // 适配回调接口：StreamHandlers 使用 onToken/onToolCall，而 preload 期望相应的回调
-    const adaptedCallbacks = {
-      onContent: callbacks.onToken,  // 映射 onToken -> onContent
-      onThinking: callbacks.onReasoningToken || (() => {}),  // 映射推理流
-      onToolCall: callbacks.onToolCall || (() => {}),  // 🆕 映射工具调用回调
-      onFinish: () => callbacks.onComplete(),  // 映射完成回调
-      onError: callbacks.onError
+    await runIpcStream(callbacks, async handlers => {
+const adaptedCallbacks = {
+      onStart: handlers.onStart,
+      onContent: handlers.onToken,  // 映射 onToken -> onContent
+      onThinking: handlers.onReasoningToken || (() => {}),  // 映射推理流
+      onToolCall: handlers.onToolCall || (() => {}),  // 🆕 映射工具调用回调
+      onFinish: () => handlers.onComplete(),  // 映射完成回调
+      onError: handlers.onError
     };
 
     // Prefer the dedicated tools-capable streaming channel when available.
@@ -80,7 +87,9 @@ export class ElectronLLMProxy implements ILLMService {
 
     // Back-compat fallback (older preload/main): stream without tool-call events.
     await this.electronAPI.llm.sendMessageStream(safeMessages, provider, adaptedCallbacks);
-  }
+
+}, this.electronAPI.cancelStream);
+}
 
   async fetchModelList(
     provider: string,
@@ -90,4 +99,4 @@ export class ElectronLLMProxy implements ILLMService {
     const safeCustomConfig = customConfig ? safeSerializeForIPC(customConfig) : customConfig;
     return this.electronAPI.llm.fetchModelList(provider, safeCustomConfig);
   }
-} 
+}

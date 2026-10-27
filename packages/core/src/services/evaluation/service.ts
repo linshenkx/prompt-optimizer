@@ -404,6 +404,7 @@ export class EvaluationService implements IEvaluationService {
 
     let fullContent = '';
     const streamHandlers: StreamHandlers = {
+      signal: callbacks.signal,
       onToken: (token) => {
         fullContent += token;
         callbacks.onToken(token);
@@ -2238,7 +2239,8 @@ export class EvaluationService implements IEvaluationService {
 
       let fullContent = '';
       await this.llmService.sendMessageStream(synthesisMessages, request.evaluationModelKey, {
-        onToken: (token) => {
+        signal: callbacks.signal,
+      onToken: (token) => {
           fullContent += token;
           callbacks.onToken(token);
         },

@@ -488,6 +488,7 @@ export interface EvaluationResponse {
  * 流式评估回调处理器
  */
 export interface EvaluationStreamHandlers {
+  signal?: AbortSignal;
   /** 接收到内容 token */
   onToken: (token: string) => void;
   /** 接收到分数更新（可选） */

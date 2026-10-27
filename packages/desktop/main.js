@@ -1,3 +1,5 @@
+const { createStreamRegistry } = require('./stream-runtime');
+const streamRegistry = createStreamRegistry();
 /*
  * Prompt Optimizer - AI提示词优化工具
  * Copyright (C) 2025 linshenkx
@@ -998,26 +1000,28 @@ function setupIPC() {
 
   // Streaming handler - more complex due to callbacks
   ipcMain.handle('llm-sendMessageStream', withModelNetwork(async (event, messages, provider, streamId) => {
+    const lease = streamRegistry.begin(event.sender, streamId);
     try {
       // 使用符合 StreamHandlers 接口的回调名称
       const callbacks = {
+        signal: lease.signal,
         onToken: (token) => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
+          if (!event.sender.isDestroyed()) {
             event.sender.send(`stream-content-${streamId}`, token);
           }
         },
         onReasoningToken: (thinking) => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
+          if (!event.sender.isDestroyed()) {
             event.sender.send(`stream-thinking-${streamId}`, thinking);
           }
         },
         onComplete: () => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
+          if (!event.sender.isDestroyed()) {
             event.sender.send(`stream-finish-${streamId}`);
           }
         },
         onError: (error) => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
+          if (!event.sender.isDestroyed()) {
             event.sender.send(`stream-error-${streamId}`, error.message);
           }
         }
@@ -1027,35 +1031,37 @@ function setupIPC() {
       return createSuccessResponse(null);
     } catch (error) {
       return createErrorResponse(error);
-    }
+    } finally { lease.release(); }
   }));
 
   // Streaming handler with tools - supports tool-call events
   ipcMain.handle('llm-sendMessageStreamWithTools', withModelNetwork(async (event, messages, provider, tools, streamId) => {
+    const lease = streamRegistry.begin(event.sender, streamId);
     try {
       const callbacks = {
+        signal: lease.signal,
         onToken: (token) => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
+          if (!event.sender.isDestroyed()) {
             event.sender.send(`stream-content-${streamId}`, token);
           }
         },
         onReasoningToken: (thinking) => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
+          if (!event.sender.isDestroyed()) {
             event.sender.send(`stream-thinking-${streamId}`, thinking);
           }
         },
         onToolCall: (toolCall) => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
+          if (!event.sender.isDestroyed()) {
             event.sender.send(`stream-tool-call-${streamId}`, toolCall);
           }
         },
         onComplete: () => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
+          if (!event.sender.isDestroyed()) {
             event.sender.send(`stream-finish-${streamId}`);
           }
         },
         onError: (error) => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
+          if (!event.sender.isDestroyed()) {
             event.sender.send(`stream-error-${streamId}`, error.message);
           }
         }
@@ -1065,7 +1071,7 @@ function setupIPC() {
       return createSuccessResponse(null);
     } catch (error) {
       return createErrorResponse(error);
-    }
+    } finally { lease.release(); }
   }));
 
   // Prompt Service handlers
@@ -1123,38 +1129,50 @@ function setupIPC() {
     }
   });
 
+  ipcMain.handle('stream-cancel', (event, streamId) => streamRegistry.cancel(event.sender, streamId));
+
   // Helper for creating stream handlers that send data to the renderer process
-  const createIpcStreamHandlers = (window, streamId) => ({
+  const createIpcStreamHandlers = (sender, streamId) => {
+    const lease = streamRegistry.begin(sender, streamId);
+    return {
+    signal: lease.signal,
     onToken: (token) => {
-      if (window && !window.isDestroyed()) {
-        window.webContents.send(`stream-token-${streamId}`, token);
+      lease.signal.throwIfAborted();
+      if (!sender.isDestroyed()) {
+        sender.send(`stream-token-${streamId}`, token);
       }
     },
     onReasoningToken: (token) => {
-      if (window && !window.isDestroyed()) {
-        window.webContents.send(`stream-reasoning-token-${streamId}`, token);
+      lease.signal.throwIfAborted();
+      if (!sender.isDestroyed()) {
+        sender.send(`stream-reasoning-token-${streamId}`, token);
       }
     },
     onToolCall: (toolCall) => {
       // 工具调用事件单独通道
-      if (window && !window.isDestroyed()) {
-        window.webContents.send(`stream-tool-call-${streamId}`, toolCall);
+      lease.signal.throwIfAborted();
+      if (!sender.isDestroyed()) {
+        sender.send(`stream-tool-call-${streamId}`, toolCall);
       }
     },
     onComplete: () => {
-      if (window && !window.isDestroyed()) {
-        window.webContents.send(`stream-finish-${streamId}`);
+      lease.release();
+      lease.signal.throwIfAborted();
+      if (!sender.isDestroyed()) {
+        sender.send(`stream-finish-${streamId}`);
       }
     },
     onError: (error) => {
-      if (window && !window.isDestroyed()) {
-        window.webContents.send(`stream-error-${streamId}`, error.message);
+      lease.release();
+      if (!sender.isDestroyed()) {
+        sender.send(`stream-error-${streamId}`, error.message);
       }
     },
-  });
+  };
+  };
 
   ipcMain.handle('prompt-optimizePromptStream', withModelNetwork(async (event, request, streamId) => {
-    const streamHandlers = createIpcStreamHandlers(mainWindow, streamId);
+    const streamHandlers = createIpcStreamHandlers(event.sender, streamId);
     try {
       await promptService.optimizePromptStream(request, streamHandlers);
       return createSuccessResponse(null);
@@ -1165,7 +1183,7 @@ function setupIPC() {
   }));
 
   ipcMain.handle('prompt-optimizeMessageStream', withModelNetwork(async (event, request, streamId) => {
-    const streamHandlers = createIpcStreamHandlers(mainWindow, streamId);
+    const streamHandlers = createIpcStreamHandlers(event.sender, streamId);
     try {
       await promptService.optimizeMessageStream(request, streamHandlers);
       return createSuccessResponse(null);
@@ -1176,7 +1194,7 @@ function setupIPC() {
   }));
 
   ipcMain.handle('prompt-iteratePromptStream', withModelNetwork(async (event, originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, streamId, contextData) => {
-    const streamHandlers = createIpcStreamHandlers(mainWindow, streamId);
+    const streamHandlers = createIpcStreamHandlers(event.sender, streamId);
     try {
       await promptService.iteratePromptStream(originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, streamHandlers, templateId, contextData);
       return createSuccessResponse(null);
@@ -1187,7 +1205,7 @@ function setupIPC() {
   }));
 
   ipcMain.handle('prompt-testPromptStream', withModelNetwork(async (event, systemPrompt, userPrompt, modelKey, streamId, inputImages) => {
-    const streamHandlers = createIpcStreamHandlers(mainWindow, streamId);
+    const streamHandlers = createIpcStreamHandlers(event.sender, streamId);
     try {
       await promptService.testPromptStream(systemPrompt, userPrompt, modelKey, streamHandlers, inputImages);
       return createSuccessResponse(null);
@@ -1218,7 +1236,7 @@ function setupIPC() {
 
   // 自定义会话测试（支持工具、变量、对话消息）
   ipcMain.handle('prompt-testCustomConversationStream', withModelNetwork(async (event, request, streamId) => {
-    const streamHandlers = createIpcStreamHandlers(mainWindow, streamId);
+    const streamHandlers = createIpcStreamHandlers(event.sender, streamId);
     try {
       await promptService.testCustomConversationStream(request, streamHandlers);
       return createSuccessResponse(null);

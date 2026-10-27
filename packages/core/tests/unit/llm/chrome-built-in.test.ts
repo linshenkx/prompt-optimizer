@@ -8,6 +8,35 @@ import {
 import { ChromeBuiltInAdapter } from '../../../src/services/llm/adapters/chrome-built-in-adapter'
 
 describe('Chrome built-in AI integration', () => {
+  it('forwards cancellation to an idle native stream and destroys its session', async () => {
+    const controller = new AbortController()
+    let enter!: () => void
+    const entered = new Promise<void>(resolve => { enter = resolve })
+    const destroy = vi.fn()
+    const promptStreaming = vi.fn(async function* (_prompt: unknown, options: { signal: AbortSignal }) {
+      enter()
+      await new Promise((_resolve, reject) => options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true }))
+      yield 'late'
+    })
+    vi.stubGlobal('LanguageModel', {
+      availability: vi.fn().mockResolvedValue('available'),
+      create: vi.fn().mockResolvedValue({ promptStreaming, destroy }),
+    })
+    const adapter = new ChromeBuiltInAdapter()
+    const onComplete = vi.fn(), onToken = vi.fn(), onError = vi.fn()
+    const running = adapter.sendMessageStream([{ role: 'user', content: 'Generate' }], {
+      id: 'chrome-built-in', name: 'Chrome Built-in AI', enabled: true,
+      providerMeta: adapter.getProvider(), modelMeta: adapter.getModels()[0], connectionConfig: {}, paramOverrides: {},
+    }, { signal: controller.signal, onComplete, onToken, onError })
+    const settled = running.catch(() => {})
+    await entered
+    controller.abort(new Error('Stopped'))
+    await settled
+    expect(promptStreaming).toHaveBeenCalledWith('Generate', { signal: controller.signal })
+    expect(destroy).toHaveBeenCalledTimes(1)
+    expect(onToken).not.toHaveBeenCalled()
+    expect(onComplete).not.toHaveBeenCalled()
+  })
   afterEach(() => {
     vi.unstubAllGlobals()
   })

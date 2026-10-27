@@ -483,6 +483,7 @@ export class PromptService implements IPromptService {
             images: inputImages,
           },
           {
+            signal: callbacks.signal,
             onToken: callbacks.onToken,
             onReasoningToken: callbacks.onReasoningToken,
             onComplete: callbacks.onComplete,
@@ -503,6 +504,7 @@ export class PromptService implements IPromptService {
 
       // 使用新的结构化流式响应
       await this.llmService.sendMessageStream(messages, modelKey, {
+        signal: callbacks.signal,
         onToken: callbacks.onToken,
         onReasoningToken: callbacks.onReasoningToken, // 支持推理内容流
         onComplete: callbacks.onComplete,
@@ -547,6 +549,7 @@ export class PromptService implements IPromptService {
             images: request.inputImages,
           },
           {
+            signal: callbacks.signal,
             onToken: callbacks.onToken,
             onReasoningToken: callbacks.onReasoningToken,
             onComplete: async (response) => {
@@ -554,7 +557,7 @@ export class PromptService implements IPromptService {
                 if (response) {
                   this.validateResponse(response.content, request.targetPrompt);
                 }
-                callbacks.onComplete(response);
+                return callbacks.onComplete(response);
               } catch (error) {
                 callbacks.onError(
                   error instanceof Error ? error : new Error(String(error)),
@@ -569,6 +572,7 @@ export class PromptService implements IPromptService {
 
       // 使用新的结构化流式响应
       await this.llmService.sendMessageStream(messages, request.modelKey, {
+        signal: callbacks.signal,
         onToken: callbacks.onToken,
         onReasoningToken: callbacks.onReasoningToken, // 支持推理内容流
         onComplete: async (response) => {
@@ -582,7 +586,7 @@ export class PromptService implements IPromptService {
             }
 
             // 调用原始完成回调，传递结构化响应
-            callbacks.onComplete(response);
+            return callbacks.onComplete(response);
           } catch (error) {
             // 如果验证失败，调用错误回调
             callbacks.onError(
@@ -685,6 +689,7 @@ export class PromptService implements IPromptService {
 
       // 使用流式发送
       await this.llmService.sendMessageStream(messages, request.modelKey, {
+        signal: callbacks.signal,
         onToken: callbacks.onToken,
         onReasoningToken: callbacks.onReasoningToken,
         onComplete: async (response) => {
@@ -695,7 +700,7 @@ export class PromptService implements IPromptService {
             }
 
             // 调用原始完成回调
-            callbacks.onComplete(response);
+            return callbacks.onComplete(response);
           } catch (error) {
             // 如果验证失败，调用错误回调
             callbacks.onError(
@@ -807,6 +812,7 @@ export class PromptService implements IPromptService {
 
       // 使用新的结构化流式响应
       await this.llmService.sendMessageStream(messages, modelKey, {
+        signal: handlers.signal,
         onToken: handlers.onToken,
         onReasoningToken: handlers.onReasoningToken, // 支持推理内容流
         onComplete: async (response) => {
@@ -818,7 +824,7 @@ export class PromptService implements IPromptService {
 
             // 调用原始完成回调，传递结构化响应
             // 注意：迭代历史记录由UI层的historyManager.addIteration方法处理
-            handlers.onComplete(response);
+            return handlers.onComplete(response);
           } catch (error) {
             // 如果验证失败，调用错误回调
             handlers.onError(
@@ -1137,6 +1143,7 @@ export class PromptService implements IPromptService {
           request.modelKey,
           request.tools,
           {
+            signal: callbacks.signal,
             onToken: callbacks.onToken,
             onReasoningToken: callbacks.onReasoningToken,
             onToolCall: callbacks.onToolCall, // 🆕 传递工具调用回调
@@ -1145,7 +1152,7 @@ export class PromptService implements IPromptService {
                 console.log(
                   "[PromptService] Custom conversation test with tools completed successfully",
                 );
-                callbacks.onComplete?.(response);
+                return callbacks.onComplete?.(response);
               }
             },
             onError: (error) => {
@@ -1163,6 +1170,7 @@ export class PromptService implements IPromptService {
           processedMessages,
           request.modelKey,
           {
+            signal: callbacks.signal,
             onToken: callbacks.onToken,
             onReasoningToken: callbacks.onReasoningToken,
             onComplete: async (response) => {
@@ -1170,7 +1178,7 @@ export class PromptService implements IPromptService {
                 console.log(
                   "[PromptService] Custom conversation test completed successfully",
                 );
-                callbacks.onComplete?.(response);
+                return callbacks.onComplete?.(response);
               }
             },
             onError: (error) => {

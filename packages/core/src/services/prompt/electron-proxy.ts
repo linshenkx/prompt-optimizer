@@ -1,3 +1,4 @@
+import { runIpcStream } from '../../utils/ipc-stream';
 import {
   IPromptService,
   OptimizationRequest,
@@ -81,13 +82,13 @@ export class ElectronPromptServiceProxy implements IPromptService {
   async optimizePromptStream(request: OptimizationRequest, callbacks: StreamHandlers): Promise<void> {
     // 自动序列化，防止Vue响应式对象IPC传递错误
     const safeRequest = safeSerializeForIPC(request);
-    await this.api.optimizePromptStream(safeRequest, callbacks);
+    await runIpcStream(callbacks, handlers => this.api.optimizePromptStream(safeRequest, handlers), window.electronAPI?.cancelStream);
   }
 
   async optimizeMessageStream(request: MessageOptimizationRequest, callbacks: StreamHandlers): Promise<void> {
     // 自动序列化，防止Vue响应式对象IPC传递错误
     const safeRequest = safeSerializeForIPC(request);
-    await this.api.optimizeMessageStream(safeRequest, callbacks);
+    await runIpcStream(callbacks, handlers => this.api.optimizeMessageStream(safeRequest, handlers), window.electronAPI?.cancelStream);
   }
 
   async iteratePromptStream(
@@ -105,7 +106,7 @@ export class ElectronPromptServiceProxy implements IPromptService {
     }
   ): Promise<void> {
     const safeContextData = contextData ? safeSerializeForIPC(contextData) : undefined;
-    await this.api.iteratePromptStream(originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, callbacks, safeContextData);
+    await runIpcStream(callbacks, handlers => this.api.iteratePromptStream(originalPrompt, lastOptimizedPrompt, iterateInput, modelKey, templateId, handlers, safeContextData), window.electronAPI?.cancelStream);
   }
 
   async testPromptStream(
@@ -116,7 +117,7 @@ export class ElectronPromptServiceProxy implements IPromptService {
     inputImages?: ImageInputRef[]
   ): Promise<void> {
     const safeInputImages = inputImages ? safeSerializeForIPC(inputImages) : undefined;
-    await this.api.testPromptStream(systemPrompt, userPrompt, modelKey, callbacks, safeInputImages);
+    await runIpcStream(callbacks, handlers => this.api.testPromptStream(systemPrompt, userPrompt, modelKey, handlers, safeInputImages), window.electronAPI?.cancelStream);
   }
 
   async testCustomConversationStream(
@@ -125,6 +126,6 @@ export class ElectronPromptServiceProxy implements IPromptService {
   ): Promise<void> {
     // 自动序列化，防止Vue响应式对象IPC传递错误
     const safeRequest = safeSerializeForIPC(request);
-    await this.api.testCustomConversationStream(safeRequest, callbacks);
+    await runIpcStream(callbacks, handlers => this.api.testCustomConversationStream(safeRequest, handlers), window.electronAPI?.cancelStream);
   }
 }

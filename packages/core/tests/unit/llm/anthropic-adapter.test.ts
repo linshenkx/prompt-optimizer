@@ -229,7 +229,7 @@ describe('AnthropicAdapter', () => {
           }
           return mockStream;
         }),
-        finalMessage: vi.fn().mockResolvedValue(finalMessage)
+        finalMessage: vi.fn(() => new Promise(resolve => setTimeout(() => resolve(finalMessage), 40)))
       };
 
       const mockStreamFn = vi.fn().mockResolvedValue(mockStream);
@@ -290,7 +290,7 @@ describe('AnthropicAdapter', () => {
           }
           return mockStream;
         }),
-        finalMessage: vi.fn().mockResolvedValue(finalMessage)
+        finalMessage: vi.fn(() => new Promise(resolve => setTimeout(() => resolve(finalMessage), 40)))
       };
 
       const mockStreamFn = vi.fn().mockResolvedValue(mockStream);

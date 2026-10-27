@@ -157,6 +157,10 @@ export interface LLMResponse {
  * 支持传统格式和结构化格式
  */
 export interface StreamHandlers {
+  /** Cancels the active provider request, including while awaiting the next chunk. */
+  signal?: AbortSignal;
+  /** Desktop transport handshake. Not serialized as part of a model request. */
+  onStart?: (streamId: string) => void;
   // 主要内容流（必需，向后兼容）
   onToken: (token: string) => void;
   
@@ -167,7 +171,7 @@ export interface StreamHandlers {
   onToolCall?: (toolCall: ToolCall) => void;
   
   // 完成回调（现在传递完整响应，向后兼容通过可选参数）
-  onComplete: (response?: LLMResponse) => void;
+  onComplete: (response?: LLMResponse) => void | Promise<void>;
   
   // 错误回调
   onError: (error: Error) => void;

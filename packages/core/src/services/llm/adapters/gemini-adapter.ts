@@ -657,7 +657,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
       const responseStream = await client.models.generateContentStream({
         model: config.modelMeta.id,
         contents,
-        config: generationConfig
+        config: { ...generationConfig, abortSignal: callbacks.signal }
       })
 
       let accumulatedContent = ''
@@ -691,7 +691,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
         }
       }
 
-      callbacks.onComplete({
+      await callbacks.onComplete({
         content: accumulatedContent,
         reasoning: accumulatedReasoning || undefined,
         metadata: {
@@ -781,7 +781,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
         }
       }
 
-      callbacks.onComplete(response)
+      await callbacks.onComplete(response)
       return
     }
 
@@ -802,7 +802,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
       const responseStream = await client.models.generateContentStream({
         model: config.modelMeta.id,
         contents,
-        config: generationConfig
+        config: { ...generationConfig, abortSignal: callbacks.signal }
       })
 
       let accumulatedContent = ''
@@ -852,7 +852,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
         }
       }
 
-      callbacks.onComplete(response)
+      await callbacks.onComplete(response)
     } catch (error) {
       console.error('[GeminiAdapter] Stream error:', error)
       callbacks.onError(error instanceof Error ? error : new Error(String(error)))
@@ -889,7 +889,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
         content: '',
         metadata: { model: config.modelMeta.id }
       }
-      callbacks.onComplete(response)
+      await callbacks.onComplete(response)
       return
     }
 
@@ -916,7 +916,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
       const responseStream = await client.models.generateContentStream({
         model: config.modelMeta.id,
         contents,
-        config: generationConfig
+        config: { ...generationConfig, abortSignal: callbacks.signal }
       })
 
       let accumulatedContent = ''
@@ -972,7 +972,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
         }
       }
 
-      callbacks.onComplete(response)
+      await callbacks.onComplete(response)
     } catch (error) {
       console.error('[GeminiAdapter] Stream with tools error:', error)
       callbacks.onError(error instanceof Error ? error : new Error(String(error)))
