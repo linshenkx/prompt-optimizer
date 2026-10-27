@@ -15,7 +15,7 @@
         />
       </template>
 
-      <pre v-else class="xml-renderer__fallback">{{ parsedTree.source || content }}</pre>
+      <OutputSourceView v-else :content="parsedTree.source || content" :fit-content="true" />
     </div>
   </NScrollbar>
 
@@ -34,7 +34,7 @@
       />
     </template>
 
-    <pre v-else class="xml-renderer__fallback">{{ parsedTree.source || content }}</pre>
+    <OutputSourceView v-else :content="parsedTree.source || content" :fit-content="true" />
   </div>
 </template>
 
@@ -42,6 +42,7 @@
 import { computed } from 'vue'
 import { NScrollbar } from 'naive-ui'
 import XmlTreeNode from './xml/XmlTreeNode.vue'
+import OutputSourceView from './OutputSourceView.vue'
 import { parseXmlContent } from '../utils/xml-renderer'
 
 const props = withDefaults(

@@ -264,13 +264,13 @@
         <SourceAssetBadge v-if="getChainSource(mobileChain)" :source="getChainSource(mobileChain)!" />
         <details class="mobile-history-original">
           <summary>{{ t('promptOptimizer.originalPrompt') }}</summary>
-          <pre>{{ mobileChain.rootRecord.originalPrompt }}</pre>
+          <OutputPlainText :content="mobileChain.rootRecord.originalPrompt" />
         </details>
         <details v-if="mobileRecord.iterationNote" class="mobile-history-original">
           <summary>{{ t('history.iterationNote') }}</summary>
-          <pre>{{ mobileRecord.iterationNote }}</pre>
+          <OutputPlainText :content="mobileRecord.iterationNote" />
         </details>
-        <pre class="mobile-history-body">{{ mobileRecord.optimizedPrompt }}</pre>
+        <OutputPlainText class="mobile-history-body" :content="mobileRecord.optimizedPrompt" />
       </div>
       <template #footer>
         <div v-if="mobileChain && mobileRecord" class="mobile-history-restore">
@@ -283,6 +283,7 @@
 </template>
 
 <script setup lang="ts">
+import OutputPlainText from './OutputPlainText.vue'
 import NModal from "./common/AdaptiveModal.vue"
 import { ref, watch, computed, type PropType } from 'vue'
 

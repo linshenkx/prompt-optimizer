@@ -1,12 +1,30 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   extractXmlCandidate,
   isValidXmlContent,
   parseXmlContent,
+  fitsXmlRenderBudget,
 } from '../../../src/utils/xml-renderer'
 
 describe('xml-renderer utils', () => {
+  it('rejects excessive depth, size, width and entities before constructing a DOM', () => {
+    const parser = vi.spyOn(globalThis, 'DOMParser')
+    try {
+      const documents = [
+        '<n>'.repeat(128) + 'literal $& $`' + '</n>'.repeat(128),
+        '<root>' + 'x'.repeat(100000) + '</root>',
+        '<root>' + '<item/>'.repeat(300) + '</root>',
+        '<!DOCTYPE root [<!ENTITY a "value">]><root>&a;</root>',
+      ]
+      for (const source of documents) {
+        expect(fitsXmlRenderBudget(source)).toBe(false)
+        expect(isValidXmlContent(source)).toBe(false)
+        parseXmlContent(source)
+      }
+      expect(parser).not.toHaveBeenCalled()
+    } finally { parser.mockRestore() }
+  })
   it('extractXmlCandidate should unwrap xml code fences', () => {
     const wrapped = ['```xml', '<root><item id="1">value</item></root>', '```'].join('\n')
     expect(extractXmlCandidate(wrapped)).toBe('<root><item id="1">value</item></root>')

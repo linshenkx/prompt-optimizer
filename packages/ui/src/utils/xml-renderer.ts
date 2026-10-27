@@ -7,6 +7,15 @@ const TEXT_NODE = 3
 const CDATA_SECTION_NODE = 4
 const PROCESSING_INSTRUCTION_NODE = 7
 const COMMENT_NODE = 8
+export function fitsXmlRenderBudget(content: string): boolean {
+  if (content.length > 16384 || (content.match(/</g)?.length ?? 0) > 256 || /<!DOCTYPE|<!ENTITY/iu.test(content)) return false
+  let depth = 0
+  for (const tag of content.match(/<[^>]+>/g) ?? []) {
+    if (tag.startsWith('</')) depth = Math.max(0, depth - 1)
+    else if (!tag.startsWith('<?') && !tag.startsWith('<!') && !tag.endsWith('/>') && ++depth > 32) return false
+  }
+  return true
+}
 
 function normalizeTextNodeContent(raw: string): string {
   return raw.replace(/\s+/gu, ' ').trim()
@@ -88,6 +97,7 @@ export function extractXmlCandidate(content: string): string {
 }
 
 export function isValidXmlContent(content: string): boolean {
+  if (!fitsXmlRenderBudget(content)) return false
   const source = extractXmlCandidate(content)
   if (!source) return false
   if (!source.startsWith('<') || !source.endsWith('>')) return false
@@ -101,6 +111,7 @@ export function isValidXmlContent(content: string): boolean {
 }
 
 export function parseXmlContent(content: string): XmlRendererParseResult {
+  if (!fitsXmlRenderBudget(content)) return { source: content, rootNodes: [], error: 'XML display budget exceeded' }
   const source = extractXmlCandidate(content)
   if (!source) {
     return {
