@@ -1,3 +1,4 @@
+import { beginOutputStream } from '../../utils/output-document'
 import { reactive, type Ref, type ComputedRef } from 'vue'
 
 import { useToast } from '../ui/useToast'
@@ -124,16 +125,15 @@ export function usePromptTester(
       targetState.isRunning = true
       targetState.result = ''
       targetState.reasoning = ''
+      const stream = beginOutputStream(targetState)
 
       try {
         const streamHandler = {
-          onToken: (token: string) => {
-            targetState.result += token
-          },
-          onReasoningToken: (reasoningToken: string) => {
-            targetState.reasoning += reasoningToken
-          },
+          signal: stream.signal,
+          onToken: stream.onToken,
+          onReasoningToken: stream.onReasoningToken,
           onComplete: () => {
+            stream.finish()
             // Test completed successfully
           },
           onError: (err: Error) => {
@@ -190,6 +190,7 @@ export function usePromptTester(
         const testTypeKey = isOriginal ? 'originalTestFailed' : 'optimizedTestFailed'
         toast.error(`${t(`test.error.${testTypeKey}`)}: ${errorMessage}`)
       } finally {
+        stream.finish(true)
         targetState.isRunning = false
       }
     },

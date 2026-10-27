@@ -577,6 +577,7 @@
       :is-evaluating="panelProps.isEvaluating"
       :result="panelProps.result"
       :stream-content="panelProps.streamContent"
+            :output-record="panelProps.outputRecord"
       :error="panelProps.error"
       :current-type="panelProps.currentType"
       :score-level="panelProps.scoreLevel"

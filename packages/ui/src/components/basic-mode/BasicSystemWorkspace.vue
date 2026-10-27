@@ -178,6 +178,7 @@
                         ref="promptPanelRef"
                         v-model:optimized-prompt="optimizedPromptModel"
                         :reasoning="unwrappedLogicProps.optimizedReasoning"
+                        :output-record="unwrappedLogicProps.outputRecord"
                         :original-prompt="promptModel"
                         :is-optimizing="unwrappedLogicProps.isOptimizing"
                         :is-iterating="unwrappedLogicProps.isIterating"
@@ -451,6 +452,7 @@
                                     :fit-content="isCompact"
                                     :test-id="getVariantOutputTestId(id)"
                                     :content="getVariantResult(id).result"
+                                    :output-record="getVariantResult(id)"
                                     :reasoning="getVariantResult(id).reasoning"
                                     :streaming="variantRunning[id]"
                                     :enableCopy="true"
@@ -530,6 +532,7 @@
             :is-evaluating="panelProps.isEvaluating"
             :result="panelProps.result"
             :stream-content="panelProps.streamContent"
+            :output-record="panelProps.outputRecord"
             :error="panelProps.error"
             :current-type="panelProps.currentType"
             :score-level="panelProps.scoreLevel"
@@ -608,6 +611,7 @@ import PromptPanelUI from '../PromptPanel.vue'
 import WorkspaceUtilityMenu from '../common/WorkspaceUtilityMenu.vue'
 import ThemedTooltip from '../common/ThemedTooltip.vue'
 import { resolveSourceAssetRef } from '../../utils/source-asset'
+import { beginOutputStream } from '../../utils/output-document'
 import TestInputSection from '../TestInputSection.vue'
 import TestImageAttachmentControl from '../TestImageAttachmentControl.vue'
 import OutputDisplay from '../OutputDisplay.vue'
@@ -751,6 +755,7 @@ const unwrappedLogicProps = computed(() => ({
   currentVersions: logic.currentVersions.value,
   currentVersionId: logic.currentVersionId.value,
   optimizedReasoning: logic.optimizedReasoning.value,
+  outputRecord: logic.outputRecord.value,
 }))
 
 // 🔧 为 v-model 创建解包的 computed（支持双向绑定）
@@ -981,7 +986,10 @@ const getVariantOutputTestId = (id: TestVariantId) => {
 }
 
 const getVariantResult = (id: TestVariantId) => variantResults.value[id]
-const hasVariantResult = (id: TestVariantId) => !!(variantResults.value[id]?.result || '').trim()
+const hasVariantResult = (id: TestVariantId) => {
+  const result = variantResults.value[id]
+  return !!result?.result.trim() && (!result.status || result.status === 'complete')
+}
 
 // 用于 stale 判定：生成短且稳定的指纹，避免把长文本写入持久化存储
 const hashString = (input: string): string => {
@@ -1179,16 +1187,12 @@ const runVariant = async (
   const inputImages = opts?.inputImages ?? getTestInputImages()
   const runFingerprint = opts?.runFingerprint ?? getVariantFingerprint(id)
 
+  const stream = beginOutputStream(variantResults.value[id], session, `test:${id}`)
   try {
     const callbacks = {
-      onToken: (token: string) => {
-        const prev = variantResults.value[id]
-        variantResults.value[id] = { ...prev, result: (prev.result || '') + token }
-      },
-      onReasoningToken: (token: string) => {
-        const prev = variantResults.value[id]
-        variantResults.value[id] = { ...prev, reasoning: (prev.reasoning || '') + token }
-      },
+      signal: stream.signal,
+                onToken: stream.onToken,
+      onReasoningToken: stream.onReasoningToken,
       onComplete: () => {
         // 由 finally 统一收尾
       },
@@ -1222,7 +1226,7 @@ const runVariant = async (
   } catch (error) {
     variantFailed[id] = true
     opts?.onError?.(error)
-    if (!opts?.silentError) {
+    if (!opts?.silentError && !stream.signal.aborted) {
       const imageProviderMessage = inputImages.length > 0
         ? getSafeImageProviderErrorMessage(error, inputImages)
         : ''
@@ -1230,10 +1234,13 @@ const runVariant = async (
     }
     return false
   } finally {
-    variantRunning[id] = false
-    variantLastRunFingerprint.value[id] = variantFailed[id] ? `failed:${runFingerprint}` : runFingerprint
-    if (opts?.persist !== false) {
-      void session.saveSession()
+    stream.finish(variantFailed[id])
+    if (stream.document.isCurrent) {
+      variantRunning[id] = false
+      variantLastRunFingerprint.value[id] = variantFailed[id] ? `failed:${runFingerprint}` : runFingerprint
+      if (opts?.persist !== false) {
+        void session.saveSession()
+      }
     }
   }
 }

@@ -240,6 +240,7 @@
             :test-id="testId ? testId + '-output' : undefined"
             ref="outputDisplayRef"
             :content="optimizedPrompt"
+            :output-record="outputRecord"
             :original-content="mobileLayout && mobileCompareBase === 'original' ? originalPrompt : previousVersionText"
             :reasoning="reasoning"
             mode="editable"
@@ -274,7 +275,7 @@
 
         <details v-if="mobileLayout" open class="compact-iterate-reference">
             <summary>{{ t('workspace.promptReference') }}</summary>
-            <pre>{{ optimizedPrompt }}</pre>
+            <OutputPlainText :content="optimizedPrompt" />
         </details>
         <div class="space-y-4">
             <div>
@@ -331,7 +332,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, watch } from "vue";
+import OutputPlainText from './OutputPlainText.vue'
+import { ref, computed, nextTick, watch, type PropType } from "vue";
 import { useI18n } from "vue-i18n";
 import { NButton, NText, NInput, NCard, NFlex, NSpace, NTag, NIcon, NSelect } from "naive-ui";
 import { useConfirmDialog } from '../composables/ui/useConfirmDialog';
@@ -341,6 +343,7 @@ import { useProContextOptional } from '../composables/prompt/useProContext';
 import TemplateSelect from "./TemplateSelect.vue";
 import Modal from "./Modal.vue";
 import OutputDisplay from "./OutputDisplay.vue";
+import type { OutputRecord } from "../utils/output-document";
 import ThemedTooltip from './common/ThemedTooltip.vue';
 import { AnalyzeActionIcon, EvaluationScoreBadge, FocusAnalyzeButton } from "./evaluation";
 import type {
@@ -365,6 +368,7 @@ interface IteratePayload {
 }
 
 const props = defineProps({
+    outputRecord: { type: Object as PropType<OutputRecord>, default: undefined },
     mobileLayout: { type: Boolean, default: false },
     enableEvaluation: { type: Boolean, default: true },
     /** E2E/测试定位用的 testId（用于 OutputDisplay 根节点 data-testid） */

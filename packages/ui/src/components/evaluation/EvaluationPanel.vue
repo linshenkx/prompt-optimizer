@@ -13,11 +13,10 @@
           <NSpin size="large" />
           <NText depth="3" class="loading-text">{{ t('evaluation.loading') }}</NText>
           <!-- 流式内容预览 -->
-          <div v-if="streamContent" class="stream-preview">
+          <NButton v-if="outputRecord" size="small" @click="getOutputDocument(outputRecord)?.interrupt()">{{ t('common.outputStop') }}</NButton>
+          <div v-if="streamContent || outputRecord" class="stream-preview">
             <NText depth="3" class="stream-label">{{ t('evaluation.analyzing') }}</NText>
-            <NScrollbar ref="streamScrollbarRef" style="max-height: 200px;">
-              <NText class="stream-content">{{ streamContent }}</NText>
-            </NScrollbar>
+            <OutputSourceView :document="getOutputDocument(outputRecord)" :content="streamContent" style="height:200px; flex:none" />
           </div>
         </div>
       </template>
@@ -429,7 +428,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from 'vue'
+import { computed, ref, watch } from 'vue'
+import OutputSourceView from '../OutputSourceView.vue'
+import { getOutputDocument, type OutputRecord } from '../../utils/output-document'
 import { useI18n } from 'vue-i18n'
 import {
   NDrawer,
@@ -449,7 +450,6 @@ import {
   NListItem,
   NTag,
   NTooltip,
-  type ScrollbarInst,
 } from 'naive-ui'
 import { ChartBar } from '@vicons/tabler'
 import type { EvaluationResponse, EvaluationType, PatchOperation } from '@prompt-optimizer/core'
@@ -488,6 +488,7 @@ const props = defineProps<{
   currentType: EvaluationType | null
   result: EvaluationResponse | null
   streamContent: string
+  outputRecord?: OutputRecord
   error: string | null
   scoreLevel: 'excellent' | 'good' | 'acceptable' | 'poor' | 'very-poor' | null
   stale?: boolean
@@ -529,7 +530,6 @@ const {
 })
 
 // 流式内容滚动条引用
-const streamScrollbarRef = ref<ScrollbarInst | null>(null)
 const feedbackDraft = ref('')
 const activeCompareReasonKey = ref<string | null>(null)
 const isActionDisabled = computed(() => props.isEvaluating || !!props.disableEvaluate)
@@ -572,13 +572,6 @@ const rewriteHintMessage = computed(() => {
   }
 
   return ''
-})
-
-// 监听流式内容变化，自动滚动到底部
-watch(() => props.streamContent, () => {
-  nextTick(() => {
-    streamScrollbarRef.value?.scrollTo({ top: 999999, behavior: 'smooth' })
-  })
 })
 
 const tOr = (key: string, fallback: string): string => {

@@ -14,7 +14,8 @@
  */
 
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, onScopeDispose } from 'vue'
+import { getOutputVersion } from '../../utils/output-document'
 import {
   hydratePromptSessionWithOptimizationChain,
   promptRecordChainToOptimizationChain,
@@ -214,6 +215,21 @@ export const useSessionManager = defineStore('sessionManager', () => {
     'image-image2image': useImageImage2ImageSession(),
     'image-multiimage': useImageMultiImageSession(),
   })
+
+  const stateVersions = new Map<SubModeKey, number>()
+  const savedVersions = new Map<SubModeKey, string>()
+  const dirtyStops: Array<() => void> = []
+  onScopeDispose(() => dirtyStops.splice(0).forEach(stop => stop()))
+  let dirtyTracking = false
+  const trackDirtySessions = () => {
+    if (dirtyTracking) return
+    dirtyTracking = true
+    for (const [key, store] of Object.entries(getProjectionStoreMap())) {
+      const stop = store.$subscribe?.(() => stateVersions.set(key as SubModeKey, (stateVersions.get(key as SubModeKey) ?? 0) + 1), { detached: true, flush: 'sync' })
+      if (stop) dirtyStops.push(stop)
+    }
+  }
+  const sessionRevision = (key: SubModeKey) => `${stateVersions.get(key) ?? 0}:${getOutputVersion(getProjectionStoreMap()[key])}`
 
   const getPromptSession = (key: SubModeKey = getActiveSubModeKey()) =>
     buildPromptSessionFromStores(key, getProjectionStoreMap())
@@ -464,6 +480,7 @@ export const useSessionManager = defineStore('sessionManager', () => {
 
     await restoreAllSessions()
     if (!hasRestoredAllSessions.value || isRestoring.value) return false
+    trackDirtySessions()
 
     while (saveInFlight.value) {
       if (isRestoring.value) return false
@@ -494,7 +511,10 @@ export const useSessionManager = defineStore('sessionManager', () => {
       const orderedKeys = [activeKey, ...SESSION_SUB_MODE_KEYS.filter(key => key !== activeKey)]
       let saved = true
       for (const key of orderedKeys) {
+        const revision = sessionRevision(key)
+        if (savedVersions.get(key) === revision) continue
         if (!await _saveSubModeSessionUnsafe(key)) saved = false
+        else if (revision === sessionRevision(key)) savedVersions.set(key, revision)
         await new Promise(resolve => setTimeout(resolve, 0))
       }
       return saved

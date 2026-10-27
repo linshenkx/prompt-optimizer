@@ -1,3 +1,4 @@
+import { restoredOutputStatus, type OutputPhase } from '../../utils/output-document'
 /**
  * Pro-Variable Session Store (Pro-user，变量模式)
  *
@@ -53,6 +54,7 @@ export interface TestVariantConfig {
 }
 
 export interface TestVariantResult {
+  status?: OutputPhase
   /** Resolved prompt sent for this answer, independent of later edits. */
   requestPrompt?: string
   result: string
@@ -492,7 +494,7 @@ export const useProVariableSession = defineStore('proVariableSession', () => {
           const v = value as { result?: unknown; reasoning?: unknown; requestPrompt?: unknown }
           if (typeof v.result !== 'string') return null
           if (typeof v.reasoning !== 'string') return null
-          return { result: v.result, reasoning: v.reasoning, ...(typeof v.requestPrompt === 'string' ? { requestPrompt: v.requestPrompt } : {}) }
+          return { result: v.result, reasoning: v.reasoning, ...restoredOutputStatus((v as { status?: unknown }).status), ...(typeof v.requestPrompt === 'string' ? { requestPrompt: v.requestPrompt } : {}) }
         }
 
         const ids: TestVariantId[] = ['a', 'b', 'c', 'd']

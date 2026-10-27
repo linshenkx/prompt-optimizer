@@ -1,3 +1,4 @@
+import { createOutputChannel, type OutputRecord } from '../../utils/output-document'
 import { ref, nextTick, computed, reactive, watch, type Ref } from 'vue'
 import { useToast } from '../ui/useToast'
 import { useI18n } from 'vue-i18n'
@@ -40,6 +41,7 @@ export interface ContextUserOptimizationBindings {
  * ContextUser 模式提示词优化器接口
  */
 export interface UseContextUserOptimization {
+  outputRecord?: OutputRecord
   // 状态
   prompt: string
   optimizedPrompt: string
@@ -111,6 +113,8 @@ export function useContextUserOptimization(
   const boundCurrentChainId = bindings?.currentChainId ?? ref('')
   const boundCurrentVersionId = bindings?.currentVersionId ?? ref('')
   const getSourceBindingSession = () => bindings?.getSourceBindingSession?.() ?? bindings
+  const outputChannel = createOutputChannel(boundOptimizedPrompt, boundOptimizedReasoning, getSourceBindingSession())
+
 
   const saveSessionSnapshot = async (reason: string) => {
     const sourceSession = getSourceBindingSession()
@@ -126,6 +130,7 @@ export function useContextUserOptimization(
 
   // 使用 reactive 创建响应式状态对象
   const state = reactive({
+    outputRecord: outputChannel.outputRecord,
     // 状态
     prompt: boundPrompt,
     optimizedPrompt: boundOptimizedPrompt,
@@ -160,6 +165,7 @@ export function useContextUserOptimization(
       // 等待一个微任务确保状态更新完成
       await nextTick()
 
+      const stream = outputChannel.begin()
       try {
         // 构建优化请求
         const request: OptimizationRequest = {
@@ -173,13 +179,12 @@ export function useContextUserOptimization(
         await promptService.value!.optimizePromptStream(
           request,
           {
-            onToken: (token: string) => {
-              state.optimizedPrompt += token
-            },
-            onReasoningToken: (reasoningToken: string) => {
-              state.optimizedReasoning += reasoningToken
-            },
+          signal: stream.signal,
+            onToken: stream.onToken,
+            onReasoningToken: stream.onReasoningToken,
             onComplete: async () => {
+              if (stream.signal.aborted || !stream.document.isCurrent) return
+              stream.finish()
               if (!selectedTemplate.value) return
 
               try {
@@ -199,11 +204,13 @@ export function useContextUserOptimization(
                 }
 
                 const newRecord = await historyManager.value!.createNewChain(recordData)
+                if (!stream.document.isCurrent) return
 
                 state.currentChainId = newRecord.chainId
                 state.currentVersions = newRecord.versions
                 state.currentVersionId = newRecord.currentRecord.id
                 await saveSessionSnapshot('optimization commit')
+                if (!stream.document.isCurrent) return
 
                 toast.success(t('toast.success.optimizeSuccess'))
               } catch (error: unknown) {
@@ -214,6 +221,8 @@ export function useContextUserOptimization(
               }
             },
             onError: (error: Error) => {
+            stream.finish(true)
+              if (stream.signal.aborted || !stream.document.isCurrent) return
               console.error(t('toast.error.optimizeProcessFailed'), error)
               toast.error(getI18nErrorMessage(error, t('toast.error.optimizeFailed')))
               state.isOptimizing = false
@@ -224,6 +233,7 @@ export function useContextUserOptimization(
         console.error(t('toast.error.optimizeFailed'), error)
         toast.error(getI18nErrorMessage(error, t('toast.error.optimizeFailed')))
       } finally {
+      stream.finish(true)
         state.isOptimizing = false
       }
     },
@@ -258,6 +268,7 @@ export function useContextUserOptimization(
       // 等待一个微任务确保状态更新完成
       await nextTick()
 
+      const stream = outputChannel.begin()
       try {
         await promptService.value!.iteratePromptStream(
           originalPrompt,
@@ -265,13 +276,12 @@ export function useContextUserOptimization(
           iterateInput,
           selectedOptimizeModel.value,
           {
-            onToken: (token: string) => {
-              state.optimizedPrompt += token
-            },
-            onReasoningToken: (reasoningToken: string) => {
-              state.optimizedReasoning += reasoningToken
-            },
+          signal: stream.signal,
+            onToken: stream.onToken,
+            onReasoningToken: stream.onReasoningToken,
             onComplete: async () => {
+              if (stream.signal.aborted || !stream.document.isCurrent) return
+              stream.finish()
               if (!selectedIterateTemplate.value) {
                 state.isIterating = false
                 return
@@ -298,6 +308,7 @@ export function useContextUserOptimization(
                       createdFromAnalyzeV0: true,
                     }, getSourceBindingSession())
                   })
+                  if (!stream.document.isCurrent) return
                 } else {
                   // 保存迭代历史
                   const iterationData = {
@@ -311,12 +322,14 @@ export function useContextUserOptimization(
                   }
 
                   updatedChain = await historyManager.value!.addIteration(iterationData)
+                  if (!stream.document.isCurrent) return
                 }
 
                 state.currentChainId = updatedChain.chainId
                 state.currentVersions = updatedChain.versions
                 state.currentVersionId = updatedChain.currentRecord.id
                 await saveSessionSnapshot('iteration commit')
+                if (!stream.document.isCurrent) return
 
                 toast.success(t('toast.success.iterateComplete'))
               } catch (error: unknown) {
@@ -327,6 +340,8 @@ export function useContextUserOptimization(
               }
             },
             onError: (error: Error) => {
+            stream.finish(true)
+              if (stream.signal.aborted || !stream.document.isCurrent) return
               console.error('[Iterate] Iteration failed:', error)
               toast.error(t('toast.error.iterateFailed'))
               state.isIterating = false

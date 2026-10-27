@@ -52,7 +52,7 @@ describe('runTasksWithExecutionMode', () => {
     await expect(promise).resolves.toEqual([10, 20, 30])
   })
 
-  it('在测试环境默认回退为串行模式', () => {
-    expect(detectTaskExecutionMode()).toBe('sequential')
+  it('在自动化和普通浏览器中使用相同的并发调度', () => {
+    expect(detectTaskExecutionMode()).toBe('parallel')
   })
 })

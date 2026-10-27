@@ -1,5 +1,6 @@
 import type { IPreferenceService } from '@prompt-optimizer/core'
 import { unref } from 'vue'
+import { resolveOutputRecord, liveOutputValue, hasLiveOutput } from '../../utils/output-document'
 import { withSessionAccess } from './sessionConcurrency'
 
 /** A restore checkpoint alone may write while ordinary session saves are frozen. */
@@ -32,7 +33,8 @@ const getState = (service: IPreferenceService) => {
 }
 
 export const SESSION_CONFLICT_EVENT = 'prompt-optimizer:session-conflict'
-const copySnapshot = <T>(value: T): T => value == null ? value : JSON.parse(JSON.stringify(value))
+const copySnapshot = <T>(value: T): T => value == null ? value : JSON.parse(JSON.stringify(value, (_key, item) =>
+  item && typeof item === 'object' ? resolveOutputRecord(item) : item))
 const comparableSnapshot = (value: unknown): string => {
   let snapshot = value
   if (typeof snapshot === 'string') {
@@ -53,7 +55,7 @@ const comparableSnapshot = (value: unknown): string => {
 const copyContent = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map(copyContent)
   if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, copyContent(item)]))
+    return Object.fromEntries(Object.entries(resolveOutputRecord(value)).map(([key, item]) => [key, copyContent(item)]))
   }
   return value
 }
@@ -69,9 +71,14 @@ const sameContent = (left: unknown, right: unknown): boolean => {
 
 /** Track hydrated content separately from the original value required by CAS. */
 export function createSessionSnapshotWriter(getContent: () => Record<string, unknown>) {
-  const capture = () => ({ content: copyContent(Object.fromEntries(Object.entries(getContent())
-    .filter(([key]) => key !== 'lastActiveAt')
-    .map(([key, value]) => [key, unref(value)]))) })
+  const capture = () => {
+    const live = Object.fromEntries(Object.entries(getContent()).flatMap(([key, value]) => {
+      return hasLiveOutput(value) ? [[key, copyContent(liveOutputValue(value) ?? unref(value))]] : []
+    }))
+    return { live, content: copyContent(Object.fromEntries(Object.entries(getContent())
+      .filter(([key]) => key !== 'lastActiveAt')
+      .map(([key, value]) => [key, live[key] ?? unref(value)]))) }
+  }
   return {
     capture,
     restored(service: IPreferenceService, key: string) {
@@ -81,7 +88,7 @@ export function createSessionSnapshotWriter(getContent: () => Record<string, unk
     // Async asset persistence must capture before its first await. Edits during
     // that save remain different from the content acknowledged by this commit.
     write<T>(service: IPreferenceService, key: string, value: T, captured = capture()): Promise<void> {
-      return commitSessionSnapshot(service, key, value, captured.content)
+      return commitSessionSnapshot(service, key, { ...value, ...captured.live }, captured.content)
     },
   }
 }

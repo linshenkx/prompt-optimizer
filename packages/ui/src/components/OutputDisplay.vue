@@ -3,6 +3,7 @@
     ref="coreDisplayRef"
     v-bind="$attrs"
     :content="content"
+    :output-record="outputRecord"
     :fit-content="fitContent"
     :originalContent="originalContent"
     :reasoning="reasoning"
@@ -34,6 +35,7 @@
   <OutputDisplayFullscreen
     v-model="isShowingFullscreen"
     :content="content"
+    :output-record="outputRecord"
     :originalContent="originalContent"
     :reasoning="reasoning"
     :title="title"
@@ -55,6 +57,7 @@ import { computed, ref, inject, type Ref } from 'vue'
 import OutputDisplayCore from './OutputDisplayCore.vue';
 import OutputDisplayFullscreen from './OutputDisplayFullscreen.vue';
 import type { AppServices } from '../types/services';
+import type { OutputRecord } from '../utils/output-document'
 
 defineOptions({
   inheritAttrs: false,
@@ -66,6 +69,7 @@ type ActionName = 'fullscreen' | 'diff' | 'copy' | 'edit' | 'reasoning' | 'favor
 interface Props {
   fitContent?: boolean
   content?: string
+  outputRecord?: OutputRecord
   originalContent?: string
   reasoning?: string
   title?: string // title is used by fullscreen wrapper, but keep it here for compatibility

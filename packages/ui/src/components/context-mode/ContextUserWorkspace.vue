@@ -198,6 +198,7 @@
                     :optimized-prompt="contextUserOptimization.optimizedPrompt"
                     @update:optimized-prompt="contextUserOptimization.optimizedPrompt = $event"
                     :reasoning="contextUserOptimization.optimizedReasoning"
+                    :output-record="contextUserOptimization.outputRecord"
                     :original-prompt="contextUserOptimization.prompt"
                     :is-optimizing="contextUserOptimization.isOptimizing"
                     :is-iterating="contextUserOptimization.isIterating"
@@ -435,6 +436,7 @@
                                 <OutputDisplay :fit-content="isCompact"
                                     :test-id="getVariantOutputTestId(id)"
                                     :content="getVariantResult(id).result"
+                                    :output-record="getVariantResult(id)"
                                     :reasoning="getVariantResult(id).reasoning"
                                     :streaming="variantRunning[id]"
                                     :enableCopy="true"
@@ -509,6 +511,7 @@
             :is-evaluating="panelProps.isEvaluating"
             :result="panelProps.result"
             :stream-content="panelProps.streamContent"
+            :output-record="panelProps.outputRecord"
             :error="panelProps.error"
             :current-type="panelProps.currentType"
             :score-level="panelProps.scoreLevel"
@@ -607,6 +610,7 @@ import PromptPanelUI from "../PromptPanel.vue";
 import PromptPreviewPanel from "../PromptPreviewPanel.vue";
 import ContextUserTestPanel from "./ContextUserTestPanel.vue";
 import OutputDisplay from "../OutputDisplay.vue";
+import { beginOutputStream } from '../../utils/output-document'
 import SaveTestResultExampleButton from '../SaveTestResultExampleButton.vue'
 import SelectWithConfig from "../SelectWithConfig.vue";
 import TextModelQuickSwitch from "../TextModelQuickSwitch.vue";
@@ -1183,7 +1187,10 @@ const getVariantOutputTestId = (id: TestVariantId) => {
 }
 
 const getVariantResult = (id: TestVariantId) => variantResults.value[id]
-const hasVariantResult = (id: TestVariantId) => !!(variantResults.value[id]?.result || '').trim()
+const hasVariantResult = (id: TestVariantId) => {
+  const result = variantResults.value[id]
+  return !!result?.result.trim() && (!result.status || result.status === 'complete')
+}
 
 const getVariantFingerprint = (id: TestVariantId) => {
     const selection = variantVersionModels[id].value
@@ -1351,6 +1358,8 @@ const runVariant = async (
     showTestResult(id, !!opts?.silentSuccess)
     variantRunning[id] = true
     const runFingerprint = getVariantFingerprint(id)
+    let failed = false
+    const stream = beginOutputStream(variantResults.value[id], proVariableSession, `test:${id}`)
 
     try {
         const messages: ConversationMessage[] = [
@@ -1365,14 +1374,9 @@ const runVariant = async (
                 tools: [],
             },
             {
-                onToken: (token: string) => {
-                    const prev = variantResults.value[id]
-                    variantResults.value[id] = { ...prev, result: (prev.result || '') + token }
-                },
-                onReasoningToken: (token: string) => {
-                    const prev = variantResults.value[id]
-                    variantResults.value[id] = { ...prev, reasoning: (prev.reasoning || '') + token }
-                },
+                signal: stream.signal,
+                onToken: stream.onToken,
+                onReasoningToken: stream.onReasoningToken,
                 onComplete: () => {
                     // 由 finally 统一收尾
                 },
@@ -1387,15 +1391,19 @@ const runVariant = async (
         }
         return true
     } catch (_error) {
-        if (!opts?.silentError) {
+        failed = true
+        if (!opts?.silentError && !stream.signal.aborted) {
             toast.error(t('toast.error.testFailed'))
         }
         return false
     } finally {
-        variantRunning[id] = false
-        variantLastRunFingerprint.value[id] = runFingerprint
-        if (opts?.persist !== false) {
-            void proVariableSession.saveSession()
+        stream.finish(failed)
+        if (stream.document.isCurrent) {
+            variantRunning[id] = false
+            variantLastRunFingerprint.value[id] = failed ? `failed:${runFingerprint}` : runFingerprint
+            if (opts?.persist !== false) {
+                void proVariableSession.saveSession()
+            }
         }
     }
 }

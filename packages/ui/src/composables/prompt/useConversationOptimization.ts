@@ -1,3 +1,4 @@
+import { createOutputChannel } from '../../utils/output-document'
 import { ref, computed, nextTick, watch, type Ref, type ComputedRef } from 'vue'
 import { useToast } from '../ui/useToast'
 import { useI18n } from 'vue-i18n'
@@ -226,6 +227,8 @@ export function useConversationOptimization(
       }
     },
   })
+  const outputChannel = createOutputChannel(optimizedPrompt, optimizedReasoning, proMultiMessageSession)
+
 
   const currentVersions = ref<PromptRecordChain['versions']>([])
   const isOptimizing = ref<boolean>(false)
@@ -438,6 +441,7 @@ export function useConversationOptimization(
     const originalContentSnapshot = message.content || ''
     message.originalContent = originalContentSnapshot
 
+    const stream = outputChannel.begin()
     try {
       // 构建消息优化请求，使用专门的 MessageOptimizationRequest 接口
       const request: MessageOptimizationRequest = {
@@ -452,13 +456,12 @@ export function useConversationOptimization(
       await promptService.value!.optimizeMessageStream(
         request,
         {
-          onToken: (token: string) => {
-            optimizedPrompt.value += token
-          },
-          onReasoningToken: (reasoningToken: string) => {
-            optimizedReasoning.value += reasoningToken
-          },
+          signal: stream.signal,
+          onToken: stream.onToken,
+          onReasoningToken: stream.onReasoningToken,
           onComplete: async () => {
+            if (stream.signal.aborted || !stream.document.isCurrent) return
+            stream.finish()
             try {
               // 判断是首次优化还是后续优化
               if (!historyManager.value) {
@@ -520,6 +523,7 @@ export function useConversationOptimization(
               }
 
               const newChain = await historyManager.value.createNewChain(recordData)
+              if (!stream.document.isCurrent) return
               currentChainId.value = newChain.chainId
               currentVersions.value = newChain.versions
               currentRecordId.value = newChain.currentRecord.id
@@ -532,6 +536,7 @@ export function useConversationOptimization(
               }
 
               await saveSessionSnapshot('optimization commit')
+              if (!stream.document.isCurrent) return
 
               // 触发全局历史记录刷新事件
               if (typeof window !== 'undefined') {
@@ -549,6 +554,7 @@ export function useConversationOptimization(
             }
           },
           onError: (error: Error) => {
+            stream.finish(true)
             console.error('[ConversationOptimization] Optimization failed:', error)
             toast.error(getI18nErrorMessage(error, t('toast.error.optimizeFailed')))
             isOptimizing.value = false
@@ -599,6 +605,7 @@ export function useConversationOptimization(
     optimizedReasoning.value = ''
     await nextTick()
 
+    const stream = outputChannel.begin()
     try {
       // 🔧 使用迭代专用模板，如果没有选择迭代模板，回退到默认迭代模板
       const templateId = selectedIterateTemplate.value?.id || 'context-iterate'
@@ -609,13 +616,12 @@ export function useConversationOptimization(
         iterateInput, // 迭代指令
         selectedOptimizeModel.value,
         {
-          onToken: (token: string) => {
-            optimizedPrompt.value += token
-          },
-          onReasoningToken: (reasoningToken: string) => {
-            optimizedReasoning.value += reasoningToken
-          },
+          signal: stream.signal,
+          onToken: stream.onToken,
+          onReasoningToken: stream.onReasoningToken,
           onComplete: async () => {
+            if (stream.signal.aborted || !stream.document.isCurrent) return
+            stream.finish()
              try {
                 if (!historyManager.value) throw new Error('History service unavailable')
 
@@ -674,10 +680,12 @@ export function useConversationOptimization(
                 }
 
                 const updatedChain = await historyManager.value.addIteration(iterationData)
+                if (!stream.document.isCurrent) return
                 currentVersions.value = updatedChain.versions
                 currentRecordId.value = updatedChain.currentRecord.id
 
                 await saveSessionSnapshot('iteration commit')
+                if (!stream.document.isCurrent) return
 
                 // 触发全局历史记录刷新事件
                 if (typeof window !== 'undefined') {
@@ -696,6 +704,7 @@ export function useConversationOptimization(
              }
           },
           onError: (error: Error) => {
+            stream.finish(true)
             console.error('[ConversationOptimization] Iteration failed:', error)
             toast.error(getI18nErrorMessage(error, t('toast.error.iterateFailed')))
             isOptimizing.value = false
@@ -918,6 +927,7 @@ export function useConversationOptimization(
   }
 
   return {
+    outputRecord: outputChannel.outputRecord,
     // 状态
     selectedMessageId,
     selectedMessage,

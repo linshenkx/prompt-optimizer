@@ -100,12 +100,13 @@ const passthroughStub = (name: string) => defineComponent({
   template: '<div><slot /><slot name="header" /><slot name="icon" /></div>',
 })
 
-const mountOutputDisplayCore = (content = 'Optimized prompt') =>
+const mountOutputDisplayCore = (content = 'Optimized prompt', initialProps: { streaming?: boolean } = {}) =>
   mount(OutputDisplayCore, {
     props: {
       content,
       mode: 'readonly',
       enabledActions: ['copy'],
+      ...initialProps,
     },
     global: {
       provide: {
@@ -253,9 +254,25 @@ describe('OutputDisplayCore copy and open action', () => {
     try {
       await wrapper.setProps({ streaming: true })
       await wrapper.get('.output-view-modes button:first-child').trigger('click')
-      expect(wrapper.findComponent({ name: 'MarkdownRenderer' }).attributes('content')).toBe(`\`\`\`html\n${source}\n\`\`\``)
+      expect(wrapper.getComponent({ name: 'OutputSourceView' }).props('content')).toBe(source)
       expect(wrapper.find('[data-testid="output-view-html"]').exists()).toBe(false)
       expect(wrapper.find('iframe').exists()).toBe(false)
+    } finally { wrapper.unmount() }
+  })
+
+  it('keeps long read-only source in a bounded viewport without an autosize mirror', async () => {
+    const source = `\`\`\`html\n<svg>${'<path d="M1 2 L30 40"/>\n'.repeat(2000)}</svg>\n\`\`\``
+    const wrapper = mountOutputDisplayCore(source, { streaming: true })
+    try {
+      const input = wrapper.getComponent({ name: 'OutputSourceView' })
+      expect(input.props('content')).toBe(source)
+      expect(wrapper.find('textarea').exists()).toBe(false)
+      expect(wrapper.find('.n-input__textarea-mirror').exists()).toBe(false)
+      expect(wrapper.findComponent({ name: 'MarkdownRenderer' }).exists()).toBe(false)
+      expect(wrapper.find('iframe').exists()).toBe(false)
+      await wrapper.setProps({ streaming: false })
+      expect(wrapper.findComponent({ name: 'MarkdownRenderer' }).exists()).toBe(true)
+      expect(wrapper.find('[data-testid="output-view-html"]').exists()).toBe(true)
     } finally { wrapper.unmount() }
   })
 

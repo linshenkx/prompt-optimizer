@@ -14,14 +14,8 @@ export async function runTasksSequentially<T, TResult>(
 export type TaskExecutionMode = 'parallel' | 'sequential'
 
 export function detectTaskExecutionMode(): TaskExecutionMode {
-  if (import.meta.env.MODE === 'test') {
-    return 'sequential'
-  }
-
-  if (typeof navigator !== 'undefined' && navigator.webdriver) {
-    return 'sequential'
-  }
-
+  // Acceptance and production must exercise the same scheduler. Callers that
+  // need ordering opt in explicitly; browser automation is not a product mode.
   return 'parallel'
 }
 

@@ -1,3 +1,4 @@
+import { createOutputChannel } from '../../utils/output-document'
 /**
  * Basic 模式工作区业务逻辑（通用）
  *
@@ -118,6 +119,8 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
       })
     }
   })
+  const outputChannel = createOutputChannel(optimizedPrompt, optimizedReasoning, sessionStore)
+
 
   const testContent = computed<string>({
     get: () => sessionStore.testContent || '',
@@ -191,6 +194,7 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
       versionId: ''
     })
 
+    const stream = outputChannel.begin()
     try {
       const request: OptimizationRequest = {
         optimizationMode,
@@ -200,13 +204,12 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
       }
 
       await promptService.optimizePromptStream(request, {
-        onToken: (token: string) => {
-          optimizedPrompt.value += token
-        },
-        onReasoningToken: (token: string) => {
-          optimizedReasoning.value += token
-        },
+        signal: stream.signal,
+        onToken: stream.onToken,
+        onReasoningToken: stream.onReasoningToken,
         onComplete: async () => {
+          if (stream.signal.aborted || !stream.document.isCurrent) return
+          stream.finish()
           const historyManager = services.value?.historyManager
           if (historyManager) {
             try {
@@ -225,6 +228,7 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
               }
 
               const chain = await historyManager.createNewChain(recordData)
+              if (!stream.document.isCurrent) return
               currentChainId.value = chain.chainId
               currentVersions.value = chain.versions
               currentVersionId.value = chain.currentRecord.id
@@ -236,6 +240,7 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
                 versionId: chain.currentRecord.id
               })
               await saveSessionSnapshot('optimization commit')
+              if (!stream.document.isCurrent) return
 
               onOptimizeComplete?.(chain)
               toast.success(t('toast.success.optimizeSuccess'))
@@ -268,6 +273,7 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
           }
         },
         onError: (error: Error) => {
+            stream.finish(true)
           throw error
         }
       })
@@ -280,6 +286,7 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
         toast.error(`${fallback}: ${detail}`)
       }
     } finally {
+      stream.finish(true)
       isOptimizing.value = false
     }
   }
@@ -320,6 +327,7 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
     optimizedPrompt.value = ''
     optimizedReasoning.value = ''
 
+    const stream = outputChannel.begin()
     try {
       await promptService.iteratePromptStream(
         originalPromptValue,
@@ -327,13 +335,12 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
         iterateInput,
         modelKey,
         {
-        onToken: (token: string) => {
-          optimizedPrompt.value += token
-        },
-        onReasoningToken: (token: string) => {
-          optimizedReasoning.value += token
-        },
+          signal: stream.signal,
+        onToken: stream.onToken,
+        onReasoningToken: stream.onReasoningToken,
         onComplete: async () => {
+          if (stream.signal.aborted || !stream.document.isCurrent) return
+          stream.finish()
           const historyManager = services.value?.historyManager
           if (historyManager) {
             try {
@@ -359,6 +366,7 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
                     timestamp: Date.now(),
                     metadata: withHistorySourceBindingMetadata({ optimizationMode, functionMode: 'basic' }, sessionStore),
                   })
+              if (!stream.document.isCurrent) return
 
               currentChainId.value = chain.chainId
               currentVersions.value = chain.versions
@@ -371,6 +379,7 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
                 versionId: chain.currentRecord.id
               })
               await saveSessionSnapshot('iteration commit')
+              if (!stream.document.isCurrent) return
 
               onIterateComplete?.(chain)
               toast.success(t('toast.success.iterateComplete'))
@@ -401,6 +410,7 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
           }
         },
         onError: (error: Error) => {
+            stream.finish(true)
           throw error
         }
         },
@@ -417,6 +427,7 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
         toast.error(`${fallback}: ${detail}`)
       }
     } finally {
+      stream.finish(true)
       isIterating.value = false
     }
   }
@@ -635,6 +646,7 @@ export function useBasicWorkspaceLogic(options: UseBasicWorkspaceLogicOptions) {
   )
 
   return {
+    outputRecord: outputChannel.outputRecord,
     // 状态代理
     prompt,
     optimizedPrompt,

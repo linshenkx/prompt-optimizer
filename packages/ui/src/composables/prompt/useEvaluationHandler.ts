@@ -108,6 +108,7 @@ export interface UseEvaluationHandlerReturn {
     isEvaluating: boolean
     result: EvaluationResponse | null
     streamContent: string
+    outputRecord?: import('../../utils/output-document').OutputRecord
     error: string | null
     currentType: EvaluationType | null
     currentVariantId: string | null
@@ -519,6 +520,7 @@ export function useEvaluationHandler(
       isEvaluating: getIsEvaluatingForActive(),
       result: activeResult,
       streamContent: evaluation.activeStreamContent.value,
+      outputRecord: evaluation.activeOutputRecord?.value,
       error: evaluation.activeError.value,
       currentType: active?.type ?? null,
       currentVariantId: active?.variantId ?? null,

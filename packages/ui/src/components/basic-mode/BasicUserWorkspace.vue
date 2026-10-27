@@ -177,6 +177,7 @@
                         ref="promptPanelRef"
                         v-model:optimized-prompt="optimizedPromptModel"
                         :reasoning="unwrappedLogicProps.optimizedReasoning"
+                        :output-record="unwrappedLogicProps.outputRecord"
                         :original-prompt="promptModel"
                         :is-optimizing="unwrappedLogicProps.isOptimizing"
                         :is-iterating="unwrappedLogicProps.isIterating"
@@ -431,6 +432,7 @@
                                     :fit-content="isCompact"
                                     :test-id="getVariantOutputTestId(id)"
                                     :content="getVariantResult(id).result"
+                                    :output-record="getVariantResult(id)"
                                     :reasoning="getVariantResult(id).reasoning"
                                     :streaming="variantRunning[id]"
                                     :enableCopy="true"
@@ -510,6 +512,7 @@
             :is-evaluating="panelProps.isEvaluating"
             :result="panelProps.result"
             :stream-content="panelProps.streamContent"
+            :output-record="panelProps.outputRecord"
             :error="panelProps.error"
             :current-type="panelProps.currentType"
             :score-level="panelProps.scoreLevel"
@@ -594,6 +597,7 @@ import PromptPanelUI from '../PromptPanel.vue'
 import WorkspaceUtilityMenu from '../common/WorkspaceUtilityMenu.vue'
 import ThemedTooltip from '../common/ThemedTooltip.vue'
 import { resolveSourceAssetRef } from '../../utils/source-asset'
+import { beginOutputStream } from '../../utils/output-document'
 import OutputDisplay from '../OutputDisplay.vue'
 import SaveTestResultExampleButton from '../SaveTestResultExampleButton.vue'
 import {
@@ -856,7 +860,10 @@ const getVariantOutputTestId = (id: TestVariantId) => {
 
 const getVariantResult = (id: TestVariantId) => variantResults.value[id]
 
-const hasVariantResult = (id: TestVariantId) => !!(variantResults.value[id]?.result || '').trim()
+const hasVariantResult = (id: TestVariantId) => {
+  const result = variantResults.value[id]
+  return !!result?.result.trim() && (!result.status || result.status === 'complete')
+}
 
 const getVariantFingerprint = (id: TestVariantId) => {
   const selection = variantVersionModels[id].value
@@ -1018,23 +1025,13 @@ const runVariant = async (
   variantRunning[id] = true
   variantFailed[id] = false
   const runFingerprint = getVariantFingerprint(id)
+  const stream = beginOutputStream(variantResults.value[id], session, `test:${id}`)
 
   try {
     await promptService.testPromptStream('', input.prompt, input.modelKey, {
-      onToken: (token: string) => {
-        const prev = variantResults.value[id]
-        variantResults.value[id] = {
-          ...prev,
-          result: (prev.result || '') + token,
-        }
-      },
-      onReasoningToken: (token: string) => {
-        const prev = variantResults.value[id]
-        variantResults.value[id] = {
-          ...prev,
-          reasoning: (prev.reasoning || '') + token,
-        }
-      },
+      signal: stream.signal,
+                onToken: stream.onToken,
+      onReasoningToken: stream.onReasoningToken,
       onComplete: () => {
         // 由 finally 统一收尾（结束 loading / 更新 fingerprint / 持久化）
       },
@@ -1049,17 +1046,20 @@ const runVariant = async (
     return true
   } catch (_error) {
     variantFailed[id] = true
-    if (!opts?.silentError) {
+    if (!opts?.silentError && !stream.signal.aborted) {
       toast.error(t('toast.error.testFailed'))
     }
     return false
   } finally {
-    variantRunning[id] = false
-    variantLastRunFingerprint.value[id] = variantFailed[id] ? `failed:${runFingerprint}` : runFingerprint
+    stream.finish(variantFailed[id])
+    if (stream.document.isCurrent) {
+      variantRunning[id] = false
+      variantLastRunFingerprint.value[id] = variantFailed[id] ? `failed:${runFingerprint}` : runFingerprint
 
-    // best-effort: 仅在一次运行结束时持久化，避免流式过程中频繁写入
-    if (opts?.persist !== false) {
-      void session.saveSession()
+      // best-effort: 仅在一次运行结束时持久化，避免流式过程中频繁写入
+      if (opts?.persist !== false) {
+        void session.saveSession()
+      }
     }
   }
 }
@@ -1141,6 +1141,7 @@ const unwrappedLogicProps = computed(() => ({
   currentVersions: logic.currentVersions.value,
   currentVersionId: logic.currentVersionId.value,
   optimizedReasoning: logic.optimizedReasoning.value,
+  outputRecord: logic.outputRecord.value,
 }))
 
 // 🔧 为 v-model 创建解包的 computed（支持双向绑定）

@@ -144,6 +144,7 @@
                                 :original-prompt="displayAdapter.displayedOriginalPrompt.value"
                                 :optimized-prompt="displayAdapter.displayedOptimizedPrompt.value"
                                 :reasoning="optimizedReasoning"
+                    :output-record="conversationOptimization.outputRecord.value"
                                 :is-optimizing="displayAdapter.displayedIsOptimizing.value"
                                 :is-iterating="isIterating"
                                 :selected-iterate-template="selectedIterateTemplate"
@@ -395,6 +396,7 @@
                                         <OutputDisplay :fit-content="isCompact"
                                             :test-id="getVariantOutputTestId(id)"
                                             :content="getVariantResult(id).result"
+                                    :output-record="getVariantResult(id)"
                                             :reasoning="getVariantResult(id).reasoning"
                                             :streaming="variantRunning[id]"
                                             :enableCopy="true"
@@ -474,6 +476,7 @@
             :is-evaluating="panelProps.isEvaluating"
             :result="panelProps.result"
             :stream-content="panelProps.streamContent"
+            :output-record="panelProps.outputRecord"
             :error="panelProps.error"
             :current-type="panelProps.currentType"
             :score-level="panelProps.scoreLevel"
@@ -560,6 +563,7 @@ import PromptPreviewPanel from "../PromptPreviewPanel.vue";
 import ConversationTestPanel from "./ConversationTestPanel.vue";
 import ConversationManager from "./ConversationManager.vue";
 import OutputDisplay from "../OutputDisplay.vue";
+import { beginOutputStream } from '../../utils/output-document'
 import SaveTestResultExampleButton from '../SaveTestResultExampleButton.vue'
 import SelectWithConfig from "../SelectWithConfig.vue";
 import TextModelQuickSwitch from "../TextModelQuickSwitch.vue";
@@ -1187,7 +1191,10 @@ const getVariantOutputTestId = (id: TestVariantId) => {
 }
 
 const getVariantResult = (id: TestVariantId) => variantResults.value[id]
-const hasVariantResult = (id: TestVariantId) => !!(variantResults.value[id]?.result || '').trim()
+const hasVariantResult = (id: TestVariantId) => {
+  const result = variantResults.value[id]
+  return !!result?.result.trim() && (!result.status || result.status === 'complete')
+}
 
 const formatConversationAsText = (messages: ConversationMessage[]): string => {
     if (!messages || messages.length === 0) return ''
@@ -1436,6 +1443,8 @@ const runVariant = async (
     showTestResult(id, !!opts?.silentSuccess)
     variantRunning[id] = true
     const runFingerprint = getVariantFingerprint(id)
+    let failed = false
+    const stream = beginOutputStream(variantResults.value[id], proMultiSession, `test:${id}`)
 
     try {
         await promptService.testCustomConversationStream(
@@ -1446,14 +1455,9 @@ const runVariant = async (
                 tools: input.tools,
             },
             {
-                onToken: (token: string) => {
-                    const prev = variantResults.value[id]
-                    variantResults.value[id] = { ...prev, result: (prev.result || '') + token }
-                },
-                onReasoningToken: (token: string) => {
-                    const prev = variantResults.value[id]
-                    variantResults.value[id] = { ...prev, reasoning: (prev.reasoning || '') + token }
-                },
+                signal: stream.signal,
+                onToken: stream.onToken,
+                onReasoningToken: stream.onReasoningToken,
                 onToolCall: (toolCall: ToolCall) => {
                     const toolCallResult: ToolCallResult = {
                         toolCall,
@@ -1476,15 +1480,19 @@ const runVariant = async (
         }
         return true
     } catch (_error) {
-        if (!opts?.silentError) {
+        failed = true
+        if (!opts?.silentError && !stream.signal.aborted) {
             toast.error(t('toast.error.testFailed'))
         }
         return false
     } finally {
-        variantRunning[id] = false
-        variantLastRunFingerprint.value[id] = runFingerprint
-        if (opts?.persist !== false) {
-            void proMultiSession.saveSession()
+        stream.finish(failed)
+        if (stream.document.isCurrent) {
+            variantRunning[id] = false
+            variantLastRunFingerprint.value[id] = failed ? `failed:${runFingerprint}` : runFingerprint
+            if (opts?.persist !== false) {
+                void proMultiSession.saveSession()
+            }
         }
     }
 }

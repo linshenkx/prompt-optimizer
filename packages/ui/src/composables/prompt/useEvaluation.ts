@@ -8,6 +8,7 @@
  */
 
 import { reactive, ref, computed, type Ref, type ComputedRef } from 'vue'
+import { beginOutputStream, getOutputDocument, type OutputRecord } from '../../utils/output-document'
 import { useToast } from '../ui/useToast'
 import { useI18n } from 'vue-i18n'
 import { getI18nErrorMessage } from '../../utils/error'
@@ -45,6 +46,7 @@ export type ScoreLevel = 'excellent' | 'good' | 'acceptable' | 'poor' | 'very-po
  * 单个评估类型的状态
  */
 export interface SingleEvaluationState {
+  outputRecord?: OutputRecord
   isEvaluating: boolean
   result: EvaluationResponse | null
   streamContent: string
@@ -120,6 +122,7 @@ export interface UseEvaluationReturn {
   isAnyEvaluating: ComputedRef<boolean>
   activeResult: ComputedRef<EvaluationResponse | null>
   activeStreamContent: ComputedRef<string>
+  activeOutputRecord?: ComputedRef<OutputRecord | undefined>
   activeError: ComputedRef<string | null>
   activeScoreLevel: ComputedRef<ScoreLevel | null>
 
@@ -256,6 +259,7 @@ export function useEvaluation(
 
   const activeResult = computed(() => activeTargetState.value?.result ?? null)
   const activeStreamContent = computed(() => activeTargetState.value?.streamContent ?? '')
+  const activeOutputRecord = computed(() => activeTargetState.value?.outputRecord)
   const activeError = computed(() => activeTargetState.value?.error ?? null)
   const activeScoreLevel = computed(() =>
     calculateScoreLevel(activeTargetState.value?.result?.score?.overall ?? null)
@@ -302,12 +306,16 @@ export function useEvaluation(
     if (!targetState) return
 
     const requestId = Symbol('evaluation')
+    getOutputDocument(targetState.outputRecord)?.interrupt()
     activeRequests.set(targetState, requestId)
     const isCurrentRequest = () => activeRequests.get(targetState) === requestId && targetState.isEvaluating
     targetState.isEvaluating = true
     targetState.result = null
     targetState.streamContent = ''
     targetState.error = null
+    const outputRecord: OutputRecord = { result: '', reasoning: '' }
+    const stream = beginOutputStream(outputRecord)
+    targetState.outputRecord = outputRecord
 
     if (options.openPanel !== false) {
       state.activeDetail = {
@@ -324,12 +332,14 @@ export function useEvaluation(
         ...request,
         evaluationModelKey,
       }, {
+        signal: stream.signal,
         onToken: (token: string) => {
           if (!isCurrentRequest()) return
-          targetState.streamContent += token
+          stream.onToken(token)
         },
         onComplete: (result: EvaluationResponse) => {
           if (!isCurrentRequest()) return
+          stream.finish()
           targetState.result = result
           targetState.isEvaluating = false
         },
@@ -345,6 +355,9 @@ export function useEvaluation(
       targetState.error = getI18nErrorMessage(error)
       targetState.isEvaluating = false
       toast.error(t('evaluation.error.failed', { error: targetState.error }))
+    } finally {
+      stream.finish(true)
+      if (activeRequests.get(targetState) === requestId) targetState.streamContent = outputRecord.result
     }
   }
 
@@ -454,6 +467,8 @@ export function useEvaluation(
   const clearResult = (type: EvaluationType, variantId?: string): void => {
     const targetState = getTargetState(type, variantId)
     if (!targetState) return
+    getOutputDocument(targetState.outputRecord)?.interrupt()
+    targetState.outputRecord = undefined
 
     activeRequests.delete(targetState)
     targetState.isEvaluating = false
@@ -518,6 +533,7 @@ export function useEvaluation(
     isAnyEvaluating,
     activeResult,
     activeStreamContent,
+    activeOutputRecord,
     activeError,
     activeScoreLevel,
     evaluateResult,

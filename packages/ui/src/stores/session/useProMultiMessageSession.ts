@@ -1,3 +1,4 @@
+import { restoredOutputStatus, type OutputPhase } from '../../utils/output-document'
 /**
  * Pro-MultiMessage Session Store (Pro-system，多消息模式)
  *
@@ -90,6 +91,7 @@ export interface TestVariantConfig {
 }
 
 export interface TestVariantResult {
+  status?: OutputPhase
   /** Resolved prompt sent for this answer, independent of later edits. */
   requestPrompt?: string
   result: string
@@ -619,7 +621,7 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
             const oneRecord = one as Record<string, unknown>
             const r = typeof oneRecord['result'] === 'string' ? (oneRecord['result'] as string) : ''
             const reasoning = typeof oneRecord['reasoning'] === 'string' ? (oneRecord['reasoning'] as string) : ''
-            return { result: r, reasoning, ...(typeof oneRecord['requestPrompt'] === 'string' ? { requestPrompt: oneRecord['requestPrompt'] } : {}) }
+            return { result: r, reasoning, ...restoredOutputStatus(oneRecord['status']), ...(typeof oneRecord['requestPrompt'] === 'string' ? { requestPrompt: oneRecord['requestPrompt'] } : {}) }
           }
 
           testVariantResults.value = {

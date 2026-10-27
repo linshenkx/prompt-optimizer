@@ -1,3 +1,4 @@
+import { createOutputChannel } from '../../utils/output-document'
 import { ref, nextTick, computed, reactive, type Ref, type ComputedRef } from 'vue'
 
 import { useToast } from '../ui/useToast'
@@ -79,9 +80,12 @@ export function usePromptOptimizer(
   const boundCurrentVersionId = bindings?.currentVersionId ?? ref('')
   const withSourceMetadata = (metadata: Record<string, unknown> | undefined) =>
     withHistorySourceBindingMetadata(metadata, bindings?.getSourceBindingSession?.())
+  const outputChannel = createOutputChannel(boundOptimizedPrompt, boundOptimizedReasoning, bindings?.getSourceBindingSession?.())
+
 
   // 使用 reactive 创建一个响应式状态对象，而不是单独的 ref
   const state = reactive({
+    outputRecord: outputChannel.outputRecord,
     // 状态
     prompt: boundPrompt,
     optimizedPrompt: boundOptimizedPrompt,
@@ -133,6 +137,7 @@ export function usePromptOptimizer(
     // 等待一个微任务确保状态更新完成
     await nextTick()
 
+    const stream = outputChannel.begin()
     try {
       // 构建优化请求
       const request: OptimizationRequest = {
@@ -147,13 +152,12 @@ export function usePromptOptimizer(
       await promptService.value!.optimizePromptStream(
         request,
         {
-          onToken: (token: string) => {
-            state.optimizedPrompt += token
-          },
-          onReasoningToken: (reasoningToken: string) => {
-            state.optimizedReasoning += reasoningToken
-          },
+          signal: stream.signal,
+          onToken: stream.onToken,
+          onReasoningToken: stream.onReasoningToken,
           onComplete: async () => {
+            if (stream.signal.aborted || !stream.document.isCurrent) return
+            stream.finish()
             if (!currentTemplate) return
 
             try {
@@ -186,6 +190,7 @@ export function usePromptOptimizer(
               };
 
               const newRecord = await historyManager.value!.createNewChain(recordData);
+              if (!stream.document.isCurrent) return
 
               state.currentChainId = newRecord.chainId;
               state.currentVersions = newRecord.versions;
@@ -200,6 +205,7 @@ export function usePromptOptimizer(
             }
           },
           onError: (error: Error) => {
+            stream.finish(true)
             console.error(t('toast.error.optimizeProcessFailed'), error)
             toast.error(getI18nErrorMessage(error, t('toast.error.optimizeFailed')))
             state.isOptimizing = false
@@ -210,6 +216,7 @@ export function usePromptOptimizer(
       console.error(t('toast.error.optimizeFailed'), error)
       toast.error(getI18nErrorMessage(error, t('toast.error.optimizeFailed')))
     } finally {
+      stream.finish(true)
       state.isOptimizing = false
     }
   }
@@ -249,6 +256,7 @@ export function usePromptOptimizer(
     // 等待一个微任务确保状态更新完成
     await nextTick()
 
+    const stream = outputChannel.begin()
     try {
       // 构建带有高级上下文的优化请求
       // 在系统模式下，如果没有单独的prompt，使用消息内容作为描述
@@ -277,13 +285,12 @@ export function usePromptOptimizer(
       await promptService.value!.optimizePromptStream(
         request,
         {
-          onToken: (token: string) => {
-            state.optimizedPrompt += token
-          },
-          onReasoningToken: (reasoningToken: string) => {
-            state.optimizedReasoning += reasoningToken
-          },
+          signal: stream.signal,
+          onToken: stream.onToken,
+          onReasoningToken: stream.onReasoningToken,
           onComplete: async () => {
+            if (stream.signal.aborted || !stream.document.isCurrent) return
+            stream.finish()
             if (!currentTemplate) return
 
             // 创建历史记录 - 包含上下文信息
@@ -325,6 +332,7 @@ export function usePromptOptimizer(
               };
 
               const newRecord = await historyManager.value!.createNewChain(recordData);
+              if (!stream.document.isCurrent) return
 
               state.currentChainId = newRecord.chainId;
               state.currentVersions = newRecord.versions;
@@ -339,6 +347,7 @@ export function usePromptOptimizer(
             }
           },
           onError: (error: Error) => {
+            stream.finish(true)
             console.error(t('toast.error.optimizeProcessFailed'), error)
             toast.error(getI18nErrorMessage(error, t('toast.error.optimizeFailed')))
             state.isOptimizing = false
@@ -349,6 +358,7 @@ export function usePromptOptimizer(
       console.error(t('toast.error.optimizeFailed'), error)
       toast.error(getI18nErrorMessage(error, t('toast.error.optimizeFailed')))
     } finally {
+      stream.finish(true)
       state.isOptimizing = false
     }
   }
@@ -372,6 +382,7 @@ export function usePromptOptimizer(
     // 等待一个微任务确保状态更新完成
     await nextTick()
     
+    const stream = outputChannel.begin()
     try {
       await promptService.value!.iteratePromptStream(
         originalPrompt,
@@ -379,13 +390,12 @@ export function usePromptOptimizer(
         iterateInput,
         optimizeModel.value,
         {
-          onToken: (token: string) => {
-            state.optimizedPrompt += token
-          },
-          onReasoningToken: (reasoningToken: string) => {
-            state.optimizedReasoning += reasoningToken
-          },
+          signal: stream.signal,
+          onToken: stream.onToken,
+          onReasoningToken: stream.onReasoningToken,
           onComplete: async (_response: unknown) => {
+            if (stream.signal.aborted || !stream.document.isCurrent) return
+            stream.finish()
             if (!state.selectedIterateTemplate) {
               state.isIterating = false
               return
@@ -404,6 +414,7 @@ export function usePromptOptimizer(
               };
 
               const updatedChain = await historyManager.value!.addIteration(iterationData);
+              if (!stream.document.isCurrent) return
 
               state.currentVersions = updatedChain.versions
               state.currentVersionId = updatedChain.currentRecord.id
@@ -417,6 +428,7 @@ export function usePromptOptimizer(
             }
           },
           onError: (error: Error) => {
+            stream.finish(true)
             console.error('[Iterate] Iteration failed:', error)
             toast.error(t('toast.error.iterateFailed'))
             state.isIterating = false
