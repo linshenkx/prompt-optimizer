@@ -271,6 +271,26 @@
           </div>
         </div>
 
+        <div class="remote-import-code-panel">
+          <NText strong>{{ t('dataManager.remote.importCode.title') }}</NText>
+          <NInput
+            v-model:value="remoteImportCode"
+            type="textarea"
+            :autosize="{ minRows: 2, maxRows: 4 }"
+            :placeholder="t('dataManager.remote.importCode.placeholder')"
+            :disabled="isRemoteDataOperationActive"
+            data-testid="remote-import-code-input"
+          />
+          <NText depth="3">{{ t('dataManager.remote.importCode.importHelp') }}</NText>
+          <NButton
+            type="primary"
+            :loading="isImportingRemoteCode"
+            :disabled="!remoteImportCode.trim() || isRemoteDataOperationActive || isConnectingRemote"
+            data-testid="remote-import-code-submit"
+            @click="handleRemoteCodeImport"
+          >{{ t('dataManager.remote.importCode.importAction') }}</NButton>
+        </div>
+
         <div class="remote-backup-grid">
           <article class="remote-config-panel">
             <div class="remote-field">
@@ -280,6 +300,7 @@
               <NSelect
                 :value="remoteSettings.provider.kind"
                 :options="remoteProviderOptions"
+                :disabled="isRemoteDataOperationActive || isConnectingRemote"
                 @update:value="handleRemoteProviderChange"
               />
             </div>
@@ -614,6 +635,7 @@
               <NButton
                 type="primary"
                 :loading="isUploadingRemote"
+                data-testid="remote-backup-create"
                 :disabled="!isCurrentRemoteProviderConfigured || isRemoteDataOperationActive"
                 @click="handleRemoteUpload"
               >
@@ -665,10 +687,24 @@
               </NText>
               <NSelect
                 v-model:value="selectedRemoteBackupId"
+                data-testid="remote-backup-select"
                 :options="remoteBackupOptions"
+                :disabled="isRemoteDataOperationActive || isConnectingRemote"
                 :placeholder="$t('dataManager.remote.noBackups')"
                 filterable
               />
+            </div>
+
+            <div class="remote-action-row">
+              <NButton
+                secondary
+                :disabled="!selectedRemoteBackup || !isCurrentRemoteProviderConfigured || remoteSettings.provider.kind === 'google-drive' || isRemoteDataOperationActive"
+                data-testid="remote-import-code-export"
+                @click="handleRemoteCodeExport"
+              >{{ t('dataManager.remote.importCode.exportAction') }}</NButton>
+              <NText v-if="remoteSettings.provider.kind === 'google-drive'" depth="3">
+                {{ t('dataManager.remote.importCode.unsupportedProvider') }}
+              </NText>
             </div>
 
             <div v-if="selectedRemoteBackup" class="remote-field remote-restore-scope">
@@ -781,6 +817,29 @@
       </section>
     </div>
   </NModal>
+  <NModal
+    :show="showRemoteImportCode"
+    preset="card"
+    :title="t('dataManager.remote.importCode.exportTitle')"
+    :style="{ width: 'calc(100vw - 32px)', maxWidth: '480px' }"
+    @update:show="(value: boolean) => { showRemoteImportCode = value; if (!value) exportedRemoteImportCode = '' }"
+  >
+    <div class="remote-import-code-panel">
+      <NText depth="3">{{ t('dataManager.remote.importCode.secretNotice') }}</NText>
+      <NInput :value="exportedRemoteImportCode" type="textarea" readonly
+        :autosize="{ minRows: 3, maxRows: 5 }" data-testid="remote-import-code-output" />
+      <NButton secondary data-testid="remote-import-code-copy" @click="copyRemoteImportCode">
+        {{ t('dataManager.remote.importCode.copy') }}
+      </NButton>
+      <NText>{{ t('dataManager.remote.importCode.webAddress') }}</NText>
+      <NInput v-model:value="remoteImportWebAddress" placeholder="https://…" data-testid="remote-import-code-web-address" />
+      <NText depth="3">{{ t('dataManager.remote.importCode.webAddressHelp') }}</NText>
+      <div v-if="remoteImportQrUrl" class="remote-import-code-qr" data-testid="remote-import-code-qr">
+        <NQrCode :value="remoteImportQrUrl" :size="256" :padding="16" type="svg" error-correction-level="M" />
+      </div>
+      <NText v-else depth="3">{{ t('dataManager.remote.importCode.qrUnavailable') }}</NText>
+    </div>
+  </NModal>
 </template>
 
 <script setup lang="ts">
@@ -791,7 +850,7 @@ import { useI18n } from 'vue-i18n'
 import {
    NText, NButton, NUpload, NUploadDragger,
   NIcon, NCheckbox, NRadio, NRadioGroup, NSelect, NInput, NProgress, NTag,
-  NCollapse, NCollapseItem,
+  NCollapse, NCollapseItem, NQrCode,
   type UploadFileInfo,
 } from 'naive-ui'
 import { isRunningInElectron } from '@prompt-optimizer/core'
@@ -848,12 +907,20 @@ import {
   type RemoteSnapshotEntry,
 } from '../utils/remote-snapshot-backup'
 import { recordDataBackupCompleted } from '../utils/data-backup-reminder'
+import {
+  BACKUP_IMPORT_QR_MAX_LENGTH,
+  BackupImportCodeError,
+  createRemoteBackupImportCode,
+  createRemoteBackupImportUrl,
+  parseRemoteBackupImportCode,
+} from '../utils/remote-backup-import-code'
 import { openExternalUrl } from '../utils/open-external-url'
 import { formatErrorSummary } from '../utils/error'
 import { useSessionManager } from '../stores/session/useSessionManager'
 
 interface Props {
   show: boolean
+  importCode?: string
   /** The app can defer import while model generation or mode switching is active. */
   prepareRestore?: () => Promise<(() => void) | null>
 }
@@ -862,6 +929,7 @@ interface Emits {
   (e: 'close'): void
   (e: 'imported'): void
   (e: 'update:show', value: boolean): void
+  (e: 'import-code-consumed'): void
 }
 
 const props = defineProps<Props>()
@@ -993,7 +1061,26 @@ const isUploadingRemote = ref(false)
 const isLoadingRemoteList = ref(false)
 const isRestoringRemote = ref(false)
 const isCleaningRemoteAssets = ref(false)
+const isImportingRemoteCode = ref(false)
+const remoteImportCode = ref('')
+const showRemoteImportCode = ref(false)
+const exportedRemoteImportCode = ref('')
+const remoteImportWebAddress = ref(
+  ['https:', 'http:'].includes(window.location.protocol)
+    ? `${window.location.origin}${window.location.pathname}`
+    : 'https://prompt.always200.com/',
+)
+const remoteImportQrUrl = computed(() => {
+  if (!exportedRemoteImportCode.value) return ''
+  try {
+    const url = createRemoteBackupImportUrl(exportedRemoteImportCode.value, remoteImportWebAddress.value)
+    return new TextEncoder().encode(url).length <= BACKUP_IMPORT_QR_MAX_LENGTH ? url : ''
+  } catch {
+    return ''
+  }
+})
 const isRemoteDataOperationActive = computed(() =>
+  isImportingRemoteCode.value ||
   isUploadingRemote.value ||
   isLoadingRemoteList.value ||
   isRestoringRemote.value ||
@@ -1563,8 +1650,8 @@ const ensureRemoteConnectionReady = async (options?: {
   }
 }
 
-const refreshRemoteBackups = async (options?: { skipConnectionCheck?: boolean }) => {
-  if (!options?.skipConnectionCheck && !(await ensureRemoteConnectionReady())) return
+const refreshRemoteBackups = async (options?: { skipConnectionCheck?: boolean }): Promise<boolean> => {
+  if (!options?.skipConnectionCheck && !(await ensureRemoteConnectionReady())) return false
 
   try {
     persistRemoteSettings(false)
@@ -1577,9 +1664,11 @@ const refreshRemoteBackups = async (options?: { skipConnectionCheck?: boolean })
     if (!remoteBackups.value.some((entry) => entry.id === selectedRemoteBackupId.value)) {
       selectedRemoteBackupId.value = remoteBackups.value[0]?.id ?? null
     }
+    return true
   } catch (error) {
     console.error('[DataManager] Failed to list remote backups:', error)
     toast.error(t('dataManager.remote.listFailed', { message: (error as Error).message }))
+    return false
   } finally {
     isLoadingRemoteList.value = false
     finishRemoteProgress()
@@ -1639,6 +1728,10 @@ const handleRemoteUpload = async () => {
 
 const handleRemoteRestore = async () => {
   if (isRemoteDataOperationActive.value) return
+  await restoreSelectedRemoteBackup()
+}
+
+const restoreSelectedRemoteBackup = async () => {
   const entry = selectedRemoteBackup.value
   if (!entry) return
   if (!(await ensureRemoteConnectionReady())) return
@@ -1686,6 +1779,58 @@ const handleRemoteRestore = async () => {
   } finally {
     isRestoringRemote.value = false
     finishRemoteProgress()
+  }
+}
+
+const handleRemoteCodeExport = () => {
+  if (!selectedRemoteBackup.value || isRemoteDataOperationActive.value) return
+  try {
+    exportedRemoteImportCode.value = createRemoteBackupImportCode(
+      remoteSettings.value.provider, selectedRemoteBackup.value.id,
+    )
+    showRemoteImportCode.value = true
+  } catch (error) {
+    toast.error(t(`dataManager.remote.importCode.${error instanceof BackupImportCodeError ? error.kind : 'invalid'}`))
+  }
+}
+
+const copyRemoteImportCode = async () => {
+  try {
+    await writeClipboardText(exportedRemoteImportCode.value)
+    toast.success(t('dataManager.remote.importCode.copied'))
+  } catch {
+    toast.error(t('dataManager.remote.importCode.copyFailed'))
+  }
+}
+
+const handleRemoteCodeImport = async () => {
+  if (isRemoteDataOperationActive.value || isConnectingRemote.value) return
+  try {
+    // Validate the entire code before changing or persisting any settings.
+    const decoded = parseRemoteBackupImportCode(remoteImportCode.value)
+    isImportingRemoteCode.value = true
+    mobileTask.value = 'remote'
+    remoteSettings.value = { ...rememberRemoteBackupProvider(remoteSettings.value), provider: decoded.provider }
+    remoteBackups.value = []
+    selectedRemoteBackupId.value = null
+    persistRemoteSettings()
+    if (!await refreshRemoteBackups()) return
+    const entry = remoteBackups.value.find(backup => backup.id === decoded.snapshotId)
+    if (!entry) {
+      // Never let refreshRemoteBackups' normal "select first" behavior turn a
+      // stale import code into a restore of some other snapshot.
+      selectedRemoteBackupId.value = null
+      toast.error(t('dataManager.remote.importCode.backupNotFound', { id: decoded.snapshotId }))
+      return
+    }
+    selectedRemoteBackupId.value = entry.id
+    await nextTick()
+    await restoreSelectedRemoteBackup()
+  } catch (error) {
+    // Codes contain credentials: do not log the input or the parser exception.
+    toast.error(t(`dataManager.remote.importCode.${error instanceof BackupImportCodeError ? error.kind : 'invalid'}`))
+  } finally {
+    isImportingRemoteCode.value = false
   }
 }
 
@@ -1848,6 +1993,11 @@ const close = () => {
 }
 
 const handleKeyDown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape' && showRemoteImportCode.value) {
+    showRemoteImportCode.value = false
+    exportedRemoteImportCode.value = ''
+    return
+  }
   if (event.key === 'Escape' && props.show) {
     close()
   }
@@ -1866,7 +2016,22 @@ watch(
   (show) => {
     if (show) {
       void refreshStorageSummary()
+    } else {
+      remoteImportCode.value = ''
+      exportedRemoteImportCode.value = ''
+      showRemoteImportCode.value = false
     }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => [props.show, props.importCode] as const,
+  ([show, code]) => {
+    if (!show || !code) return
+    mobileTask.value = 'remote'
+    remoteImportCode.value = code
+    emit('import-code-consumed')
   },
   { immediate: true },
 )
@@ -2075,6 +2240,20 @@ const getStorageItemDetail = (item: Pick<StorageBreakdownItem, 'key' | 'count'>)
 </script>
 
 <style scoped>
+.remote-import-code-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  margin-bottom: 16px;
+}
+
+.remote-import-code-qr {
+  display: flex;
+  justify-content: center;
+  padding: 4px;
+}
+
 :global(.data-manager-modal.n-card) {
   display: flex;
   flex-direction: column;

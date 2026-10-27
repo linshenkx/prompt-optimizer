@@ -324,7 +324,7 @@ describe('remote snapshot backup with real WebDAV object store', () => {
     expect(importAllData).toHaveBeenCalledWith(JSON.stringify({ version: 1, data: { history: ['remote'] } }))
     expect(importFavorites).toHaveBeenCalledWith(
       JSON.stringify({ version: '1.0', favorites: [{ id: 'fav-1' }] }),
-      { mergeStrategy: 'merge' },
+      { mergeStrategy: 'merge', matchBy: 'id' },
     )
     expect(sessionTarget.store.get('session-1')?.data).toBe(encode('session-image'))
     expect(favoriteTarget.store.get('favorite-1')?.data).toBe(encode('favorite-image'))

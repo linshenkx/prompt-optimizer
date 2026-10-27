@@ -319,6 +319,25 @@ const messages = {
       "importTitle": "匯入本機資料"
     },
     "remote": {
+      "importCode": {
+        "title": "透過匯入碼還原雲端備份",
+        "placeholder": "貼上備份匯入碼或掃碼取得的連結",
+        "importHelp": "自動連線並匯入碼中指定的備份，還原方式與下方「還原所選備份」一致。",
+        "importAction": "匯入並還原",
+        "exportAction": "產生匯入碼 / QR 碼",
+        "exportTitle": "所選備份的匯入碼",
+        "copy": "複製匯入碼",
+        "copied": "匯入碼已複製",
+        "copyFailed": "複製失敗，請手動選取並複製匯入碼。",
+        "secretNotice": "匯入碼與 QR 碼包含雲端連線憑證，請僅在自己的裝置之間傳遞。",
+        "webAddress": "手機開啟的應用程式網址",
+        "webAddressHelp": "填寫手機可存取的應用程式網頁網址。掃碼後確認「匯入並還原」；桌面應用程式可直接貼上上方匯入碼。",
+        "qrUnavailable": "網頁網址無效或 QR 碼內容過長，請修改網址或複製文字匯入碼。",
+        "invalid": "匯入碼無效或連線設定不完整，請重新複製完整匯入碼。",
+        "unsupportedVersion": "目前版本不支援此匯入碼，請更新應用程式。",
+        "unsupportedProvider": "Google Drive 登入授權無法透過匯入碼移轉，請使用其他雲端連線。",
+        "backupNotFound": "找不到匯入碼指定的備份（{id}），它可能已被刪除。未匯入其他備份。"
+      },
       "title": "遠端備份",
       "webRecommendation": "Web 版推薦使用 Google Drive；S3/R2/MinIO 和 WebDAV 需要服務端允許瀏覽器跨域。",
       "desktopRecommendation": "桌面版暫不支援 Google Drive；推薦使用 Cloudflare R2、S3/MinIO 或 WebDAV。",

@@ -319,6 +319,25 @@ const messages = {
       "importTitle": "Import Local Data"
     },
     "remote": {
+      "importCode": {
+        "title": "Restore a cloud backup with an import code",
+        "placeholder": "Paste a backup import code or a scanned link",
+        "importHelp": "Connect and restore the exact backup in the code using the same restore process as the backup list below.",
+        "importAction": "Import and Restore",
+        "exportAction": "Generate Import Code / QR Code",
+        "exportTitle": "Import code for the selected backup",
+        "copy": "Copy Import Code",
+        "copied": "Import code copied",
+        "copyFailed": "Copy failed. Select and copy the import code manually.",
+        "secretNotice": "The import code and QR code contain cloud credentials. Share them only between your own devices.",
+        "webAddress": "App address to open on your phone",
+        "webAddressHelp": "Use an app web address your phone can reach. After scanning, confirm Import and Restore. In the desktop app, paste the text import code instead.",
+        "qrUnavailable": "The web address is invalid or the QR content is too long. Edit the address or copy the text import code.",
+        "invalid": "The import code is invalid or its connection settings are incomplete. Copy the complete code again.",
+        "unsupportedVersion": "This import code version is not supported. Update the app.",
+        "unsupportedProvider": "Google Drive sign-in cannot be transferred with an import code. Use another cloud connection.",
+        "backupNotFound": "The backup specified by the code ({id}) was not found. It may have been deleted. No other backup was imported."
+      },
       "title": "Remote Backup",
       "webRecommendation": "Google Drive is recommended for Web. S3/R2/MinIO and WebDAV require browser CORS support on the server.",
       "desktopRecommendation": "Google Drive is not supported on Desktop yet. Use Cloudflare R2, S3/MinIO, or WebDAV instead.",

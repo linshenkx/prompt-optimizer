@@ -45,6 +45,8 @@ vi.mock('../../../src/composables/ui/useWorkspaceLayout', () => ({
 }))
 
 import DataManager from '../../../src/components/DataManager.vue'
+import * as remoteBackup from '../../../src/utils/remote-backup'
+import { createRemoteBackupImportCode, parseRemoteBackupImportCode } from '../../../src/utils/remote-backup-import-code'
 
 const isRunningInElectronMock = vi.fn(() => false)
 const getEnvVarMock = vi.fn(() => '')
@@ -132,8 +134,8 @@ const naiveStubs = {
   },
   NInput: {
     name: 'NInput',
-    template: '<input :value="value" @input="$emit(\'update:value\', $event.target.value)" />',
-    props: ['value', 'placeholder', 'type', 'clearable', 'showPasswordOn'],
+    template: '<textarea v-if="type === \'textarea\'" :value="value" :disabled="disabled" @input="$emit(\'update:value\', $event.target.value)" /><input v-else :value="value" :disabled="disabled" @input="$emit(\'update:value\', $event.target.value)" />',
+    props: ['value', 'placeholder', 'type', 'clearable', 'showPasswordOn', 'disabled', 'autosize', 'readonly'],
     emits: ['update:value'],
   },
   NInputNumber: {
@@ -142,6 +144,7 @@ const naiveStubs = {
     props: ['value', 'min', 'max', 'disabled'],
     emits: ['update:value'],
   },
+  NQrCode: { template: '<svg />', props: ['value', 'size', 'padding', 'type', 'errorCorrectionLevel'] },
   NSwitch: {
     name: 'NSwitch',
     template: '<input type="checkbox" :checked="value" @change="$emit(\'update:value\', $event.target.checked)" />',
@@ -285,6 +288,90 @@ describe('DataManager storage breakdown', () => {
     await flushPromises()
     return state
   }
+
+  it('exports and copies the selected backup and only its current connection', async () => {
+    const wrapper = mountComponent()
+    const state = await connectRemote(wrapper)
+    state.remoteSettings.providers = { webdav: { kind: 'webdav', password: 'unrelated-secret' } }
+    await wrapper.get('[data-testid="remote-import-code-export"]').trigger('click')
+    const code = state.exportedRemoteImportCode
+    expect(parseRemoteBackupImportCode(code)).toEqual({ version: 1, provider: state.remoteSettings.provider, snapshotId: 'snap-1' })
+    expect(wrapper.get('[data-testid="remote-import-code-qr"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="remote-import-code-copy"]').trigger('click')
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(code)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    expect(state.showRemoteImportCode).toBe(false)
+    expect(wrapper.emitted('close')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it.each(['web', 'desktop', 'mobile'])('imports the exact backup through the existing restore flow on %s', async runtime => {
+    isRunningInElectronMock.mockReturnValue(runtime === 'desktop')
+    compactViewport.value = runtime === 'mobile'
+    const store = { detect: vi.fn().mockResolvedValue({ ok: true, steps: [] }) }
+    const storeSpy = vi.spyOn(remoteBackup, 'createRemoteObjectStore').mockReturnValue(store as any)
+    const provider = { kind: 'cloudflare-r2' as const, accountId: 'account', bucket: 'bucket', accessKeyId: 'ak', secretAccessKey: 'sk' }
+    remoteSnapshotMocks.listRemoteSnapshotBackups.mockResolvedValue([
+      { id: 'newer-other-backup', name: 'other' },
+      { id: 'selected-backup', name: 'selected', manifest: { includedSections: ['appData', 'favorites', 'imageCache', 'favoriteImages'] } },
+    ])
+    const wrapper = mountComponent()
+    const state = (wrapper.vm as any).$?.setupState
+    state.remoteSettings.providers = { webdav: { kind: 'webdav', endpoint: 'https://other.example', username: 'other', password: 'retained', directory: '' } }
+    state.remoteImportCode = createRemoteBackupImportCode(provider, 'selected-backup')
+    await state.handleRemoteCodeImport()
+    expect(storeSpy).toHaveBeenCalledWith(provider, runtime === 'desktop' ? 'desktop' : 'web')
+    expect(remoteSnapshotMocks.restoreRemoteSnapshotBackup).toHaveBeenCalledTimes(1)
+    expect(remoteSnapshotMocks.restoreRemoteSnapshotBackup).toHaveBeenCalledWith(expect.objectContaining({
+      snapshotId: 'selected-backup', favoriteMergeStrategy: 'overwrite',
+      sections: { appData: true, favorites: true, imageCache: true, favoriteImages: true },
+    }))
+    expect(sessionMocks.beginSessionRestore).toHaveBeenCalledTimes(1)
+    expect(wrapper.emitted('imported')).toHaveLength(1)
+    expect(remoteSnapshotMocks.createRemoteSnapshotBackup).not.toHaveBeenCalled()
+    expect(JSON.parse(localStorage.getItem(remoteBackup.REMOTE_BACKUP_SETTINGS_KEY)!)).toMatchObject({
+      provider, providers: { webdav: { password: 'retained' } },
+    })
+    wrapper.unmount()
+    storeSpy.mockRestore()
+  })
+
+  it('never restores a different backup when the pinned backup has been deleted', async () => {
+    const storeSpy = vi.spyOn(remoteBackup, 'createRemoteObjectStore').mockReturnValue({ detect: vi.fn().mockResolvedValue({ ok: true }) } as any)
+    remoteSnapshotMocks.listRemoteSnapshotBackups.mockResolvedValue([{ id: 'other', name: 'other' }])
+    const wrapper = mountComponent()
+    const state = await connectRemote(wrapper)
+    state.remoteImportCode = createRemoteBackupImportCode(state.remoteSettings.provider, 'deleted')
+    await state.handleRemoteCodeImport()
+    expect(state.selectedRemoteBackupId).toBeNull()
+    expect(remoteSnapshotMocks.restoreRemoteSnapshotBackup).not.toHaveBeenCalled()
+    expect(wrapper.emitted('imported')).toBeUndefined()
+    wrapper.unmount()
+    storeSpy.mockRestore()
+  })
+
+  it('rejects malformed codes without changing saved connections or making network calls', async () => {
+    const wrapper = mountComponent()
+    const state = await connectRemote(wrapper)
+    const previous = localStorage.getItem(remoteBackup.REMOTE_BACKUP_SETTINGS_KEY)
+    state.remoteImportCode = 'not-a-backup-code'
+    await state.handleRemoteCodeImport()
+    expect(localStorage.getItem(remoteBackup.REMOTE_BACKUP_SETTINGS_KEY)).toBe(previous)
+    expect(remoteSnapshotMocks.listRemoteSnapshotBackups).not.toHaveBeenCalled()
+    expect(remoteSnapshotMocks.restoreRemoteSnapshotBackup).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('opens the mobile cloud task for a scanned code and waits for the import action', async () => {
+    compactViewport.value = true
+    const wrapper = mountComponent()
+    await wrapper.setProps({ importCode: 'scanned-code' })
+    await flushPromises()
+    expect(wrapper.get('[data-testid="remote-import-code-input"]').isVisible()).toBe(true)
+    expect(wrapper.emitted('import-code-consumed')).toHaveLength(1)
+    expect(remoteSnapshotMocks.restoreRemoteSnapshotBackup).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
 
   it.each(['local', 'remote'])('saves live workspace drafts before creating a %s backup', async (target) => {
     allowConsole(/^(Export failed:|\[DataManager\] Remote backup failed:)/)

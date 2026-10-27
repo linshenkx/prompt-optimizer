@@ -119,7 +119,9 @@
             <DataManagerUI
                 v-if="isReady"
                 v-model:show="showDataManager"
+                :import-code="incomingBackupImportCode"
                 :prepare-restore="prepareSessionRestore"
+                @import-code-consumed="incomingBackupImportCode = ''"
                 @imported="handleDataImported"
             />
 
@@ -279,6 +281,7 @@ import ModelManagerUI from '../ModelManager.vue'
 import TemplateManagerUI from '../TemplateManager.vue'
 import HistoryDrawerUI from '../HistoryDrawer.vue'
 import DataManagerUI from '../DataManager.vue'
+import { BACKUP_IMPORT_QUERY_KEY } from '../../utils/remote-backup-import-code'
 import FavoriteManagerUI from '../FavoriteManager.vue'
 import SaveFavoriteDialog from '../SaveFavoriteDialog.vue'
 import VariableManagerModal from '../variable/VariableManagerModal.vue'
@@ -677,6 +680,24 @@ const servicesForContextEditor = computed(() => services?.value || null);
 // 6. 创建所有必要的引用
 const promptService = shallowRef<IPromptService | null>(null);
 const showDataManager = ref(false);
+const incomingBackupImportCode = ref('');
+watch(
+    () => routerInstance.currentRoute.value.query[BACKUP_IMPORT_QUERY_KEY],
+    (code) => {
+        if (typeof code !== 'string' || !code) return;
+        incomingBackupImportCode.value = code;
+        if (isReady.value) showDataManager.value = true;
+        // Keep credentials out of the address bar and subsequent copied links.
+        const route = routerInstance.currentRoute.value;
+        const query = { ...route.query };
+        delete query[BACKUP_IMPORT_QUERY_KEY];
+        void routerInstance.replace({ path: route.path, query, hash: route.hash });
+    },
+    { immediate: true },
+);
+watch(isReady, (ready) => {
+    if (ready && incomingBackupImportCode.value) showDataManager.value = true;
+}, { immediate: true });
 const dataBackupReminderDue = ref(isDataBackupReminderDue());
 
 type ContextWorkspaceExpose = {

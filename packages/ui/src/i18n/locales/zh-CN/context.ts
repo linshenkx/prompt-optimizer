@@ -319,6 +319,25 @@ const messages = {
       "importTitle": "导入本地数据"
     },
     "remote": {
+      "importCode": {
+        "title": "通过导入码恢复云端备份",
+        "placeholder": "粘贴备份导入码或扫码得到的链接",
+        "importHelp": "自动连接并导入码中指定的备份，恢复方式与下方“恢复所选备份”一致。",
+        "importAction": "导入并恢复",
+        "exportAction": "生成导入码 / 二维码",
+        "exportTitle": "所选备份的导入码",
+        "copy": "复制导入码",
+        "copied": "导入码已复制",
+        "copyFailed": "复制失败，请手动选择并复制导入码。",
+        "secretNotice": "导入码和二维码包含云连接凭据，请仅在自己的设备之间传递。",
+        "webAddress": "手机打开的应用地址",
+        "webAddressHelp": "填写手机能访问的应用网页地址。扫码后确认“导入并恢复”；桌面应用可直接粘贴上面的导入码。",
+        "qrUnavailable": "网页地址无效或二维码内容过长，请修改地址，或复制文本导入码。",
+        "invalid": "导入码无效或连接配置不完整，请重新复制完整导入码。",
+        "unsupportedVersion": "当前版本不支持此导入码，请更新应用。",
+        "unsupportedProvider": "Google Drive 登录授权无法通过导入码迁移，请使用其他云连接。",
+        "backupNotFound": "找不到导入码指定的备份（{id}），它可能已被删除。未导入其他备份。"
+      },
       "title": "远程备份",
       "webRecommendation": "Web 版推荐使用 Google Drive；S3/R2/MinIO 和 WebDAV 需要服务端允许浏览器跨域。",
       "desktopRecommendation": "桌面版暂不支持 Google Drive；推荐使用 Cloudflare R2、S3/MinIO 或 WebDAV。",
