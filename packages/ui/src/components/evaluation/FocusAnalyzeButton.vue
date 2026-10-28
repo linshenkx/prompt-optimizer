@@ -304,6 +304,14 @@ const handleStart = () => {
   margin: 0;
 }
 
+@media (min-width: 1024px) {
+  .focus-analyze-group--toolbar :deep(.n-button) {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+  }
+}
+
 .focus-analyze-main:focus-visible,
 .focus-analyze-trigger:focus-visible {
   outline: 2px solid currentColor;

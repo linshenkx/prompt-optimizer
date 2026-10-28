@@ -2,6 +2,13 @@
   <NCard
     :bordered="false"
     class="output-display-core h-full"
+    :style="{
+      '--output-toolbar-text': themeVars.textColor2,
+      '--output-toolbar-active': themeVars.textColor1,
+      '--output-toolbar-soft': themeVars.hoverColor,
+      '--output-toolbar-paper': themeVars.cardColor,
+      '--output-toolbar-focus': themeVars.primaryColor,
+    }"
     :class="{ 'output-display--flow': fitContent }"
     content-class="output-display-content"
     content-style="padding: 0; height: 100%; max-height: 100%; display: flex; flex-direction: column; overflow: hidden;"
@@ -9,7 +16,7 @@
   >
     <NFlex class="output-display-stack" vertical style="height: 100%; min-height: 0; overflow: hidden;">
       <!-- 统一顶层工具栏 -->
-      <NFlex ref="toolbarRef" v-if="hasToolbar && (!fitContent || hasContent || hasReasoning)" class="output-display-toolbar" justify="space-between" align="center" style="flex: 0 0 auto;">
+      <NFlex ref="toolbarRef" v-if="hasToolbar && (!fitContent || hasContent || hasReasoning)" class="output-display-toolbar" justify="space-between" align="center" :size="[12, 6]" style="flex: 0 0 auto;">
         <!-- 左侧：视图控制按钮组 -->
         <NDropdown v-if="foldViewControls" trigger="click" :options="[
           { key: 'render', label: t('common.preview') },
@@ -25,40 +32,34 @@
           <NButton 
             @click="internalViewMode = 'render'"
             data-testid="output-view-preview"
-            :disabled="!fitContent && internalViewMode === 'render'"
             :aria-pressed="internalViewMode === 'render'"
-            :quaternary="fitContent"
+            quaternary
             size="small"
-            :type="!fitContent && internalViewMode === 'render' ? 'primary' : 'default'"
           >
             {{ t('common.preview') }}
           </NButton>
           <NButton 
             @click="internalViewMode = 'source'"
             :data-testid="testId ? `${testId}-view-source` : 'output-view-source'"
-            :disabled="!fitContent && internalViewMode === 'source'"
             :aria-pressed="internalViewMode === 'source'"
-            :quaternary="fitContent"
+            quaternary
             size="small"
-            :type="!fitContent && internalViewMode === 'source' ? 'primary' : 'default'"
           >
             {{ t('common.source') }}
           </NButton>
           <NButton 
             v-if="isActionEnabled('diff') && originalContent"
             @click="internalViewMode = 'diff'"
-            :disabled="(!fitContent && internalViewMode === 'diff') || !originalContent"
             :aria-pressed="internalViewMode === 'diff'"
-            :quaternary="fitContent"
+            quaternary
             size="small"
-            :type="!fitContent && internalViewMode === 'diff' ? 'primary' : 'default'"
           >
             {{ t('common.compare') }}
           </NButton>
         </NButtonGroup>
         
         <!-- 右侧：操作按钮 -->
-        <NFlex align="center" :size="6" :wrap="false" class="output-toolbar-actions">
+        <NFlex align="center" :size="4" :wrap="false" class="output-toolbar-actions">
           <slot name="toolbar-right-extra"></slot>
           <NDropdown v-if="foldActionControls && (isActionEnabled('copy') || isActionEnabled('favorite'))" trigger="click"
             :options="compactActionOptions" @select="handleCompactAction">
@@ -293,7 +294,7 @@ import { useI18n } from 'vue-i18n'
 import {
   NCard, NButton, NButtonGroup, NIcon, NCollapse, NCollapseItem,
   NInput, NEmpty, NSpin, NScrollbar, NFlex, NText, NSpace, NDropdown,
-  type DropdownOption
+  useThemeVars, type DropdownOption
 } from 'naive-ui'
 import { useToast } from '../composables/ui/useToast'
 import { useClipboard } from '../composables/ui/useClipboard'
@@ -327,6 +328,7 @@ import { openExternalUrl } from '../utils/open-external-url'
 type ActionName = 'fullscreen' | 'diff' | 'copy' | 'edit' | 'reasoning' | 'favorite'
 
 const { t } = useI18n()
+const themeVars = useThemeVars()
 const { copyText } = useClipboard()
 
 const message = useToast()
@@ -824,20 +826,58 @@ defineExpose({ resetReasoningState, forceRefreshContent, forceExitEditing, getVi
   flex-shrink: 0;
 }
 
+/* Desktop controls share a 28px row; compact layouts retain their touch targets. */
+@media (min-width: 1024px) {
+  .output-view-modes {
+    flex-shrink: 0;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 6px;
+    background: var(--output-toolbar-soft);
+  }
+
+  .output-view-modes :deep(.n-button) {
+    height: 24px;
+    padding: 0 8px;
+    margin: 0 !important;
+    border-radius: 4px !important;
+    font-size: 12px;
+    color: var(--output-toolbar-text);
+  }
+
+  .output-view-modes :deep(.n-button[aria-pressed="true"]) {
+    color: var(--output-toolbar-active);
+    background: var(--output-toolbar-paper);
+    font-weight: 600;
+  }
+
+  .output-toolbar-actions > :deep(.n-button:not([data-testid="output-stop"])) {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 6px;
+  }
+}
+
+.output-display-toolbar :deep(.n-button:focus-visible) {
+  outline: 2px solid var(--output-toolbar-focus);
+  outline-offset: 2px;
+}
+
 .output-copy-split-button {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   height: 28px;
-  overflow: hidden;
+  overflow: visible;
   color: inherit;
-  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border: 0;
   border-radius: 6px;
   background: transparent;
 }
 
 .output-copy-split-button:not(.is-disabled):hover {
-  border-color: color-mix(in srgb, currentColor 28%, transparent);
   background: color-mix(in srgb, currentColor 6%, transparent);
 }
 
@@ -847,22 +887,22 @@ defineExpose({ resetReasoningState, forceRefreshContent, forceExitEditing, getVi
 
 .output-copy-split-button :deep(.n-button.output-copy-split-primary),
 .output-copy-split-button :deep(.n-button.output-copy-split-menu) {
-  height: 26px;
+  height: 28px;
   border: 0 !important;
-  border-radius: 0 !important;
+  border-radius: 4px !important;
   background: transparent !important;
 }
 
 .output-copy-split-button :deep(.n-button.output-copy-split-primary) {
-  min-width: 29px;
-  width: 29px;
+  min-width: 28px;
+  width: 28px;
   padding: 0 6px;
 }
 
 .output-copy-split-button :deep(.n-button.output-copy-split-menu) {
   position: relative;
-  min-width: 21px;
-  width: 21px;
+  min-width: 24px;
+  width: 24px;
   padding: 0 4px;
 }
 
