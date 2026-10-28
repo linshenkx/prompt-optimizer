@@ -17,10 +17,9 @@
             content-style="padding: 0;"
             :style="{ maxHeight: '120px', overflow: 'visible' }"
         >
-            <NFlex class="prompt-panel-heading" justify="space-between" align="flex-start" :wrap="false">
+            <NFlex class="prompt-panel-heading" justify="space-between" align="center" :size="[12, 8]">
                 <!-- 左侧：标题和版本 -->
-                <NSpace vertical :size="8" class="flex-1 min-w-0">
-                    <NSpace align="center" :size="12">
+                <div class="prompt-panel-identity">
                         <NText class="prompt-panel-title text-lg font-semibold">{{
                             t("prompt.optimized")
                         }}</NText>
@@ -28,57 +27,70 @@
                             :value="isV0Selected ? 'v0' : currentVersionId" :aria-label="t('workspace.promptVersion')"
                             :options="[...versions.slice().reverse().map(version => ({ label: `V${version.version}`, value: version.id })), ...(showV0Tag ? [{ label: t('prompt.originalVersion'), value: 'v0' }] : [])]"
                             @update:value="selectMobileVersion" />
-                        <NSpace
+                        <div
                             v-if="!mobileLayout && versions && versions.length > 0"
-                            :size="4"
                             class="version-tags"
+                            :style="{
+                                '--version-muted': themeVars.textColor3,
+                                '--version-border': themeVars.dividerColor,
+                                '--version-accent': themeVars.successColor,
+                                '--version-error': themeVars.errorColor,
+                            }"
                             data-testid="prompt-panel-version-tags"
                         >
                             <!-- V3, V2, V1... 按降序显示（最新版本在前） -->
-                            <NTag
+                            <ThemedTooltip
                                 v-for="version in versions.slice().reverse()"
                                 :key="getVersionTagRenderKey(version)"
-                                :type="
-                                    currentVersionId === version.id && !isV0Selected
-                                        ? 'success'
-                                        : 'default'
-                                "
-                                size="small"
-                                class="version-tag-clickable"
-                                :class="getVersionSourceFeedbackClass(version.version)"
-                                @click="switchVersion(version)"
-                                :bordered="currentVersionId !== version.id || isV0Selected"
-                                :data-testid="`prompt-panel-version-tag-v${version.version}`"
-                                :data-source-feedback-tone="getVersionSourceFeedbackTone(version.version) || undefined"
+                                :label="`${t('workspace.promptVersion')} ${version.version}`"
+                                :show="focusedVersion === version.version ? true : undefined"
                             >
-                                V{{ version.version }}
-                            </NTag>
+                                <button
+                                    type="button"
+                                    class="version-tag-clickable"
+                                    :class="getVersionSourceFeedbackClass(version.version)"
+                                    :aria-label="`${t('workspace.promptVersion')} ${version.version}`"
+                                    :aria-pressed="currentVersionId === version.id && !isV0Selected"
+                                    @click="switchVersion(version)"
+                                    @focus="focusedVersion = version.version"
+                                    @blur="focusedVersion = null"
+                                    @keydown.esc="focusedVersion = null"
+                                    :data-testid="`prompt-panel-version-tag-v${version.version}`"
+                                    :data-source-feedback-tone="getVersionSourceFeedbackTone(version.version) || undefined"
+                                >
+                                    <span class="version-number" aria-hidden="true">{{ version.version }}</span>
+                                </button>
+                            </ThemedTooltip>
                             <!-- 🆕 原始版本固定放在最后 -->
-                            <ThemedTooltip v-if="showV0Tag" :label="t('prompt.originalVersionTooltip')">
-                                <NTag
+                            <ThemedTooltip v-if="showV0Tag"
+                                :label="`${t('promptOptimizer.originalPrompt')} · ${t('prompt.originalVersionTooltip')}`"
+                                :show="focusedVersion === 0 ? true : undefined">
+                                <button
                                     :key="getV0TagRenderKey()"
-                                    :type="isV0Selected ? 'success' : 'default'"
-                                    size="small"
+                                    type="button"
                                     class="version-tag-clickable"
                                     :class="getVersionSourceFeedbackClass(0)"
+                                    :aria-label="t('promptOptimizer.originalPrompt')"
+                                    :aria-pressed="isV0Selected"
                                     @click="switchToV0"
-                                    :bordered="!isV0Selected"
+                                    @focus="focusedVersion = 0"
+                                    @blur="focusedVersion = null"
+                                    @keydown.esc="focusedVersion = null"
                                     data-testid="prompt-panel-version-tag-v0"
                                     :data-source-feedback-tone="getVersionSourceFeedbackTone(0) || undefined"
                                 >
-                                    {{ t("prompt.originalVersion") }}
-                                </NTag>
+                                    <span class="version-number" aria-hidden="true">0</span>
+                                </button>
                             </ThemedTooltip>
-                        </NSpace>
-                    </NSpace>
-                </NSpace>
+                        </div>
+                </div>
 
                 <!-- 右侧：操作按钮 -->
                 <NSpace
                     align="center"
-                    :size="8"
+                    :size="12"
                     :wrap-item="false"
-                    class="flex-shrink-0"
+                    class="prompt-panel-actions"
                 >
                     <!-- 预览按钮 -->
                     <NButton
@@ -295,7 +307,7 @@ import { Eye as UiEye, Check as UiCheck, RefreshCw as UiRefreshCw } from '@lucid
 import OutputPlainText from './OutputPlainText.vue'
 import { ref, computed, nextTick, watch, type PropType } from "vue";
 import { useI18n } from "vue-i18n";
-import { NButton, NText, NInput, NCard, NFlex, NSpace, NTag, NIcon, NSelect } from "naive-ui";
+import { NButton, NText, NInput, NCard, NFlex, NSpace, NIcon, NSelect, useThemeVars } from "naive-ui";
 import { useConfirmDialog } from '../composables/ui/useConfirmDialog';
 import { useToast } from '../composables/ui/useToast';
 import { useEvaluationContextOptional } from '../composables/prompt/useEvaluationContext';
@@ -318,6 +330,8 @@ import type {
 type SourceFeedbackTone = "change" | "error";
 
 const { t } = useI18n();
+const themeVars = useThemeVars();
+const focusedVersion = ref<number | null>(null);
 const toast = useToast();
 const confirmDialog = useConfirmDialog();
 
@@ -924,6 +938,37 @@ defineExpose({
 </script>
 
 <style scoped>
+.prompt-panel-identity {
+    display: flex;
+    align-items: center;
+    flex: 1 1 220px;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+}
+
+.prompt-panel-title {
+    line-height: 28px;
+    white-space: nowrap;
+}
+
+.version-tags {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0;
+    min-width: 0;
+}
+
+.prompt-panel-actions {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.compact-shared-prompt .prompt-panel-identity {
+    flex-basis: auto;
+}
+
 /* 版本容器样式 */
 .version-container {
     display: flex;
@@ -933,25 +978,69 @@ defineExpose({
 
 /* 版本标签可点击样式 */
 .version-tag-clickable {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--version-muted);
+    font: inherit;
     cursor: pointer;
     user-select: none;
-    transition: transform 0.15s ease;
 }
 
-.version-tag-clickable:hover {
-    transform: translateY(-1px);
+.version-number {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: 1px solid var(--version-border);
+    border-radius: 50%;
+    font-size: 11px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.version-tag-clickable:active {
-    transform: translateY(0);
+.version-tag-clickable:hover .version-number {
+    background: color-mix(in srgb, currentColor 7%, transparent);
 }
 
-.version-tag-clickable--source-change {
+.version-tag-clickable[aria-pressed="true"] {
+    color: var(--version-accent);
+}
+
+.version-tag-clickable[aria-pressed="true"] .version-number {
+    background: color-mix(in srgb, currentColor 10%, transparent);
+    border-color: color-mix(in srgb, currentColor 28%, transparent);
+    font-weight: 600;
+}
+
+.version-tag-clickable:focus-visible {
+    outline: 2px solid var(--version-accent);
+    outline-offset: 1px;
+}
+
+.version-tag-clickable--source-change .version-number {
     animation: prompt-version-source-change-pulse 780ms ease-out;
 }
 
-.version-tag-clickable--source-error {
+.version-tag-clickable--source-error .version-number {
+    color: var(--version-error);
     animation: prompt-version-source-error-pulse 860ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .version-tag-clickable .version-number {
+        animation: none;
+        transition: none;
+    }
 }
 
 @keyframes prompt-version-source-change-pulse {
