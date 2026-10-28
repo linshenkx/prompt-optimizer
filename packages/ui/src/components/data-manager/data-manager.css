@@ -1,0 +1,357 @@
+:where(.data-manager-modal, .data-manager-code-modal) .remote-import-code-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  margin-bottom: 16px;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-import-code-qr {
+  display: flex;
+  justify-content: center;
+  padding: 4px;
+}
+:where(.data-manager-code-modal) .remote-import-code-qr svg {
+  max-width: 100%;
+  height: auto;
+}
+:where(.data-manager-modal.n-card) {
+  display: flex;
+  flex-direction: column;
+  max-height: min(90vh, 900px);
+  overflow: hidden;
+}
+:where(.data-manager-modal.n-card > .n-card__content) {
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .data-manager-scroll-shell {
+  width: 100%;
+  max-height: calc(90vh - 112px);
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 2px 2px;
+  box-sizing: border-box;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .data-manager-section {
+  padding: 14px 0 16px;
+  border-bottom: 1px solid var(--n-border-color);
+  min-width: 0;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .data-manager-section:first-child {
+  padding-top: 0;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .data-manager-section:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+  min-width: 0;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .section-heading > div {
+  min-width: 0;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .section-title {
+  display: block;
+  font-size: 17px;
+  line-height: 1.3;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .section-description {
+  display: block;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .storage-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .storage-stat-card {
+  border: 1px solid var(--n-border-color);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--n-color-embedded);
+  min-width: 0;
+  box-sizing: border-box;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .storage-stat-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 86px;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .storage-stat-card--total {
+  background: var(--n-primary-color-suppl);
+}
+:where(.data-manager-modal, .data-manager-code-modal) .storage-stat-value {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.1;
+  margin-top: 4px;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .storage-note {
+  display: block;
+  font-size: 12px;
+  margin-top: 6px;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .desktop-storage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .storage-path-block {
+  min-width: 0;
+  flex: 1;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .storage-path-label {
+  font-size: 12px;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .storage-path-value {
+  word-break: break-all;
+  font-family: monospace;
+  font-size: 12px;
+  margin-top: 4px;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .storage-desktop-stat {
+  min-width: 140px;
+  padding: 10px 12px;
+  border: 1px solid var(--n-border-color);
+  border-radius: 8px;
+  background: var(--n-color-embedded);
+}
+:where(.data-manager-modal, .data-manager-code-modal) .storage-desktop-stat-value {
+  margin-top: 4px;
+  font-size: 18px;
+  font-weight: 600;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-config-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid var(--n-border-color);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--n-color-embedded);
+  box-sizing: border-box;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-field > .n-input,
+:where(.data-manager-modal, .data-manager-code-modal) .remote-field > .n-select {
+  min-width: 0;
+  max-width: 100%;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-field-label {
+  font-size: 12px;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-field-help {
+  display: block;
+  font-size: 12px;
+  line-height: 1.45;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-two-column {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-provider-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--n-border-color);
+  border-radius: 8px;
+  background: var(--n-color);
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-provider-summary-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-connection-card,
+:where(.data-manager-modal, .data-manager-code-modal) .remote-provider-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-connection-card {
+  padding: 10px;
+  border: 1px solid var(--n-border-color);
+  border-radius: 8px;
+  background: var(--n-color);
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-connection-card--connected {
+  border-color: var(--n-success-color);
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-connection-card--failed {
+  border-color: var(--n-error-color);
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-connection-card--checking {
+  border-color: var(--n-info-color);
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-connection-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  min-width: 0;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-connection-actions {
+  padding-top: 2px;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-action-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-action-row > .n-button {
+  flex: 1 1 150px;
+  min-width: 0;
+  max-width: 100%;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-action-row--auth > .n-button {
+  flex-basis: 100%;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-action-row--compact > .n-button {
+  flex: 0 1 auto;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .local-file-note {
+  display: block;
+  font-size: 12px;
+  line-height: 1.45;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .local-scope-row,
+:where(.data-manager-modal, .data-manager-code-modal) .local-strategy-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .local-file-picker {
+  min-width: 0;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .local-file-picker .n-upload-dragger {
+  padding: 0;
+  background: var(--n-color);
+}
+:where(.data-manager-modal, .data-manager-code-modal) .local-import-dropzone,
+:where(.data-manager-modal, .data-manager-code-modal) .local-import-selected {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 8px 10px;
+  text-align: left;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .local-import-selected {
+  justify-content: space-between;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .local-selected-file-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .task-stack,
+:where(.data-manager-modal, .data-manager-code-modal) .task-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .task-intro {
+  gap: 6px;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .task-intro h3 {
+  margin: 0;
+  font-size: 18px;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .task-card {
+  padding: 16px;
+  border: 1px solid var(--n-border-color);
+  border-radius: 8px;
+  background: var(--n-color-embedded);
+}
+:where(.data-manager-modal, .data-manager-code-modal) .data-task-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--n-border-color);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .data-task-tabs > button {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .data-manager-scroll-shell {
+  max-height: calc(90vh - 180px);
+}
+:where(.data-manager-modal, .data-manager-code-modal) .task-global-progress {
+  margin-bottom: 12px;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .local-scope-row,
+:where(.data-manager-modal, .data-manager-code-modal) .local-strategy-row {
+  gap: 12px;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .local-import-dropzone {
+  min-height: 100px;
+  padding: 20px;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-field-label,
+:where(.data-manager-modal, .data-manager-code-modal) .remote-field-help,
+:where(.data-manager-modal, .data-manager-code-modal) .local-file-note,
+:where(.data-manager-modal, .data-manager-code-modal) .storage-note {
+  font-size: 13px;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-action-row > .n-input {
+  flex: 1 1 180px;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .remote-action-row > .n-button {
+  flex: 0 1 auto;
+}
+:where(.data-manager-modal, .data-manager-code-modal) .task-stack > .n-button {
+  align-self: flex-start;
+}
+@media (max-width: 767px) {
+  :where(.data-manager-modal, .data-manager-code-modal) .storage-cards-grid,
+  :where(.data-manager-modal, .data-manager-code-modal) .remote-two-column {
+    grid-template-columns: 1fr;
+  }
+  :where(.data-manager-modal, .data-manager-code-modal) .task-card,
+  :where(.data-manager-modal, .data-manager-code-modal) .remote-config-panel {
+    padding: 12px;
+  }
+  :where(.data-manager-modal, .data-manager-code-modal) .data-task-tabs {
+    gap: 0;
+  }
+  :where(.data-manager-modal, .data-manager-code-modal) .task-stack > .n-button {
+    align-self: stretch;
+  }
+  :where(.data-manager-modal, .data-manager-code-modal) .local-scope-row,
+  :where(.data-manager-modal, .data-manager-code-modal) .local-strategy-row {
+    align-items: flex-start;
+  }
+  :where(.data-manager-modal, .data-manager-code-modal) .data-manager-scroll-shell {
+    max-height: calc(100dvh - 190px);
+  }
+}

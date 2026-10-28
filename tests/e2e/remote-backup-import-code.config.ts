@@ -4,7 +4,7 @@ import base from '../../playwright.config'
 export default {
   ...base,
   testDir: '.',
-  testMatch: ['remote-backup-import-code.spec.ts', 'remote-backup-session.spec.ts'],
+  testMatch: ['remote-backup-import-code.spec.ts', 'remote-backup-session.spec.ts', 'data-management-tasks.spec.ts'],
   workers: 1,
   projects: [
     { name: 'chromium', use: { browserName: 'chromium' as const } },

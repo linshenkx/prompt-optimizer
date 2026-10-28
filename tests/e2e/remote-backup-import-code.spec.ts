@@ -14,11 +14,10 @@ async function openDataManager(page: Page) {
   if (await page.getByTestId('compact-global-menu').isVisible()) {
     await page.getByTestId('compact-global-menu').click()
     await page.getByTestId('compact-menu-data').click()
-    await page.getByTestId('data-manager-task-remote').click()
   } else {
     await page.getByRole('button', { name: /数据管理|Data Manager/, exact: false }).first().click()
   }
-  await expect(page.getByTestId('remote-import-code-input')).toBeVisible()
+  await expect(page.getByTestId('data-tab-backup')).toBeVisible()
 }
 
 async function expectRestored(page: Page) {
@@ -60,6 +59,7 @@ test('browser code and phone QR link restore a cloud backup including its images
     await openDataManager(source)
     await source.getByTestId('remote-backup-create').click()
     await expect.poll(() => [...webdav.files.keys()].filter(key => key.endsWith('/manifest.json')).length, { timeout: 30_000 }).toBe(1)
+    await source.getByTestId('backup-result-view').click()
     await expect(source.getByTestId('remote-import-code-export')).toBeEnabled()
     await source.getByTestId('remote-import-code-export').click()
     const code = await source.getByTestId('remote-import-code-output').locator('textarea').inputValue()
@@ -84,8 +84,13 @@ test('browser code and phone QR link restore a cloud backup including its images
     const target = await targetContext.newPage()
     await target.goto('/#/basic/system')
     await openDataManager(target)
+    await target.getByTestId('data-tab-restore').click()
+    await target.getByTestId('restore-source-code').click()
     await target.getByTestId('remote-import-code-input').locator('textarea').fill(code)
     await target.getByTestId('remote-import-code-submit').click()
+    await expect(target.getByTestId('restore-confirmation')).toBeVisible()
+    await expect(target.getByTestId('remote-import-code-input')).toBeVisible()
+    await target.getByTestId('backup-restore-confirm').click()
     await expectRestored(target)
 
     const phoneContext = await browser.newContext({ ...devices['Pixel 7'], baseURL, viewport: { width: 393, height: 851 } })
@@ -98,6 +103,9 @@ test('browser code and phone QR link restore a cloud backup including its images
     expect(await phone.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     await phone.screenshot({ path: testInfo.outputPath('phone-import.png') })
     await phone.getByTestId('remote-import-code-submit').click()
+    await expect(phone.getByTestId('restore-confirmation')).toBeVisible()
+    await expect(phone.getByTestId('remote-import-code-input')).toBeVisible()
+    await phone.getByTestId('backup-restore-confirm').click()
     await expectRestored(phone)
 
     // Connecting and restoring existing backups must never mutate cloud data.

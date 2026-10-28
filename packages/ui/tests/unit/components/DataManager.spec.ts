@@ -46,6 +46,7 @@ vi.mock('../../../src/composables/ui/useWorkspaceLayout', () => ({
 }))
 
 import DataManager from '../../../src/components/DataManager.vue'
+import BackupRecords from '../../../src/components/data-manager/BackupRecords.vue'
 import * as remoteBackup from '../../../src/utils/remote-backup'
 import { createRemoteBackupImportCode, parseRemoteBackupImportCode } from '../../../src/utils/remote-backup-import-code'
 
@@ -157,6 +158,7 @@ const naiveStubs = {
 const createServices = () => ({
   dataManager: {
     exportAllData: vi.fn().mockResolvedValue('{}'),
+    validateImportData: vi.fn(async (text: string) => { JSON.parse(text) }),
     importAllData: vi.fn().mockResolvedValue(undefined),
   },
   modelManager: {
@@ -237,7 +239,9 @@ describe('DataManager storage breakdown', () => {
     remoteSnapshotMocks.createRemoteSnapshotBackup.mockReset()
     remoteSnapshotMocks.createRemoteSnapshotBackup.mockResolvedValue({
       entry: { id: 'new-snapshot', name: 'new-snapshot' },
-      missingResources: [],
+      missingAssets: [],
+      uploadedAssets: 0,
+      skippedAssets: 0,
     })
     sessionMocks.saveAllSessions.mockReset().mockResolvedValue(true)
     sessionMocks.beginSessionRestore.mockReset().mockResolvedValue(sessionMocks.releaseRestore)
@@ -283,7 +287,7 @@ describe('DataManager storage breakdown', () => {
 
   it('keeps unloaded, loading, failed and empty backup states distinct', async () => {
     const wrapper = mountComponent()
-    const state = (wrapper.vm as any).$?.setupState
+    const state = (wrapper.vm as any).$?.setupState.controller
     expect(state.remoteListState).toBe('idle')
     expect(wrapper.get('[data-testid="remote-list-status"]').text()).not.toContain('No remote backups')
     state.remoteSettings.provider = { kind: 'webdav', endpoint: 'https://dav.test', directory: 'backups', username: 'u', password: 'p' }
@@ -319,7 +323,7 @@ describe('DataManager storage breakdown', () => {
     remoteSnapshotMocks.listRemoteSnapshotBackups.mockResolvedValueOnce([snapshot('saved')])
     const wrapper = mountComponent()
     await flushPromises()
-    const state = (wrapper.vm as any).$?.setupState
+    const state = (wrapper.vm as any).$?.setupState.controller
     remoteSnapshotMocks.listRemoteSnapshotBackups.mockRejectedValueOnce(new Error('offline'))
     await state.refreshRemoteBackups()
     expect(state.remoteBackups.map((item: any) => item.id)).toEqual(['saved'])
@@ -339,7 +343,7 @@ describe('DataManager storage breakdown', () => {
     remoteSnapshotMocks.listRemoteSnapshotBackups.mockReturnValueOnce(old.promise)
     const wrapper = mountComponent()
     await flushPromises()
-    const state = (wrapper.vm as any).$?.setupState
+    const state = (wrapper.vm as any).$?.setupState.controller
     const duplicate = state.refreshRemoteBackups()
     await flushPromises()
     expect(remoteSnapshotMocks.listRemoteSnapshotBackups).toHaveBeenCalledTimes(1)
@@ -350,7 +354,7 @@ describe('DataManager storage breakdown', () => {
     old.resolve([snapshot('old')])
     await duplicate
     expect(state.remoteBackups.map((item: any) => item.id)).toEqual(['new'])
-    expect(state.selectedRemoteBackupId).toBe('new')
+    expect(state.selectedRemoteBackupId).toBeNull()
     expect(remoteSnapshotMocks.listRemoteSnapshotBackups).toHaveBeenCalledTimes(2)
     wrapper.unmount()
   })
@@ -360,13 +364,16 @@ describe('DataManager storage breakdown', () => {
     compactViewport.value = true
     const wrapper = mountComponent()
     await flushPromises()
-    const state = (wrapper.vm as any).$?.setupState
+    const state = (wrapper.vm as any).$?.setupState.controller
     expect(remoteSnapshotMocks.listRemoteSnapshotBackups).not.toHaveBeenCalled()
-    state.mobileTask = 'remote'
+    state.activeTab = 'restore'
+    state.restoreSource = 'cloud'
     await flushPromises()
-    state.mobileTask = null
+    state.activeTab = 'backup'
+    state.backupDestination = 'local'
     await flushPromises()
-    state.mobileTask = 'remote'
+    state.activeTab = 'restore'
+    state.restoreSource = 'cloud'
     compactViewport.value = false
     window.dispatchEvent(new Event('focus'))
     await flushPromises()
@@ -382,7 +389,7 @@ describe('DataManager storage breakdown', () => {
     savedWebDav()
     const wrapper = mountComponent()
     await flushPromises()
-    const state = (wrapper.vm as any).$?.setupState
+    const state = (wrapper.vm as any).$?.setupState.controller
     state.handleRemoteProviderChange('s3-compatible')
     await flushPromises()
     state.handleRemoteProviderChange('webdav')
@@ -403,14 +410,16 @@ describe('DataManager storage breakdown', () => {
     await flushPromises()
     old.reject(new Error('late failure'))
     await flushPromises()
-    const state = (wrapper.vm as any).$?.setupState
+    const state = (wrapper.vm as any).$?.setupState.controller
     expect(state.remoteListState).toBe('success')
     expect(state.remoteBackups.map((item: any) => item.id)).toEqual(['new'])
     wrapper.unmount()
   })
 
   const connectRemote = async (wrapper: ReturnType<typeof mountComponent>) => {
-    const state = (wrapper.vm as any).$?.setupState
+    const state = (wrapper.vm as any).$?.setupState.controller
+    state.activeTab = 'restore'
+    state.restoreSource = 'cloud'
     state.remoteSettings = {
       ...state.remoteSettings,
       provider: { kind: 'cloudflare-r2', accountId: 'account-123', bucket: 'prompt-optimizer-backups', accessKeyId: 'ak', secretAccessKey: 'sk' },
@@ -448,7 +457,7 @@ describe('DataManager storage breakdown', () => {
     wrapper.unmount()
   })
 
-  it.each(['web', 'desktop', 'mobile'])('imports the exact backup through the existing restore flow on %s', async runtime => {
+  it.each(['web', 'desktop', 'mobile'])('reads the exact backup and only restores after confirmation on %s', async runtime => {
     isRunningInElectronMock.mockReturnValue(runtime === 'desktop')
     compactViewport.value = runtime === 'mobile'
     const store = { detect: vi.fn().mockResolvedValue({ ok: true, steps: [] }) }
@@ -459,10 +468,12 @@ describe('DataManager storage breakdown', () => {
       { id: 'selected-backup', name: 'selected', manifest: { includedSections: ['appData', 'favorites', 'imageCache', 'favoriteImages'] } },
     ])
     const wrapper = mountComponent()
-    const state = (wrapper.vm as any).$?.setupState
+    const state = (wrapper.vm as any).$?.setupState.controller
     state.remoteSettings.providers = { webdav: { kind: 'webdav', endpoint: 'https://other.example', username: 'other', password: 'retained', directory: '' } }
     state.remoteImportCode = createRemoteBackupImportCode(provider, 'selected-backup')
     await state.handleRemoteCodeImport()
+    expect(remoteSnapshotMocks.restoreRemoteSnapshotBackup).not.toHaveBeenCalled()
+    await state.handleRemoteRestore()
     expect(storeSpy).toHaveBeenCalledWith(provider, runtime === 'desktop' ? 'desktop' : 'web')
     expect(remoteSnapshotMocks.restoreRemoteSnapshotBackup).toHaveBeenCalledTimes(1)
     expect(remoteSnapshotMocks.restoreRemoteSnapshotBackup).toHaveBeenCalledWith(expect.objectContaining({
@@ -496,6 +507,8 @@ describe('DataManager storage breakdown', () => {
   it('rejects malformed codes without changing saved connections or making network calls', async () => {
     const wrapper = mountComponent()
     const state = await connectRemote(wrapper)
+    await flushPromises()
+    remoteSnapshotMocks.listRemoteSnapshotBackups.mockClear()
     const previous = localStorage.getItem(remoteBackup.REMOTE_BACKUP_SETTINGS_KEY)
     state.remoteImportCode = 'not-a-backup-code'
     await state.handleRemoteCodeImport()
@@ -558,6 +571,7 @@ describe('DataManager storage breakdown', () => {
     await flushPromises()
     const state = await connectRemote(wrapper)
     state.selectedFile = { id: 'backup', name: `backup.${source}`, file: new File(['{}'], `backup.${source}`) }
+    state.importPreviewState = 'success'
     let finishPause!: (release: () => void) => void
     sessionMocks.beginSessionRestore.mockReturnValue(new Promise<() => void>((resolve) => { finishPause = resolve }))
     const importMock = source === 'remote' ? remoteSnapshotMocks.restoreRemoteSnapshotBackup
@@ -581,6 +595,7 @@ describe('DataManager storage breakdown', () => {
     await flushPromises()
     const state = await connectRemote(wrapper)
     state.selectedFile = { id: 'backup', name: `backup.${source}`, file: new File(['{}'], `backup.${source}`) }
+    state.importPreviewState = 'success'
     const importMock = source === 'remote' ? remoteSnapshotMocks.restoreRemoteSnapshotBackup
       : source === 'zip' ? resourcePackageMocks.importDataManagerResourcePackage : services.dataManager.importAllData
     importMock.mockRejectedValue(new Error('invalid backup'))
@@ -598,6 +613,7 @@ describe('DataManager storage breakdown', () => {
     await wrapper.setProps({ prepareRestore })
     const state = await connectRemote(wrapper)
     state.selectedFile = { id: 'backup', name: `backup.${source}`, file: new File(['{}'], `backup.${source}`) }
+    state.importPreviewState = 'success'
     await (source === 'remote' ? state.handleRemoteRestore() : state.handleImport())
     expect(prepareRestore).toHaveBeenCalledTimes(1)
     expect(sessionMocks.beginSessionRestore).not.toHaveBeenCalled()
@@ -617,8 +633,9 @@ describe('DataManager storage breakdown', () => {
     const release = vi.fn()
     const prepareRestore = vi.fn().mockResolvedValue(release)
     await wrapper.setProps({ prepareRestore })
-    const state = (wrapper.vm as any).$?.setupState
+    const state = (wrapper.vm as any).$?.setupState.controller
     state.selectedFile = { id: 'backup', name: 'backup.json', file: new File(['{}'], 'backup.json') }
+    state.importPreviewState = 'success'
     services.dataManager.importAllData.mockRejectedValueOnce(new Error('invalid backup'))
     await state.handleImport()
     expect(release).toHaveBeenCalledTimes(1)
@@ -638,28 +655,25 @@ describe('DataManager storage breakdown', () => {
 
   it('shows storage usage on web and keeps cache/favorite items separate', async () => {
     const wrapper = mountComponent()
+    await wrapper.get('[data-testid="data-tab-settings"]').trigger('click')
 
     await flushPromises()
 
     const modal = wrapper.find('.n-modal')
     const text = wrapper.text()
     expect(modal.attributes('style')).toContain('width: calc(100vw - 32px);')
-    expect(modal.attributes('style')).toContain('max-width: 1200px;')
+    expect(modal.attributes('style')).toContain('max-width: 960px;')
     expect(modal.attributes('style')).toContain('max-height: 90vh;')
     expect(wrapper.findAll('.storage-stat-card')).toHaveLength(4)
     expect(text).toContain('Total (Includes Estimate)')
-    expect(text).toContain('Local Import/Export')
-    expect(text).toContain('Remote Backup')
     expect(text).toContain('Google Drive is recommended for Web')
     expect(text).toContain('Authorize Google Drive')
     expect(text).toContain('Google Drive backup path: /prompt-optimizer-backups')
-    expect(text).toContain('Create Backup')
     expect(text).not.toContain('Detect')
     expect(text).toContain('App Main Data (Estimated)')
     expect(text).toContain('Session/Result Image Cache')
     expect(text).toContain('Favorite Images')
     expect(text).toContain('Backups also include workspace drafts and test results')
-    expect(text).toContain('Import replaces drafts and test results for the workspaces present in the backup')
     expect(text).not.toContain('current workspace sessions are not included')
     expect(text).toContain('2 images')
     expect(text).toContain('1 images')
@@ -689,6 +703,7 @@ describe('DataManager storage breakdown', () => {
     }
 
     const wrapper = mountComponent()
+    await wrapper.get('[data-testid="data-tab-settings"]').trigger('click')
 
     await flushPromises()
 
@@ -702,24 +717,20 @@ describe('DataManager storage breakdown', () => {
     expect(text).toContain('Refresh')
   })
 
-  it('renders backup export and import as a compact action layout', async () => {
-    const wrapper = mountComponent()
-
+  it('separates backup, restore and settings without eagerly reading storage', async () => {
+    const services = createServices()
+    const wrapper = mountComponent(services)
     await flushPromises()
-
-    const text = wrapper.text()
-    expect(wrapper.find('.local-transfer-panel').exists()).toBe(true)
-    expect(wrapper.findAll('.local-transfer-row')).toHaveLength(2)
-    expect(wrapper.findAll('.local-scope-pill').length).toBeGreaterThanOrEqual(3)
-    expect(wrapper.findAll('.remote-config-panel')).toHaveLength(2)
-    expect(wrapper.find('.local-file-picker').exists()).toBe(true)
-    expect(wrapper.find('.local-import-settings').exists()).toBe(false)
-    expect(text).toContain('Export Current Data')
-    expect(text).toContain('Import Local Data')
-    expect(text).not.toContain('导出上下文集合')
-    expect(text).not.toContain('导入上下文集合')
+    expect(wrapper.get('[data-testid="data-backup-panel"]').isVisible()).toBe(true)
+    expect(wrapper.get('#data-panel-restore').attributes('style')).toContain('display: none')
+    expect(wrapper.get('#data-panel-settings').attributes('style')).toContain('display: none')
+    expect(wrapper.findAll('[role="tab"]')).toHaveLength(3)
+    expect(services.imageStorageService.getStorageStats).not.toHaveBeenCalled()
+    await wrapper.get('[data-testid="data-tab-restore"]').trigger('click')
+    expect(wrapper.get('.local-file-picker').isVisible()).toBe(true)
+    expect(wrapper.find('[data-testid="restore-confirmation"]').exists()).toBe(false)
+    wrapper.unmount()
   })
-
   it('shows Google Drive as authorized after the authorization flow returns a token', async () => {
     getEnvVarMock.mockImplementation((key: string) =>
       key === 'VITE_GOOGLE_DRIVE_CLIENT_ID'
@@ -763,7 +774,7 @@ describe('DataManager storage breakdown', () => {
     localStorage.setItem(key, JSON.stringify({ accessToken: 'test-token', expiresAt: Date.now() + 3600_000 }))
     const wrapper = mountComponent()
     await flushPromises()
-    const state = (wrapper.vm as any).$?.setupState
+    const state = (wrapper.vm as any).$?.setupState.controller
     expect(state.remoteListState).toBe('success')
     const expired = JSON.stringify({ accessToken: 'test-token', expiresAt: 1 })
     localStorage.setItem(key, expired)
@@ -791,118 +802,41 @@ describe('DataManager storage breakdown', () => {
     await flushPromises()
     old.resolve([snapshot('old-account')])
     await flushPromises()
-    const state = (wrapper.vm as any).$?.setupState
+    const state = (wrapper.vm as any).$?.setupState.controller
     expect(state.remoteBackups.map((item: any) => item.id)).toEqual(['new-account'])
     expect(JSON.parse(localStorage.getItem(key)!).accessToken).toBe('new-account')
     wrapper.unmount()
   })
 
-  it('renders Cloudflare R2 as a simplified S3-compatible preset', async () => {
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
-    window.localStorage.setItem('prompt-optimizer:remote-backup-settings', JSON.stringify({
-      provider: {
-        kind: 'cloudflare-r2',
-        accountId: 'account-123',
-        bucket: 'prompt-optimizer-backups',
-        accessKeyId: '',
-        secretAccessKey: '',
-      },
-    }))
+  it('shows R2 credentials independently of its optional setup guide', async () => {
+    localStorage.setItem(remoteBackup.REMOTE_BACKUP_SETTINGS_KEY, JSON.stringify({ provider: {
+      kind: 'cloudflare-r2', accountId: 'account', bucket: 'backups', accessKeyId: '', secretAccessKey: '',
+    } }))
     const wrapper = mountComponent()
-
-    await flushPromises()
-
-    const text = wrapper.text()
-    expect(text).toContain('Setup Needed')
-    expect(text).toContain('Set up R2 in 3 steps')
-    expect(text).toContain('Enter Account ID')
-    expect(text).toContain('Create a dedicated bucket and configure CORS')
-    expect(text).toContain('Create an account API token')
-    expect(text).not.toContain('Show All Steps')
-    expect(text).not.toContain('Open R2 API Tokens')
-    expect(text).not.toContain('Open Cloudflare Dashboard')
-    expect(text).not.toContain('Open R2 Overview, create a bucket with the name below')
-    expect(text).not.toContain('Region')
-    expect(text).not.toContain('Use path-style S3 URLs')
-
-    const tokenStepButton = wrapper.findAll('button').find((button) =>
-      button.text().includes('Create an account API token')
-    )
-    expect(tokenStepButton).toBeTruthy()
-    await tokenStepButton!.trigger('click')
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('Open R2 API Tokens')
-
-    const bucketStepButton = wrapper.findAll('button').find((button) =>
-      button.text().includes('Create a dedicated bucket and configure CORS')
-    )
-    expect(bucketStepButton).toBeTruthy()
-    await bucketStepButton!.trigger('click')
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('Open R2 Overview')
-    expect(wrapper.text()).toContain('Open R2 Overview, create a bucket with the name below')
-    expect(wrapper.text()).toContain('R2 endpoint will be: https://account-123.r2.cloudflarestorage.com')
-    expect(wrapper.text()).toContain('R2 bucket: prompt-optimizer-backups')
-    expect(wrapper.text()).toContain('Object prefix: /prompt-optimizer-backups/')
-    expect(wrapper.text()).toContain('Copy CORS Config')
-    expect(wrapper.text()).toContain('Open R2 API Tokens')
-
-    const bucketsButton = wrapper.findAll('button').find((button) =>
-      button.text().trim() === 'Open R2 Overview'
-    )
-    expect(bucketsButton).toBeTruthy()
-    await bucketsButton!.trigger('click')
-    expect(openSpy).toHaveBeenCalledWith(
-      'https://dash.cloudflare.com/account-123/r2/overview',
-      '_blank',
-      'noopener,noreferrer',
-    )
-    openSpy.mockRestore()
+    await wrapper.get('[data-testid="data-tab-settings"]').trigger('click')
+    const panel = wrapper.get('[data-testid="data-storage-panel"]')
+    expect(panel.findAll('input')).toHaveLength(4)
+    expect(panel.text()).not.toContain('Use path-style S3 URLs')
+    expect(remoteSnapshotMocks.listRemoteSnapshotBackups).not.toHaveBeenCalled()
+    wrapper.unmount()
   })
-
-  it('keeps configured Cloudflare R2 setup collapsed until requested', async () => {
-    window.localStorage.setItem('prompt-optimizer:remote-backup-settings', JSON.stringify({
-      provider: {
-        kind: 'cloudflare-r2',
-        accountId: 'account-123',
-        bucket: 'prompt-optimizer-backups',
-        accessKeyId: 'ak',
-        secretAccessKey: 'sk',
-      },
-    }))
+  it('keeps connected credentials collapsed and can return to the initiating task', async () => {
+    savedWebDav()
     const wrapper = mountComponent()
-
     await flushPromises()
-
-    expect(wrapper.text()).toContain('Connected')
-    expect(remoteSnapshotMocks.listRemoteSnapshotBackups).toHaveBeenCalledTimes(1)
-    expect(wrapper.text()).toContain('Save and Connect')
-    expect(wrapper.text()).toContain('Edit Configuration')
-    expect(wrapper.text()).not.toContain('Cloudflare R2 is configured')
-    expect(wrapper.text()).not.toContain('Enter Account ID')
-
-    const editConfigurationButton = wrapper.findAll('button').find((button) =>
-      button.text().includes('Edit Configuration')
-    )
-    expect(editConfigurationButton).toBeTruthy()
-    await editConfigurationButton!.trigger('click')
+    const state = (wrapper.vm as any).$?.setupState.controller
+    state.openConnectionSettings()
     await flushPromises()
-
-    expect(wrapper.text()).toContain('Cloudflare R2 is configured')
-    expect(wrapper.text()).not.toContain('Enter Account ID')
-
-    const showSetupButton = wrapper.findAll('button').find((button) =>
-      button.text().includes('Show Setup')
-    )
-    expect(showSetupButton).toBeTruthy()
-    await showSetupButton!.trigger('click')
+    expect(state.returnTask).toBe('backup')
+    expect(wrapper.get('[data-testid="return-data-task"]').isVisible()).toBe(true)
+    expect(state.showRemoteConfigForm).toBe(false)
+    state.isRemoteConfigExpanded = true
     await flushPromises()
-
-    expect(wrapper.text()).toContain('Enter Account ID')
+    expect(wrapper.get('[data-testid="data-storage-panel"]').findAll('input')).toHaveLength(4)
+    await wrapper.get('[data-testid="return-data-task"]').trigger('click')
+    expect(state.activeTab).toBe('backup')
+    wrapper.unmount()
   })
-
   it('allows collapsing non-Google configuration after a connection failure', async () => {
     window.localStorage.setItem('prompt-optimizer:remote-backup-settings', JSON.stringify({
       provider: {
@@ -916,7 +850,7 @@ describe('DataManager storage breakdown', () => {
     const wrapper = mountComponent()
     await flushPromises()
 
-    const setupState = (wrapper.vm as any).$?.setupState
+    const setupState = (wrapper.vm as any).$?.setupState.controller
     setupState.remoteConnectionStates = {
       ...setupState.remoteConnectionStates,
       'cloudflare-r2': {
@@ -929,7 +863,7 @@ describe('DataManager storage breakdown', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('boom')
-    expect(wrapper.text()).toContain('Cloudflare R2 is configured')
+    expect(wrapper.get('[data-testid="data-storage-panel"]').findAll('input')).toHaveLength(4)
 
     const hideButton = wrapper.findAll('button').find((button) =>
       button.text().includes('Hide Configuration')
@@ -1010,18 +944,8 @@ describe('DataManager storage breakdown', () => {
     const wrapper = mountComponent()
     await flushPromises()
 
-    const bucketStepButton = wrapper.findAll('button').find((button) =>
-      button.text().includes('Create a dedicated bucket and configure CORS')
-    )
-    expect(bucketStepButton).toBeTruthy()
-    await bucketStepButton!.trigger('click')
-    await flushPromises()
-
-    const bucketsButton = wrapper.findAll('button').find((button) =>
-      button.text().trim() === 'Open R2 Overview'
-    )
-    expect(bucketsButton).toBeTruthy()
-    await bucketsButton!.trigger('click')
+    const state = (wrapper.vm as any).$?.setupState.controller
+    state.openCloudflareR2Link('buckets')
     await flushPromises()
 
     expect(openExternal).toHaveBeenCalledWith('https://dash.cloudflare.com/account-123/r2/overview')
@@ -1043,7 +967,7 @@ describe('DataManager storage breakdown', () => {
     const wrapper = mountComponent()
     await flushPromises()
 
-    const setupState = (wrapper.vm as any).$?.setupState
+    const setupState = (wrapper.vm as any).$?.setupState.controller
     expect(setupState).toBeTruthy()
     setupState.remoteConnectionStates = {
       ...setupState.remoteConnectionStates,
@@ -1061,6 +985,7 @@ describe('DataManager storage breakdown', () => {
         includedSections: ['appData', 'favorites', 'imageCache', 'favoriteImages'],
       },
     }]
+    setupState.restoreSource = 'cloud'
     setupState.selectedRemoteBackupId = 'snap-1'
     setupState.availableImportSections = new Set(['appData'])
     setupState.importFavorites = false
@@ -1068,7 +993,7 @@ describe('DataManager storage breakdown', () => {
     await flushPromises()
 
     const restoreButton = wrapper.findAll('button').find((button) =>
-      button.text().includes('Restore Selected Backup')
+      button.text().includes('Confirm restore')
     )
     expect(restoreButton).toBeTruthy()
     await restoreButton!.trigger('click')
@@ -1099,7 +1024,7 @@ describe('DataManager storage breakdown', () => {
     const wrapper = mountComponent()
     await flushPromises()
 
-    const setupState = (wrapper.vm as any).$?.setupState
+    const setupState = (wrapper.vm as any).$?.setupState.controller
     setupState.remoteConnectionStates = {
       ...setupState.remoteConnectionStates,
       'cloudflare-r2': {
@@ -1120,6 +1045,7 @@ describe('DataManager storage breakdown', () => {
         ],
       },
     }]
+    setupState.restoreSource = 'cloud'
     setupState.selectedRemoteBackupId = 'snap-partial'
     await flushPromises()
 
@@ -1130,7 +1056,7 @@ describe('DataManager storage breakdown', () => {
     await flushPromises()
 
     const restoreButton = wrapper.findAll('button').find((button) =>
-      button.text().includes('Restore Selected Backup')
+      button.text().includes('Confirm restore')
     )
     expect(restoreButton).toBeTruthy()
     await restoreButton!.trigger('click')
@@ -1175,12 +1101,13 @@ describe('DataManager storage breakdown', () => {
     const wrapper = mountComponent()
     await flushPromises()
 
-    const setupState = (wrapper.vm as any).$?.setupState
+    const setupState = (wrapper.vm as any).$?.setupState.controller
     setupState.remoteBackups = [{
       id: 'snap-1',
       name: 'snap-1',
       manifestPath: 'v1/snapshots/snap-1/manifest.json',
     }]
+    setupState.restoreSource = 'cloud'
     setupState.selectedRemoteBackupId = 'snap-1'
     await flushPromises()
 
@@ -1193,10 +1120,10 @@ describe('DataManager storage breakdown', () => {
     }
 
     const buttons = [
-      remoteActionButton('Create Backup'),
+      remoteActionButton('Back up to'),
       remoteActionButton('Refresh Remote Backup List'),
       remoteActionButton('Clean Unreferenced Images'),
-      remoteActionButton('Restore Selected Backup'),
+      remoteActionButton('Confirm restore'),
     ]
     expect(buttons.every((button) => (button.element as HTMLButtonElement).disabled)).toBe(false)
 
@@ -1205,49 +1132,158 @@ describe('DataManager storage breakdown', () => {
 
     expect(buttons.every((button) => (button.element as HTMLButtonElement).disabled)).toBe(true)
   })
-  // This flow renders the full form through several task and viewport changes.
-  // Give that integration work its own budget without relaxing any assertions.
-  it('preserves a mobile remote draft across tasks and resizing without connecting or reloading', async () => {
+  it('requires a new confirmation after editing an import code', async () => {
+    const wrapper = mountComponent()
+    const state = await connectRemote(wrapper)
+    state.remoteImportCode = createRemoteBackupImportCode(state.remoteSettings.provider, 'target')
+    remoteSnapshotMocks.listRemoteSnapshotBackups.mockResolvedValue([snapshot('target')])
+    await state.handleRemoteCodeImport()
+    await flushPromises()
+    expect(state.selectedRemoteBackupId).toBe('target')
+    expect(state.canRestoreSelection).toBe(true)
+    expect(remoteSnapshotMocks.restoreRemoteSnapshotBackup).not.toHaveBeenCalled()
+    state.remoteImportCode = 'another-code'
+    await flushPromises()
+    expect(state.selectedRemoteBackupId).toBeNull()
+    expect(state.canRestoreSelection).toBe(false)
+    await state.handleRemoteRestore()
+    expect(remoteSnapshotMocks.restoreRemoteSnapshotBackup).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('keeps sources independent while retaining the local file draft', async () => {
+    const wrapper = mountComponent()
+    const state = await connectRemote(wrapper)
+    state.selectedFile = { id: 'local', name: 'local.json', file: new File(['{}'], 'local.json') }
+    state.importPreviewState = 'success'
+    state.restoreSource = 'local'
+    await flushPromises()
+    expect(wrapper.get('[data-testid="restore-confirmation"]').text()).toContain('local.json')
+    state.restoreSource = 'code'
+    await flushPromises()
+    expect(wrapper.find('[data-testid="restore-confirmation"]').exists()).toBe(false)
+    state.restoreSource = 'cloud'
+    await flushPromises()
+    expect(wrapper.get('[data-testid="restore-confirmation"]').text()).toContain('snap-1')
+    expect(state.selectedFile.name).toBe('local.json')
+    wrapper.unmount()
+  })
+
+  it('ignores stale file reads and rejects invalid files before confirmation', async () => {
+    const readers: any[] = []
+    const OriginalFileReader = globalThis.FileReader
+    globalThis.FileReader = class {
+      result: ArrayBuffer | null = null
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      readAsArrayBuffer() { readers.push(this) }
+    } as any
+    const wrapper = mountComponent()
+    try {
+      const state = (wrapper.vm as any).$?.setupState.controller
+      state.handleFileChange({ fileList: [{ id: 'old', name: 'old.json', file: new File(['{}'], 'old.json') }] })
+      state.handleFileChange({ fileList: [state.selectedFile, { id: 'new', name: 'new.json', file: new File(['broken'], 'new.json') }] })
+      readers[1].result = new TextEncoder().encode('broken').buffer
+      readers[1].onload()
+      await flushPromises()
+      expect(state.importPreviewState).toBe('error')
+      readers[0].result = new TextEncoder().encode('{}').buffer
+      readers[0].onload()
+      await flushPromises()
+      expect(state.importPreviewState).toBe('error')
+      expect(state.selectedFile.name).toBe('new.json')
+      expect(state.canRestoreSelection).toBe(false)
+      expect(wrapper.find('[data-testid="restore-confirmation"]').exists()).toBe(false)
+    } finally {
+      wrapper.unmount()
+      globalThis.FileReader = OriginalFileReader
+    }
+  })
+
+  it('keeps the destination label consistent with the active cloud connection', async () => {
+    savedWebDav()
+    const wrapper = mountComponent()
+    await flushPromises()
+    const state = (wrapper.vm as any).$?.setupState.controller
+    expect(state.backupDestination).toBe('webdav')
+    state.handleRemoteProviderChange('s3-compatible')
+    await flushPromises()
+    expect(state.backupDestination).toBe('s3-compatible')
+    expect(state.isCurrentRemoteProviderConfigured).toBe(false)
+    expect(state.selectedRemoteBackupId).toBeNull()
+    expect(wrapper.get('[data-testid="remote-backup-create"]').attributes('disabled')).toBeDefined()
+    state.changeBackupDestination('local')
+    state.handleRemoteProviderChange('webdav')
+    await flushPromises()
+    expect(state.backupDestination).toBe('local')
+    wrapper.unmount()
+  })
+
+  it('keeps one upload running across tasks and blocks conflicting local operations', async () => {
+    const wrapper = mountComponent()
+    const state = await connectRemote(wrapper)
+    const pending = deferred()
+    remoteSnapshotMocks.createRemoteSnapshotBackup.mockReturnValueOnce(pending.promise)
+    const uploading = state.handleRemoteUpload()
+    await flushPromises()
+    state.activeTab = 'settings'
+    await flushPromises()
+    expect(wrapper.find('.task-global-progress').exists()).toBe(true)
+    await state.handleExport()
+    await state.handleRemoteCleanup()
+    expect(resourcePackageMocks.createDataManagerResourcePackage).not.toHaveBeenCalled()
+    expect(state.isUploadingRemote).toBe(true)
+    pending.resolve({ entry: snapshot('created'), missingAssets: [], uploadedAssets: 0, skippedAssets: 0 })
+    await uploading
+    state.viewCreatedBackup()
+    await flushPromises()
+    expect(state.activeTab).toBe('restore')
+    expect(state.selectedRemoteBackupId).toBe('created')
+    expect(remoteSnapshotMocks.createRemoteSnapshotBackup).toHaveBeenCalledTimes(1)
+    expect(remoteSnapshotMocks.restoreRemoteSnapshotBackup).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('bounds the backup list, searches metadata and keeps explicit selection', async () => {
+    const entries = Array.from({ length: 300 }, (_, index) => ({
+      id: `snapshot-${index}`, name: `backup-${index}`, manifestPath: '',
+      updatedAt: new Date(Date.UTC(2026, 0, 1, 0, index)).toISOString(),
+    }))
+    const wrapper = mount(BackupRecords, { props: { entries, search: '', selectedId: null, disabled: false }, global: { stubs: naiveStubs } })
+    expect(wrapper.findAll('[data-backup-id]')).toHaveLength(20)
+    expect(wrapper.findAll('[data-backup-id]')[0]!.attributes('data-backup-id')).toBe('snapshot-299')
+    await wrapper.setProps({ search: 'backup-123' })
+    expect(wrapper.findAll('[data-backup-id]')).toHaveLength(1)
+    await wrapper.get('[data-backup-id="snapshot-123"]').trigger('click')
+    expect(wrapper.emitted('select')).toEqual([['snapshot-123']])
+    await wrapper.setProps({ search: '', selectedId: 'snapshot-123' })
+    await flushPromises()
+    expect(wrapper.findAll('[data-backup-id]')).toHaveLength(20)
+    expect(wrapper.get('[data-backup-id="snapshot-123"]').attributes('aria-pressed')).toBe('true')
+    expect(remoteSnapshotMocks.listRemoteSnapshotBackups).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('preserves a mobile draft across tabs and resizing without connecting', async () => {
     compactViewport.value = true
     const services = createServices()
     const wrapper = mountComponent(services)
+    await wrapper.get('[data-testid="data-tab-settings"]').trigger('click')
+    const state = (wrapper.vm as any).$?.setupState.controller
+    state.handleRemoteProviderChange('webdav')
     await flushPromises()
-    expect(wrapper.get('[data-testid="data-manager-tasks"]').isVisible()).toBe(true)
-    expect(wrapper.get('.data-manager-section--remote').attributes('style')).toContain('display: none')
-    await wrapper.get('[data-testid="data-manager-task-remote"]').trigger('click')
-    await flushPromises()
-    const scrollShell = wrapper.get('.data-manager-scroll-shell').element as HTMLElement
-    scrollShell.scrollTop = 240
-    const remote = wrapper.get('.data-manager-section--remote')
-    remote.getComponent('.n-select').vm.$emit('update:value', 'webdav')
-    await flushPromises()
-    const endpoint = remote.findAll('input')[0]
+    const endpoint = wrapper.get('[data-testid="data-storage-panel"]').findAll('input')[0]!
     await endpoint.setValue('https://mobile-draft.invalid/dav')
-    const endpointNode = endpoint.element
-    const storageLoads = services.imageStorageService.getStorageStats.mock.calls.length
-    wrapper.findComponent({ name: 'NModal' }).vm.$emit('update:show', false)
-    await flushPromises()
-    expect(wrapper.emitted('close')).toBeUndefined()
-    expect(wrapper.get('[data-testid="data-manager-tasks"]').isVisible()).toBe(true)
-    expect(scrollShell.scrollTop).toBe(0)
-    await wrapper.get('[data-testid="data-manager-task-remote"]').trigger('click')
-    await flushPromises()
-    expect(scrollShell.scrollTop).toBe(240)
-    wrapper.findComponent({ name: 'NModal' }).vm.$emit('update:show', false)
-    await flushPromises()
-    await wrapper.get('[data-testid="data-manager-task-export"]').trigger('click')
-    expect(wrapper.get('.local-transfer-row--import').attributes('style')).toContain('display: none')
+    const node = endpoint.element
+    const loads = services.imageStorageService.getStorageStats.mock.calls.length
+    await wrapper.get('[data-testid="data-tab-backup"]').trigger('click')
     compactViewport.value = false
     await flushPromises()
-    expect(wrapper.get('.data-manager-section--remote').attributes('style') || '').not.toContain('display: none')
-    expect(remote.findAll('input')[0].element).toBe(endpointNode)
-    expect((endpointNode as HTMLInputElement).value).toBe('https://mobile-draft.invalid/dav')
-    compactViewport.value = true
-    await flushPromises()
-    expect(services.imageStorageService.getStorageStats.mock.calls.length).toBe(storageLoads)
+    await wrapper.get('[data-testid="data-tab-settings"]').trigger('click')
+    expect(wrapper.get('[data-testid="data-storage-panel"]').findAll('input')[0]!.element).toBe(node)
+    expect((node as HTMLInputElement).value).toBe('https://mobile-draft.invalid/dav')
+    expect(services.imageStorageService.getStorageStats.mock.calls.length).toBe(loads)
     expect(remoteSnapshotMocks.listRemoteSnapshotBackups).not.toHaveBeenCalled()
-    expect(remoteSnapshotMocks.restoreRemoteSnapshotBackup).not.toHaveBeenCalled()
     wrapper.unmount()
-  }, 15000)
-
+  })
 })
