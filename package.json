@@ -94,6 +94,7 @@
       "esbuild": "0.28.1",
       "@modelcontextprotocol/sdk@^1.0.0": "^1.32.0",
       "app-builder-lib>@electron/get": "^5.1.0",
+      "body-parser@^2.0.0": "^2.4.0",
       "brace-expansion@^1.0.0": "^1.1.21",
       "brace-expansion@^2.0.0": "^2.1.7",
       "brace-expansion@^5.0.0": "^5.0.12",
@@ -103,8 +104,10 @@
       "postcss-selector-parser@^7.0.0": "^7.1.6",
       "postcss-selector-parser@^6.0.0": "^7.1.6",
       "proxy-addr@^2.0.0": "^2.0.8",
+      "qs@^6.0.0": "^6.16.1",
       "shell-quote@^1.0.0": "^1.11.0",
-      "source-map-js@^1.0.0": "^1.2.2"
+      "source-map-js@^1.0.0": "^1.2.2",
+      "undici@^6.0.0": "^6.29.1"
     },
     "onlyBuiltDependencies": [
       "electron"
