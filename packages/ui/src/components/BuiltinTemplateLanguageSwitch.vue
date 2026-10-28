@@ -8,25 +8,14 @@
     :loading="isChanging"
   >
     <template #icon>
-      <svg
-        class="w-3 h-3"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
-        />
-      </svg>
+      <UiLanguages  :size="12" />
     </template>
     {{ getCurrentLanguageShort }}
   </NButton>
 </template>
 
 <script setup lang="ts">
+import { Languages as UiLanguages } from '@lucide/vue'
 import { ref, onMounted, computed, inject, type Ref } from 'vue'
 
 import { useI18n } from 'vue-i18n'

@@ -20,7 +20,7 @@
           ghost 
         > 
           <template #icon> 
-            <NText>📝</NText> 
+            <FileText />
           </template> 
           {{ t('template.configure') }} 
         </NButton>
@@ -30,6 +30,7 @@
 </template>
 
 <script setup lang="ts">
+import { FileText } from '@lucide/vue'
 import { ref, computed, watch, inject, type Ref } from 'vue'
 
 import { useI18n } from 'vue-i18n'
@@ -112,7 +113,7 @@ const selectOptions = computed(() => {
   
   // 添加配置按钮选项
   const configOption = {
-    label: '📝' + t('template.configure'),
+    label: t('template.configure'),
     value: '__config__',
     type: 'config'
   }

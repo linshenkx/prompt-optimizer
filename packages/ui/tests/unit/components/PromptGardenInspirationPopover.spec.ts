@@ -145,11 +145,11 @@ vi.mock('naive-ui', () => ({
   }),
 }))
 
-vi.mock('@vicons/tabler', () => ({
+vi.mock('@lucide/vue', () => ({
   ExternalLink: defineComponent({ name: 'ExternalLink', setup: () => () => h('i') }),
-  FileImport: defineComponent({ name: 'FileImport', setup: () => () => h('i') }),
-  Plant2: defineComponent({ name: 'Plant2', setup: () => () => h('i') }),
-  Refresh: defineComponent({ name: 'Refresh', setup: () => () => h('i') }),
+  FileInput: defineComponent({ name: 'FileImport', setup: () => () => h('i') }),
+  Sprout: defineComponent({ name: 'Plant2', setup: () => () => h('i') }),
+  RefreshCw: defineComponent({ name: 'Refresh', setup: () => () => h('i') }),
 }))
 
 import PromptGardenInspirationPopover from '../../../src/components/common/PromptGardenInspirationPopover.vue'

@@ -8,17 +8,17 @@
     </button>
     <div v-show="!isFavorites" id="compact-workspace-tools" />
     <NButton v-if="isFavorites" quaternary circle :aria-label="t('workspace.returnToWorkspace')"
-      @click="goWorkspace"><template #icon><NIcon><ArrowBackUp /></NIcon></template></NButton>
+      @click="goWorkspace"><template #icon><NIcon :size="16"><ArrowBackUp /></NIcon></template></NButton>
   </header>
   <AdaptiveModal v-model:show="menu" presentation="sheet" :auto-focus="false"
     :title="t('workspace.functions')" class="compact-menu-sheet" data-testid="compact-functions-panel">
     <button v-if="isFavorites" type="button" class="compact-menu-row" @click="goWorkspace">
-      <NIcon><ArrowBackUp /></NIcon><span>{{ t('workspace.returnToWorkspace') }}</span><NIcon><ChevronRight /></NIcon>
+      <NIcon :size="16"><ArrowBackUp /></NIcon><span>{{ t('workspace.returnToWorkspace') }}</span><NIcon :size="16"><ChevronRight /></NIcon>
     </button>
     <div class="compact-function-grid">
       <button v-for="item in entries" :key="item.action" type="button" class="compact-function-tile"
         :data-testid="`compact-menu-${item.action}`" @click="open(item.action)">
-        <NIcon><component :is="item.icon" /></NIcon><span>{{ t(item.label) }}</span>
+        <span aria-hidden="true" style="font-size: 20px; line-height: 1">{{ item.icon }}</span><span>{{ t(item.label) }}</span>
         <NBadge v-if="item.action === 'data' && backupReminderDue" dot />
       </button>
     </div>
@@ -28,9 +28,9 @@
     </div>
     <details class="compact-menu-help">
       <summary>{{ t('workspace.helpAbout') }}</summary>
-      <button type="button" class="compact-menu-row" @click="open('docs')"><NIcon><Book /></NIcon><span>{{ t('about.documentation') }}</span><NIcon><ExternalLink /></NIcon></button>
-      <button type="button" class="compact-menu-row" @click="open('website')"><NIcon><World /></NIcon><span>{{ t('about.website') }}</span><NIcon><ExternalLink /></NIcon></button>
-      <button type="button" class="compact-menu-row" @click="open('github')"><NIcon><BrandGithub /></NIcon><span>GitHub</span><NIcon><ExternalLink /></NIcon></button>
+      <button type="button" class="compact-menu-row" @click="open('docs')"><NIcon :size="16"><Book /></NIcon><span>{{ t('about.documentation') }}</span><NIcon :size="16"><ExternalLink /></NIcon></button>
+      <button type="button" class="compact-menu-row" @click="open('website')"><NIcon :size="16"><World /></NIcon><span>{{ t('about.website') }}</span><NIcon :size="16"><ExternalLink /></NIcon></button>
+      <button type="button" class="compact-menu-row" @click="open('github')"><NIcon><BrandGithub /></NIcon><span>GitHub</span><NIcon :size="16"><ExternalLink /></NIcon></button>
       <div class="compact-menu-version">{{ appVersion }}<UpdaterIcon /></div>
     </details>
   </AdaptiveModal>
@@ -51,10 +51,11 @@
 </template>
 
 <script setup lang="ts">
+import BrandGithub from '../icons/GitHubIcon.vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NButton, NIcon, NBadge } from 'naive-ui'
-import { Menu2, ChevronDown, ChevronRight, ArrowBackUp, Star, History, Adjustments, FileText, Database, Variable, Book, World, ExternalLink, BrandGithub, Check } from '@vicons/tabler'
+import { Menu as Menu2, ChevronDown, ChevronRight, Undo2 as ArrowBackUp, Book, Globe as World, ExternalLink, Check } from '@lucide/vue'
 import { router } from '../../router'
 import { releaseCompactOverlayHistory } from '../../composables/ui/useCompactModalBack'
 import AdaptiveModal from '../common/AdaptiveModal.vue'
@@ -94,12 +95,12 @@ const labels: Record<string, string> = {
 const isFavorites = computed(() => router.currentRoute.value.path === '/favorites')
 const currentLabel = computed(() => t(isFavorites.value ? 'nav.favorites' : labels[router.currentRoute.value.path] || labels[props.workspacePath] || 'workspace.title'))
 const entries = [
-  { action: 'favorites', label: 'nav.favorites', icon: Star },
-  { action: 'history', label: 'nav.history', icon: History },
-  { action: 'templates', label: 'nav.templates', icon: FileText },
-  { action: 'models', label: 'nav.modelManager', icon: Adjustments },
-  { action: 'variables', label: 'nav.variableManager', icon: Variable },
-  { action: 'data', label: 'nav.dataManager', icon: Database },
+  { action: 'favorites', label: 'nav.favorites', icon: '⭐' },
+  { action: 'history', label: 'nav.history', icon: '📜' },
+  { action: 'templates', label: 'nav.templates', icon: '📝' },
+  { action: 'models', label: 'nav.modelManager', icon: '⚙️' },
+  { action: 'variables', label: 'nav.variableManager', icon: '🔣' },
+  { action: 'data', label: 'nav.dataManager', icon: '💾' },
 ]
 const open = async (action: string) => {
   menu.value = false

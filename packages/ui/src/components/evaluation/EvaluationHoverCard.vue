@@ -246,7 +246,7 @@ import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NAlert, NButton, NCard, NDivider, NEmpty, NIcon, NList, NListItem, NProgress, NSpace, NSpin, NTag, NText } from 'naive-ui'
 import type { EvaluationResponse, EvaluationType, PatchOperation } from '@prompt-optimizer/core'
-import { Bulb, Tool } from '@vicons/tabler'
+import { Lightbulb as Bulb, Wrench as Tool } from '@lucide/vue'
 import InlineDiff from './InlineDiff.vue'
 import FeedbackEditor from './FeedbackEditor.vue'
 

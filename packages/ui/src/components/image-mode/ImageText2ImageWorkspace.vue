@@ -76,11 +76,8 @@
                                             @click="triggerReferenceAction(button.kind)"
                                         >
                                             <template #icon>
-                                                <NIcon>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 7.5h3l1.2-1.8A1.5 1.5 0 0110 5h4a1.5 1.5 0 011.3.7l1.2 1.8h3A1.5 1.5 0 0121 9v8.5A1.5 1.5 0 0119.5 19h-15A1.5 1.5 0 013 17.5V9a1.5 1.5 0 011.5-1.5Z" />
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.5a3 3 0 106 0 3 3 0 00-6 0Z" />
-                                                    </svg>
+                                                <NIcon :size="16">
+                                                    <UiCamera />
                                                 </NIcon>
                                             </template>
                                             {{ t(button.labelKey) }}
@@ -125,10 +122,8 @@
                             :title="t('common.expand')"
                         >
                             <template #icon>
-                                <NIcon>
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                                    </svg>
+                                <NIcon :size="16">
+                                    <UiChevronDown />
                                 </NIcon>
                             </template>
                         </NButton>
@@ -180,25 +175,8 @@
                                                 @click="triggerReferenceAction(button.kind)"
                                             >
                                                 <template #icon>
-                                                    <NIcon>
-                                                        <svg
-                                                            xmlns="http://www.w3.org/2000/svg"
-                                                            fill="none"
-                                                            viewBox="0 0 24 24"
-                                                            stroke="currentColor"
-                                                            stroke-width="1.8"
-                                                        >
-                                                            <path
-                                                                stroke-linecap="round"
-                                                                stroke-linejoin="round"
-                                                                d="M4.5 7.5h3l1.2-1.8A1.5 1.5 0 0110 5h4a1.5 1.5 0 011.3.7l1.2 1.8h3A1.5 1.5 0 0121 9v8.5A1.5 1.5 0 0119.5 19h-15A1.5 1.5 0 013 17.5V9a1.5 1.5 0 011.5-1.5Z"
-                                                            />
-                                                            <path
-                                                                stroke-linecap="round"
-                                                                stroke-linejoin="round"
-                                                                d="M9 12.5a3 3 0 106 0 3 3 0 00-6 0Z"
-                                                            />
-                                                        </svg>
+                                                    <NIcon :size="16">
+                                                        <UiCamera />
                                                     </NIcon>
                                                 </template>
                                                 {{ t(button.labelKey) }}
@@ -243,20 +221,8 @@
                                 round
                             >
                                 <template #icon>
-                                    <NIcon>
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                                            />
-                                        </svg>
+                                    <NIcon :size="16">
+                                        <UiMaximize2 />
                                     </NIcon>
                                 </template>
                             </NButton>
@@ -270,10 +236,8 @@
                                 :title="t('common.collapse')"
                             >
                                 <template #icon>
-                                    <NIcon>
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
-                                        </svg>
+                                    <NIcon :size="16">
+                                        <UiChevronUp />
                                     </NIcon>
                                 </template>
                             </NButton>
@@ -693,9 +657,7 @@
                                                     :data-testid="getVariantRunTestId(id)"
                                                 >
                                                     <template #icon>
-                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-                                                            <path d="M8 5v14l11-7z" />
-                                                        </svg>
+                                                        <UiPlay />
                                                     </template>
                                                 </NButton>
                                             </ThemedTooltip>
@@ -804,16 +766,8 @@
                                                         @click="downloadImageFromResult(getVariantResult(id)?.images?.[0])"
                                                     >
                                                         <template #icon>
-                                                            <NIcon>
-                                                                <svg
-                                                                    xmlns="http://www.w3.org/2000/svg"
-                                                                    viewBox="0 0 24 24"
-                                                                    fill="none"
-                                                                    stroke="currentColor"
-                                                                    stroke-width="2"
-                                                                >
-                                                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
-                                                                </svg>
+                                                            <NIcon :size="16">
+                                                                <UiDownload />
                                                             </NIcon>
                                                         </template>
                                                         {{ t('imageWorkspace.results.download') }}
@@ -826,17 +780,8 @@
                                                         @click="copyImageText(String(getVariantResult(id)?.text || ''))"
                                                     >
                                                         <template #icon>
-                                                            <NIcon>
-                                                                <svg
-                                                                    xmlns="http://www.w3.org/2000/svg"
-                                                                    viewBox="0 0 24 24"
-                                                                    fill="none"
-                                                                    stroke="currentColor"
-                                                                    stroke-width="2"
-                                                                >
-                                                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                                                                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                                                                </svg>
+                                                            <NIcon :size="16">
+                                                                <UiCopy />
                                                             </NIcon>
                                                         </template>
                                                         {{ t('imageWorkspace.results.copyText') }}
@@ -931,6 +876,7 @@
 </template>
 
 <script setup lang="ts">
+import { Camera as UiCamera, ChevronDown as UiChevronDown, Maximize2 as UiMaximize2, ChevronUp as UiChevronUp, Play as UiPlay, Download as UiDownload, Copy as UiCopy } from '@lucide/vue'
 import OptimizeWorkspaceLayout from '../common/OptimizeWorkspaceLayout.vue'
 import VariantTestWorkspaceLayout from '../common/VariantTestWorkspaceLayout.vue'
 import MobileTestResultHeader from '../common/MobileTestResultHeader.vue'

@@ -174,7 +174,7 @@ import {
   NPagination,
   type DataTableColumns
 } from 'naive-ui';
-import { Search, Edit, Trash, GitMerge, DotsVertical } from '@vicons/tabler';
+import { Search, SquarePen as Edit, Trash2 as Trash, GitMerge, EllipsisVertical as DotsVertical } from '@lucide/vue'
 import { useI18n } from 'vue-i18n';
 import { useToast } from '../composables/ui/useToast';
 import type { AppServices } from '../types/services';

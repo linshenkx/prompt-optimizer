@@ -79,7 +79,7 @@
                   </div>
                   <NButton secondary size="small" @click="handlePromptGardenDiscover">
                     <template #icon>
-                      <NIcon>
+                      <NIcon :size="16">
                         <ExternalLink />
                       </NIcon>
                     </template>
@@ -167,7 +167,7 @@ import {
   NUploadDragger,
   type UploadFileInfo,
 } from 'naive-ui'
-import { ExternalLink, Plant2, Upload } from '@vicons/tabler'
+import { ExternalLink, Sprout as Plant2, Upload } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 
 import { getEnvVar } from '@prompt-optimizer/core'

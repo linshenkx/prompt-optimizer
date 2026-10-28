@@ -17,7 +17,7 @@
           @click="handleReturnToWorkspace"
         >
           <template #icon>
-            <NIcon><ArrowBackUp /></NIcon>
+            <NIcon :size="16"><ArrowBackUp /></NIcon>
           </template>
           {{ t('favorites.page.returnToWorkspace') }}
         </NButton>
@@ -30,7 +30,7 @@
 import { computed, inject, onBeforeUnmount, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NButton, NIcon } from 'naive-ui'
-import { ArrowBackUp } from '@vicons/tabler'
+import { Undo2 as ArrowBackUp } from '@lucide/vue'
 import type { FavoritePrompt } from '@prompt-optimizer/core'
 
 import FavoriteLibraryWorkspace from '../FavoriteLibraryWorkspace.vue'

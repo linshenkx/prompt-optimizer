@@ -23,21 +23,7 @@
           ghost
         >
           <template #icon>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="h-4 w-4"
-            >
-              <path d="M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4" />
-              <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-              <path d="M3 15h6" />
-              <path d="M6 12v6" />
-            </svg>
+            <UiFilePlus2 />
           </template>
           {{ isCompact ? t('common.add') : t('modelManager.addModel') }}
         </NButton>
@@ -48,21 +34,7 @@
           ghost
         >
           <template #icon>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="h-4 w-4"
-            >
-              <path d="M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4" />
-              <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-              <path d="M3 15h6" />
-              <path d="M6 12v6" />
-            </svg>
+            <UiFilePlus2 />
           </template>
           {{ isCompact ? t('common.add') : t('modelManager.addImageModel') }}
         </NButton>
@@ -126,6 +98,7 @@
 </template>
 
 <script setup lang="ts">
+import { FilePlus2 as UiFilePlus2 } from '@lucide/vue'
 import NModal from "./common/AdaptiveModal.vue"
 import { inject, nextTick, onMounted, onUnmounted, provide, ref, watch, type Ref } from 'vue'
 

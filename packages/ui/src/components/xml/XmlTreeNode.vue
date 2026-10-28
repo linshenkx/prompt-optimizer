@@ -9,7 +9,7 @@
         @click="toggleExpanded"
       >
         <template #icon>
-          <NIcon class="xml-summary-icon" :class="{ 'xml-summary-icon--expanded': isExpanded }">
+          <NIcon class="xml-summary-icon" :class="{ 'xml-summary-icon--expanded': isExpanded }" :size="16">
             <ChevronRight />
           </NIcon>
         </template>
@@ -74,7 +74,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { NButton, NIcon } from 'naive-ui'
-import { ChevronRight } from '@vicons/tabler'
+import { ChevronRight } from '@lucide/vue'
 import type { XmlNodeModel } from '../../types/xml-renderer'
 
 defineOptions({

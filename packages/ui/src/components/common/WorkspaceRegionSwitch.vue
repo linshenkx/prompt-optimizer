@@ -15,7 +15,7 @@
 
 <script setup lang="ts">
 import { NIcon } from 'naive-ui'
-import { Edit, PlayerPlay } from '@vicons/tabler'
+import { SquarePen as Edit, Play as PlayerPlay } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import { useWorkspaceLayout } from '../../composables/ui/useWorkspaceLayout'
 

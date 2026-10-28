@@ -23,7 +23,7 @@
           @click="$emit('back')"
         >
           <template #icon>
-            <NIcon><ArrowLeft /></NIcon>
+            <NIcon :size="16"><ArrowLeft /></NIcon>
           </template>
           {{ t('favorites.manager.preview.backToList') }}
         </NButton>
@@ -36,13 +36,13 @@
             @click="$emit('use', favorite)"
           >
             <template #icon>
-              <NIcon><PlayerPlay /></NIcon>
+              <NIcon :size="16"><PlayerPlay /></NIcon>
             </template>
             {{ t('favorites.manager.card.useNow') }}
           </NButton>
           <NDropdown v-if="isCompact" trigger="click" :options="mobileActionOptions" @select="handleMobileAction">
             <NButton secondary data-testid="favorite-detail-more" :aria-label="t('common.actions')">
-              <template #icon><NIcon><DotsVertical /></NIcon></template>
+              <template #icon><NIcon :size="16"><DotsVertical /></NIcon></template>
             </NButton>
           </NDropdown>
           <NButton
@@ -52,7 +52,7 @@
             @click="$emit('copy', favorite)"
           >
             <template #icon>
-              <NIcon><Copy /></NIcon>
+              <NIcon :size="16"><Copy /></NIcon>
             </template>
             {{ t('favorites.manager.card.copyContent') }}
           </NButton>
@@ -63,7 +63,7 @@
             @click="$emit('share', favorite)"
           >
             <template #icon>
-              <NIcon><Share /></NIcon>
+              <NIcon :size="16"><Share /></NIcon>
             </template>
             {{ t('favorites.share.action') }}
           </NButton>
@@ -74,7 +74,7 @@
             @click="$emit('edit', favorite)"
           >
             <template #icon>
-              <NIcon><Edit /></NIcon>
+              <NIcon :size="16"><Edit /></NIcon>
             </template>
             {{ t('favorites.manager.card.edit') }}
           </NButton>
@@ -86,7 +86,7 @@
             @click="$emit('delete', favorite)"
           >
             <template #icon>
-              <NIcon><Trash /></NIcon>
+              <NIcon :size="16"><Trash /></NIcon>
             </template>
             {{ t('favorites.manager.card.delete') }}
           </NButton>
@@ -482,15 +482,7 @@ import {
   NTag,
   NText,
 } from 'naive-ui'
-import {
-  ArrowLeft,
-  DotsVertical,
-  Copy,
-  Edit,
-  PlayerPlay,
-  Share,
-  Trash,
-} from '@vicons/tabler'
+import { ArrowLeft, EllipsisVertical as DotsVertical, Copy, SquarePen as Edit, Play as PlayerPlay, Share, Trash2 as Trash } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import type { FavoriteCategory, FavoritePrompt, PromptContentVersion } from '@prompt-optimizer/core'
 

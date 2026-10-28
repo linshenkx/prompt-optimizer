@@ -59,10 +59,8 @@
                             :title="t('common.expand')"
                         >
                             <template #icon>
-                                <NIcon>
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                                    </svg>
+                                <NIcon :size="16">
+                                    <UiChevronDown />
                                 </NIcon>
                             </template>
                         </NButton>
@@ -148,10 +146,8 @@
                                 :title="t('common.collapse')"
                             >
                                 <template #icon>
-                                    <NIcon>
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
-                                        </svg>
+                                    <NIcon :size="16">
+                                        <UiChevronUp />
                                     </NIcon>
                                 </template>
                             </NButton>
@@ -386,9 +382,7 @@
                                                     :aria-label="t('test.layout.runThisColumn')"
                                                 >
                                                     <template #icon>
-                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-                                                            <path d="M8 5v14l11-7z" />
-                                                        </svg>
+                                                        <UiPlay />
                                                     </template>
                                                 </NButton>
                                             </ThemedTooltip>
@@ -542,6 +536,7 @@
 </template>
 
 <script setup lang="ts">
+import { ChevronDown as UiChevronDown, ChevronUp as UiChevronUp, Play as UiPlay } from '@lucide/vue'
 import TestSourcePreview from '../common/TestSourcePreview.vue'
 import TestWorkspaceLayout from '../common/TestWorkspaceLayout.vue'
 import MobileTestResultHeader from '../common/MobileTestResultHeader.vue'

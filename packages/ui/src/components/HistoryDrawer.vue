@@ -21,7 +21,7 @@
           clearable
         >
           <template #prefix>
-            <span style="font-size: 14px;">🔍</span>
+            <Search :size="14" />
           </template>
         </NInput>
         <NButton
@@ -54,7 +54,7 @@
           <time>{{ formatDate(chain.currentRecord.timestamp) }}</time>
         </button>
         <NDropdown trigger="click" :options="[{ key: 'delete', label: t('common.delete') }]" @select="deleteChain(chain.chainId)">
-          <NButton quaternary size="small" :aria-label="t('common.actions')">···</NButton>
+          <NButton quaternary size="small" :aria-label="t('common.actions')"><template #icon><Ellipsis /></template></NButton>
         </NDropdown>
       </article>
       <NEmpty v-if="!mobileHistory.length" :description="t('history.noHistory')" />
@@ -237,7 +237,7 @@
       
       <NEmpty v-else :description="$t('history.noHistory')">
         <template #icon>
-          <span style="font-size: 48px;">📜</span>
+          <History :size="48" />
         </template>
       </NEmpty>
     </NScrollbar>
@@ -283,6 +283,7 @@
 </template>
 
 <script setup lang="ts">
+import { Search, History, Ellipsis } from '@lucide/vue'
 import OutputPlainText from './OutputPlainText.vue'
 import NModal from "./common/AdaptiveModal.vue"
 import { ref, watch, computed, type PropType } from 'vue'

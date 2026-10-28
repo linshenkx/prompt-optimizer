@@ -1,3 +1,14 @@
+/* Lucide alignment only: size belongs to NIcon or the SVG size prop. */
+svg.app-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+:where(.n-icon) > svg.app-icon {
+  display: block;
+}
+
 /* 自定义选择器样式 */
 .custom-select {
   -webkit-appearance: none !important;
@@ -8,4 +19,4 @@
 
 .custom-select::-ms-expand {
   display: none;
-} 
+}

@@ -76,18 +76,7 @@
             :aria-label="aria.getLabel('emptyMessages')"
         >
             <template #icon>
-                <svg
-                    width="48"
-                    height="48"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1"
-                    role="img"
-                    :aria-label="aria.getLabel('messageIcon')"
-                >
-                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-                </svg>
+                <UiMessageSquare role="img" :aria-label="aria.getLabel('messageIcon')" :aria-hidden="false" :size="48" />
             </template>
             <template #extra>
                 <NButton
@@ -150,10 +139,7 @@
                                     :title="previewMode.get(index) ? t('common.edit') : t('common.preview')"
                                 >
                                     <template #icon>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
+                                        <UiEye :size="14" />
                                     </template>
                                 </NButton>
                                 <NButton
@@ -166,9 +152,7 @@
                                     :disabled="disabled"
                                 >
                                     <template #icon>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
-                                        </svg>
+                                        <UiChevronUp :size="14" />
                                     </template>
                                 </NButton>
                                 <NButton
@@ -181,9 +165,7 @@
                                     :disabled="disabled"
                                 >
                                     <template #icon>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                        </svg>
+                                        <UiChevronDown :size="14" />
                                     </template>
                                 </NButton>
                                 <NButton
@@ -196,9 +178,7 @@
                                     :disabled="disabled || localState.messages.length <= 1"
                                 >
                                     <template #icon>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
+                                        <UiTrash2 :size="14" />
                                     </template>
                                 </NButton>
                             </NSpace>
@@ -234,9 +214,7 @@
                     :disabled="disabled"
                 >
                     <template #icon>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
+                        <UiPlus />
                     </template>
                     {{ t("contextEditor.addMessage") }}
                 </NButton>
@@ -255,20 +233,7 @@
                         :disabled="disabled || loading"
                     >
                         <template #icon>
-                            <svg
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"
-                                />
-                            </svg>
+                            <UiCloudDownload />
                         </template>
                         {{ t("common.import") }}
                     </NButton>
@@ -285,20 +250,7 @@
                         "
                     >
                         <template #icon>
-                            <svg
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                                />
-                            </svg>
+                            <UiCloudUpload />
                         </template>
                         {{ t("common.export") }}
                     </NButton>
@@ -473,6 +425,7 @@
 </template>
 
 <script setup lang="ts">
+import { MessageSquare as UiMessageSquare, Eye as UiEye, ChevronUp as UiChevronUp, ChevronDown as UiChevronDown, Trash2 as UiTrash2, Plus as UiPlus, CloudDownload as UiCloudDownload, CloudUpload as UiCloudUpload } from '@lucide/vue'
 import AdaptiveModal from '../common/AdaptiveModal.vue'
 import {
     ref,

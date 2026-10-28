@@ -242,6 +242,10 @@ import {
     nextTick,
 } from "vue";
 import { RouterView } from "vue-router";
+import { setLucideProps } from '@lucide/vue';
+import { APP_ICON_DEFAULTS } from '../../config/icons';
+
+setLucideProps(APP_ICON_DEFAULTS);
 import { router as routerInstance } from '../../router';
 import {
     DEFAULT_WORKSPACE_PATH,

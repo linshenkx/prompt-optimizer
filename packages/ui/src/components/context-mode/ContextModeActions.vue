@@ -9,7 +9,7 @@
       :title="$t('contextMode.actions.tools')"
     >
       <template #icon>
-        <span>🔧</span>
+        <Wrench />
       </template>
       {{ $t('contextMode.actions.tools') }}
     </NButton>
@@ -17,6 +17,7 @@
 </template>
 
 <script setup lang="ts">
+import { Wrench } from '@lucide/vue'
 import { NButton, NFlex } from 'naive-ui'
 
 const emit = defineEmits<{

@@ -17,20 +17,7 @@
                 @mousedown.prevent
                 @click="handleClear"
             >
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                >
-                    <path d="M18 6L6 18" />
-                    <path d="M6 6l12 12" />
-                </svg>
+                <UiX />
             </button>
 
             <!-- 字符计数 (与 NInput show-count 一致) -->
@@ -81,6 +68,7 @@
 </template>
 
 <script setup lang="ts">
+import { X as UiX } from '@lucide/vue'
 import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue'
 
 import { EditorView, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, keymap, placeholder as cmPlaceholder } from "@codemirror/view";

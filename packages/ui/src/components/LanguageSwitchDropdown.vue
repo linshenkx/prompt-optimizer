@@ -13,48 +13,14 @@
       :aria-label="currentLanguageLabel"
     >
       <template #icon>
-        <svg class="w-5 h-5 language-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- 简洁的地球图标 - 更大更清晰 -->
-          <circle cx="16" cy="16" r="14" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  stroke-width="2.5"/>
-          
-          <!-- 经线 -->
-          <ellipse cx="16" cy="16" rx="6" ry="14" 
-                   fill="none" 
-                   stroke="currentColor" 
-                   stroke-width="2"/>
-          <ellipse cx="16" cy="16" rx="11" ry="8" 
-                   fill="none" 
-                   stroke="currentColor" 
-                   stroke-width="2"/>
-          
-          <!-- 纬线 -->
-          <line x1="2" y1="16" x2="30" y2="16" 
-                stroke="currentColor" 
-                stroke-width="2"/>
-          
-          <!-- 语言符号 - 清晰的 A 字母 -->
-          <text x="21" y="12" 
-                fill="currentColor" 
-                font-family="system-ui, -apple-system" 
-                font-size="8" 
-                font-weight="bold">A</text>
-          
-          <!-- Secondary character to hint multi-language support -->
-          <text x="8" y="25" 
-                fill="currentColor" 
-                font-family="system-ui" 
-                font-size="7" 
-                font-weight="bold">B</text>
-        </svg>
+        <UiLanguages class="language-icon"  :size="20" />
       </template>
     </NButton>
   </NDropdown>
 </template>
 
 <script setup lang="ts">
+import { Languages as UiLanguages } from '@lucide/vue'
 import { computed, inject, type Ref } from 'vue'
 
 import { useI18n } from 'vue-i18n'
@@ -136,25 +102,3 @@ const handleLanguageSelect = async (key: string) => {
   }
 }
 </script>
-
-<style scoped>
-.language-icon {
-  transition: all 0.2s ease;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
-}
-
-.language-icon:hover {
-  opacity: 0.8;
-  transform: scale(1.05);
-}
-
-/* 确保文字在深色主题下也清晰可见 */
-.language-icon text {
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  paint-order: stroke fill;
-  stroke: var(--base-color, currentColor);
-  stroke-width: 0.5;
-  stroke-linejoin: round;
-}
-</style>

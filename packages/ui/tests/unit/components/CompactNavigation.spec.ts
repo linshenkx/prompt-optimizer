@@ -8,7 +8,8 @@ const routing = vi.hoisted(() => ({
 const release = vi.hoisted(() => vi.fn(async () => {}))
 vi.mock('../../../src/router', () => ({ router: routing }))
 vi.mock('../../../src/composables/ui/useCompactModalBack', () => ({ releaseCompactOverlayHistory: release }))
-vi.mock('naive-ui', () => ({
+vi.mock('naive-ui', async (importOriginal) => ({
+  ...await importOriginal<typeof import('naive-ui')>(),
   NButton: { template: '<button><slot name="icon" /><slot /></button>' },
   NIcon: { template: '<span><slot /></span>' },
   NBadge: { template: '<span />' },

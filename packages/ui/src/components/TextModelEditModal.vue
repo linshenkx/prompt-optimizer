@@ -15,7 +15,7 @@
       <div class="mobile-text-model-heading">
         <NButton quaternary circle :aria-label="t('common.close')" :disabled="isSaving" @click="handleCancel">
           <template #icon>
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m14 6-6 6 6 6" /></svg>
+            <UiChevronLeft :size="20" />
           </template>
         </NButton>
         <span :title="modalTitle">{{ isEditing && form.name ? form.name : modalTitle }}</span>
@@ -199,7 +199,7 @@
                 @click="headersExpanded = !headersExpanded"
               >
                 <span>{{ t('modelManager.customHeaders.label') }}<span v-if="customHeaderRows.length"> ({{ customHeaderRows.length }})</span></span>
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" :class="{ 'is-expanded': headersExpanded }"><path d="m9 5 7 7-7 7" /></svg>
+                <UiChevronRight :class="{ 'is-expanded': headersExpanded }" />
               </button>
             </template>
             <div v-show="!isCompact || headersExpanded" id="text-model-custom-headers" class="custom-headers-editor">
@@ -285,11 +285,7 @@
                   style="flex-shrink: 0;"
                 >
                   <template #icon>
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
-                      <polyline points="23 4 23 10 17 10"/>
-                      <polyline points="1 20 1 14 7 14"/>
-                      <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
-                    </svg>
+                    <UiRefreshCw style="width: 14px; height: 14px;" />
                   </template>
                 </NButton>
               </ThemedTooltip>
@@ -349,10 +345,7 @@
             size="small"
           >
             <template #icon>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
-                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-              </svg>
+              <UiLink />
             </template>
             {{ t('modelManager.testConnection') }}
           </NButton>
@@ -373,6 +366,7 @@
 </template>
 
 <script setup lang="ts">
+import { ChevronLeft as UiChevronLeft, ChevronRight as UiChevronRight, RefreshCw as UiRefreshCw, Link as UiLink } from '@lucide/vue'
 import NModal from "./common/AdaptiveModal.vue"
 import ModelNetworkStatus from './ModelNetworkStatus.vue'
 import { computed, inject, nextTick, h, ref, watch } from 'vue'

@@ -28,7 +28,7 @@
         @keydown.esc.stop.prevent="closePopover"
       >
         <template #icon>
-          <NIcon>
+          <NIcon :size="16">
             <Plant2 />
           </NIcon>
         </template>
@@ -48,7 +48,7 @@
     >
       <div class="prompt-garden-inspiration-popover__header">
         <div class="prompt-garden-inspiration-popover__title">
-          <NIcon>
+          <NIcon :size="16">
             <Plant2 />
           </NIcon>
           <NText strong>
@@ -65,7 +65,7 @@
           @click="handleRefresh"
         >
           <template #icon>
-            <NIcon>
+            <NIcon :size="16">
               <Refresh />
             </NIcon>
           </template>
@@ -142,7 +142,7 @@
           @click="handleBrowseMore"
         >
           <template #icon>
-            <NIcon>
+            <NIcon :size="16">
               <ExternalLink />
             </NIcon>
           </template>
@@ -155,7 +155,7 @@
           @click="handleOpenImport"
         >
           <template #icon>
-            <NIcon>
+            <NIcon :size="16">
               <FileImport />
             </NIcon>
           </template>
@@ -169,7 +169,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch, type Ref } from 'vue'
 import { NButton, NIcon, NPopover, NSpin, NTag, NText } from 'naive-ui'
-import { ExternalLink, FileImport, Plant2, Refresh } from '@vicons/tabler'
+import { ExternalLink, FileInput as FileImport, Sprout as Plant2, RefreshCw as Refresh } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import { getEnvVar } from '@prompt-optimizer/core'
 import { openExternalUrl } from '../../utils/open-external-url'

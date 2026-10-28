@@ -34,7 +34,7 @@
             title=""
           >
             <template #icon>
-              <NIcon>
+              <NIcon :size="16">
                 <Plant2 />
               </NIcon>
             </template>
@@ -64,7 +64,7 @@
             title=""
           >
             <template #icon>
-              <NIcon>
+              <NIcon :size="16">
                 <DotsVertical />
               </NIcon>
             </template>
@@ -109,7 +109,7 @@
 import { computed, h, inject, nextTick, onMounted, onUnmounted, ref, type CSSProperties } from 'vue'
 import { routerKey, type LocationQueryRaw } from 'vue-router'
 import { NButton, NDropdown, NIcon, NModal, type DropdownOption } from 'naive-ui'
-import { Bookmark, ClearAll, DotsVertical, ExternalLink, Plant2, FileImport } from '@vicons/tabler'
+import { Bookmark, ListX as ClearAll, EllipsisVertical as DotsVertical, ExternalLink, Sprout as Plant2, FileInput as FileImport } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import { getEnvVar } from '@prompt-optimizer/core'
 import SourceAssetBadge from '../source/SourceAssetBadge.vue'

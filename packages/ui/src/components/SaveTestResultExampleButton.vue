@@ -9,7 +9,7 @@
       @click="handleSaveExample"
     >
       <template #icon>
-        <NIcon>
+        <NIcon :size="16">
           <Star />
         </NIcon>
       </template>
@@ -20,7 +20,7 @@
 <script setup lang="ts">
 import { computed, inject, ref } from 'vue'
 import { NButton, NIcon } from 'naive-ui'
-import { Star } from '@vicons/tabler'
+import { Star } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import {
   promptExampleFromTestRun,

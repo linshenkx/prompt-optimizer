@@ -22,7 +22,7 @@
             @click="emitConfig()"
           >
             <template #icon>
-              <span>⚙️</span>
+              <Settings2 />
             </template>
             {{ configText || t('model.select.configure') }}
           </NButton>
@@ -35,7 +35,7 @@
         <div v-if="shouldShowConfigAction" style="padding: 8px 12px;">
           <NButton quaternary size="small" @click="emitConfig()">
             <template #icon>
-              <span>⚙️</span>
+              <Settings2 />
             </template>
             {{ configText || t('model.select.configure') }}
           </NButton>
@@ -46,6 +46,7 @@
 </template>
 
 <script setup lang="ts">
+import { Settings2 } from '@lucide/vue'
 import { computed, h, ref, useAttrs, useId, toValue, type ComputedRef, type Ref, type StyleValue } from 'vue'
 
 import { useI18n } from 'vue-i18n'

@@ -11,7 +11,7 @@
         @click.stop="openDialog"
       >
         <template #icon>
-          <NIcon>
+          <NIcon :size="16">
             <GitMerge />
           </NIcon>
         </template>
@@ -43,7 +43,7 @@
 <script setup lang="ts">
 import { inject, ref, type Ref } from 'vue'
 import { NAlert, NButton, NIcon, NModal } from 'naive-ui'
-import { GitMerge } from '@vicons/tabler'
+import { GitMerge } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import type { FavoritePrompt } from '@prompt-optimizer/core'
 

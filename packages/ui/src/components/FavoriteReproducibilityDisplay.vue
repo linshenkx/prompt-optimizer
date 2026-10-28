@@ -89,7 +89,7 @@
                   @click="$emit('apply-example', { exampleId: example.id, exampleIndex: index })"
                 >
                   <template #icon>
-                    <NIcon>
+                    <NIcon :size="16">
                       <PlayerPlay />
                     </NIcon>
                   </template>
@@ -197,7 +197,7 @@ import {
   NTag,
   NText,
 } from 'naive-ui'
-import { PlayerPlay } from '@vicons/tabler'
+import { Play as PlayerPlay } from '@lucide/vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 

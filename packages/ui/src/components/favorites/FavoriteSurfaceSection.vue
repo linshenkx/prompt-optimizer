@@ -30,7 +30,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { NButton, NCard, NIcon } from 'naive-ui'
-import { ChevronDown, ChevronUp } from '@vicons/tabler'
+import { ChevronDown, ChevronUp } from '@lucide/vue'
 
 const props = withDefaults(defineProps<{
   title?: string

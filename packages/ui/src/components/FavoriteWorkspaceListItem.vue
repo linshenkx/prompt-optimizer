@@ -62,7 +62,7 @@
               @click.stop="$emit('use', favorite)"
             >
               <template #icon>
-                <NIcon><PlayerPlay /></NIcon>
+                <NIcon :size="16"><PlayerPlay /></NIcon>
               </template>
               <span v-if="variant !== 'card'">{{ t('favorites.manager.card.useNow') }}</span>
             </NButton>
@@ -74,7 +74,7 @@
               @click.stop="$emit('copy', favorite)"
             >
               <template #icon>
-                <NIcon><Copy /></NIcon>
+                <NIcon :size="16"><Copy /></NIcon>
               </template>
               <span v-if="variant !== 'card'">{{ t('favorites.manager.card.copyContent') }}</span>
             </NButton>
@@ -83,7 +83,7 @@
           <NDropdown trigger="click" :options="menuOptions" @select="handleMenuSelect">
             <NButton data-testid="favorite-workspace-item-menu" quaternary circle size="small" @click.stop>
               <template #icon>
-                <NIcon><DotsVertical /></NIcon>
+                <NIcon :size="16"><DotsVertical /></NIcon>
               </template>
             </NButton>
           </NDropdown>
@@ -152,7 +152,7 @@ import {
   NText,
   NThing,
 } from 'naive-ui'
-import { Copy, DotsVertical, Edit, PlayerPlay, Trash } from '@vicons/tabler'
+import { Copy, EllipsisVertical as DotsVertical, SquarePen as Edit, Play as PlayerPlay, Trash2 as Trash } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import type { FavoriteCategory, FavoritePrompt } from '@prompt-optimizer/core'
 

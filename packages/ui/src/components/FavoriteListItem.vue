@@ -121,16 +121,7 @@ import {
   NSpace,
   NDropdown
 } from 'naive-ui';
-import {
-  Copy,
-  PlayerPlay,
-  Eye,
-  DotsVertical,
-  Edit,
-  Trash,
-  Share,
-  Tag
-} from '@vicons/tabler';
+import { Copy, Play as PlayerPlay, Eye, EllipsisVertical as DotsVertical, SquarePen as Edit, Trash2 as Trash, Share, Tag } from '@lucide/vue'
 import type { FavoritePrompt, FavoriteCategory } from '@prompt-optimizer/core';
 
 interface Props {

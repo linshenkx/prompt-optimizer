@@ -142,16 +142,7 @@ import {
   type FormInst,
   type FormRules
 } from 'naive-ui';
-import {
-  FolderPlus,
-  ArrowsMaximize,
-  ArrowsMinimize,
-  Edit,
-  Trash,
-  Plus,
-  Folder,
-  DotsVertical
-} from '@vicons/tabler';
+import { FolderPlus, Maximize2 as ArrowsMaximize, Minimize2 as ArrowsMinimize, SquarePen as Edit, Trash2 as Trash, Plus, Folder, EllipsisVertical as DotsVertical } from '@lucide/vue'
 import { useToast } from '../composables/ui/useToast';
 import { useI18n } from 'vue-i18n';
 import { getI18nErrorMessage } from '../utils/error';

@@ -12,7 +12,7 @@
 </template>
 <script setup lang="ts">
 import { NButton, NIcon, NPopover } from 'naive-ui'
-import { ChevronDown } from '@vicons/tabler'
+import { ChevronDown } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 withDefaults(defineProps<{ compact?: boolean }>(), { compact: false })
 const { t } = useI18n()

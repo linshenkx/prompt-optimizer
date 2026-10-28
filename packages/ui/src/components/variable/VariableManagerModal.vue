@@ -29,12 +29,8 @@
                 :size="buttonSize"
             >
                 <template #icon>
-                    <NIcon>
-                        <svg viewBox="0 0 16 16" fill="currentColor">
-                            <path
-                                d="M8 2a.5.5 0 01.5.5v5h5a.5.5 0 010 1h-5v5a.5.5 0 01-1 0v-5h-5a.5.5 0 010-1h5v-5A.5.5 0 018 2z"
-                            />
-                        </svg>
+                    <NIcon :size="16">
+                        <UiPlus />
                     </NIcon>
                 </template>
                 {{ t("variables.management.addVariable") }}
@@ -97,20 +93,7 @@
                     >
                         <template #icon>
                             <NIcon>
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path
-                                        v-if="isPredefinedExpanded"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        d="M5 15l7-7 7 7"
-                                    />
-                                    <path
-                                        v-else
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        d="M19 9l-7 7-7-7"
-                                    />
-                                </svg>
+                                <UiChevronUp v-if="isPredefinedExpanded" /><UiChevronDown v-else />
                             </NIcon>
                         </template>
                     </NButton>
@@ -150,18 +133,7 @@
                     <NEmpty :description="t('variables.addFirstVariable')">
                         <template #icon>
                             <NIcon size="48">
-                                <svg
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                >
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="1"
-                                        d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
-                                    />
-                                </svg>
+                                <UiTag />
                             </NIcon>
                         </template>
                         <template #default>
@@ -375,6 +347,7 @@
 </template>
 
 <script setup lang="ts">
+import { Copy as RenderCopy, SquarePen as RenderSquarePen, Trash2 as RenderTrash2, Plus as UiPlus, ChevronUp as UiChevronUp, ChevronDown as UiChevronDown, Tag as UiTag } from '@lucide/vue'
 import NModal from "../common/AdaptiveModal.vue"
 import { useWorkspaceLayout } from '../../composables/ui/useWorkspaceLayout'
 const { isCompact } = useWorkspaceLayout()
@@ -608,23 +581,7 @@ const predefinedTableColumns = computed<DataTableColumns<VariableRow>>(() => [
                     icon: () =>
                         h(NIcon, null, {
                             default: () =>
-                                h(
-                                    "svg",
-                                    {
-                                        width: "16",
-                                        height: "16",
-                                        viewBox: "0 0 16 16",
-                                        fill: "currentColor",
-                                    },
-                                    [
-                                        h("path", {
-                                            d: "M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z",
-                                        }),
-                                        h("path", {
-                                            d: "M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z",
-                                        }),
-                                    ],
-                                ),
+                                h(RenderCopy, { size: 16 }),
                         }),
                 },
             );
@@ -704,23 +661,7 @@ const customTableColumns = computed<DataTableColumns<VariableRow>>(() => [
                                 icon: () =>
                                     h(NIcon, null, {
                                         default: () =>
-                                            h(
-                                                "svg",
-                                                {
-                                                    width: "16",
-                                                    height: "16",
-                                                    viewBox: "0 0 16 16",
-                                                    fill: "currentColor",
-                                                },
-                                                [
-                                                    h("path", {
-                                                        d: "M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z",
-                                                    }),
-                                                    h("path", {
-                                                        d: "M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z",
-                                                    }),
-                                                ],
-                                            ),
+                                            h(RenderCopy, { size: 16 }),
                                     }),
                             },
                         ),
@@ -736,20 +677,7 @@ const customTableColumns = computed<DataTableColumns<VariableRow>>(() => [
                                 icon: () =>
                                     h(NIcon, null, {
                                         default: () =>
-                                            h(
-                                                "svg",
-                                                {
-                                                    width: "16",
-                                                    height: "16",
-                                                    viewBox: "0 0 16 16",
-                                                    fill: "currentColor",
-                                                },
-                                                [
-                                                    h("path", {
-                                                        d: "M12.146.146a.5.5 0 01.708 0l3 3a.5.5 0 010 .708L9.708 9.708a.5.5 0 01-.168.11l-5 2a.5.5 0 01-.65-.65l2-5a.5.5 0 01.11-.168L12.146.146z",
-                                                    }),
-                                                ],
-                                            ),
+                                            h(RenderSquarePen, { size: 16 }),
                                     }),
                             },
                         ),
@@ -766,20 +694,7 @@ const customTableColumns = computed<DataTableColumns<VariableRow>>(() => [
                                 icon: () =>
                                     h(NIcon, null, {
                                         default: () =>
-                                            h(
-                                                "svg",
-                                                {
-                                                    width: "16",
-                                                    height: "16",
-                                                    viewBox: "0 0 16 16",
-                                                    fill: "currentColor",
-                                                },
-                                                [
-                                                    h("path", {
-                                                        d: "M6.5 1h3a.5.5 0 01.5.5v1H6v-1a.5.5 0 01.5-.5zM11 2.5v-1A1.5 1.5 0 009.5 0h-3A1.5 1.5 0 005 1.5v1H2.506a.58.58 0 000 1.152H3.5l.5 9A1.5 1.5 0 005.5 14h5a1.5 1.5 0 001.5-1.348l.5-9h.994a.58.58 0 000-1.152H11z",
-                                                    }),
-                                                ],
-                                            ),
+                                            h(RenderTrash2, { size: 16 }),
                                     }),
                             },
                         ),

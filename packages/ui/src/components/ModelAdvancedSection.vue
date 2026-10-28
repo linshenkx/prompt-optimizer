@@ -36,10 +36,7 @@
           >
             <NButton size="small" type="primary" quaternary>
               <template #icon>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="8" y1="3" x2="8" y2="13" />
-                  <line x1="3" y1="8" x2="13" y2="8" />
-                </svg>
+                <UiPlus :size="14" />
               </template>
               {{ t('modelManager.advancedParameters.add') }}
             </NButton>
@@ -95,6 +92,7 @@
 </template>
 
 <script setup lang="ts">
+import { Plus as UiPlus } from '@lucide/vue'
 import { computed, ref, reactive } from 'vue'
 
 import { useI18n } from 'vue-i18n'

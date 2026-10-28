@@ -1,5 +1,6 @@
+import BrandGoogle from '../components/icons/GoogleBrandIcon.vue'
 import { h, type Component } from 'vue'
-import { BrandGoogle, Copy } from '@vicons/tabler'
+import { Copy } from '@lucide/vue'
 import type { CopyOpenActionId } from './copy-open-action'
 
 const ChatGptMark = {

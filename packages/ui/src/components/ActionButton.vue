@@ -1,6 +1,8 @@
 <template>
   <NButton
     v-bind="attrs"
+    :aria-label="attrs['aria-label'] || text"
+    :title="attrs.title || text"
     :type="buttonType"
     :size="buttonSize"
     :loading="loading"

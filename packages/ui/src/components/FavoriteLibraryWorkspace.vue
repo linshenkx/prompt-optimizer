@@ -18,7 +18,7 @@
             @update:value="handleSearch"
           >
             <template #prefix>
-              <NIcon><Search /></NIcon>
+              <NIcon :size="16"><Search /></NIcon>
             </template>
           </NInput>
 
@@ -62,21 +62,21 @@
             >
               <NButton secondary data-testid="favorites-manager-actions">
                 <template #icon>
-                  <NIcon><DotsVertical /></NIcon>
+                  <NIcon :size="16"><DotsVertical /></NIcon>
                 </template>
               </NButton>
             </NDropdown>
 
             <NButton v-if="!isMobile" secondary data-testid="favorites-manager-import" @click="openImportPanel">
               <template #icon>
-                <NIcon><Upload /></NIcon>
+                <NIcon :size="16"><Upload /></NIcon>
               </template>
               <span class="button-text">{{ t('favorites.manager.import') }}</span>
             </NButton>
 
             <NButton type="primary" data-testid="favorites-manager-add" @click="handleCreateFavorite">
               <template #icon>
-                <NIcon><Plus /></NIcon>
+                <NIcon :size="16"><Plus /></NIcon>
               </template>
               <span class="button-text">{{ t('favorites.manager.add') }}</span>
             </NButton>
@@ -268,16 +268,7 @@ import {
   NSpace,
   NText,
 } from 'naive-ui'
-import {
-  DotsVertical,
-  Download,
-  Folder,
-  Plus,
-  Search,
-  Tags,
-  Trash,
-  Upload,
-} from '@vicons/tabler'
+import { EllipsisVertical as DotsVertical, Download, Folder, Plus, Search, Tags, Trash2 as Trash, Upload } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import type { FavoriteCategory, FavoritePrompt } from '@prompt-optimizer/core'
 

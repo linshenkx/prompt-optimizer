@@ -287,7 +287,7 @@ import {
     type DropdownOption,
 } from 'naive-ui'
 
-import { ArrowsMaximize, DotsVertical } from '@vicons/tabler'
+import { Maximize2 as ArrowsMaximize, EllipsisVertical as DotsVertical } from '@lucide/vue'
 
 import FullscreenDialog from '../FullscreenDialog.vue'
 import type { TestVariableManager } from '../../composables/variable/useTestVariableManager'

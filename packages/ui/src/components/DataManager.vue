@@ -14,7 +14,7 @@
     <template v-if="isCompact" #header>
       <div class="data-manager-mobile-heading">
         <NButton v-if="mobileTask" text size="small" data-testid="data-manager-task-back" :aria-label="t('dataManager.title')" @click="mobileTask = null">
-          <template #icon><NIcon><ArrowLeft /></NIcon></template>
+          <template #icon><NIcon :size="16"><ArrowLeft /></NIcon></template>
         </NButton>
         <span>{{ modalTitle }}</span>
       </div>
@@ -28,7 +28,7 @@
             <span>{{ t(task.description) }}</span>
             <span v-if="task.key === 'remote' && remoteProgress.active">{{ remoteProgress.message }}</span>
           </span>
-          <NIcon><ChevronRight /></NIcon>
+          <NIcon :size="16"><ChevronRight /></NIcon>
         </NButton>
       </div>
       <section v-show="!isCompact || mobileTask === 'storage'" class="data-manager-section data-manager-section--storage">
@@ -43,7 +43,7 @@
           </div>
           <NButton size="small" secondary :loading="isRefreshingStorage" @click="refreshStorageSummary">
             <template #icon>
-              <NIcon><Refresh /></NIcon>
+              <NIcon :size="16"><Refresh /></NIcon>
             </template>
             {{ $t('dataManager.storage.refresh') }}
           </NButton>
@@ -130,7 +130,7 @@
               block
             >
               <template #icon>
-                <NIcon><Download /></NIcon>
+                <NIcon :size="16"><Download /></NIcon>
               </template>
               {{ isExporting ? $t('common.exporting') : $t('dataManager.export.button') }}
             </NButton>
@@ -192,7 +192,7 @@
               block
             >
               <template #icon>
-                <NIcon><Upload /></NIcon>
+                <NIcon :size="16"><Upload /></NIcon>
               </template>
               {{ isImporting ? $t('common.importing') : $t('dataManager.import.button') }}
             </NButton>
@@ -431,7 +431,7 @@
                       class="remote-step-toggle"
                       :class="{ 'remote-step-toggle--open': isCloudflareR2StepExpanded('account') }"
                     >
-                      <NIcon><ChevronDown /></NIcon>
+                      <NIcon :size="16"><ChevronDown /></NIcon>
                     </span>
                   </NButton>
                   <div v-if="isCloudflareR2StepExpanded('account')" class="remote-step-body">
@@ -442,7 +442,7 @@
                     <div class="remote-link-row">
                       <NButton size="small" secondary @click="openCloudflareR2Link('dashboard')">
                         <template #icon>
-                          <NIcon><ExternalLink /></NIcon>
+                          <NIcon :size="16"><ExternalLink /></NIcon>
                         </template>
                         {{ $t('dataManager.remote.cloudflareSteps.account.action') }}
                       </NButton>
@@ -473,7 +473,7 @@
                       class="remote-step-toggle"
                       :class="{ 'remote-step-toggle--open': isCloudflareR2StepExpanded('bucket') }"
                     >
-                      <NIcon><ChevronDown /></NIcon>
+                      <NIcon :size="16"><ChevronDown /></NIcon>
                     </span>
                   </NButton>
                   <div v-if="isCloudflareR2StepExpanded('bucket')" class="remote-step-body">
@@ -484,13 +484,13 @@
                     <div class="remote-action-row remote-action-row--compact">
                       <NButton size="small" secondary @click="openCloudflareR2Link('buckets')">
                         <template #icon>
-                          <NIcon><ExternalLink /></NIcon>
+                          <NIcon :size="16"><ExternalLink /></NIcon>
                         </template>
                         {{ $t('dataManager.remote.cloudflareSteps.bucket.action') }}
                       </NButton>
                       <NButton size="small" secondary @click="copyCloudflareR2CorsConfig">
                         <template #icon>
-                          <NIcon><Clipboard /></NIcon>
+                          <NIcon :size="16"><Clipboard /></NIcon>
                         </template>
                         {{ $t('dataManager.remote.cloudflareSteps.bucket.corsAction') }}
                       </NButton>
@@ -532,7 +532,7 @@
                       class="remote-step-toggle"
                       :class="{ 'remote-step-toggle--open': isCloudflareR2StepExpanded('credentials') }"
                     >
-                      <NIcon><ChevronDown /></NIcon>
+                      <NIcon :size="16"><ChevronDown /></NIcon>
                     </span>
                   </NButton>
                   <div v-if="isCloudflareR2StepExpanded('credentials')" class="remote-step-body">
@@ -549,13 +549,13 @@
                     <div class="remote-action-row remote-action-row--compact">
                       <NButton size="small" secondary @click="openCloudflareR2Link('apiTokens')">
                         <template #icon>
-                          <NIcon><ExternalLink /></NIcon>
+                          <NIcon :size="16"><ExternalLink /></NIcon>
                         </template>
                         {{ $t('dataManager.remote.cloudflareSteps.credentials.tokenAction') }}
                       </NButton>
                       <NButton size="small" secondary @click="openCloudflareR2Link('docs')">
                         <template #icon>
-                          <NIcon><ExternalLink /></NIcon>
+                          <NIcon :size="16"><ExternalLink /></NIcon>
                         </template>
                         {{ $t('dataManager.remote.cloudflareSteps.credentials.docsAction') }}
                       </NButton>
@@ -640,7 +640,7 @@
                 @click="handleRemoteUpload"
               >
                 <template #icon>
-                  <NIcon><Upload /></NIcon>
+                  <NIcon :size="16"><Upload /></NIcon>
                 </template>
                 {{ $t('dataManager.remote.backupNow') }}
               </NButton>
@@ -651,7 +651,7 @@
                 @click="handleRemoteRefresh"
               >
                 <template #icon>
-                  <NIcon><Refresh /></NIcon>
+                  <NIcon :size="16"><Refresh /></NIcon>
                 </template>
                 {{ $t('dataManager.remote.refreshList') }}
               </NButton>
@@ -662,7 +662,7 @@
                 @click="handleRemoteCleanup"
               >
                 <template #icon>
-                  <NIcon><Trash /></NIcon>
+                  <NIcon :size="16"><Trash /></NIcon>
                 </template>
                 {{ $t('dataManager.remote.cleanupAssets') }}
               </NButton>
@@ -782,7 +782,7 @@
               @click="handleRemoteRestore"
             >
               <template #icon>
-                <NIcon><Download /></NIcon>
+                <NIcon :size="16"><Download /></NIcon>
               </template>
               {{ $t('dataManager.remote.restoreSelected') }}
             </NButton>
@@ -809,7 +809,7 @@
 
           <NButton size="small" @click="openStorageDir" :disabled="!canUseDesktopStorageTools">
             <template #icon>
-              <NIcon><Folder /></NIcon>
+              <NIcon :size="16"><Folder /></NIcon>
             </template>
             {{ $t('dataManager.storage.openDir') }}
           </NButton>
@@ -854,7 +854,7 @@ import {
   type UploadFileInfo,
 } from 'naive-ui'
 import { isRunningInElectron } from '@prompt-optimizer/core'
-import { ArrowLeft, ChevronRight, ChevronDown, Clipboard, Download, ExternalLink, Folder, Refresh, Trash, Upload } from '@vicons/tabler'
+import { ArrowLeft, ChevronRight, ChevronDown, Clipboard, Download, ExternalLink, Folder, RefreshCw as Refresh, Trash2 as Trash, Upload } from '@lucide/vue'
 import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
 import { useCompactModalBack } from '../composables/ui/useCompactModalBack'
 import { useToast } from '../composables/ui/useToast'

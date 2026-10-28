@@ -12,7 +12,7 @@
         :aria-label="t('workspace.runGroup', { group: variant.id.toUpperCase() })"
         :data-testid="`mobile-result-run-${variant.id}`" @click="$emit('run')">
         <template #icon>
-          <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+          <UiPlay aria-hidden="true" :size="15" />
         </template>
       </NButton>
     </div>
@@ -22,6 +22,7 @@
 </template>
 
 <script setup lang="ts">
+import { Play as UiPlay } from '@lucide/vue'
 import { computed, ref } from 'vue'
 import { NButton } from 'naive-ui'
 import { useI18n } from 'vue-i18n'

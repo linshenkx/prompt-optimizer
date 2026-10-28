@@ -451,7 +451,7 @@ import {
   NTag,
   NTooltip,
 } from 'naive-ui'
-import { ChartBar } from '@vicons/tabler'
+import { ChartNoAxesColumnIncreasing as ChartBar } from '@lucide/vue'
 import type { EvaluationResponse, EvaluationType, PatchOperation } from '@prompt-optimizer/core'
 import {
   getCompareEvaluationMetadata,

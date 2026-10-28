@@ -140,7 +140,7 @@ import {
   NTooltip,
 } from 'naive-ui'
 import type { EvaluationType } from '@prompt-optimizer/core'
-import { Focus2 } from '@vicons/tabler'
+import { ScanSearch as Focus2 } from '@lucide/vue'
 import FeedbackEditor from './FeedbackEditor.vue'
 import AnalyzeActionIcon from './AnalyzeActionIcon.vue'
 import ThemedTooltip from '../common/ThemedTooltip.vue'

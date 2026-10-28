@@ -63,7 +63,7 @@
           <NDropdown v-if="foldActionControls && (isActionEnabled('copy') || isActionEnabled('favorite'))" trigger="click"
             :options="compactActionOptions" @select="handleCompactAction">
             <NButton quaternary circle size="small" :aria-label="t('workspace.moreOptions')" data-testid="output-compact-actions">
-              <template #icon><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></template>
+              <template #icon><UiEllipsis aria-hidden="true" :size="18" /></template>
             </NButton>
           </NDropdown>
           <template v-if="!foldActionControls">
@@ -77,7 +77,7 @@
             circle
           >
             <template #icon>
-              <NIcon>
+              <NIcon :size="16">
                 <Star />
               </NIcon>
             </template>
@@ -100,7 +100,7 @@
               :aria-label="activeCopyActionTitle"
             >
               <template #icon>
-                <NIcon>
+                <NIcon :size="16">
                   <component :is="activeCopyActionIcon" />
                 </NIcon>
               </template>
@@ -120,7 +120,7 @@
                 :aria-label="t('copyOpen.selectAction')"
               >
                 <template #icon>
-                  <NIcon>
+                  <NIcon :size="16">
                     <Copy class="output-copy-menu-icon" />
                     <ChevronDown class="output-copy-menu-chevron" />
                   </NIcon>
@@ -144,10 +144,8 @@
             circle
           >
             <template #icon>
-              <NIcon>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                </svg>
+              <NIcon :size="16">
+                <UiMaximize2 />
               </NIcon>
             </template>
           </NButton>
@@ -287,6 +285,7 @@
 </template>
 
 <script setup lang="ts">
+import { Ellipsis as UiEllipsis, Maximize2 as UiMaximize2, ChevronDown, Copy, Star } from '@lucide/vue'
 import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount, inject, h, type Ref } from 'vue'
 import { useElementSize } from '@vueuse/core'
 
@@ -297,11 +296,6 @@ import {
   type DropdownOption
 } from 'naive-ui'
 import { useToast } from '../composables/ui/useToast'
-import {
-  ChevronDown,
-  Copy,
-  Star,
-} from '@vicons/tabler'
 import { useClipboard } from '../composables/ui/useClipboard'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 import XmlRenderer from './XmlRenderer.vue'

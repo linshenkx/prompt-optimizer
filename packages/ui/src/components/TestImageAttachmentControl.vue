@@ -35,10 +35,8 @@
           data-testid="basic-system-test-image-replace"
         >
           <template #icon>
-            <NIcon>
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v6h6M20 20v-6h-6M5.1 15a7 7 0 0 0 11.8 2M18.9 9A7 7 0 0 0 7.1 7" />
-              </svg>
+            <NIcon :size="16">
+              <UiRefreshCw />
             </NIcon>
           </template>
         </NButton>
@@ -55,10 +53,8 @@
         @click="removeImage"
       >
         <template #icon>
-          <NIcon>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6 6 18" />
-            </svg>
+          <NIcon :size="16">
+            <UiX />
           </NIcon>
         </template>
       </NButton>
@@ -83,12 +79,8 @@
         data-testid="basic-system-test-image-add"
       >
         <template #icon>
-          <NIcon>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="4" width="18" height="16" rx="2" />
-              <circle cx="8.5" cy="9" r="1.5" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="m4 17 5-5 4 4 2-2 5 5" />
-            </svg>
+          <NIcon :size="16">
+            <UiImage />
           </NIcon>
         </template>
       </NButton>
@@ -97,6 +89,7 @@
 </template>
 
 <script setup lang="ts">
+import { RefreshCw as UiRefreshCw, X as UiX, Image as UiImage } from '@lucide/vue'
 import { computed } from 'vue'
 import { NButton, NIcon, NUpload, type UploadFileInfo } from 'naive-ui'
 import { useI18n } from 'vue-i18n'

@@ -21,9 +21,7 @@
           :title="t('templateManager.syntaxGuide')"
         >
           <template #icon>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
-            </svg>
+            <UiCircleHelp />
           </template>
         </NButton>
         <BuiltinTemplateLanguageSwitch @language-changed="handleLanguageChanged" />
@@ -48,12 +46,14 @@
     <NGrid v-else class="compact-template-categories" :cols="3" :x-gap="8" :y-gap="8">
       <NGridItem>
         <NButton block :type="currentCategory==='system-optimize' ? 'primary' : 'default'" @click="currentCategory='system-optimize'">
-          {{ `🎯 ${t('templateManager.optimizeTemplates')}` }}
+          <template #icon><CategoryTarget /></template>
+          {{ t('templateManager.optimizeTemplates') }}
         </NButton>
       </NGridItem>
       <NGridItem>
         <NButton block :type="currentCategory==='user-optimize' ? 'primary' : 'default'" @click="currentCategory='user-optimize'">
-          {{ `👤 ${t('templateManager.userOptimizeTemplates')}` }}
+          <template #icon><CategoryUser /></template>
+          {{ t('templateManager.userOptimizeTemplates') }}
         </NButton>
       </NGridItem>
       <NGridItem>
@@ -62,42 +62,49 @@
           :type="(currentCategory==='basic-system-iterate' || currentCategory==='basic-user-iterate') ? 'primary' : 'default'"
           @click="currentCategory = props.basicSubMode === 'system' ? 'basic-system-iterate' : 'basic-user-iterate'"
         >
-          {{ `🔄 ${t('templateManager.iterateTemplates')}` }}
+          <template #icon><CategoryRefreshCw /></template>
+          {{ t('templateManager.iterateTemplates') }}
         </NButton>
       </NGridItem>
 
       <NGridItem>
         <NButton block :type="currentCategory==='context-system-optimize' ? 'primary' : 'default'" @click="currentCategory='context-system-optimize'">
-          {{ `🎯 ${t('templateManager.optimizeTemplatesContext')}` }}
+          <template #icon><CategoryTarget /></template>
+          {{ t('templateManager.optimizeTemplatesContext') }}
         </NButton>
       </NGridItem>
       <NGridItem>
         <NButton block :type="currentCategory==='context-user-optimize' ? 'primary' : 'default'" @click="currentCategory='context-user-optimize'">
-          {{ `👤 ${t('templateManager.userOptimizeTemplatesContext')}` }}
+          <template #icon><CategoryUser /></template>
+          {{ t('templateManager.userOptimizeTemplatesContext') }}
         </NButton>
       </NGridItem>
       <NGridItem>
         <NButton block :type="currentCategory==='context-iterate' ? 'primary' : 'default'" @click="currentCategory='context-iterate'">
-          {{ `🔄 ${t('templateManager.iterateTemplatesContext')}` }}
+          <template #icon><CategoryRefreshCw /></template>
+          {{ t('templateManager.iterateTemplatesContext') }}
         </NButton>
       </NGridItem>
 
       <!-- 图像 · 文生图 -->
       <NGridItem>
         <NButton block :type="currentCategory==='image-text2image-optimize' ? 'primary' : 'default'" @click="currentCategory='image-text2image-optimize'">
-          {{ `🖼️ ${t('templateManager.imageText2ImageTemplates')}` }}
+          <template #icon><CategoryImage /></template>
+          {{ t('templateManager.imageText2ImageTemplates') }}
         </NButton>
       </NGridItem>
       <!-- 图像 · 图生图 -->
       <NGridItem>
         <NButton block :type="currentCategory==='image-image2image-optimize' ? 'primary' : 'default'" @click="currentCategory='image-image2image-optimize'">
-          {{ `📷 ${t('templateManager.imageImage2ImageTemplates')}` }}
+          <template #icon><CategoryCamera /></template>
+          {{ t('templateManager.imageImage2ImageTemplates') }}
         </NButton>
       </NGridItem>
       <!-- 图像 · 迭代 -->
       <NGridItem>
         <NButton block :type="currentCategory==='image-iterate' ? 'primary' : 'default'" @click="currentCategory='image-iterate'">
-          {{ `🌀 ${t('templateManager.imageIterateTemplates')}` }}
+          <template #icon><CategoryRefreshCw /></template>
+          {{ t('templateManager.imageIterateTemplates') }}
         </NButton>
       </NGridItem>
     </NGrid>
@@ -117,12 +124,7 @@
           ghost
         >
           <template #icon>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
-              <path d="M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4"/>
-              <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
-              <path d="M3 15h6"/>
-              <path d="M6 12v6"/>
-            </svg>
+            <UiFilePlus2 />
           </template>
           {{ t('templateManager.addTemplate') }}
         </NButton>
@@ -165,10 +167,7 @@
                   @click="viewTemplate(template)"
                 >
                   <template #icon>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                    </svg>
+                    <UiEye />
                   </template>
                   {{ t('template.view') }}
                 </NButton>
@@ -181,9 +180,7 @@
                   @click="editTemplate(template)"
                 >
                   <template #icon>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                    </svg>
+                    <UiSquarePen />
                   </template>
                   {{ t('common.edit') }}
                 </NButton>
@@ -196,9 +193,7 @@
                   @click="copyTemplate(template)"
                 >
                   <template #icon>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0 1 18 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375m-8.25-3 1.5 1.5 3-3.75" />
-                    </svg>
+                    <UiCopy />
                   </template>
                   {{ t('templateManager.copyTemplate') }}
                 </NButton>
@@ -212,9 +207,7 @@
                   :title="t('templateManager.convertToAdvanced')"
                 >
                   <template #icon>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
-                    </svg>
+                    <UiArrowLeftRight />
                   </template>
                   {{ t('templateManager.migrate') }}
                 </NButton>
@@ -228,9 +221,7 @@
                   @click="confirmDelete(template.id)"
                 >
                   <template #icon>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                    </svg>
+                    <UiTrash2 />
                   </template>
                   {{ t('common.delete') }}
                 </NButton>
@@ -250,8 +241,8 @@
                 size="small"
               >
                 {{ TemplateProcessor.isSimpleTemplate(template) 
-                  ? `📝 ${t('templateManager.simpleTemplate')}` 
-                  : `⚡ ${t('templateManager.advancedTemplate')}` 
+                  ? `${t('templateManager.simpleTemplate')}`
+                  : `${t('templateManager.advancedTemplate')}`
                 }}
               </NTag>
               <NTag
@@ -296,8 +287,8 @@
             size="small"
           >
             {{ (viewingTemplate || editingTemplate) && TemplateProcessor.isSimpleTemplate((viewingTemplate || editingTemplate)!) 
-              ? '📝 ' + t('templateManager.simpleTemplate') 
-              : '⚡ ' + t('templateManager.advancedTemplate') }}
+              ? t('templateManager.simpleTemplate')
+              : t('templateManager.advancedTemplate') }}
           </NTag>
           <!-- Template Syntax Guide Toggle -->
           <NButton
@@ -307,9 +298,7 @@
             :title="t('templateManager.syntaxGuide')"
           >
             <template #icon>
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
-              </svg>
+              <UiCircleHelp />
             </template>
           </NButton>
         </NSpace>
@@ -345,14 +334,14 @@
               @click="form.isAdvanced = false"
               class="flex-1"
             >
-              📝 {{ t('templateManager.simpleTemplate') }}
+              {{ t('templateManager.simpleTemplate') }}
             </NButton>
             <NButton
               :type="form.isAdvanced ? 'primary' : 'default'"
               @click="form.isAdvanced = true"
               class="flex-1"
             >
-              ⚡ {{ t('templateManager.advancedTemplate') }}
+              {{ t('templateManager.advancedTemplate') }}
             </NButton>
           </NSpace>
         </div>
@@ -374,9 +363,7 @@
               :title="t('templateManager.fullscreenEdit')"
             >
               <template #icon>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-                </svg>
+                <UiMaximize2 />
               </template>
               {{ t('templateManager.fullscreen') }}
             </NButton>
@@ -406,9 +393,7 @@
               secondary
             >
               <template #icon>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
+                <UiPlus />
               </template>
               {{ t('templateManager.addMessage') }}
             </NButton>
@@ -454,9 +439,7 @@
                       style="align-self: flex-end;"
                     >
                       <template #icon>
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3 h-3">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-                        </svg>
+                        <UiMaximize2  :size="12" />
                       </template>
                       {{ t('templateManager.fullscreen') }}
                     </NButton>
@@ -471,9 +454,7 @@
                       :disabled="index === 0"
                     >
                       <template #icon>
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3 h-3">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
-                        </svg>
+                        <UiChevronUp  :size="12" />
                       </template>
                     </NButton>
                     <NButton
@@ -483,9 +464,7 @@
                       :disabled="index === form.messages.length - 1"
                     >
                       <template #icon>
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3 h-3">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                        </svg>
+                        <UiChevronDown  :size="12" />
                       </template>
                     </NButton>
                     <NButton
@@ -495,9 +474,7 @@
                       @click="removeMessage(index)"
                     >
                       <template #icon>
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3 h-3">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        <UiX  :size="12" />
                       </template>
                     </NButton>
                   </NSpace>
@@ -671,6 +648,7 @@
 </template>
 
 <script setup lang="ts">
+import { Target as CategoryTarget, User as CategoryUser, RefreshCw as CategoryRefreshCw, Image as CategoryImage, Camera as CategoryCamera, CircleHelp as UiCircleHelp, FilePlus2 as UiFilePlus2, Eye as UiEye, SquarePen as UiSquarePen, Copy as UiCopy, ArrowLeftRight as UiArrowLeftRight, Trash2 as UiTrash2, Maximize2 as UiMaximize2, Plus as UiPlus, ChevronUp as UiChevronUp, ChevronDown as UiChevronDown, X as UiX } from '@lucide/vue'
 import NModal from "./common/AdaptiveModal.vue"
 import MobileTemplateList from './templates/MobileTemplateList.vue'
 import MobileTemplateEditor from './templates/MobileTemplateEditor.vue'

@@ -29,9 +29,7 @@
             <NUploadDragger>
               <div :style="{ textAlign: 'center', padding: isCompact ? '12px' : '24px' }">
                 <NIcon :size="isCompact ? 32 : 48" style="display:block; margin: 0 auto 12px;">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
-                  </svg>
+                  <UiUpload />
                 </NIcon>
                 <NText>
                   {{ t('variables.importer.dropFile') }}
@@ -47,10 +45,8 @@
 
           <NAlert type="info">
             <template #icon>
-              <NIcon>
-                <svg viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-4a1 1 0 00-.894.553l-3 6a1 1 0 001.788.894L8.618 12h2.764l.724 1.447a1 1 0 001.788-.894l-3-6A1 1 0 0010 6z" clip-rule="evenodd"/>
-                </svg>
+              <NIcon :size="16">
+                <UiInfo />
               </NIcon>
             </template>
             <template #header>
@@ -95,10 +91,8 @@
     <!-- 文件选择反馈 -->
     <NAlert v-if="selectedFile && activeMethod === 'file'" type="success" size="small">
         <template #icon>
-          <NIcon>
-            <svg viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/>
-            </svg>
+          <NIcon :size="16">
+            <UiCheck />
           </NIcon>
         </template>
         {{ t('variables.importer.selectedFile') }}: {{ selectedFile.name }} ({{ (selectedFile.size / 1024).toFixed(1) }} KB)
@@ -130,10 +124,8 @@
     <!-- 错误信息 -->
     <NAlert v-if="error" type="error" size="small">
         <template #icon>
-          <NIcon>
-            <svg viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd"/>
-            </svg>
+          <NIcon :size="16">
+            <UiCircleX />
           </NIcon>
         </template>
         {{ error }}
@@ -158,6 +150,7 @@
 </template>
 
 <script setup lang="ts">
+import { Upload as UiUpload, Info as UiInfo, Check as UiCheck, CircleX as UiCircleX } from '@lucide/vue'
 import NModal from '../common/AdaptiveModal.vue'
 import { ref, computed, watch } from 'vue'
 
