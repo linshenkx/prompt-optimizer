@@ -29,11 +29,12 @@
     "sandbox": "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline' https: blob:; style-src 'unsafe-inline' https:; img-src https: data: blob:; font-src https: data:; media-src https: data: blob:; connect-src https: http: wss: ws:; frame-src about:; worker-src blob:; base-uri 'none'; form-action 'none'"
   },
   "sandbox": {
-    "pages": ["html-preview.html"]
+    "pages": [
+      "html-preview.html"
+    ]
   },
   "offline_enabled": true,
   "incognito": "split",
   "short_name": "__MSG_extShortName__",
-  "minimum_chrome_version": "88",
-  "version_name": "2.13.0-beta.1"
+  "minimum_chrome_version": "88"
 }

@@ -2,6 +2,10 @@
 
 Full release narratives now live in versioned files under `releases/`. This file stays as the index and summary entry point.
 
+## [2.13.0] - 2026-10-28
+- EN: Render interactive HTML inside Markdown results across Web, Desktop and the browser extension, with bounded concurrent output rendering. Improve backup integrity and cloud-backup import codes, preserve model selections and saved parameters, and refine image-editing templates. See [Release Notes (EN)](releases/v2.13.0.en.md).
+- 中文：Web、桌面和浏览器扩展统一支持 Markdown 内的交互式 HTML 预览，并限制并发输出的渲染开销；增强备份完整性和云备份导入码，保留模型选择与已保存参数，完善图片编辑模板。参见 [版本说明（中文）](releases/v2.13.0.zh-CN.md)。
+
 ## [2.13.0-beta.1] - 2026-10-28
 - EN: Preview interactive HTML blocks directly inside Markdown output, with unified Preview/Source controls and bounded streaming and rendering. Strengthen backup integrity, add cloud backup import codes, preserve model selections and parameters, and refine image-editing templates. The extension's content security policy blocks interactive HTML scripts; use the Web version for this feature. See [Release Notes (EN)](releases/v2.13.0-beta.1.en.md).
 - 中文：本预览版支持 Markdown 中的 HTML 块就地交互，统一预览与原文入口，并重构流式输出与渲染的资源管理；增强备份完整性、新增云备份导入码，修复模型选择与参数保留，完善图片编辑模板。浏览器端的 HTML 交互已验证 Web 版，扩展端脚本受内容安全策略限制。参见 [版本说明（中文）](releases/v2.13.0-beta.1.zh-CN.md)。
