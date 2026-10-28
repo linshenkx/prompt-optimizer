@@ -1,7 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
 import { buildHtmlPreviewDocument, extractHtmlCandidate, htmlSourceAsMarkdown } from '../../../src/utils/html-preview'
 import { mount } from '@vue/test-utils'
 import MarkdownRenderer from '../../../src/components/MarkdownRenderer.vue'
+import { prepareMarkdownOutput } from '../../../src/utils/markdown-output'
+import { installMarkdownWorker } from '../support/markdown-worker'
+
+beforeEach(() => installMarkdownWorker(vi, prepareMarkdownOutput))
+afterEach(() => vi.unstubAllGlobals())
 
 describe('HTML preview extraction', () => {
   it('keeps document styles and markup out of the host, even with Markdown fences inside HTML', () => {
@@ -42,7 +47,7 @@ describe('HTML preview extraction', () => {
     const document = new DOMParser().parseFromString(buildHtmlPreviewDocument(html), 'text/html')
     expect(document.querySelector('iframe')?.getAttribute('srcdoc')).toBe(html)
     expect(document.querySelector('iframe')?.getAttribute('sandbox')).toBe('allow-scripts')
-    expect(document.querySelector('meta[http-equiv]')?.getAttribute('content')).toContain("connect-src 'none'")
+    expect(document.querySelector('meta[http-equiv]')?.getAttribute('content')).toContain('connect-src https: http: wss: ws:')
     expect(document.querySelectorAll('script')).toHaveLength(0)
   })
 })

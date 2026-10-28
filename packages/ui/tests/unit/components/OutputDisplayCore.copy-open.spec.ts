@@ -207,8 +207,8 @@ describe('OutputDisplayCore copy and open action', () => {
       expect(wrapper.get('iframe').attributes('allow')).toContain("camera 'none'")
       await wrapper.get('[data-testid="output-copy-action"]').trigger('click')
       expect(copyTextMock).toHaveBeenLastCalledWith(source)
-      await wrapper.get('[data-testid="html-preview-reload"]').trigger('click')
-      expect(wrapper.get('iframe').element).not.toBe(frame)
+      expect(wrapper.find('[data-testid="html-preview-reload"]').exists()).toBe(false)
+      expect(wrapper.get('iframe').element).toBe(frame)
       await wrapper.get('[data-testid="output-view-source"]').trigger('click')
       expect(wrapper.find('iframe').exists()).toBe(false)
     } finally { wrapper.unmount() }

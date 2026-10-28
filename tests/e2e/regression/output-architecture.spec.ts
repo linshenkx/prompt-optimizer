@@ -132,6 +132,7 @@ test('stops only the selected concurrent request and persists capacity/failure o
 
 for (const scenario of cases) {
   test(`${scenario.mode}: concurrent documents survive ${process.env.OUTPUT_NATIVE_TAB_TEST === '1' ? 'native background' : 'background/freeze'} under slow CPU`, async ({ page, context }) => {
+    const nativeVisibility = process.env.OUTPUT_NATIVE_TAB_TEST === '1'
     const errors: string[] = []
     page.on('pageerror', error => errors.push(error.message))
     await context.addInitScript(name => {
@@ -142,6 +143,10 @@ for (const scenario of cases) {
     }, `output-architecture-${scenario.mode}-${Date.now()}`)
     await page.goto(new URL(`/#/${scenario.route}`, test.info().project.use.baseURL).toString())
     await expect(page.getByTestId('workspace')).toBeVisible({ timeout: 25000 })
+    if (nativeVisibility) {
+      await page.bringToFront()
+      await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe('visible')
+    }
     await page.evaluate(async ({ scenario, sources }) => {
       const app = (document.querySelector('#app') as any).__vue_app__
       const pinia = app.config.globalProperties.$pinia
@@ -192,10 +197,12 @@ for (const scenario of cases) {
     const cdp = await context.newCDPSession(page)
     await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 })
     await page.getByTestId(`${scenario.mode}-test-run-all`).click()
-    await page.waitForFunction(count => (window as any).__outputHeld === count, scenario.columns, { timeout: 20000 })
+    await page.waitForFunction(count => (window as any).__outputHeld === count, scenario.columns, { timeout: 30000, polling: 100 })
     const first = page.locator('.variant-result-card .output-display-core').first()
     await expect(first.getByTestId('output-source-view')).toBeVisible()
-    await first.locator('.output-copy-split-primary').click()
+    // Native background windows can suspend rAF; the button is already visible.
+    // Skip Playwright's rAF-based stability wait without overriding visibility.
+    await first.locator('.output-copy-split-primary').click({ force: nativeVisibility })
     const checkpoint = await page.evaluate(async ({ scenario }) => {
       const state = window as any
       const pinia = (document.querySelector('#app') as any).__vue_app__.config.globalProperties.$pinia
@@ -215,7 +222,6 @@ for (const scenario of cases) {
     }
     // Headless Chromium keeps all tabs visible. Exercise the actual visibility
     // handlers, then freeze/resume the renderer through Chromium's lifecycle API.
-    const nativeVisibility = process.env.OUTPUT_NATIVE_TAB_TEST === '1'
     let background: typeof page | undefined
     if (nativeVisibility) {
       background = await context.newPage()
@@ -255,7 +261,7 @@ for (const scenario of cases) {
         document.dispatchEvent(new Event('visibilitychange'))
       })
     }
-    await page.waitForFunction(() => (window as any).__outputActive === 0, undefined, { timeout: 20000 })
+    await page.waitForFunction(() => (window as any).__outputActive === 0, undefined, { timeout: 20000, polling: 100 })
     await expect(page.getByTestId('output-stop')).toHaveCount(0)
     const result = await page.evaluate(async scenario => {
       const pinia = (document.querySelector('#app') as any).__vue_app__.config.globalProperties.$pinia
@@ -284,7 +290,7 @@ for (const scenario of cases) {
       for (let round = 0; round < 4; round++) {
         const completed = await page.evaluate(() => (window as any).__outputFinished)
         await page.evaluate(() => { (window as any).__outputCalls = 0 })
-        await page.getByTestId('basic-user-test-run-all').click()
+        await page.getByTestId('basic-user-test-run-all').click({ force: nativeVisibility })
         await expect.poll(() => page.evaluate(() => (window as any).__outputFinished)).toBe(completed + scenario.columns)
         await expect(page.getByTestId('basic-user-test-run-all')).toBeEnabled()
         const repeated = await page.evaluate(() => (document.querySelector('#app') as any).__vue_app__.config.globalProperties.$pinia._s.get('basicUserSession').testVariantResults)
@@ -300,18 +306,20 @@ for (const scenario of cases) {
     }
     if (nativeVisibility) {
       const htmlOutput = page.locator('.variant-result-card .output-display-core').first()
-      await htmlOutput.getByTestId('output-view-html').click()
+      await htmlOutput.getByTestId('output-view-html').click({ force: nativeVisibility })
       await expect(htmlOutput.getByTestId('html-preview-frame')).toBeVisible()
+      const previewElement = await htmlOutput.getByTestId('html-preview-frame').elementHandle()
+      if (!previewElement) throw new Error('Missing HTML preview element')
       const other = await context.newPage()
       await other.goto('about:blank')
       await other.bringToFront()
       await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe('hidden')
-      await expect(page.getByTestId('html-preview-frame')).toHaveCount(0)
+      await expect(page.getByTestId('html-preview-frame')).toHaveCount(1)
       await page.bringToFront()
       await other.close()
-      await expect(htmlOutput.getByTestId('html-preview-paused')).toBeVisible()
-      await expect(page.getByTestId('html-preview-frame')).toHaveCount(0)
-      await htmlOutput.getByTestId('html-preview-reload').click()
+      expect(await previewElement.evaluate(element => element.isConnected)).toBe(true)
+      await expect(htmlOutput.getByTestId('html-preview-paused')).toHaveCount(0)
+      await expect(htmlOutput.getByTestId('html-preview-reload')).toHaveCount(0)
       await expect(htmlOutput.getByTestId('html-preview-frame')).toBeVisible()
       await page.screenshot({ path: test.info().outputPath('output-native-preview.png') })
     }

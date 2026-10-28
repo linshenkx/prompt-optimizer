@@ -15,7 +15,10 @@ for(const [key,read] of Object.entries({parentDOM:()=>parent.parent.document.bod
 try{read();result[key]=false}catch{result[key]=true}}
 result.desktopBridge=typeof window.electronAPI==='undefined';
 try{parent.parent.location.href='https://preview-navigation.example.test/';result.topNavigation=false}catch{result.topNavigation=true}
-fetch('https://preview-data.example.test/private').then(()=>{result.fetchBlocked=false},()=>{result.fetchBlocked=true}).finally(()=>{document.querySelector('#isolation').textContent=JSON.stringify(result)});
+Promise.all([
+fetch('https://preview-data.example.test/private').then(()=>{result.fetchBlocked=false},()=>{result.fetchBlocked=true}),
+fetch('https://preview-data.example.test/no-cors').then(()=>{result.corsBlocked=false},()=>{result.corsBlocked=true})
+]).then(()=>{document.querySelector('#isolation').textContent=JSON.stringify(result)});
 let ticks=0;function tick(){document.body.dataset.ticks=String(++ticks);requestAnimationFrame(tick)}tick();
 (async()=>{let state='unavailable';try{if(navigator.gpu){state=await navigator.gpu.requestAdapter()?'adapter available':'no adapter'}}catch(e){state=e.message}document.querySelector('#gpu').textContent=state})();
 </script></body></html>`
@@ -47,37 +50,56 @@ test.beforeEach(async ({ page, context }) => {
     contentType: 'application/javascript',
     body: 'window.addEventListener("DOMContentLoaded",()=>document.body.dataset.externalScript="loaded")',
   }))
+  await page.route('https://preview-data.example.test/**', route => route.fulfill({
+    contentType: 'application/json', body: '{"ok":true}',
+    // Playwright supplies permissive CORS headers when the header is absent.
+    headers: { 'access-control-allow-origin': route.request().url().endsWith('/private') ? '*' : 'https://other-origin.example.test' },
+  }))
   await page.goto('/#/basic/system')
   await expect(page.getByTestId('workspace')).toBeVisible({ timeout: 25000 })
 })
 
-test('owns one preview globally and destroys it while the document is hidden', async ({ page }) => {
-  await seedOutput(page, '<button id="one" onclick="this.textContent=1">0</button>')
-  await page.evaluate(() => {
+test('keeps independent interactive previews and their state across visibility changes', async ({ page }) => {
+  const counter = '<button id="counter" onclick="this.textContent=Number(this.textContent)+1">0</button>'
+  await seedOutput(page, counter)
+  await page.evaluate(content => {
     const store = (document.querySelector('#app') as any).__vue_app__.config.globalProperties.$pinia._s.get('basicSystemSession')
-    store.testVariantResults = { ...store.testVariantResults, b: { result: '<button id="two">second</button>', reasoning: '' } }
-  })
+    store.testVariantResults = { ...store.testVariantResults, b: { result: content, reasoning: '' } }
+  }, counter)
   const outputs = page.locator('.variant-result-card .output-display-core')
   await outputs.nth(0).getByTestId('output-view-html').click()
-  await expect(outputs.nth(0).getByTestId('html-preview-frame')).toHaveCount(1)
+  const first = outputs.nth(0).frameLocator('[data-testid="html-preview-frame"]').frameLocator('iframe').locator('#counter')
+  await first.click()
+  await expect(first).toHaveText('1')
   await outputs.nth(1).getByTestId('output-view-html').click()
-  await expect(page.getByTestId('html-preview-frame')).toHaveCount(1)
-  await expect(outputs.nth(0).getByTestId('html-preview-frame')).toHaveCount(0)
+  const second = outputs.nth(1).frameLocator('[data-testid="html-preview-frame"]').frameLocator('iframe').locator('#counter')
+  await second.click()
+  await second.click()
+  await expect(second).toHaveText('2')
+  await expect(first).toHaveText('1')
+  await expect(page.getByTestId('html-preview-frame')).toHaveCount(2)
+  const firstContext = await first.evaluateHandle(() => window)
+  const secondContext = await second.evaluateHandle(() => window)
   await page.evaluate(() => {
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
     document.dispatchEvent(new Event('visibilitychange'))
   })
-  await expect(page.getByTestId('html-preview-frame')).toHaveCount(0)
+  await expect(page.getByTestId('html-preview-frame')).toHaveCount(2)
   await page.evaluate(() => {
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' })
     document.dispatchEvent(new Event('visibilitychange'))
   })
-  await expect(page.getByTestId('html-preview-frame')).toHaveCount(0)
-  await outputs.nth(1).getByTestId('html-preview-reload').click()
-  await expect(page.getByTestId('html-preview-frame')).toHaveCount(1)
+  await expect(page.getByTestId('html-preview-frame')).toHaveCount(2)
+  expect(await firstContext.evaluate(() => document.querySelector('#counter')?.textContent)).toBe('1')
+  expect(await secondContext.evaluate(() => document.querySelector('#counter')?.textContent)).toBe('2')
+  await first.click()
+  await expect(first).toHaveText('2')
+  await expect(second).toHaveText('2')
+  await expect(page.getByTestId('html-preview-reload')).toHaveCount(0)
+  await expect(page.getByTestId('html-preview-paused')).toHaveCount(0)
 })
 
-test('runs HTML, CSS, scripts, canvas and animation with parent/storage/network isolation', async ({ page }) => {
+test('runs HTML, CSS, scripts, canvas and external data with parent/storage isolation and normal CORS', async ({ page }) => {
   let dataRequests = 0
   page.on('request', request => {
     if (request.url().includes('preview-data.example.test')) dataRequests++
@@ -93,10 +115,11 @@ test('runs HTML, CSS, scripts, canvas and animation with parent/storage/network 
   await expect(preview.locator('body')).toHaveCSS('background-color', 'rgb(230, 240, 255)')
   await preview.locator('#counter').click()
   await expect(preview.locator('#counter')).toHaveText('1')
-  await expect(preview.locator('#isolation')).toHaveText(JSON.stringify({
-    parentDOM: true, storage: true, cookies: true, desktopBridge: true, topNavigation: true, fetchBlocked: true,
-  }))
-  expect(dataRequests).toBe(0)
+  await expect(preview.locator('#isolation')).not.toBeEmpty()
+  expect(JSON.parse(await preview.locator('#isolation').innerText())).toEqual({
+    parentDOM: true, storage: true, cookies: true, desktopBridge: true, topNavigation: true, fetchBlocked: false, corsBlocked: true,
+  })
+  expect(dataRequests).toBe(2)
   expect(page.url()).toContain('/#/basic/system')
   expect(await preview.locator('canvas').evaluate((canvas: HTMLCanvasElement) =>
     [...canvas.getContext('2d')!.getImageData(0, 0, 1, 1).data],
@@ -105,8 +128,6 @@ test('runs HTML, CSS, scripts, canvas and animation with parent/storage/network 
   await expect(preview.locator('#gpu')).not.toBeEmpty()
   test.info().annotations.push({ type: 'WebGPU', description: await preview.locator('#gpu').innerText() })
 
-  await output.getByTestId('html-preview-reload').click()
-  await expect(preview.locator('#counter')).toHaveText('0')
   const childFrame = await preview.locator('body').evaluateHandle(() => window)
   await output.locator('[data-testid$="-view-source"], [data-testid="output-view-source"]').click()
   await expect(output.getByTestId('html-preview-frame')).toHaveCount(0)
@@ -157,7 +178,7 @@ test('offers the HTML preview in the mobile view menu', async ({ page }) => {
   const outputBox = (await output.boundingBox())!
   const expandBox = (await output.getByRole('button', { name: /^(Expand|展开|展開)$/ }).boundingBox())!
   expect(expandBox.x + expandBox.width).toBeLessThanOrEqual(outputBox.x + outputBox.width + 1)
-  expect((await output.locator('.html-preview-toolbar').boundingBox())!.height).toBeLessThan(130)
+  await expect(output.locator('.html-preview-toolbar')).toHaveCount(0)
   await page.screenshot({ path: test.info().outputPath('html-preview-mobile.png'), fullPage: true })
 })
 
