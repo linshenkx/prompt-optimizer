@@ -300,7 +300,7 @@
               <NSelect
                 :value="remoteSettings.provider.kind"
                 :options="remoteProviderOptions"
-                :disabled="isRemoteDataOperationActive || isConnectingRemote"
+                :disabled="isRemoteConnectionLocked"
                 @update:value="handleRemoteProviderChange"
               />
             </div>
@@ -327,8 +327,8 @@
               <div class="remote-action-row remote-action-row--compact remote-connection-actions">
                 <NButton
                   type="primary"
-                  :loading="isConnectingRemote"
-                  :disabled="!isCurrentRemoteProviderConfigured"
+                  :loading="isLoadingRemoteList"
+                  :disabled="!isCurrentRemoteProviderConfigured || isRemoteDataOperationActive || isAuthorizingRemote"
                   @click="handleRemoteSaveAndConnect"
                 >
                   {{ $t('dataManager.remote.saveAndConnect') }}
@@ -353,6 +353,8 @@
                   secondary
                   :type="isGoogleDriveAuthorized ? 'success' : 'default'"
                   :loading="isAuthorizingRemote"
+                  data-testid="remote-google-authorize"
+                  :disabled="isRemoteConnectionLocked"
                   @click="handleRemoteAuthorize"
                 >
                   {{ googleDriveAuthorizationLabel }}
@@ -437,7 +439,7 @@
                   <div v-if="isCloudflareR2StepExpanded('account')" class="remote-step-body">
                     <div class="remote-field">
                       <NText depth="3" class="remote-field-label">{{ $t('dataManager.remote.accountId') }}</NText>
-                      <NInput v-model:value="remoteSettings.provider.accountId" clearable @update:value="markRemoteSettingsDirty" />
+                      <NInput :disabled="isRemoteConnectionLocked" v-model:value="remoteSettings.provider.accountId" clearable @update:value="markRemoteSettingsDirty" />
                     </div>
                     <div class="remote-link-row">
                       <NButton size="small" secondary @click="openCloudflareR2Link('dashboard')">
@@ -479,7 +481,7 @@
                   <div v-if="isCloudflareR2StepExpanded('bucket')" class="remote-step-body">
                     <div class="remote-field">
                       <NText depth="3" class="remote-field-label">{{ $t('dataManager.remote.bucket') }}</NText>
-                      <NInput v-model:value="remoteSettings.provider.bucket" clearable @update:value="markRemoteSettingsDirty" />
+                      <NInput :disabled="isRemoteConnectionLocked" v-model:value="remoteSettings.provider.bucket" clearable @update:value="markRemoteSettingsDirty" />
                     </div>
                     <div class="remote-action-row remote-action-row--compact">
                       <NButton size="small" secondary @click="openCloudflareR2Link('buckets')">
@@ -539,11 +541,11 @@
                     <div class="remote-two-column">
                       <div class="remote-field">
                         <NText depth="3" class="remote-field-label">{{ $t('dataManager.remote.accessKey') }}</NText>
-                        <NInput v-model:value="remoteSettings.provider.accessKeyId" clearable @update:value="markRemoteSettingsDirty" />
+                        <NInput :disabled="isRemoteConnectionLocked" v-model:value="remoteSettings.provider.accessKeyId" clearable @update:value="markRemoteSettingsDirty" />
                       </div>
                       <div class="remote-field">
                         <NText depth="3" class="remote-field-label">{{ $t('dataManager.remote.secretKey') }}</NText>
-                        <NInput v-model:value="remoteSettings.provider.secretAccessKey" type="password" show-password-on="click" clearable @update:value="markRemoteSettingsDirty" />
+                        <NInput :disabled="isRemoteConnectionLocked" v-model:value="remoteSettings.provider.secretAccessKey" type="password" show-password-on="click" clearable @update:value="markRemoteSettingsDirty" />
                       </div>
                     </div>
                     <div class="remote-action-row remote-action-row--compact">
@@ -570,30 +572,30 @@
                 <div class="remote-two-column">
                   <div class="remote-field">
                     <NText depth="3" class="remote-field-label">{{ $t('dataManager.remote.endpoint') }}</NText>
-                    <NInput v-model:value="remoteSettings.provider.endpoint" placeholder="https://..." clearable @update:value="markRemoteSettingsDirty" />
+                    <NInput :disabled="isRemoteConnectionLocked" v-model:value="remoteSettings.provider.endpoint" placeholder="https://..." clearable @update:value="markRemoteSettingsDirty" />
                   </div>
                   <div class="remote-field">
                     <NText depth="3" class="remote-field-label">{{ $t('dataManager.remote.bucket') }}</NText>
-                    <NInput v-model:value="remoteSettings.provider.bucket" clearable @update:value="markRemoteSettingsDirty" />
+                    <NInput :disabled="isRemoteConnectionLocked" v-model:value="remoteSettings.provider.bucket" clearable @update:value="markRemoteSettingsDirty" />
                   </div>
                   <div class="remote-field">
                     <NText depth="3" class="remote-field-label">{{ $t('dataManager.remote.region') }}</NText>
-                    <NInput v-model:value="remoteSettings.provider.region" placeholder="auto" clearable @update:value="markRemoteSettingsDirty" />
+                    <NInput :disabled="isRemoteConnectionLocked" v-model:value="remoteSettings.provider.region" placeholder="auto" clearable @update:value="markRemoteSettingsDirty" />
                   </div>
                   <div class="remote-field">
                     <NText depth="3" class="remote-field-label">{{ $t('dataManager.remote.prefix') }}</NText>
-                    <NInput v-model:value="remoteSettings.provider.prefix" clearable @update:value="markRemoteSettingsDirty" />
+                    <NInput :disabled="isRemoteConnectionLocked" v-model:value="remoteSettings.provider.prefix" clearable @update:value="markRemoteSettingsDirty" />
                   </div>
                   <div class="remote-field">
                     <NText depth="3" class="remote-field-label">{{ $t('dataManager.remote.accessKey') }}</NText>
-                    <NInput v-model:value="remoteSettings.provider.accessKeyId" clearable @update:value="markRemoteSettingsDirty" />
+                    <NInput :disabled="isRemoteConnectionLocked" v-model:value="remoteSettings.provider.accessKeyId" clearable @update:value="markRemoteSettingsDirty" />
                   </div>
                   <div class="remote-field">
                     <NText depth="3" class="remote-field-label">{{ $t('dataManager.remote.secretKey') }}</NText>
-                    <NInput v-model:value="remoteSettings.provider.secretAccessKey" type="password" show-password-on="click" clearable @update:value="markRemoteSettingsDirty" />
+                    <NInput :disabled="isRemoteConnectionLocked" v-model:value="remoteSettings.provider.secretAccessKey" type="password" show-password-on="click" clearable @update:value="markRemoteSettingsDirty" />
                   </div>
                 </div>
-                <NCheckbox v-model:checked="remoteSettings.provider.forcePathStyle" @update:checked="markRemoteSettingsDirty">
+                <NCheckbox :disabled="isRemoteConnectionLocked" v-model:checked="remoteSettings.provider.forcePathStyle" @update:checked="markRemoteSettingsDirty">
                   {{ $t('dataManager.remote.forcePathStyle') }}
                 </NCheckbox>
                 <NText depth="3" class="remote-field-help">
@@ -606,21 +608,21 @@
               <div v-if="showRemoteConfigForm" class="remote-provider-form">
                 <div class="remote-field">
                   <NText depth="3" class="remote-field-label">{{ $t('dataManager.remote.endpoint') }}</NText>
-                  <NInput v-model:value="remoteSettings.provider.endpoint" placeholder="https://..." clearable @update:value="markRemoteSettingsDirty" />
+                  <NInput :disabled="isRemoteConnectionLocked" v-model:value="remoteSettings.provider.endpoint" placeholder="https://..." clearable @update:value="markRemoteSettingsDirty" />
                 </div>
                 <div class="remote-two-column">
                   <div class="remote-field">
                     <NText depth="3" class="remote-field-label">{{ $t('dataManager.remote.username') }}</NText>
-                    <NInput v-model:value="remoteSettings.provider.username" clearable @update:value="markRemoteSettingsDirty" />
+                    <NInput :disabled="isRemoteConnectionLocked" v-model:value="remoteSettings.provider.username" clearable @update:value="markRemoteSettingsDirty" />
                   </div>
                   <div class="remote-field">
                     <NText depth="3" class="remote-field-label">{{ $t('dataManager.remote.password') }}</NText>
-                    <NInput v-model:value="remoteSettings.provider.password" type="password" show-password-on="click" clearable @update:value="markRemoteSettingsDirty" />
+                    <NInput :disabled="isRemoteConnectionLocked" v-model:value="remoteSettings.provider.password" type="password" show-password-on="click" clearable @update:value="markRemoteSettingsDirty" />
                   </div>
                 </div>
                 <div class="remote-field">
                   <NText depth="3" class="remote-field-label">{{ $t('dataManager.remote.directory') }}</NText>
-                  <NInput v-model:value="remoteSettings.provider.directory" clearable @update:value="markRemoteSettingsDirty" />
+                  <NInput :disabled="isRemoteConnectionLocked" v-model:value="remoteSettings.provider.directory" clearable @update:value="markRemoteSettingsDirty" />
                 </div>
                 <NText depth="3" class="remote-field-help">
                   {{ isDesktopRuntime ? $t('dataManager.remote.webdavDesktopHelp') : $t('dataManager.remote.webdavWebHelp') }}
@@ -649,6 +651,7 @@
                 :loading="isLoadingRemoteList"
                 :disabled="!isCurrentRemoteProviderConfigured || isRemoteDataOperationActive"
                 @click="handleRemoteRefresh"
+                data-testid="remote-backup-refresh"
               >
                 <template #icon>
                   <NIcon :size="16"><Refresh /></NIcon>
@@ -690,9 +693,12 @@
                 data-testid="remote-backup-select"
                 :options="remoteBackupOptions"
                 :disabled="isRemoteDataOperationActive || isConnectingRemote"
-                :placeholder="$t('dataManager.remote.noBackups')"
+                :placeholder="remoteListPlaceholder"
                 filterable
               />
+              <NText data-testid="remote-list-status" :type="remoteListState === 'error' ? 'error' : 'default'" depth="3">
+                {{ remoteListMessage }}
+              </NText>
             </div>
 
             <div class="remote-action-row">
@@ -888,6 +894,9 @@ import {
   getCloudflareR2Endpoint,
   getSupportedRemoteBackupProviders,
   isGoogleDriveRemoteBackupAuthorized,
+  getGoogleDriveAuthorizationState,
+  isGoogleDriveAuthorizationPersistent,
+  GoogleDriveAuthorizationError,
   loadRemoteBackupSettings,
   rememberRemoteBackupProvider,
   saveRemoteBackupSettings,
@@ -902,6 +911,7 @@ import {
   cleanupRemoteSnapshotAssets,
   createRemoteSnapshotBackup,
   listRemoteSnapshotBackups,
+  UnreadableRemoteSnapshotsError,
   restoreRemoteSnapshotBackup,
   type RemoteSnapshotProgressEvent,
   type RemoteSnapshotEntry,
@@ -1049,7 +1059,8 @@ const isCloudflareR2SetupGuideExpanded = ref(
 const cloudflareR2ExpandedSteps = ref(new Set<CloudflareR2SetupStep>())
 const isAuthorizingRemote = ref(false)
 const isGoogleDriveAuthorized = ref(isGoogleDriveRemoteBackupAuthorized())
-const isConnectingRemote = ref(false)
+const googleAuthorizationState = ref<'missing' | 'expired' | 'ready' | 'rejected'>(getGoogleDriveAuthorizationState())
+const isConnectingRemote = computed(() => isAuthorizingRemote.value || isLoadingRemoteList.value)
 const isRemoteConfigExpanded = ref(false)
 const remoteConnectionStates = ref<Record<RemoteBackupProviderKind, RemoteConnectionState>>({
   'google-drive': createRemoteConnectionState(),
@@ -1080,13 +1091,25 @@ const remoteImportQrUrl = computed(() => {
   }
 })
 const isRemoteDataOperationActive = computed(() =>
+  isAuthorizingRemote.value ||
   isImportingRemoteCode.value ||
   isUploadingRemote.value ||
   isLoadingRemoteList.value ||
   isRestoringRemote.value ||
   isCleaningRemoteAssets.value,
 )
+const isRemoteConnectionLocked = computed(() =>
+  isAuthorizingRemote.value || isImportingRemoteCode.value || isUploadingRemote.value ||
+  isRestoringRemote.value || isCleaningRemoteAssets.value,
+)
 const remoteBackups = ref<RemoteSnapshotEntry[]>([])
+const remoteListState = ref<'idle' | 'loading' | 'success' | 'error'>('idle')
+const remoteListError = ref('')
+const dirtyRemoteProviders = new Set<RemoteBackupProviderKind>()
+const autoLoadedProviders = new Set<RemoteBackupProviderKind>()
+let remoteConfigRevision = 0
+let remoteListRequestId = 0
+let pendingRemoteList: { revision: number; promise: Promise<boolean> } | null = null
 const selectedRemoteBackupId = ref<string | null>(null)
 const remoteProgress = ref({
   active: false,
@@ -1133,8 +1156,25 @@ const remoteBackupOptions = computed(() =>
 const googleDriveAuthorizationLabel = computed(() =>
   isGoogleDriveAuthorized.value
     ? t('dataManager.remote.authorizedGoogleDrive')
-    : t('dataManager.remote.authorizeGoogleDrive')
+    : t(googleAuthorizationState.value === 'missing'
+      ? 'dataManager.remote.authorizeGoogleDrive' : 'dataManager.remote.reauthorizeGoogleDrive')
 )
+
+const remoteListPlaceholder = computed(() => {
+  if (remoteListState.value === 'loading') return t('dataManager.remote.listLoading')
+  if (remoteListState.value === 'error') return t('dataManager.remote.listError')
+  if (remoteListState.value === 'success' && !remoteBackups.value.length) return t('dataManager.remote.noBackups')
+  return t(remoteListState.value === 'idle' ? 'dataManager.remote.listNotLoaded' : 'dataManager.remote.selectBackup')
+})
+const remoteListMessage = computed(() => {
+  if (remoteListState.value === 'error') return t('dataManager.remote.listFailed', { message: remoteListError.value })
+  if (remoteSettings.value.provider.kind === 'google-drive' && !isGoogleDriveAuthorized.value) {
+    return t(googleAuthorizationState.value === 'missing'
+      ? 'dataManager.remote.authorizationRequired' : 'dataManager.remote.authorizationExpired')
+  }
+  return remoteListState.value === 'success' && remoteBackups.value.length
+    ? t('dataManager.remote.listLoaded', { count: remoteBackups.value.length }) : remoteListPlaceholder.value
+})
 
 const selectedRemoteBackup = computed(() =>
   remoteBackups.value.find((entry) => entry.id === selectedRemoteBackupId.value) ?? null
@@ -1378,14 +1418,19 @@ const refreshStorageSummary = async () => {
 
 const persistRemoteSettings = (markDirty = true) => {
   remoteSettings.value = rememberRemoteBackupProvider(remoteSettings.value)
-  saveRemoteBackupSettings(remoteSettings.value)
+  try {
+    saveRemoteBackupSettings(remoteSettings.value)
+  } catch {
+    toast.warning(t('dataManager.remote.settingsNotSaved'))
+  }
   const provider = remoteSettings.value.provider
-  if (markDirty && provider.kind !== 'google-drive' && currentRemoteConnection.value.status !== 'checking') {
+  if (markDirty && provider.kind !== 'google-drive') {
     remoteConnectionStates.value = {
       ...remoteConnectionStates.value,
       [provider.kind]: {
         ...remoteConnectionStates.value[provider.kind],
         status: isRemoteProviderConfigured(provider) ? 'unverified' : 'unconfigured',
+        lastCheckedAt: null,
         message: '',
       },
     }
@@ -1393,11 +1438,28 @@ const persistRemoteSettings = (markDirty = true) => {
   }
 }
 
-const markRemoteSettingsDirty = () => persistRemoteSettings()
+const invalidateRemoteList = () => {
+  remoteConfigRevision += 1
+  remoteListRequestId += 1
+  pendingRemoteList = null
+  isLoadingRemoteList.value = false
+  remoteListState.value = 'idle'
+  remoteListError.value = ''
+  remoteBackups.value = []
+  selectedRemoteBackupId.value = null
+  finishRemoteProgress()
+}
+
+const markRemoteSettingsDirty = () => {
+  dirtyRemoteProviders.add(remoteSettings.value.provider.kind)
+  invalidateRemoteList()
+  persistRemoteSettings()
+}
 
 const syncGoogleDriveAuthorizationState = () => {
   if (isDesktopRuntime && remoteSettings.value.provider.kind === 'google-drive') return
   isGoogleDriveAuthorized.value = isGoogleDriveRemoteBackupAuthorized()
+  googleAuthorizationState.value = getGoogleDriveAuthorizationState()
 }
 
 const markGoogleDriveAuthorizationSuccess = () => {
@@ -1409,17 +1471,16 @@ const markGoogleDriveAuthorizationSuccess = () => {
 }
 
 const handleRemoteProviderChange = (value: string) => {
+  invalidateRemoteList()
   const kind = value as RemoteBackupProviderKind
+  autoLoadedProviders.delete(kind)
   remoteSettings.value = switchRemoteBackupProvider(remoteSettings.value, kind)
   isCloudflareR2SetupGuideExpanded.value = false
   cloudflareR2ExpandedSteps.value = new Set()
   isRemoteConfigExpanded.value = false
-  remoteBackups.value = []
-  selectedRemoteBackupId.value = null
-  isGoogleDriveAuthorized.value = isDesktopRuntime && kind === 'google-drive'
-    ? false
-    : isGoogleDriveRemoteBackupAuthorized()
+  syncGoogleDriveAuthorizationState()
   persistRemoteSettings()
+  void maybeAutoLoadRemoteBackups()
 }
 
 const getRemoteStore = () => createRemoteObjectStore(remoteSettings.value.provider, remoteRuntime)
@@ -1543,6 +1604,9 @@ const copyCloudflareR2CorsConfig = async () => {
 }
 
 const handleRemoteAuthorize = async () => {
+  if (isRemoteConnectionLocked.value) return
+  let authorized = false
+  const revision = remoteConfigRevision
   try {
     persistRemoteSettings(false)
     isAuthorizingRemote.value = true
@@ -1552,14 +1616,19 @@ const handleRemoteAuthorize = async () => {
       return
     }
     await objectStore.authorize()
+    if (revision !== remoteConfigRevision) return
+    invalidateRemoteList()
     markGoogleDriveAuthorizationSuccess()
+    authorized = true
     toast.success(t('dataManager.remote.authorizeSuccess'))
+    if (!isGoogleDriveAuthorizationPersistent()) toast.warning(t('dataManager.remote.authorizationNotSaved'))
   } catch (error) {
     console.error('[DataManager] Remote authorization failed:', error)
     toast.error(t('dataManager.remote.authorizeFailed', { message: (error as Error).message }))
   } finally {
     isAuthorizingRemote.value = false
   }
+  if (authorized && props.show) await refreshRemoteBackups()
 }
 
 const setRemoteConnectionState = (
@@ -1576,103 +1645,107 @@ const setRemoteConnectionState = (
 }
 
 const handleRemoteSaveAndConnect = async () => {
-  const provider = remoteSettings.value.provider
-  if (provider.kind === 'google-drive') return
-
-  persistRemoteSettings()
-  try {
-    isConnectingRemote.value = true
-    const connected = await ensureRemoteConnectionReady({
-      showMissingToast: true,
-      showFailureToast: true,
-      showSuccessToast: true,
-    })
-    if (connected) {
-      await refreshRemoteBackups({ skipConnectionCheck: true })
-    }
-  } finally {
-    isConnectingRemote.value = false
-  }
+  if (isRemoteDataOperationActive.value || isAuthorizingRemote.value) return
+  dirtyRemoteProviders.delete(remoteSettings.value.provider.kind)
+  persistRemoteSettings(false)
+  await refreshRemoteBackups()
 }
 
-const ensureRemoteConnectionReady = async (options?: {
-  showMissingToast?: boolean
-  showFailureToast?: boolean
-  showSuccessToast?: boolean
-}): Promise<boolean> => {
-  const provider = remoteSettings.value.provider
-  if (provider.kind === 'google-drive') return true
-  if (currentRemoteConnection.value.status === 'connected') return true
-
-  if (!isRemoteProviderConfigured(provider)) {
-    setRemoteConnectionState(provider.kind, {
-      status: 'unconfigured',
-      message: t('dataManager.remote.connectionMissingConfig'),
-    })
-    if (options?.showMissingToast !== false) {
-      toast.warning(t('dataManager.remote.connectionMissingConfig'))
-    }
-    isRemoteConfigExpanded.value = true
-    return false
+const remoteOperationErrorMessage = (error: unknown): string => {
+  if (error instanceof UnreadableRemoteSnapshotsError) return t('dataManager.remote.unreadableBackups')
+  if (error instanceof GoogleDriveAuthorizationError) {
+    isGoogleDriveAuthorized.value = false
+    googleAuthorizationState.value = error.reason
+    return t(error.reason === 'missing'
+      ? 'dataManager.remote.authorizationRequired' : 'dataManager.remote.authorizationExpired')
   }
-
-  try {
-    setRemoteConnectionState(provider.kind, {
-      status: 'checking',
-      message: t('dataManager.remote.connectionChecking'),
-    })
-    const result = await getRemoteStore().detect()
-    if (!result.ok) {
-      const failedStep = result.steps.find((step) => !step.ok)
-      throw new Error(failedStep?.message || t('dataManager.remote.connectionFailedGeneric'))
-    }
-    setRemoteConnectionState(provider.kind, {
-      status: 'connected',
-      lastCheckedAt: Date.now(),
-      message: '',
-    })
-    isRemoteConfigExpanded.value = false
-    if (options?.showSuccessToast) {
-      toast.success(t('dataManager.remote.connectionSuccess'))
-    }
-    return true
-  } catch (error) {
-    console.error('[DataManager] Remote connection failed:', error)
-    setRemoteConnectionState(provider.kind, {
-      status: 'failed',
-      message: (error as Error).message,
-    })
-    isRemoteConfigExpanded.value = true
-    if (options?.showFailureToast !== false) {
-      toast.error(t('dataManager.remote.connectionFailed', { message: (error as Error).message }))
-    }
-    return false
-  }
+  return error instanceof Error ? error.message : String(error)
 }
 
-const refreshRemoteBackups = async (options?: { skipConnectionCheck?: boolean }): Promise<boolean> => {
-  if (!options?.skipConnectionCheck && !(await ensureRemoteConnectionReady())) return false
-
-  try {
-    persistRemoteSettings(false)
-    isLoadingRemoteList.value = true
-    startRemoteProgress('list', 'dataManager.remote.progress.list.start')
-    remoteBackups.value = await listRemoteSnapshotBackups(getRemoteStore(), (event) =>
-      updateRemoteProgress('list', event),
-    )
-    markGoogleDriveAuthorizationSuccess()
-    if (!remoteBackups.value.some((entry) => entry.id === selectedRemoteBackupId.value)) {
-      selectedRemoteBackupId.value = remoteBackups.value[0]?.id ?? null
+// Permission checks belong to the requested operation, never a synthetic write/delete probe.
+const ensureRemoteConnectionReady = async (): Promise<boolean> => {
+  const provider = remoteSettings.value.provider
+  if (provider.kind === 'google-drive') {
+    if (googleAuthorizationState.value !== 'rejected') syncGoogleDriveAuthorizationState()
+    if (!isGoogleDriveAuthorized.value) {
+      toast.warning(t(googleAuthorizationState.value === 'missing'
+        ? 'dataManager.remote.authorizationRequired' : 'dataManager.remote.authorizationExpired'))
+      return false
     }
-    return true
-  } catch (error) {
-    console.error('[DataManager] Failed to list remote backups:', error)
-    toast.error(t('dataManager.remote.listFailed', { message: (error as Error).message }))
-    return false
-  } finally {
-    isLoadingRemoteList.value = false
-    finishRemoteProgress()
   }
+  if (isRemoteProviderConfigured(provider)) return true
+  toast.warning(t('dataManager.remote.connectionMissingConfig'))
+  isRemoteConfigExpanded.value = true
+  return false
+}
+
+const refreshRemoteBackups = (): Promise<boolean> => {
+  const revision = remoteConfigRevision
+  if (pendingRemoteList?.revision === revision) return pendingRemoteList.promise
+  const requestId = ++remoteListRequestId
+  const kind = remoteSettings.value.provider.kind
+  const current = () => revision === remoteConfigRevision && requestId === remoteListRequestId
+  const promise = (async () => {
+    const ready = await ensureRemoteConnectionReady()
+    if (!current()) return false
+    if (!ready) {
+      remoteListState.value = 'error'
+      remoteListError.value = t(kind === 'google-drive'
+        ? (googleAuthorizationState.value === 'missing'
+          ? 'dataManager.remote.authorizationRequired' : 'dataManager.remote.authorizationExpired')
+        : 'dataManager.remote.connectionMissingConfig')
+      return false
+    }
+    try {
+      isLoadingRemoteList.value = true
+      remoteListState.value = 'loading'
+      remoteListError.value = ''
+      setRemoteConnectionState(kind, { status: 'checking', message: '' })
+      startRemoteProgress('list', 'dataManager.remote.progress.list.start')
+      const entries = await listRemoteSnapshotBackups(getRemoteStore(), (event) => {
+        if (current()) updateRemoteProgress('list', event)
+      })
+      if (!current()) return false
+      remoteBackups.value = entries
+      remoteListState.value = 'success'
+      markGoogleDriveAuthorizationSuccess()
+      setRemoteConnectionState(kind, { status: 'connected', lastCheckedAt: Date.now(), message: '' })
+      isRemoteConfigExpanded.value = false
+      if (!entries.some((entry) => entry.id === selectedRemoteBackupId.value)) {
+        selectedRemoteBackupId.value = entries[0]?.id ?? null
+      }
+      return true
+    } catch (error) {
+      if (!current()) return false
+      const message = remoteOperationErrorMessage(error)
+      remoteListError.value = message
+      remoteListState.value = 'error'
+      setRemoteConnectionState(kind, { status: 'failed', message })
+      return false
+    } finally {
+      if (current()) {
+        isLoadingRemoteList.value = false
+        pendingRemoteList = null
+        finishRemoteProgress()
+      }
+    }
+  })()
+  pendingRemoteList = { revision, promise }
+  // Also release requests rejected before the loading state was entered.
+  void promise.then(() => { if (current()) pendingRemoteList = null })
+  autoLoadedProviders.add(kind)
+  return promise
+}
+
+const maybeAutoLoadRemoteBackups = async () => {
+  const kind = remoteSettings.value.provider.kind
+  if (!props.show || (isCompact.value && mobileTask.value !== 'remote') ||
+      props.importCode || remoteImportCode.value.trim() || isImportingRemoteCode.value ||
+      isAuthorizingRemote.value || isRemoteDataOperationActive.value ||
+      dirtyRemoteProviders.has(kind) || autoLoadedProviders.has(kind)) return
+  if (kind === 'google-drive') syncGoogleDriveAuthorizationState()
+  if (!isRemoteProviderConfigured(remoteSettings.value.provider)) return
+  await refreshRemoteBackups()
 }
 
 const handleRemoteRefresh = () => {
@@ -1682,7 +1755,7 @@ const handleRemoteRefresh = () => {
 
 const handleRemoteUpload = async () => {
   if (isRemoteDataOperationActive.value) return
-  if (!(await ensureRemoteConnectionReady())) return
+  if (!(await ensureRemoteConnectionReady()) || isRemoteDataOperationActive.value) return
 
   try {
     persistRemoteSettings(false)
@@ -1704,6 +1777,8 @@ const handleRemoteUpload = async () => {
     })
     const entry = result.entry
     remoteBackups.value = [entry, ...remoteBackups.value.filter((item) => item.id !== entry.id)]
+    remoteListState.value = 'success'
+    remoteListError.value = ''
     markGoogleDriveAuthorizationSuccess()
     selectedRemoteBackupId.value = entry.id
     recordDataBackupCompleted()
@@ -1719,7 +1794,7 @@ const handleRemoteUpload = async () => {
     }
   } catch (error) {
     console.error('[DataManager] Remote backup failed:', error)
-    toast.error(t('dataManager.remote.backupFailed', { message: (error as Error).message }))
+    toast.error(t('dataManager.remote.backupFailed', { message: remoteOperationErrorMessage(error) }))
   } finally {
     isUploadingRemote.value = false
     finishRemoteProgress()
@@ -1735,6 +1810,8 @@ const restoreSelectedRemoteBackup = async () => {
   const entry = selectedRemoteBackup.value
   if (!entry) return
   if (!(await ensureRemoteConnectionReady())) return
+  if (isAuthorizingRemote.value || isUploadingRemote.value || isRestoringRemote.value ||
+      isCleaningRemoteAssets.value || isLoadingRemoteList.value) return
 
   let releaseSessionRestore: (() => void) | undefined
   try {
@@ -1775,7 +1852,7 @@ const restoreSelectedRemoteBackup = async () => {
   } catch (error) {
     releaseSessionRestore?.()
     console.error('[DataManager] Remote restore failed:', error)
-    toast.error(t('dataManager.remote.restoreFailed', { message: (error as Error).message }))
+    toast.error(t('dataManager.remote.restoreFailed', { message: remoteOperationErrorMessage(error) }))
   } finally {
     isRestoringRemote.value = false
     finishRemoteProgress()
@@ -1811,8 +1888,7 @@ const handleRemoteCodeImport = async () => {
     isImportingRemoteCode.value = true
     mobileTask.value = 'remote'
     remoteSettings.value = { ...rememberRemoteBackupProvider(remoteSettings.value), provider: decoded.provider }
-    remoteBackups.value = []
-    selectedRemoteBackupId.value = null
+    invalidateRemoteList()
     persistRemoteSettings()
     if (!await refreshRemoteBackups()) return
     const entry = remoteBackups.value.find(backup => backup.id === decoded.snapshotId)
@@ -1836,7 +1912,7 @@ const handleRemoteCodeImport = async () => {
 
 const handleRemoteCleanup = async () => {
   if (isRemoteDataOperationActive.value) return
-  if (!(await ensureRemoteConnectionReady())) return
+  if (!(await ensureRemoteConnectionReady()) || isRemoteDataOperationActive.value) return
 
   try {
     persistRemoteSettings(false)
@@ -1880,7 +1956,7 @@ const handleRemoteCleanup = async () => {
     }
   } catch (error) {
     console.error('[DataManager] Remote asset cleanup failed:', error)
-    toast.error(t('dataManager.remote.cleanupFailed', { message: (error as Error).message }))
+    toast.error(t('dataManager.remote.cleanupFailed', { message: remoteOperationErrorMessage(error) }))
   } finally {
     isCleaningRemoteAssets.value = false
     finishRemoteProgress()
@@ -2008,6 +2084,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  invalidateRemoteList()
   document.removeEventListener('keydown', handleKeyDown)
 })
 
@@ -2015,8 +2092,16 @@ watch(
   () => props.show,
   (show) => {
     if (show) {
+      autoLoadedProviders.clear()
+      void maybeAutoLoadRemoteBackups()
       void refreshStorageSummary()
     } else {
+      const wasLoadingList = isLoadingRemoteList.value
+      remoteListRequestId += 1
+      pendingRemoteList = null
+      isLoadingRemoteList.value = false
+      if (remoteListState.value === 'loading') remoteListState.value = 'idle'
+      if (wasLoadingList) finishRemoteProgress()
       remoteImportCode.value = ''
       exportedRemoteImportCode.value = ''
       showRemoteImportCode.value = false
@@ -2024,6 +2109,10 @@ watch(
   },
   { immediate: true },
 )
+
+watch(mobileTask, (task) => {
+  if (task === 'remote') void maybeAutoLoadRemoteBackups()
+})
 
 watch(
   () => [props.show, props.importCode] as const,

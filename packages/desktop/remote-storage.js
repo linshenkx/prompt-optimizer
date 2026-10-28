@@ -350,7 +350,6 @@ class WebDavRemoteObjectStore {
   async list(prefix) {
     const normalizedPrefix = normalizeObjectPath(prefix);
     const client = await this.getClient();
-    await this.ensureDirectoryPath(normalizedPrefix);
     try {
       const contents = await client.getDirectoryContents(this.directoryPath(normalizedPrefix), {
         deep: true,
@@ -363,6 +362,15 @@ class WebDavRemoteObjectStore {
         .filter(Boolean)
         .sort((a, b) => a.path.localeCompare(b.path));
     } catch (error) {
+      if (isNotFoundError(error)) {
+        // Do not create folders while browsing; distinguish an empty backup from a bad endpoint.
+        try {
+          await client.getDirectoryContents('/', { deep: false, details: true });
+          return [];
+        } catch (rootError) {
+          throw new Error(`WebDAV endpoint lookup failed: ${errorMessage(rootError)}`, { cause: rootError });
+        }
+      }
       throw new Error(`WebDAV list failed: ${errorMessage(error)}`, { cause: error });
     }
   }

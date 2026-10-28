@@ -77,6 +77,17 @@ import {
 } from '../../../src/utils/remote-backup'
 
 describe('remote backup settings', () => {
+  it.each(['cloudflare-r2', 's3-compatible'] as const)('checks %s with listing only and preserves service errors', async kind => {
+    const objectStore = createRemoteObjectStore(kind === 'cloudflare-r2'
+      ? { kind, accountId: 'account', bucket: 'bucket', accessKeyId: 'key', secretAccessKey: 'secret' }
+      : { kind, endpoint: 'https://s3.test', bucket: 'bucket', accessKeyId: 'key', secretAccessKey: 'secret', region: 'auto', forcePathStyle: true, prefix: '' })
+    awsS3Mocks.send.mockResolvedValueOnce({ Contents: [] })
+    expect((await objectStore.detect()).ok).toBe(true)
+    expect(awsS3Mocks.send).toHaveBeenCalledTimes(1)
+    expect(awsS3Mocks.send.mock.calls[0][0]).toBeInstanceOf(awsS3Mocks.ListObjectsV2Command)
+    awsS3Mocks.send.mockRejectedValueOnce(new Error('NoSuchBucket'))
+    await expect(objectStore.list('v1/snapshots')).rejects.toThrow('NoSuchBucket')
+  })
   const originalFetch = globalThis.fetch
 
   afterEach(() => {
@@ -677,6 +688,7 @@ describe('remote backup settings', () => {
     globalThis.fetch = fetchMock as typeof fetch
 
     const objectStore = createRemoteObjectStore({ kind: 'google-drive' })
+    await objectStore.authorize?.()
 
     await expect(objectStore.head?.('v1/assets/imageCache/test.png')).resolves.toEqual({
       path: 'v1/assets/imageCache/test.png',
@@ -768,6 +780,7 @@ describe('remote backup settings', () => {
     globalThis.fetch = fetchMock as typeof fetch
 
     const objectStore = createRemoteObjectStore({ kind: 'google-drive' })
+    await objectStore.authorize?.()
 
     await expect(objectStore.list('v1/snapshots')).resolves.toEqual([
       {
@@ -826,13 +839,14 @@ describe('remote backup settings', () => {
     globalThis.fetch = fetchMock as typeof fetch
 
     const objectStore = createRemoteObjectStore({ kind: 'google-drive' })
+    await objectStore.authorize?.()
     const bytes = new Uint8Array(await objectStore.get('v1/assets/imageCache/test.png'))
 
     expect(Array.from(bytes)).toEqual([1, 2, 3])
     expect(mediaAttempts).toBe(2)
   })
 
-  it('refreshes expired Google Drive access tokens before reuse', async () => {
+  it('requires explicit reauthorization only after the actual expiry', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-05-07T00:00:00.000Z'))
 
@@ -860,12 +874,15 @@ describe('remote backup settings', () => {
     }
 
     const objectStore = createRemoteObjectStore({ kind: 'google-drive' })
-
     await objectStore.authorize?.()
     expect(isGoogleDriveRemoteBackupAuthorized()).toBe(true)
 
     vi.setSystemTime(new Date('2026-05-07T00:01:01.000Z'))
+    expect(isGoogleDriveRemoteBackupAuthorized()).toBe(true)
+    vi.setSystemTime(new Date('2026-05-07T00:02:00.000Z'))
     expect(isGoogleDriveRemoteBackupAuthorized()).toBe(false)
+    await expect(objectStore.list('')).rejects.toMatchObject({ reason: 'expired' })
+    expect(requestAccessToken).toHaveBeenCalledTimes(1)
 
     await objectStore.authorize?.()
 
@@ -873,7 +890,7 @@ describe('remote backup settings', () => {
     expect(isGoogleDriveRemoteBackupAuthorized()).toBe(true)
   })
 
-  it('clears stale Google Drive tokens and retries authorization failures once', async () => {
+  it('preserves rejected tokens and never retries authorization automatically', async () => {
     const folderMimeType = 'application/vnd.google-apps.folder'
     ;(window as unknown as { runtime_config: Record<string, unknown> }).runtime_config = {
       GOOGLE_DRIVE_CLIENT_ID: 'auth-retry-client-id.apps.googleusercontent.com',
@@ -924,10 +941,9 @@ describe('remote backup settings', () => {
     globalThis.fetch = fetchMock as typeof fetch
 
     const objectStore = createRemoteObjectStore({ kind: 'google-drive' })
-    const bytes = new Uint8Array(await objectStore.get('v1/assets/imageCache/test.png'))
-
-    expect(Array.from(bytes)).toEqual([4, 5, 6])
-    expect(requestAccessToken).toHaveBeenCalledTimes(2)
-    expect(mediaAuthorizations).toEqual(['Bearer first-token', 'Bearer second-token'])
+    await objectStore.authorize?.()
+    await expect(objectStore.get('v1/assets/imageCache/test.png')).rejects.toMatchObject({ reason: 'rejected' })
+    expect(requestAccessToken).toHaveBeenCalledTimes(1)
+    expect(mediaAuthorizations).toEqual(['Bearer first-token'])
   })
 })

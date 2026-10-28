@@ -177,6 +177,7 @@ type GoogleIdentityGlobal = typeof globalThis & {
 }
 
 export const REMOTE_BACKUP_SETTINGS_KEY = 'prompt-optimizer:remote-backup-settings'
+export const GOOGLE_DRIVE_TOKEN_STORAGE_PREFIX = 'prompt-optimizer:google-drive-token:'
 
 const BACKUP_MIME_TYPE = 'application/zip'
 const JSON_MIME_TYPE = 'application/json'
@@ -194,7 +195,6 @@ const GOOGLE_DRIVE_DOWNLOAD_RETRY_BASE_DELAY_MS = 400
 const S3_DOWNLOAD_RETRY_ATTEMPTS = 3
 const S3_DOWNLOAD_RETRY_BASE_DELAY_MS = 500
 const GOOGLE_ACCESS_TOKEN_DEFAULT_EXPIRES_IN_SECONDS = 3600
-const GOOGLE_ACCESS_TOKEN_EXPIRY_BUFFER_MS = 60_000
 
 type GoogleAccessTokenEntry = {
   accessToken: string
@@ -208,7 +208,15 @@ type GoogleDriveFileMetadata = {
   modifiedTime?: string
 }
 
-const googleAccessTokenCache = new Map<string, GoogleAccessTokenEntry>()
+// Used only when browser storage is unavailable. Never export credentials with backups.
+const googleAccessTokenFallback = new Map<string, GoogleAccessTokenEntry>()
+
+export class GoogleDriveAuthorizationError extends Error {
+  constructor(readonly reason: 'missing' | 'expired' | 'rejected') {
+    super(`Google Drive authorization ${reason}; authorize manually to continue`)
+    this.name = 'GoogleDriveAuthorizationError'
+  }
+}
 
 const textEncoder = new TextEncoder()
 const textDecoder = new TextDecoder()
@@ -219,7 +227,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isGoogleAccessTokenUsable = (
   entry: GoogleAccessTokenEntry | null | undefined,
 ): entry is GoogleAccessTokenEntry =>
-  Boolean(entry && entry.expiresAt - GOOGLE_ACCESS_TOKEN_EXPIRY_BUFFER_MS > Date.now())
+  Boolean(entry && entry.expiresAt > Date.now())
 
 const toGoogleAccessTokenEntry = (
   accessToken: string,
@@ -235,23 +243,47 @@ const toGoogleAccessTokenEntry = (
   }
 }
 
-const isGoogleAuthStatus = (status: number): boolean =>
-  status === 401 || status === 403
+const readGoogleAccessToken = (clientId: string): GoogleAccessTokenEntry | null => {
+  const fallback = googleAccessTokenFallback.get(clientId)
+  if (fallback) return fallback
+  try {
+    const raw = window.localStorage.getItem(`${GOOGLE_DRIVE_TOKEN_STORAGE_PREFIX}${clientId}`)
+    const entry: unknown = raw ? JSON.parse(raw) : null
+    if (isRecord(entry) && typeof entry.accessToken === 'string' && entry.accessToken &&
+        typeof entry.expiresAt === 'number' && Number.isFinite(entry.expiresAt)) {
+      return { accessToken: entry.accessToken, expiresAt: entry.expiresAt }
+    }
+  } catch {
+    // A blocked or malformed cache must not prevent a new explicit authorization.
+  }
+  return null
+}
+
+const saveGoogleAccessToken = (clientId: string, entry: GoogleAccessTokenEntry): void => {
+  try {
+    window.localStorage.setItem(`${GOOGLE_DRIVE_TOKEN_STORAGE_PREFIX}${clientId}`, JSON.stringify(entry))
+    googleAccessTokenFallback.delete(clientId)
+  } catch {
+    googleAccessTokenFallback.set(clientId, entry)
+  }
+}
 
 export const resolveGoogleDriveClientId = (): string => {
   return getEnvVar('VITE_GOOGLE_DRIVE_CLIENT_ID').trim() || GOOGLE_DRIVE_DEFAULT_CLIENT_ID
 }
 
-export const isGoogleDriveRemoteBackupAuthorized = (): boolean => {
+export const getGoogleDriveAuthorizationState = (): 'missing' | 'expired' | 'ready' => {
   const clientId = resolveGoogleDriveClientId()
-  if (!clientId) return false
-  const cached = googleAccessTokenCache.get(clientId)
-  if (!isGoogleAccessTokenUsable(cached)) {
-    googleAccessTokenCache.delete(clientId)
-    return false
-  }
-  return true
+  const entry = clientId ? readGoogleAccessToken(clientId) : null
+  if (!entry) return 'missing'
+  return isGoogleAccessTokenUsable(entry) ? 'ready' : 'expired'
 }
+
+export const isGoogleDriveRemoteBackupAuthorized = (): boolean =>
+  getGoogleDriveAuthorizationState() === 'ready'
+
+export const isGoogleDriveAuthorizationPersistent = (): boolean =>
+  !googleAccessTokenFallback.has(resolveGoogleDriveClientId())
 
 const nowIsoForFileName = (): string =>
   new Date().toISOString().replace(/[:.]/g, '-')
@@ -563,7 +595,7 @@ const fetchGoogleDriveDownloadWithRetry = async (
     try {
       const response = await fetch(url, init)
       if (response.ok) return response
-      if (options?.returnAuthFailures && isGoogleAuthStatus(response.status)) {
+      if (options?.returnAuthFailures && response.status === 401) {
         return response
       }
       if (!isRetryableHttpStatus(response.status) || attempt === GOOGLE_DRIVE_DOWNLOAD_RETRY_ATTEMPTS) {
@@ -738,6 +770,24 @@ const isRetryableS3DownloadError = (error: unknown): boolean => {
 const parseXml = (xml: string): Document =>
   new DOMParser().parseFromString(xml, 'application/xml')
 
+const parseWebDavListing = (xml: string): Document => {
+  const doc = parseXml(xml)
+  if (doc.getElementsByTagName('parsererror').length ||
+      !doc.getElementsByTagNameNS('*', 'multistatus').length) {
+    throw new Error('WebDAV endpoint did not return a directory listing')
+  }
+  for (const node of Array.from(doc.getElementsByTagNameNS('*', 'response'))) {
+    for (const statusNode of Array.from(node.getElementsByTagNameNS('*', 'status'))) {
+      const status = Number(statusNode.textContent?.match(/HTTP\/\S+\s+(\d{3})/)?.[1])
+      // A missing optional property is allowed; access and server errors are not.
+      if (status >= 400 && (status !== 404 || statusNode.parentElement === node)) {
+        throw new Error(`WebDAV list failed: ${statusNode.textContent}`)
+      }
+    }
+  }
+  return doc
+}
+
 const isCollectionNode = (node: Element): boolean =>
   node.getElementsByTagNameNS('*', 'collection').length > 0
 
@@ -760,23 +810,10 @@ abstract class BaseRemoteObjectStore implements RemoteBackupAdapter {
   async detect(): Promise<RemoteBackupDetectionResult> {
     const steps: RemoteBackupDetectionStep[] = []
     try {
-      if (typeof this.authorize === 'function') {
-        await this.authorize()
-      }
-      appendStep(steps, 'auth', true)
       await this.list('')
       appendStep(steps, 'list', true)
-      const testPath = `detect/prompt-optimizer-test-${Date.now()}.txt`
-      await this.put(testPath, 'prompt-optimizer remote backup test', { contentType: 'text/plain' })
-      appendStep(steps, 'write', true)
-      await this.get(testPath)
-      appendStep(steps, 'read', true)
-      if (this.delete) {
-        await this.delete(testPath)
-        appendStep(steps, 'delete', true)
-      }
     } catch (error) {
-      appendStep(steps, steps.length === 0 ? 'auth' : 'cors', false, String((error as Error).message || error))
+      appendStep(steps, 'list', false, String((error as Error).message || error))
     }
     return { ok: steps.every((step) => step.ok), provider: this.provider, steps }
   }
@@ -817,7 +854,6 @@ abstract class BaseRemoteObjectStore implements RemoteBackupAdapter {
 
 class GoogleDriveRemoteObjectStore extends BaseRemoteObjectStore {
   provider: RemoteBackupProviderKind = 'google-drive'
-  private accessTokenEntry: GoogleAccessTokenEntry | null = null
   private rootFolderId: string | null = null
   private pathIdCache = new Map<string, string>()
 
@@ -826,7 +862,14 @@ class GoogleDriveRemoteObjectStore extends BaseRemoteObjectStore {
   }
 
   async authorize(): Promise<void> {
-    await this.ensureAccessToken()
+    const clientId = resolveGoogleDriveClientId()
+    if (!clientId) throw new Error('Google Drive OAuth client is not configured')
+    await loadGoogleIdentityScript()
+    const entry = await requestGoogleAccessToken(clientId)
+    saveGoogleAccessToken(clientId, entry)
+    // An explicit authorization can select a different account.
+    this.rootFolderId = null
+    this.pathIdCache.clear()
   }
 
   async exists(path: string): Promise<boolean> {
@@ -865,9 +908,8 @@ class GoogleDriveRemoteObjectStore extends BaseRemoteObjectStore {
 
   async list(prefix: string): Promise<RemoteObjectEntry[]> {
     const normalized = normalizeObjectPath(prefix)
-    const folderId = normalized ? await this.findOrCreateFolderPath(normalized) : await this.ensureRootFolderId()
-    const basePath = normalized
-    return this.listFolderRecursive(folderId, basePath)
+    const folderId = await this.findFolderPath(normalized)
+    return folderId ? this.listFolderRecursive(folderId, normalized) : []
   }
 
   async delete(path: string): Promise<void> {
@@ -946,13 +988,13 @@ class GoogleDriveRemoteObjectStore extends BaseRemoteObjectStore {
     const uploadUrl = sessionResponse.headers.get('Location')
     if (!uploadUrl) throw new Error('Google Drive resumable upload session did not return a location')
 
-    const uploadResponse = await assertOkResponse(await fetch(uploadUrl, {
+    const uploadResponse = await this.fetchGoogleDrive(uploadUrl, {
       method: 'PUT',
       headers: {
         'Content-Type': blob.type || JSON_MIME_TYPE,
       },
       body: blob,
-    }), 'Google Drive resumable upload failed')
+    }, 'Google Drive resumable upload failed')
     const file = await uploadResponse.json()
     this.pathIdCache.set(path, String(file.id || ''))
     return {
@@ -1055,7 +1097,7 @@ class GoogleDriveRemoteObjectStore extends BaseRemoteObjectStore {
     }
   }
 
-  private async ensureRootFolderId(): Promise<string> {
+  private async findRootFolderId(): Promise<string | null> {
     if (this.rootFolderId) return this.rootFolderId
     const folderName = GOOGLE_DRIVE_DEFAULT_BACKUP_FOLDER_NAME
     const query = [
@@ -1075,6 +1117,13 @@ class GoogleDriveRemoteObjectStore extends BaseRemoteObjectStore {
       return this.rootFolderId
     }
 
+    return null
+  }
+
+  private async ensureRootFolderId(): Promise<string> {
+    const existing = await this.findRootFolderId()
+    if (existing) return existing
+
     const createResponse = await this.fetchGoogleDrive(
       'https://www.googleapis.com/drive/v3/files?fields=id,name',
       {
@@ -1083,7 +1132,7 @@ class GoogleDriveRemoteObjectStore extends BaseRemoteObjectStore {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: folderName,
+          name: GOOGLE_DRIVE_DEFAULT_BACKUP_FOLDER_NAME,
           mimeType: GOOGLE_DRIVE_FOLDER_MIME_TYPE,
         }),
       },
@@ -1125,11 +1174,12 @@ class GoogleDriveRemoteObjectStore extends BaseRemoteObjectStore {
 
   private async findFolderPath(path: string): Promise<string | null> {
     const normalized = normalizeObjectPath(path)
-    if (!normalized) return this.ensureRootFolderId()
+    if (!normalized) return this.findRootFolderId()
     const cached = this.pathIdCache.get(normalized)
     if (cached) return cached
 
-    let currentId = await this.ensureRootFolderId()
+    let currentId = await this.findRootFolderId()
+    if (!currentId) return null
     let currentPath = ''
     for (const segment of normalized.split('/').filter(Boolean)) {
       currentPath = joinRemotePath(currentPath, segment)
@@ -1202,65 +1252,32 @@ class GoogleDriveRemoteObjectStore extends BaseRemoteObjectStore {
     context: string,
     options?: { downloadRetry?: boolean },
   ): Promise<Response> {
-    const response = await this.fetchGoogleDriveOnce(url, init, context, false, options)
-    if (!isGoogleAuthStatus(response.status)) {
-      return assertOkResponse(response, context)
-    }
-    await response.body?.cancel().catch(() => undefined)
-    const retryResponse = await this.fetchGoogleDriveOnce(url, init, context, true, options)
-    return assertOkResponse(retryResponse, context)
-  }
-
-  private async fetchGoogleDriveOnce(
-    url: string | URL,
-    init: RequestInit,
-    context: string,
-    forceRefreshToken: boolean,
-    options?: { downloadRetry?: boolean },
-  ): Promise<Response> {
-    const token = await this.ensureAccessToken({ forceRefresh: forceRefreshToken })
+    const token = this.ensureAccessToken()
     const headers = new Headers(init.headers)
     headers.set('Authorization', `Bearer ${token}`)
     const requestInit = { ...init, headers }
-    if (options?.downloadRetry) {
-      return fetchGoogleDriveDownloadWithRetry(String(url), requestInit, context, {
+    const response = options?.downloadRetry
+      ? await fetchGoogleDriveDownloadWithRetry(String(url), requestInit, context, {
         returnAuthFailures: true,
       })
+      : await fetch(url, requestInit)
+    if (response.status === 401) {
+      await response.body?.cancel().catch(() => undefined)
+      throw new GoogleDriveAuthorizationError('rejected')
     }
-    return fetch(url, requestInit)
+    return assertOkResponse(response, context)
   }
 
-  private clearAccessToken(clientId: string): void {
-    this.accessTokenEntry = null
-    googleAccessTokenCache.delete(clientId)
-  }
-
-  private async ensureAccessToken(options?: { forceRefresh?: boolean }): Promise<string> {
+  private ensureAccessToken(): string {
     const clientId = resolveGoogleDriveClientId()
     if (!clientId) {
       throw new Error('Google Drive OAuth client is not configured')
     }
 
-    if (options?.forceRefresh) {
-      this.clearAccessToken(clientId)
-    }
-
-    if (!options?.forceRefresh && isGoogleAccessTokenUsable(this.accessTokenEntry)) {
-      return this.accessTokenEntry.accessToken
-    }
-
-    const cached = googleAccessTokenCache.get(clientId)
-    if (!options?.forceRefresh && isGoogleAccessTokenUsable(cached)) {
-      this.accessTokenEntry = cached
-      return cached.accessToken
-    }
-    if (cached) googleAccessTokenCache.delete(clientId)
-
-    await loadGoogleIdentityScript()
-    const tokenEntry = await requestGoogleAccessToken(clientId)
-    this.accessTokenEntry = tokenEntry
-    googleAccessTokenCache.set(clientId, tokenEntry)
-    return tokenEntry.accessToken
+    const entry = readGoogleAccessToken(clientId)
+    if (!entry) throw new GoogleDriveAuthorizationError('missing')
+    if (!isGoogleAccessTokenUsable(entry)) throw new GoogleDriveAuthorizationError('expired')
+    return entry.accessToken
   }
 }
 
@@ -1379,8 +1396,7 @@ class WebDavRemoteObjectStore extends BaseRemoteObjectStore {
   }
 
   async list(prefix: string): Promise<RemoteObjectEntry[]> {
-    await this.ensureDirectoryPath(prefix)
-    return this.listDirectoryRecursive(prefix)
+    return this.listDirectoryRecursive(prefix, true)
   }
 
   async delete(path: string): Promise<void> {
@@ -1411,17 +1427,29 @@ class WebDavRemoteObjectStore extends BaseRemoteObjectStore {
     await assertOkResponse(response, 'WebDAV directory creation failed')
   }
 
-  private async listDirectoryRecursive(prefix: string): Promise<RemoteObjectEntry[]> {
+  private async listDirectoryRecursive(prefix: string, allowMissing = false): Promise<RemoteObjectEntry[]> {
     const normalizedPrefix = normalizeObjectPath(prefix)
-    const response = await assertOkResponse(await fetch(this.directoryUrl(normalizedPrefix), {
+    const response = await fetch(this.directoryUrl(normalizedPrefix), {
       method: 'PROPFIND',
       headers: {
         ...this.authHeaders(),
         Depth: '1',
       },
-    }), 'WebDAV list failed')
+    })
+    if (allowMissing && response.status === 404) {
+      // A missing backup directory is empty only when the configured DAV root works.
+      const root = await assertOkResponse(await fetch(`${this.config.endpoint.replace(/\/+$/g, '')}/`, {
+        method: 'PROPFIND', headers: { ...this.authHeaders(), Depth: '0' },
+      }), 'WebDAV endpoint lookup failed')
+      const rootDoc = parseWebDavListing(await root.text())
+      if (!rootDoc.getElementsByTagNameNS('*', 'response').length) {
+        throw new Error('WebDAV endpoint did not return a directory listing')
+      }
+      return []
+    }
+    await assertOkResponse(response, 'WebDAV list failed')
     const xml = await response.text()
-    const doc = parseXml(xml)
+    const doc = parseWebDavListing(xml)
     const entries: RemoteObjectEntry[] = []
     const currentUrl = new URL(this.directoryUrl(normalizedPrefix), globalThis.location?.href || undefined)
     for (const node of Array.from(doc.getElementsByTagNameNS('*', 'response'))) {

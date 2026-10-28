@@ -36,6 +36,13 @@ import { joinRemotePath, type RemoteObjectEntry, type RemoteObjectStore } from '
 export const REMOTE_SNAPSHOT_SCHEMA_VERSION = 'prompt-optimizer/remote-snapshot/v1' as const
 export const REMOTE_SNAPSHOT_ROOT = 'v1'
 
+export class UnreadableRemoteSnapshotsError extends Error {
+  constructor() {
+    super('No readable backup manifests were found')
+    this.name = 'UnreadableRemoteSnapshotsError'
+  }
+}
+
 const APP_DATA_FILE_NAME = 'app-data.json'
 const FAVORITES_FILE_NAME = 'favorites.json'
 const MANIFEST_FILE_NAME = 'manifest.json'
@@ -515,8 +522,10 @@ export const listRemoteSnapshotBackups = async (
   const snapshots: RemoteSnapshotEntry[] = []
 
   for (const entry of manifests) {
+    // Authentication and transport errors are not corrupt manifests or an empty backup.
+    const text = await objectStore.getText(entry.path)
     try {
-      const manifest = parseManifest(await objectStore.getText(entry.path))
+      const manifest = parseManifest(text)
       snapshots.push({
         id: manifest.snapshotId,
         name: manifest.snapshotId,
@@ -530,6 +539,9 @@ export const listRemoteSnapshotBackups = async (
     }
   }
 
+  if (manifests.length > 0 && snapshots.length === 0) {
+    throw new UnreadableRemoteSnapshotsError()
+  }
   return snapshots.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
 }
 

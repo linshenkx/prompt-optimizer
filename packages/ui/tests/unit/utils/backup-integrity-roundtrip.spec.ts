@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { unzipSync } from 'fflate'
 import '../../../../core/node_modules/fake-indexeddb/auto/index.mjs'
 import { DataManager } from '../../../../core/src/services/data/manager'
 import { FavoriteManager } from '../../../../core/src/services/favorite/manager'
@@ -62,6 +63,9 @@ describe('full backup integrity with real services', () => {
   it.each(['zip', 'remote'] as const)('restores seven workspaces, identities, variables, tools, models and image bytes through %s', async route => {
     const source = await createServices()
     const target = await createServices()
+    const tokenKey = 'prompt-optimizer:google-drive-token:backup-boundary-test'
+    const privateToken = 'private-oauth-token-must-stay-local'
+    localStorage.setItem(tokenKey, JSON.stringify({ accessToken: privateToken, expiresAt: Date.now() + 3600_000 }))
     try {
       const baseModel = (await source.models.exportData()).find(model => model.providerId === 'openai')!
       await source.models.addModel('audit-text', { ...baseModel, id: 'audit-text', name: 'Audit text', enabled: true,
@@ -121,11 +125,14 @@ describe('full backup integrity with real services', () => {
       if (route === 'zip') {
         const backup = await createDataManagerResourcePackage(exportOptions)
         expect(backup.missingResources).toEqual([])
+        const contents = unzipSync(new Uint8Array(await backup.blob.arrayBuffer()))
+        for (const bytes of Object.values(contents)) expect(new TextDecoder().decode(bytes)).not.toContain(privateToken)
         await importDataManagerResourcePackage(await backup.blob.arrayBuffer(), importOptions)
       } else {
         const store = objectStore()
         const backup = await createRemoteSnapshotBackup({ ...exportOptions, objectStore: store })
         expect(backup.missingAssets).toEqual([])
+        for (const entry of await store.list('')) expect(await store.getText(entry.path)).not.toContain(privateToken)
         await restoreRemoteSnapshotBackup({ ...importOptions, objectStore: store, snapshotId: backup.entry.id })
       }
       // A fresh preference instance verifies persistence, without relying on the exporting instance's key cache.
@@ -147,6 +154,7 @@ describe('full backup integrity with real services', () => {
       for (const id of ['session-input', 'session-output']) expect((await target.sessionImages.getImage(id))?.data).toBe(image(id).data)
       expect((await target.favoriteImages.getImage('favorite-cover'))?.data).toBe(image('favorite-cover').data)
     } finally {
+      localStorage.removeItem(tokenKey)
       for (const services of [source, target]) {
         await services.sessionImages.clearAll(); await services.sessionImages.close()
         await services.favoriteImages.clearAll(); await services.favoriteImages.close()

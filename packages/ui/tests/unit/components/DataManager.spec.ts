@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, h, ref } from 'vue'
 import { allowConsole } from '../../utils/error-detection'
+import { UnreadableRemoteSnapshotsError } from '../../../src/utils/remote-snapshot-backup'
 
 const remoteSnapshotMocks = vi.hoisted(() => ({
   listRemoteSnapshotBackups: vi.fn(),
@@ -264,6 +265,148 @@ describe('DataManager storage breakdown', () => {
     })
     delete (window as any).electronAPI
     window.localStorage.clear()
+  })
+
+  const savedWebDav = () => {
+    localStorage.setItem('prompt-optimizer:remote-backup-settings', JSON.stringify({
+      provider: { kind: 'webdav', endpoint: 'https://dav.test', directory: 'backups', username: 'u', password: 'p' },
+    }))
+  }
+  const snapshot = (id: string) => ({ id, name: id, manifestPath: `v1/snapshots/${id}/manifest.json`,
+    manifest: { includedSections: ['appData', 'favorites'] } })
+  const deferred = () => {
+    let resolve!: (value: any) => void
+    let reject!: (reason: unknown) => void
+    const promise = new Promise<any>((yes, no) => { resolve = yes; reject = no })
+    return { promise, resolve, reject }
+  }
+
+  it('keeps unloaded, loading, failed and empty backup states distinct', async () => {
+    const wrapper = mountComponent()
+    const state = (wrapper.vm as any).$?.setupState
+    expect(state.remoteListState).toBe('idle')
+    expect(wrapper.get('[data-testid="remote-list-status"]').text()).not.toContain('No remote backups')
+    state.remoteSettings.provider = { kind: 'webdav', endpoint: 'https://dav.test', directory: 'backups', username: 'u', password: 'p' }
+    const pending = deferred()
+    remoteSnapshotMocks.listRemoteSnapshotBackups.mockReturnValueOnce(pending.promise)
+    const loading = state.refreshRemoteBackups()
+    await flushPromises()
+    expect(state.remoteListState).toBe('loading')
+    pending.reject(new Error('offline'))
+    await loading
+    await flushPromises()
+    expect(state.remoteListState).toBe('error')
+    expect(wrapper.get('[data-testid="remote-list-status"]').text()).toContain('offline')
+    expect(wrapper.get('[data-testid="remote-list-status"]').text()).not.toContain('No remote backups')
+    await state.refreshRemoteBackups()
+    await flushPromises()
+    expect(state.remoteListState).toBe('success')
+    expect(wrapper.get('[data-testid="remote-list-status"]').text()).toContain('No remote backups')
+    wrapper.unmount()
+  })
+
+  it('explains unreadable backups in the selected UI language', async () => {
+    savedWebDav()
+    remoteSnapshotMocks.listRemoteSnapshotBackups.mockRejectedValueOnce(new UnreadableRemoteSnapshotsError())
+    const wrapper = mountComponent()
+    await flushPromises()
+    expect(wrapper.get('[data-testid="remote-list-status"]').text()).toContain('Backups were found, but their metadata could not be read.')
+    wrapper.unmount()
+  })
+
+  it('keeps the last list after a refresh failure and clears it when configuration changes', async () => {
+    savedWebDav()
+    remoteSnapshotMocks.listRemoteSnapshotBackups.mockResolvedValueOnce([snapshot('saved')])
+    const wrapper = mountComponent()
+    await flushPromises()
+    const state = (wrapper.vm as any).$?.setupState
+    remoteSnapshotMocks.listRemoteSnapshotBackups.mockRejectedValueOnce(new Error('offline'))
+    await state.refreshRemoteBackups()
+    expect(state.remoteBackups.map((item: any) => item.id)).toEqual(['saved'])
+    expect(state.remoteListState).toBe('error')
+    state.remoteSettings.provider.endpoint = 'https://other.test'
+    state.markRemoteSettingsDirty()
+    expect(state.remoteBackups).toEqual([])
+    expect(state.remoteListState).toBe('idle')
+    expect(localStorage.getItem('prompt-optimizer:remote-backup-settings')).toContain('https://other.test')
+    expect(remoteSnapshotMocks.listRemoteSnapshotBackups).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
+  })
+
+  it('merges duplicate loads and ignores old responses after editing the connection', async () => {
+    savedWebDav()
+    const old = deferred()
+    remoteSnapshotMocks.listRemoteSnapshotBackups.mockReturnValueOnce(old.promise)
+    const wrapper = mountComponent()
+    await flushPromises()
+    const state = (wrapper.vm as any).$?.setupState
+    const duplicate = state.refreshRemoteBackups()
+    await flushPromises()
+    expect(remoteSnapshotMocks.listRemoteSnapshotBackups).toHaveBeenCalledTimes(1)
+    state.remoteSettings.provider.endpoint = 'https://new.test'
+    state.markRemoteSettingsDirty()
+    remoteSnapshotMocks.listRemoteSnapshotBackups.mockResolvedValueOnce([snapshot('new')])
+    await state.handleRemoteSaveAndConnect()
+    old.resolve([snapshot('old')])
+    await duplicate
+    expect(state.remoteBackups.map((item: any) => item.id)).toEqual(['new'])
+    expect(state.selectedRemoteBackupId).toBe('new')
+    expect(remoteSnapshotMocks.listRemoteSnapshotBackups).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
+  })
+
+  it('loads on mobile entry once, skips focus/resize/task revisits, and reloads next opening', async () => {
+    savedWebDav()
+    compactViewport.value = true
+    const wrapper = mountComponent()
+    await flushPromises()
+    const state = (wrapper.vm as any).$?.setupState
+    expect(remoteSnapshotMocks.listRemoteSnapshotBackups).not.toHaveBeenCalled()
+    state.mobileTask = 'remote'
+    await flushPromises()
+    state.mobileTask = null
+    await flushPromises()
+    state.mobileTask = 'remote'
+    compactViewport.value = false
+    window.dispatchEvent(new Event('focus'))
+    await flushPromises()
+    expect(remoteSnapshotMocks.listRemoteSnapshotBackups).toHaveBeenCalledTimes(1)
+    await wrapper.setProps({ show: false })
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+    expect(remoteSnapshotMocks.listRemoteSnapshotBackups).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
+  })
+
+  it('loads a saved provider again when switching back to it', async () => {
+    savedWebDav()
+    const wrapper = mountComponent()
+    await flushPromises()
+    const state = (wrapper.vm as any).$?.setupState
+    state.handleRemoteProviderChange('s3-compatible')
+    await flushPromises()
+    state.handleRemoteProviderChange('webdav')
+    await flushPromises()
+    expect(remoteSnapshotMocks.listRemoteSnapshotBackups).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
+  })
+
+  it('does not let a closed dialog response replace the list from a new opening', async () => {
+    savedWebDav()
+    const old = deferred()
+    remoteSnapshotMocks.listRemoteSnapshotBackups.mockReturnValueOnce(old.promise)
+    const wrapper = mountComponent()
+    await flushPromises()
+    await wrapper.setProps({ show: false })
+    remoteSnapshotMocks.listRemoteSnapshotBackups.mockResolvedValueOnce([snapshot('new')])
+    await wrapper.setProps({ show: true })
+    await flushPromises()
+    old.reject(new Error('late failure'))
+    await flushPromises()
+    const state = (wrapper.vm as any).$?.setupState
+    expect(state.remoteListState).toBe('success')
+    expect(state.remoteBackups.map((item: any) => item.id)).toEqual(['new'])
+    wrapper.unmount()
   })
 
   const connectRemote = async (wrapper: ReturnType<typeof mountComponent>) => {
@@ -604,6 +747,54 @@ describe('DataManager storage breakdown', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Google Drive Authorized')
+    expect(remoteSnapshotMocks.listRemoteSnapshotBackups).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+    const reloaded = mountComponent()
+    await flushPromises()
+    expect(reloaded.text()).toContain('Google Drive Authorized')
+    expect(remoteSnapshotMocks.listRemoteSnapshotBackups).toHaveBeenCalledTimes(2)
+    expect((window as any).google.accounts.oauth2.initTokenClient).toHaveBeenCalledTimes(1)
+    reloaded.unmount()
+  })
+
+  it('replaces the empty-list placeholder with a failure when the cached token expires', async () => {
+    getEnvVarMock.mockImplementation((key: string) => key === 'VITE_GOOGLE_DRIVE_CLIENT_ID' ? 'expires-in-dialog' : '')
+    const key = 'prompt-optimizer:google-drive-token:expires-in-dialog'
+    localStorage.setItem(key, JSON.stringify({ accessToken: 'test-token', expiresAt: Date.now() + 3600_000 }))
+    const wrapper = mountComponent()
+    await flushPromises()
+    const state = (wrapper.vm as any).$?.setupState
+    expect(state.remoteListState).toBe('success')
+    const expired = JSON.stringify({ accessToken: 'test-token', expiresAt: 1 })
+    localStorage.setItem(key, expired)
+    await state.refreshRemoteBackups()
+    expect(state.remoteListState).toBe('error')
+    expect(state.remoteListPlaceholder).not.toBe('No remote backups')
+    expect(localStorage.getItem(key)).toBe(expired)
+    expect(remoteSnapshotMocks.listRemoteSnapshotBackups).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('discards the old account list after explicit reauthorization succeeds', async () => {
+    getEnvVarMock.mockImplementation((key: string) => key === 'VITE_GOOGLE_DRIVE_CLIENT_ID' ? 'reauth-client' : '')
+    const key = 'prompt-optimizer:google-drive-token:reauth-client'
+    localStorage.setItem(key, JSON.stringify({ accessToken: 'old-account', expiresAt: Date.now() + 3600_000 }))
+    ;(window as any).google = { accounts: { oauth2: { initTokenClient: ({ callback }: any) => ({
+      requestAccessToken: () => callback({ access_token: 'new-account', expires_in: 3600 }),
+    }) } } }
+    const old = deferred()
+    remoteSnapshotMocks.listRemoteSnapshotBackups.mockReturnValueOnce(old.promise)
+    const wrapper = mountComponent()
+    await flushPromises()
+    remoteSnapshotMocks.listRemoteSnapshotBackups.mockResolvedValueOnce([snapshot('new-account')])
+    await wrapper.get('[data-testid="remote-google-authorize"]').trigger('click')
+    await flushPromises()
+    old.resolve([snapshot('old-account')])
+    await flushPromises()
+    const state = (wrapper.vm as any).$?.setupState
+    expect(state.remoteBackups.map((item: any) => item.id)).toEqual(['new-account'])
+    expect(JSON.parse(localStorage.getItem(key)!).accessToken).toBe('new-account')
+    wrapper.unmount()
   })
 
   it('renders Cloudflare R2 as a simplified S3-compatible preset', async () => {
@@ -685,8 +876,8 @@ describe('DataManager storage breakdown', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Not Verified')
-    expect(wrapper.text()).toContain('Configuration is saved. Click “Save and Connect” to verify it.')
+    expect(wrapper.text()).toContain('Connected')
+    expect(remoteSnapshotMocks.listRemoteSnapshotBackups).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('Save and Connect')
     expect(wrapper.text()).toContain('Edit Configuration')
     expect(wrapper.text()).not.toContain('Cloudflare R2 is configured')
@@ -788,11 +979,9 @@ describe('DataManager storage breakdown', () => {
       await refreshButton!.trigger('click')
       await flushPromises()
 
-      expect(fetchMock).toHaveBeenCalledWith(
-        'https://dav.example.test/prompt-optimizer-backups/',
-        expect.objectContaining({ method: 'PROPFIND' }),
-      )
-      expect(remoteSnapshotMocks.listRemoteSnapshotBackups).toHaveBeenCalledTimes(1)
+      // The mocked list is the sole connection check; no synthetic write/delete probe.
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(remoteSnapshotMocks.listRemoteSnapshotBackups).toHaveBeenCalledTimes(2)
       expect(wrapper.text()).toContain('This backup provider is connected')
     } finally {
       globalThis.fetch = originalFetch
@@ -957,6 +1146,20 @@ describe('DataManager storage breakdown', () => {
         favoriteImages: false,
       },
     }))
+  })
+
+  it('serializes two backup requests started in the same turn', async () => {
+    const wrapper = mountComponent()
+    const state = await connectRemote(wrapper)
+    const pending = deferred()
+    remoteSnapshotMocks.createRemoteSnapshotBackup.mockReturnValueOnce(pending.promise)
+    const first = state.handleRemoteUpload()
+    const second = state.handleRemoteUpload()
+    await flushPromises()
+    expect(remoteSnapshotMocks.createRemoteSnapshotBackup).toHaveBeenCalledTimes(1)
+    pending.resolve({ entry: snapshot('created'), missingAssets: [], uploadedAssets: 0, skippedAssets: 0 })
+    await Promise.all([first, second])
+    wrapper.unmount()
   })
 
   it('disables remote backup actions while a remote data operation is running', async () => {

@@ -100,9 +100,8 @@ test('browser code and phone QR link restore a cloud backup including its images
     await phone.getByTestId('remote-import-code-submit').click()
     await expectRestored(phone)
 
-    // Initial connection probes may write their test file, but imports must not
-    // upload a new business snapshot or replace cloud data.
-    expect(webdav.requests.slice(readBoundary).filter(request => request.method === 'PUT' && request.path.endsWith('/manifest.json'))).toHaveLength(0)
+    // Connecting and restoring existing backups must never mutate cloud data.
+    expect(webdav.requests.slice(readBoundary).filter(request => ['PUT', 'MKCOL', 'DELETE'].includes(request.method))).toHaveLength(0)
   } finally {
     for (const context of contexts) await context.close()
     await peerBrowser?.close()
