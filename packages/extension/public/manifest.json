@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "default_locale": "zh_CN",
   "name": "__MSG_extName__",
-  "version": "2.12.0",
+  "version": "2.13.0",
   "description": "__MSG_extDesc__",
   "icons": {
     "16": "icons/icon16.png",
@@ -30,5 +30,6 @@
   "offline_enabled": true,
   "incognito": "split",
   "short_name": "__MSG_extShortName__",
-  "minimum_chrome_version": "88"
+  "minimum_chrome_version": "88",
+  "version_name": "2.13.0-beta.1"
 }
