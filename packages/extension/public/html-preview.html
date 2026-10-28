@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <!-- Keep this and the manifest sandbox policy aligned with HTML_PREVIEW_CSP. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https: blob:; style-src 'unsafe-inline' https:; img-src https: data: blob:; font-src https: data:; media-src https: data: blob:; connect-src https: http: wss: ws:; frame-src about:; worker-src blob:; base-uri 'none'; form-action 'none'">
+    <meta name="referrer" content="no-referrer">
+    <style>
+      html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+      iframe { display: block; border: 0; width: 100%; height: 100%; background: white; }
+    </style>
+  </head>
+  <body>
+    <iframe sandbox="allow-scripts" referrerpolicy="no-referrer" title="HTML"></iframe>
+    <script>
+      // This packaged page has no extension APIs. Generated code stays in the
+      // child frame and cannot replace this receiver or impersonate its parent.
+      const preview = document.querySelector('iframe');
+      let currentHtml;
+      window.addEventListener('message', (event) => {
+        if (event.source !== parent || event.data?.type !== 'prompt-optimizer:render-html') return;
+        const html = event.data.html;
+        // Match MARKDOWN_PREVIEW_INPUT_BUDGET; do not queue or retain old pages.
+        if (typeof html !== 'string' || html.length > 1024 * 1024 || html === currentHtml) return;
+        currentHtml = html;
+        preview.srcdoc = html;
+      });
+    </script>
+  </body>
+</html>

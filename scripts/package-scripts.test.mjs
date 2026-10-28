@@ -87,7 +87,7 @@ test('daily browser gate includes model-free workspace regressions without dropp
   const { scripts } = readJson('package.json')
   const browserTasks = scripts['test:gate:e2e'].split(/\s+/)
 
-  for (const task of ['test:e2e:ui-smoke', 'test:e2e:workspace-regression', 'test:e2e:gate:replay']) {
+  for (const task of ['test:e2e:ui-smoke', 'test:e2e:workspace-regression', 'test:e2e:gate:replay', 'test:e2e:extension']) {
     assert.ok(browserTasks.includes(task), `Daily browser gate must run ${task}`)
   }
   const regressionCommand = scripts['test:e2e:workspace-regression']

@@ -1,11 +1,12 @@
 import { createApp, watch } from 'vue'
-import { installI18nOnly, installPinia, i18n, router } from '@prompt-optimizer/ui'
+import { installI18nOnly, installPinia, i18n, router, HTML_PREVIEW_HOST_KEY } from '@prompt-optimizer/ui'
 import App from './App.vue'
 
 import './style.css'
 import '@prompt-optimizer/ui/dist/style.css'
 
 const app = createApp(App)
+app.provide(HTML_PREVIEW_HOST_KEY, new URL('html-preview.html', window.location.href).href)
 // 只安装i18n插件，语言初始化将在App.vue中服务准备好后进行
 installI18nOnly(app)
 installPinia(app)
