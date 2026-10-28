@@ -306,7 +306,6 @@ for (const scenario of cases) {
     }
     if (nativeVisibility) {
       const htmlOutput = page.locator('.variant-result-card .output-display-core').first()
-      await htmlOutput.getByTestId('output-view-html').click({ force: nativeVisibility })
       await expect(htmlOutput.getByTestId('html-preview-frame')).toBeVisible()
       const previewElement = await htmlOutput.getByTestId('html-preview-frame').elementHandle()
       if (!previewElement) throw new Error('Missing HTML preview element')

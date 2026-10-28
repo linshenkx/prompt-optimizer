@@ -113,7 +113,7 @@ const emit = defineEmits<{
 }>()
 
 const isShowingFullscreen = ref(false);
-const fullscreenViewMode = ref<'render' | 'source' | 'diff' | 'html'>('render')
+const fullscreenViewMode = ref<'render' | 'source' | 'diff'>('render')
 
 const testId = computed(() => props.testId || undefined)
 

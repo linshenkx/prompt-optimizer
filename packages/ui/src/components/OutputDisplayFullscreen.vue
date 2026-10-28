@@ -51,7 +51,7 @@ const { t } = useI18n()
 // Props
 interface Props {
   modelValue: boolean
-  initialViewMode?: 'render' | 'source' | 'diff' | 'html'
+  initialViewMode?: 'render' | 'source' | 'diff'
   content?: string
   outputRecord?: OutputRecord
   originalContent?: string

@@ -130,7 +130,7 @@ const mountOutputDisplayCore = (content = 'Optimized prompt', initialProps: { st
           template: '<textarea :value="value" :readonly="readonly" />',
         }),
         NSpin: passthroughStub('NSpin'),
-        MarkdownRenderer: passthroughStub('MarkdownRenderer'),
+        MarkdownRenderer: defineComponent({ name: 'MarkdownRenderer', props: ['content', 'htmlPreviews', 'suspended', 'streaming'], template: '<section />' }),
         XmlRenderer: passthroughStub('XmlRenderer'),
         TextDiffUI: passthroughStub('TextDiffUI'),
         VariableAwareInput: passthroughStub('VariableAwareInput'),
@@ -196,45 +196,43 @@ describe('OutputDisplayCore copy and open action', () => {
     expect(wrapper.emitted('copy')).toEqual([[expect.any(String), 'content']])
   })
 
-  it('requires a preview click, preserves source copying and destroys the frame when leaving', async () => {
-    const source = 'Explanation\n```html\n<html><body><button>Run</button></body></html>\n```'
+  it('unifies Markdown and HTML preview, preserves source copying and offers only two base views', async () => {
+    const source = 'Explanation\n```html\n<html><body><button>Run</button></body></html>\n```\nAfter'
     const wrapper = mountOutputDisplayCore(source)
     try {
-      expect(wrapper.find('iframe').exists()).toBe(false)
-      await wrapper.get('[data-testid="output-view-html"]').trigger('click')
-      const frame = wrapper.get('iframe').element
-      expect(wrapper.get('iframe').attributes('sandbox')).toBe('allow-scripts')
-      expect(wrapper.get('iframe').attributes('allow')).toContain("camera 'none'")
+      expect(wrapper.findAll('.output-view-modes button')).toHaveLength(2)
+      expect(wrapper.get('[data-testid="output-view-preview"]').text()).toBe('Preview')
+      expect(wrapper.find('[data-testid="output-view-html"]').exists()).toBe(false)
+      const renderer = wrapper.getComponent({ name: 'MarkdownRenderer' })
+      expect(renderer.props('content')).toBe(source)
+      expect(renderer.props('htmlPreviews')).toBe(true)
       await wrapper.get('[data-testid="output-copy-action"]').trigger('click')
       expect(copyTextMock).toHaveBeenLastCalledWith(source)
-      expect(wrapper.find('[data-testid="html-preview-reload"]').exists()).toBe(false)
-      expect(wrapper.get('iframe').element).toBe(frame)
       await wrapper.get('[data-testid="output-view-source"]').trigger('click')
-      expect(wrapper.find('iframe').exists()).toBe(false)
+      expect(wrapper.findComponent({ name: 'MarkdownRenderer' }).exists()).toBe(false)
+      await wrapper.get('[data-testid="output-view-preview"]').trigger('click')
+      expect(wrapper.getComponent({ name: 'MarkdownRenderer' }).props('content')).toBe(source)
     } finally { wrapper.unmount() }
   })
 
-  it('supports the compact HTML menu and requires reactivation after content changes or streaming', async () => {
+  it('uses the same compact preview menu and disables execution for incomplete outcomes', async () => {
     const wrapper = mountOutputDisplayCore('<html><body>First</body></html>')
     try {
       await wrapper.setProps({ fitContent: true })
-      await selectCopyAction(wrapper, 'html')
-      expect(wrapper.find('iframe').exists()).toBe(true)
+      await selectCopyAction(wrapper, 'source')
+      expect(wrapper.findComponent({ name: 'MarkdownRenderer' }).exists()).toBe(false)
+      await selectCopyAction(wrapper, 'render')
+      expect(wrapper.getComponent({ name: 'MarkdownRenderer' }).props('htmlPreviews')).toBe(true)
       await wrapper.setProps({ content: '<html><body>Second</body></html>' })
-      expect(wrapper.find('iframe').exists()).toBe(false)
-      await selectCopyAction(wrapper, 'html')
+      expect(wrapper.getComponent({ name: 'MarkdownRenderer' }).props('content')).toContain('Second')
       await wrapper.setProps({ streaming: true })
-      expect(wrapper.find('iframe').exists()).toBe(false)
-      await wrapper.setProps({ streaming: false })
-      expect(wrapper.find('iframe').exists()).toBe(false)
-      await selectCopyAction(wrapper, 'html')
-      await wrapper.setProps({ previewSuspended: true })
-      expect(wrapper.find('iframe').exists()).toBe(false)
-      await wrapper.setProps({ previewSuspended: false })
-      expect(wrapper.find('iframe').exists()).toBe(true)
+      expect(wrapper.findComponent({ name: 'MarkdownRenderer' }).exists()).toBe(false)
+      await wrapper.setProps({ streaming: false, previewSuspended: true })
+      expect(wrapper.getComponent({ name: 'MarkdownRenderer' }).props('suspended')).toBe(true)
+      await wrapper.setProps({ previewSuspended: false, outputRecord: { result: 'partial', reasoning: '', status: 'cancelled' } })
+      expect(wrapper.getComponent({ name: 'MarkdownRenderer' }).props('htmlPreviews')).toBe(false)
     } finally { wrapper.unmount() }
   })
-
   it('keeps Markdown and XML rendering and never offers to execute XML', () => {
     for (const [source, renderer] of [
       ['# Heading', 'MarkdownRenderer'],
@@ -272,7 +270,7 @@ describe('OutputDisplayCore copy and open action', () => {
       expect(wrapper.find('iframe').exists()).toBe(false)
       await wrapper.setProps({ streaming: false })
       expect(wrapper.findComponent({ name: 'MarkdownRenderer' }).exists()).toBe(true)
-      expect(wrapper.find('[data-testid="output-view-html"]').exists()).toBe(true)
+      expect(wrapper.getComponent({ name: 'MarkdownRenderer' }).props('htmlPreviews')).toBe(true)
     } finally { wrapper.unmount() }
   })
 

@@ -67,11 +67,9 @@ test('keeps independent interactive previews and their state across visibility c
     store.testVariantResults = { ...store.testVariantResults, b: { result: content, reasoning: '' } }
   }, counter)
   const outputs = page.locator('.variant-result-card .output-display-core')
-  await outputs.nth(0).getByTestId('output-view-html').click()
   const first = outputs.nth(0).frameLocator('[data-testid="html-preview-frame"]').frameLocator('iframe').locator('#counter')
   await first.click()
   await expect(first).toHaveText('1')
-  await outputs.nth(1).getByTestId('output-view-html').click()
   const second = outputs.nth(1).frameLocator('[data-testid="html-preview-frame"]').frameLocator('iframe').locator('#counter')
   await second.click()
   await second.click()
@@ -99,6 +97,30 @@ test('keeps independent interactive previews and their state across visibility c
   await expect(page.getByTestId('html-preview-paused')).toHaveCount(0)
 })
 
+test('keeps several HTML blocks in one Markdown document with independent interaction and exact source copying', async ({ page }) => {
+  const block = (id: string) => `<html><body><button id="${id}" onclick="this.textContent=Number(this.textContent)+1">0</button></body></html>`
+  const source = `# Before\n\n\`\`\`html\n${block('one')}\n\`\`\`\n\nBetween **both** pages.\n\n~~~html\n${block('two')}\n~~~\n\nAfter.`
+  await seedOutput(page, source)
+  const output = page.locator('.variant-result-card .output-display-core').first()
+  await expect(output.getByTestId('html-preview-frame')).toHaveCount(2)
+  await expect(output.locator('.markdown-content > h1')).toHaveText('Before')
+  await expect(output.locator('.markdown-content > p')).toHaveText(['Between both pages.', 'After.'])
+  const first = output.frameLocator('[data-html-preview-slot="0"] [data-testid="html-preview-frame"]').frameLocator('iframe').locator('#one')
+  const second = output.frameLocator('[data-html-preview-slot="1"] [data-testid="html-preview-frame"]').frameLocator('iframe').locator('#two')
+  await first.click()
+  await second.click()
+  await second.click()
+  await expect(first).toHaveText('1')
+  await expect(second).toHaveText('2')
+  await output.locator('[data-testid$="-view-source"], [data-testid="output-view-source"]').click()
+  await expect(output.getByTestId('html-preview-frame')).toHaveCount(0)
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+  await output.locator('.output-copy-split-primary').click()
+  expect((await page.evaluate(() => navigator.clipboard.readText())).replaceAll('\r\n', '\n')).toBe(source)
+  await output.getByTestId('output-view-preview').click()
+  await expect(output.getByTestId('html-preview-frame')).toHaveCount(2)
+})
+
 test('runs HTML, CSS, scripts, canvas and external data with parent/storage isolation and normal CORS', async ({ page }) => {
   let dataRequests = 0
   page.on('request', request => {
@@ -106,9 +128,10 @@ test('runs HTML, CSS, scripts, canvas and external data with parent/storage isol
   })
   await seedOutput(page, `Here is the page:\n\n\`\`\`html\n${html}\n\`\`\``)
   const output = page.locator('.variant-result-card .output-display-core').first()
-  await expect(output.getByTestId('output-view-html')).toBeVisible()
-  await expect(page.getByTestId('html-preview-frame')).toHaveCount(0)
-  await output.getByTestId('output-view-html').click()
+  await expect(output.getByTestId('output-view-preview')).toHaveText(/^(Preview|预览|預覽)$/)
+  await expect(output.getByTestId('output-view-html')).toHaveCount(0)
+  await expect(page.getByTestId('html-preview-frame')).toHaveCount(1)
+  await expect(output.locator('.markdown-content > p').first()).toHaveText('Here is the page:')
   const preview = output.frameLocator('[data-testid="html-preview-frame"]').frameLocator('iframe')
   await expect(preview.locator('h1')).toHaveText('Interactive HTML')
   await expect(preview.locator('body')).toHaveAttribute('data-external-script', 'loaded')
@@ -143,7 +166,6 @@ test('runs HTML, CSS, scripts, canvas and external data with parent/storage isol
 test('moves the preview into fullscreen and destroys it when output changes', async ({ page }) => {
   await seedOutput(page, html)
   const output = page.locator('.variant-result-card .output-display-core').first()
-  await output.getByTestId('output-view-html').click()
   await output.getByRole('button', { name: /^(Expand|展开|展開)$/ }).click()
   const fullscreen = page.getByTestId('output-fullscreen')
   await expect(fullscreen.getByTestId('html-preview-frame')).toBeVisible()
@@ -161,13 +183,13 @@ test('moves the preview into fullscreen and destroys it when output changes', as
   await expect(output.locator('h1')).toHaveText('Ordinary Markdown')
 })
 
-test('offers the HTML preview in the mobile view menu', async ({ page }) => {
+test('uses the same preview entry in the mobile view menu', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 })
   await seedOutput(page, html)
   await page.getByTestId('workspace-region-test').click()
   const output = page.locator('.variant-result-card .output-display-core').first()
   await output.getByTestId('output-view-menu').click()
-  await page.locator('.n-dropdown-option').filter({ hasText: /^(HTML preview|网页预览|網頁預覽)$/ }).click()
+  await page.locator('.n-dropdown-option').filter({ hasText: /^(Preview|预览|預覽)$/ }).click()
   const preview = output.frameLocator('[data-testid="html-preview-frame"]').frameLocator('iframe')
   await expect(preview.locator('h1')).toBeVisible()
   await preview.locator('#counter').click()
@@ -238,7 +260,7 @@ test('batches long fenced HTML while generating, keeps every token, and previews
   expect(await output.locator('.n-input__textarea-mirror').count()).toBe(0)
   await expect(page.getByTestId('html-preview-frame')).toHaveCount(0)
   try {
-    await expect(page.getByTestId('output-view-html')).toHaveCount(2, { timeout: 20000 })
+    await expect(page.getByTestId('html-preview-frame')).toHaveCount(2, { timeout: 20000 })
   } finally {
     const metrics = await page.evaluate(() => {
       const state = window as any
@@ -255,7 +277,6 @@ test('batches long fenced HTML while generating, keeps every token, and previews
   expect(result.b).toBe(source)
   expect(result.peakStreams).toBe(2)
   expect(result.updates).toBeLessThan(chunks)
-  await output.getByTestId('output-view-html').click()
   const preview = output.frameLocator('[data-testid="html-preview-frame"]').frameLocator('iframe')
   await expect(preview.locator('#flight path')).toHaveCount(400)
   await preview.locator('#counter').click()

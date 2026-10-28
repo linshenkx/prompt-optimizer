@@ -1,6 +1,7 @@
 <template>
   <div class="markdown-renderer">
-    <template v-if="sourceMode || streaming">
+    <template v-if="suspended" />
+    <template v-else-if="sourceMode || streaming">
       <NText v-if="!streaming" depth="3" class="output-source-notice">{{ t('common.outputSourceFallback') }}</NText>
       <OutputSourceView :content="content" :fit-content="disableInternalScroll" />
     </template>
@@ -8,15 +9,19 @@
       <div ref="markdownContainer" class="markdown-content markdown-content--scrollable" />
     </NScrollbar>
     <div v-else ref="markdownContainer" class="markdown-content" style="height:100%; max-height:100%; overflow-y:auto" />
+    <Teleport v-for="preview in previewTargets" :key="preview.id" :to="preview.target">
+      <HtmlPreview :html="preview.html" />
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, shallowRef, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { NScrollbar, NText } from 'naive-ui';
 import { useI18n } from 'vue-i18n';
 import DOMPurify from 'dompurify';
 import OutputSourceView from './OutputSourceView.vue';
+import HtmlPreview from './HtmlPreview.vue';
 import { createMarkdownOutputClient } from '../utils/markdown-output-client';
 import 'highlight.js/styles/github.css';
 
@@ -24,21 +29,27 @@ const props = defineProps({
   content: { type: String, default: '' },
   streaming: { type: Boolean, default: false },
   disableInternalScroll: { type: Boolean, default: false },
+  htmlPreviews: { type: Boolean, default: false },
+  suspended: { type: Boolean, default: false },
 });
 const { t } = useI18n();
 const markdownContainer = ref(null);
 const sourceMode = ref(false);
+const previewTargets = shallowRef([]);
+let previews = [];
 let client;
 let generation = 0;
 let html = '';
 let cachedContent;
+let cachedHtmlPreviews;
 let renderedContainer;
 let renderedHtml;
+let renderedPreviews;
 let disposed = false;
 
 const commit = () => {
   const container = markdownContainer.value;
-  if (!container || disposed || (container === renderedContainer && html === renderedHtml)) return;
+  if (!container || disposed || (container === renderedContainer && html === renderedHtml && previews === renderedPreviews)) return;
   const fragment = DOMPurify.sanitize(html, { RETURN_DOM_FRAGMENT: true });
   for (const pre of fragment.querySelectorAll('pre')) {
     const language = pre.querySelector('code')?.className.match(/(?:^|\s)language-([^\s]+)/)?.[1];
@@ -52,39 +63,57 @@ const commit = () => {
     wrapper.append(label, pre);
   }
   container.replaceChildren(fragment);
+  previewTargets.value = previews.flatMap(preview => {
+    const target = container.querySelector(`[data-html-preview-slot="${preview.id}"]`);
+    if (!target) return [];
+    target.className = 'markdown-html-preview';
+    return [{ ...preview, target }];
+  });
   renderedContainer = container;
   renderedHtml = html;
+  renderedPreviews = previews;
 };
 const render = () => {
   const current = ++generation;
   client?.cancel();
-  if (props.streaming) return;
-  if (cachedContent === props.content && !sourceMode.value) { commit(); return; }
+  if (props.streaming || props.suspended) {
+    previewTargets.value = []; previews = []; html = '';
+    renderedContainer = undefined; renderedHtml = undefined; renderedPreviews = undefined; cachedContent = undefined;
+    client?.release();
+    return;
+  }
+  if (!props.htmlPreviews) { previewTargets.value = []; previews = []; }
+  if (cachedContent === props.content && cachedHtmlPreviews === props.htmlPreviews && !sourceMode.value) { commit(); return; }
   client?.request(props.content, output => {
     if (disposed || current !== generation) return;
     sourceMode.value = output.kind === 'source';
     cachedContent = props.content;
+    cachedHtmlPreviews = props.htmlPreviews;
     if (output.kind === 'html') {
       html = output.html;
+      previews = output.previews ?? [];
       if (markdownContainer.value) commit();
       else nextTick(() => { if (current === generation) commit(); });
     } else if (output.kind === 'source') {
       // The rich-node lease has been released. Do not retain its detached DOM
       // or cached HTML while this component displays the source fallback.
       html = '';
+      previews = []; previewTargets.value = [];
       renderedHtml = undefined;
+      renderedPreviews = undefined;
       renderedContainer = undefined;
     }
-  });
+  }, undefined, props.htmlPreviews);
 };
 onMounted(() => { client = createMarkdownOutputClient(); render(); });
-watch(() => [props.content, props.streaming, props.disableInternalScroll], render, { flush: 'post' });
-onBeforeUnmount(() => { disposed = true; generation++; client?.dispose(); renderedContainer = undefined; });
+watch(() => [props.content, props.streaming, props.disableInternalScroll, props.htmlPreviews, props.suspended], render, { flush: 'post' });
+onBeforeUnmount(() => { disposed = true; generation++; client?.dispose(); previewTargets.value = []; previews = []; renderedPreviews = undefined; renderedContainer = undefined; });
 </script>
 
 <style>
 .markdown-renderer { display:flex; flex-direction:column; flex:1; min-width:0; min-height:0; height:100%; overflow:hidden; }
 .output-source-notice { padding:4px 12px; font-size:12px; flex:none; }
+.markdown-html-preview { height:clamp(320px, 55vh, 640px); min-width:0; margin:12px 0; contain:layout paint; }
 /* 基本布局和非颜色样式 */
 .markdown-content {
     line-height: 1.5;
