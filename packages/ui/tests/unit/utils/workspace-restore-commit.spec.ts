@@ -15,14 +15,18 @@ import type { RemoteObjectStore } from '../../../src/utils/remote-backup'
 import { allowConsole } from '../../utils/error-detection'
 
 const createManager = (preferences: PreferenceService) => {
-  const collection = () => ({ exportData: vi.fn(async () => []), importData: vi.fn(async () => {}) })
+  const collection = () => ({
+    exportData: vi.fn(async () => []),
+    validateData: vi.fn(async () => true),
+    importData: vi.fn(async () => {}),
+  })
   const models = collection()
   const manager = new DataManager(
     models as unknown as ConstructorParameters<typeof DataManager>[0],
     collection() as unknown as ConstructorParameters<typeof DataManager>[1],
     collection() as unknown as ConstructorParameters<typeof DataManager>[2],
     preferences,
-    { exportData: async () => ({}), importData: async () => {} } as unknown as ConstructorParameters<typeof DataManager>[4],
+    { exportData: async () => ({}), validateData: async () => true, importData: async () => {} } as unknown as ConstructorParameters<typeof DataManager>[4],
   )
   return { manager, models }
 }
@@ -119,7 +123,12 @@ describe.each(['zip', 'remote'] as const)('%s workspace final commit', format =>
 
       // Exercise the actual package/snapshot importer and core coordinator, not
       // a rejected mock of importAllData. Images have already been restored.
-      await expect(restore()).rejects.toThrow()
+      const expectedFailure = {
+        'favorites rejection': 'Favorite storage unavailable',
+        'favorites reported error': 'Favorite write failed',
+        'model import failure': 'Model storage unavailable',
+      }[failure]
+      await expect(restore()).rejects.toThrow(expectedFailure)
       expect(targetImages.values.has('incoming-image')).toBe(true)
       expect(targetImages.values.has('local-image')).toBe(true)
       expect(await targetPreferences.get('session/v1/image-text2image', null)).toEqual(oldSnapshot)

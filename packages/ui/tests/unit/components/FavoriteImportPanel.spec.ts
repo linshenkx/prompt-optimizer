@@ -236,10 +236,12 @@ describe('FavoriteImportPanel', () => {
         return { imported: 1, skipped: 0, errors: [] }
       }),
     }
+    const restoredImages = new Map<string, FullImageData>()
     const favoriteImageStorageService = {
-      getImage: vi.fn(async () => null),
+      getImage: vi.fn(async (id: string) => restoredImages.get(id) ?? null),
       saveImage: vi.fn(async (image: FullImageData) => {
         order.push(`save:${image.metadata.id}`)
+        restoredImages.set(image.metadata.id, image)
         return image.metadata.id
       }),
     }
@@ -251,7 +253,7 @@ describe('FavoriteImportPanel', () => {
 
     expect(favoriteImageStorageService.saveImage).toHaveBeenCalledWith(expect.objectContaining({
       metadata: expect.objectContaining({ id: 'cover-asset' }),
-    }))
+    }), { preventEviction: true })
     expect(favoriteManager.importFavorites).toHaveBeenCalledWith(expect.stringContaining('"favorites"'), {
       mergeStrategy: 'skip',
     })

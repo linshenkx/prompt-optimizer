@@ -586,6 +586,32 @@ describe('dataManagerResourcePackage', () => {
     expect(target.store.size).toBe(0)
   })
 
+  it('preserves both the restore failure and rollback failure without publishing references', async () => {
+    const exported = await createDataManagerResourcePackage({
+      dataManager: { exportAllData: async () => JSON.stringify({ version: 1, data: {} }) },
+      favoriteManager: null,
+      imageStorageService: createStorage([createImage('one', 'first'), createImage('two', 'second')]),
+    })
+    const target = createStorage([])
+    const saveError = new Error('Storage unavailable')
+    target.saveImage.mockImplementation(async image => {
+      if (image.metadata.id === 'two') throw saveError
+      target.store.set(image.metadata.id, image)
+      return image.metadata.id
+    })
+    target.deleteImage.mockRejectedValue(new Error('Deletion unavailable'))
+    const importAllData = vi.fn(async () => {})
+    const error = await importDataManagerResourcePackage(await exported.blob.arrayBuffer(), {
+      dataManager: { importAllData }, favoriteManager: null, imageStorageService: target,
+    }).catch((error: unknown) => error)
+    expect(error).toBeInstanceOf(AggregateError)
+    const combined = error as AggregateError
+    expect(combined.errors[0]).toBe(saveError)
+    expect(combined.errors[1]).toBe(combined.cause)
+    expect(combined.message).toContain('Storage unavailable; Image restore rollback incomplete: one')
+    expect(importAllData).not.toHaveBeenCalled()
+  })
+
   it('rejects legacy manifest counts that would conceal actual image resources', async () => {
     const exported = await createDataManagerResourcePackage({
       dataManager: { exportAllData: async () => JSON.stringify({ version: 1, data: {

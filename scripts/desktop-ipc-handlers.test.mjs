@@ -85,7 +85,7 @@ test('desktop prompt test IPC preserves optional image payloads without transfor
   )
   assert.match(
     proxy,
-    /this\.api\.testPromptStream\(systemPrompt, userPrompt, modelKey, callbacks, safeInputImages\)/,
+    /this\.api\.testPromptStream\(systemPrompt, userPrompt, modelKey, handlers, safeInputImages\)/,
   )
 
   assert.match(

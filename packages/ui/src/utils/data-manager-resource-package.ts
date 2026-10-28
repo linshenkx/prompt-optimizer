@@ -530,7 +530,7 @@ export const importDataManagerResourcePackage = async (
   } catch (error) {
     // A service may have published references before a storage error. Keep their images alive.
     try { if (!publishingReferences) await rollbackAddedBackupImages(written) } catch (rollbackError) {
-      throw new Error(`${error instanceof Error ? error.message : String(error)}; ${(rollbackError as Error).message}`, { cause: error })
+      throw new AggregateError([error, rollbackError], `${error instanceof Error ? error.message : String(error)}; ${(rollbackError as Error).message}`, { cause: rollbackError })
     }
     throw error
   }

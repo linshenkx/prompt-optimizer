@@ -698,7 +698,7 @@ export const restoreRemoteSnapshotBackup = async (
     }
   } catch (error) {
     try { if (!publishingReferences) await rollbackAddedBackupImages(written) } catch (rollbackError) {
-      throw new Error(`${error instanceof Error ? error.message : String(error)}; ${(rollbackError as Error).message}`, { cause: error })
+      throw new AggregateError([error, rollbackError], `${error instanceof Error ? error.message : String(error)}; ${(rollbackError as Error).message}`, { cause: rollbackError })
     }
     throw error
   }
