@@ -56,9 +56,22 @@ export function prepareMarkdownOutput(content: string, previewHtml = false): Mar
     const tokens = previewParser.parse(content, env)
     const candidate = extractHtmlCandidate(content)
     const fullDocument = /^(?:\s*<!--[\s\S]*?-->\s*)*\s*<(?:!doctype\s+html\b|html\b)/iu.test(content)
+    // Markdown treats standalone buttons and other inline HTML elements as a
+    // paragraph. Preserve complete elements as artifacts without capturing
+    // ordinary prose before or after them.
+    const inline = tokens.length === 3 && tokens[0]?.type === 'paragraph_open'
+      && tokens[1]?.type === 'inline' && tokens[2]?.type === 'paragraph_close'
+      ? tokens[1].children : null
+    const openingTag = inline?.[0]?.type === 'html_inline'
+      ? inline[0].content.match(/^<([a-z][a-z0-9-]*)\b/iu)?.[1]?.toLowerCase() : undefined
+    const lastInline = inline?.[inline.length - 1]
+    const standaloneElement = openingTag && (
+      (lastInline?.type === 'html_inline' && lastInline.content.toLowerCase() === `</${openingTag}>`)
+      || (openingTag === 'input' && inline?.length === 1)
+    )
     // Preserve whole documents and bare HTML fragments, including their head,
     // scripts and blank lines. Mixed Markdown continues through the token stream.
-    html = candidate === content.trim() && (fullDocument || tokens.every(token => token.type === 'html_block'))
+    html = candidate === content.trim() && (fullDocument || standaloneElement || tokens.every(token => token.type === 'html_block'))
       ? previewSlot(content, env) : previewParser.renderer.render(tokens, previewParser.options, env)
     if (env.previews.length > MARKDOWN_PREVIEW_BUDGET) return { kind: 'source', reason: 'previews' }
     const outsideHtml = content.length - env.previews.reduce((sum, preview) => sum + preview.html.length, 0)

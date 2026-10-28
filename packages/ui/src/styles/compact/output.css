@@ -44,7 +44,7 @@
 
 .compact-two-region .output-display-toolbar {
   gap: 4px !important;
-  flex-wrap: nowrap !important;
+  flex-wrap: wrap !important;
   justify-content: space-between !important;
   width: 100%;
   min-width: 0;

@@ -9,6 +9,31 @@ beforeEach(() => installMarkdownWorker(vi, prepareMarkdownOutput))
 afterEach(() => vi.unstubAllGlobals())
 
 describe('HTML preview extraction', () => {
+  it.each([
+    '<button onclick="this.textContent=123">Run</button>',
+    '<input type="range" min="0" max="10">',
+    '<canvas width="80" height="40"></canvas>',
+  ])('previews standalone inline HTML elements without inserting them into the host: %s', source => {
+    const result = prepareMarkdownOutput(source, true)
+    expect(result.kind).toBe('html')
+    if (result.kind !== 'html') throw new Error('Expected HTML output')
+    expect(result.previews).toEqual([{ id: 0, html: source }])
+    expect(result.html).toBe('<div data-html-preview-slot="0"></div>\n')
+  })
+
+  it.each([
+    'Use <button onclick="alert(1)">Run</button> to continue.',
+    '<button onclick="alert(1)">Run</button> then continue.',
+    '<button onclick="alert(1)">Run</button>\n\n# Explanation',
+  ])('keeps inline HTML surrounded by Markdown prose literal: %s', source => {
+    const result = prepareMarkdownOutput(source, true)
+    expect(result.kind).toBe('html')
+    if (result.kind !== 'html') throw new Error('Expected HTML output')
+    expect(result.previews).toBeUndefined()
+    expect(result.html).not.toContain('<button')
+    expect(result.html).toContain('&lt;button')
+  })
+
   it('keeps document styles and markup out of the host, even with Markdown fences inside HTML', () => {
     const source = '<html><head><style>body{display:none}</style></head><body>```\n<style>body{color:red}</style>\n```</body></html>'
     const wrapper = mount(MarkdownRenderer, { props: { content: htmlSourceAsMarkdown(source), disableInternalScroll: true } })
