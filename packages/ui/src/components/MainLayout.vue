@@ -10,13 +10,15 @@
       <!-- 顶部导航栏 -->
       <NLayoutHeader v-show="isCompact" class="compact-header"><slot name="mobile-nav" /></NLayoutHeader>
       <NLayoutHeader v-show="!isCompact" class="theme-header nav-header-enhanced">
-        <NFlex justify="space-between" align="center" class="w-full nav-content" :wrap="false" :size="[16, 12]">
+        <NFlex justify="space-between" align="center" class="w-full nav-content" :lang="locale" :wrap="false" :size="[16, 12]">
           <!-- 左侧：Logo + 标题 + 核心导航 -->
-          <NFlex align="center" :size="16" :wrap="false">
+          <NFlex align="center" :size="16" :wrap="false" class="nav-primary">
             <!-- Logo + 标题 -->
             <NButton
               text
               class="brand-link"
+              :aria-label="t('common.appName')"
+              :title="t('common.appName')"
               @click="openBrandWebsite"
             >
               <NFlex align="center" :size="8" :wrap="false">
@@ -44,7 +46,7 @@
           </NFlex>
 
           <!-- 右侧：操作按钮 -->
-          <NFlex align="center" :size="8" :wrap="true" justify="end" class="nav-actions">
+          <NFlex align="center" :size="4" :wrap="false" justify="end" class="nav-actions" :lang="locale">
             <slot name="actions"></slot>
           </NFlex>
         </NFlex>
@@ -91,8 +93,10 @@ import ToastUI from './Toast.vue'
 import logoImage from '../assets/logo.png'
 import AppPreviewImage from './media/AppPreviewImage.vue'
 import { openExternalUrl } from '../utils/open-external-url'
+import { i18n } from '../plugins/i18n'
 
 const { t } = useI18n()
+const locale = computed(() => i18n.global.locale.value)
 
 // Logo图片配置
 const logoSrc = logoImage
@@ -173,6 +177,115 @@ const openBrandWebsite = async () => {
 
 .nav-actions {
   min-height: 40px;
+  min-width: 0;
+  flex: 1;
+  container: header-actions / inline-size;
+}
+
+.nav-primary {
+  min-width: 0;
+  max-width: calc(100% - 410px);
+}
+
+.nav-primary .core-navigation,
+.nav-primary .core-navigation > * {
+  min-width: 0;
+}
+
+.nav-actions > * {
+  flex-shrink: 0;
+}
+
+/* Measure the space left after the brand and mode selectors, not the viewport. */
+.nav-header-enhanced .nav-actions .action-button {
+  width: var(--nav-action-width, auto);
+}
+
+.nav-header-enhanced .nav-actions .action-button-label {
+  display: var(--nav-label-display, inline);
+}
+
+.nav-header-enhanced .nav-actions .action-button .n-button__icon {
+  margin-right: var(--nav-icon-margin, 6px);
+}
+
+.nav-header-enhanced .nav-actions .action-button {
+  padding-inline: 6px;
+}
+
+.nav-header-enhanced .nav-actions .modal-action-group,
+.nav-header-enhanced .nav-actions .aux-icon-group {
+  gap: 4px;
+}
+
+.nav-header-enhanced .nav-actions .aux-icon-group {
+  margin-left: 0;
+}
+
+.nav-header-enhanced .nav-actions .page-destination-group {
+  padding-right: 4px;
+}
+
+@container header-actions (max-width: 1000px) {
+  .nav-header-enhanced .nav-actions .theme-toggle {
+    width: 30px;
+    padding: 0;
+  }
+  .nav-header-enhanced .nav-actions .theme-toggle-label {
+    display: none;
+  }
+  .nav-header-enhanced .nav-actions .theme-toggle .n-button__icon {
+    margin-right: 0;
+  }
+}
+
+/* Configuration labels yield before the frequent favorites/templates/history. */
+@container header-actions (max-width: 1000px) {
+  .nav-header-enhanced .nav-actions:lang(en) .nav-config-action {
+    --nav-label-display: none;
+    --nav-icon-margin: 0px;
+    --nav-action-width: 36px;
+  }
+}
+
+@container header-actions (max-width: 740px) {
+  .nav-header-enhanced .nav-actions .nav-config-action {
+    --nav-label-display: none;
+    --nav-icon-margin: 0px;
+    --nav-action-width: 36px;
+  }
+}
+
+@container header-actions (max-width: 680px) {
+  .nav-header-enhanced .nav-actions:lang(en) .modal-action-group {
+    --nav-label-display: none;
+    --nav-icon-margin: 0px;
+    --nav-action-width: 36px;
+  }
+}
+
+@container header-actions (max-width: 555px) {
+  .nav-header-enhanced .nav-actions .modal-action-group {
+    --nav-label-display: none;
+    --nav-icon-margin: 0px;
+    --nav-action-width: 36px;
+  }
+}
+
+@container header-actions (max-width: 500px) {
+  .nav-header-enhanced .nav-actions .page-destination-group {
+    --nav-label-display: none;
+    --nav-icon-margin: 0px;
+    --nav-action-width: 36px;
+  }
+}
+
+/* Long English mode names need the brand's text space at the desktop minimum.
+   The logo keeps its name/tooltip; mode selectors can use their existing wrap. */
+@media (max-width: 1280px) {
+  .nav-content:lang(en) .theme-title {
+    display: none;
+  }
 }
 
 .brand-link {

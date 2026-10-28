@@ -8,12 +8,14 @@
     <NButton 
       quaternary 
       size="small"
-      class="flex items-center justify-center gap-1"
+      class="theme-toggle flex items-center justify-center gap-1"
+      :aria-label="currentThemeLabel"
+      :title="currentThemeLabel"
     >
       <template #icon>
         <component :is="currentThemeIcon" />
       </template>
-      <span class="text-sm max-md:hidden truncate">{{ currentThemeLabel }}</span>
+      <span class="theme-toggle-label text-sm max-md:hidden truncate">{{ currentThemeLabel }}</span>
     </NButton>
   </NDropdown>
 </template>

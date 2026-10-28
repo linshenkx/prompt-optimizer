@@ -50,6 +50,7 @@
         />
         <ActionButtonUI
             icon="⚙️"
+            class="nav-config-action"
             :text="$t('nav.modelManager')"
             @click="emit('open-model-manager')"
             type="default"
@@ -60,6 +61,7 @@
         <NBadge :show="backupReminderDue" dot processing>
             <ActionButtonUI
                 icon="💾"
+                class="nav-config-action"
                 :text="$t('nav.dataManager')"
                 @click="emit('open-data-manager')"
                 :type="backupReminderDue ? 'warning' : 'default'"
@@ -71,6 +73,7 @@
         </NBadge>
         <ActionButtonUI
             icon="🔣"
+            class="nav-config-action"
             :text="$t('nav.variableManager')"
             @click="emit('open-variables')"
             type="default"
