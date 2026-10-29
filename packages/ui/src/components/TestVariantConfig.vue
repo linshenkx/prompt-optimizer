@@ -44,8 +44,6 @@
           <span>{{ selectedOption.secondary }}</span>
         </div>
       </NTooltip>
-      <TextModelQuickSwitch :model-key="modelKey" :options="options" :disabled="disabled"
-        :refresh-models="refreshModels" icon-only :scope-hint="t('test.config.sharedConfigHint')" />
     </div>
   </div>
 </template>
@@ -60,7 +58,6 @@ import type { ModelSelectOption, SelectOption } from '../types/select-options'
 import type { TestPanelVersionOption } from '../utils/testPanelVersion'
 import { OptionAccessors } from '../utils/data-transformer'
 import SelectWithConfig from './SelectWithConfig.vue'
-import TextModelQuickSwitch from './TextModelQuickSwitch.vue'
 import TestPanelVersionSelect from './TestPanelVersionSelect.vue'
 import { useTooltipTheme } from '../composables/ui/useTooltipTheme'
 
@@ -93,8 +90,8 @@ const menuOpen = ref(false)
 const detailsDismissed = ref(false)
 const { tooltipThemeOverrides, tooltipOverlayStyle, tooltipContentStyle } = useTooltipTheme({ maxWidth: '360px' })
 const sourceOptions = computed(() => props.versionOptions.map(option => {
-  const replacement = option.value === 'workspace' ? t('test.config.current')
-    : option.value === 0 ? t('test.config.original') : null
+  const replacement = option.value === 'workspace' ? t('workspace.optimizeWorkspace')
+    : option.value === 0 ? t('promptOptimizer.originalPrompt') : null
   return replacement ? { ...option, label: replacement,
     fullLabel: option.fullLabel.replace(option.label, replacement) } : option
 }))
@@ -117,20 +114,11 @@ const modelTitle = computed(() => {
 .test-variant-config__letter { flex: none; width: 12px; font-size: 12px; color: var(--n-text-color-3); }
 .test-variant-config__source > :deep(.test-panel-version-select) { flex: 1; min-width: 0; width: 0; }
 .test-variant-config__icon, .test-variant-config__run { flex: none; width: 28px; height: 28px; }
-.test-variant-config__model { display: grid; grid-template-columns: minmax(0, 1fr) 24px; gap: 4px; align-items: center; min-width: 0; margin-inline-start: 16px; }
+.test-variant-config__model { min-width: 0; margin-inline-start: 16px; }
 .test-variant-config__select { min-width: 0; }
 .test-variant-config__model :deep(.n-base-selection) { --n-height: 28px !important; --n-font-size: 13px !important; }
 .test-variant-config__model :deep(.n-base-selection-overlay) { padding-inline-start: 4px; }
 .test-variant-config__model :deep(.n-base-selection .swc-primary) { color: color-mix(in srgb, var(--test-model-color) 70%, var(--test-config-color)); font-size: 13px; font-weight: 400; line-height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .test-variant-config__details { display: grid; gap: 4px; overflow-wrap: anywhere; }
-@media (hover: hover) and (pointer: fine) {
-  .test-variant-config__model > .text-model-quick-switch { opacity: 0; pointer-events: none; transition: opacity 120ms ease; }
-  .test-variant-config__model:hover > .text-model-quick-switch,
-  .test-variant-config__model:focus-within > .text-model-quick-switch,
-  .test-variant-config__model:has([aria-expanded='true']) > .text-model-quick-switch { opacity: 1; pointer-events: auto; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .test-variant-config__model > .text-model-quick-switch { transition: none; }
-}
 .test-variant-config[data-feedback-tone='error'] { outline: 1px solid var(--test-config-error); outline-offset: 3px; border-radius: 4px; }
 </style>

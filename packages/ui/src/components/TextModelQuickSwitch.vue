@@ -1,7 +1,7 @@
 <template>
   <div v-if="selectedConfig" class="text-model-quick-switch" data-testid="text-model-quick-switch">
     <NTag
-      v-if="disabled && !iconOnly"
+      v-if="disabled"
       size="small"
       :bordered="false"
       class="text-model-quick-switch__model"
@@ -14,19 +14,12 @@
       v-else
       v-model:show="popoverVisible"
       trigger="click"
-      :disabled="disabled"
       placement="bottom-start"
       :show-arrow="false"
       @update:show="handlePopoverVisibility"
     >
       <template #trigger>
-        <NButton v-if="iconOnly" quaternary size="small" class="text-model-quick-switch__edit"
-          :disabled="disabled" :title="interactiveModelTitle" :aria-label="interactiveModelTitle"
-          :aria-expanded="popoverVisible">
-          <template #icon><Pencil :size="14" /></template>
-        </NButton>
         <NTag
-          v-else
           size="small"
           :bordered="false"
           class="text-model-quick-switch__model text-model-quick-switch__model--clickable"
@@ -46,7 +39,6 @@
           <NText depth="2" class="text-model-quick-switch__title">
             {{ t('model.quickSwitch.title') }}
           </NText>
-          <NText v-if="scopeHint" depth="3" class="text-model-quick-switch__hint">{{ scopeHint }}</NText>
           <NSelect
             :value="selectedModelId"
             :options="modelOptions"
@@ -68,8 +60,7 @@
 <script setup lang="ts">
 import { computed, inject, ref, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NButton, NPopover, NSelect, NSpace, NTag, NText, type SelectOption } from 'naive-ui'
-import { Pencil } from '@lucide/vue'
+import { NPopover, NSelect, NSpace, NTag, NText, type SelectOption } from 'naive-ui'
 import {
   resolveTextModelMetadata,
   type ITextAdapterRegistry,
@@ -88,8 +79,6 @@ interface Props {
   options: ModelSelectOption[]
   disabled?: boolean
   refreshModels?: () => Promise<void>
-  iconOnly?: boolean
-  scopeHint?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -266,7 +255,6 @@ watch(
 </script>
 
 <style scoped>
-.text-model-quick-switch__edit { width: 24px; height: 24px; }
 .text-model-quick-switch {
   display: inline-flex;
   align-items: center;

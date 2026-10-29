@@ -13,11 +13,8 @@ const messages = {
   },
   "test": {
     "config": {
-      "current": "当前编辑",
-      "original": "原始输入",
       "target": "目标",
-      "unassigned": "未分配",
-      "sharedConfigHint": "修改此配置内的模型，会影响所有使用该配置的列和工作区。"
+      "unassigned": "未分配"
     },
     "title": "测试",
     "areaTitle": "测试区域",

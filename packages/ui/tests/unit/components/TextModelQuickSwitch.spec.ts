@@ -120,7 +120,7 @@ const createOption = (config: TextModelConfig): ModelSelectOption => ({
   raw: config,
 })
 
-const mountComponent = (config = createConfig(), props: { iconOnly?: boolean; scopeHint?: string; disabled?: boolean } = {}) => {
+const mountComponent = (config = createConfig()) => {
   const updateModel = vi.fn().mockResolvedValue(undefined)
   const fetchModelList = vi.fn().mockResolvedValue([
     { value: 'model-b', label: 'Model B' },
@@ -157,7 +157,6 @@ const mountComponent = (config = createConfig(), props: { iconOnly?: boolean; sc
       modelKey: config.id,
       options: [createOption(config)],
       refreshModels,
-      ...props,
     },
     global: {
       provide: {
@@ -193,27 +192,6 @@ const mountComponent = (config = createConfig(), props: { iconOnly?: boolean; sc
 }
 
 describe('TextModelQuickSwitch', () => {
-  it('explains shared-config scope in icon mode and keeps the same config identity when editing', async () => {
-    const { wrapper, updateModel, refreshModels } = mountComponent(createConfig(), {
-      iconOnly: true, scopeHint: 'Updates all columns using this config',
-    })
-    expect(wrapper.get('button.text-model-quick-switch__edit').attributes('aria-label')).toContain('Model A')
-    expect(wrapper.text()).toContain('Updates all columns using this config')
-    await wrapper.get('[data-testid="quick-switch-trigger"]').trigger('click')
-    await flushPromises()
-    await wrapper.get('[data-testid="quick-switch-select"]').setValue('model-b')
-    await flushPromises()
-    expect(updateModel).toHaveBeenCalledWith('config-1', expect.objectContaining({ modelId: 'model-b' }))
-    expect(refreshModels).toHaveBeenCalled()
-    wrapper.unmount()
-  })
-
-  it('disables the icon control while a test is running', () => {
-    const { wrapper } = mountComponent(createConfig(), { iconOnly: true, disabled: true })
-    expect(wrapper.get('button.text-model-quick-switch__edit').attributes('disabled')).toBeDefined()
-    wrapper.unmount()
-  })
-
   it('shows a compact model tag for the selected text model config', () => {
     const { wrapper } = mountComponent()
 

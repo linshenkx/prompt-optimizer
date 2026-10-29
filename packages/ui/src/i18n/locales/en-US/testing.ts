@@ -13,11 +13,8 @@ const messages = {
   },
   "test": {
     "config": {
-      "current": "Current draft",
-      "original": "Original input",
       "target": "Target",
-      "unassigned": "Unassigned",
-      "sharedConfigHint": "Changing the model in this configuration affects every column and workspace using it."
+      "unassigned": "Unassigned"
     },
     "title": "Test",
     "areaTitle": "Test Area",
