@@ -223,7 +223,7 @@
 
                             <NFlex class="test-group-count" align="center" :size="8" :wrap="false" style="min-width: 0;">
                                 <NText :depth="2" class="test-area-label">
-                                    {{ t('workspace.testGroups') }}：
+                                    {{ t(isCompact ? 'workspace.testGroups' : 'test.title') }}
                                 </NText>
                                 <NRadioGroup
                                     v-model:value="testColumnCountModel"
@@ -236,7 +236,14 @@
                                 </NRadioGroup>
                             </NFlex>
 
-                            <NFlex v-if="!isCompact" align="center" justify="end" :size="8" :wrap="false">
+                            <div v-if="!isCompact" class="test-comparison-entry">
+                                <CompareRoleSummary
+                                    :entries="compareRoleConfig.entries.value"
+                                    :warning="compareToolbarStatus?.label" :disabled="isAnyVariantRunning"
+                                    @click="openCompareRoleConfig" />
+                            </div>
+
+                            <NFlex v-if="!isCompact" class="test-global-actions" align="center" justify="end" :size="4" :wrap="false">
                                 <NButton
                                     type="primary"
                                     size="small"
@@ -284,14 +291,7 @@
                                     </FocusAnalyzeButton>
                                 </template>
                                 <CompareHelpButton v-if="!isCompact && activeVariantIds.length >= 2" />
-                                <NTag
-                                    v-if="!isCompact && compareToolbarStatus"
-                                    size="small"
-                                    :type="compareToolbarStatus.type"
-                                    :bordered="false"
-                                >
-                                    {{ compareToolbarStatus.label }}
-                                </NTag>
+
                             </NFlex>
                         </div>
                     </NCard>
@@ -306,34 +306,23 @@
                                 :key="id"
                                 class="variant-cell"
                             >
-                                <div
+                                <TestVariantConfig v-if="!isCompact"
+                                    :label="getVariantLabel(id)" :version="variantVersionModels[id].value"
+                                    :version-options="versionOptions" :model-key="variantModelKeyModels[id].value"
+                                    :options="modelSelection.textModelOptions.value"
+                                    :running="variantRunning[id]" :disabled="isAnyVariantRunning"
+                                    :feedback-tone="variantSourceFeedback[id].tone"
+                                    :refresh-models="modelSelection.refreshTextModels"
+                                    :version-test-id="getVariantVersionTestId(id)"
+                                    :model-test-id="getVariantModelTestId(id)" :run-test-id="getVariantRunTestId(id)"
+                                    @update:version="handleVariantVersionChange(id, $event)"
+                                    @update:model-key="variantModelKeyModels[id].value = $event"
+                                    @preview="previewVariantSource(id)" @run="runVariant(id)"
+                                    @config="handleOpenModelManager" />
+                                <div v-else
                                     class="variant-cell__controls"
                                     :class="{ 'variant-cell__controls--stacked': useStackedVariantControls }"
                                 >
-                                    <div v-if="!isCompact" class="variant-cell__meta">
-                                        <TestVariantSourceTag
-                                            class="variant-cell__label"
-                                            :variant-label="getVariantLabel(id)"
-                                            :selection="variantVersionModels[id].value"
-                                            :resolved-version="getVariantResolvedVersion(id)"
-                                            :labels="getTestPanelVersionLabels()"
-                                            :feedback-key="variantSourceFeedback[id].key"
-                                            :feedback-tone="variantSourceFeedback[id].tone"
-                                            @activate="previewVariantSource(id)"
-                                        />
-                                        <CompareRoleBadge
-                                            v-if="!isCompact && activeVariantIds.length >= 2"
-                                            :entry="compareRoleEntryMap[id]"
-                                            clickable
-                                            @click="openCompareRoleConfig"
-                                        />
-                                        <TextModelQuickSwitch v-if="!isCompact"
-                                            :model-key="variantModelKeyModels[id].value"
-                                            :options="modelSelection.textModelOptions.value"
-                                            :refresh-models="modelSelection.refreshTextModels"
-                                            :disabled="variantRunning[id] || isAnyVariantRunning"
-                                        />
-                                    </div>
 
                                     <div class="variant-cell__actions">
                                         <button v-if="isCompact" type="button" class="test-config-group-label" :aria-label="t('workspace.viewPrompt') + ' ' + id.toUpperCase()" @click="previewVariantSource(id)">{{ id.toUpperCase() }}</button>
@@ -526,6 +515,7 @@
             @retry="handleReEvaluateActive"
         />
         <CompareRoleConfigDialog
+            :model-labels="Object.fromEntries(modelSelection.textModelOptions.value.map(option => [option.value, option.primary]))"
             v-model="compareRoleConfig.showDialog.value"
             :entries="compareRoleConfig.entries.value"
             :manual-roles="compareRoleConfig.validManualRoles.value"
@@ -586,7 +576,7 @@ import { useEvaluationHandler } from '../../composables/prompt/useEvaluationHand
 import { useCompareRoleConfig, useTestSourceAreaFeedback, useTestVariantSourceFeedback } from '../../composables/prompt'
 import { buildCompareEvaluationPayload } from '../../composables/prompt/compareEvaluation'
 import { provideEvaluation } from '../../composables/prompt/useEvaluationContext'
-import { NButton, NCard, NFlex, NIcon, NText, NRadioGroup, NRadioButton, NTag } from 'naive-ui'
+import { NButton, NCard, NFlex, NIcon, NText, NRadioGroup, NRadioButton } from 'naive-ui'
 import InputPanelUI from '../InputPanel.vue'
 import PromptPanelUI from '../PromptPanel.vue'
 import WorkspaceUtilityMenu from '../common/WorkspaceUtilityMenu.vue'
@@ -598,7 +588,6 @@ import SaveTestResultExampleButton from '../SaveTestResultExampleButton.vue'
 import {
   AnalyzeActionIcon,
   CompareHelpButton,
-  CompareRoleBadge,
   CompareRoleConfigDialog,
   EvaluationPanel,
   EvaluationScoreBadge,
@@ -609,7 +598,8 @@ import SelectWithConfig from '../SelectWithConfig.vue'
 import TextModelQuickSwitch from '../TextModelQuickSwitch.vue'
 import TestPanelVersionSelect from '../TestPanelVersionSelect.vue'
 import TestSourceLinkedCard from '../TestSourceLinkedCard.vue'
-import TestVariantSourceTag from '../TestVariantSourceTag.vue'
+import TestVariantConfig from '../TestVariantConfig.vue'
+import CompareRoleSummary from '../evaluation/CompareRoleSummary.vue'
 import { OptionAccessors } from '../../utils/data-transformer'
 import { hashString } from '../../utils/prompt-variables'
 import {
@@ -829,7 +819,7 @@ const {
   },
 })
 const previewVariantSource = (id: TestVariantId) => {
-  if (!isCompact.value) { activateVariantSource(id); return }
+  if (!isCompact.value) activateVariantSource(id)
   openSourcePreview(id)
 }
 
@@ -885,9 +875,6 @@ const getVariantVersionLabel = (id: TestVariantId): string => {
   )
 }
 
-const getVariantResolvedVersion = (id: TestVariantId): number =>
-  resolveTestPrompt(variantVersionModels[id].value).resolvedVersion
-
 const compareReadyVariantIds = computed(() =>
   activeVariantIds.value.filter((id) => hasVariantResult(id) && !isVariantStale(id))
 )
@@ -909,9 +896,6 @@ const compareRoleConfig = useCompareRoleConfig({
   persistedRoleSignatures: toRef(session, 'compareSnapshotRoleSignatures'),
   persistRoles: (roles, signatures) => session.updateCompareSnapshotRoles(roles, signatures),
 })
-const compareRoleEntryMap = computed(() =>
-  Object.fromEntries(compareRoleConfig.entries.value.map((entry) => [entry.id, entry]))
-)
 const compareToolbarStatus = computed(() =>
   activeVariantIds.value.length >= 2
     ? buildCompareToolbarStatus(
@@ -1745,4 +1729,12 @@ defineExpose({
     max-height: 100%;
     overflow: hidden;
 }
+.basic-user-workspace:not(.compact-two-region) .test-area-top { gap: 6px; }
+.basic-user-workspace:not(.compact-two-region) .test-group-count { flex-shrink: 0; gap: 6px !important; }
+.basic-user-workspace:not(.compact-two-region) .test-area-label { font-size: 12px; }
+.basic-user-workspace:not(.compact-two-region) .test-group-count :deep(.n-radio-button) { padding: 0 9px; font-size: 13px; }
+.test-comparison-entry { flex: 1 1 0; min-width: 28px; }
+.test-global-actions { flex-shrink: 0; }
+.test-global-actions :deep(.n-button) { font-size: 13px; }
+.basic-user-workspace:not(.compact-two-region) .test-variant-controls :deep(.n-card__content) { padding-top: 12px; padding-bottom: 12px; }
 </style>

@@ -12,6 +12,13 @@ const messages = {
     "noHistory": "No history records"
   },
   "test": {
+    "config": {
+      "current": "Current draft",
+      "original": "Original input",
+      "target": "Target",
+      "unassigned": "Unassigned",
+      "sharedConfigHint": "Changing the model in this configuration affects every column and workspace using it."
+    },
     "title": "Test",
     "areaTitle": "Test Area",
     "content": "Test Content",
@@ -249,7 +256,7 @@ const messages = {
       "structuredFocusJoiner": ", ",
       "structuredFocusFinalJoiner": ", and ",
       "structuredFocus": {
-        "targetBaseline": "it improved over the previous version",
+        "targetBaseline": "it improved over the baseline",
         "targetReference": "there is still a gap to the teacher",
         "referenceBaseline": "the same kind of change also holds on the teacher side",
         "targetReplica": "the current conclusion looks stable"
@@ -272,26 +279,26 @@ const messages = {
       "hideAdvancedDetails": "Hide Advanced Details",
       "advancedConflictTitle": "Issues That Need Resolution",
       "pairValues": {
-        "targetBaseline": "Optimization Target vs Previous Version",
+        "targetBaseline": "Optimization Target vs Baseline",
         "targetReference": "Optimization Target vs Teacher",
-        "referenceBaseline": "Teacher vs Teacher Previous Version",
+        "referenceBaseline": "Teacher vs Teacher Baseline",
         "targetReplica": "Optimization Target vs Retest"
       },
       "reasonValues": {
         "duplicateTarget": "There are multiple optimization targets, so the system cannot tell which column you are truly optimizing.",
-        "duplicateBaseline": "There are multiple previous versions, so the system cannot tell which one should be used as the baseline.",
+        "duplicateBaseline": "There are multiple baselines, so the system cannot tell which one should be used as the baseline.",
         "duplicateReference": "There are multiple teachers, so the system cannot tell which column should be learned from.",
-        "duplicateReferenceBaseline": "There are multiple teacher previous versions, so the system cannot tell which one belongs to the teacher side.",
+        "duplicateReferenceBaseline": "There are multiple teacher baselines, so the system cannot tell which one belongs to the teacher side.",
         "hasAuxiliarySnapshot": "Some selected tests are not meaningful pairwise comparisons, so this run falls back to standard comparison.",
         "missingTarget": "There is no usable optimization target, so smart compare cannot start.",
-        "missingStructuredCompanion": "The optimization target is missing a key companion (previous version, teacher, or retest), so core pairwise judging cannot run yet.",
-        "referenceBaselineWithoutReference": "A teacher previous version exists without a matching teacher, so that evidence will not participate in smart compare."
+        "missingStructuredCompanion": "The optimization target is missing a key companion (baseline, teacher, or retest), so core pairwise judging cannot run yet.",
+        "referenceBaselineWithoutReference": "A teacher baseline exists without a matching teacher, so that evidence will not participate in smart compare."
       },
       "roleValues": {
         "target": "Optimization Target",
-        "baseline": "Previous Version",
+        "baseline": "Baseline",
         "reference": "Teacher",
-        "referenceBaseline": "Teacher Previous Version",
+        "referenceBaseline": "Teacher Baseline",
         "replica": "Retest",
         "auxiliary": "Other Test"
       },
@@ -303,7 +310,7 @@ const messages = {
         },
         "baseline": {
           "dynamicPrevious": "This is the previous version of the current workspace, so it is suggested as the baseline.",
-          "sameModelDifferentPrompt": "It uses the same model as the optimization target but a different prompt, so it is suggested as the previous version."
+          "sameModelDifferentPrompt": "It uses the same model as the optimization target but a different prompt, so it is suggested as the baseline."
         },
         "reference": {
           "samePromptDifferentModel": "This is a workspace result from a different model, so it is suggested as the teacher.",
@@ -328,17 +335,17 @@ const messages = {
       },
       "roleValues": {
         "target": "Optimization Target",
-        "baseline": "Previous Version",
+        "baseline": "Baseline",
         "reference": "Teacher",
-        "referenceBaseline": "Teacher Previous Version",
+        "referenceBaseline": "Teacher Baseline",
         "replica": "Retest",
         "auxiliary": "Other Test"
       },
       "roleDescriptions": {
         "target": "This is the column you are actively optimizing and trying to improve in this round.",
-        "baseline": "This is the version right before the current workspace, used to decide whether the latest rewrite was a real improvement.",
+        "baseline": "The comparison baseline can be the original input or another prompt version; it is used to judge whether the target improved.",
         "reference": "This is the teacher output worth learning from, usually from a stronger or more stable model.",
-        "referenceBaseline": "This is the previous version on the teacher side. It only appears in advanced details and helps judge whether the same change also holds on the teacher side.",
+        "referenceBaseline": "The teacher-side baseline helps judge whether the same prompt change also improves the teacher output.",
         "replica": "This is a retest used to check whether the conclusion is stable. If previous matches the workspace, it can also appear here.",
         "auxiliary": "This test can still appear in standard comparison, but it will not become a core smart-compare pair."
       },
@@ -349,7 +356,7 @@ const messages = {
       "unresolved": {
         "label": "Not Clear Yet",
         "description": "This column is not clearly mapped to a core compare role yet.",
-        "source": "The system cannot currently classify it as optimization target, previous version, teacher, or retest."
+        "source": "The system cannot currently classify it as optimization target, baseline, teacher, or retest."
       },
       "review": {
         "workspaceChanged": "The linked workspace prompt changed, so this role should be reviewed again.",
@@ -471,7 +478,7 @@ const messages = {
       "learnableSignals": "Learnable Signals",
       "overfitWarnings": "Overfit Warnings",
       "conflictSignals": "Needs Manual Review",
-      "targetVsBaseline": "Optimization Target vs Previous Version",
+      "targetVsBaseline": "Optimization Target vs Baseline",
       "targetVsReferenceGap": "Optimization Target vs Teacher Gap",
       "improvementHeadroom": "Improvement Headroom",
       "overfitRisk": "Overfit Risk",
@@ -483,9 +490,9 @@ const messages = {
       },
       "roleValues": {
         "target": "Optimization Target",
-        "baseline": "Previous Version",
+        "baseline": "Baseline",
         "reference": "Teacher",
-        "referenceBaseline": "Teacher Previous Version",
+        "referenceBaseline": "Teacher Baseline",
         "replica": "Retest",
         "auxiliary": "Other Test"
       },

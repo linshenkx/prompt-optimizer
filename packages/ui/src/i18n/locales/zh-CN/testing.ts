@@ -12,6 +12,13 @@ const messages = {
     "noHistory": "暂无历史记录"
   },
   "test": {
+    "config": {
+      "current": "当前编辑",
+      "original": "原始输入",
+      "target": "目标",
+      "unassigned": "未分配",
+      "sharedConfigHint": "修改此配置内的模型，会影响所有使用该配置的列和工作区。"
+    },
     "title": "测试",
     "areaTitle": "测试区域",
     "content": "测试内容",
@@ -249,7 +256,7 @@ const messages = {
       "structuredFocusJoiner": "、",
       "structuredFocusFinalJoiner": "，以及",
       "structuredFocus": {
-        "targetBaseline": "它相对上一版是否进步",
+        "targetBaseline": "它相对对照是否进步",
         "targetReference": "和教师还有多大差距",
         "referenceBaseline": "同类改动在教师侧是否也成立",
         "targetReplica": "当前结论是否稳定"
@@ -272,26 +279,26 @@ const messages = {
       "hideAdvancedDetails": "收起高级细节",
       "advancedConflictTitle": "需要先解决的问题",
       "pairValues": {
-        "targetBaseline": "优化目标 vs 上一版",
+        "targetBaseline": "优化目标 vs 对照",
         "targetReference": "优化目标 vs 教师",
-        "referenceBaseline": "教师 vs 教师的上一版",
+        "referenceBaseline": "教师 vs 教师对照",
         "targetReplica": "优化目标 vs 复测"
       },
       "reasonValues": {
         "duplicateTarget": "当前有多个“优化目标”，系统无法判断你真正要优化的是哪一列。",
-        "duplicateBaseline": "当前有多个“上一版”，系统无法判断该拿哪一列作为回退基线。",
+        "duplicateBaseline": "当前有多个“对照”，系统无法判断该拿哪一列作为回退基线。",
         "duplicateReference": "当前有多个“教师”，系统无法判断该向哪一列学习。",
-        "duplicateReferenceBaseline": "当前有多个“教师的上一版”，系统无法判断哪一列属于教师侧基线。",
+        "duplicateReferenceBaseline": "当前有多个“教师对照”，系统无法判断哪一列属于教师侧基线。",
         "hasAuxiliarySnapshot": "有些测试不适合做逐组比较，所以这次会退回普通比较。",
         "missingTarget": "当前没有可用的“优化目标”，因此无法进入智能比较。",
-        "missingStructuredCompanion": "优化目标缺少关键搭配（上一版 / 教师 / 复测），暂时无法进行核心逐组比较。",
-        "referenceBaselineWithoutReference": "存在“教师的上一版”，但没有对应的“教师”，这组证据不会参与智能比较。"
+        "missingStructuredCompanion": "优化目标缺少关键搭配（对照 / 教师 / 复测），暂时无法进行核心逐组比较。",
+        "referenceBaselineWithoutReference": "存在“教师对照”，但没有对应的“教师”，这组证据不会参与智能比较。"
       },
       "roleValues": {
         "target": "优化目标",
-        "baseline": "上一版",
+        "baseline": "对照",
         "reference": "教师",
-        "referenceBaseline": "教师的上一版",
+        "referenceBaseline": "教师对照",
         "replica": "复测",
         "auxiliary": "其他测试"
       },
@@ -302,15 +309,15 @@ const messages = {
           "workspace": "这是当前工作区列，所以建议作为优化目标。"
         },
         "baseline": {
-          "dynamicPrevious": "这是当前工作区的上一版，所以建议作为上一版。",
-          "sameModelDifferentPrompt": "它与优化目标模型相同、提示词不同，所以建议作为上一版。"
+          "dynamicPrevious": "这是当前工作区的上一版，所以建议作为对照。",
+          "sameModelDifferentPrompt": "它与优化目标使用相同模型、不同提示词，所以建议作为对照。"
         },
         "reference": {
           "samePromptDifferentModel": "这是不同模型的工作区结果，所以建议作为教师。",
           "differentModel": "它与优化目标使用不同模型，所以建议作为教师。"
         },
         "referenceBaseline": {
-          "sameModelDifferentPrompt": "它与教师模型相同、提示词不同，所以建议作为教师的上一版。"
+          "sameModelDifferentPrompt": "它与教师模型相同、提示词不同，所以建议作为教师对照。"
         },
         "replica": {
           "previousMatchesWorkspace": "它和工作区当前内容相同，所以建议按复测处理。",
@@ -328,17 +335,17 @@ const messages = {
       },
       "roleValues": {
         "target": "优化目标",
-        "baseline": "上一版",
+        "baseline": "对照",
         "reference": "教师",
-        "referenceBaseline": "教师的上一版",
+        "referenceBaseline": "教师对照",
         "replica": "复测",
         "auxiliary": "其他测试"
       },
       "roleDescriptions": {
         "target": "这是你当前真正想优化、想判断是否变好的那一列，也是本轮比较的主角。",
-        "baseline": "这是当前工作区的上一版，用来判断这次改写是否真的有进步。",
+        "baseline": "这是用于判断优化目标是否改善的对照提示词，可以是原始输入或其他版本。",
         "reference": "这是教师结果，通常来自更强模型或更稳定的输出，用来帮助你学习更好的结构策略。",
-        "referenceBaseline": "这是教师侧的上一版，只会出现在高级细节里，用来判断同一类改动在教师侧是否也成立。",
+        "referenceBaseline": "这是教师侧的对照提示词，用来判断同一类改动在教师侧是否也成立。",
         "replica": "这是用来检查结论是否稳定的复测；如果上一版和工作区相同，也会在这里出现。",
         "auxiliary": "这类测试仍然可以参与普通比较，但不会成为智能比较里的核心逐组对象。"
       },
@@ -349,7 +356,7 @@ const messages = {
       "unresolved": {
         "label": "未明确",
         "description": "这列还没有被明确归到核心比较角色里。",
-        "source": "系统暂时无法把它判断为优化目标、上一版、教师或复测。"
+        "source": "系统暂时无法把它判断为优化目标、对照、教师或复测。"
       },
       "review": {
         "workspaceChanged": "对应的工作区提示词已经变化，请重新确认这个角色。",
@@ -471,7 +478,7 @@ const messages = {
       "learnableSignals": "可学习信号",
       "overfitWarnings": "过拟合警告",
       "conflictSignals": "需要人工确认",
-      "targetVsBaseline": "优化目标 vs 上一版",
+      "targetVsBaseline": "优化目标 vs 对照",
       "targetVsReferenceGap": "优化目标 vs 教师差距",
       "improvementHeadroom": "改进空间",
       "overfitRisk": "过拟合风险",
@@ -483,9 +490,9 @@ const messages = {
       },
       "roleValues": {
         "target": "优化目标",
-        "baseline": "上一版",
+        "baseline": "对照",
         "reference": "教师",
-        "referenceBaseline": "教师的上一版",
+        "referenceBaseline": "教师对照",
         "replica": "复测",
         "auxiliary": "其他测试"
       },

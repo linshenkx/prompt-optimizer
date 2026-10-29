@@ -94,7 +94,7 @@
                     type="default"
                     :bordered="false"
                   >
-                    {{ entry.modelKey }}
+                    {{ modelLabels?.[entry.modelKey] || entry.modelKey }}
                   </NTag>
                 </div>
               </div>
@@ -311,6 +311,7 @@ const props = defineProps<{
   entries: CompareRoleDialogEntry[]
   manualRoles: PersistedCompareSnapshotRoles
   requireTargetSelection?: boolean
+  modelLabels?: Record<string, string>
 }>()
 
 const emit = defineEmits<{

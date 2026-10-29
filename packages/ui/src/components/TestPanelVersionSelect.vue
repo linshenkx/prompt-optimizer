@@ -13,8 +13,10 @@
         :render-label="renderOptionLabel"
         :disabled="disabled"
         size="small"
+        :bordered="appearance !== 'text'"
         :data-testid="testId"
         class="test-panel-version-select"
+        :class="{ 'test-panel-version-select--text': appearance === 'text' }"
         @update:value="handleUpdate"
       />
     </template>
@@ -45,6 +47,7 @@ const props = defineProps<{
   options: TestPanelVersionOption[]
   disabled?: boolean
   testId?: string
+  appearance?: 'default' | 'text'
 }>()
 
 const emit = defineEmits<{
@@ -100,12 +103,13 @@ const tooltipLines = computed(() => {
 })
 
 const renderOptionLabel = (
-  option: SelectOption & { fullLabel?: string }
+  option: SelectOption & { fullLabel?: string }, selected: boolean
 ): VNodeChild => {
   const fullLabel = typeof option.fullLabel === 'string'
     ? option.fullLabel
     : String(option.label ?? '')
-  return h('div', { class: 'test-panel-version-select__menu-label', title: fullLabel }, fullLabel)
+  return h('div', { class: 'test-panel-version-select__menu-label', title: fullLabel },
+    selected && props.appearance === 'text' ? String(option.label ?? '') : fullLabel)
 }
 
 const handleUpdate = (nextValue: string | number | null) => {
@@ -118,6 +122,9 @@ const handleUpdate = (nextValue: string | number | null) => {
 .test-panel-version-select {
   width: 108px;
 }
+.test-panel-version-select--text :deep(.n-base-selection) { --n-font-size: 13px !important; --n-height: 28px !important; background: transparent; }
+.test-panel-version-select--text :deep(.n-base-selection-label) { background: transparent; }
+.test-panel-version-select--text :deep(.n-base-selection-label .n-base-selection-input) { padding-left: 4px; }
 
 .test-panel-version-select__menu-label {
   white-space: nowrap;
