@@ -1,7 +1,10 @@
 <template>
   <div
-    v-if="restoreSource === 'local' ? importPreviewState === 'success' : !!selectedRemoteBackup"
-    class="task-card task-stack"
+    v-if="
+      restoreSource &&
+      (restoreSource === 'local' ? importPreviewState === 'success' : !!selectedRemoteBackup)
+    "
+    class="task-card task-stack restore-confirmation"
     data-testid="restore-confirmation"
     tabindex="-1"
   >
@@ -45,23 +48,22 @@
       >
       <NText depth="3">{{ t('dataManager.import.favoriteIdentityHint') }}</NText>
     </div>
-    <NText>{{ t('dataManager.warning') }}</NText>
-    <NButton
-      type="primary"
-      :loading="isImporting || isRestoringRemote"
-      :disabled="isRemoteDataOperationActive || !canRestoreSelection"
-      data-testid="backup-restore-confirm"
-      @click="confirmSelectedRestore"
-      >{{ t('dataManager.tasks.confirmRestore') }}</NButton
-    >
-    <NButton
-      v-if="restoreSource !== 'local' && remoteSettings.provider.kind !== 'google-drive'"
-      secondary
-      :disabled="isRemoteDataOperationActive"
-      data-testid="remote-import-code-export"
-      @click="handleRemoteCodeExport"
-      >{{ t('dataManager.remote.importCode.exportAction') }}</NButton
-    >
+    <NText class="restore-warning">{{ t('dataManager.warning') }}</NText>
+    <div class="remote-action-row">
+      <NButton
+        type="primary"
+        :loading="isImporting || isRestoringRemote"
+        :disabled="isRemoteDataOperationActive || !canRestoreSelection"
+        data-testid="backup-restore-confirm"
+        @click="confirmSelectedRestore"
+      >{{ t('dataManager.tasks.confirmRestore') }}</NButton>
+      <NButton
+        secondary
+        :disabled="isRemoteDataOperationActive"
+        data-testid="cancel-restore"
+        @click="cancelRestore"
+      >{{ t('dataManager.overview.cancelRestore') }}</NButton>
+    </div>
   </div>
 </template>
 <script setup lang="ts">
@@ -78,12 +80,11 @@ const {
   importFavorites,
   remoteRestoreFavorites,
   favoriteMergeStrategy,
-  remoteSettings,
   isRestoringRemote,
   isRemoteDataOperationActive,
   selectedRemoteBackup,
   selectedRemoteBackupMissingAssetsCount,
-  handleRemoteCodeExport,
+  cancelRestore,
   restoreSectionOptions,
   updateRestoreSection,
   canRestoreSelection,

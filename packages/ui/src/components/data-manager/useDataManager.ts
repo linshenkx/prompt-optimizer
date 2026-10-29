@@ -3,7 +3,6 @@ import { ref, computed, inject, nextTick, onMounted, onUnmounted, watch, type Re
 import { useI18n } from 'vue-i18n'
 import type { UploadFileInfo } from 'naive-ui'
 import { isRunningInElectron } from '@prompt-optimizer/core'
-import { useWorkspaceLayout } from '../../composables/ui/useWorkspaceLayout'
 import { useToast } from '../../composables/ui/useToast'
 import { useConfirmDialog } from '../../composables/ui/useConfirmDialog'
 import type { AppServices } from '../../types/services'
@@ -87,32 +86,23 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
   const { t: translate } = useI18n()
   const t = (key: string, values?: Record<string, unknown>): string => translate(key, values ?? {})
   const sessionManager = useSessionManager()
-  const { isCompact } = useWorkspaceLayout()
-  type DataTask = 'backup' | 'restore' | 'settings'
-  const activeTab = ref<DataTask>('backup')
-  const restoreSource = ref<'local' | 'cloud' | 'code'>('local')
-  const backupDestination = ref<'local' | RemoteBackupProviderKind>('local')
-  const returnTask = ref<'backup' | 'restore' | null>(null)
+  const restoreSource = ref<'local' | 'cloud' | 'code' | null>(null)
+  const showConnectionSettings = ref(false)
+  const showCodeImport = ref(false)
   const backupSearch = ref('')
   const scrollShell = ref<HTMLElement | null>(null)
-  const tabScrollPositions = new Map<DataTask, number>()
-  const backupResult = ref<{
+  type BackupResult = {
     type: 'success' | 'warning' | 'error'
     message: string
     snapshotId?: string
-  } | null>(null)
+  }
+  const backupResult = ref<BackupResult | null>(null)
+  const localBackupResult = ref<BackupResult | null>(null)
   const restoreError = ref('')
   const codeError = ref('')
   const importPreviewState = ref<'idle' | 'loading' | 'success' | 'error'>('idle')
   const importPreviewError = ref('')
   let importPreviewRequest = 0
-  let storageLoadedThisOpen = false
-  watch(activeTab, async (tab, previous) => {
-    tabScrollPositions.set(previous, scrollShell.value?.scrollTop ?? 0)
-    await nextTick()
-    if (activeTab.value === tab && scrollShell.value)
-      scrollShell.value.scrollTop = tabScrollPositions.get(tab) ?? 0
-  })
   const toast = useToast()
   const confirmDialog = useConfirmDialog()
   const isDesktopRuntime = isRunningInElectron()
@@ -202,7 +192,6 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
     getGoogleDriveAuthorizationState(),
   )
   const isConnectingRemote = computed(() => isAuthorizingRemote.value || isLoadingRemoteList.value)
-  const isRemoteConfigExpanded = ref(false)
   const remoteConnectionStates = ref<Record<RemoteBackupProviderKind, RemoteConnectionState>>({
     'google-drive': createRemoteConnectionState(),
     'cloudflare-r2': createRemoteConnectionState(),
@@ -280,6 +269,7 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
 
   const storageLabelKeys: Record<StorageBreakdownItemKey, string> = {
     appMainData: 'dataManager.storage.appMainData',
+    favorites: 'dataManager.overview.favoriteData',
     imageCache: 'dataManager.storage.imageCache',
     favoriteImages: 'dataManager.storage.favoriteImages',
     backupData: 'dataManager.storage.backupData',
@@ -287,6 +277,7 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
 
   const storageCardItemKeys: StorageBreakdownItemKey[] = [
     'appMainData',
+    'favorites',
     'imageCache',
     'favoriteImages',
   ]
@@ -303,12 +294,6 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
       label: t(providerLabelKeys[provider]),
       value: provider,
     })),
-  )
-
-  const remoteRecommendationKey = computed(() =>
-    isDesktopRuntime
-      ? 'dataManager.remote.desktopRecommendation'
-      : 'dataManager.remote.webRecommendation',
   )
 
   const googleDriveAuthorizationLabel = computed(() =>
@@ -434,17 +419,25 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
     isRemoteProviderConfigured(remoteSettings.value.provider),
   )
 
+  const showRemoteListStatus = computed(
+    () =>
+      remoteListState.value !== 'idle' ||
+      (remoteSettings.value.provider.kind === 'google-drive'
+        ? googleAuthorizationState.value !== 'missing'
+        : isCurrentRemoteProviderConfigured.value),
+  )
+
   const isCurrentRemoteProviderConnected = computed(
     () =>
       remoteSettings.value.provider.kind !== 'google-drive' &&
       currentRemoteConnection.value.status === 'connected',
   )
 
-  const showRemoteConfigForm = computed(
-    () =>
+  const resetConnectionSettingsVisibility = () => {
+    showConnectionSettings.value =
       remoteSettings.value.provider.kind !== 'google-drive' &&
-      (!isCurrentRemoteProviderConfigured.value || isRemoteConfigExpanded.value),
-  )
+      !isCurrentRemoteProviderConfigured.value
+  }
 
   const currentRemoteConnectionLabel = computed(() =>
     t(`dataManager.remote.connectionStatus.${currentRemoteConnection.value.status}`),
@@ -536,6 +529,7 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
   )
 
   const refreshStorageSummary = async () => {
+    if (isRefreshingStorage.value) return
     try {
       isRefreshingStorage.value = true
       const servicesValue = services.value
@@ -576,7 +570,6 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
           message: '',
         },
       }
-      isRemoteConfigExpanded.value = true
     }
   }
 
@@ -620,8 +613,8 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
     autoLoadedProviders.delete(kind)
     remoteSettings.value = switchRemoteBackupProvider(remoteSettings.value, kind)
 
-    isRemoteConfigExpanded.value = false
     syncGoogleDriveAuthorizationState()
+    resetConnectionSettingsVisibility()
     persistRemoteSettings()
     void maybeAutoLoadRemoteBackups()
   }
@@ -770,7 +763,12 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
     } finally {
       isAuthorizingRemote.value = false
     }
-    if (authorized && props.show) await refreshRemoteBackups()
+    if (authorized && props.show) {
+      const authorizedRevision = remoteConfigRevision
+      if (await refreshRemoteBackups()) {
+        if (props.show && authorizedRevision === remoteConfigRevision) closeConnectionSettings()
+      }
+    }
   }
 
   const setRemoteConnectionState = (
@@ -790,7 +788,10 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
     if (isRemoteDataOperationActive.value || isAuthorizingRemote.value) return
     dirtyRemoteProviders.delete(remoteSettings.value.provider.kind)
     persistRemoteSettings(false)
-    await refreshRemoteBackups()
+    const revision = remoteConfigRevision
+    if (await refreshRemoteBackups()) {
+      if (props.show && revision === remoteConfigRevision) closeConnectionSettings()
+    }
   }
 
   const remoteOperationErrorMessage = (error: unknown): string => {
@@ -826,7 +827,7 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
     }
     if (isRemoteProviderConfigured(provider)) return true
     toast.warning(t('dataManager.remote.connectionMissingConfig'))
-    isRemoteConfigExpanded.value = true
+    showConnectionSettings.value = true
     return false
   }
 
@@ -868,7 +869,6 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
           lastCheckedAt: Date.now(),
           message: '',
         })
-        isRemoteConfigExpanded.value = false
         if (!entries.some((entry) => entry.id === selectedRemoteBackupId.value)) {
           selectedRemoteBackupId.value = null
         }
@@ -901,9 +901,8 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
     const kind = remoteSettings.value.provider.kind
     if (
       !props.show ||
-      (isCompact.value && !isCloudTaskVisible.value) ||
       props.importCode ||
-      (activeTab.value === 'restore' && restoreSource.value === 'code') ||
+      showCodeImport.value ||
       isImportingRemoteCode.value ||
       isAuthorizingRemote.value ||
       isRemoteDataOperationActive.value ||
@@ -928,6 +927,7 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
     try {
       persistRemoteSettings(false)
       backupResult.value = null
+      restoreSource.value = null
       isUploadingRemote.value = true
       startRemoteProgress('backup', 'dataManager.remote.progress.backup.start')
       const servicesValue = services.value
@@ -1063,12 +1063,16 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
     }
   }
 
-  const handleRemoteCodeExport = () => {
-    if (!selectedRemoteBackup.value || isRemoteDataOperationActive.value) return
+  const handleRemoteCodeExport = (id?: string) => {
+    const entry =
+      typeof id === 'string'
+        ? remoteBackups.value.find((item) => item.id === id)
+        : selectedRemoteBackup.value
+    if (!entry || isRemoteDataOperationActive.value) return
     try {
       exportedRemoteImportCode.value = createRemoteBackupImportCode(
         remoteSettings.value.provider,
-        selectedRemoteBackup.value.id,
+        entry.id,
       )
       showRemoteImportCode.value = true
     } catch (error) {
@@ -1098,7 +1102,7 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
       // Validate the entire code before changing or persisting any settings.
       const decoded = parseRemoteBackupImportCode(remoteImportCode.value)
       isImportingRemoteCode.value = true
-      activeTab.value = 'restore'
+      showCodeImport.value = true
       restoreSource.value = 'code'
       remoteSettings.value = {
         ...rememberRemoteBackupProvider(remoteSettings.value),
@@ -1288,6 +1292,7 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
   const handleFileChange = (options: { fileList: UploadFileInfo[] }) => {
     if (isRemoteConnectionLocked.value) return
     // NUpload appends a replacement to its current list; this picker retains only the latest file.
+    restoreSource.value = 'local'
     selectedFile.value = options.fileList[options.fileList.length - 1] ?? null
     restoreError.value = ''
     void updateImportPreviewFromFile(selectedFile.value)
@@ -1336,10 +1341,6 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
   const currentProviderName = computed(() =>
     t(providerLabelKeys[remoteSettings.value.provider.kind]),
   )
-  const backupDestinationOptions = computed(() => [
-    { value: 'local', label: t('dataManager.tasks.localFile') },
-    ...remoteProviderOptions.value,
-  ])
   const backupScopeSummary = computed(
     () =>
       getBusinessSectionLabels(
@@ -1348,23 +1349,6 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
           .map(([key]) => key as DataManagerPackageSection),
       ).join(', ') || t('dataManager.import.noSelectedContent'),
   )
-  const isCloudTaskVisible = computed(
-    () =>
-      activeTab.value === 'settings' ||
-      (activeTab.value === 'backup' && backupDestination.value !== 'local') ||
-      (activeTab.value === 'restore' && restoreSource.value === 'cloud'),
-  )
-  const changeBackupDestination = (destination: 'local' | RemoteBackupProviderKind) => {
-    if (isRemoteConnectionLocked.value) return
-    backupDestination.value = destination
-    if (destination !== 'local') handleRemoteProviderChange(destination)
-  }
-  watch(
-    () => remoteSettings.value.provider.kind,
-    (kind) => {
-      if (backupDestination.value !== 'local') backupDestination.value = kind
-    },
-  )
   watch(remoteImportCode, () => {
     codeBackupId.value = null
     codeError.value = ''
@@ -1372,36 +1356,46 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
   watch(restoreSource, () => {
     restoreError.value = ''
   })
+  const focusElement = (selector: string) => {
+    void nextTick(() => {
+      const element = scrollShell.value?.querySelector<HTMLElement>(selector)
+      element?.scrollIntoView?.({ block: 'nearest' })
+      element?.focus()
+    })
+  }
   const openConnectionSettings = () => {
-    if (activeTab.value !== 'settings') returnTask.value = activeTab.value
-    activeTab.value = 'settings'
+    showConnectionSettings.value = true
+    focusElement('[data-testid="data-storage-panel"]')
   }
-  const returnFromSettings = async () => {
-    activeTab.value = returnTask.value ?? 'backup'
-    returnTask.value = null
-    await nextTick()
-    scrollShell.value?.querySelector<HTMLElement>(`#data-panel-${activeTab.value}`)?.focus()
-  }
-  const focusRestoreConfirmation = () => {
-    void nextTick(() =>
-      scrollShell.value
-        ?.querySelector<HTMLElement>('[data-testid="restore-confirmation"]')
-        ?.focus(),
+  const closeConnectionSettings = () => {
+    showConnectionSettings.value = false
+    focusElement(
+      remoteSettings.value.provider.kind === 'google-drive' && !isGoogleDriveAuthorized.value
+        ? '[data-testid="connect-cloud-account"]'
+        : '[data-testid="manage-cloud-connection"]',
     )
   }
+  const focusRestoreConfirmation = () => focusElement('[data-testid="restore-confirmation"]')
   const selectRestoreBackup = (id: string) => {
-    if (!isRemoteDataOperationActive.value) {
-      cloudBackupId.value = id
-      restoreError.value = ''
-      focusRestoreConfirmation()
-    }
+    if (isRemoteDataOperationActive.value) return
+    restoreSource.value = 'cloud'
+    cloudBackupId.value = id
+    restoreError.value = ''
+    focusRestoreConfirmation()
   }
   const viewCreatedBackup = () => {
     if (!backupResult.value?.snapshotId) return
-    restoreSource.value = 'cloud'
-    cloudBackupId.value = backupResult.value.snapshotId
-    activeTab.value = 'restore'
-    focusRestoreConfirmation()
+    backupSearch.value = ''
+    void nextTick(() => {
+      const row = Array.from(
+        scrollShell.value?.querySelectorAll<HTMLElement>('[data-backup-id]') ?? [],
+      ).find((element) => element.dataset.backupId === backupResult.value?.snapshotId)
+      row?.scrollIntoView?.({ block: 'nearest' })
+      row?.focus()
+    })
+  }
+  const cancelRestore = () => {
+    restoreSource.value = null
   }
   const restoreSectionOptions = computed(() => {
     const local = restoreSource.value === 'local'
@@ -1455,9 +1449,12 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
   const canRestoreSelection = computed(() =>
     restoreSource.value === 'local'
       ? importPreviewState.value === 'success' && (importAppData.value || importFavorites.value)
-      : !!selectedRemoteBackup.value && hasSelectedRemoteRestoreSection.value,
+      : !!restoreSource.value &&
+        !!selectedRemoteBackup.value &&
+        hasSelectedRemoteRestoreSection.value,
   )
   const confirmSelectedRestore = () => {
+    if (!restoreSource.value) return
     if (restoreSource.value === 'local') void handleImport()
     else void handleRemoteRestore()
   }
@@ -1467,12 +1464,9 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
     (show) => {
       if (show) {
         autoLoadedProviders.clear()
+        resetConnectionSettingsVisibility()
         void maybeAutoLoadRemoteBackups()
-        storageLoadedThisOpen = false
-        activeTab.value = 'backup'
-        backupDestination.value = isCurrentRemoteProviderConfigured.value
-          ? remoteSettings.value.provider.kind
-          : 'local'
+        void refreshStorageSummary()
       } else {
         const wasLoadingList = isLoadingRemoteList.value
         remoteListRequestId += 1
@@ -1488,12 +1482,7 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
     { immediate: true },
   )
 
-  watch([activeTab, restoreSource, backupDestination], () => {
-    if (!props.show) return
-    if (activeTab.value === 'settings' && !storageLoadedThisOpen) {
-      storageLoadedThisOpen = true
-      void refreshStorageSummary()
-    }
+  watch(showCodeImport, () => {
     void maybeAutoLoadRemoteBackups()
   })
 
@@ -1501,7 +1490,7 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
     () => [props.show, props.importCode] as const,
     ([show, code]) => {
       if (!show || !code) return
-      activeTab.value = 'restore'
+      showCodeImport.value = true
       restoreSource.value = 'code'
       remoteImportCode.value = code
       emit('import-code-consumed')
@@ -1525,7 +1514,7 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
 
   const handleExport = async () => {
     if (isRemoteDataOperationActive.value) return
-    backupResult.value = null
+    localBackupResult.value = null
     try {
       const servicesValue = services.value
       if (!servicesValue) {
@@ -1553,7 +1542,7 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
       URL.revokeObjectURL(url)
       recordDataBackupCompleted()
 
-      backupResult.value = {
+      localBackupResult.value = {
         type: exportPackage.missingResources.length ? 'warning' : 'success',
         message: exportPackage.missingResources.length
           ? t('dataManager.export.partialSuccess', { count: exportPackage.missingResources.length })
@@ -1569,7 +1558,7 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
         toast.success(t('dataManager.export.success'))
       }
     } catch (error) {
-      backupResult.value = { type: 'error', message: t('dataManager.export.failed') }
+      localBackupResult.value = { type: 'error', message: t('dataManager.export.failed') }
       console.error('Export failed:', error)
       toast.error(t('dataManager.export.failed'))
     } finally {
@@ -1578,6 +1567,7 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
   }
 
   const clearSelectedFile = () => {
+    if (restoreSource.value === 'local') restoreSource.value = null
     selectedFile.value = null
     importPreviewRequest += 1
     importPreviewState.value = 'idle'
@@ -1752,10 +1742,13 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
 
   return {
     t,
-    activeTab,
     restoreSource,
-    backupDestination,
-    returnTask,
+    cloudBackupId,
+    showConnectionSettings,
+    showCodeImport,
+    localBackupResult,
+    closeConnectionSettings,
+    cancelRestore,
     backupSearch,
     scrollShell,
     backupResult,
@@ -1785,7 +1778,6 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
     remoteSettings,
     isAuthorizingRemote,
     isGoogleDriveAuthorized,
-    isRemoteConfigExpanded,
     remoteConnectionStates,
     isUploadingRemote,
     isLoadingRemoteList,
@@ -1805,15 +1797,14 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
     remoteProgress,
     storageLabelKeys,
     remoteProviderOptions,
-    remoteRecommendationKey,
     googleDriveAuthorizationLabel,
     remoteListPlaceholder,
     remoteListMessage,
+    showRemoteListStatus,
     selectedRemoteBackup,
     selectedRemoteBackupMissingAssetsCount,
     currentRemoteConnection,
     isCurrentRemoteProviderConfigured,
-    showRemoteConfigForm,
     currentRemoteConnectionLabel,
     currentRemoteConnectionTitle,
     currentRemoteConnectionMessage,
@@ -1840,11 +1831,8 @@ export function useDataManager(props: DataManagerProps, emit: DataManagerEmits) 
     handleFileChange,
     close,
     currentProviderName,
-    backupDestinationOptions,
     backupScopeSummary,
-    changeBackupDestination,
     openConnectionSettings,
-    returnFromSettings,
     selectRestoreBackup,
     viewCreatedBackup,
     restoreSectionOptions,

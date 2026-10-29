@@ -5,37 +5,54 @@
       class="backup-records"
       :aria-label="t('dataManager.tasks.cloudBackups')"
     >
-      <NButton
+      <article
         v-for="entry in pageEntries"
         :key="entry.id"
         :data-backup-id="entry.id"
-        :disabled="disabled"
-        :aria-pressed="selectedId === entry.id"
-        :type="selectedId === entry.id ? 'primary' : 'default'"
-        secondary
+        tabindex="-1"
+        :class="{
+          'backup-record--highlighted': selectedId === entry.id || highlightId === entry.id,
+        }"
         class="backup-record"
-        @click="$emit('select', entry.id)"
       >
         <span class="backup-record-copy">
           <strong>{{
             entry.updatedAt ? new Date(entry.updatedAt).toLocaleString() : entry.name
           }}</strong>
-          <span v-if="entry.updatedAt">{{ entry.name }}</span>
-          <span v-if="entry.manifest">{{ sectionLabels(entry) }}</span>
-          <span v-if="entry.manifest?.assetCounts">{{
+          <NText v-if="entry.updatedAt" depth="3">{{ entry.name }}</NText>
+          <NText v-if="entry.manifest" depth="3">{{ sectionLabels(entry) }}</NText>
+          <NText v-if="entry.manifest?.assetCounts" depth="3">{{
             t('dataManager.storage.imageCount', {
               count:
                 (entry.manifest.assetCounts.imageCache ?? 0) +
                 (entry.manifest.assetCounts.favoriteImages ?? 0),
             })
-          }}</span>
-          <span v-if="entry.manifest?.missingAssets?.length">{{
+          }}</NText>
+          <NText v-if="entry.manifest?.missingAssets?.length" depth="3">{{
             t('dataManager.remote.restoreMissingAssetsHint', {
               count: entry.manifest.missingAssets.length,
             })
-          }}</span>
+          }}</NText>
         </span>
-      </NButton>
+        <div class="backup-record-actions">
+          <NButton
+            secondary
+            :disabled="disabled"
+            :aria-expanded="selectedId === entry.id"
+            data-testid="record-restore"
+            @click="$emit('select', entry.id)"
+            >{{ t('dataManager.overview.restoreRecord') }}</NButton
+          >
+          <NButton
+            v-if="canShare"
+            text
+            :disabled="disabled"
+            data-testid="remote-import-code-export"
+            @click="$emit('share', entry.id)"
+            >{{ t('dataManager.overview.shareRecord') }}</NButton
+          >
+        </div>
+      </article>
     </div>
     <NText v-else-if="search" depth="3" role="status">{{ t('dataManager.tasks.noMatches') }}</NText>
     <NPagination
@@ -58,8 +75,10 @@ const props = defineProps<{
   search: string
   selectedId: string | null
   disabled: boolean
+  highlightId?: string | null
+  canShare?: boolean
 }>()
-defineEmits<{ select: [id: string] }>()
+defineEmits<{ select: [id: string]; share: [id: string] }>()
 const { t } = useI18n()
 const page = ref(1)
 const pageSize = 20
@@ -90,8 +109,9 @@ watch(
   },
 )
 watch(
-  () => props.selectedId,
-  (id) => {
+  () => [props.selectedId, props.highlightId],
+  ([selectedId, highlightId]) => {
+    const id = selectedId ?? highlightId
     const index = filtered.value.findIndex((entry) => entry.id === id)
     if (index >= 0) page.value = Math.floor(index / pageSize) + 1
   },
@@ -116,27 +136,56 @@ const sectionLabels = (entry: RemoteSnapshotEntry) =>
 .backup-records {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
   max-height: 340px;
   overflow-y: auto;
 }
 .backup-record {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--n-border-color);
+  border-inline-start: 3px solid transparent;
+  box-sizing: border-box;
   width: 100%;
   height: auto;
   min-height: 72px;
-  padding: 12px;
+  padding: 16px 12px;
   justify-content: flex-start;
   text-align: left;
 }
-.backup-record :deep(.n-button__content) {
-  white-space: normal;
-  width: 100%;
-}
 .backup-record-copy {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.backup-record--highlighted {
+  border-inline-start-color: var(--n-text-color);
+  background: var(--n-color-embedded);
+}
+.backup-record:focus {
+  outline: none;
+}
+.backup-record:focus-visible {
+  outline: 2px solid var(--n-border-color);
+  outline-offset: -2px;
+}
+.backup-record-copy > span {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.backup-record-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+@media (max-width: 600px) {
+  .backup-record {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 </style>

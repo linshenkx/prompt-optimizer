@@ -21,7 +21,11 @@ async function openData(page: Page) {
       .first()
       .click()
   }
-  await expect(page.getByTestId('data-tab-backup')).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByTestId('device-storage-total')).toHaveAttribute(
+    'aria-label',
+    /已用约|About/,
+  )
+  await expect(page.getByTestId('device-storage-total')).toBeInViewport()
 }
 
 async function assertNoHorizontalOverflow(page: Page) {
@@ -66,26 +70,46 @@ test('downloads a local backup and restores its favorite and image only after co
   const download = await downloadPromise
   const file = testInfo.outputPath('local.po-backup.zip')
   await download.saveAs(file)
-  await expect(page.getByTestId('backup-result')).toContainText(/下载|download/)
+  await expect(page.getByTestId('local-backup-result')).toContainText(/下载|download/)
 
   const targetContext = await browser.newContext({ baseURL })
   try {
     const target = await targetContext.newPage()
     await target.goto('/#/basic/system')
     await openData(target)
-    await target.getByTestId('data-tab-restore').click()
-    await target.locator('.local-file-picker input[type="file"]').setInputFiles({
-      name: 'invalid.json', mimeType: 'application/json', buffer: Buffer.from('{}'),
+    const fileChooserPromise = target.waitForEvent('filechooser')
+    await target.locator('.local-file-picker button').focus()
+    await target.keyboard.press('Enter')
+    const fileChooser = await fileChooserPromise
+    await fileChooser.setFiles({
+      name: 'invalid.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from('{}'),
     })
-    await expect(target.getByTestId('data-restore-panel').getByRole('alert')).toBeVisible()
+    await expect(target.getByTestId('local-files-panel').getByRole('alert')).toBeVisible()
     await expect(target.getByTestId('restore-confirmation')).toBeHidden()
-    await target.locator('.local-file-picker input[type="file"]').setInputFiles(file)
+    // Use Chromium's file drag path so Naive receives real FileSystemEntry objects.
+    // Synthetic DataTransfer files have a null webkitGetAsEntry(), unlike an OS drop.
+    const dropTarget = target.locator('.local-file-picker .n-upload-trigger')
+    await dropTarget.scrollIntoViewIfNeeded()
+    const bounds = (await dropTarget.boundingBox())!
+    const dragSession = await target.context().newCDPSession(target)
+    for (const type of ['dragEnter', 'dragOver', 'drop'] as const) {
+      await dragSession.send('Input.dispatchDragEvent', {
+        type,
+        x: bounds.x + bounds.width / 2,
+        y: bounds.y + bounds.height / 2,
+        data: { items: [], files: [file], dragOperationsMask: 1 },
+      })
+    }
+    await dragSession.detach()
     await expect(target.getByTestId('restore-confirmation')).toBeVisible()
-    await target.getByTestId('data-tab-settings').click()
-    await target.getByTestId('data-tab-restore').click()
+    await target.getByTestId('cloud-provider-webdav').click()
+    await expect(target.getByTestId('data-storage-panel')).toBeVisible()
+    await target.getByTestId('manage-cloud-connection').click()
     await expect(target.getByTestId('restore-confirmation')).toContainText('local.po-backup.zip')
     await target.getByTestId('backup-restore-confirm').click()
-    await expect(target.getByTestId('data-tab-restore')).toBeHidden({ timeout: 30_000 })
+    await expect(target.getByTestId('data-manager-overview')).toBeHidden({ timeout: 30_000 })
     await target.waitForTimeout(1800) // App intentionally reloads after applying restored settings.
     await target.goto('/#/favorites')
     await target.getByTestId('favorite-workspace-list-item').filter({ hasText: title }).click()
@@ -106,35 +130,64 @@ test('downloads a local backup and restores its favorite and image only after co
   }
 })
 
-test('uses one task navigation on narrow screens and retains drafts through resize and keyboard navigation', async ({
+test('shows device usage first and retains drafts on narrow screens and after resizing', async ({
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 320, height: 740 })
   await page.goto('/#/basic/system')
   await openData(page)
   await assertNoHorizontalOverflow(page)
-  await page.getByTestId('data-tab-restore').click()
-  await page.getByTestId('restore-source-code').click()
+  await page.screenshot({ path: testInfo.outputPath('mobile-overview.png') })
+  const providers = page.getByTestId('cloud-provider-options')
+  await expect(providers.getByRole('button')).toHaveCount(4)
+  for (const provider of ['google-drive', 'cloudflare-r2', 's3-compatible', 'webdav']) {
+    await page.getByTestId(`cloud-provider-${provider}`).click()
+    await expect(page.getByTestId(`cloud-provider-${provider}`)).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await expect(page.getByTestId('remote-backup-create')).toBeHidden()
+    await expect(page.getByTestId('remote-backup-refresh')).toBeHidden()
+    await expect(page.getByTestId('remote-list-status')).toBeHidden()
+    if (provider !== 'google-drive') {
+      await expect(page.getByTestId('data-storage-panel')).toBeVisible()
+      await expect(page.getByTestId('manage-cloud-connection')).toHaveAttribute('aria-expanded', 'true')
+      await expect(page.getByTestId('remote-maintenance')).toBeHidden()
+      await page.getByTestId('manage-cloud-connection').click()
+    }
+    await assertNoHorizontalOverflow(page)
+  }
+  await expect(page.getByTestId('data-storage-panel')).toBeHidden()
+  await page.getByTestId('open-import-code').click()
   await page.getByTestId('remote-import-code-input').locator('textarea').fill('draft-code')
-  await page.getByTestId('data-tab-settings').click()
+  await page.getByTestId('manage-cloud-connection').click()
+  await page
+    .getByTestId('data-storage-panel')
+    .locator('input')
+    .first()
+    .fill('https://draft.invalid/dav')
   await assertNoHorizontalOverflow(page)
   await page.setViewportSize({ width: 1280, height: 800 })
-  await page.getByTestId('data-tab-settings').press('ArrowLeft')
-  await expect(page.getByTestId('data-tab-restore')).toBeFocused()
+  await page.getByTestId('manage-cloud-connection').focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('manage-cloud-connection')).toBeFocused()
+  await page.getByTestId('cloud-provider-google-drive').click()
+  await page.getByTestId('cloud-provider-webdav').click()
+  await page.getByTestId('manage-cloud-connection').click()
+  await expect(page.getByTestId('data-storage-panel').locator('input').first()).toHaveValue(
+    'https://draft.invalid/dav',
+  )
+  await page.getByTestId('manage-cloud-connection').click()
   await expect(page.getByTestId('remote-import-code-input').locator('textarea')).toHaveValue(
     'draft-code',
   )
-  await page.getByTestId('data-tab-restore').press('Home')
-  await expect(page.getByTestId('data-tab-backup')).toBeFocused()
-  await expect(page.getByTestId('data-backup-panel')).toBeVisible()
-  await expect(page.getByTestId('data-storage-panel')).toBeHidden()
-  await page.screenshot({ path: testInfo.outputPath('desktop-backup.png') })
+  await page.getByTestId('open-import-code').click()
+  await page.getByTestId('device-storage-total').scrollIntoViewIfNeeded()
+  await page.screenshot({ path: testInfo.outputPath('desktop-overview.png') })
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.getByTestId('data-tab-restore').click()
   await assertNoHorizontalOverflow(page)
-  await page.screenshot({ path: testInfo.outputPath('mobile-restore.png') })
   await page.keyboard.press('Escape')
-  await expect(page.getByTestId('data-tab-backup')).toBeHidden()
+  await expect(page.getByTestId('data-manager-overview')).toBeHidden()
   await page.setViewportSize({ width: 1280, height: 800 })
   await page.locator('.theme-toggle').click()
   await page
@@ -143,7 +196,6 @@ test('uses one task navigation on narrow screens and retains drafts through resi
     .click()
   await openData(page)
   await page.screenshot({ path: testInfo.outputPath('desktop-dark.png') })
-  // 1280x800 physical pixels at 200%: 640x400 CSS pixels with DPR 2.
   const cdp = await page.context().newCDPSession(page)
   await cdp.send('Emulation.setDeviceMetricsOverride', {
     width: 640,
@@ -158,7 +210,7 @@ test('uses one task navigation on narrow screens and retains drafts through resi
   await cdp.send('Emulation.clearDeviceMetricsOverride')
 })
 
-test('returns to backup after correcting a connection and restores the chosen cloud backup', async ({
+test('creates and browses a cloud backup in place, restoring only after the explicit action', async ({
   page,
 }, testInfo) => {
   test.setTimeout(90_000)
@@ -180,29 +232,34 @@ test('returns to backup after correcting a connection and restores the chosen cl
     )
     await page.goto('/#/basic/system')
     await openData(page)
-    await page.getByTestId('backup-destination').click()
-    await page
-      .locator('.n-base-select-option')
-      .filter({ hasText: /^WebDAV$/ })
-      .click()
-    await page
-      .getByTestId('data-backup-panel')
-      .getByRole('button', { name: /设置连接|Set up connection/ })
-      .click()
+    await expect(page.getByTestId('data-storage-panel')).toBeVisible()
     await page.getByTestId('data-storage-panel').locator('input').first().fill(dav.endpoint)
     await page.getByRole('button', { name: /保存并连接|Save and Connect/ }).click()
-    await expect(page.getByTestId('return-data-task')).toBeEnabled()
+    await expect(page.getByTestId('remote-list-status')).toContainText(
+      /暂无远程备份|No remote backups/,
+    )
     expect(dav.requests.every((request) => request.method === 'PROPFIND')).toBe(true)
-    await page.getByTestId('return-data-task').click()
-    await expect(page.getByTestId('data-backup-panel')).toBeVisible()
+    await expect(page.getByTestId('data-storage-panel')).toBeHidden()
+    await expect(page.getByTestId('cloud-backups-panel')).toBeVisible()
     await page.getByTestId('remote-backup-create').click()
     await page.getByTestId('backup-result-view').click()
+    await expect(page.getByTestId('restore-confirmation')).toBeHidden()
+    await expect(page.locator('.n-message')).toHaveCount(0)
+    await page.screenshot({ path: testInfo.outputPath('cloud-records.png') })
+    await page.getByTestId('record-restore').first().click()
     await expect(page.getByTestId('restore-confirmation')).toBeVisible()
-    await expect(page.locator('[data-backup-id][aria-pressed="true"]')).toHaveCount(1)
+    await expect(page.locator('[data-testid="record-restore"][aria-expanded="true"]')).toHaveCount(
+      1,
+    )
     await page.screenshot({ path: testInfo.outputPath('cloud-confirmation.png') })
+    await page.setViewportSize({ width: 320, height: 740 })
+    await assertNoHorizontalOverflow(page)
+    await page.getByTestId('backup-restore-confirm').scrollIntoViewIfNeeded()
+    await expect(page.getByTestId('backup-restore-confirm')).toBeInViewport()
+    await page.screenshot({ path: testInfo.outputPath('cloud-confirmation-mobile.png') })
     const beforeRestore = dav.requests.length
     await page.getByTestId('backup-restore-confirm').click()
-    await expect(page.getByTestId('data-tab-restore')).toBeHidden({ timeout: 30_000 })
+    await expect(page.getByTestId('data-manager-overview')).toBeHidden({ timeout: 30_000 })
     expect(
       dav.requests
         .slice(beforeRestore)

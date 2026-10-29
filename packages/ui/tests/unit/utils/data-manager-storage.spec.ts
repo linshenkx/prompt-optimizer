@@ -6,6 +6,27 @@ import {
 } from '../../../src/utils/data-manager-storage'
 
 const createServices = () => ({
+  dataManager: {
+    exportAllData: vi.fn().mockResolvedValue(
+      JSON.stringify({
+        version: 1,
+        data: {
+          imageModels: [{ id: 'image-model' }],
+          workspaceSessions: { savedDraft: 'current draft', testResult: 'result' },
+          models: [{ id: 'model' }],
+          userSettings: { theme: 'light' },
+          history: [{ prompt: 'history' }],
+        },
+      }),
+    ),
+  },
+  favoriteManager: {
+    exportFavorites: vi
+      .fn()
+      .mockResolvedValue(
+        JSON.stringify({ favorites: [{ content: 'favorite text' }], categories: ['work'] }),
+      ),
+  },
   modelManager: {
     exportData: vi.fn().mockResolvedValue([{ id: 'model-1', name: '主模型' }]),
   },
@@ -55,7 +76,7 @@ describe('data-manager storage helpers', () => {
     expect(estimateJsonBytes(payload)).not.toBe(prettyBytes)
   })
 
-  it('combines models, templates, history, contexts and settings into the main data estimate', async () => {
+  it('counts the complete app export including saved workspaces and image models', async () => {
     const services = createServices()
 
     const summary = await resolveDataManagerStorageBreakdown({
@@ -63,12 +84,11 @@ describe('data-manager storage helpers', () => {
       includeBackupData: false,
     })
 
-    const expectedMainBytes =
-      estimateJsonBytes(await services.modelManager.exportData.mock.results[0]?.value) +
-      estimateJsonBytes(await services.templateManager.exportData.mock.results[0]?.value) +
-      estimateJsonBytes(await services.historyManager.exportData.mock.results[0]?.value) +
-      estimateJsonBytes(await services.contextRepo.exportData.mock.results[0]?.value) +
-      estimateJsonBytes(await services.preferenceService.exportData.mock.results[0]?.value)
+    const expectedMainBytes = new TextEncoder().encode(
+      await services.dataManager.exportAllData.mock.results[0]?.value,
+    ).byteLength
+    expect(services.dataManager.exportAllData).toHaveBeenCalledTimes(1)
+    expect(services.modelManager.exportData).not.toHaveBeenCalled()
 
     expect(summary.items).toEqual(
       expect.arrayContaining([
@@ -100,12 +120,16 @@ describe('data-manager storage helpers', () => {
       electronDataApi: electronDataApi as any,
     })
 
-    const appMainData = summary.items.find(item => item.key === 'appMainData')?.bytes ?? 0
-    const imageCache = summary.items.find(item => item.key === 'imageCache')?.bytes ?? 0
-    const favoriteImages = summary.items.find(item => item.key === 'favoriteImages')?.bytes ?? 0
-    const backups = summary.items.find(item => item.key === 'backupData')?.bytes ?? 0
+    const appMainData = summary.items.find((item) => item.key === 'appMainData')?.bytes ?? 0
+    const imageCache = summary.items.find((item) => item.key === 'imageCache')?.bytes ?? 0
+    const favoriteImages = summary.items.find((item) => item.key === 'favoriteImages')?.bytes ?? 0
+    const backups = summary.items.find((item) => item.key === 'backupData')?.bytes ?? 0
 
-    expect(summary.totalBytes).toBe(appMainData + imageCache + favoriteImages + backups)
+    const favorites = new TextEncoder().encode(
+      await services.favoriteManager.exportFavorites.mock.results[0]?.value,
+    ).byteLength
+    expect(summary.items.find((item) => item.key === 'favorites')?.bytes).toBe(favorites)
+    expect(summary.totalBytes).toBe(appMainData + favorites + imageCache + favoriteImages + backups)
     expect(backups).toBe(512)
   })
 
@@ -151,5 +175,16 @@ describe('data-manager storage helpers', () => {
         ]),
       }),
     )
+  })
+  it('keeps failed text reads unknown while preserving successful image counts', async () => {
+    const services = createServices()
+    services.dataManager.exportAllData.mockRejectedValue(new Error('read failed'))
+    const summary = await resolveDataManagerStorageBreakdown({
+      services: services as any,
+      includeBackupData: false,
+    })
+    expect(summary.items.find((item) => item.key === 'appMainData')?.bytes).toBeNull()
+    expect(summary.items.find((item) => item.key === 'imageCache')?.bytes).toBe(2048)
+    expect(summary.totalBytes).toBeGreaterThanOrEqual(3072)
   })
 })

@@ -1,24 +1,11 @@
 <template>
-  <section class="task-stack" data-testid="data-storage-panel">
-    <div class="task-intro">
-      <NText tag="h3" strong>{{ t('dataManager.tasks.connections') }}</NText
-      ><NText depth="3">{{ t(remoteRecommendationKey) }}</NText>
-    </div>
+  <section
+    class="task-stack"
+    data-testid="data-storage-panel"
+    :aria-label="t('dataManager.tasks.manageConnection')"
+    tabindex="-1"
+  >
     <article class="remote-config-panel">
-      <div class="remote-field">
-        <NText depth="3" class="remote-field-label">
-          {{ $t('dataManager.remote.provider') }}
-        </NText>
-        <NSelect
-          :value="remoteSettings.provider.kind"
-          :options="remoteProviderOptions"
-          data-testid="remote-provider-select"
-          :aria-label="t('dataManager.remote.provider')"
-          :disabled="isRemoteConnectionLocked"
-          @update:value="handleRemoteProviderChange"
-        />
-      </div>
-
       <div
         v-if="remoteSettings.provider.kind !== 'google-drive'"
         class="remote-connection-card"
@@ -42,31 +29,7 @@
             {{ currentRemoteConnectionLabel }}
           </NTag>
         </div>
-        <div class="remote-action-row remote-action-row--compact remote-connection-actions">
-          <NButton
-            type="primary"
-            :loading="isLoadingRemoteList"
-            :disabled="
-              !isCurrentRemoteProviderConfigured ||
-              isRemoteDataOperationActive ||
-              isAuthorizingRemote
-            "
-            @click="handleRemoteSaveAndConnect"
-          >
-            {{ $t('dataManager.remote.saveAndConnect') }}
-          </NButton>
-          <NButton
-            v-if="isCurrentRemoteProviderConfigured"
-            secondary
-            @click="isRemoteConfigExpanded = !isRemoteConfigExpanded"
-          >
-            {{
-              isRemoteConfigExpanded
-                ? $t('dataManager.remote.hideConfiguration')
-                : $t('dataManager.remote.editConfiguration')
-            }}
-          </NButton>
-        </div>
+
       </div>
 
       <template v-if="remoteSettings.provider.kind === 'google-drive'">
@@ -94,7 +57,7 @@
       </template>
 
       <template v-else-if="remoteSettings.provider.kind === 'cloudflare-r2'">
-        <div v-if="showRemoteConfigForm" class="remote-provider-form">
+        <div class="remote-provider-form">
           <div
             v-for="field in ['accountId', 'bucket', 'accessKeyId', 'secretAccessKey'] as const"
             :key="field"
@@ -162,7 +125,7 @@
         >
       </template>
       <template v-else-if="remoteSettings.provider.kind === 's3-compatible'">
-        <div v-if="showRemoteConfigForm" class="remote-provider-form">
+        <div class="remote-provider-form">
           <div class="remote-two-column">
             <div class="remote-field">
               <NText depth="3" class="remote-field-label">{{
@@ -259,7 +222,7 @@
       </template>
 
       <template v-else>
-        <div v-if="showRemoteConfigForm" class="remote-provider-form">
+        <div class="remote-provider-form">
           <div class="remote-field">
             <NText depth="3" class="remote-field-label">{{
               $t('dataManager.remote.endpoint')
@@ -322,171 +285,80 @@
           </NText>
         </div>
       </template>
+      <div
+        v-if="remoteSettings.provider.kind !== 'google-drive'"
+        class="remote-action-row remote-action-row--compact remote-connection-actions"
+      >
+        <NButton
+          type="primary"
+          :loading="isLoadingRemoteList"
+          :disabled="
+            !isCurrentRemoteProviderConfigured ||
+            isRemoteDataOperationActive ||
+            isAuthorizingRemote
+          "
+          @click="handleRemoteSaveAndConnect"
+        >
+          {{ $t('dataManager.remote.saveAndConnect') }}
+        </NButton>
+      </div>
     </article>
 
     <NText
+      v-if="showRemoteListStatus"
       data-testid="remote-settings-status"
       role="status"
       :type="remoteListState === 'error' ? 'error' : 'default'"
       >{{ remoteListMessage }}</NText
     >
-    <NButton
-      v-if="returnTask && currentRemoteConnection.status === 'connected'"
-      secondary
-      data-testid="return-data-task"
-      @click="returnFromSettings"
-      >{{
-        t(
-          returnTask === 'backup'
-            ? 'dataManager.tasks.returnBackup'
-            : 'dataManager.tasks.returnRestore',
-        )
-      }}</NButton
+    <div
+      v-if="isCurrentRemoteProviderConfigured"
+      class="cloud-maintenance task-stack"
+      data-testid="remote-maintenance"
     >
-    <div class="task-card task-stack">
       <NText strong>{{ t('dataManager.tasks.cloudMaintenance') }}</NText
-      ><NText depth="3">{{
-        t('dataManager.tasks.cleanupHelp', { provider: currentProviderName })
-      }}</NText>
+      ><NText depth="3">{{ t('dataManager.tasks.cleanupHelp', { provider: currentProviderName }) }}</NText>
       <NButton
         secondary
         :loading="isCleaningRemoteAssets"
-        :disabled="!isCurrentRemoteProviderConfigured || isRemoteDataOperationActive"
+        :disabled="isRemoteDataOperationActive"
         @click="handleRemoteCleanup"
         >{{ t('dataManager.remote.cleanupAssets') }}</NButton
       >
     </div>
-    <section class="data-manager-section data-manager-section--storage">
-      <div class="section-heading">
-        <div>
-          <NText tag="h3" :depth="1" strong class="section-title">
-            {{ $t('dataManager.storage.title') }}
-          </NText>
-          <NText depth="3" class="section-description">
-            {{ $t('dataManager.storage.totalNote') }}
-          </NText>
-        </div>
-        <NButton
-          size="small"
-          secondary
-          :loading="isRefreshingStorage"
-          @click="refreshStorageSummary"
-        >
-          <template #icon>
-            <NIcon :size="16"><Refresh /></NIcon>
-          </template>
-          {{ $t('dataManager.storage.refresh') }}
-        </NButton>
-      </div>
-
-      <div class="storage-cards-grid">
-        <div class="storage-stat-card storage-stat-card--total">
-          <NText strong>{{ $t('dataManager.storage.total') }}</NText>
-          <div class="storage-stat-value">
-            {{ storageSummary ? formatFileSize(storageSummary.totalBytes) : '—' }}
-          </div>
-          <NText depth="3" class="storage-note">
-            {{ $t('dataManager.storage.totalNoteShort') }}
-          </NText>
-        </div>
-
-        <div v-for="item in storageCardItems" :key="item.key" class="storage-stat-card">
-          <NText depth="3">{{ $t(storageLabelKeys[item.key]) }}</NText>
-          <div class="storage-stat-value">
-            {{ formatStorageItemBytes(item.bytes) }}
-          </div>
-          <NText v-if="getStorageItemDetail(item)" depth="3" class="storage-note">
-            {{ getStorageItemDetail(item) }}
-          </NText>
-        </div>
-      </div>
-    </section>
-
-    <section v-if="isDesktopRuntime" class="data-manager-section data-manager-section--desktop">
-      <div class="desktop-storage-row">
-        <div class="storage-path-block">
-          <NText depth="3" class="storage-path-label">{{ $t('dataManager.storage.path') }}</NText>
-          <div class="storage-path-value">
-            {{ storageSummary?.desktopInfo?.userDataPath || '—' }}
-          </div>
-        </div>
-
-        <div v-if="desktopBackupItem" class="storage-desktop-stat">
-          <NText depth="3">{{ $t('dataManager.storage.backupData') }}</NText>
-          <div class="storage-desktop-stat-value">
-            {{ formatStorageItemBytes(desktopBackupItem.bytes) }}
-          </div>
-        </div>
-
-        <NButton size="small" @click="openStorageDir" :disabled="!canUseDesktopStorageTools">
-          <template #icon>
-            <NIcon :size="16"><Folder /></NIcon>
-          </template>
-          {{ $t('dataManager.storage.openDir') }}
-        </NButton>
-      </div>
-    </section>
   </section>
 </template>
 <script setup lang="ts">
 import { toRefs } from 'vue'
 import { useDataManagerContext } from './context'
-import {
-  NText,
-  NButton,
-  NIcon,
-  NCheckbox,
-  NSelect,
-  NInput,
-  NTag,
-  NCollapse,
-  NCollapseItem,
-} from 'naive-ui'
-import { Folder, RefreshCw as Refresh } from '@lucide/vue'
+import { NText, NButton, NCheckbox, NInput, NTag, NCollapse, NCollapseItem } from 'naive-ui'
 const {
   t,
   remoteListMessage,
+  showRemoteListStatus,
   remoteListState,
-  returnTask,
   isDesktopRuntime,
-  storageSummary,
-  isRefreshingStorage,
   remoteSettings,
   isAuthorizingRemote,
   isGoogleDriveAuthorized,
-  isRemoteConfigExpanded,
   isLoadingRemoteList,
   isCleaningRemoteAssets,
   isRemoteDataOperationActive,
   isRemoteConnectionLocked,
-  storageLabelKeys,
-  remoteProviderOptions,
-  remoteRecommendationKey,
   googleDriveAuthorizationLabel,
   currentRemoteConnection,
   isCurrentRemoteProviderConfigured,
-  showRemoteConfigForm,
   currentRemoteConnectionLabel,
   currentRemoteConnectionTitle,
   currentRemoteConnectionMessage,
   currentRemoteConnectionTagType,
-  storageCardItems,
-  desktopBackupItem,
-  canUseDesktopStorageTools,
-  refreshStorageSummary,
   markRemoteSettingsDirty,
-  handleRemoteProviderChange,
   openCloudflareR2Link,
   copyCloudflareR2CorsConfig,
   handleRemoteAuthorize,
   handleRemoteSaveAndConnect,
   handleRemoteCleanup,
-  openStorageDir,
   currentProviderName,
-  returnFromSettings,
-  formatFileSize,
-  formatStorageItemBytes,
-  getStorageItemDetail,
   CLOUDFLARE_R2_DEFAULT_BACKUP_PREFIX,
   GOOGLE_DRIVE_DEFAULT_BACKUP_FOLDER_NAME,
 } = toRefs(useDataManagerContext())

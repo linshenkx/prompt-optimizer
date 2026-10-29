@@ -3,6 +3,7 @@ import type { AppServices } from '../types/services'
 
 export type StorageBreakdownItemKey =
   | 'appMainData'
+  | 'favorites'
   | 'imageCache'
   | 'favoriteImages'
   | 'backupData'
@@ -23,13 +24,7 @@ export interface StorageBreakdownSummary {
 interface ResolveStorageBreakdownOptions {
   services: Pick<
     AppServices,
-    | 'modelManager'
-    | 'templateManager'
-    | 'historyManager'
-    | 'contextRepo'
-    | 'preferenceService'
-    | 'imageStorageService'
-    | 'favoriteImageStorageService'
+    'dataManager' | 'favoriteManager' | 'imageStorageService' | 'favoriteImageStorageService'
   >
   includeBackupData: boolean
   electronDataApi?: Pick<DataAPI, 'getStorageInfo'> | null
@@ -48,21 +43,9 @@ export function estimateJsonBytes(value: unknown): number {
 async function estimateAppMainDataBytes(
   services: ResolveStorageBreakdownOptions['services'],
 ): Promise<number> {
-  const [models, templates, history, contexts, preferences] = await Promise.all([
-    services.modelManager.exportData(),
-    services.templateManager.exportData(),
-    services.historyManager.exportData(),
-    services.contextRepo.exportData(),
-    services.preferenceService.exportData(),
-  ])
-
-  return (
-    estimateJsonBytes(models) +
-    estimateJsonBytes(templates) +
-    estimateJsonBytes(history) +
-    estimateJsonBytes(contexts) +
-    estimateJsonBytes(preferences)
-  )
+  // Include image models and saved workspaces through the existing export boundary.
+  // Count the text directly, without parsing a second copy or loading image blobs.
+  return textEncoder.encode(await services.dataManager.exportAllData()).byteLength
 }
 
 interface ImageStorageBreakdown {
@@ -90,29 +73,36 @@ async function getImageStorageBreakdown(
 export async function resolveDataManagerStorageBreakdown(
   options: ResolveStorageBreakdownOptions,
 ): Promise<StorageBreakdownSummary> {
-  const {
-    services,
-    includeBackupData,
-    electronDataApi = null,
-  } = options
+  const { services, includeBackupData, electronDataApi = null } = options
 
-  const [appMainDataResult, imageCacheResult, favoriteImagesResult, desktopInfoResult] =
-    await Promise.allSettled([
-      estimateAppMainDataBytes(services),
-      getImageStorageBreakdown(services.imageStorageService),
-      getImageStorageBreakdown(services.favoriteImageStorageService),
-      includeBackupData && electronDataApi?.getStorageInfo
-        ? electronDataApi.getStorageInfo()
-        : Promise.resolve(null),
-    ])
+  const [
+    appMainDataResult,
+    favoritesResult,
+    imageCacheResult,
+    favoriteImagesResult,
+    desktopInfoResult,
+  ] = await Promise.allSettled([
+    estimateAppMainDataBytes(services),
+    services.favoriteManager.exportFavorites().then((data) => textEncoder.encode(data).byteLength),
+    getImageStorageBreakdown(services.imageStorageService),
+    getImageStorageBreakdown(services.favoriteImageStorageService),
+    includeBackupData && electronDataApi?.getStorageInfo
+      ? electronDataApi.getStorageInfo()
+      : Promise.resolve(null),
+  ])
 
-  const desktopInfo =
-    desktopInfoResult.status === 'fulfilled' ? desktopInfoResult.value : null
+  const desktopInfo = desktopInfoResult.status === 'fulfilled' ? desktopInfoResult.value : null
 
   const items: StorageBreakdownItem[] = [
     {
       key: 'appMainData',
       bytes: appMainDataResult.status === 'fulfilled' ? appMainDataResult.value : null,
+      count: null,
+      estimated: true,
+    },
+    {
+      key: 'favorites',
+      bytes: favoritesResult.status === 'fulfilled' ? favoritesResult.value : null,
       count: null,
       estimated: true,
     },
@@ -124,14 +114,8 @@ export async function resolveDataManagerStorageBreakdown(
     },
     {
       key: 'favoriteImages',
-      bytes:
-        favoriteImagesResult.status === 'fulfilled'
-          ? favoriteImagesResult.value.bytes
-          : null,
-      count:
-        favoriteImagesResult.status === 'fulfilled'
-          ? favoriteImagesResult.value.count
-          : null,
+      bytes: favoriteImagesResult.status === 'fulfilled' ? favoriteImagesResult.value.bytes : null,
+      count: favoriteImagesResult.status === 'fulfilled' ? favoriteImagesResult.value.count : null,
       estimated: false,
     },
   ]
