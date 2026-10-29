@@ -222,23 +222,13 @@
                                             t("imageWorkspace.input.textModel")
                                         }}</NText
                                     >
-                                    <TextModelQuickSwitch v-if="!isCompact"
-                                        :model-key="selectedTextModelKey"
-                                        :options="textModelOptions"
-                                        :refresh-models="modelSelection.refreshTextModels"
-                                        :disabled="isOptimizing"
-                                    />
+
                                 </NFlex>
                                 <template v-if="appOpenModelManager">
-                                    <SelectWithConfig
+                                    <TextModelSelector
                                         data-testid="image-image2image-text-model-select"
                                         v-model="selectedTextModelKey"
                                         :options="textModelOptions"
-                                        :getPrimary="OptionAccessors.getPrimary"
-                                        :getSecondary="
-                                            OptionAccessors.getSecondary
-                                        "
-                                        :getValue="OptionAccessors.getValue"
                                         :placeholder="
                                             t(
                                                 'imageWorkspace.input.modelPlaceholder',
@@ -246,9 +236,6 @@
                                         "
                                         size="medium"
                                         :disabled="isOptimizing"
-                                        filterable
-                                        :show-config-action="true"
-                                        :show-empty-config-c-t-a="true"
                                         @focus="handleTextModelSelectFocus"
                                         @config="
                                             () =>
@@ -258,15 +245,10 @@
                                     />
                                 </template>
                                 <template v-else>
-                                    <SelectWithConfig
+                                    <TextModelSelector
                                         data-testid="image-image2image-text-model-select"
                                         v-model="selectedTextModelKey"
                                         :options="textModelOptions"
-                                        :getPrimary="OptionAccessors.getPrimary"
-                                        :getSecondary="
-                                            OptionAccessors.getSecondary
-                                        "
-                                        :getValue="OptionAccessors.getValue"
                                         :placeholder="
                                             t(
                                                 'imageWorkspace.input.modelPlaceholder',
@@ -274,7 +256,6 @@
                                         "
                                         size="medium"
                                         :disabled="isOptimizing"
-                                        filterable
                                         @focus="handleTextModelSelectFocus"
                                     />
                                 </template>
@@ -497,12 +478,6 @@
                                             :feedback-tone="variantSourceFeedback[id].tone"
                                             @activate="isCompact ? previewMobileSource(id) : activateVariantSource(id)"
                                         />
-                                        <ImageModelQuickSwitch v-if="!isCompact"
-                                            :model-key="variantModelKeyModels[id].value"
-                                            :options="imageModelOptions"
-                                            :refresh-models="refreshImageModels"
-                                            :disabled="variantRunning[id]"
-                                        />
                                     </div>
 
                                     <div class="variant-cell__actions">
@@ -516,20 +491,15 @@
                                         /></div>
 
                                         <div class="variant-cell__model"><NText v-if="isCompact" depth="2" class="test-settings-label">{{ t('test.model') }}</NText>
-                                            <SelectWithConfig
+                                            <ImageModelSelector
                                                 :data-testid="getVariantModelTestId(id)"
                                                 :model-value="variantModelKeyModels[id].value"
                                                 @update:model-value="(value) => { variantModelKeyModels[id].value = String(value ?? '') }"
                                                 :options="imageModelOptions"
-                                                :getPrimary="OptionAccessors.getPrimary"
-                                                :getSecondary="OptionAccessors.getSecondary"
-                                                :getValue="OptionAccessors.getValue"
                                                 :placeholder="t('imageWorkspace.generation.imageModelPlaceholder')"
                                                 size="small"
                                                 :disabled="variantRunning[id]"
-                                                filterable
                                                 :show-config-action="!!appOpenModelManager"
-                                                :show-empty-config-c-t-a="true"
                                                 @focus="refreshImageModels"
                                                 @config="() => appOpenModelManager && appOpenModelManager('image')"
                                                 style="min-width: 0; width: 100%;"
@@ -786,6 +756,7 @@
 </template>
 
 <script setup lang="ts">
+import ImageModelSelector from '../ImageModelSelector.vue'
 import { X as UiX, FolderOpen as UiFolderOpen, ChevronDown as UiChevronDown, Maximize2 as UiMaximize2, ChevronUp as UiChevronUp, Play as UiPlay, Download as UiDownload, Copy as UiCopy } from '@lucide/vue'
 import AdaptiveModal from '../common/AdaptiveModal.vue'
 import OptimizeWorkspaceLayout from '../common/OptimizeWorkspaceLayout.vue'
@@ -830,9 +801,8 @@ import ThemedTooltip from '../common/ThemedTooltip.vue'
 import PromptGardenInspirationPopover from '../common/PromptGardenInspirationPopover.vue'
 import PromptGardenImportDialog from '../common/PromptGardenImportDialog.vue'
 import PromptPreviewPanel from "../PromptPreviewPanel.vue";
-import ImageModelQuickSwitch from "../ImageModelQuickSwitch.vue";
 import SelectWithConfig from "../SelectWithConfig.vue";
-import TextModelQuickSwitch from "../TextModelQuickSwitch.vue";
+import TextModelSelector from "../TextModelSelector.vue";
 import TestPanelVersionSelect from '../TestPanelVersionSelect.vue'
 import TestSourceLinkedCard from '../TestSourceLinkedCard.vue'
 import TestVariantSourceTag from '../TestVariantSourceTag.vue'

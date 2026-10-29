@@ -246,26 +246,16 @@
 
           <NFormItem :label="t('modelManager.selectModel')">
             <component :is="isCompact ? 'div' : NSpace" align="center" style="width: 100%;" :class="{ 'mobile-text-model-picker': isCompact }">
-              <NSelect
-                :ref="modelMenu.selectRef"
-                v-bind="modelMenu.attrs.value"
+              <ModelIdSelector
                 data-testid="text-model-id-select"
                 v-model:value="form.modelId"
                 :options="modelOptions"
+                :group-label="manager.selectedProvider.value?.name"
                 :loading="isLoadingModelOptions"
                 :placeholder="t('modelManager.defaultModelPlaceholder')"
                 :style="isCompact ? { minWidth: 0, flex: 1 } : { flex: 1, minWidth: '300px', maxWidth: '500px' }"
                 clearable
-                filterable
-                :filter="(pattern, option) => {
-                  const label = typeof option.label === 'string' ? option.label : String(option.value)
-                  const value = String(option.value)
-                  return label.toLowerCase().includes(pattern.toLowerCase()) || value.toLowerCase().includes(pattern.toLowerCase())
-                }"
-                tag
-                required
                 @update:value="handleModelChange"
-                @update:show="modelMenu.onUpdateShow"
               />
 
               <ThemedTooltip
@@ -366,6 +356,7 @@
 </template>
 
 <script setup lang="ts">
+import ModelIdSelector from './ModelIdSelector.vue'
 import { ChevronLeft as UiChevronLeft, ChevronRight as UiChevronRight, RefreshCw as UiRefreshCw, Link as UiLink } from '@lucide/vue'
 import NModal from "./common/AdaptiveModal.vue"
 import ModelNetworkStatus from './ModelNetworkStatus.vue'
@@ -417,7 +408,6 @@ const emit = defineEmits(['update:show', 'saved'])
 const { t } = useI18n()
 const { isCompact } = useWorkspaceLayout()
 const providerMenu = useCompactSelectMenu(isCompact, computed(() => show))
-const modelMenu = useCompactSelectMenu(isCompact, computed(() => show))
 const headersExpanded = ref(false)
 const submitError = ref('')
 const toast = useToast()

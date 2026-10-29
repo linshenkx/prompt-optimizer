@@ -88,6 +88,7 @@
 
             <!-- Modals and Drawers that are conditionally rendered -->
             <ModelManagerUI
+                ref="modelManagerDialogRef"
                 v-if="isReady"
                 v-model:show="modelManager.showConfig"
                 @models-updated="handleTextModelsUpdated"
@@ -2171,15 +2172,20 @@ const handleTemplateManagerClosed = () => {
 };
 
 // 提供 openModelManager 接口
-const openModelManager = (tab: "text" | "image" | "function" = "text") => {
+const modelManagerDialogRef = ref<InstanceType<typeof ModelManagerUI> | null>(null);
+const openModelManager = async (tab: "text" | "image" | "function" = "text", configId?: string) => {
     modelManager.showConfig = true;
-    setTimeout(() => {
-        if (typeof window !== "undefined") {
-            window.dispatchEvent(
-                new CustomEvent("model-manager:set-tab", { detail: tab }),
-            );
-        }
-    }, 0);
+    await nextTick();
+    if (typeof window !== "undefined") {
+        window.dispatchEvent(
+            new CustomEvent("model-manager:set-tab", { detail: tab }),
+        );
+    }
+    if (tab === "text" && configId) {
+        await modelManagerDialogRef.value?.openTextModel(configId);
+    } else if (tab === "image" && configId) {
+        await modelManagerDialogRef.value?.openImageModel(configId);
+    }
 };
 provide("openModelManager", openModelManager);
 

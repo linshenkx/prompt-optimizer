@@ -26,7 +26,14 @@ for (const relativePath of workspaceFiles) {
     const source = await readFile(absolutePath, 'utf8')
     const selectors = source.match(/<SelectWithConfig\b[\s\S]*?\/>/g) ?? []
 
-    assert.equal(selectors.length, 3, 'expected optimize-model, template, and test-model selectors')
+    const textSelectors = source.match(/<TextModelSelector\b[\s\S]*?\/>/g) ?? []
+    assert.equal(selectors.length, 1, 'expected the prompt-template selector')
+    assert.equal(textSelectors.length, 2, 'expected shared optimize-model and test-model selectors')
+    for (const selector of textSelectors) {
+      for (const binding of [':placeholder=', '@focus=', '@config=']) {
+        assert.ok(selector.includes(binding), `text selector is missing ${binding}`)
+      }
+    }
 
     for (const [index, selector] of selectors.entries()) {
       for (const binding of requiredBindings) {

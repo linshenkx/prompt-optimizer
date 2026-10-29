@@ -94,7 +94,7 @@
                     type="default"
                     :bordered="false"
                   >
-                    {{ modelLabels?.[entry.modelKey] || entry.modelKey }}
+                    {{ modelLabel(entry.modelKey) }}
                   </NTag>
                 </div>
               </div>
@@ -269,7 +269,7 @@ import {
   NTag,
   NText,
 } from 'naive-ui'
-import type { EvaluationSnapshot, StructuredCompareRole } from '@prompt-optimizer/core'
+import { decodeTextModelSelection, type EvaluationSnapshot, type StructuredCompareRole } from '@prompt-optimizer/core'
 import type { PersistedCompareSnapshotRoles } from '../../types/evaluation'
 import {
   analyzeStructuredComparePlan,
@@ -320,6 +320,13 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const modelLabel = (key: string) => {
+  if (props.modelLabels?.[key]) return props.modelLabels[key]
+  const selection = decodeTextModelSelection(key)
+  return selection
+    ? `${props.modelLabels?.[selection.configId] || selection.configId} · ${selection.modelId}`
+    : key
+}
 
 const show = computed({
   get: () => props.modelValue,

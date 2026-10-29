@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 import { flushPromises } from '@vue/test-utils'
-import { FUNCTION_MODEL_KEYS } from '@prompt-optimizer/core'
+import { FUNCTION_MODEL_KEYS, encodeTextModelSelection } from '@prompt-optimizer/core'
 import { resetFunctionModelManagerSingleton, useFunctionModelManager } from '../../../src/composables/model/useFunctionModelManager'
 import type { AppServices } from '../../../src/types/services'
 
@@ -18,8 +18,35 @@ const createServices = () => {
 }
 
 describe('useFunctionModelManager recovery and availability', () => {
+  it('persists alternate choices for each global function without changing workspace selection', async () => {
+    const { services } = createServices()
+    const workspace = ref('global')
+    const manager = useFunctionModelManager(services, workspace)
+    const evaluation = encodeTextModelSelection('evaluation', 'new-evaluation-model')
+    const recognition = encodeTextModelSelection('test', 'vision-model')
+    await manager.setEvaluationModel(evaluation)
+    await manager.setImageRecognitionModel(recognition)
+    expect(manager.isEvaluationModelAvailable.value).toBe(true)
+    expect(manager.isImageRecognitionModelAvailable.value).toBe(true)
+    expect(manager.resolveEvaluationModelKey()).toBe(evaluation)
+    expect(manager.getEffectiveImageRecognitionModel().value).toBe(recognition)
+    expect(workspace.value).toBe('global')
+    resetFunctionModelManagerSingleton()
+    const restored = useFunctionModelManager(services, workspace)
+    await restored.initialize()
+    expect(restored.evaluationModel.value).toBe(evaluation)
+    expect(restored.imageRecognitionModel.value).toBe(recognition)
+  })
   beforeEach(resetFunctionModelManagerSingleton)
   afterEach(resetFunctionModelManagerSingleton)
+
+  it('keeps a local workspace model choice when resolving the evaluation fallback', async () => {
+    const { services } = createServices()
+    const key = encodeTextModelSelection('global', 'another-model')
+    const manager = useFunctionModelManager(services, ref(key))
+    await manager.initialize()
+    expect(manager.resolveEvaluationModelKey('test')).toBe(key)
+  })
 
   it.each(['success', 'failure'])('waits for the latest availability read when an older %s finishes first', async (outcome) => {
     const { services, modelManager, models } = createServices()

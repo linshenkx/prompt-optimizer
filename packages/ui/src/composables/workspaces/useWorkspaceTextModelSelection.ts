@@ -1,3 +1,4 @@
+import { getTextModelSelectionConfigId } from '../../utils/text-model-selection'
 /**
  * 工作区 Text 模型选择逻辑（通用，Image 模式使用）
  *
@@ -66,7 +67,7 @@ export function useWorkspaceTextModelSelection<T extends WorkspaceTextModelSessi
       const keys = new Set(textModelOptions.value.map(opt => opt.value))
       const current = selectedTextModelKey.value
 
-      const invalid = current && !keys.has(current)
+      const invalid = current && !keys.has(getTextModelSelectionConfigId(current))
       const emptyNeedsFallback = !current && !!fallback
       if (invalid || emptyNeedsFallback) {
         selectedTextModelKey.value = fallback

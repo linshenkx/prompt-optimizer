@@ -17,49 +17,24 @@
         @click="emit('run')"><template #icon><Play /></template></NButton>
     </div>
     <div class="test-variant-config__model">
-      <NTooltip :show="(hoverDetails || focusDetails) && !menuOpen && !detailsDismissed && !!selectedOption"
-        :theme-overrides="tooltipThemeOverrides" :overlay-style="tooltipOverlayStyle"
-        :content-style="tooltipContentStyle" placement="top-start"
-        @update:show="hoverDetails = $event">
-        <template #trigger>
-          <div class="test-variant-config__select"
-            @focusin="focusDetails = true; detailsDismissed = false" @focusout="focusDetails = false"
-            @mouseenter="detailsDismissed = false" @keydown.esc.capture="detailsDismissed = true">
-            <SelectWithConfig
-              :model-value="modelKey" :options="options" :get-primary="getConfigLabel"
-              :get-secondary="getModelDetails" :get-value="OptionAccessors.getValue"
-              :aria-label="`${label} ${t('test.model')}: ${modelTitle}`"
-              :data-testid="modelTestId" :disabled="disabled" size="small" :bordered="false"
-              :selected-tooltip="false" :show-config-action="true" :show-empty-config-c-t-a="true"
-              :placeholder="t('model.select.placeholder')" :style="{ minWidth: 0, width: '100%' }"
-              @update:model-value="emit('update:modelKey', String($event ?? ''))"
-              @update:show="menuOpen = $event"
-              @focus="refreshModels?.()" @config="emit('config')"
-            />
-          </div>
-        </template>
-        <div v-if="selectedOption" class="test-variant-config__details">
-          <strong>{{ selectedOption.primary }}</strong>
-          <span>{{ getFullModelLabel(selectedOption) }}</span>
-          <span>{{ selectedOption.secondary }}</span>
-        </div>
-      </NTooltip>
+      <TextModelSelector :model-value="modelKey" :options="options" scope="column"
+        :aria-label="label + ' ' + t('test.model')" :data-testid="modelTestId"
+        :disabled="disabled" size="small"
+        @update:model-value="emit('update:modelKey', $event)"
+        @focus="refreshModels?.()" @config="emit('config')" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NButton, NTooltip, useThemeVars } from 'naive-ui'
+import { NButton, useThemeVars } from 'naive-ui'
 import { Eye, Play } from '@lucide/vue'
-import type { TextModelConfig } from '@prompt-optimizer/core'
-import type { ModelSelectOption, SelectOption } from '../types/select-options'
+import type { ModelSelectOption } from '../types/select-options'
 import type { TestPanelVersionOption } from '../utils/testPanelVersion'
-import { OptionAccessors } from '../utils/data-transformer'
-import SelectWithConfig from './SelectWithConfig.vue'
+import TextModelSelector from './TextModelSelector.vue'
 import TestPanelVersionSelect from './TestPanelVersionSelect.vue'
-import { useTooltipTheme } from '../composables/ui/useTooltipTheme'
 
 const props = defineProps<{
   label: string
@@ -84,28 +59,12 @@ const emit = defineEmits<{
 }>()
 const { t } = useI18n()
 const themeVars = useThemeVars()
-const hoverDetails = ref(false)
-const focusDetails = ref(false)
-const menuOpen = ref(false)
-const detailsDismissed = ref(false)
-const { tooltipThemeOverrides, tooltipOverlayStyle, tooltipContentStyle } = useTooltipTheme({ maxWidth: '360px' })
 const sourceOptions = computed(() => props.versionOptions.map(option => {
   const replacement = option.value === 'workspace' ? t('workspace.optimizeWorkspace')
     : option.value === 0 ? t('promptOptimizer.originalPrompt') : null
   return replacement ? { ...option, label: replacement,
     fullLabel: option.fullLabel.replace(option.label, replacement) } : option
 }))
-const getFullModelLabel = (option: SelectOption) => {
-  const config = option.raw as TextModelConfig | undefined
-  return config?.modelMeta?.name || config?.modelMeta?.id || option.primary
-}
-const getConfigLabel = (option: SelectOption) => option.primary
-const getModelDetails = (option: SelectOption) => `${getFullModelLabel(option)} · ${option.secondary}`
-const selectedOption = computed(() => props.options.find(option => option.value === props.modelKey))
-const modelTitle = computed(() => {
-  const option = selectedOption.value
-  return option ? `${getFullModelLabel(option)} · ${option.primary} · ${option.secondary}` : ''
-})
 </script>
 
 <style scoped>
@@ -116,9 +75,5 @@ const modelTitle = computed(() => {
 .test-variant-config__icon, .test-variant-config__run { flex: none; width: 28px; height: 28px; }
 .test-variant-config__model { min-width: 0; margin-inline-start: 16px; }
 .test-variant-config__select { min-width: 0; }
-.test-variant-config__model :deep(.n-base-selection) { --n-height: 28px !important; --n-font-size: 13px !important; }
-.test-variant-config__model :deep(.n-base-selection-overlay) { padding-inline-start: 4px; }
-.test-variant-config__model :deep(.n-base-selection .swc-primary) { color: color-mix(in srgb, var(--test-model-color) 70%, var(--test-config-color)); font-size: 13px; font-weight: 400; line-height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.test-variant-config__details { display: grid; gap: 4px; overflow-wrap: anywhere; }
 .test-variant-config[data-feedback-tone='error'] { outline: 1px solid var(--test-config-error); outline-offset: 3px; border-radius: 4px; }
 </style>

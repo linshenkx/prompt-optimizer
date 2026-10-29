@@ -1,3 +1,4 @@
+import { getTextModelSelectionConfigId } from '../../utils/text-model-selection'
 /**
  * 功能模型管理器 Composable
  *
@@ -102,16 +103,16 @@ export function useFunctionModelManager(
       globalOptimizeModelKeyRef?.value,
       fallbackModelKey,
       globalOptimizeModelFallback.value,
-    ].find(key => key && availableModelKeys.value.includes(key)) || ''
+    ].find(key => key && availableModelKeys.value.includes(getTextModelSelectionConfigId(key))) || ''
   }
   const isEvaluationModelAvailable = computed(() =>
-    !evaluationModel.value || availableModelKeys.value.includes(evaluationModel.value)
+    !evaluationModel.value || availableModelKeys.value.includes(getTextModelSelectionConfigId(evaluationModel.value))
   )
   // 固定的 computed 使用可更新的全局模型引用
   const effectiveEvaluationModel = computed(() => resolveEvaluationModelKey())
 
   const isImageRecognitionModelAvailable = computed(() =>
-    !imageRecognitionModel.value || availableModelKeys.value.includes(imageRecognitionModel.value)
+    !imageRecognitionModel.value || availableModelKeys.value.includes(getTextModelSelectionConfigId(imageRecognitionModel.value))
   )
   const effectiveImageRecognitionModel = computed(() =>
     isImageRecognitionModelAvailable.value ? imageRecognitionModel.value : ''

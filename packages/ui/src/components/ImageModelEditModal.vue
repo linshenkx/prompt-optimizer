@@ -125,27 +125,17 @@
 
           <NFormItem :label="t('image.model.label')">
             <NSpace class="image-model-picker-row" item-class="image-model-picker-item" align="center" style="width: 100%;">
-              <NSelect
-                :ref="modelMenu.selectRef"
-                v-bind="modelMenu.attrs.value"
+              <ModelIdSelector
                 data-testid="image-model-id-select"
                 class="image-model-select"
                 v-model:value="configForm.modelId"
                 :options="modelOptions"
+                :group-label="selectedProvider?.name"
                 :placeholder="t('image.model.placeholder')"
                 :loading="isLoadingModels"
                 :style="isCompact ? { minWidth: 0, width: '100%' } : { flex: 1, minWidth: '300px', maxWidth: '500px' }"
                 clearable
-                filterable
-                :filter="(pattern, option) => {
-                  const label = typeof option.label === 'string' ? option.label : String(option.value)
-                  const value = String(option.value)
-                  return label.toLowerCase().includes(pattern.toLowerCase()) || value.toLowerCase().includes(pattern.toLowerCase())
-                }"
-                tag
-                required
                 @update:value="handleModelChange"
-                @update:show="modelMenu.onUpdateShow"
               />
 
               <ThemedTooltip
@@ -286,6 +276,7 @@
 </template>
 
 <script setup lang="ts">
+import ModelIdSelector from './ModelIdSelector.vue'
 import { ChevronLeft as UiChevronLeft, RefreshCw as UiRefreshCw, Link as UiLink } from '@lucide/vue'
 import AdaptiveModal from './common/AdaptiveModal.vue'
 import ModelNetworkStatus from './ModelNetworkStatus.vue'
@@ -328,7 +319,6 @@ const props = defineProps<{
   initialConfig?: ImageModelConfig
 }>()
 const providerMenu = useCompactSelectMenu(isCompact, computed(() => props.show))
-const modelMenu = useCompactSelectMenu(isCompact, computed(() => props.show))
 
 // Emits
 const emit = defineEmits<{

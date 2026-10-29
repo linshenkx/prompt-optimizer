@@ -20,31 +20,18 @@
           </NText>
 
           <NSpace align="center" :size="8" class="model-select-row" item-class="function-model-select-item">
-            <SelectWithConfig
-              :model-value="evaluationModel || null"
+            <TextModelSelector scope="function"
+              :model-value="evaluationModel || ''"
               :options="evaluationModelOptions"
-              :getPrimary="OptionAccessors.getPrimary"
-              :getSecondary="OptionAccessors.getSecondary"
-              :getValue="OptionAccessors.getValue"
               :placeholder="t('functionModel.evaluationModelPlaceholder')"
               size="medium"
-              filterable
               clearable
-              :show-config-action="true"
-              :show-empty-config-c-t-a="true"
+              :clear-label="t('model.selector.followDefault')"
               class="model-select"
               @focus="refreshModels"
               @config="handleOpenModelManager"
               @update:model-value="handleEvaluationModelChange"
             />
-            <template v-if="!isCompact && selectedEvaluationModelInfo">
-              <NTag v-if="selectedEvaluationModelInfo.provider" size="small" type="default" round :bordered="false">
-                {{ selectedEvaluationModelInfo.provider }}
-              </NTag>
-              <NTag v-if="selectedEvaluationModelInfo.model" size="small" type="info" round :bordered="false">
-                {{ selectedEvaluationModelInfo.model }}
-              </NTag>
-            </template>
           </NSpace>
         </NSpace>
       </NCard>
@@ -68,30 +55,16 @@
           </NText>
 
           <NSpace align="center" :size="8" class="model-select-row" item-class="function-model-select-item">
-            <SelectWithConfig
-              :model-value="imageRecognitionModel || null"
+            <TextModelSelector scope="function"
+              :model-value="imageRecognitionModel || ''"
               :options="imageRecognitionModelOptions"
-              :getPrimary="OptionAccessors.getPrimary"
-              :getSecondary="OptionAccessors.getSecondary"
-              :getValue="OptionAccessors.getValue"
               :placeholder="t('model.select.placeholder')"
               size="medium"
-              filterable
-              :show-config-action="true"
-              :show-empty-config-c-t-a="true"
               class="model-select"
               @focus="refreshModels"
               @config="handleOpenModelManager"
               @update:model-value="handleImageRecognitionModelChange"
             />
-            <template v-if="!isCompact && selectedImageRecognitionModelInfo">
-              <NTag v-if="selectedImageRecognitionModelInfo.provider" size="small" type="default" round :bordered="false">
-                {{ selectedImageRecognitionModelInfo.provider }}
-              </NTag>
-              <NTag v-if="selectedImageRecognitionModelInfo.model" size="small" type="info" round :bordered="false">
-                {{ selectedImageRecognitionModelInfo.model }}
-              </NTag>
-            </template>
           </NSpace>
         </NSpace>
       </NCard>
@@ -100,12 +73,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, onMounted, ref, type Ref } from 'vue'
+import { inject, onMounted, ref, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NCard, NSpace, NTag, NText } from 'naive-ui'
-import SelectWithConfig from './SelectWithConfig.vue'
+import TextModelSelector from './TextModelSelector.vue'
 import { useFunctionModelManager } from '../composables/model/useFunctionModelManager'
-import { DataTransformer, OptionAccessors } from '../utils/data-transformer'
+import { DataTransformer } from '../utils/data-transformer'
 import { getProviderDisplayName, getTextModelConfigDisplayName } from '../utils/provider-display'
 import type { AppServices } from '../types/services'
 import type { ModelSelectOption } from '../types/select-options'
@@ -147,24 +120,6 @@ const {
 // 模型选项列表
 const evaluationModelOptions = ref<ModelSelectOption[]>([])
 const imageRecognitionModelOptions = ref<ModelSelectOption[]>([])
-
-const findModelInfo = (modelKey: string) => {
-  if (!modelKey) return null
-  const option = evaluationModelOptions.value.find(opt => opt.value === modelKey)
-  if (!option?.raw) return null
-  return {
-    provider: getProviderDisplayName(option.raw.providerMeta, t, ''),
-    model: option.raw.modelMeta?.id || null,
-  }
-}
-
-const selectedEvaluationModelInfo = computed(() => {
-  return findModelInfo(evaluationModel.value)
-})
-
-const selectedImageRecognitionModelInfo = computed(() => {
-  return findModelInfo(imageRecognitionModel.value)
-})
 
 const ensureInitializedIfSupported = async (manager: unknown) => {
   if (!manager || typeof manager !== 'object') return
@@ -245,14 +200,14 @@ const initialize = async () => {
 
 // 打开模型管理器
 const handleOpenModelManager = () => {
-  // 功能模型相关操作优先留在 function 页签，方便直接完成设置
+  // Configuration actions open connection settings; function selection remains global.
   if (appOpenModelManager) {
-    appOpenModelManager('function')
+    appOpenModelManager('text')
     return
   }
 
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('model-manager:set-tab', { detail: 'function' }))
+    window.dispatchEvent(new CustomEvent('model-manager:set-tab', { detail: 'text' }))
   }
   console.warn('[FunctionModelManager] openModelManager not provided by host app')
 }

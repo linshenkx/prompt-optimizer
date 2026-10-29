@@ -174,6 +174,7 @@ const mountComponent = (config = createConfig()) => {
         NPopover: NPopoverStub,
         'n-popover': NPopoverStub,
         Popover: NPopoverStub,
+        ModelIdSelector: NSelectStub,
         NSelect: NSelectStub,
         'n-select': NSelectStub,
         Select: NSelectStub,

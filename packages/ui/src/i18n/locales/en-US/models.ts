@@ -222,6 +222,25 @@ const messages = {
     "unsupportedImageRecognitionModel": "The current image recognition model does not support image extraction: {provider}"
   },
   "model": {
+    "selector": {
+      "clear": "Clear selection",
+      "useCustom": "Use \"{model}\"",
+      "draftScope": "Applied to this shared configuration on save",
+      "sharedScope": "Changes this configuration everywhere it is used",
+      "functionScope": "Saved as a global function setting",
+      "followDefault": "Follow default optimization model",
+      "choose": "Choose configuration and model",
+      "search": "Search configurations or models",
+      "configuration": "Configuration",
+      "more": "More models ({count})",
+      "back": "All configurations",
+      "loading": "Loading models…",
+      "retry": "Could not load models. Retry",
+      "empty": "No matching models",
+      "columnScope": "Only this test column",
+      "workspaceScope": "Only this workspace",
+      "manage": "Manage configurations"
+    },
     "select": {
       "placeholder": "Please select a model",
       "configure": "Configure Model",

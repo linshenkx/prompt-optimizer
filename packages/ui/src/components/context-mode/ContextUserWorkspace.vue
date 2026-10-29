@@ -101,28 +101,15 @@
                     @add-missing-variable="handleAddMissingVariable"
                 >
                     <!-- 模型选择插槽 -->
-                    <template #model-label-extra>
-                        <TextModelQuickSwitch v-if="!isCompact"
-                            :model-key="selectedOptimizeModelKeyModel"
-                            :options="modelSelection.textModelOptions.value"
-                            :refresh-models="modelSelection.refreshTextModels"
-                            :disabled="contextUserOptimization.isOptimizing"
-                        />
-                    </template>
+
 
                     <template #model-select>
-                        <SelectWithConfig
+                        <TextModelSelector
                             v-model="selectedOptimizeModelKeyModel"
                             :options="modelSelection.textModelOptions.value"
-                            :getPrimary="OptionAccessors.getPrimary"
-                            :getSecondary="OptionAccessors.getSecondary"
-                            :getValue="OptionAccessors.getValue"
                             :placeholder="t('model.select.placeholder')"
                             size="medium"
                             :disabled="contextUserOptimization.isOptimizing"
-                            filterable
-                            :show-config-action="true"
-                            :show-empty-config-c-t-a="true"
                             @focus="modelSelection.refreshTextModels"
                             @config="handleOpenModelManager"
                         />
@@ -356,12 +343,7 @@
                                             clickable
                                             @click="openCompareRoleConfig"
                                         />
-                                        <TextModelQuickSwitch v-if="!isCompact"
-                                            :model-key="variantModelKeyModels[id].value"
-                                            :options="modelSelection.textModelOptions.value"
-                                            :refresh-models="modelSelection.refreshTextModels"
-                                            :disabled="variantRunning[id] || isAnyVariantRunning"
-                                        />
+
                                     </div>
 
                                     <div class="variant-cell__actions">
@@ -374,20 +356,14 @@
                                             @update:value="(value) => handleVariantVersionChange(id, value)"
                                         /></div>
                                         <div class="variant-cell__model"><NText v-if="isCompact" depth="2" class="test-settings-label">{{ t('test.model') }}</NText>
-                                            <SelectWithConfig
+                                            <TextModelSelector scope="column"
                                                 :data-testid="getVariantModelTestId(id)"
                                                 :model-value="variantModelKeyModels[id].value"
                                                 @update:model-value="(value) => { variantModelKeyModels[id].value = String(value ?? '') }"
                                                 :options="modelSelection.textModelOptions.value"
-                                                :getPrimary="OptionAccessors.getPrimary"
-                                                :getSecondary="OptionAccessors.getSecondary"
-                                                :getValue="OptionAccessors.getValue"
                                                 :placeholder="t('model.select.placeholder')"
                                                 size="medium"
                                                 :disabled="variantRunning[id] || isAnyVariantRunning"
-                                                filterable
-                                                :show-config-action="true"
-                                                :show-empty-config-c-t-a="true"
                                                 @focus="modelSelection.refreshTextModels"
                                                 @config="emit('config-model')"
                                                 style="min-width: 0; width: 100%;"
@@ -525,6 +501,7 @@
             @retry="handleReEvaluateActive"
         />
         <CompareRoleConfigDialog
+            :model-labels="Object.fromEntries(modelSelection.textModelOptions.value.map(option => [option.value, option.primary]))"
             v-model="compareRoleConfig.showDialog.value"
             :entries="compareRoleConfig.entries.value"
             :manual-roles="compareRoleConfig.validManualRoles.value"
@@ -552,6 +529,7 @@
 </template>
 
 <script setup lang="ts">
+import { getTextModelSelectionConfigId, findTextModelSelection } from '../../utils/text-model-selection'
 import { ChevronDown as UiChevronDown, ChevronUp as UiChevronUp, Play as UiPlay } from '@lucide/vue'
 import { useVariableExtraction } from '../../composables/prompt/useVariableExtraction'
 import VariableExtractionResultDialog from '../variable-extraction/VariableExtractionResultDialog.vue'
@@ -608,7 +586,7 @@ import OutputDisplay from "../OutputDisplay.vue";
 import { beginOutputStream } from '../../utils/output-document'
 import SaveTestResultExampleButton from '../SaveTestResultExampleButton.vue'
 import SelectWithConfig from "../SelectWithConfig.vue";
-import TextModelQuickSwitch from "../TextModelQuickSwitch.vue";
+import TextModelSelector from "../TextModelSelector.vue";
 import TestPanelVersionSelect from '../TestPanelVersionSelect.vue'
 import TestSourceLinkedCard from '../TestSourceLinkedCard.vue'
 import TestVariantSourceTag from '../TestVariantSourceTag.vue'
@@ -1113,7 +1091,7 @@ watch(
 
         for (const id of ALL_VARIANT_IDS) {
             const current = variantModelKeyModels[id].value
-            if (!current || !keys.has(current)) {
+            if (!current || !keys.has(getTextModelSelectionConfigId(current))) {
                 proVariableSession.updateTestVariant(id, { modelKey: seed })
             }
         }
@@ -2164,7 +2142,7 @@ defineExpose({
 
 // The mobile shell shares the same prompt, variants and business actions as desktop.
 const mobileVariants = computed(() => activeVariantIds.value.map(id => {
-  const option = (modelSelection.textModelOptions.value).find(item => String(OptionAccessors.getValue(item)) === variantModelKeyModels[id].value)
+  const option = findTextModelSelection(modelSelection.textModelOptions.value, variantModelKeyModels[id].value)
   return {
     id,
     sourceLabel: String(versionOptions.value.find(item => item.value === variantVersionModels[id].value)?.label || ''),

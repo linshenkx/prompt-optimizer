@@ -4,6 +4,7 @@ import { flushPromises } from '@vue/test-utils'
 import { useWorkspaceModelSelection } from '../../../src/composables/workspaces/useWorkspaceModelSelection'
 import { useWorkspaceTextModelSelection } from '../../../src/composables/workspaces/useWorkspaceTextModelSelection'
 import type { AppServices } from '../../../src/types/services'
+import { encodeTextModelSelection } from '@prompt-optimizer/core'
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 const model = { id: 'selected', name: 'Selected', enabled: true }
@@ -27,6 +28,24 @@ const createSelection = (mode: string) => {
 }
 
 describe.each(['pro', 'image'])('%s workspace model refresh', (mode) => {
+  it('retains a restored local model choice when its connection still exists', async () => {
+    const { selection, session, getEnabledModels } = createSelection(mode)
+    await flushPromises()
+    const key = encodeTextModelSelection('selected', 'private/other-model')
+    session.selectedOptimizeModelKey = key
+    session.selectedTestModelKey = key
+    session.selectedTextModelKey = key
+    await selection.refreshTextModels()
+    if (mode === 'image') expect(session.selectedTextModelKey).toBe(key)
+    else {
+      expect(session.selectedOptimizeModelKey).toBe(key)
+      expect(session.selectedTestModelKey).toBe(key)
+    }
+    getEnabledModels.mockResolvedValue([{ ...model, id: 'replacement' }])
+    await selection.refreshTextModels()
+    if (mode === 'image') expect(session.selectedTextModelKey).toBe('replacement')
+    else expect(session.selectedOptimizeModelKey).toBe('replacement')
+  })
   it('clears invalid selections when all models are removed and restores defaults when a model is added', async () => {
     const { selection, getEnabledModels, session } = createSelection(mode)
     await flushPromises()

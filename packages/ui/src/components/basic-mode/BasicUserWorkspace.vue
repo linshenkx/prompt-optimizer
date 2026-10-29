@@ -89,28 +89,15 @@
                         @configModel="handleOpenModelManager"
                     >
                         <!-- 模型选择 -->
-                        <template #model-label-extra>
-                            <TextModelQuickSwitch v-if="!isCompact"
-                                :model-key="selectedOptimizeModelKeyModel"
-                                :options="modelSelection.textModelOptions.value"
-                                :refresh-models="modelSelection.refreshTextModels"
-                                :disabled="unwrappedLogicProps.isOptimizing"
-                            />
-                        </template>
+
 
                         <template #model-select>
-                            <SelectWithConfig
+                            <TextModelSelector
                                 v-model="selectedOptimizeModelKeyModel"
                                 :options="modelSelection.textModelOptions"
-                                :getPrimary="OptionAccessors.getPrimary"
-                                :getSecondary="OptionAccessors.getSecondary"
-                                :getValue="OptionAccessors.getValue"
                                 :placeholder="t('model.select.placeholder')"
                                 size="medium"
                                 :disabled="unwrappedLogicProps.isOptimizing"
-                                filterable
-                                :show-config-action="true"
-                                :show-empty-config-c-t-a="true"
                                 @focus="modelSelection.refreshTextModels"
                                 @config="handleOpenModelManager"
                             />
@@ -338,20 +325,14 @@
                                         </div>
                                         <div class="variant-cell__model">
                                             <NText v-if="isCompact" depth="2" class="test-settings-label">{{ t('test.model') }}</NText>
-                                            <SelectWithConfig
+                                            <TextModelSelector scope="column"
                                                 :data-testid="getVariantModelTestId(id)"
                                                 :model-value="variantModelKeyModels[id].value"
                                                 @update:model-value="(value) => { variantModelKeyModels[id].value = String(value ?? '') }"
                                                 :options="modelSelection.textModelOptions"
-                                                :getPrimary="OptionAccessors.getPrimary"
-                                                :getSecondary="OptionAccessors.getSecondary"
-                                                :getValue="OptionAccessors.getValue"
                                                 :placeholder="t('model.select.placeholder')"
                                                 size="medium"
                                                 :disabled="variantRunning[id] || isAnyVariantRunning"
-                                                filterable
-                                                :show-config-action="true"
-                                                :show-empty-config-c-t-a="true"
                                                 @focus="modelSelection.refreshTextModels"
                                                 @config="handleOpenModelManager"
                                                 style="min-width: 0; width: 100%;"
@@ -526,6 +507,7 @@
 </template>
 
 <script setup lang="ts">
+import { getTextModelSelectionConfigId } from '../../utils/text-model-selection'
 import { ChevronDown as UiChevronDown, ChevronUp as UiChevronUp, Play as UiPlay } from '@lucide/vue'
 import TestSourcePreview from '../common/TestSourcePreview.vue'
 import TestWorkspaceLayout from '../common/TestWorkspaceLayout.vue'
@@ -595,7 +577,7 @@ import {
 } from '../evaluation'
 import { buildCompareToolbarStatus } from '../evaluation/compare-ui'
 import SelectWithConfig from '../SelectWithConfig.vue'
-import TextModelQuickSwitch from '../TextModelQuickSwitch.vue'
+import TextModelSelector from '../TextModelSelector.vue'
 import TestPanelVersionSelect from '../TestPanelVersionSelect.vue'
 import TestSourceLinkedCard from '../TestSourceLinkedCard.vue'
 import TestVariantConfig from '../TestVariantConfig.vue'
@@ -719,11 +701,11 @@ watch(
     const keys = new Set((opts || []).map(o => o.value))
 
     const legacy = logic.selectedTestModelKey.value
-    const seed = legacy && keys.has(legacy) ? legacy : fallback
+    const seed = legacy && keys.has(getTextModelSelectionConfigId(legacy)) ? legacy : fallback
 
     for (const id of ALL_VARIANT_IDS) {
       const current = variantModelKeyModels[id].value
-      if (!current || !keys.has(current)) {
+      if (!current || !keys.has(getTextModelSelectionConfigId(current))) {
         session.updateTestVariant(id, { modelKey: seed })
       }
     }

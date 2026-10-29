@@ -1,5 +1,6 @@
 import { IModelManager, ModelConfig, TextModel, TextModelConfig, TextProvider } from './types';
 import { IStorageProvider } from '../storage/types';
+import { decodeTextModelSelection, resolveTextModelSelection } from './selection';
 import { StorageAdapter } from '../storage/adapter';
 import { getAllModels, getBuiltinModelIds } from './defaults';
 import { ModelConfigError } from '../llm/errors';
@@ -856,14 +857,17 @@ export class ModelManager implements IModelManager {
   async getModel(key: string): Promise<TextModelConfig | undefined> {
     await this.ensureInitialized();
     const models = await this.getModelsFromStorage();
-    const config = models[key];
+    const selection = models[key] ? null : decodeTextModelSelection(key);
+    const configKey = selection?.configId ?? key;
+    const config = models[configKey];
 
     if (!config) {
       return undefined;
     }
 
     const registry = await this.getRegistry()
-    return this.normalizeStoredTextModelConfig(key, config, registry)
+    const normalized = this.normalizeStoredTextModelConfig(configKey, config, registry)
+    return selection ? resolveTextModelSelection(normalized, selection, registry) : normalized
   }
 
   /**

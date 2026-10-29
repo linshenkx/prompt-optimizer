@@ -219,26 +219,15 @@
                       <NText class="image-input-label" :depth="2" style="font-size: 14px; font-weight: 500; flex-shrink: 0;">
                         {{ t('imageWorkspace.input.textModel') }}
                       </NText>
-                      <TextModelQuickSwitch v-if="!isCompact"
-                        :model-key="selectedTextModelKey"
-                        :options="textModelOptions"
-                        :refresh-models="modelSelection.refreshTextModels"
-                        :disabled="optimizing || isIterating"
-                      />
+
                     </NFlex>
-                    <SelectWithConfig
+                    <TextModelSelector
                       data-testid="image-multiimage-text-model-select"
                       v-model="selectedTextModelKey"
                       :options="textModelOptions"
-                      :getPrimary="OptionAccessors.getPrimary"
-                      :getSecondary="OptionAccessors.getSecondary"
-                      :getValue="OptionAccessors.getValue"
                       :placeholder="t('imageWorkspace.input.modelPlaceholder')"
                       size="medium"
                       :disabled="optimizing || isIterating"
-                      filterable
-                      :show-config-action="!!appOpenModelManager"
-                      :show-empty-config-c-t-a="true"
                       @focus="handleTextModelSelectFocus"
                       @config="() => appOpenModelManager && appOpenModelManager('text')"
                     />
@@ -402,12 +391,6 @@
                       :feedback-tone="variantSourceFeedback[id].tone"
                       @activate="isCompact ? previewMobileSource(id) : activateVariantSource(id)"
                     />
-                    <ImageModelQuickSwitch v-if="!isCompact"
-                      :model-key="variantModelKeyModels[id].value"
-                      :options="imageModelOptions"
-                      :refresh-models="refreshImageModelsHandler"
-                      :disabled="variantRunning[id]"
-                    />
                   </div>
 
                   <div class="variant-cell__actions">
@@ -421,20 +404,15 @@
                     /></div>
 
                     <div class="variant-cell__model"><NText v-if="isCompact" depth="2" class="test-settings-label">{{ t('test.model') }}</NText>
-                      <SelectWithConfig
+                      <ImageModelSelector
                         :data-testid="getVariantModelTestId(id)"
                         :model-value="variantModelKeyModels[id].value"
                         @update:model-value="(value) => { variantModelKeyModels[id].value = String(value ?? '') }"
                         :options="imageModelOptions"
-                        :getPrimary="OptionAccessors.getPrimary"
-                        :getSecondary="OptionAccessors.getSecondary"
-                        :getValue="OptionAccessors.getValue"
                         :placeholder="t('imageWorkspace.generation.imageModelPlaceholder')"
                         size="small"
                         :disabled="variantRunning[id]"
-                        filterable
                         :show-config-action="!!appOpenModelManager"
-                        :show-empty-config-c-t-a="true"
                         @focus="refreshImageModelsHandler"
                         @config="() => appOpenModelManager && appOpenModelManager('image')"
                         style="min-width: 0; width: 100%;"
@@ -616,6 +594,7 @@
 </template>
 
 <script setup lang="ts">
+import ImageModelSelector from '../ImageModelSelector.vue'
 import { ChevronDown as UiChevronDown, Maximize2 as UiMaximize2, ChevronUp as UiChevronUp, X as UiX, Play as UiPlay, Download as UiDownload, Copy as UiCopy } from '@lucide/vue'
 import OptimizeWorkspaceLayout from '../common/OptimizeWorkspaceLayout.vue'
 import VariantTestWorkspaceLayout from '../common/VariantTestWorkspaceLayout.vue'
@@ -677,9 +656,8 @@ import { OptionAccessors } from '../../utils/data-transformer'
 import type { VariableManagerHooks } from '../../composables/prompt/useVariableManager'
 import PromptPanelUI from '../PromptPanel.vue'
 import PromptPreviewPanel from '../PromptPreviewPanel.vue'
-import ImageModelQuickSwitch from '../ImageModelQuickSwitch.vue'
 import SelectWithConfig from '../SelectWithConfig.vue'
-import TextModelQuickSwitch from '../TextModelQuickSwitch.vue'
+import TextModelSelector from '../TextModelSelector.vue'
 import TestSourceLinkedCard from '../TestSourceLinkedCard.vue'
 import TestVariantSourceTag from '../TestVariantSourceTag.vue'
 import FullscreenDialog from '../FullscreenDialog.vue'

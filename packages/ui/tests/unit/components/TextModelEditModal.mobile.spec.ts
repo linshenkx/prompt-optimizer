@@ -3,6 +3,7 @@ import { computed, defineComponent, h, nextTick, provide, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { TextAdapterRegistry } from '@prompt-optimizer/core'
 import TextModelEditModal from '../../../src/components/TextModelEditModal.vue'
+import ModelIdSelector from '../../../src/components/ModelIdSelector.vue'
 import { useTextModelManager } from '../../../src/composables/model/useTextModelManager'
 import { allowConsole } from '../../utils/error-detection'
 
@@ -119,12 +120,12 @@ describe('mobile text model editor draft lifecycle', () => {
     wrapper.unmount()
   })
 
-  it('constrains both searchable pickers to the keyboard viewport and removes desktop constraints', async () => {
+  it('retains provider viewport handling and the shared model draft picker across layouts', async () => {
     vi.stubGlobal('visualViewport', Object.assign(new EventTarget(), { offsetTop: 0, height: 299, scale: 1 }))
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ top: 225, bottom: 257 } as DOMRect)
     const { wrapper, manager, compact } = renderEditor()
     await flushPromises()
-    for (const id of ['text-model-provider-select', 'text-model-id-select']) {
+    for (const id of ['text-model-provider-select']) {
       const select = wrapper.getComponent(`[data-testid="${id}"]`)
       select.vm.$emit('update:show', true)
       await flushPromises()
@@ -136,11 +137,11 @@ describe('mobile text model editor draft lifecycle', () => {
     }
     compact.value = false
     await flushPromises()
-    const desktopModel = wrapper.getComponent('[data-testid="text-model-id-select"]')
+    const desktopModel = wrapper.getComponent(ModelIdSelector)
     desktopModel.vm.$emit('update:show', true)
     await flushPromises()
-    expect(desktopModel.props('menuProps')).toBeUndefined()
-    expect(desktopModel.props('placement')).toBe('bottom-start')
+    expect(desktopModel.props('clearable')).toBe(true)
+    expect(desktopModel.props('allowCustom')).toBe(true)
     expect(manager.form.value.modelId).toBe('model-a')
     expect(manager.resetFormState).not.toHaveBeenCalled()
     wrapper.unmount()

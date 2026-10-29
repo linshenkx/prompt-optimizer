@@ -1,3 +1,4 @@
+import { getTextModelSelectionConfigId, findTextModelSelection } from '../../utils/text-model-selection'
 /**
  * 工作区模型选择逻辑（通用）
  *
@@ -51,7 +52,7 @@ export function useWorkspaceModelSelection<T extends WorkspaceModelSessionStore>
   // 优化模型信息（派生）
   const selectedOptimizeModelInfo = computed(() => {
     const key = selectedOptimizeModelKey.value
-    const option = textModelOptions.value.find(opt => opt.value === key)
+    const option = findTextModelSelection(textModelOptions.value, key)
     return {
       provider: option?.raw ? getProviderDisplayName(option.raw.providerMeta, t, '') : null,
       model: option?.raw?.modelMeta?.name || null
@@ -61,7 +62,7 @@ export function useWorkspaceModelSelection<T extends WorkspaceModelSessionStore>
   // 测试模型信息（派生）
   const selectedTestModelInfo = computed(() => {
     const key = selectedTestModelKey.value
-    const option = textModelOptions.value.find(opt => opt.value === key)
+    const option = findTextModelSelection(textModelOptions.value, key)
     return {
       provider: option?.raw ? getProviderDisplayName(option.raw.providerMeta, t, '') : null,
       model: option?.raw?.modelMeta?.name || null
@@ -102,14 +103,14 @@ export function useWorkspaceModelSelection<T extends WorkspaceModelSessionStore>
       const modelKeys = new Set(textModelOptions.value.map(opt => opt.value))
 
        // 优化模型
-       if (selectedOptimizeModelKey.value && !modelKeys.has(selectedOptimizeModelKey.value)) {
+       if (selectedOptimizeModelKey.value && !modelKeys.has(getTextModelSelectionConfigId(selectedOptimizeModelKey.value))) {
         selectedOptimizeModelKey.value = fallback
        }
        // 测试模型
-       if (selectedTestModelKey.value && !modelKeys.has(selectedTestModelKey.value)) {
+       if (selectedTestModelKey.value && !modelKeys.has(getTextModelSelectionConfigId(selectedTestModelKey.value))) {
         selectedTestModelKey.value = fallback
        }
- 
+
        // 只在完全没有选中模型时设置默认值
       if (!selectedOptimizeModelKey.value && fallback) {
         selectedOptimizeModelKey.value = fallback

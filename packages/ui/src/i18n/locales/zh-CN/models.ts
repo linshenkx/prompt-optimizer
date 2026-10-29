@@ -222,6 +222,25 @@ const messages = {
     "unsupportedImageRecognitionModel": "当前图像识别模型暂不支持图片提取：{provider}"
   },
   "model": {
+    "selector": {
+      "clear": "清除选择",
+      "useCustom": "使用“{model}”",
+      "draftScope": "保存后应用于此共享配置",
+      "sharedScope": "修改此共享配置，影响所有使用位置",
+      "functionScope": "保存为全局功能设置",
+      "followDefault": "跟随默认优化模型",
+      "choose": "选择配置和模型",
+      "search": "搜索配置或模型",
+      "configuration": "配置",
+      "more": "更多模型（{count}）",
+      "back": "返回全部配置",
+      "loading": "正在获取模型…",
+      "retry": "获取失败，点击重试",
+      "empty": "没有匹配的模型",
+      "columnScope": "仅用于当前测试列",
+      "workspaceScope": "仅用于当前工作区",
+      "manage": "管理配置"
+    },
     "select": {
       "placeholder": "请选择模型",
       "configure": "配置模型",

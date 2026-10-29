@@ -1,4 +1,5 @@
 import { IModelManager, TextModelConfig } from './types';
+import { decodeTextModelSelection, resolveTextModelSelection } from './selection';
 import { safeSerializeForIPC } from '../../utils/ipc-serialization';
 import { ModelError } from './errors';
 import { MODEL_ERROR_CODES } from '../../constants/error-codes';
@@ -39,7 +40,13 @@ export class ElectronModelManagerProxy implements IModelManager {
 
   async getModel(key: string): Promise<TextModelConfig | undefined> {
     const models = await this.getAllModels();
-    return models.find(m => m.id === key);
+    const direct = models.find(m => m.id === key);
+    if (direct) return direct;
+    const selection = decodeTextModelSelection(key);
+    const config = selection && models.find(m => m.id === selection.configId);
+    if (!selection || !config) return undefined;
+    const { TextAdapterRegistry } = await import('../llm/adapters/registry');
+    return resolveTextModelSelection(config, selection, new TextAdapterRegistry());
   }
 
   async addModel(key: string, config: TextModelConfig): Promise<void> {

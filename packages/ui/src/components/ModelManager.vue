@@ -141,6 +141,17 @@ watch(activeTab, async (tab, previous) => {
 const hasDesktopNetwork = typeof window !== 'undefined' && !!window.electronAPI?.network
 const showNetworkSettings = ref(false)
 const textManagerRef = ref<InstanceType<typeof TextModelManager> | null>(null)
+const openTextModel = async (id: string) => {
+  activeTab.value = 'text'
+  await nextTick()
+  await textManagerRef.value?.openEditModal(id)
+}
+const openImageModel = async (id: string) => {
+  activeTab.value = 'image'
+  await nextTick()
+  handleEditImageModel(id)
+}
+defineExpose({ openTextModel, openImageModel })
 const imageListRef = ref<InstanceType<typeof ImageModelManager> | null>(null)
 const functionManagerRef = ref<InstanceType<typeof FunctionModelManager> | null>(null)
 const showImageModelEdit = ref(false)

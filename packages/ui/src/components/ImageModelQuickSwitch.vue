@@ -37,11 +37,13 @@
           <NText depth="2" class="image-model-quick-switch__title">
             {{ t('image.model.quickSwitch.title') }}
           </NText>
-          <NSelect
+          <ModelIdSelector
             :value="selectedModelId"
             :options="modelOptions"
             :loading="loading"
-            filterable
+            :allow-custom="false"
+            :clearable="false"
+            :scope-text="t('model.selector.sharedScope')"
             size="small"
             :placeholder="t('image.model.quickSwitch.placeholder')"
             @update:value="handleModelSelect"
@@ -56,9 +58,10 @@
 </template>
 
 <script setup lang="ts">
+import ModelIdSelector from './ModelIdSelector.vue'
 import { computed, inject, ref, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NPopover, NSelect, NSpace, NTag, NText, type SelectOption as NaiveSelectOption } from 'naive-ui'
+import { NPopover, NSpace, NTag, NText, type SelectOption as NaiveSelectOption } from 'naive-ui'
 import type { IImageAdapterRegistry, ImageModel, ImageModelConfig } from '@prompt-optimizer/core'
 
 import { useToast } from '../composables/ui/useToast'

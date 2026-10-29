@@ -150,6 +150,7 @@ const openAddModal = async () => {
 
 defineExpose({
   openAddModal,
+  openEditModal: handleEditModel,
   refresh: manager.loadModels
 })
 

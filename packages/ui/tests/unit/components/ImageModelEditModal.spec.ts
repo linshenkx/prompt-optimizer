@@ -66,11 +66,11 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
 describe('mobile image model editor draft lifecycle', () => {
-  it('keeps provider and model search menus above the IME without changing desktop selection props', async () => {
+  it('retains provider viewport handling and the shared model draft picker across layouts', async () => {
     vi.stubGlobal('visualViewport', Object.assign(new EventTarget(), { offsetTop: 0, height: 299, scale: 1 }))
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ top: 225, bottom: 257 } as DOMRect)
     const wrapper = await createWrapper()
-    for (const id of ['image-model-provider-select', 'image-model-id-select']) {
+    for (const id of ['image-model-provider-select']) {
       const select = wrapper.getComponent(`[data-testid="${id}"]`)
       select.vm.$emit('update:show', true)
       await flushPromises()
@@ -85,8 +85,8 @@ describe('mobile image model editor draft lifecycle', () => {
     const desktopModel = wrapper.getComponent('[data-testid="image-model-id-select"]')
     desktopModel.vm.$emit('update:show', true)
     await flushPromises()
-    expect(desktopModel.props('menuProps')).toBeUndefined()
-    expect(desktopModel.props('placement')).toBe('bottom-start')
+    expect(desktopModel.props('clearable')).toBe(true)
+    expect(desktopModel.props('allowCustom')).toBe(true)
     expect(state.current.configForm.value.modelId).toBe('image-model-a')
     wrapper.unmount()
   })

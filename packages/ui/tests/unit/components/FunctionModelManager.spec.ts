@@ -3,9 +3,11 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { ref } from 'vue'
 import { FUNCTION_MODEL_KEYS } from '@prompt-optimizer/core'
 import FunctionModelManager from '../../../src/components/FunctionModelManager.vue'
-import SelectWithConfig from '../../../src/components/SelectWithConfig.vue'
+import TextModelSelector from '../../../src/components/TextModelSelector.vue'
 import { resetFunctionModelManagerSingleton, useFunctionModelManager } from '../../../src/composables/model/useFunctionModelManager'
 import type { AppServices } from '../../../src/types/services'
+
+const config = (id: string, name = id) => ({ id, name, enabled: true, providerMeta: { id: 'custom', name: 'Custom' }, modelMeta: { id: 'model-a', name: 'Model A' }, connectionConfig: {} })
 
 const { toastError } = vi.hoisted(() => ({ toastError: vi.fn() }))
 vi.mock('../../../src/composables/ui/useToast', () => ({
@@ -20,7 +22,7 @@ describe('FunctionModelManager default evaluation model', () => {
   afterEach(resetFunctionModelManagerSingleton)
 
   const createListServices = () => {
-    const models = [{ id: 'current', name: 'Current', enabled: true }]
+    const models = [config('current', 'Current')]
     const getEnabledModels = vi.fn().mockResolvedValue(models)
     const services = ref({
       modelManager: { getAllModels: vi.fn().mockResolvedValue(models), getEnabledModels },
@@ -37,16 +39,16 @@ describe('FunctionModelManager default evaluation model', () => {
     let rejectOlder!: (error: Error) => void
     getEnabledModels.mockImplementationOnce(() => new Promise((resolve, reject) => {
       resolveOlder = resolve; rejectOlder = reject
-    })).mockResolvedValueOnce([{ id: 'latest', name: 'Latest', enabled: true }])
+    })).mockResolvedValueOnce([config('latest', 'Latest')])
     const refresh = () => (wrapper.vm as unknown as { refresh: () => Promise<void> }).refresh()
     const older = refresh()
     await flushPromises()
     await refresh()
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    if (outcome === 'success') resolveOlder([{ id: 'obsolete', name: 'Obsolete', enabled: true }])
+    if (outcome === 'success') resolveOlder([config('obsolete', 'Obsolete')])
     else rejectOlder(new Error('obsolete failure'))
     await older
-    expect(wrapper.findAllComponents(SelectWithConfig)[0].props('options').map((option: any) => option.value)).toEqual(['latest'])
+    expect(wrapper.findAllComponents(TextModelSelector)[0].props('options').map((option: any) => option.value)).toEqual(['latest'])
     expect(toastError).not.toHaveBeenCalled()
     wrapper.unmount()
   })
@@ -58,7 +60,7 @@ describe('FunctionModelManager default evaluation model', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
     getEnabledModels.mockRejectedValueOnce(new Error('temporary list failure'))
     await (wrapper.vm as unknown as { refresh: () => Promise<void> }).refresh()
-    expect(wrapper.findAllComponents(SelectWithConfig)[0].props('options').map((option: any) => option.value)).toEqual(['current'])
+    expect(wrapper.findAllComponents(TextModelSelector)[0].props('options').map((option: any) => option.value)).toEqual(['current'])
     expect(toastError).toHaveBeenCalledWith(expect.stringContaining('temporary list failure'))
     wrapper.unmount()
   })
@@ -86,17 +88,16 @@ describe('FunctionModelManager default evaluation model', () => {
     let wrapper = mountManager()
     await flushPromises()
     expect(manager.resolveEvaluationModelKey('test-model')).toBe('deepseek')
-    expect(wrapper.findAllComponents(SelectWithConfig)[0].props('modelValue')).toBe('deepseek')
+    expect(wrapper.findAllComponents(TextModelSelector)[0].props('modelValue')).toBe('deepseek')
 
-    const overrideSelect = wrapper.findAllComponents(SelectWithConfig)[0]
-    await overrideSelect.get('.n-base-selection').trigger('mouseenter')
-    await overrideSelect.get('[data-clear]').trigger('click')
+    const overrideSelect = wrapper.findAllComponents(TextModelSelector)[0]
+    overrideSelect.vm.$emit('update:modelValue', '')
     await flushPromises()
 
     expect(saved.get(FUNCTION_MODEL_KEYS.EVALUATION_MODEL)).toBe('')
     expect(manager.resolveEvaluationModelKey('test-model')).toBe('gemini')
-    const evaluationSelect = wrapper.findAllComponents(SelectWithConfig)[0]
-    expect(evaluationSelect.props('modelValue')).toBeNull()
+    const evaluationSelect = wrapper.findAllComponents(TextModelSelector)[0]
+    expect(evaluationSelect.props('modelValue')).toBe('')
     expect(evaluationSelect.text()).toContain('Default: use global optimization model')
     wrapper.unmount()
 
@@ -124,9 +125,8 @@ describe('FunctionModelManager default evaluation model', () => {
     const wrapper = mount(FunctionModelManager, { global: { provide: { services } } })
     await flushPromises()
 
-    const evaluationSelect = wrapper.findAllComponents(SelectWithConfig)[0]
-    await evaluationSelect.get('.n-base-selection').trigger('mouseenter')
-    await evaluationSelect.get('[data-clear]').trigger('click')
+    const evaluationSelect = wrapper.findAllComponents(TextModelSelector)[0]
+    evaluationSelect.vm.$emit('update:modelValue', '')
     await flushPromises()
 
     expect(services.value.preferenceService.set).toHaveBeenCalledWith(FUNCTION_MODEL_KEYS.EVALUATION_MODEL, '')
