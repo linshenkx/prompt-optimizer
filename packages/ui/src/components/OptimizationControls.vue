@@ -41,11 +41,11 @@ const { t } = useI18n()
   .optimization-controls:not(.optimization-controls--compact) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .optimization-controls:not(.optimization-controls--compact) .optimization-controls__actions { grid-column: 1 / -1; }
 }
-.optimization-controls--compact { grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr) 48px; gap: 6px; }
-.optimization-controls--compact.optimization-controls--single { grid-template-columns: minmax(0, 1fr) 48px; }
+.optimization-controls--compact { grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr) max-content; gap: 6px; }
+.optimization-controls--compact.optimization-controls--single { grid-template-columns: minmax(0, 1fr) max-content; }
 .optimization-controls--compact .optimization-controls__label { display: none; }
 .optimization-controls--compact .optimization-controls__label-row { display: none; }
 .optimization-controls--compact .optimization-controls__actions { min-width: 0; }
 .optimization-controls--compact .optimization-controls__field :deep(.text-model-selector) { height: 44px; }
-.optimization-controls--compact .optimization-controls__actions :deep(.n-button) { width: 48px; height: 44px; padding: 0; }
+.optimization-controls--compact .optimization-controls__actions :deep(.n-button) { min-width: 48px; height: 44px; padding: 0 10px; }
 </style>

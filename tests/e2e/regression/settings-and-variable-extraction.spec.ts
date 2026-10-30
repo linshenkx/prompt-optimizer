@@ -3,11 +3,10 @@ import { test, expect, type Page } from '@playwright/test'
 test.use({ actionTimeout: 10000 })
 test.describe.configure({ timeout: 90000 })
 
-async function openDataManager(page: Page, compact: boolean, task: 'export' | 'import') {
+async function openDataManager(page: Page, compact: boolean) {
   if (compact) {
     await page.getByTestId('compact-global-menu').click()
     await page.getByTestId('compact-menu-data').click()
-    await page.getByTestId(`data-manager-task-${task}`).click()
   } else {
     await page.getByTestId('header-modal-actions').getByRole('button', { name: /Data Manager|数据管理/ }).click()
   }
@@ -36,9 +35,9 @@ for (const compact of [true, false]) {
       })
       await page.reload()
       await expect(page.getByTestId('workspace')).toBeVisible()
-      await openDataManager(page, compact, 'export')
+      await openDataManager(page, compact)
       const download = page.waitForEvent('download')
-      await page.locator('.data-manager-modal').getByRole('button', { name: /^(Export Data|导出数据)$/ }).click()
+      await page.getByTestId('local-backup-create').click()
       const file = await download
       const path = testInfo.outputPath('settings.po-backup.zip')
       await file.saveAs(path)
@@ -52,10 +51,11 @@ for (const compact of [true, false]) {
       })
       await page.reload()
       await expect(page.getByTestId('workspace')).toBeVisible()
-      await openDataManager(page, compact, 'import')
+      await openDataManager(page, compact)
       await page.locator('.data-manager-modal input[type="file"]').setInputFiles(path)
       const navigation = page.waitForEvent('framenavigated', { predicate: frame => frame === page.mainFrame() })
-      await page.locator('.data-manager-modal').getByRole('button', { name: /^(Import Data|导入数据)$/ }).click()
+      await expect(page.getByTestId('restore-confirmation')).toBeVisible()
+      await page.getByTestId('backup-restore-confirm').click()
       await navigation
       await expect(page.getByTestId('workspace')).toBeVisible()
       await expect.poll(() => page.evaluate(() => {
