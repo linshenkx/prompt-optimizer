@@ -9,12 +9,13 @@ const readWorkspaceSource = () =>
   )
 
 describe('image text2image columns guard', () => {
-  it('imports radio components required by the test columns control', () => {
+  it('connects column count and batch execution to the shared toolbar', () => {
     const source = readWorkspaceSource()
 
-    expect(source).toMatch(/<NRadioGroup[\s>]/)
-    expect(source).toMatch(/<NRadioButton[\s>]/)
-    expect(source).toMatch(/NRadioGroup,/)
-    expect(source).toMatch(/NRadioButton,/)
+    expect(source).toMatch(/<TestWorkspaceToolbar[\s>]/)
+    expect(source).toContain('v-model:count="testColumnCountModel"')
+    expect(source).toContain(':running="isAnyVariantRunning"')
+    expect(source).toContain(':can-use-four-columns="canUseFourColumns"')
+    expect(source).toContain('@run="runAllVariants"')
   })
 })

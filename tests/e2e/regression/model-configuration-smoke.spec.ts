@@ -11,10 +11,10 @@ test.describe('Model configuration smoke', () => {
     await expect(modelSelect).toBeVisible()
     await modelSelect.click()
 
-    const emptyConfigAction = page.getByTestId('select-empty-config-action')
-    await expect(emptyConfigAction).toBeVisible()
-    await expect(page.getByText(/暂无可用模型|No available models/)).toBeVisible()
-    await emptyConfigAction.click()
+    const menu = page.locator('.text-model-menu:visible')
+    await expect(menu.getByRole('status')).toBeVisible()
+    await expect(menu.locator('[data-model-choice]')).toHaveCount(0)
+    await menu.getByRole('button', { name: /管理配置|Manage configurations/i }).click()
 
     const dialog = page.getByTestId('model-manager-dialog')
     await expect(dialog).toBeVisible()

@@ -91,6 +91,9 @@ const commonStubs = {
   ContextUserTestPanel: true,
   OutputDisplay: true,
   SelectWithConfig: true,
+  // Exercise the workspace binding at the selector's public boundary. Its
+  // popover and model catalog have their own component tests.
+  TextModelSelector: true,
   TestPanelVersionSelect: true,
   ToolCallDisplay: true,
   EvaluationPanel: true,
@@ -260,7 +263,7 @@ describe('workspace session reactivity regression', () => {
     const versions = wrapper.findAllComponents({ name: 'TestPanelVersionSelect' })
     expect(versions).toHaveLength(4)
     versions[2]!.vm.$emit('update:value', 'previous')
-    await wrapper.getComponent('[data-testid="basic-user-test-variant-d-model-select"]').vm.$emit('update:model-value', 'draft-model')
+    await wrapper.getComponent('[data-testid="basic-user-test-variant-d-model-select"]').vm.$emit('update:modelValue', 'draft-model')
     expect(store.testVariants.find(item => item.id === 'c')?.version).toBe('previous')
     expect(store.testVariants.find(item => item.id === 'd')?.modelKey).toBe('draft-model')
     // Restore replaces both layout and testVariants. The mounted controls must

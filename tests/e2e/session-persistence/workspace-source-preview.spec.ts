@@ -86,7 +86,7 @@ async function expectSectionAtTop(workspace: Locator, section: 'original' | 'wor
 }
 
 for (const [mode, route, storeId] of workspaces) {
-  test(`${mode} source previews preserve full content, edit destinations and desktop activation`, async ({ context, page }) => {
+  test(`${mode} source previews preserve full content, edit destinations and desktop hover behavior`, async ({ context, page }) => {
     await context.addInitScript(name => {
       (window as Window & { __TEST_DB_NAME__?: string }).__TEST_DB_NAME__ = name
     }, `test-source-preview-${mode}-${Date.now()}`)
@@ -137,12 +137,38 @@ for (const [mode, route, storeId] of workspaces) {
 
     await page.setViewportSize({ width: 1440, height: 900 })
     await expect(workspace.locator('.split-divider')).toBeVisible()
-    const sourceTags = workspace.locator('.test-variant-source-tag')
-    await sourceTags.nth(1).click()
+    const sourceSelects = workspace.locator('.test-variant-config .test-panel-version-select')
+    await sourceSelects.nth(1).hover()
+    const preview = page.getByTestId('test-source-hover-preview')
+    await expect(preview).toBeVisible()
+    await expect(preview).toContainText('Workspace source opening line.')
     await expect(page.getByTestId('test-source-preview')).toBeHidden()
-    await expect(workspace.locator('.test-source-linked-card[data-source-tone="workspace"]')).toHaveAttribute('data-feedback-tone', 'change')
-    await sourceTags.first().click()
+    await preview.getByRole('button', { name: /View full prompt|查看全文/i }).click()
+    modal = page.getByTestId('test-source-preview')
+    await expectReadableThroughLastLine(modal, 'WORKSPACE')
+    await modal.locator('.n-card__footer').getByRole('button', { name: /^(Close|关闭)$/i }).click()
+
+    // Clicking the same source name opens selection rather than a preview.
+    await sourceSelects.first().click()
+    await expect(preview).toBeHidden()
+    await page.locator('.n-base-select-option:visible').filter({ hasText: /^(Original|原始提示词)/i }).click()
+    await sourceSelects.first().hover()
+    await expect(preview).toBeVisible()
+    await expect(preview).toContainText('Original source opening line.')
     await expect(page.getByTestId('test-source-preview')).toBeHidden()
+
+    // Short content fits the hover card and must not offer a redundant full view.
+    await page.evaluate(storeId => {
+      const app = (document.querySelector('#app') as any).__vue_app__
+      const store = app.config.globalProperties.$pinia._s.get(storeId)
+      if (storeId === 'proMultiMessageSession') {
+        store.updateConversationMessages([
+          { id: 'source-preview-message', role: 'system', content: 'Short original prompt.', timestamp: Date.now() },
+        ])
+      } else store.updatePrompt('Short original prompt.')
+    }, storeId)
+    await expect(preview).toContainText('Short original prompt.')
+    await expect(preview.getByRole('button', { name: /View full prompt|查看全文/i })).toHaveCount(0)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   })
 }

@@ -194,10 +194,10 @@ describe('ui runtime english guards', () => {
     expect(evaluationContextSource).not.toMatch(/必须在提供了评估上下文的组件树中使用/)
   })
 
-  it('keeps image token usage labels english-first', () => {
+  it('keeps image token usage labels locale-driven', () => {
     const source = readUiSource('src/components/image-mode/ImageTokenUsage.vue')
 
-    expect(source).toMatch(/Image \{\{ index \+ 1 \}\}/)
+    expect(source).toContain("t('imageWorkspace.usage.image')")
     expect(source).not.toMatch(/图\{\{ index \+ 1 \}\}/)
   })
 

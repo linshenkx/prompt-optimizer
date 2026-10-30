@@ -41,6 +41,21 @@ export const test = base.extend<{ context: BrowserContext; page: Page }>({
       storageState: undefined, // 不加载任何存储状态
       // 可以在这里添加其他 context 级别的配置
     })
+    // These workflow tests do not depend on services installed on the test host.
+    // Return an unrecognized identity for read-only discovery probes, without
+    // intercepting model catalogs, inference, or relaxing console error checks.
+    const discoveryProbes = new Set([
+      'http://localhost:11434/',
+      'http://127.0.0.1:3425/api/hello',
+      'http://127.0.0.1:8317/',
+      'http://127.0.0.1:4000/health/liveliness',
+      'http://127.0.0.1:9931/health',
+      'http://127.0.0.1:8080/health',
+    ])
+    await context.route(url => discoveryProbes.has(url.href), async route => {
+      if (route.request().method() !== 'GET') return route.fallback()
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+    })
     await use(context)
     await context.close()
   },

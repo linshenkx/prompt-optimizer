@@ -120,10 +120,10 @@ const workspaceRequirements: FileComponentRequirement[] = [
   ...buildFileRequirements(promptPanelOriginalVersionWorkspaceFiles, 'PromptPanelUI', [
     '@switchToV0',
   ]),
-  ...buildFileRequirements(workspaceFiles, 'TextModelQuickSwitch', [
-    ':model-key',
+  ...buildFileRequirements(workspaceFiles, 'TextModelSelector', [
     ':options',
-    ':refresh-models',
+    ':disabled',
+    '@focus',
   ]),
 ]
 
@@ -184,11 +184,6 @@ const collectMissingListeners = (requirementsToCheck: FileComponentRequirement[]
   return missing
 }
 
-const countComponentOccurrences = (file: string, component: string) => {
-  const source = readFileSync(join(sourceRoot, file), 'utf8')
-  return extractComponentBlocks(source, component).length
-}
-
 describe('evaluation action wiring', () => {
   it('keeps apply action events connected at workspace boundaries', () => {
     const requirementsToCheck = filesToCheck.flatMap((file) =>
@@ -209,34 +204,36 @@ describe('evaluation action wiring', () => {
     expect(missing).toEqual([])
   })
 
-  it('keeps text model quick switching available in primary and test model selectors', () => {
-    const expectedMinimumOccurrences: Record<string, number> = {
-      'components/basic-mode/BasicUserWorkspace.vue': 2,
-      'components/basic-mode/BasicSystemWorkspace.vue': 2,
-      'components/context-mode/ContextUserWorkspace.vue': 2,
-      'components/context-mode/ContextSystemWorkspace.vue': 2,
-      'components/image-mode/ImageText2ImageWorkspace.vue': 1,
-      'components/image-mode/ImageImage2ImageWorkspace.vue': 1,
-      'components/image-mode/ImageMultiImageWorkspace.vue': 1,
-    }
+  it('keeps column model selection connected through the shared config control', () => {
+    const textWorkspaceFiles = promptPanelOriginalVersionWorkspaceFiles
+    const missing = collectMissingListeners([
+      ...buildFileRequirements(textWorkspaceFiles, 'TestVariantConfig', [
+        ':model-key', ':options', ':refresh-models', '@update:model-key', '@config',
+      ]),
+      ...buildFileRequirements(['components/TestVariantConfig.vue'], 'TextModelSelector', [
+        ':model-value', ':options', 'scope="column"', '@update:model-value', '@focus', '@config',
+      ]),
+    ])
 
-    const missing = Object.entries(expectedMinimumOccurrences)
-      .filter(([file, minimum]) => countComponentOccurrences(file, 'TextModelQuickSwitch') < minimum)
-      .map(([file, minimum]) => `${file} needs at least ${minimum} <TextModelQuickSwitch> occurrences`)
+    for (const file of workspaceFiles) {
+      const source = readFileSync(join(sourceRoot, file), 'utf8')
+      for (const block of extractComponentBlocks(source, 'TextModelSelector')) {
+        if (!block.text.includes('v-model=') &&
+          !(block.text.includes(':model-value=') && block.text.includes('@update:model-value='))) {
+          missing.push(`${file}:${block.line} missing a two-way model selection binding`)
+        }
+      }
+    }
 
     expect(missing).toEqual([])
   })
 
-  it('keeps image model quick switching available in image test model selectors', () => {
-    const expectedMinimumOccurrences: Record<string, number> = {
-      'components/image-mode/ImageText2ImageWorkspace.vue': 1,
-      'components/image-mode/ImageImage2ImageWorkspace.vue': 1,
-      'components/image-mode/ImageMultiImageWorkspace.vue': 1,
-    }
-
-    const missing = Object.entries(expectedMinimumOccurrences)
-      .filter(([file, minimum]) => countComponentOccurrences(file, 'ImageModelQuickSwitch') < minimum)
-      .map(([file, minimum]) => `${file} needs at least ${minimum} <ImageModelQuickSwitch> occurrences`)
+  it('keeps image column model selection, refresh and configuration connected', () => {
+    const missing = collectMissingListeners(buildFileRequirements(
+      workspaceFiles.filter(file => file.includes('/image-mode/')),
+      'ImageModelSelector',
+      [':model-value', '@update:model-value', ':options', '@focus', '@config'],
+    ))
 
     expect(missing).toEqual([])
   })

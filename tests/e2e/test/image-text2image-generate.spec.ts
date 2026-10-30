@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures'
 import { navigateToMode } from '../helpers/common'
+import { selectModelConfiguration } from '../helpers/model-selector'
 import { fillOriginalPrompt, clickOptimizeButton, expectOptimizedResultNotEmpty } from '../helpers/optimize'
 import * as fs from 'fs/promises'
 import * as path from 'path'
@@ -17,55 +18,6 @@ async function saveBase64DataUrlAsPng(dataUrl: string, outPath: string) {
   await fs.writeFile(outPath, buf)
 }
 
-async function openSelectAndWaitForVisibleOptions(page: any, select: any) {
-  const visibleMenu = page.locator('.swc-select-menu').last()
-  const visibleOptions = visibleMenu.locator('.n-base-select-option')
-
-  const ensureOpen = async () => {
-    await select.click()
-    await expect(visibleMenu).toBeVisible({ timeout: 20000 })
-    await expect.poll(async () => await visibleOptions.count(), { timeout: 20000 }).toBeGreaterThan(0)
-  }
-
-  try {
-    await ensureOpen()
-  } catch {
-    await page.keyboard.press('Escape').catch(() => {})
-    await page.waitForTimeout(200)
-    await ensureOpen()
-  }
-
-  return visibleOptions
-}
-
-async function selectOption(page: any, select: any, matcher?: RegExp) {
-  // Naive UI 下拉选项存在动画/重渲染，直接 click 可能卡在“not stable / not visible”重试直到 test 超时。
-  // 这里做两次尝试：失败则收起下拉并重开；第二次使用 force click。
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const options = await openSelectAndWaitForVisibleOptions(page, select)
-
-    if (!matcher) {
-      await options.first().click({ timeout: 20000, force: attempt > 0 })
-      return
-    }
-
-    const target = options.filter({ hasText: matcher }).first()
-    if ((await target.count()) === 0) {
-      await page.keyboard.press('Escape').catch(() => {})
-      throw new Error(`[E2E] selectOption: option not found for matcher: ${String(matcher)}`)
-    }
-
-    try {
-      await target.click({ timeout: 20000, force: attempt > 0 })
-      await expect.poll(async () => (await select.textContent()) || '', { timeout: 10000 }).toMatch(matcher)
-      return
-    } catch {
-      await page.keyboard.press('Escape').catch(() => {})
-      await page.waitForTimeout(200)
-    }
-  }
-}
-
 test.describe('Image Text2Image - 生成（SiliconFlow）', () => {
   test('切换到 SiliconFlow 图像模型并生成图片（对比模式）', async ({ page }) => {
     // Record mode may be slow (two image generations); keep replay fast.
@@ -76,7 +28,7 @@ test.describe('Image Text2Image - 生成（SiliconFlow）', () => {
     // 1) 选择文本模型（用于优化），避免不同环境默认模型不同导致 VCR requestHash 不稳定。
     const textModelSelect = page.getByTestId('image-text2image-text-model-select')
     await expect(textModelSelect).toBeVisible({ timeout: 20000 })
-    await selectOption(page, textModelSelect, /deepseek/i)
+    await selectModelConfiguration(page, textModelSelect, /deepseek/i)
 
     // 2) 输入提示词并优化（左侧）
     // 尽量保持 prompt 简短，避免生成的优化 prompt 过长导致图像模型失败/超时。
@@ -94,8 +46,8 @@ test.describe('Image Text2Image - 生成（SiliconFlow）', () => {
     const optimizedModelSelect = page.getByTestId('image-text2image-test-optimized-model-select')
     await expect(originalModelSelect).toBeVisible({ timeout: 20000 })
     await expect(optimizedModelSelect).toBeVisible({ timeout: 20000 })
-    await selectOption(page, originalModelSelect, /siliconflow/i)
-    await selectOption(page, optimizedModelSelect, /siliconflow/i)
+    await selectModelConfiguration(page, originalModelSelect, /siliconflow/i)
+    await selectModelConfiguration(page, optimizedModelSelect, /siliconflow/i)
     await expect(originalModelSelect).toContainText(/siliconflow/i)
     await expect(optimizedModelSelect).toContainText(/siliconflow/i)
 
