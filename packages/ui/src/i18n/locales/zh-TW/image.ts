@@ -9,6 +9,19 @@ const messages = {
     "uploadRequired": "圖生圖模式需要先上傳參考圖片"
   },
   "imageWorkspace": {
+    "usage": {
+      "tokens": "Token 用量",
+      "promptTokens": "輸入",
+      "imageTokens": "輸出",
+      "totalTokens": "合計",
+      "input": "輸入",
+      "output": "輸出",
+      "image": "圖片",
+      "aspect": "比例",
+      "tier": "尺寸級別",
+      "thinkingTokens": "思考 Token",
+      "inference": "耗時"
+    },
     "input": {
       "originalPrompt": "原始提示詞",
       "originalPromptPlaceholder": "請輸入需要優化的圖像生成提示詞",
@@ -21,7 +34,7 @@ const messages = {
       "multiImageHint": "拖動卡片可調整圖1 / 圖2 / 圖3 的順序語義",
       "multiImageMinHint": "再新增一張圖片後即可開始多圖生圖",
       "multiImageReadyHint": "請至少上傳兩張圖片，再開始多圖生圖",
-      "selectImage": "📁 選擇",
+      "selectImage": "選擇",
       "optimizeTemplate": "優化範本",
       "templatePlaceholder": "請選擇範本",
       "textModel": "文字模型",

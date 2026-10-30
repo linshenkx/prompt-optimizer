@@ -119,6 +119,9 @@ const commonStubs = {
   ContextUserTestPanel: true,
   OutputDisplay: true,
   SelectWithConfig: true,
+  // Batch execution is exercised here; model menu behavior has its own tests.
+  TextModelSelector: true,
+  ImageModelSelector: true,
   TestPanelVersionSelect: true,
   ToolCallDisplay: true,
   EvaluationPanel: true,

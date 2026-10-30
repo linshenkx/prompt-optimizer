@@ -38,6 +38,8 @@ export const naiveThemeConfigs: Record<string, ThemeConfig> = {
         errorColorSuppl: '#fee2e2',
         bodyColor: '#f5f6f8',
         cardColor: '#ffffff',
+        inputColor: '#f7f8fa',
+        inputColorDisabled: '#f1f2f4',
         modalColor: '#ffffff',
         popoverColor: '#ffffff',
         tableColor: '#f8f9fb',

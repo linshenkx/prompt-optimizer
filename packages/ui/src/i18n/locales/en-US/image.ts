@@ -9,6 +9,19 @@ const messages = {
     "uploadRequired": "Image-to-Image mode requires uploading a reference image first"
   },
   "imageWorkspace": {
+    "usage": {
+      "tokens": "Token usage",
+      "promptTokens": "Prompt tokens",
+      "imageTokens": "Image tokens",
+      "totalTokens": "All tokens",
+      "input": "Input",
+      "output": "Output",
+      "image": "Image",
+      "aspect": "Aspect",
+      "tier": "Pricing Tier",
+      "thinkingTokens": "Thinking tokens",
+      "inference": "Inference"
+    },
     "input": {
       "originalPrompt": "Original Prompt",
       "originalPromptPlaceholder": "Enter the image generation prompt to optimize",
@@ -21,7 +34,7 @@ const messages = {
       "multiImageHint": "Drag cards to control the semantic order of Image 1 / Image 2 / Image 3",
       "multiImageMinHint": "Add one more image to start multi-image generation",
       "multiImageReadyHint": "Upload at least two images before starting multi-image generation",
-      "selectImage": "📁 Select",
+      "selectImage": "Select",
       "optimizeTemplate": "Optimization Template",
       "templatePlaceholder": "Please select template",
       "textModel": "Text Model",

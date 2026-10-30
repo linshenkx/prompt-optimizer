@@ -127,51 +127,12 @@
         />
 
         <!-- 控制面板 -->
-        <NGrid class="input-panel-controls" :cols="24" :x-gap="8" responsive="screen">
-            <!-- 模型选择 -->
-            <NGridItem class="input-panel-control" :span="9" :xs="24" :sm="9">
-                <NSpace class="input-panel-field" item-class="input-panel-field-item" vertical :size="8">
-                    <NFlex align="center" :size="6" :wrap="false" class="input-panel-label-row">
-                        <NText
-                            class="input-panel-label"
-                            :depth="2"
-                            style="font-size: 14px; font-weight: 500; flex-shrink: 0;"
-                            >{{ modelLabel }}</NText
-                        >
-                        <slot name="model-label-extra"></slot>
-                    </NFlex>
-                    <slot name="model-select"></slot>
-                </NSpace>
-            </NGridItem>
-
-            <!-- 提示词模板选择 -->
-            <NGridItem class="input-panel-control" v-if="templateLabel" :span="8" :xs="24" :sm="8">
-                <NSpace class="input-panel-field" item-class="input-panel-field-item" vertical :size="8">
-                    <NText
-                        class="input-panel-label"
-                        :depth="2"
-                        style="font-size: 14px; font-weight: 500"
-                        >{{ templateLabel }}</NText
-                    >
-                    <slot name="template-select"></slot>
-                </NSpace>
-            </NGridItem>
-
-            <!-- 控制按钮组 -->
-            <NGridItem
-                class="input-panel-control input-panel-secondary-actions"
-                :span="templateLabel ? 2 : 10"
-                :xs="24"
-                :sm="templateLabel ? 2 : 10"
-            >
-                <NSpace class="input-panel-field" item-class="input-panel-field-item" vertical :size="8" align="end">
-                    <slot name="control-buttons"></slot>
-                </NSpace>
-            </NGridItem>
-
-            <!-- 提交按钮区域 -->
-            <NGridItem :span="5" :xs="24" :sm="5" class="input-panel-control input-panel-submit flex items-end">
-                <NSpace class="input-panel-submit-actions" item-class="input-panel-submit-item" :size="8" justify="end" style="width: 100%">
+        <OptimizationControls :compact="compact" :model-label="modelLabel" :template-label="templateLabel">
+          <template #model><slot name="model-select" /></template>
+          <template #model-label-extra><slot name="model-label-extra" /></template>
+          <template v-if="templateLabel" #template><slot name="template-select" /></template>
+          <template v-if="$slots['control-buttons']" #extra><slot name="control-buttons" /></template>
+          <template #actions>
                     <!-- 分析按钮（与优化同级） -->
                     <NButton
                         v-if="showAnalyzeButton"
@@ -197,9 +158,8 @@
                     >
                         {{ compact ? buttonText : loading ? loadingText : buttonText }}
                     </NButton>
-                </NSpace>
-            </NGridItem>
-        </NGrid>
+                </template>
+        </OptimizationControls>
     </NSpace>
 
     <!-- 全屏弹窗 -->
@@ -217,6 +177,7 @@
 </template>
 
 <script setup lang="ts">
+import OptimizationControls from './OptimizationControls.vue'
 import { CircleHelp as UiCircleHelp, MessageSquareText as UiMessageSquareText, Eye as UiEye, Maximize2 as UiMaximize2 } from '@lucide/vue'
 import { computed } from 'vue'
 import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
@@ -228,8 +189,6 @@ import {
     NText,
     NSpace,
     NFlex,
-    NGrid,
-    NGridItem,
     NIcon,
     NPopover,
 } from "naive-ui";

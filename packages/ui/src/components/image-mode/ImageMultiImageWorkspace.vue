@@ -204,7 +204,7 @@
                     @dragleave="handleUploadCardDragLeave"
                     @drop.prevent="handleUploadCardDrop"
                   >
-                    <span class="image-upload-card__icon">+</span>
+                    <UiImagePlus class="image-upload-card__icon" :size="24" aria-hidden="true" />
                     <span class="image-upload-card__text">{{ t("imageWorkspace.input.selectImage") }}</span>
                   </button>
                 </div>
@@ -212,16 +212,8 @@
                 <NText depth="3">{{ imageInputHint }}</NText>
               </NSpace>
 
-              <NGrid class="image-input-controls" :cols="24" :x-gap="8" responsive="screen">
-                <NGridItem class="image-input-control" :span="7" :xs="24" :sm="7">
-                  <NSpace item-class="image-input-field-item" vertical :size="8">
-                    <NFlex align="center" :size="6" :wrap="false">
-                      <NText class="image-input-label" :depth="2" style="font-size: 14px; font-weight: 500; flex-shrink: 0;">
-                        {{ t('imageWorkspace.input.textModel') }}
-                      </NText>
-
-                    </NFlex>
-                    <TextModelSelector
+              <OptimizationControls :compact="isCompact">
+                <template #model><TextModelSelector
                       data-testid="image-multiimage-text-model-select"
                       v-model="selectedTextModelKey"
                       :options="textModelOptions"
@@ -230,16 +222,8 @@
                       :disabled="optimizing || isIterating"
                       @focus="handleTextModelSelectFocus"
                       @config="() => appOpenModelManager && appOpenModelManager('text')"
-                    />
-                  </NSpace>
-                </NGridItem>
-
-                <NGridItem class="image-input-control" :span="11" :xs="24" :sm="11">
-                  <NSpace item-class="image-input-field-item" vertical :size="8">
-                    <NText class="image-input-label" :depth="2" style="font-size: 14px; font-weight: 500;">
-                      {{ t('imageWorkspace.input.optimizeTemplate') }}
-                    </NText>
-                    <SelectWithConfig
+                    /></template>
+                <template #template><SelectWithConfig
                       data-testid="image-multiimage-template-select"
                       v-model="selectedTemplateIdForSelect"
                       :options="templateOptions"
@@ -254,13 +238,8 @@
                       :show-empty-config-c-t-a="true"
                       @focus="handleTemplateSelectFocus"
                       @config="() => onOpenTemplateManager('multiimageOptimize')"
-                    />
-                  </NSpace>
-                </NGridItem>
-
-                <NGridItem :span="6" :xs="24" :sm="6" class="image-input-control image-input-submit flex items-end justify-end">
-                  <NSpace class="image-input-submit-actions" item-class="image-input-submit-item" :size="8">
-                    <NButton v-if="!isCompact"
+                    /></template>
+                <template #actions><NButton v-if="!isCompact"
                       type="default"
                       size="medium"
                       data-testid="image-multiimage-analyze-button"
@@ -280,10 +259,8 @@
                       @click="optimizePrompt"
                     >
                       {{ optimizing && !isCompact ? t('imageWorkspace.input.optimizing') : t('common.optimize') }}
-                    </NButton>
-                  </NSpace>
-                </NGridItem>
-              </NGrid>
+                    </NButton></template>
+              </OptimizationControls>
             </NSpace></div>
           </TestSourceLinkedCard>
 
@@ -350,48 +327,53 @@
             :is-generating="isGenerating"
             @generate-values="handleGenerateValues"
           /></template>
-    <template #global-controls><NCard class="test-global-controls" size="small" :style="{ flexShrink: 0 }">
-            <div class="test-area-top">
-              <NFlex class="test-group-count" align="center" :size="8" :wrap="false">
-                <NText :depth="2" class="test-area-label">{{ t(isCompact ? 'workspace.testGroups' : 'test.layout.columns') }}：</NText>
-                <NRadioGroup v-model:value="testColumnCountModel" size="small" :disabled="isAnyVariantRunning">
-                  <NRadioButton :value="2" data-testid="image-multiimage-columns-2">2</NRadioButton>
-                  <NRadioButton :value="3" data-testid="image-multiimage-columns-3">3</NRadioButton>
-                  <NRadioButton :value="4" :disabled="!canUseFourColumns" data-testid="image-multiimage-columns-4">4</NRadioButton>
-                </NRadioGroup>
-              </NFlex>
-
-              <NButton v-if="!isCompact"
-                type="primary"
-                size="small"
-                :loading="isAnyVariantRunning"
-                :disabled="isAnyVariantRunning"
-                data-testid="image-multiimage-test-run-all"
-                @click="runAllVariants"
-              >
-                {{ t('test.layout.runAll') }}
-              </NButton>
-            </div>
-          </NCard></template>
-    <template #variant-controls><NCard class="test-variant-controls" size="small" :style="{ flexShrink: 0 }">
+    <template #global-controls><TestWorkspaceToolbar v-model:count="testColumnCountModel"
+      :compact="isCompact" :running="isAnyVariantRunning" :can-use-four-columns="canUseFourColumns"
+      run-test-id="image-multiimage-test-run-all" column-test-id-prefix="image-multiimage-columns"
+      @run="runAllVariants">
+    </TestWorkspaceToolbar></template>
+    <template #variant-controls><NCard class="test-variant-controls" size="small" :style="{ flexShrink: 0 }" :content-style="isCompact ? undefined : { padding: '12px' }">
             <div class="variant-deck" :style="{ gridTemplateColumns: isCompact ? 'minmax(0, 1fr)' : testGridTemplateColumns }">
               <div  v-for="id in activeVariantIds" :key="id" class="variant-cell">
-                <div
+                <TestVariantConfig v-if="!isCompact"
+                  :label="getVariantLabel(id)" :version="variantVersionModels[id].value" :version-options="versionOptions"
+                  :model-key="variantModelKeyModels[id].value"
+                  :running="variantRunning[id]" :disabled="variantRunning[id]"
+                  :run-disabled="variantRunning[id] || isVariantModelUnsupported(id)" :run-tooltip="getVariantRunTooltip(id)"
+                  :feedback-tone="variantSourceFeedback[id].tone" :feedback-key="variantSourceFeedback[id].key"
+                  :version-test-id="getVariantVersionTestId(id)" :model-test-id="getVariantModelTestId(id)" :run-test-id="getVariantRunTestId(id)"
+                  @update:version="handleVariantVersionChange(id, $event)"
+                  @update:model-key="variantModelKeyModels[id].value = $event"
+                  @preview="activateVariantSource(id); previewMobileSource(id)" @run="runVariant(id)" @config="() => appOpenModelManager && appOpenModelManager('image')">
+                  <template #model>
+                    <ImageModelSelector :aria-label="getVariantLabel(id) + ' ' + t('test.model')"
+                      :data-testid="getVariantModelTestId(id)"
+                      :model-value="variantModelKeyModels[id].value"
+                      @update:model-value="(value) => { variantModelKeyModels[id].value = String(value ?? '') }"
+                      :options="imageModelOptions"
+                      :placeholder="t('imageWorkspace.generation.imageModelPlaceholder')"
+                      size="small"
+                      :disabled="variantRunning[id]"
+                      :show-config-action="!!appOpenModelManager"
+                      @focus="refreshImageModelsHandler"
+                      @config="() => appOpenModelManager && appOpenModelManager('image')"
+                      style="min-width: 0; width: 100%;"
+                    />
+                    <NText
+                      v-if="shouldShowVariantModelWarning(id)"
+                      class="variant-cell__support"
+                      type="error"
+                      :depth="2"
+                    >
+                      {{ getVariantModelSupportState(id).message }}
+                    </NText>
+                  </template>
+                </TestVariantConfig>
+                <div v-else
                   class="variant-cell__controls"
                   :class="{ 'variant-cell__controls--stacked': useStackedVariantControls }"
                 >
-                  <div v-if="!isCompact" class="variant-cell__meta">
-                    <TestVariantSourceTag
-                      class="variant-cell__label"
-                      :variant-label="getVariantLabel(id)"
-                      :selection="variantVersionModels[id].value"
-                      :resolved-version="getVariantResolvedVersion(id)"
-                      :labels="getTestPanelVersionLabels()"
-                      :feedback-key="variantSourceFeedback[id].key"
-                      :feedback-tone="variantSourceFeedback[id].tone"
-                      @activate="isCompact ? previewMobileSource(id) : activateVariantSource(id)"
-                    />
-                  </div>
+
 
                   <div class="variant-cell__actions">
                                         <button v-if="isCompact" type="button" class="test-config-group-label" :aria-label="t('workspace.viewPrompt') + ' ' + id.toUpperCase()" @click="previewMobileSource(id)">{{ id.toUpperCase() }}</button>
@@ -427,25 +409,7 @@
                       </NText>
                     </div>
 
-                    <div v-if="!isCompact" class="variant-cell__run">
-                      <ThemedTooltip :label="getVariantRunTooltip(id)">
-                        <span class="variant-cell__run-trigger">
-                          <NButton
-                            type="primary"
-                            size="small"
-                            circle
-                            :loading="variantRunning[id]"
-                            :disabled="variantRunning[id] || isVariantModelUnsupported(id)"
-                            :data-testid="getVariantRunTestId(id)"
-                            @click="runVariant(id)"
-                          >
-                            <template #icon>
-                              <UiPlay />
-                            </template>
-                          </NButton>
-                        </span>
-                      </ThemedTooltip>
-                    </div>
+
                   </div>
                 </div>
               </div>
@@ -594,8 +558,11 @@
 </template>
 
 <script setup lang="ts">
+import OptimizationControls from '../OptimizationControls.vue'
+import TestWorkspaceToolbar from '../TestWorkspaceToolbar.vue'
+import TestVariantConfig from '../TestVariantConfig.vue'
 import ImageModelSelector from '../ImageModelSelector.vue'
-import { ChevronDown as UiChevronDown, Maximize2 as UiMaximize2, ChevronUp as UiChevronUp, X as UiX, Play as UiPlay, Download as UiDownload, Copy as UiCopy } from '@lucide/vue'
+import { ImagePlus as UiImagePlus, ChevronDown as UiChevronDown, Maximize2 as UiMaximize2, ChevronUp as UiChevronUp, X as UiX, Download as UiDownload, Copy as UiCopy } from '@lucide/vue'
 import OptimizeWorkspaceLayout from '../common/OptimizeWorkspaceLayout.vue'
 import VariantTestWorkspaceLayout from '../common/VariantTestWorkspaceLayout.vue'
 import MobileTestResultHeader from '../common/MobileTestResultHeader.vue'
@@ -608,7 +575,7 @@ import { useTestVariantBindings } from '../../composables/workspaces/useTestVari
 import { useTestSourcePreview } from '../../composables/workspaces/useTestSourcePreview'
 
 import { computed, inject, nextTick, onMounted, onUnmounted, reactive, ref, watch, toRef, type Ref } from 'vue'
-import { NButton, NCard, NEmpty, NFlex, NGrid, NGridItem, NIcon, NInput, NRadioButton, NRadioGroup, NSpace, NText } from 'naive-ui'
+import { NButton, NCard, NEmpty, NFlex, NIcon, NInput, NSpace, NText } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import {
   applyPatchOperationsToText,
@@ -659,7 +626,6 @@ import PromptPreviewPanel from '../PromptPreviewPanel.vue'
 import SelectWithConfig from '../SelectWithConfig.vue'
 import TextModelSelector from '../TextModelSelector.vue'
 import TestSourceLinkedCard from '../TestSourceLinkedCard.vue'
-import TestVariantSourceTag from '../TestVariantSourceTag.vue'
 import FullscreenDialog from '../FullscreenDialog.vue'
 import AppPreviewImage from '../media/AppPreviewImage.vue'
 import { VariableAwareInput } from '../variable-extraction'

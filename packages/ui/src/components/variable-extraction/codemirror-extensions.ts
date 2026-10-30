@@ -690,9 +690,16 @@ export function createThemeExtension(
       height: '100%'
     },
     '.cm-content': {
-      padding: '8px',
+      padding: '6px 12px',
       caretColor: themeVars.primaryColor,
       fontFamily: 'inherit'
+    },
+    '.cm-scroller': {
+      fontFamily: themeVars.fontFamily,
+      lineHeight: '1.6'
+    },
+    '.cm-line': {
+      padding: '0'
     },
     '.cm-cursor': {
       borderLeftColor: themeVars.primaryColor

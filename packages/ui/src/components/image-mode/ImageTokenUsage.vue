@@ -1,76 +1,51 @@
 <template>
-    <component :is="compact ? 'details' : 'div'" v-if="hasAnyData" class="image-token-usage" :class="{ 'image-token-usage--compact': compact }">
-        <summary v-if="compact">{{ t('workspace.generationDetails') }}</summary>
-        <!-- Input section -->
-        <div v-if="hasInputData" class="usage-section">
-            <NText depth="3" class="section-label">Input</NText>
-            <div class="usage-tags">
-                <template v-if="normalizedInputImagesInfo.length > 0">
-                    <NTag
-                        v-for="(item, index) in normalizedInputImagesInfo"
-                        :key="`${index}-${item.mimeType || 'image'}`"
-                        size="small"
-                        :bordered="false"
-                        type="default"
-                    >
-                        Image {{ index + 1 }}{{ item.imageType ? ` (${item.imageType})` : '' }}:
-                        {{ item.width }}x{{ item.height }}px,
-                        Aspect: {{ formatAspectRatio(item) }},
-                        Pricing Tier: {{ sizeMultiplier(item) }}
-                    </NTag>
-                </template>
-                <NTag v-else-if="inputImageDimensions" size="small" :bordered="false" type="default">
-                    Image{{ inputImageType ? ` (${inputImageType})` : '' }}:
-                    {{ inputImageDimensions.width }}x{{ inputImageDimensions.height }}px,
-                    Aspect: {{ formatAspectRatio(inputImageDimensions) }},
-                    Pricing Tier: {{ sizeMultiplier(inputImageDimensions) }}
-                </NTag>
-                <NTag v-if="inputTokens != null" size="small" :bordered="false" type="info">
-                    Prompt tokens: {{ inputTokens }}
-                </NTag>
-            </div>
+  <div v-if="hasAnyData" class="image-token-usage" :class="{ 'image-token-usage--compact': compact }"
+    :style="{ '--usage-muted': themeVars.textColor3, '--usage-text': themeVars.textColor2 }">
+    <div v-if="inputTokens != null || outputTokens != null || totalTokens != null" class="usage-overview" :aria-label="t('imageWorkspace.usage.tokens')">
+      <span aria-hidden="true">Token</span>
+      <span v-if="inputTokens != null">{{ t('imageWorkspace.usage.promptTokens') }}: {{ inputTokens }}</span>
+      <span v-if="outputTokens != null">{{ t('imageWorkspace.usage.imageTokens') }}: {{ outputTokens }}</span>
+      <span v-if="totalTokens != null">{{ t('imageWorkspace.usage.totalTokens') }}: {{ totalTokens }}</span>
+    </div>
+    <details v-if="hasDetails" class="usage-details">
+      <summary>{{ t('workspace.generationDetails') }}</summary>
+      <div v-if="normalizedInputImagesInfo.length > 0 || inputImageDimensions" class="usage-section">
+        <span class="section-label">{{ t('imageWorkspace.usage.input') }}</span>
+        <div class="usage-values">
+          <template v-if="normalizedInputImagesInfo.length > 0">
+            <span v-for="(item, index) in normalizedInputImagesInfo" :key="index">
+              {{ t('imageWorkspace.usage.image') }} {{ index + 1 }}{{ item.imageType ? ' (' + item.imageType + ')' : '' }}: {{ item.width }}x{{ item.height }}px,
+              {{ t('imageWorkspace.usage.aspect') }}: {{ formatAspectRatio(item) }}, {{ t('imageWorkspace.usage.tier') }}: {{ sizeMultiplier(item) }}
+            </span>
+          </template>
+          <span v-else-if="inputImageDimensions">
+            {{ t('imageWorkspace.usage.image') }}{{ inputImageType ? ' (' + inputImageType + ')' : '' }}: {{ inputImageDimensions.width }}x{{ inputImageDimensions.height }}px,
+            {{ t('imageWorkspace.usage.aspect') }}: {{ formatAspectRatio(inputImageDimensions) }}, {{ t('imageWorkspace.usage.tier') }}: {{ sizeMultiplier(inputImageDimensions) }}
+          </span>
         </div>
-
-        <!-- Output section -->
-        <div v-if="hasOutputData" class="usage-section">
-            <NText depth="3" class="section-label">Output</NText>
-            <div class="usage-tags">
-                <NTag v-if="outputImageDimensions" size="small" :bordered="false" type="default">
-                    Image{{ outputImageType ? ` (${outputImageType})` : '' }}:
-                    {{ outputImageDimensions.width }}x{{ outputImageDimensions.height }}px,
-                    Aspect: {{ formatAspectRatio(outputImageDimensions) }},
-                    Pricing Tier: {{ sizeMultiplier(outputImageDimensions) }}
-                </NTag>
-                <NTag v-if="outputTokens != null" size="small" :bordered="false" type="info">
-                    Image tokens: {{ outputTokens }}
-                </NTag>
-                <NTag v-if="thinkingTokens != null" size="small" :bordered="false" type="info">
-                    Thinking tokens: {{ thinkingTokens }}
-                </NTag>
-                <NTag v-if="inferenceTime != null" size="small" :bordered="false" type="info">
-                    Inference: {{ inferenceTime }}s
-                </NTag>
-            </div>
+      </div>
+      <div v-if="outputImageDimensions || thinkingTokens != null || inferenceTime != null" class="usage-section">
+        <span class="section-label">{{ t('imageWorkspace.usage.output') }}</span>
+        <div class="usage-values">
+          <span v-if="outputImageDimensions">
+            {{ t('imageWorkspace.usage.image') }}{{ outputImageType ? ' (' + outputImageType + ')' : '' }}: {{ outputImageDimensions.width }}x{{ outputImageDimensions.height }}px,
+            {{ t('imageWorkspace.usage.aspect') }}: {{ formatAspectRatio(outputImageDimensions) }}, {{ t('imageWorkspace.usage.tier') }}: {{ sizeMultiplier(outputImageDimensions) }}
+          </span>
+          <span v-if="thinkingTokens != null">{{ t('imageWorkspace.usage.thinkingTokens') }}: {{ thinkingTokens }}</span>
+          <span v-if="inferenceTime != null">{{ t('imageWorkspace.usage.inference') }}: {{ inferenceTime }}s</span>
         </div>
-
-        <!-- Total -->
-        <div v-if="totalTokens != null" class="usage-section">
-            <NText depth="3" class="section-label">Total</NText>
-            <div class="usage-tags">
-                <NTag size="small" :bordered="false" type="info">
-                    All tokens: {{ totalTokens }}
-                </NTag>
-            </div>
-        </div>
-    </component>
+      </div>
+    </details>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { NTag, NText } from 'naive-ui'
+import { useThemeVars } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
+const themeVars = useThemeVars()
 
 interface ImageRefLike {
     b64?: string
@@ -283,44 +258,21 @@ const hasOutputData = computed(() =>
     outputImageDimensions.value != null || outputTokens.value != null ||
     thinkingTokens.value != null || inferenceTime.value != null
 )
+const hasDetails = computed(() => normalizedInputImagesInfo.value.length > 0 || inputImageDimensions.value != null || outputImageDimensions.value != null || thinkingTokens.value != null || inferenceTime.value != null)
+
 const hasAnyData = computed(() => hasInputData.value || hasOutputData.value || totalTokens.value != null)
 </script>
 
 <style scoped>
-.image-token-usage {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 4px 0;
-    width: 100%;
-    overflow: hidden;
-}
-
-.usage-section {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.section-label {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    min-width: 48px;
-}
-
-.usage-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    flex: 1;
-    min-width: 0;
-}
-
-.image-token-usage--compact { display: block; padding: 0 8px; box-sizing: border-box; }
-.image-token-usage--compact summary { cursor: pointer; min-height: 36px; align-content: center; color: var(--compact-muted); font-size: 12px; }
-.image-token-usage--compact .usage-section { display: block; margin-bottom: 8px; }
-.image-token-usage--compact .usage-tags { gap: 4px; }
-.image-token-usage--compact :deep(.n-tag) { height: auto; max-width: 100%; white-space: normal; font-size: 11px; padding: 4px 6px; }
-.image-token-usage--compact :deep(.n-tag__content) { white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
+.image-token-usage { width: 100%; min-width: 0; padding: 4px 0; color: var(--usage-muted); font-size: 12px; line-height: 1.6; }
+.usage-overview { display: flex; flex-wrap: wrap; column-gap: 12px; row-gap: 2px; font-variant-numeric: tabular-nums; }
+.usage-overview > span { white-space: nowrap; }
+.usage-details { margin-top: 4px; }
+.usage-details summary { cursor: pointer; width: fit-content; color: var(--usage-text); padding: 2px 0; }
+.usage-details summary:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 3px; }
+.usage-section { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; margin-top: 6px; }
+.section-label { color: var(--usage-text); }
+.usage-values { display: flex; flex-direction: column; gap: 4px; overflow-wrap: anywhere; }
+.image-token-usage--compact { padding: 0 8px; box-sizing: border-box; }
+.image-token-usage--compact summary { min-height: 36px; align-content: center; }
 </style>

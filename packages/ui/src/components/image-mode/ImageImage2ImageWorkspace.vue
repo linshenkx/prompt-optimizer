@@ -172,6 +172,7 @@
                                 @click="openUploadModal"
                                 size="medium"
                             >
+                                <template #icon><UiFolderOpen /></template>
                                 {{ t("imageWorkspace.input.selectImage") }}
                             </NButton>
 
@@ -210,21 +211,8 @@
                     </NSpace>
 
                     <!-- 控制面板 - 使用网格布局 -->
-                    <NGrid class="image-input-controls" :cols="24" :x-gap="8" responsive="screen">
-                        <!-- 文本模型选择 -->
-                        <NGridItem class="image-input-control" :span="7" :xs="24" :sm="7">
-                            <NSpace item-class="image-input-field-item" vertical :size="8">
-                                <NFlex align="center" :size="6" :wrap="false">
-                                    <NText class="image-input-label"
-                                        :depth="2"
-                                        style="font-size: 14px; font-weight: 500; flex-shrink: 0;"
-                                        >{{
-                                            t("imageWorkspace.input.textModel")
-                                        }}</NText
-                                    >
-
-                                </NFlex>
-                                <template v-if="appOpenModelManager">
+                    <OptimizationControls :compact="isCompact">
+                <template #model><template v-if="appOpenModelManager">
                                     <TextModelSelector
                                         data-testid="image-image2image-text-model-select"
                                         v-model="selectedTextModelKey"
@@ -258,23 +246,8 @@
                                         :disabled="isOptimizing"
                                         @focus="handleTextModelSelectFocus"
                                     />
-                                </template>
-                            </NSpace>
-                        </NGridItem>
-
-                        <!-- 优化模板选择 -->
-                        <NGridItem class="image-input-control" :span="11" :xs="24" :sm="11">
-                            <NSpace item-class="image-input-field-item" vertical :size="8">
-                                <NText class="image-input-label"
-                                    :depth="2"
-                                    style="font-size: 14px; font-weight: 500"
-                                    >{{
-                                        t(
-                                            "imageWorkspace.input.optimizeTemplate",
-                                        )
-                                    }}</NText
-                                >
-                                <template
+                                </template></template>
+                <template #template><template
                                     v-if="services && services.templateManager"
                                 >
                                     <SelectWithConfig
@@ -311,14 +284,8 @@
                                     style="padding: 0; font-size: 14px"
                                 >
                                     {{ t("common.loading") }}
-                                </NText>
-                            </NSpace>
-                        </NGridItem>
-
-                        <!-- 优化按钮 -->
-                        <NGridItem :span="6" :xs="24" :sm="6" class="image-input-control image-input-submit flex items-end justify-end">
-                            <NSpace class="image-input-submit-actions" item-class="image-input-submit-item" :size="8">
-                                <NButton v-if="!isCompact"
+                                </NText></template>
+                <template #actions><NButton v-if="!isCompact"
                                     type="default"
                                     size="medium"
                                     data-testid="image-image2image-analyze-button"
@@ -357,10 +324,8 @@
                                             ? t("common.loading")
                                             : t("promptOptimizer.optimize")
                                     }}
-                                </NButton>
-                            </NSpace>
-                        </NGridItem>
-                    </NGrid>
+                                </NButton></template>
+              </OptimizationControls>
                 </NSpace></div>
             </TestSourceLinkedCard>
 
@@ -429,56 +394,45 @@
                         :is-generating="isGenerating"
                         @generate-values="handleGenerateValues"
                     /></template>
-    <template #global-controls><NCard class="test-global-controls" size="small" :style="{ flexShrink: 0 }">
-                        <div class="test-area-top">
-                            <NFlex class="test-group-count" align="center" :size="8" :wrap="false" style="min-width: 0;">
-                                <NText :depth="2" class="test-area-label">
-                                    {{ t(isCompact ? 'workspace.testGroups' : 'test.layout.columns') }}：
-                                </NText>
-                                <NRadioGroup
-                                    v-model:value="testColumnCountModel"
-                                    size="small"
-                                    :disabled="isAnyVariantRunning"
-                                >
-                                    <NRadioButton :value="2">2</NRadioButton>
-                                    <NRadioButton :value="3">3</NRadioButton>
-                                    <NRadioButton :value="4" :disabled="!canUseFourColumns">4</NRadioButton>
-                                </NRadioGroup>
-                            </NFlex>
-
-                            <NFlex v-if="!isCompact" align="center" justify="end" :size="8" :wrap="false">
-                                <NButton
-                                    type="primary"
-                                    size="small"
-                                    :loading="isAnyVariantRunning"
-                                    :disabled="isAnyVariantRunning"
-                                    @click="runAllVariants"
-                                    :data-testid="'image-image2image-test-run-all'"
-                                >
-                                    {{ t('test.layout.runAll') }}
-                                </NButton>
-                            </NFlex>
-                        </div>
-                    </NCard></template>
-    <template #variant-controls><NCard class="test-variant-controls" size="small" :style="{ flexShrink: 0 }">
+    <template #global-controls><TestWorkspaceToolbar v-model:count="testColumnCountModel"
+      :compact="isCompact" :running="isAnyVariantRunning" :can-use-four-columns="canUseFourColumns"
+      run-test-id="image-image2image-test-run-all"
+      @run="runAllVariants">
+    </TestWorkspaceToolbar></template>
+    <template #variant-controls><NCard class="test-variant-controls" size="small" :style="{ flexShrink: 0 }" :content-style="isCompact ? undefined : { padding: '12px' }">
                         <div class="variant-deck" :style="{ gridTemplateColumns: isCompact ? 'minmax(0, 1fr)' : testGridTemplateColumns }">
                             <div  v-for="id in activeVariantIds" :key="id" class="variant-cell">
-                                <div
+                                <TestVariantConfig v-if="!isCompact"
+                                  :label="getVariantLabel(id)" :version="variantVersionModels[id].value" :version-options="versionOptions"
+                                  :model-key="variantModelKeyModels[id].value"
+                                  :running="variantRunning[id]" :disabled="variantRunning[id]"
+                                  :run-disabled="variantRunning[id]"
+                                  :feedback-tone="variantSourceFeedback[id].tone" :feedback-key="variantSourceFeedback[id].key"
+                                  :version-test-id="getVariantVersionTestId(id)" :model-test-id="getVariantModelTestId(id)" :run-test-id="getVariantRunTestId(id)"
+                                  @update:version="handleVariantVersionChange(id, $event)"
+                                  @update:model-key="variantModelKeyModels[id].value = $event"
+                                  @preview="activateVariantSource(id); previewMobileSource(id)" @run="runVariant(id)" @config="() => appOpenModelManager && appOpenModelManager('image')">
+                                  <template #model>
+                                    <ImageModelSelector :aria-label="getVariantLabel(id) + ' ' + t('test.model')"
+                                      :data-testid="getVariantModelTestId(id)"
+                                      :model-value="variantModelKeyModels[id].value"
+                                      @update:model-value="(value) => { variantModelKeyModels[id].value = String(value ?? '') }"
+                                      :options="imageModelOptions"
+                                      :placeholder="t('imageWorkspace.generation.imageModelPlaceholder')"
+                                      size="small"
+                                      :disabled="variantRunning[id]"
+                                      :show-config-action="!!appOpenModelManager"
+                                      @focus="refreshImageModels"
+                                      @config="() => appOpenModelManager && appOpenModelManager('image')"
+                                      style="min-width: 0; width: 100%;"
+                                    />
+                                  </template>
+                                </TestVariantConfig>
+                                <div v-else
                                     class="variant-cell__controls"
                                     :class="{ 'variant-cell__controls--stacked': useStackedVariantControls }"
                                 >
-                                    <div v-if="!isCompact" class="variant-cell__meta">
-                                        <TestVariantSourceTag
-                                            class="variant-cell__label"
-                                            :variant-label="getVariantLabel(id)"
-                                            :selection="variantVersionModels[id].value"
-                                            :resolved-version="getVariantResolvedVersion(id)"
-                                            :labels="getTestPanelVersionLabels()"
-                                            :feedback-key="variantSourceFeedback[id].key"
-                                            :feedback-tone="variantSourceFeedback[id].tone"
-                                            @activate="isCompact ? previewMobileSource(id) : activateVariantSource(id)"
-                                        />
-                                    </div>
+
 
                                     <div class="variant-cell__actions">
                                         <button v-if="isCompact" type="button" class="test-config-group-label" :aria-label="t('workspace.viewPrompt') + ' ' + id.toUpperCase()" @click="previewMobileSource(id)">{{ id.toUpperCase() }}</button>
@@ -506,23 +460,7 @@
                                             />
                                         </div>
 
-                                        <div v-if="!isCompact" class="variant-cell__run">
-                                            <ThemedTooltip :label="t('test.layout.runThisColumn')">
-                                                <NButton
-                                                    type="primary"
-                                                    size="small"
-                                                    circle
-                                                    :loading="variantRunning[id]"
-                                                    :disabled="variantRunning[id]"
-                                                    @click="() => runVariant(id)"
-                                                    :data-testid="getVariantRunTestId(id)"
-                                                >
-                                                    <template #icon>
-                                                        <UiPlay />
-                                                    </template>
-                                                </NButton>
-                                            </ThemedTooltip>
-                                        </div>
+
                                     </div>
                                 </div>
                             </div>
@@ -756,8 +694,11 @@
 </template>
 
 <script setup lang="ts">
+import OptimizationControls from '../OptimizationControls.vue'
+import TestWorkspaceToolbar from '../TestWorkspaceToolbar.vue'
+import TestVariantConfig from '../TestVariantConfig.vue'
 import ImageModelSelector from '../ImageModelSelector.vue'
-import { X as UiX, FolderOpen as UiFolderOpen, ChevronDown as UiChevronDown, Maximize2 as UiMaximize2, ChevronUp as UiChevronUp, Play as UiPlay, Download as UiDownload, Copy as UiCopy } from '@lucide/vue'
+import { X as UiX, FolderOpen as UiFolderOpen, ChevronDown as UiChevronDown, Maximize2 as UiMaximize2, ChevronUp as UiChevronUp, Download as UiDownload, Copy as UiCopy } from '@lucide/vue'
 import AdaptiveModal from '../common/AdaptiveModal.vue'
 import OptimizeWorkspaceLayout from '../common/OptimizeWorkspaceLayout.vue'
 import VariantTestWorkspaceLayout from '../common/VariantTestWorkspaceLayout.vue'
@@ -783,15 +724,11 @@ import {
     NUploadDragger,
     NText,
     NFlex,
-    NGrid,
-    NGridItem,
     NP,
     NProgress,
     NAlert,
 
     NIcon,
-    NRadioGroup,
-    NRadioButton,
     type UploadFileInfo,
 } from "naive-ui";
 import { useI18n } from "vue-i18n";
@@ -805,7 +742,6 @@ import SelectWithConfig from "../SelectWithConfig.vue";
 import TextModelSelector from "../TextModelSelector.vue";
 import TestPanelVersionSelect from '../TestPanelVersionSelect.vue'
 import TestSourceLinkedCard from '../TestSourceLinkedCard.vue'
-import TestVariantSourceTag from '../TestVariantSourceTag.vue'
 import { EvaluationPanel } from '../evaluation'
 import { useLocalPromptPreviewPanel } from '../../composables/prompt/useLocalPromptPreviewPanel'
 import { OptionAccessors } from "../../utils/data-transformer";

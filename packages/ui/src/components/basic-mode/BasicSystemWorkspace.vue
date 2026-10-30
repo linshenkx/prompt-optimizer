@@ -230,113 +230,77 @@
                     </template>
                     <template #global-controls>
                     <!-- 顶部：列数与全局操作 -->
-                    <NCard size="small" class="test-global-controls" :style="{ flexShrink: 0 }">
-                        <div class="test-area-top">
-
-                            <NFlex class="test-group-count" align="center" :size="8" :wrap="false" style="min-width: 0;">
-                                <NText :depth="2" class="test-area-label">
-                                    {{ t('workspace.testGroups') }}：
-                                </NText>
-                                <NRadioGroup
-                                    v-model:value="testColumnCountModel"
-                                    size="small"
-                                    :disabled="isAnyVariantRunning"
-                                >
-                                    <NRadioButton :value="2">2</NRadioButton>
-                                    <NRadioButton :value="3">3</NRadioButton>
-                                    <NRadioButton :value="4" :disabled="!canUseFourColumns">4</NRadioButton>
-                                </NRadioGroup>
-                            </NFlex>
-
-                            <NFlex v-if="!isCompact" align="center" justify="end" :size="8" :wrap="false">
-                                <NButton
-                                    type="primary"
-                                    size="small"
-                                    :loading="isAnyVariantRunning"
-                                    :disabled="isAnyVariantRunning"
-                                    @click="runAllVariants"
-                                    :data-testid="'basic-system-test-run-all'"
-                                >
-                                    {{ t('test.layout.runAll') }}
-                                </NButton>
-
-                                <template v-if="!isCompact && (hasCompareCandidates || hasCompareEvaluation)">
-                                    <EvaluationScoreBadge
-                                        v-if="hasCompareEvaluation || isEvaluatingCompare"
-                                        :score="compareScore"
-                                        :level="compareScoreLevel"
-                                        :loading="isEvaluatingCompare"
-                                        :result="compareEvaluationResult"
-                                        type="compare"
-                                        :stale="isCompareEvaluationStale"
-                                        :stale-message="t('evaluation.stale.compare')"
-                                        :disable-evaluate="!canEvaluateCompare"
-                                        :disable-evaluate-reason="compareDisabledReason"
-                                        size="small"
-                                        @show-detail="() => showDetail('compare')"
-                                        @evaluate="() => handleEvaluate('compare')"
-                                        @evaluate-with-feedback="handleEvaluateWithFeedback"
-                                        @apply-improvement="handleApplyImprovement"
-                                        @apply-patch="handleApplyPatch"
-                                    />
-                                    <FocusAnalyzeButton
-                                        v-else
-                                        type="compare"
-                                        :label="t('evaluation.compareEvaluate')"
-                                        :disabled="!canEvaluateCompare"
-                                        :disabled-reason="compareDisabledReason"
-                                        :loading="isEvaluatingCompare"
-                                        :button-props="{ size: 'small', type: 'tertiary' }"
-                                        @evaluate="() => handleEvaluate('compare')"
-                                        @evaluate-with-feedback="handleEvaluateWithFeedback"
-                                    >
-                                        <template #icon>
-                                            <AnalyzeActionIcon />
-                                        </template>
-                                    </FocusAnalyzeButton>
-                                </template>
-                                <CompareHelpButton v-if="!isCompact && activeVariantIds.length >= 2" />
-                                <NTag
-                                    v-if="!isCompact && compareToolbarStatus"
-                                    size="small"
-                                    :type="compareToolbarStatus.type"
-                                    :bordered="false"
-                                >
-                                    {{ compareToolbarStatus.label }}
-                                </NTag>
-                            </NFlex>
-                        </div>
-                    </NCard>
+                    <TestWorkspaceToolbar v-model:count="testColumnCountModel"
+                      :compact="isCompact" :running="isAnyVariantRunning" :can-use-four-columns="canUseFourColumns"
+                      run-test-id="basic-system-test-run-all"
+                      @run="runAllVariants">
+                      <template #comparison>
+                        <CompareRoleSummary :entries="compareRoleConfig.entries.value"
+                          :warning="compareToolbarStatus?.label" :disabled="isAnyVariantRunning" @click="openCompareRoleConfig" />
+                      </template>
+                      <template #evaluation>
+                        <template v-if="!isCompact && (hasCompareCandidates || hasCompareEvaluation)">
+                          <EvaluationScoreBadge
+                            v-if="hasCompareEvaluation || isEvaluatingCompare"
+                            :score="compareScore"
+                            :level="compareScoreLevel"
+                            :loading="isEvaluatingCompare"
+                            :result="compareEvaluationResult"
+                            type="compare"
+                            :stale="isCompareEvaluationStale"
+                            :stale-message="t('evaluation.stale.compare')"
+                            :disable-evaluate="!canEvaluateCompare"
+                            :disable-evaluate-reason="compareDisabledReason"
+                            size="small"
+                            @show-detail="() => showDetail('compare')"
+                            @evaluate="() => handleEvaluate('compare')"
+                            @evaluate-with-feedback="handleEvaluateWithFeedback"
+                            @apply-improvement="handleApplyImprovement"
+                            @apply-patch="handleApplyPatch"
+                          />
+                          <FocusAnalyzeButton
+                            v-else
+                            type="compare"
+                            :label="t('evaluation.compareEvaluate')"
+                            :disabled="!canEvaluateCompare"
+                            :disabled-reason="compareDisabledReason"
+                            :loading="isEvaluatingCompare"
+                            :button-props="{ size: 'small', type: 'tertiary' }"
+                            @evaluate="() => handleEvaluate('compare')"
+                            @evaluate-with-feedback="handleEvaluateWithFeedback"
+                          >
+                            <template #icon>
+                              <AnalyzeActionIcon />
+                            </template>
+                          </FocusAnalyzeButton>
+                        </template>
+                        <CompareHelpButton v-if="!isCompact && activeVariantIds.length >= 2" />
+                      </template>
+                    </TestWorkspaceToolbar>
 
                     </template>
                     <!-- 桌面配置与结果列对齐；移动端配置紧凑排列，结果同时展示。 -->
                     <template #variant-controls>
-                    <NCard size="small" class="test-variant-controls" :style="{ flexShrink: 0 }">
+                    <NCard size="small" class="test-variant-controls" :style="{ flexShrink: 0 }" :content-style="isCompact ? undefined : { padding: '12px' }">
                         <div class="variant-deck" :style="{ gridTemplateColumns: testGridTemplateColumns }">
                             <div v-for="id in activeVariantIds" :key="id"  class="variant-cell">
-                                <div
+                                <TestVariantConfig v-if="!isCompact"
+                                  :label="getVariantLabel(id)" :version="variantVersionModels[id].value" :version-options="versionOptions"
+                                  :model-key="variantModelKeyModels[id].value" :options="modelSelection.textModelOptions.value" :refresh-models="modelSelection.refreshTextModels"
+                                  :running="variantRunning[id]" :disabled="isAnyVariantRunning"
+                                  :run-disabled="isAnyVariantRunning && !variantRunning[id]"
+                                  :feedback-tone="variantSourceFeedback[id].tone" :feedback-key="variantSourceFeedback[id].key"
+                                  :version-test-id="getVariantVersionTestId(id)" :model-test-id="getVariantModelTestId(id)" :run-test-id="getVariantRunTestId(id)"
+                                  @update:version="handleVariantVersionChange(id, $event)"
+                                  @update:model-key="variantModelKeyModels[id].value = $event"
+                                  @preview="previewVariantSource(id)" @run="runVariant(id)" @config="handleOpenModelManager">
+
+                                </TestVariantConfig>
+                                <div v-else
                                     class="variant-cell__controls"
                                     :class="{ 'variant-cell__controls--stacked': useStackedVariantControls }"
                                 >
-                                    <div v-if="!isCompact" class="variant-cell__meta">
-                                        <TestVariantSourceTag
-                                            class="variant-cell__label"
-                                            :variant-label="getVariantLabel(id)"
-                                            :selection="variantVersionModels[id].value"
-                                            :resolved-version="getVariantResolvedVersion(id)"
-                                            :labels="getTestPanelVersionLabels()"
-                                            :feedback-key="variantSourceFeedback[id].key"
-                                            :feedback-tone="variantSourceFeedback[id].tone"
-                                            @activate="previewVariantSource(id)"
-                                        />
-                                        <CompareRoleBadge
-                                            v-if="!isCompact && activeVariantIds.length >= 2"
-                                            :entry="compareRoleEntryMap[id]"
-                                            clickable
-                                            @click="openCompareRoleConfig"
-                                        />
 
-                                    </div>
 
                                     <div class="variant-cell__actions">
                                         <button v-if="isCompact" type="button" class="test-config-group-label" :aria-label="t('workspace.viewPrompt') + ' ' + id.toUpperCase()" @click="previewVariantSource(id)">{{ id.toUpperCase() }}</button>
@@ -366,24 +330,7 @@
                                             />
                                         </div>
 
-                                        <div v-if="!isCompact" class="variant-cell__run">
-                                            <ThemedTooltip :label="t('test.layout.runThisColumn')">
-                                                <NButton
-                                                    type="primary"
-                                                    size="small"
-                                                    circle
-                                                    :loading="variantRunning[id]"
-                                                    :disabled="isAnyVariantRunning && !variantRunning[id]"
-                                                    @click="() => runVariant(id)"
-                                                    :data-testid="getVariantRunTestId(id)"
-                                                    :aria-label="t('test.layout.runThisColumn')"
-                                                >
-                                                    <template #icon>
-                                                        <UiPlay />
-                                                    </template>
-                                                </NButton>
-                                            </ThemedTooltip>
-                                        </div>
+
                                     </div>
                                 </div>
                             </div>
@@ -533,8 +480,11 @@
 </template>
 
 <script setup lang="ts">
+import CompareRoleSummary from '../evaluation/CompareRoleSummary.vue'
+import TestWorkspaceToolbar from '../TestWorkspaceToolbar.vue'
+import TestVariantConfig from '../TestVariantConfig.vue'
 import { getTextModelSelectionConfigId } from '../../utils/text-model-selection'
-import { ChevronDown as UiChevronDown, ChevronUp as UiChevronUp, Play as UiPlay } from '@lucide/vue'
+import { ChevronDown as UiChevronDown, ChevronUp as UiChevronUp, } from '@lucide/vue'
 import TestSourcePreview from '../common/TestSourcePreview.vue'
 import TestWorkspaceLayout from '../common/TestWorkspaceLayout.vue'
 import MobileTestResultHeader from '../common/MobileTestResultHeader.vue'
@@ -578,7 +528,7 @@ import { useWorkspaceTemplateSelection } from '../../composables/workspaces/useW
 import { useEvaluationHandler } from '../../composables/prompt/useEvaluationHandler'
 import { buildCompareEvaluationPayload, useCompareRoleConfig, useTestSourceAreaFeedback, useTestVariantSourceFeedback } from '../../composables/prompt'
 import { provideEvaluation } from '../../composables/prompt/useEvaluationContext'
-import { NButton, NCard, NFlex, NIcon, NText, NRadioGroup, NRadioButton, NTag } from 'naive-ui'
+import { NButton, NCard, NFlex, NIcon, NText } from 'naive-ui'
 import InputPanelUI from '../InputPanel.vue'
 import PromptPanelUI from '../PromptPanel.vue'
 import WorkspaceUtilityMenu from '../common/WorkspaceUtilityMenu.vue'
@@ -592,7 +542,6 @@ import SaveTestResultExampleButton from '../SaveTestResultExampleButton.vue'
 import {
   AnalyzeActionIcon,
   CompareHelpButton,
-  CompareRoleBadge,
   CompareRoleConfigDialog,
   EvaluationPanel,
   EvaluationScoreBadge,
@@ -603,7 +552,6 @@ import SelectWithConfig from '../SelectWithConfig.vue'
 import TextModelSelector from '../TextModelSelector.vue'
 import TestPanelVersionSelect from '../TestPanelVersionSelect.vue'
 import TestSourceLinkedCard from '../TestSourceLinkedCard.vue'
-import TestVariantSourceTag from '../TestVariantSourceTag.vue'
 import { OptionAccessors } from '../../utils/data-transformer'
 import {
   buildTestPanelVersionPromptRef,
@@ -934,7 +882,7 @@ const {
   },
 })
 const previewVariantSource = (id: TestVariantId) => {
-  if (!isCompact.value) { activateVariantSource(id); return }
+  if (!isCompact.value) activateVariantSource(id)
   openSourcePreview(id)
 }
 

@@ -1,37 +1,34 @@
 <template>
-  <NButtonGroup>
-    <NButton
+  <NRadioGroup :value="modelValue" size="small" :disabled="disabled" @update:value="handleModeUpdate">
+    <NRadioButton
       data-testid="image-sub-mode-text2image"
-      :type="modelValue === 'text2image' ? 'primary' : 'default'"
-      size="small"
-      @click="handleModeChange('text2image')"
+      :value="'text2image'"
+      @click="handleReselect('text2image', $event)"
       :disabled="disabled"
     >
       {{ t('imageMode.text2image') }}
-    </NButton>
-    <NButton
+    </NRadioButton>
+    <NRadioButton
       data-testid="image-sub-mode-image2image"
-      :type="modelValue === 'image2image' ? 'primary' : 'default'"
-      size="small"
-      @click="handleModeChange('image2image')"
+      :value="'image2image'"
+      @click="handleReselect('image2image', $event)"
       :disabled="disabled"
     >
       {{ t('imageMode.image2image') }}
-    </NButton>
-    <NButton
+    </NRadioButton>
+    <NRadioButton
       data-testid="image-sub-mode-multiimage"
-      :type="modelValue === 'multiimage' ? 'primary' : 'default'"
-      size="small"
-      @click="handleModeChange('multiimage')"
+      :value="'multiimage'"
+      @click="handleReselect('multiimage', $event)"
       :disabled="disabled"
     >
       {{ t('imageMode.multiimage') }}
-    </NButton>
-  </NButtonGroup>
+    </NRadioButton>
+  </NRadioGroup>
 </template>
 
 <script setup lang="ts">
-import { NButtonGroup, NButton } from 'naive-ui'
+import { NRadioGroup, NRadioButton } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 
 export type ImageMode = 'text2image' | 'image2image' | 'multiimage'
@@ -54,6 +51,19 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>()
 const { t } = useI18n()
+
+const handleModeUpdate = (value: string | number | boolean) => {
+  if (value === props.modelValue) return
+  if (value === 'text2image' || value === 'image2image' || value === 'multiimage') {
+    handleModeChange(value)
+  }
+}
+
+const handleReselect = (mode: ImageMode, event: MouseEvent) => {
+  // A label click also forwards a click to its input; handle only that activation.
+  if (!(event.target instanceof HTMLInputElement)) return
+  if (props.allowReselect && props.modelValue === mode) handleModeChange(mode)
+}
 
 const handleModeChange = (mode: ImageMode) => {
   if (props.disabled) return

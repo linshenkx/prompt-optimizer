@@ -12,7 +12,7 @@
                 <NSpace :size="8" align="center">
                     <!-- 消息数量 -->
                     <NText v-if="messages.length > 0" :depth="3" style="font-size: 13px">
-                        💬 {{ t("conversation.stats.messages") }}: {{ messages.length }}
+                        <UiMessageSquare :size="14" style="vertical-align: -2px" aria-hidden="true" /> {{ t("conversation.stats.messages") }}: {{ messages.length }}
                     </NText>
 
                     <!-- 变量统计 -->
@@ -21,7 +21,7 @@
                         :depth="3"
                         style="font-size: 13px"
                     >
-                        🏷️ {{ t("conversation.stats.variables") }}: {{ allUsedVariables.length }}
+                        <UiTags :size="14" style="vertical-align: -2px" aria-hidden="true" /> {{ t("conversation.stats.variables") }}: {{ allUsedVariables.length }}
                     </NText>
 
                     <!-- 缺失变量警告 -->
@@ -53,7 +53,7 @@
                         v-if="messages.length > 0 && canEditMessages"
                         @click="handleOpenContextEditor"
                         :size="buttonSize"
-                        type="primary"
+                        secondary
                         :loading="loading"
                         data-testid="pro-multi-open-context-editor"
                     >
@@ -259,7 +259,7 @@
 </template>
 
 <script setup lang="ts">
-import { TriangleAlert, Wrench, Settings as RenderSettings, User as RenderUser, Lightbulb as RenderLightbulb, Wrench as RenderWrench, SquarePen as UiSquarePen, MessageSquare as UiMessageSquare, CircleCheck as UiCircleCheck, Circle as UiCircle, ChevronUp as UiChevronUp, ChevronDown as UiChevronDown, Trash2 as UiTrash2, Plus as UiPlus } from '@lucide/vue'
+import { Tags as UiTags, TriangleAlert, Wrench, Settings as RenderSettings, User as RenderUser, Lightbulb as RenderLightbulb, Wrench as RenderWrench, SquarePen as UiSquarePen, MessageSquare as UiMessageSquare, CircleCheck as UiCircleCheck, Circle as UiCircle, ChevronUp as UiChevronUp, ChevronDown as UiChevronDown, Trash2 as UiTrash2, Plus as UiPlus } from '@lucide/vue'
 import { ref, computed, watch, h, onMounted } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 
