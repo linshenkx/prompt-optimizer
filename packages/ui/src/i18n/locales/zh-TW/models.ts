@@ -1,4 +1,13 @@
 const messages = {
+  localDiscovery: {
+    cliproxyapiApiKeyHint: '若 CLIProxyAPI 已啟用驗證，請填寫用戶端 API Key（非管理金鑰）',
+    apiKeyHint: '若 {name} 已啟用驗證，請填寫 API 金鑰',
+    magpieApiKeyHint: '填寫 Magpie 閘道金鑰後取得模型',
+    downloadable: ' · 需下載',
+    downloading: ' · 下載中',
+    "found": "已發現：",
+    "create": "快速新增 {name} 供應商"
+  },
   networkSettings: {
     title: '網路設定',
     description: '統一設定文字和圖片模型的連線方式，包括取得模型、連線測試和生成。',
@@ -26,6 +35,41 @@ const messages = {
     },
   },
   "modelManager": {
+    localProviderHelp: {
+      serviceTitle: '{name} 連線說明',
+      services: {
+        cliproxyapi: {
+          setup: '先在 CLIProxyAPI 設定上游帳號或提供商；服務已啟動不代表已有可呼叫的模型。',
+          auth: '填寫 CLIProxyAPI 接受的用戶端 API Key：新版設定為 access.api-keys，舊版為 api-keys。這裡不使用管理金鑰或上游帳號金鑰。未啟用用戶端認證時可留空。',
+          web: '取得模型後選擇回傳的完整模型 ID，保留前綴。網頁連線失敗時，檢查服務或反向代理的跨域設定；增加金鑰不能解決跨域問題。',
+        },
+        litellm: {
+          setup: '連接 LiteLLM Proxy 閘道，使用閘道設定的模型名稱或別名。僅安裝 LiteLLM 程式庫不會啟動閘道。',
+          auth: '閘道啟用認證時，填寫管理員分配的 LiteLLM Virtual Key；上游模型廠商金鑰應設定在閘道中。未啟用認證時可留空。',
+          web: '模型能否呼叫取決於金鑰權限與閘道路由。網頁連線失敗時，檢查閘道及反向代理是否允許目前網頁來源。',
+        },
+        llamacpp: {
+          setup: '需要執行 llama-server 並載入可用於對話的模型；llama-cli 命令列程式本身不提供此 API。',
+          auth: '預設無需 API Key。若服務透過 --api-key、--api-key-file 或環境變數設定金鑰，請填寫對應值。',
+          web: '模型載入完成後再取得清單。若網頁跨域受限，檢查 --cors-origins 是否允許目前來源；部分工具／Agent 模式會將預設來源限制為 localhost。',
+        },
+      },
+      magpieHint: '連接本機 Magpie 閘道。網頁存取需要有效的閘道金鑰，可展開 API 金鑰下方說明取得。',
+      ollamaHint: '連接本機 Ollama，預設無需 API Key。先啟動 Ollama 並下載模型，再取得模型清單。',
+      magpieKeyPlaceholder: '填寫 Magpie 閘道金鑰（僅金鑰本身，不加 Bearer）',
+      ollamaKeyPlaceholder: '本機 Ollama 預設無需填寫',
+      magpieTitle: '如何取得閘道金鑰？', ollamaTitle: 'API Key 與網頁連線說明',
+      system: '作業系統', powershell: '在 PowerShell 中執行：', terminal: '在終端機中執行：',
+      copyCommand: '複製命令', copyFailed: '複製失敗，請選取命令手動複製。',
+      magpieIntro: '以下命令會新增名為 Prompt Optimizer 的閘道金鑰，並顯示完整金鑰；不會讀取現有金鑰。',
+      magpieAfter: '將輸出的 sk-magpie-key-… 完整貼到 API 金鑰欄位，再取得模型清單。不要加上 Bearer 前綴；magpie 佔位值不能用於網頁認證。',
+      windowsPath: '命令使用 Windows 預設安裝路徑；若修改過安裝位置，請替換為實際的 magpie-cli.exe 路徑。',
+      unixPath: '需要已安裝 Magpie，並能在終端機執行 magpie。若提示找不到命令，請使用實際的執行檔路徑。',
+      magpieCors: '網頁存取還需在 Magpie 的網頁來源允許清單中加入目前網頁來源。本機存取無需開啟區域網路共用。',
+      ollamaAuth: '本機 Ollama 預設不要求金鑰，留空即可；若使用啟用認證的反向代理，請填寫代理要求的金鑰。',
+      ollamaCors: 'Ollama 預設允許 localhost、127.0.0.1 等本機網頁來源。線上網頁跨域受限時，將網頁來源加入 OLLAMA_ORIGINS，保留現有項目並重新啟動 Ollama。來源包含協定、網域及連接埠，不含路徑；填寫 API Key 不能解決跨域問題。',
+      currentOrigin: '目前網頁來源：', docs: '查看官方說明',
+    },
     "title": "模型管理",
     "textModels": "文字模型",
     "imageModels": "圖像模型",
@@ -58,7 +102,7 @@ const messages = {
       "dashscopeHint": "阿里百鍊已支援 OpenAI 相容的 Chat Completions 與 Responses 接口，目前可直接在這裡切換請求風格使用。",
       "xiaomiMimoHint": "預設使用小米 MiMo Token Plan 中國區位址：https://token-plan-cn.xiaomimimo.com/v1。也可依訂閱管理頁改為新加坡 https://token-plan-sgp.xiaomimimo.com/v1 或阿姆斯特丹 https://token-plan-ams.xiaomimimo.com/v1。環境變數預置使用 VITE_MIMO_TOKEN_PLAN_*。",
       "minimaxHint": "預設位址是 MiniMax 海外 OpenAI 相容接口。中國大陸用戶請將 API 位址改為 https://api.minimaxi.com/v1；這裡不要使用 MiniMax 的 Anthropic 格式位址。",
-      "chromeBuiltInHint": "使用 Chrome 內建的本地 Gemini Nano 模型，無需第三方 API Key。模型由 Chrome 管理，首次使用可能需要使用者明確下載。目前 Chrome 官方僅支援英文、西班牙文、日文輸出，本提供商會預設按英文會話相容處理。"
+      "chromeBuiltInHint": "使用目前瀏覽器的本地 Gemini Nano 模型，無需 API 位址或金鑰。首次使用可能需要點選下載；可用語言與裝置要求取決於 Chrome 版本。本專案目前預設按英文能力建立會話。"
     },
     "chromeBuiltIn": {
       "downloadAction": "下載/準備本地模型",
@@ -77,11 +121,11 @@ const messages = {
       },
       "status": {
         "checking": "正在檢查瀏覽器是否提供 Prompt API，以及本地模型是否已準備好。",
-        "available": "可以直接使用，無需填寫 API 位址或金鑰。當前會按英文輸出能力建立會話；Chrome 官方目前僅支援英文、西班牙文、日文輸出。",
+        "available": "可以直接使用，無需填寫 API 位址或金鑰。目前會按英文輸出能力建立會話；可用語言以目前 Chrome 版本為準。",
         "downloadable": "你的 Chrome 支援該能力，但本地模型尚未下載。只有點擊下方按鈕後，才會請求 Chrome 下載模型。",
         "downloading": "Chrome 正在下載模型。下載可能需要一些時間，完成後可以直接測試或儲存啟用。",
         "unavailable": "目前瀏覽器、設備、使用者設定或企業政策可能不支援該能力。你仍然可以配置其他文字模型提供商。",
-        "api-missing": "請在支援 Prompt API 的 Chrome 中開啟 Web 版。其他瀏覽器會安全降級，不會報錯。"
+        "api-missing": "請在支援 Prompt API 的桌面 Chrome 中，透過 HTTPS 或本機 localhost 位址開啟 Web 版。桌面應用程式不會借用已安裝 Chrome 的內建 AI；瀏覽器或裝置不支援時，請選擇其他模型。"
       }
     },
     "connection": {

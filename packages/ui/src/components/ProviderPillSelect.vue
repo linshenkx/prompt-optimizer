@@ -17,7 +17,7 @@
       v-else
       :key="option.value"
       class="provider-pill-select__pill"
-      :class="{ 'provider-pill-select__pill--selected': option.value === value }"
+      :class="{ 'provider-pill-select__pill--selected': option.value === value, 'provider-pill-select__pill--icon': option.value === 'magpie' }"
       type="button"
       role="radio"
       :aria-checked="option.value === value"
@@ -25,6 +25,7 @@
       :title="option.label"
       @click="selectOption(option)"
     >
+      <MagpieBrandIcon v-if="option.value === 'magpie'" class="provider-pill-select__icon" />
       <span class="provider-pill-select__label">{{ option.label }}</span>
     </button>
     <button
@@ -75,6 +76,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import MagpieBrandIcon from './icons/MagpieBrandIcon.vue'
 
 interface ProviderOption {
   label?: unknown
@@ -115,6 +117,7 @@ const providerOrder = [
   'zhipuai',
   'chrome-built-in',
   'ollama',
+  'magpie',
   'seedream',
   'volcengine',
   'volcano',
@@ -251,6 +254,9 @@ const toggleOverflow = () => {
   border-color: var(--n-border-hover-color);
   color: var(--n-text-color-hover);
 }
+
+.provider-pill-select__pill--icon { display: inline-flex; align-items: center; gap: 4px; }
+.provider-pill-select__icon { width: 16px; height: 16px; flex: none; }
 
 .provider-pill-select__pill:focus-visible {
   outline: none;

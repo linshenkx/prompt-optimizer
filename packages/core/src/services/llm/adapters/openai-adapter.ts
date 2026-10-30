@@ -865,7 +865,10 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         : defaultTimeout
 
     const sdkConfig: any = {
-      apiKey: apiKey,
+      // The SDK rejects empty credentials before fetch. Optional-key providers
+      // use an internal sentinel; the fetch wrapper below removes Authorization
+      // whenever the user has not supplied a key.
+      apiKey: hasApiKey || this.getProvider().requiresApiKey ? apiKey : 'not-required',
       baseURL: processedBaseURL,
       timeout: timeout,
       maxRetries: isStream ? 2 : 3

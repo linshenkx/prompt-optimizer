@@ -217,6 +217,10 @@ interface DataAPI {
 
 // 完整的ElectronAPI接口
 interface ElectronAPI {
+  localServices?: {
+    fetchModels(input: import('@prompt-optimizer/core').LocalServiceModelRequest): Promise<import('@prompt-optimizer/core').ModelOption[]>
+    discover(ports?: import('@prompt-optimizer/core').LocalDiscoveryPorts): Promise<import('@prompt-optimizer/core').LocalServiceResult[]>
+  }
   network: ModelNetworkAPI
   app: AppAPI
   updater: UpdaterAPI

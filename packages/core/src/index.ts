@@ -296,3 +296,5 @@ export { VariableExtractionService, createVariableExtractionService } from './se
 export * from './services/variable-value-generation/types'
 export * from './services/variable-value-generation/errors'
 export { VariableValueGenerationService, createVariableValueGenerationService } from './services/variable-value-generation/service'
+export * from './services/llm/local-discovery'
+export * from './services/llm/local-service-models'

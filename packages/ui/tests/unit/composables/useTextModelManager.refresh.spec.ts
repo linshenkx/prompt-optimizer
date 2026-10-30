@@ -12,6 +12,11 @@ import {
 import { useTextModelManager } from '../../../src/composables/model/useTextModelManager'
 import { allowConsole } from '../../utils/error-detection'
 
+const { fetchLocalModels } = vi.hoisted(() => ({ fetchLocalModels: vi.fn() }))
+vi.mock('@prompt-optimizer/core', async original => ({
+  ...await original<typeof import('@prompt-optimizer/core')>(), fetchLocalServiceModels: fetchLocalModels,
+}))
+
 vi.mock('vue-i18n', async (importOriginal) => ({
   ...await importOriginal<typeof import('vue-i18n')>(),
   useI18n: () => ({ t: (key: string) => key }),
@@ -28,10 +33,12 @@ const registry = new TextAdapterRegistry()
 const providers = registry.getAllProviders().filter(provider => provider.supportsDynamicModels)
 const wrappers: VueWrapper[] = []
 beforeEach(() => {
+  fetchLocalModels.mockReset()
   vi.spyOn(console, 'log').mockImplementation(() => {})
 })
 afterEach(() => {
   wrappers.splice(0).forEach(wrapper => wrapper.unmount())
+  vi.unstubAllGlobals()
   vi.clearAllMocks()
 })
 
@@ -82,7 +89,7 @@ async function setup(providerId = 'openai-compatible', modelId = 'saved-private-
   const manager = wrapper.vm.manager
   await manager.prepareForEdit(config.id)
   const savedBefore = JSON.parse(JSON.stringify(await modelManager.getModel(config.id))) as TextModelConfig
-  return { manager, fetchModelList, storage, config, savedBefore }
+  return { manager, modelManager, fetchModelList, storage, config, savedBefore }
 }
 
 describe.each(providers)('model list refresh: $id', provider => {
@@ -247,5 +254,207 @@ describe('model list refresh selection boundaries', () => {
     expect(manager.form.value.providerId).toBe('minimax')
     expect(manager.form.value.modelId).toBe(registry.getStaticModels('minimax')[0].id)
     expect(manager.form.value.defaultModel).toBe(manager.form.value.modelId)
+  })
+})
+
+
+describe('local provider shortcut draft', () => {
+  const service = {
+    kind: 'magpie' as const, name: 'Magpie', baseURL: 'http://127.0.0.1:4567/v1', status: 'ready' as const,
+    models: [{ id: 'first/model', name: 'First' }, { id: 'second/model', name: 'Second' }],
+  }
+
+  it.each(['ollama', 'magpie', 'lmstudio', 'cc-switch', 'cliproxyapi', 'litellm', 'llamacpp'] as const)('prefills a %s connection without saving until the user submits', async kind => {
+    const { manager, storage, config, savedBefore, fetchModelList } = await setup()
+    const before = await storage.getItem(CORE_SERVICE_KEYS.MODELS)
+    expect(await manager.prepareForLocalService({ ...service, kind })).toBe(true)
+    expect(await storage.getItem(CORE_SERVICE_KEYS.MODELS)).toBe(before)
+    expect(manager.form.value).toMatchObject({
+      id: '', name: 'Magpie', modelId: '', enabled: true,
+      providerId: kind === 'ollama' || kind === 'magpie' ? kind : 'openai-compatible',
+      connectionConfig: { baseURL: service.baseURL }, paramOverrides: {},
+    })
+    expect(manager.editingModelId.value).toBeNull()
+    expect(manager.form.value.connectionConfig.apiKey).toBeUndefined()
+    expect(manager.form.value.connectionConfig.customHeaders).toBeUndefined()
+    expect(fetchModelList).not.toHaveBeenCalled()
+    expect(manager.modelOptions.value).toEqual([])
+    expect(fetchLocalModels).not.toHaveBeenCalled()
+    if (kind === 'magpie') {
+      expect(manager.canRefreshModelOptions.value).toBe(false)
+      expect(manager.canSaveForm.value).toBe(false)
+      await manager.refreshModelOptions()
+      expect(fetchModelList).not.toHaveBeenCalled()
+      manager.form.value.connectionConfig.apiKey = 'user-entered-test-key'
+      expect(manager.canRefreshModelOptions.value).toBe(true)
+      expect(fetchModelList).not.toHaveBeenCalled()
+    }
+    fetchLocalModels.mockResolvedValue([{ value: 'first/model', label: 'First' }])
+    await manager.refreshModelOptions()
+    expect(fetchLocalModels).toHaveBeenCalledWith(expect.objectContaining({
+      kind, baseURL: service.baseURL, apiKey: kind === 'magpie' ? 'user-entered-test-key' : '',
+    }), expect.anything())
+    expect(fetchModelList).not.toHaveBeenCalled()
+    const id = await manager.saveForm()
+    const reloaded = new ModelManager(storage, registry)
+    expect(await reloaded.getModel(config.id)).toEqual(savedBefore)
+    expect(await reloaded.getModel(id!)).toMatchObject({ modelId: 'first/model', connectionConfig: { baseURL: service.baseURL } })
+    if (kind !== 'magpie' && kind !== 'ollama') {
+      expect((await reloaded.getModel(id!))?.connectionConfig.localServiceKind).toBe(kind)
+      await manager.prepareForEdit(id!)
+      expect(manager.form.value.connectionConfig.localServiceKind).toBe(kind)
+      manager.selectProvider('openai')
+      expect(manager.form.value.connectionConfig.localServiceKind).toBeFalsy()
+    }
+  })
+
+  it('rechecks saved addresses and rejects an existing connection with another model ID', async () => {
+    const { manager, modelManager, config } = await setup()
+    await modelManager.updateModel(config.id, { connectionConfig: { baseURL: 'http://localhost:4567/' } })
+    manager.models.value = []
+    const formBefore = JSON.parse(JSON.stringify(manager.form.value))
+    expect(await manager.prepareForLocalService(service)).toBe(false)
+    expect(manager.form.value).toEqual(formBefore)
+    expect(manager.models.value.some(model => model.id === config.id)).toBe(true)
+  })
+
+  it('can prepare an empty service catalog and leaves model selection to the user', async () => {
+    const { manager, storage } = await setup()
+    const before = await storage.getItem(CORE_SERVICE_KEYS.MODELS)
+    expect(await manager.prepareForLocalService({ ...service, models: [] })).toBe(true)
+    expect(manager.form.value.modelId).toBe('')
+    expect(manager.canSaveForm.value).toBe(false)
+    expect(await storage.getItem(CORE_SERVICE_KEYS.MODELS)).toBe(before)
+  })
+
+  it('requires a browser gateway key for manually selected Magpie too', async () => {
+    const { manager, fetchModelList } = await setup()
+    await manager.prepareForCreate()
+    manager.selectProvider('magpie')
+    expect(manager.form.value.modelId).toBe('')
+    expect(manager.form.value.connectionConfig.baseURL).toBe('http://127.0.0.1:3425/v1')
+    expect(manager.connectionFields.value.find(field => field.name === 'apiKey')?.required).toBe(true)
+    expect(manager.canRefreshModelOptions.value).toBe(false)
+    await manager.refreshModelOptions()
+    expect(fetchModelList).not.toHaveBeenCalled()
+    expect(toast.error).toHaveBeenCalledWith('localDiscovery.magpieApiKeyHint')
+    manager.form.value.connectionConfig.apiKey = 'user-entered-test-key'
+    expect(manager.canRefreshModelOptions.value).toBe(true)
+  })
+
+  it('keeps Magpie models empty on authentication failure instead of adding static placeholders', async () => {
+    const { manager } = await setup()
+    await manager.prepareForLocalService(service)
+    manager.form.value.connectionConfig.apiKey = 'invalid-test-key'
+    fetchLocalModels.mockRejectedValue(new Error('HTTP 401'))
+    await manager.refreshModelOptions()
+    expect(manager.modelOptions.value).toEqual([])
+    expect(manager.form.value.modelId).toBe('')
+    expect(manager.canSaveForm.value).toBe(false)
+    expect(toast.error).toHaveBeenCalledWith('localDiscovery.magpieApiKeyHint')
+    expect(toast.warning).not.toHaveBeenCalled()
+    expect(manager.isLoadingModelOptions.value).toBe(false)
+  })
+
+  it('discards a cancelled shortcut without adding a connection', async () => {
+    const { manager, storage } = await setup()
+    const before = await storage.getItem(CORE_SERVICE_KEYS.MODELS)
+    await manager.prepareForLocalService(service)
+    manager.resetFormState()
+    expect(await storage.getItem(CORE_SERVICE_KEYS.MODELS)).toBe(before)
+    await manager.prepareForLocalService({ ...service, kind: 'lmstudio' })
+    expect(manager.canRefreshModelOptions.value).toBe(true)
+  })
+})
+
+describe('Chrome discovery draft reuses the built-in connection', () => {
+  const service = {
+    kind: 'chrome-built-in' as const, name: 'Chrome AI', baseURL: '' as const, status: 'ready' as const,
+    availability: 'available' as const, models: [{ id: 'gemini-nano', name: 'Gemini Nano' }],
+  }
+  it('saves into the existing placeholder only after explicit submission', async () => {
+    vi.stubGlobal('LanguageModel', { availability: vi.fn().mockResolvedValue('available') })
+    const { manager, modelManager, storage } = await setup()
+    const before = await storage.getItem(CORE_SERVICE_KEYS.MODELS)
+    expect(await manager.prepareForLocalService(service)).toBe(true)
+    expect(manager.form.value).toMatchObject({ originalId: 'chrome-built-in', providerId: 'chrome-built-in', enabled: true, connectionConfig: {} })
+    expect(await storage.getItem(CORE_SERVICE_KEYS.MODELS)).toBe(before)
+    expect(await manager.saveForm()).toBe('chrome-built-in')
+    const saved = await modelManager.getModel('chrome-built-in')
+    expect(saved).toMatchObject({ enabled: true, activationState: { userConfigured: true } })
+    expect((await modelManager.getAllModels()).filter(model => model.providerId === 'chrome-built-in')).toHaveLength(1)
+    expect(await manager.prepareForLocalService(service)).toBe(false)
+  })
+  it('cancels without saving, downloading or enabling the placeholder', async () => {
+    const create = vi.fn()
+    vi.stubGlobal('LanguageModel', { availability: vi.fn().mockResolvedValue('downloadable'), create })
+    const { manager, storage } = await setup()
+    const before = await storage.getItem(CORE_SERVICE_KEYS.MODELS)
+    await manager.prepareForLocalService({ ...service, availability: 'downloadable' })
+    expect(manager.form.value.enabled).toBe(false)
+    manager.resetFormState()
+    expect(await storage.getItem(CORE_SERVICE_KEYS.MODELS)).toBe(before)
+    expect(create).not.toHaveBeenCalled()
+  })
+  it('respects a user-disabled existing Chrome connection', async () => {
+    const { manager, modelManager } = await setup()
+    await modelManager.updateModel('chrome-built-in', { enabled: false, activationState: { userConfigured: true } })
+    expect(await manager.prepareForLocalService(service)).toBe(false)
+    expect((await modelManager.getModel('chrome-built-in'))?.enabled).toBe(false)
+  })
+})
+
+describe('CC Switch protocol drafts', () => {
+  it.each(['anthropic', 'openai-compatible'] as const)('prefills the detected %s protocol', async providerId => {
+    const { manager } = await setup()
+    const requestStyle = providerId === 'openai-compatible' ? 'responses' as const : undefined
+    await manager.prepareForLocalService({ kind: 'cc-switch', name: 'CC Switch', status: 'ready', baseURL: 'http://localhost:15721', models: [{ id: 'routed-model', name: 'Routed' }], providerId, requestStyle })
+    expect(manager.form.value.providerId).toBe(providerId)
+    expect(manager.form.value.connectionConfig.requestStyle).toBe(requestStyle)
+    expect(manager.form.value.connectionConfig.apiKey).toBeUndefined()
+    expect(manager.form.value.modelId).toBe('')
+    expect(manager.canRefreshModelOptions.value).toBe(true)
+    fetchLocalModels.mockResolvedValue([{ value: 'routed-model', label: 'Routed' }])
+    await manager.refreshModelOptions()
+    expect(manager.form.value.modelId).toBe('routed-model')
+    expect(manager.canTestFormConnection.value).toBe(true)
+    expect(manager.form.value.connectionConfig.apiKey).toBeUndefined()
+  })
+})
+
+describe('local catalog request lifecycle', () => {
+  const service = { kind: 'lmstudio' as const, name: 'LM Studio', status: 'ready' as const, models: [], baseURL: 'http://localhost:1234/v1' }
+  it('requests a user key after 401 without losing discovery or inventing a model', async () => {
+    const { manager } = await setup()
+    await manager.prepareForLocalService(service)
+    fetchLocalModels.mockRejectedValue(new Error('HTTP 401'))
+    await manager.refreshModelOptions()
+    expect(manager.canRefreshModelOptions.value).toBe(false)
+    expect(manager.modelOptions.value).toEqual([])
+    expect(toast.error).toHaveBeenCalledWith('localDiscovery.apiKeyHint')
+    manager.form.value.connectionConfig.apiKey = 'entered-key'
+    expect(manager.canRefreshModelOptions.value).toBe(true)
+  })
+  it.each(['cancel', 'close', 'key', 'address'] as const)('ignores a late catalog after %s changes', async change => {
+    const { manager } = await setup()
+    await manager.prepareForLocalService(service)
+    const pending = Promise.withResolvers<ModelOption[]>()
+    fetchLocalModels.mockReturnValue(pending.promise)
+    const refreshing = manager.refreshModelOptions()
+    if (change === 'cancel') {
+      manager.resetFormState()
+      await manager.prepareForLocalService(service)
+      expect(manager.canRefreshModelOptions.value).toBe(true)
+    }
+    else if (change === 'close') {
+      manager.cancelLocalModelRequest()
+      expect(manager.isLoadingModelOptions.value).toBe(false)
+    }
+    else if (change === 'key') manager.form.value.connectionConfig.apiKey = 'changed-key'
+    else manager.form.value.connectionConfig.baseURL = 'http://localhost:4321/v1'
+    pending.resolve([{ value: 'old-response', label: 'Old' }])
+    await refreshing
+    expect(manager.modelOptions.value).toEqual([])
+    expect(manager.form.value.modelId).toBe('')
   })
 })

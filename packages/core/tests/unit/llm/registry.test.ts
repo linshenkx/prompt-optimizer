@@ -42,6 +42,16 @@ describe('TextAdapterRegistry', () => {
       expect(adapter.getProvider().id).toBe('ollama');
     });
 
+    it('registers Magpie with its own endpoint and no invented models', () => {
+      const adapter = registry.getAdapter('magpie');
+      expect(adapter.getProvider()).toMatchObject({
+        id: 'magpie', name: 'Magpie', defaultBaseURL: 'http://127.0.0.1:3425/v1',
+        supportsDynamicModels: true, requiresApiKey: false,
+      });
+      expect(adapter.getModels()).toEqual([]);
+      expect(adapter.buildDefaultModel('codex/custom-model').providerId).toBe('magpie');
+    });
+
     it('should return SiliconFlow adapter for "siliconflow" provider', () => {
       const adapter = registry.getAdapter('siliconflow');
 
@@ -118,7 +128,7 @@ describe('TextAdapterRegistry', () => {
       const providers = registry.getAllProviders();
 
       expect(Array.isArray(providers)).toBe(true);
-      expect(providers.length).toBe(16);
+      expect(providers.length).toBe(17);
 
       const providerIds = providers.map(p => p.id);
       expect(providerIds).toEqual(

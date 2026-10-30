@@ -1,7 +1,9 @@
 <template>
   <div class="text-model-manager">
+    <LocalServiceDiscovery :active="active && modelsReady" :models="manager.models.value"
+      :disabled="preparingLocalService || showEditModal" @select="handleLocalService" />
     <TextModelList
-      :models="manager.models.value"
+      :models="visibleModels"
       :is-testing-connection-for="isTestingConnectionFor"
       :is-default-model="manager.isDefaultModel"
       @test="handleTestConnection"
@@ -21,25 +23,59 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, provide, ref, h } from 'vue'
+import { onMounted, onBeforeUnmount, provide, ref, h, watch, computed } from 'vue'
 
 import { useI18n } from 'vue-i18n'
 import { isRunningInElectron } from '@prompt-optimizer/core'
+import LocalServiceDiscovery from './LocalServiceDiscovery.vue'
+import { isChromeBuiltInPlaceholder, type DiscoveredLocalService } from '../utils/local-model-discovery'
 import { useTextModelManager } from '../composables/model/useTextModelManager'
 import TextModelList from './TextModelList.vue'
 import TextModelEditModal from './TextModelEditModal.vue'
 import { useDialog } from 'naive-ui'
+import { useToast } from '../composables/ui/useToast'
 import { useConfirmDialog } from '../composables/ui/useConfirmDialog'
 import { getProviderDisplayName } from '../utils/provider-display'
 
 const emit = defineEmits(['modelsUpdated'])
+const props = withDefaults(defineProps<{ active?: boolean }>(), { active: false })
 const { t } = useI18n()
+const toast = useToast()
 const dialog = useDialog()
 const confirmDialog = useConfirmDialog()
 const manager = useTextModelManager()
 provide('textModelManager', manager)
+const visibleModels = computed(() => manager.models.value.filter(model => !isChromeBuiltInPlaceholder(model)))
 
 const showEditModal = ref(false)
+const modelsReady = ref(false)
+const preparingLocalService = ref(false)
+let localDraftGeneration = 0
+watch(() => props.active, active => {
+  if (!active) {
+    localDraftGeneration++
+    manager.cancelLocalModelRequest()
+  }
+})
+onBeforeUnmount(() => {
+  localDraftGeneration++
+  manager.cancelLocalModelRequest()
+})
+const handleLocalService = async (service: DiscoveredLocalService) => {
+  if (preparingLocalService.value || showEditModal.value || !props.active) return
+  preparingLocalService.value = true
+  const current = ++localDraftGeneration
+  try {
+    const prepared = await manager.prepareForLocalService(service)
+    if (!prepared || current !== localDraftGeneration || !props.active) return
+    editingModelId.value = null
+    showEditModal.value = true
+  } catch {
+    if (current === localDraftGeneration && props.active) toast.error(t('modelManager.loadFailed'))
+  } finally {
+    preparingLocalService.value = false
+  }
+}
 const editingModelId = ref<string | null>(null)
 const isTestingConnectionFor = (id: string) => !!manager.testingConnections.value[id]
 const handleModelUpdated = async (id?: string) => {
@@ -105,6 +141,7 @@ const updateEditModalVisibility = (value: boolean) => {
   // 当模态框关闭时，重置编辑状态但不重置表单数据
   if (!value) {
     editingModelId.value = null
+    manager.cancelLocalModelRequest()
   }
 }
 
@@ -156,6 +193,7 @@ defineExpose({
 onMounted(async () => {
   await manager.loadProviders()
   await manager.loadModels()
+  modelsReady.value = true
   const firstId = manager.models.value[0]?.id
   if (firstId) {
     emit('modelsUpdated', firstId)
