@@ -94,6 +94,7 @@
                         <template #model-select>
                             <TextModelSelector
                                 v-model="selectedOptimizeModelKeyModel"
+                                data-testid="basic-user-model-select"
                                 :options="modelSelection.textModelOptions"
                                 :placeholder="t('model.select.placeholder')"
                                 size="medium"

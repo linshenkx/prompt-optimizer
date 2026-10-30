@@ -760,6 +760,27 @@ class E2EVCR {
         const url = request.url()
         const method = request.method()
 
+        // Replay selectors against their built-in catalogs. Directory refreshes
+        // are optional metadata, not recorded inference, and placeholder keys
+        // must never reach a real provider just because a selector was opened.
+        if (mode === 'replay' && method === 'GET' && /\/models\/?$/.test(new URL(url).pathname)) {
+          const provider = this.identifyProvider(url)
+          const { createTextAdapterRegistry } = await import('../../../packages/core/dist/index.js')
+          const models = createTextAdapterRegistry().getStaticModels(provider!)
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              object: 'list',
+              data: models.map(model => ({ id: model.id, object: 'model' })),
+              models: models.map(model => ({ name: `models/${model.id}`, displayName: model.name,
+                supportedGenerationMethods: ['generateContent'] })),
+              has_more: false,
+            }),
+          })
+          return
+        }
+
         // 只拦截 POST 请求
         if (method !== 'POST') {
           await route.continue()
