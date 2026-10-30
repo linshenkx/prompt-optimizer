@@ -1,10 +1,5 @@
 /* TestWorkspaceLayout and workspace test slots own configuration and side-by-side result adaptations. These rules deliberately refine owned output/image components in narrow result columns. */
 
-.compact-source-reading {
-  height: 100%;
-  min-height: 320px;
-}
-
 .compact-stale {
   padding: 8px 10px;
   background: color-mix(in srgb, #b78032 8%, var(--compact-paper));

@@ -6,11 +6,9 @@
       <TestPanelVersionSelect
         :value="version" :options="sourceOptions" :disabled="disabled"
         appearance="text" :test-id="versionTestId"
+        :preview-source="previewSource" @preview="emit('preview')"
         @update:value="emit('update:version', $event)"
       />
-      <NButton quaternary size="small" class="test-variant-config__icon"
-        :title="t('workspace.viewPrompt')" :aria-label="`${label} ${t('workspace.viewPrompt')}`"
-        @click="emit('preview')"><template #icon><Eye /></template></NButton>
       <span class="test-variant-config__run-trigger" :title="runTooltip || t('test.layout.runThisColumn')">
         <NButton secondary circle size="small" class="test-variant-config__run"
           :loading="running" :disabled="runDisabled ?? (disabled && !running)" :data-testid="runTestId"
@@ -34,7 +32,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NButton, useThemeVars } from 'naive-ui'
-import { Eye, Play } from '@lucide/vue'
+import { Play } from '@lucide/vue'
 import type { ModelSelectOption } from '../types/select-options'
 import type { TestPanelVersionOption } from '../utils/testPanelVersion'
 import TextModelSelector from './TextModelSelector.vue'
@@ -44,6 +42,7 @@ const props = defineProps<{
   label: string
   version: string | number
   versionOptions: TestPanelVersionOption[]
+  previewSource?: () => { content: string; title?: string }
   modelKey: string
   options?: ModelSelectOption[]
   disabled?: boolean
@@ -79,7 +78,7 @@ const sourceOptions = computed(() => props.versionOptions.map(option => {
 .test-variant-config__source { display: flex; align-items: center; gap: 4px; min-width: 0; height: 28px; }
 .test-variant-config__letter { flex: none; width: 12px; font-size: 12px; color: var(--n-text-color-3); }
 .test-variant-config__source > :deep(.test-panel-version-select) { flex: 1; min-width: 0; width: 0; }
-.test-variant-config__icon, .test-variant-config__run { flex: none; width: 28px; height: 28px; }
+.test-variant-config__run { flex: none; width: 28px; height: 28px; }
 .test-variant-config__run-trigger { flex: none; display: inline-flex; }
 .test-variant-config__model { min-width: 0; margin-inline-start: 16px; }
 .test-variant-config__select { min-width: 0; }

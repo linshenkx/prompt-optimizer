@@ -229,7 +229,7 @@
     <template #variant-controls><NCard class="test-variant-controls" size="small" :style="{ flexShrink: 0 }" :content-style="isCompact ? undefined : { padding: '12px' }">
                         <div class="variant-deck" :style="{ gridTemplateColumns: isCompact ? 'minmax(0, 1fr)' : testGridTemplateColumns }">
                             <div  v-for="id in activeVariantIds" :key="id" class="variant-cell">
-                                <TestVariantConfig v-if="!isCompact"
+                                <TestVariantConfig :preview-source="() => readVariantSource(id)" v-if="!isCompact"
                                   :label="getVariantLabel(id)" :version="variantVersionModels[id].value" :version-options="versionOptions"
                                   :model-key="variantModelKeyModels[id].value" :options="modelSelection.textModelOptions.value" :refresh-models="modelSelection.refreshTextModels"
                                   :running="variantRunning[id]" :disabled="isAnyVariantRunning"
@@ -238,7 +238,7 @@
                                   :version-test-id="getVariantVersionTestId(id)" :model-test-id="getVariantModelTestId(id)" :run-test-id="getVariantRunTestId(id)"
                                   @update:version="handleVariantVersionChange(id, $event)"
                                   @update:model-key="variantModelKeyModels[id].value = $event"
-                                  @preview="activateVariantSource(id); previewMobileSource(id)" @run="runVariant(id)" @config="emit('config-model')">
+                                  @preview="previewMobileSource(id)" @run="runVariant(id)" @config="emit('config-model')">
 
                                 </TestVariantConfig>
                                 <div v-else
@@ -249,7 +249,7 @@
 
                                     <div class="variant-cell__actions">
                                         <button v-if="isCompact" type="button" class="test-config-group-label" :aria-label="t('workspace.viewPrompt') + ' ' + id.toUpperCase()" @click="previewMobileSource(id)">{{ id.toUpperCase() }}</button>
-                                        <div class="variant-cell__version"><NText v-if="isCompact" depth="2" class="test-settings-label">{{ t('workspace.promptVersion') }}</NText><TestPanelVersionSelect
+                                        <div class="variant-cell__version"><NText v-if="isCompact" depth="2" class="test-settings-label">{{ t('workspace.promptVersion') }}</NText><TestPanelVersionSelect :preview-source="() => readVariantSource(id)" @preview="previewMobileSource(id)"
                                             :value="variantVersionModels[id].value"
                                             :options="versionOptions"
                                             :disabled="variantRunning[id] || isAnyVariantRunning"
@@ -2000,6 +2000,7 @@ const conversationManagerRef = ref<{ expand: () => void } | null>(null)
 const {
   show: showMobileSource, content: mobileSourceContent, editable: mobileSourceEditable,
   preview: previewMobileSource, edit: editMobileSource,
+  read: readVariantSource,
 } = useTestSourcePreview({
   mode: 'snapshot',
   readSource: (id) => {

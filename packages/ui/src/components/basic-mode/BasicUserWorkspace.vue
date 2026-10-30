@@ -263,7 +263,7 @@
                                 :key="id"
                                 class="variant-cell"
                             >
-                                <TestVariantConfig v-if="!isCompact"
+                                <TestVariantConfig :preview-source="() => readVariantSource(id)" v-if="!isCompact"
                                   :label="getVariantLabel(id)" :version="variantVersionModels[id].value"
                                   :version-options="versionOptions" :model-key="variantModelKeyModels[id].value"
                                   :options="modelSelection.textModelOptions.value"
@@ -274,7 +274,7 @@
                                   :model-test-id="getVariantModelTestId(id)" :run-test-id="getVariantRunTestId(id)"
                                   @update:version="handleVariantVersionChange(id, $event)"
                                   @update:model-key="variantModelKeyModels[id].value = $event"
-                                  @preview="previewVariantSource(id)" @run="runVariant(id)"
+                                  @preview="openSourcePreview(id)" @run="runVariant(id)"
                                   @config="handleOpenModelManager" />
                                 <div v-else
                                     class="variant-cell__controls"
@@ -285,7 +285,7 @@
                                         <button v-if="isCompact" type="button" class="test-config-group-label" :aria-label="t('workspace.viewPrompt') + ' ' + id.toUpperCase()" @click="previewVariantSource(id)">{{ id.toUpperCase() }}</button>
                                         <div class="variant-cell__version">
                                         <NText v-if="isCompact" depth="2" class="test-settings-label">{{ t('workspace.promptVersion') }}</NText>
-                                        <TestPanelVersionSelect
+                                        <TestPanelVersionSelect :preview-source="() => readVariantSource(id)" @preview="openSourcePreview(id)"
                                             :value="variantVersionModels[id].value"
                                             :options="versionOptions"
                                             :disabled="variantRunning[id] || isAnyVariantRunning"
@@ -754,13 +754,14 @@ const {
   show: sourcePreviewOpen, selectedId: sourcePreviewId,
   content: sourcePreviewContent, title: sourcePreviewTitle, editable: sourcePreviewEditable,
   preview: openSourcePreview, edit: editPreviewSource,
+  read: readVariantSource,
 } = useTestSourcePreview({
   mode: 'live',
   readSource: (id) => {
     const selection = variantVersionModels[id].value
     return {
       content: resolveTestPrompt(selection).text,
-      title: `${t('workspace.viewPrompt')} · ${getVariantLabel(id)} · ${getVariantVersionLabel(id)}`,
+      title: `${t('workspace.viewPrompt')} · ${getVariantLabel(id)} · ${selection === 0 ? t('promptOptimizer.originalPrompt') : selection === 'workspace' ? t('workspace.optimizeWorkspace') : getVariantVersionLabel(id)}`,
       editable: [0, 'workspace'].includes(selection),
       view: selection === 0 ? 'original' : 'workspace',
     }

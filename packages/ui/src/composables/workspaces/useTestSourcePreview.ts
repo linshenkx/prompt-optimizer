@@ -39,7 +39,7 @@ export function useTestSourcePreview(options: TestSourcePreviewOptions) {
   }
 
   return {
-    show, selectedId, preview, edit,
+    show, selectedId, preview, edit, read: options.readSource,
     content: computed(() => source.value.content),
     editable: computed(() => source.value.editable),
     title: computed(() => source.value.title ?? ''),

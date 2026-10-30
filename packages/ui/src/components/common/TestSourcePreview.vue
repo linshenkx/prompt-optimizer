@@ -1,9 +1,10 @@
 <template>
   <AdaptiveModal :show="show" :title="title" data-testid="test-source-preview"
+    presentation="dialog" style="width: min(760px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow: auto;"
     @update:show="$emit('update:show', $event)">
-    <div class="compact-source-reading">
+    <div class="test-source-reading">
       <OutputDisplay :content="content" mode="readonly" :enable-diff="false" :enable-edit="false"
-        :enable-favorite="false" :enable-fullscreen="false" />
+        :enable-favorite="false" :enable-fullscreen="false" fit-content />
     </div>
     <template #footer>
       <NFlex justify="end">
@@ -22,3 +23,7 @@ defineProps<{ show: boolean; title: string; content: string; editable: boolean }
 defineEmits<{ 'update:show': [value: boolean]; edit: [] }>()
 const { t } = useI18n()
 </script>
+
+<style scoped>
+.test-source-reading { min-width: 0; max-height: 60dvh; overflow: auto; }
+</style>

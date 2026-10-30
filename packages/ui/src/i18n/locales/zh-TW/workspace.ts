@@ -1,5 +1,6 @@
 export default {
   "workspace": {
+    "viewFullPrompt": "查看全文",
     "helpAbout": "說明與關於",
     "systemMode": "系統提示詞",
     "userMode": "使用者提示詞",

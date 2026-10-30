@@ -1,5 +1,6 @@
 export default {
   "workspace": {
+    "viewFullPrompt": "View full prompt",
     "helpAbout": "Help & about",
     "systemMode": "System prompt",
     "userMode": "User prompt",

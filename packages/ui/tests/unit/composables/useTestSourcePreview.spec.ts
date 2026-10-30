@@ -14,6 +14,17 @@ function createPreview(mode: 'live' | 'snapshot') {
 }
 
 describe('test source preview state', () => {
+  it.each(['live', 'snapshot'] as const)('%s reads hover content without opening a modal or changing its selection', mode => {
+    const preview = createPreview(mode)
+    expect(preview.read('c').content).toBe('saved v1')
+    expect(preview.show.value).toBe(false)
+    expect(preview.selectedId.value).toBe('a')
+    preview.preview('b')
+    preview.read('a')
+    expect(preview.selectedId.value).toBe('b')
+    expect(preview.content.value).toBe('draft')
+    expect(preview.onEdit).not.toHaveBeenCalled()
+  })
   it('follows restored sources and version selection live in basic modes', () => {
     const preview = createPreview('live')
     preview.preview('b')
