@@ -82,6 +82,7 @@
               <NText depth="3" class="chrome-built-in-status__description">
                 {{ chromeBuiltInStatusDescription }}
               </NText>
+              <a href="https://developer.chrome.com/docs/ai/prompt-api" target="_blank" rel="noopener noreferrer">{{ t('modelManager.localProviderHelp.docs') }}</a>
               <NProgress
                 v-if="chromeBuiltInDownloadPercent !== null"
                 type="line"
@@ -167,13 +168,16 @@
               />
             </template>
             <template v-else-if="field.type === 'string'">
-              <NInput
-                v-model:value="form.connectionConfig[field.name] as string"
-                :type="field.name.toLowerCase().includes('key') ? 'password' : 'text'"
-                :placeholder="field.placeholder"
-                :required="field.required"
-                :autocomplete="field.name.toLowerCase().includes('key') ? 'new-password' : 'on'"
-              />
+              <div class="connection-string-field">
+                <NInput
+                  v-model:value="form.connectionConfig[field.name] as string"
+                  :type="field.name.toLowerCase().includes('key') ? 'password' : 'text'"
+                  :placeholder="field.placeholder"
+                  :required="field.required"
+                  :autocomplete="field.name.toLowerCase().includes('key') ? 'new-password' : 'on'"
+                />
+                <LocalProviderHelp v-if="field.name === 'apiKey'" :key="`${form.providerId}:${form.connectionConfig.localServiceKind ?? ''}`" :provider-id="form.providerId" :service-kind="form.connectionConfig.localServiceKind" />
+              </div>
             </template>
             <template v-else-if="field.type === 'number'">
               <NInputNumber
@@ -390,6 +394,7 @@ import ModelAdvancedSection from './ModelAdvancedSection.vue'
 import ProviderPillSelect from './ProviderPillSelect.vue'
 import ExternalLinkIcon from './icons/ExternalLinkIcon.vue'
 import ThemedTooltip from './common/ThemedTooltip.vue'
+import LocalProviderHelp from './LocalProviderHelp.vue'
 import type { TextModelManager } from '../composables/model/useTextModelManager'
 import { resolveTextConnectionFieldLabel } from '../utils/model-connection-label'
 import { getProviderDisplayName } from '../utils/provider-display'
@@ -546,6 +551,10 @@ const currentProviderHint = computed(() => {
 
   if (provider.id === 'openai-compatible') {
     return t('modelManager.provider.customApiHint')
+  }
+
+  if (provider.id === 'magpie' || provider.id === 'ollama') {
+    return t(`modelManager.localProviderHelp.${provider.id}Hint`)
   }
 
   if (provider.id === 'openai') {
@@ -734,6 +743,7 @@ const onMobileProviderChange = (providerId: string) => {
 </script>
 
 <style scoped>
+.connection-string-field { width: 100%; min-width: 0; }
 .text-model-identity {
   display: contents;
 }

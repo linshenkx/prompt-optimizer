@@ -1,4 +1,13 @@
 const messages = {
+  localDiscovery: {
+    cliproxyapiApiKeyHint: 'If CLIProxyAPI requires authentication, enter a client API key (not a management key)',
+    apiKeyHint: 'Enter an API key if authentication is enabled for {name}',
+    magpieApiKeyHint: 'Enter your Magpie gateway key to fetch models',
+    downloadable: ' · Download required',
+    downloading: ' · Downloading',
+    "found": "Discovered:",
+    "create": "Create {name} provider"
+  },
   networkSettings: {
     title: 'Network settings',
     description: 'Set how text and image models connect, including model discovery, connection tests, and generation.',
@@ -26,6 +35,41 @@ const messages = {
     },
   },
   "modelManager": {
+    localProviderHelp: {
+      serviceTitle: '{name} connection help',
+      services: {
+        cliproxyapi: {
+          setup: 'Configure upstream accounts or providers in CLIProxyAPI first. A running server does not guarantee callable models.',
+          auth: 'Enter a client API key accepted by CLIProxyAPI: access.api-keys in newer configurations, api-keys in older ones. Do not use the management key or an upstream account key. Leave blank if client authentication is disabled.',
+          web: 'Select the complete model ID returned by the catalog, including any prefix. If web access fails, check CORS in the server or reverse proxy; adding a key cannot fix CORS.',
+        },
+        litellm: {
+          setup: 'Connect to the LiteLLM Proxy gateway and use its configured model names or aliases. Installing the LiteLLM library alone does not start a gateway.',
+          auth: 'If authentication is enabled, enter a LiteLLM Virtual Key assigned by the administrator. Upstream provider keys belong in the gateway. Leave blank if authentication is disabled.',
+          web: 'Model access depends on key permissions and gateway routes. If web access fails, check whether the gateway and reverse proxy allow this page origin.',
+        },
+        llamacpp: {
+          setup: 'Run llama-server with a chat-capable model. The llama-cli command-line program does not itself expose this API.',
+          auth: 'No API key is required by default. If the server sets keys with --api-key, --api-key-file or environment variables, enter the matching value.',
+          web: 'Wait for the model to load before fetching the catalog. If CORS blocks the page, check --cors-origins. Some tool/Agent modes restrict the default allowed origins to localhost.',
+        },
+      },
+      magpieHint: 'Connect to your local Magpie gateway. Web access requires a valid gateway key; expand the help below API Key to create one.',
+      ollamaHint: 'Connect to local Ollama. No API key is needed by default. Start Ollama and download a model before fetching the model list.',
+      magpieKeyPlaceholder: 'Magpie gateway key only (without the Bearer prefix)',
+      ollamaKeyPlaceholder: 'Not required for local Ollama by default',
+      magpieTitle: 'How do I get a gateway key?', ollamaTitle: 'API key and web connection help',
+      system: 'Operating system', powershell: 'Run in PowerShell:', terminal: 'Run in a terminal:',
+      copyCommand: 'Copy command', copyFailed: 'Could not copy. Select and copy the command manually.',
+      magpieIntro: 'This command creates a new gateway key named Prompt Optimizer and prints its full value. It does not retrieve an existing key.',
+      magpieAfter: 'Paste the complete sk-magpie-key-… value into API Key, then fetch models. Do not add Bearer. The placeholder magpie does not authenticate browser requests.',
+      windowsPath: 'Uses the default Windows installation path. If you installed elsewhere, replace it with the actual magpie-cli.exe path.',
+      unixPath: 'Magpie must be installed and the magpie command available in your terminal. If it is not found, use the actual executable path.',
+      magpieCors: 'For web access, also add this page origin to Magpie’s allowed web origins. Local access does not require enabling LAN sharing.',
+      ollamaAuth: 'Local Ollama does not require a key by default; leave it blank. If you use an authenticated reverse proxy, supply the key required by that proxy.',
+      ollamaCors: 'Ollama allows local page origins such as localhost and 127.0.0.1 by default. If an online page is blocked by CORS, add its origin to OLLAMA_ORIGINS, keep existing entries and restart Ollama. Include the scheme, host and port, without a path. An API key does not fix CORS.',
+      currentOrigin: 'Current page origin:', docs: 'Official documentation',
+    },
     "title": "Model Manager",
     "textModels": "Text Models",
     "imageModels": "Image Models",
@@ -58,7 +102,7 @@ const messages = {
       "dashscopeHint": "DashScope supports both OpenAI-compatible Chat Completions and Responses APIs. You can switch the request style here directly.",
       "xiaomiMimoHint": "Defaults to the Xiaomi MiMo Token Plan China endpoint: https://token-plan-cn.xiaomimimo.com/v1. You can change it to the Singapore endpoint https://token-plan-sgp.xiaomimimo.com/v1 or Amsterdam endpoint https://token-plan-ams.xiaomimimo.com/v1 shown in Subscription Management. Env presets use VITE_MIMO_TOKEN_PLAN_*.",
       "minimaxHint": "The default endpoint is the global MiniMax OpenAI-compatible API. Mainland China users should set API URL to https://api.minimaxi.com/v1. Do not use Anthropic-format MiniMax endpoints here.",
-      "chromeBuiltInHint": "Use Chrome's local Gemini Nano model without a third-party API key. Chrome manages the model, and first use may require an explicit user download. Chrome currently officially supports English, Spanish, and Japanese output; this provider defaults to English for compatibility."
+      "chromeBuiltInHint": "Use Gemini Nano in the current browser without an API URL or key. First use may require clicking Download. Available languages and hardware requirements depend on the Chrome version. This app currently creates sessions with English capabilities."
     },
     "chromeBuiltIn": {
       "downloadAction": "Download / prepare local model",
@@ -77,11 +121,11 @@ const messages = {
       },
       "status": {
         "checking": "Checking whether this browser exposes the Prompt API and whether the local model is ready.",
-        "available": "Ready to use without an API URL or API key. Sessions default to English because Chrome currently officially supports English, Spanish, and Japanese output.",
+        "available": "Ready to use without an API URL or key. Sessions currently request English output capabilities; available languages depend on the Chrome version.",
         "downloadable": "Your Chrome supports this feature, but the local model is not downloaded yet. Chrome is only asked to download it after you click the button below.",
         "downloading": "Chrome is downloading the model. This may take a while; once it finishes, you can test or save this model.",
         "unavailable": "This browser, device, user profile, or managed policy may not support the feature. You can still configure another text model provider.",
-        "api-missing": "Open the Web app in a Chrome version that supports the Prompt API. Other browsers safely degrade without runtime errors."
+        "api-missing": "Open the web app in desktop Chrome with Prompt API support, using HTTPS or a local localhost address. The desktop app cannot borrow AI from an installed Chrome browser. Choose another model if the browser or device is unsupported."
       }
     },
     "connection": {

@@ -17,6 +17,7 @@ import { DashScopeAdapter } from './dashscope-adapter';
 import { OpenRouterAdapter } from './openrouter-adapter';
 import { ModelScopeAdapter } from './modelscope-adapter';
 import { OllamaAdapter } from './ollama-adapter';
+import { MagpieAdapter } from './magpie-adapter';
 import { MinimaxAdapter } from './minimax-adapter';
 import { CloudflareAdapter } from './cloudflare-adapter';
 import { GrokAdapter } from './grok-adapter';
@@ -82,6 +83,7 @@ export class TextAdapterRegistry
     this.adapters.set('openrouter', openrouterAdapter);
     this.adapters.set('modelscope', modelscopeAdapter);
     this.adapters.set('ollama', ollamaAdapter);
+    this.adapters.set('magpie', new MagpieAdapter());
     this.adapters.set('minimax', minimaxAdapter);
     this.adapters.set('cloudflare', cloudflareAdapter);
     this.adapters.set('grok', grokAdapter);

@@ -47,6 +47,7 @@ const {
 const { createGlobalDispatcherFromProxyDecision } = require('./config/proxy-dispatcher');
 const { NetworkSettingsStore } = require('./config/network-settings');
 const { ModelNetworkDispatcher } = require('./config/model-network');
+const { discoverDesktopLocalServices, fetchDesktopLocalServiceModels } = require('./config/local-discovery');
 const {
   buildAppMenuTemplate,
   getPageZoomShortcutAction,
@@ -979,6 +980,22 @@ function setupIPC() {
       return createErrorResponse(error);
     }
   }));
+
+  ipcMain.handle('local-services-discover', async (_event, ports) => {
+    try {
+      return createSuccessResponse(await discoverDesktopLocalServices(ports));
+    } catch (error) {
+      return createErrorResponse(error);
+    }
+  });
+
+  ipcMain.handle('local-services-fetch-models', async (_event, input) => {
+    try {
+      return createSuccessResponse(await fetchDesktopLocalServiceModels(input));
+    } catch (error) {
+      return createErrorResponse(error);
+    }
+  });
 
   ipcMain.handle('llm-fetchModelList', withModelNetwork(async (event, provider, customConfig) => {
     try {

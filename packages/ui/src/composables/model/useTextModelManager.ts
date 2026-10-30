@@ -11,6 +11,10 @@ import {
   type TextModel,
   type TextModelConfig,
   type TextProvider,
+  type LocalServiceResult,
+  fetchLocalServiceModels,
+  isLocalServiceAddress,
+  isElectronRenderer,
   checkChromeBuiltInAvailability,
   getBuiltinModelIds,
   markChromeBuiltInUserConfigured,
@@ -23,6 +27,7 @@ import { formatErrorSummary, getI18nErrorMessage } from '../../utils/error'
 import { useModelAdvancedParameters } from './useModelAdvancedParameters'
 import { computeConnectionConfig } from './useConnectionConfig'
 import type { AppServices } from '../../types/services'
+import { hasDiscoveredService, isChromeBuiltInPlaceholder, normalizeLocalServiceAddress, type DiscoveredLocalService } from '../../utils/local-model-discovery'
 
 type CustomHeaderRow = { key?: unknown; name?: unknown; value?: unknown }
 type TextConnectionValue = string | number | boolean | Record<string, string> | CustomHeaderRow[] | undefined
@@ -112,6 +117,18 @@ export function useTextModelManager() {
   const editingModelId = ref<string | null>(null)
   const editingModelMeta = ref<TextModel | null>(null)
   const formReady = ref(false)
+  const localServiceApiKeyRequired = ref(false)
+  const localServiceDraft = ref<LocalServiceResult | null>(null)
+  let localModelRequest: AbortController | undefined
+  const localApiKeyHint = computed(() => form.value.providerId === 'magpie' || localServiceDraft.value?.kind === 'magpie'
+    ? t('localDiscovery.magpieApiKeyHint') : localServiceDraft.value?.kind === 'cliproxyapi'
+      ? t('localDiscovery.cliproxyapiApiKeyHint') : t('localDiscovery.apiKeyHint', { name: localServiceDraft.value?.name ?? '' }))
+  const isLocalAnthropic = computed(() => form.value.providerId === 'anthropic'
+    && isLocalServiceAddress(form.value.connectionConfig.baseURL))
+  const requiresLocalServiceApiKey = computed(() => localServiceApiKeyRequired.value
+    || (form.value.providerId === 'magpie' && !isElectronRenderer()))
+  const missingLocalServiceApiKey = computed(() => requiresLocalServiceApiKey.value
+    && !String(form.value.connectionConfig.apiKey ?? '').trim())
   const isSaving = ref(false)
   const isTestingFormConnection = ref(false)
   const formConnectionStatus = ref<{
@@ -176,9 +193,13 @@ export function useTextModelManager() {
 
     const buildField = (fieldName: string, required: boolean) => ({
       name: fieldName,
-      required,
+      required: fieldName === 'apiKey'
+        ? requiresLocalServiceApiKey.value || (required && !isLocalAnthropic.value) : required,
       type: schema.fieldTypes[fieldName] || 'string',
-      placeholder: fieldName === 'baseURL' ? provider.defaultBaseURL : '',
+      placeholder: fieldName === 'baseURL' ? provider.defaultBaseURL
+        : fieldName === 'apiKey' && provider.id === 'magpie' ? t('modelManager.localProviderHelp.magpieKeyPlaceholder')
+          : fieldName === 'apiKey' && provider.id === 'ollama' ? t('modelManager.localProviderHelp.ollamaKeyPlaceholder')
+            : fieldName === 'apiKey' && localServiceDraft.value ? localApiKeyHint.value : '',
       options: fieldName === 'requestStyle'
         ? [
             {
@@ -205,12 +226,13 @@ export function useTextModelManager() {
   })
 
   const isConnectionConfigured = computed(() => {
+    if (missingLocalServiceApiKey.value) return false
     if (!selectedProvider.value?.connectionSchema) return true
 
     const schema = selectedProvider.value.connectionSchema!
     const config = form.value.connectionConfig || {}
 
-    return schema.required.every(field => !!config[field])
+    return schema.required.every(field => (field === 'apiKey' && isLocalAnthropic.value) || !!config[field])
   })
 
   const canTestFormConnection = computed(() => {
@@ -227,6 +249,7 @@ export function useTextModelManager() {
     return true
   })
   const canSaveForm = computed(() => {
+    if (missingLocalServiceApiKey.value) return false
     if (isSaving.value) return false
     if (!form.value.name?.trim()) return false
     if (!form.value.providerId?.trim()) return false
@@ -280,7 +303,16 @@ export function useTextModelManager() {
     return connectionConfig
   }
 
+  const cancelLocalModelRequest = () => {
+    localModelRequest?.abort()
+    if (localModelRequest) isLoadingModelOptions.value = false
+    localModelRequest = undefined
+  }
+
   const resetFormState = () => {
+    cancelLocalModelRequest()
+    localServiceDraft.value = null
+    localServiceApiKeyRequired.value = false
     form.value = {
       id: '',
       name: '',
@@ -562,6 +594,9 @@ export function useTextModelManager() {
   }
 
   const setProvider = (providerId: string, options: SetProviderOptions = {}) => {
+    cancelLocalModelRequest()
+    localServiceDraft.value = null
+    localServiceApiKeyRequired.value = false
     const {
       autoSelectFirstModel = true,
       resetOverrides = true,
@@ -603,6 +638,10 @@ export function useTextModelManager() {
       if (firstModelId && providerId && !repairingMissingProvider) {
         advancedParameters.applyDefaultsFromModel(false)
       }
+    } else if (autoSelectFirstModel && !repairingMissingProvider) {
+      // A provider with a dynamic-only catalog must not inherit another provider's model.
+      form.value.modelId = ''
+      form.value.defaultModel = ''
     }
   }
 
@@ -623,6 +662,51 @@ export function useTextModelManager() {
     }
 
     formReady.value = true
+  }
+
+  const prepareForLocalService = async (service: DiscoveredLocalService): Promise<boolean> => {
+    if (service.status !== 'ready') return false
+    // Recheck persisted connections before creating a draft from a discovery hint.
+    const existing = await modelManager.getAllModels()
+    if (hasDiscoveredService(existing, service)) {
+      await loadModels()
+      return false
+    }
+    if (service.kind === 'chrome-built-in') {
+      const placeholder = existing.find(isChromeBuiltInPlaceholder)
+      if (placeholder) {
+        await prepareForEdit(placeholder.id)
+        form.value.enabled = service.availability === 'available'
+        chromeBuiltInStatus.value = { availability: service.availability }
+        return true
+      }
+    }
+    resetFormState()
+    await ensureProvidersLoaded()
+    formReady.value = false
+    try {
+      setProvider(service.kind === 'chrome-built-in' ? CHROME_BUILT_IN_PROVIDER_ID
+        : service.kind === 'ollama' || service.kind === 'magpie' ? service.kind : service.providerId ?? 'openai-compatible', { autoSelectFirstModel: false })
+      localServiceDraft.value = service.kind === 'chrome-built-in' ? null : service
+      form.value.name = service.name
+      const discoveredModels = service.kind === 'chrome-built-in' ? service.models : []
+      form.value.modelId = discoveredModels[0]?.id ?? ''
+      form.value.defaultModel = form.value.modelId
+      form.value.connectionConfig = service.kind === 'chrome-built-in' ? {} : {
+        baseURL: service.baseURL,
+        // Retain the discovery identity for help on later edits; never infer it from a port or name.
+        ...(service.kind !== 'magpie' && service.kind !== 'ollama' ? { localServiceKind: service.kind } : {}),
+        ...(service.requestStyle ? { requestStyle: service.requestStyle } : {}),
+      }
+      if (service.kind === 'chrome-built-in') {
+        form.value.enabled = service.availability === 'available'
+        chromeBuiltInStatus.value = { availability: service.availability }
+      }
+      modelOptions.value = discoveredModels.map(model => ({ value: model.id, label: model.name }))
+      return true
+    } finally {
+      formReady.value = true
+    }
   }
 
   const prepareForEdit = async (id: string, forceReload = true) => {
@@ -686,6 +770,10 @@ export function useTextModelManager() {
 
   const refreshModelOptions = async (showSuccess = true) => {
     if (!form.value.providerId) return
+    if (missingLocalServiceApiKey.value) {
+      toast.error(localApiKeyHint.value)
+      return
+    }
 
     const customHeaderError = getCustomHeaderValidationMessage()
     if (customHeaderError) {
@@ -700,6 +788,45 @@ export function useTextModelManager() {
     }
 
     isLoadingModelOptions.value = true
+
+    const localDraft = localServiceDraft.value
+    if (localDraft && normalizeLocalServiceAddress(baseURL) === normalizeLocalServiceAddress(localDraft.baseURL)) {
+      const key = String(form.value.connectionConfig.apiKey ?? '')
+      const headers = JSON.stringify(form.value.connectionConfig.customHeaders)
+      localModelRequest?.abort()
+      const controller = new AbortController()
+      localModelRequest = controller
+      const current = () => localServiceDraft.value === localDraft
+        && localModelRequest === controller && !controller.signal.aborted
+        && String(form.value.connectionConfig.baseURL ?? '').trim() === baseURL
+        && String(form.value.connectionConfig.apiKey ?? '') === key
+        && JSON.stringify(form.value.connectionConfig.customHeaders) === headers
+      try {
+        const input = { kind: localDraft.kind, baseURL, apiKey: key, providerId: localDraft.providerId,
+          customHeaders: normalizeCustomRequestHeaders(form.value.connectionConfig.customHeaders as CustomRequestHeaderInput) }
+        const fetched = window.electronAPI?.localServices
+          ? await window.electronAPI.localServices.fetchModels(input)
+          : await fetchLocalServiceModels(input, { signal: controller.signal })
+        if (!current()) return
+        setModelOptionsPreservingSelection(fetched)
+        if (!form.value.modelId && fetched.length) {
+          form.value.modelId = fetched[0].value
+          form.value.defaultModel = fetched[0].value
+        }
+        if (showSuccess) toast.success(t('modelManager.fetchModelsSuccess', { count: fetched.length }))
+      } catch (error) {
+        if (!current()) return
+        if (error instanceof Error && error.message === 'HTTP 401') {
+          localServiceApiKeyRequired.value = true
+          toast.error(localApiKeyHint.value)
+        } else {
+          toast.error(t('modelManager.fetchModelsFailed', { error: getErrorDetail(error) }))
+        }
+      } finally {
+        if (localModelRequest === controller) isLoadingModelOptions.value = false
+      }
+      return
+    }
 
     // Keep this outside try/catch so we can fall back to static models on error.
     const providerTemplateId = form.value.providerId || currentProviderType.value || 'custom'
@@ -766,6 +893,13 @@ export function useTextModelManager() {
       // Keep UX consistent: if dynamic fetch fails, fall back to static models
       // but surface the failure to avoid a misleading "success" toast.
       const errorMessage = getErrorDetail(error, t('modelManager.loadFailed'))
+
+      // A discovered gateway has no known models until authentication succeeds.
+      // Do not replace an empty draft with the generic custom-model placeholder.
+      if (localServiceApiKeyRequired.value) {
+        toast.error(t('modelManager.fetchModelsFailed', { error: errorMessage }))
+        return
+      }
 
       let staticCount: number
       try {
@@ -1076,8 +1210,10 @@ export function useTextModelManager() {
     updateParamOverrides,
     onModelChange,
     prepareForCreate,
+    prepareForLocalService,
     prepareForEdit,
     refreshModelOptions,
+    cancelLocalModelRequest,
     saveForm,
     resetFormState,
     isTestingFormConnection,

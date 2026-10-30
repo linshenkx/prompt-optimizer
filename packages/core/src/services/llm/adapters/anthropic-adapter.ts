@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { AbstractTextProviderAdapter } from './abstract-adapter'
 import { APIError } from '../errors'
+import { isLocalServiceAddress } from '../local-service-models'
 import type {
   TextProvider,
   TextModel,
@@ -775,6 +776,12 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
     const options: any = {
       apiKey: config.connectionConfig?.apiKey || '',
       dangerouslyAllowBrowser: true // 根据实际环境配置
+    }
+
+    // Local Anthropic-compatible proxies can be unauthenticated. Explicitly omit
+    // auth as supported by the SDK; never fabricate a gateway key in user config.
+    if (!config.connectionConfig?.apiKey && isLocalServiceAddress(config.connectionConfig?.baseURL)) {
+      options.defaultHeaders = { 'X-Api-Key': null, Authorization: null }
     }
 
     if (config.connectionConfig?.baseURL) {

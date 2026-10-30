@@ -127,6 +127,21 @@ describe('AnthropicAdapter', () => {
   });
 
   describe('sendMessage', () => {
+    it.each([
+      ['http://localhost:15721', '', true],
+      ['http://127.0.0.1:15721/v1', '', true],
+      ['https://api.anthropic.com', '', false],
+      ['http://localhost.example.com:15721', '', false],
+      ['http://localhost:15721', 'user-entered-key', false],
+    ])('handles explicit local no-auth without persisting a dummy key: %s', async (baseURL, apiKey, omitAuth) => {
+      (Anthropic as any).prototype.messages = { create: vi.fn().mockResolvedValue({ content: [{ type: 'text', text: 'ok' }] }), stream: vi.fn() };
+      const config = { ...mockConfig, connectionConfig: { baseURL: baseURL as string, apiKey: apiKey as string } };
+      await adapter.sendMessage(mockMessages, config);
+      expect(Anthropic).toHaveBeenLastCalledWith(expect.objectContaining({ apiKey }));
+      const options = vi.mocked(Anthropic).mock.calls.at(-1)![0];
+      expect(options?.defaultHeaders).toEqual(omitAuth ? { 'X-Api-Key': null, Authorization: null } : undefined);
+      expect(config.connectionConfig.apiKey).toBe(apiKey);
+    });
     it('should use adaptive thinking and effort for Claude 5', async () => {
       const mockCreate = vi.fn().mockResolvedValue({
         content: [{ type: 'text', text: 'ok' }],

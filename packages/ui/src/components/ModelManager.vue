@@ -65,6 +65,7 @@
             <div ref="scrollAreaRef" class="model-manager-scroll-area">
               <TextModelManager
                 v-show="activeTab === 'text'"
+                :active="show && activeTab === 'text'"
                 ref="textManagerRef"
                 @models-updated="handleTextModelsUpdated"
               />
