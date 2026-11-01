@@ -43,10 +43,12 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Diagnose packaged extension interaction
+      - name: Build packaged extension
+        run: pnpm build:core && pnpm build:ui && pnpm build:ext && pnpm check:extension-release-secrets
+      - name: Baseline interaction
         continue-on-error: true
-        run: pnpm test:e2e:extension
-      - name: Compare without moved frame input intervention
-        env:
-          DISABLE_MOVED_FRAME_GUARD: '1'
         run: pnpm exec playwright test --config playwright.extension.config.ts --grep 'renders Markdown' --repeat-each 3
+      - name: Compare with verified pointer entry
+        env:
+          PREVIEW_SETTLE_INPUT: '1'
+        run: pnpm exec playwright test --config playwright.extension.config.ts --repeat-each 3

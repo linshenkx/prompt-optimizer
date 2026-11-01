@@ -1,4 +1,4 @@
-import { chromium, test as base, expect, type Page, type BrowserContext } from '@playwright/test'
+import { chromium, test as base, expect, type Page, type BrowserContext, type Locator } from '@playwright/test'
 import { resolve } from 'node:path'
 
 // Load the built extension in its own headless profile. A web-hosted copy cannot
@@ -8,8 +8,7 @@ const test = base.extend<{ extensionContext: BrowserContext; extensionPage: Page
     const extension = resolve('packages/extension/dist')
     const context = await chromium.launchPersistentContext(info.outputPath('profile'), {
       channel: 'chromium', headless: true, timeout: 15000,
-      args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`,
-        ...(process.env.DISABLE_MOVED_FRAME_GUARD ? ['--disable-blink-features=DiscardInputEventsToRecentlyMovedFrames'] : [])],
+      args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
     })
     try { await use(context) } finally { await context.close() }
   },
@@ -19,29 +18,17 @@ const test = base.extend<{ extensionContext: BrowserContext; extensionPage: Page
     page.setDefaultTimeout(10000)
     const navigations: string[] = []
     page.on('framenavigated', frame => navigations.push(frame.url()))
-    await page.addInitScript(() => {
-      const state = window as any
-      state.__input = []
-      state.__documentId = Math.random()
-      for (const name of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click']) {
-        addEventListener(name, (event: Event) => {
-          const mouse = event as MouseEvent
-          state.__input.push({ event: name, target: (event.target as HTMLElement)?.id,
-            time: performance.now(), x: mouse.clientX, y: mouse.clientY })
-        }, true)
-      }
-    })
     await page.goto(`chrome-extension://${new URL(worker.url()).host}/index.html#/basic/system`, { timeout: 15000 })
     await expect(page.getByTestId('workspace')).toBeVisible()
     try { await use(page) } finally {
-      const frames = await Promise.all(page.frames().map(async frame => {
-        try {
-          return await frame.evaluate(() => ({ url: location.href,
-            documentId: (window as any).__documentId, input: (window as any).__input,
-            buttons: [...document.querySelectorAll('button[id]')].map(el => ({ id: el.id, text: el.textContent })) }))
-        } catch { return { detached: true } }
-      }))
-      console.log('EXTENSION_INPUT_DIAGNOSTICS', JSON.stringify({ navigations, frames }))
+      if (test.info().status !== test.info().expectedStatus) {
+        const frames = await Promise.all(page.frames().map(async frame => {
+          try { return await frame.evaluate(() => ({ url: location.href,
+            buttons: [...document.querySelectorAll('button[id]')].map(el => ({ id: el.id, text: el.textContent })) })) }
+          catch { return { detached: true } }
+        }))
+        console.log('EXTENSION_NAVIGATION_DIAGNOSTICS', JSON.stringify({ navigations, frames }))
+      }
     }
   },
 })
@@ -49,6 +36,15 @@ const test = base.extend<{ extensionContext: BrowserContext; extensionPage: Page
 const counter = (id: string) => `<button id="${id}" onclick="this.textContent=Number(this.textContent)+1">0</button>`
 const markdown = `# Before\n\n\`\`\`html\n${counter('one')}\n\`\`\`\n\nBetween.\n\n\`\`\`html\n${counter('two')}\n\`\`\`\n\nAfter.`
 const output = (page: Page, index = 0) => page.locator('.variant-result-card .output-display-core').nth(index)
+
+async function clickCounter(button: Locator) {
+  if (process.env.PREVIEW_SETTLE_INPUT) {
+    await button.scrollIntoViewIfNeeded()
+    await button.hover()
+    await expect.poll(() => button.evaluate(el => el.matches(':hover'))).toBe(true)
+  }
+  await button.click()
+}
 
 async function seed(page: Page, a: string, b = '') {
   await page.evaluate(({ a, b }) => {
@@ -65,10 +61,10 @@ test('renders Markdown and independent HTML blocks, keeps state across tab lifec
   const first = output(page).frameLocator('[data-html-preview-slot="0"] iframe').frameLocator('iframe').locator('#one')
   const second = output(page).frameLocator('[data-html-preview-slot="1"] iframe').frameLocator('iframe').locator('#two')
   const other = output(page, 1).frameLocator('[data-testid="html-preview-frame"]').frameLocator('iframe').locator('#other')
-  await first.click()
-  await second.click()
-  await second.click()
-  await other.click()
+  await clickCounter(first)
+  await clickCounter(second)
+  await clickCounter(second)
+  await clickCounter(other)
   await expect(first).toHaveText('1')
   await expect(second).toHaveText('2')
   const firstWindow = await first.evaluateHandle(() => window)
@@ -87,7 +83,7 @@ test('renders Markdown and independent HTML blocks, keeps state across tab lifec
     document.dispatchEvent(new Event('visibilitychange'))
   })
   expect(await firstWindow.evaluate(() => document.querySelector('#one')?.textContent)).toBe('1')
-  await second.click()
+  await clickCounter(second)
   await expect(second).toHaveText('3')
   await output(page).locator('[data-testid$="-view-source"], [data-testid="output-view-source"]').click()
   await expect(output(page).getByTestId('html-preview-frame')).toHaveCount(0)
@@ -101,11 +97,11 @@ test('renders Markdown and independent HTML blocks, keeps state across tab lifec
   expect(await page.evaluate(() => (window as any).__copied)).toBe(markdown)
   await expect(firstWindow.evaluate(() => document.body)).rejects.toThrow()
   expect(await otherWindow.evaluate(() => document.querySelector('#other')?.textContent)).toBe('1')
-  await other.click()
+  await clickCounter(other)
   await expect(other).toHaveText('2')
   await output(page).getByTestId('output-view-preview').click()
   await expect(first).toHaveText('0')
-  await first.click()
+  await clickCounter(first)
   await expect(first).toHaveText('1')
 })
 
