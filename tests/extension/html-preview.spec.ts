@@ -8,7 +8,8 @@ const test = base.extend<{ extensionContext: BrowserContext; extensionPage: Page
     const extension = resolve('packages/extension/dist')
     const context = await chromium.launchPersistentContext(info.outputPath('profile'), {
       channel: 'chromium', headless: true, timeout: 15000,
-      args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
+      args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`,
+        ...(process.env.DISABLE_MOVED_FRAME_GUARD ? ['--disable-blink-features=DiscardInputEventsToRecentlyMovedFrames'] : [])],
     })
     try { await use(context) } finally { await context.close() }
   },
@@ -16,9 +17,32 @@ const test = base.extend<{ extensionContext: BrowserContext; extensionPage: Page
     const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker', { timeout: 10000 })
     const page = await context.newPage()
     page.setDefaultTimeout(10000)
+    const navigations: string[] = []
+    page.on('framenavigated', frame => navigations.push(frame.url()))
+    await page.addInitScript(() => {
+      const state = window as any
+      state.__input = []
+      state.__documentId = Math.random()
+      for (const name of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click']) {
+        addEventListener(name, (event: Event) => {
+          const mouse = event as MouseEvent
+          state.__input.push({ event: name, target: (event.target as HTMLElement)?.id,
+            time: performance.now(), x: mouse.clientX, y: mouse.clientY })
+        }, true)
+      }
+    })
     await page.goto(`chrome-extension://${new URL(worker.url()).host}/index.html#/basic/system`, { timeout: 15000 })
     await expect(page.getByTestId('workspace')).toBeVisible()
-    await use(page)
+    try { await use(page) } finally {
+      const frames = await Promise.all(page.frames().map(async frame => {
+        try {
+          return await frame.evaluate(() => ({ url: location.href,
+            documentId: (window as any).__documentId, input: (window as any).__input,
+            buttons: [...document.querySelectorAll('button[id]')].map(el => ({ id: el.id, text: el.textContent })) }))
+        } catch { return { detached: true } }
+      }))
+      console.log('EXTENSION_INPUT_DIAGNOSTICS', JSON.stringify({ navigations, frames }))
+    }
   },
 })
 

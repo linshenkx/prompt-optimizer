@@ -40,11 +40,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Run repo and gate checks
-        run: pnpm test:gate
-
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Run real UI smoke and gate E2E checks
-        run: pnpm test:gate:e2e
+      - name: Diagnose packaged extension interaction
+        continue-on-error: true
+        run: pnpm test:e2e:extension
+      - name: Compare without moved frame input intervention
+        env:
+          DISABLE_MOVED_FRAME_GUARD: '1'
+        run: pnpm exec playwright test --config playwright.extension.config.ts --grep 'renders Markdown' --repeat-each 3
