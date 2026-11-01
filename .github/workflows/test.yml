@@ -48,7 +48,7 @@ jobs:
       - name: Baseline interaction
         continue-on-error: true
         run: pnpm exec playwright test --config playwright.extension.config.ts --grep 'renders Markdown' --repeat-each 3
-      - name: Compare with verified pointer entry
+      - name: Compare with visible outer preview frames
         env:
           PREVIEW_SETTLE_INPUT: '1'
         run: pnpm exec playwright test --config playwright.extension.config.ts --repeat-each 3
