@@ -1,11 +1,13 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { NPopover, NSelect } from 'naive-ui'
 import TestPanelVersionSelect from '../../../src/components/TestPanelVersionSelect.vue'
 
 const wrappers: ReturnType<typeof mount>[] = []
+beforeEach(() => vi.useFakeTimers())
 afterEach(() => {
   wrappers.splice(0).forEach(w => w.unmount())
+  vi.useRealTimers()
   vi.restoreAllMocks()
 })
 
@@ -15,6 +17,48 @@ describe('prompt source selector', () => {
     { value: 'workspace', label: 'Workspace', fullLabel: 'Workspace (v2)' },
   ]
 
+  it('ignores a pending hover after leaving an open menu, but allows a fresh hover', async () => {
+    const wrapper = mount(TestPanelVersionSelect, { props: {
+      value: 0, options, previewSource: () => ({ content: 'Source' }),
+    } })
+    wrappers.push(wrapper)
+    const select = wrapper.getComponent(NSelect)
+    const popover = wrapper.getComponent(NPopover)
+
+    await select.trigger('mouseenter')
+    select.vm.$emit('update:show', true)
+    await wrapper.vm.$nextTick()
+    // Naive's disabled popover does not cancel its pending timer on leave.
+    await select.trigger('mouseleave')
+    select.vm.$emit('update:show', false)
+    await wrapper.vm.$nextTick()
+    await vi.advanceTimersByTimeAsync(400)
+    expect(popover.props('show')).toBe(false)
+
+    await select.trigger('mouseenter')
+    await vi.advanceTimersByTimeAsync(400)
+    expect(popover.props('show')).toBe(true)
+  })
+
+  it('dismisses a pending hover with Escape until the pointer enters again', async () => {
+    const wrapper = mount(TestPanelVersionSelect, { props: {
+      value: 0, options, previewSource: () => ({ content: 'Source' }),
+    } })
+    wrappers.push(wrapper)
+    const select = wrapper.getComponent(NSelect)
+    const popover = wrapper.getComponent(NPopover)
+
+    await select.trigger('mouseenter')
+    await select.trigger('keydown', { key: 'Escape' })
+    await vi.advanceTimersByTimeAsync(400)
+    expect(popover.props('show')).toBe(false)
+
+    await select.trigger('mouseleave')
+    await select.trigger('mouseenter')
+    await vi.advanceTimersByTimeAsync(400)
+    expect(popover.props('show')).toBe(true)
+  })
+
   it('previews the current content without changing source, and excludes an open menu', async () => {
     let content = 'Original source content'
     const wrapper = mount(TestPanelVersionSelect, { props: {
@@ -22,7 +66,8 @@ describe('prompt source selector', () => {
     } })
     wrappers.push(wrapper)
     const popover = wrapper.getComponent(NPopover)
-    popover.vm.$emit('update:show', true)
+    await wrapper.getComponent(NSelect).trigger('mouseenter')
+    await vi.advanceTimersByTimeAsync(400)
     await flushPromises()
     expect(wrapper.text()).toContain(content)
     await wrapper.setProps({ previewSource: () => ({ content: '' }) })
@@ -39,7 +84,9 @@ describe('prompt source selector', () => {
     content = 'Workspace source content'
     await wrapper.setProps({ value: 'workspace', previewSource: () => ({ content }) })
     wrapper.getComponent(NSelect).vm.$emit('update:show', false)
-    popover.vm.$emit('update:show', true)
+    await wrapper.vm.$nextTick()
+    await wrapper.getComponent(NSelect).trigger('mouseenter')
+    await vi.advanceTimersByTimeAsync(400)
     await flushPromises()
     expect(wrapper.text()).toContain(content)
   })
@@ -70,7 +117,8 @@ describe('prompt source selector', () => {
       value: 0, options, previewSource: () => ({ content: 'Short source' }),
     } })
     wrappers.push(wrapper)
-    wrapper.getComponent(NPopover).vm.$emit('update:show', true)
+    await wrapper.getComponent(NSelect).trigger('mouseenter')
+    await vi.advanceTimersByTimeAsync(400)
     await flushPromises()
     await wrapper.setProps({ previewSource: () => ({ content: 'Fits completely' }) })
     await flushPromises()

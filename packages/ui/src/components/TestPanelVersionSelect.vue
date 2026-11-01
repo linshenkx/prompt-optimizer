@@ -4,12 +4,13 @@
     :show="previewVisible && !menuOpen" :delay="400" :duration="150"
     :disabled="menuOpen || (!previewSource && !tooltipLines.length)"
     :style="previewSource ? { width: 'min(360px, calc(100vw - 32px))' } : { maxWidth: '280px' }"
-    @update:show="previewVisible = $event"
+    @update:show="handlePreviewShow"
   >
     <template #trigger>
       <NSelect
         :value="value" :show="menuOpen"
-        @update:show="handleMenuShow" @keydown.esc="previewVisible = false"
+        @update:show="handleMenuShow" @keydown.esc="dismissPreview"
+        @mouseenter="hoverRequested = true" @mouseleave="hoverRequested = false"
         :options="options"
         :render-label="renderOptionLabel"
         :disabled="disabled"
@@ -70,6 +71,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const menuOpen = ref(false)
 const previewVisible = ref(false)
+const hoverRequested = ref(false)
 const previewContent = computed(() => props.previewSource?.().content ?? '')
 const previewBody = ref<HTMLElement | null>(null)
 const previewOverflows = ref(false)
@@ -80,13 +82,21 @@ const measurePreview = () => {
 }
 useResizeObserver(previewBody, measurePreview)
 watch([previewContent, previewBody, previewVisible], measurePreview, { flush: 'post' })
-const handleMenuShow = (show: boolean) => {
+const handlePreviewShow = (show: boolean) => {
+  // A disabled popover can still deliver a queued hover after the pointer leaves.
+  previewVisible.value = show && hoverRequested.value && !menuOpen.value
+}
+const dismissPreview = () => {
+  hoverRequested.value = false
   previewVisible.value = false
+}
+const handleMenuShow = (show: boolean) => {
+  dismissPreview()
   menuOpen.value = show
 }
 const requestPreview = () => {
+  dismissPreview()
   menuOpen.value = false
-  previewVisible.value = false
   emit('preview')
 }
 

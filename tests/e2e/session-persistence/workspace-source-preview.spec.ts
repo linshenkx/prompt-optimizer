@@ -172,3 +172,45 @@ for (const [mode, route, storeId] of workspaces) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   })
 }
+
+test('quick source selection cannot reopen a hover preview over the full prompt dialog', async ({ context, page }) => {
+  await context.addInitScript(name => {
+    (window as Window & { __TEST_DB_NAME__?: string }).__TEST_DB_NAME__ = name
+  }, `test-source-preview-quick-selection-${Date.now()}`)
+  await page.setViewportSize({ width: 360, height: 669 })
+  await page.goto('/#/basic/system')
+  const input = page.getByTestId('basic-system-input')
+  await expect(input).toBeVisible({ timeout: 20000 })
+  if (await input.locator('textarea').count()) {
+    await input.locator('textarea').first().fill(originalPrompt)
+  } else {
+    await input.locator('.cm-content').click()
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A')
+    await page.keyboard.insertText(originalPrompt)
+  }
+
+  await page.getByTestId('workspace-region-test').click()
+  const toggle = page.getByTestId('test-config-toggle')
+  if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click()
+  await page.getByTestId('basic-system-test-original-version-select').click()
+  const option = page.locator('.n-base-select-option:visible').filter({ hasText: /Previous|上一版/i })
+  await expect(option).toBeVisible()
+  const box = (await option.boundingBox())!
+  const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+  // A user can click the visible option while its opening animation is running.
+  // Check the actual hit target; waiting for animation stability can mask the race.
+  const hit = await page.evaluate(({ x, y }) =>
+    document.elementFromPoint(x, y)?.closest('.n-base-select-option')?.textContent, point)
+  expect(hit).toMatch(/Previous|上一版/i)
+  await page.mouse.click(point.x, point.y)
+
+  // The panel is already open. Going straight to A keeps the pending hover alive.
+  await page.locator('.test-config-group-label').filter({ hasText: /^A$/ }).click()
+  const modal = page.getByTestId('test-source-preview')
+  await expect(modal).toBeVisible()
+  // Let the 400ms callback expire while the user reads the full prompt.
+  await page.waitForTimeout(600)
+  await expect(page.getByTestId('test-source-hover-preview')).toBeHidden()
+  await modal.locator('.n-card__footer').getByRole('button', { name: /^(Close|关闭)$/i }).click()
+  await expect(modal).toBeHidden()
+})
