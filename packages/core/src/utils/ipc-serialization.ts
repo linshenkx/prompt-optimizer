@@ -36,9 +36,32 @@ export function safeSerializeForIPC<T>(obj: T): T {
     return obj;
   }
 
-  // 使用JSON序列化确保100%的IPC兼容性
+  // Keep JSON's proxy/function/date handling, but retain explicit field clears.
+  // An omitted patch field means "leave unchanged"; an own undefined means "clear".
   try {
-    return JSON.parse(JSON.stringify(obj));
+    const undefinedPaths: string[][] = [];
+    const paths = new WeakMap<object, string[]>();
+    let root = true;
+    const serialized = JSON.stringify(obj, function (key, value) {
+      const path = root ? [] : [...(paths.get(this) || []), key];
+      root = false;
+      if (value !== null && typeof value === 'object') {
+        paths.set(value, path);
+      } else if (value === undefined && !Array.isArray(this)) {
+        undefinedPaths.push(path);
+      }
+      return value;
+    });
+    const result = JSON.parse(serialized);
+    for (const path of undefinedPaths) {
+      let parent = result;
+      for (const key of path.slice(0, -1)) parent = parent[key];
+      // Defining an own data property also handles "__proto__" without invoking its setter.
+      Object.defineProperty(parent, path[path.length - 1], {
+        value: undefined, enumerable: true, configurable: true, writable: true,
+      });
+    }
+    return result;
   } catch (error) {
     console.error('[IPC Serialization] Failed to serialize object:', error);
     const details = error instanceof Error ? error.message : String(error)

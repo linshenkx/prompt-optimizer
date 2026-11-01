@@ -94,6 +94,7 @@ const {
   createDataManager,
   createContextRepo,
   FavoriteManager,
+  safeSerializeForIPC,
   FileStorageProvider,
   runStorageStartupSafetyCheck,
   writeStartupRepairReport,
@@ -113,23 +114,7 @@ const convertImageInputWithElectronNativeImage = createElectronImageInputConvert
  * - IPC问题：Vue响应式对象无法被Electron序列化传递
  * - 存储问题：FileStorageProvider的数据一致性和恢复机制
  */
-function safeSerialize(obj) {
-  if (obj === null || obj === undefined) {
-    return obj;
-  }
-
-  // 对于基本类型，直接返回
-  if (typeof obj !== 'object') {
-    return obj;
-  }
-
-  try {
-    return JSON.parse(JSON.stringify(obj));
-  } catch (error) {
-    console.error('[IPC Serialization] Failed to serialize object:', error);
-    throw new Error(`Failed to serialize object for IPC: ${error.message}`);
-  }
-}
+const safeSerialize = safeSerializeForIPC;
 
 let mainWindow;
 let networkSettingsStore;

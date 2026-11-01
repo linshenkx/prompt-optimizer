@@ -1,11 +1,15 @@
 import { describe, it, expect, vi } from 'vitest'
-import { defineComponent, nextTick, ref } from 'vue'
+import { defineComponent, nextTick, ref, shallowRef } from 'vue'
 import { mount } from '@vue/test-utils'
 import {
   TextAdapterRegistry,
+  ModelManager,
+  MemoryStorageProvider,
+  ElectronModelManagerProxy,
   type TextModelConfig
 } from '@prompt-optimizer/core'
 import { useTextModelManager } from '../../../src/composables/model/useTextModelManager'
+import { createDesktopServiceBridge } from '../../../../core/tests/utils/desktop-service-bridge'
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -27,6 +31,61 @@ vi.mock('../../../src/composables/ui/useToast', () => ({
 }))
 
 describe('useTextModelManager', () => {
+  it.each([
+    ['web', true], ['desktop', true], ['web', false], ['desktop', false],
+  ] as const)('persists explicit connection clears and preserves untouched credentials (%s, clear=%s)', async (platform, clear) => {
+    const registry = new TextAdapterRegistry()
+    const adapter = registry.getAdapter('openai-compatible')
+    const storage = new MemoryStorageProvider()
+    const backend = new ModelManager(storage, registry)
+    await backend.addModel('connection-clears', {
+      id: 'connection-clears', name: 'Connection', enabled: false,
+      providerId: adapter.getProvider().id, modelId: 'custom-model',
+      providerMeta: adapter.getProvider(), modelMeta: adapter.buildDefaultModel('custom-model'),
+      connectionConfig: { apiKey: 'fixture-key', baseURL: 'https://example.invalid/v1', customHeaders: { 'X-Old': 'value' } },
+      paramOverrides: {},
+    })
+    if (platform === 'desktop') {
+      Object.defineProperty(window, 'electronAPI', {
+        configurable: true, value: createDesktopServiceBridge({ modelManager: backend }),
+      })
+    }
+    let testedConfig: TextModelConfig | undefined
+    const Harness = defineComponent({
+      setup: () => ({ manager: useTextModelManager() }),
+      template: '<div />',
+    })
+    const wrapper = mount(Harness, { global: { provide: { services: shallowRef({
+      modelManager: platform === 'desktop' ? new ElectronModelManagerProxy() : backend,
+      textAdapterRegistry: registry,
+      llmService: {
+        testConnection: vi.fn(async (id: string) => { testedConfig = await backend.getModel(id) }),
+        fetchModelList: vi.fn().mockResolvedValue([]),
+      },
+    }) } } })
+    try {
+      const manager = (wrapper.vm as any).manager as ReturnType<typeof useTextModelManager>
+      await manager.prepareForEdit('connection-clears')
+      if (clear) {
+        manager.form.value.connectionConfig.apiKey = ''
+        manager.form.value.connectionConfig.customHeaders = {}
+        await nextTick()
+      }
+      await manager.testFormConnection()
+      expect(testedConfig).toBeDefined()
+      expect(testedConfig?.connectionConfig.apiKey || '').toBe(clear ? '' : 'fixture-key')
+      expect(testedConfig?.connectionConfig.customHeaders).toEqual(clear ? undefined : { 'X-Old': 'value' })
+      await manager.saveForm()
+      const saved = await backend.getModel('connection-clears')
+      expect(saved?.connectionConfig.apiKey).toBe(clear ? undefined : 'fixture-key')
+      expect(saved?.connectionConfig.customHeaders).toEqual(clear ? undefined : { 'X-Old': 'value' })
+      expect(saved?.connectionConfig.baseURL).toBe('https://example.invalid/v1')
+    } finally {
+      wrapper.unmount()
+      Reflect.deleteProperty(window, 'electronAPI')
+    }
+  })
+
   it('uses the newly selected provider metadata when testing and saving an edited model', async () => {
     const registry = new TextAdapterRegistry()
     const openaiAdapter = registry.getAdapter('openai')

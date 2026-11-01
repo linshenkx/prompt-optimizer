@@ -5,6 +5,8 @@ import { NTree, NTreeSelect } from 'naive-ui'
 import CategoryManager from '../../../src/components/CategoryManager.vue'
 import { FavoriteManager } from '../../../../core/src/services/favorite/manager'
 import { MemoryStorageProvider } from '../../../../core/src/services/storage/memoryStorageProvider'
+import { FavoriteManagerElectronProxy } from '../../../../core/src/services/favorite/electron-proxy'
+import { createDesktopServiceBridge } from '../../../../core/tests/utils/desktop-service-bridge'
 
 // Error translation loads the application's provider registry, which is unrelated
 // to category persistence. Keep the real form, selector and storage implementation.
@@ -18,6 +20,7 @@ let manager: FavoriteManager
 let parentId: string
 let childId: string
 
+describe.each(['web', 'desktop'] as const)('category parent selection (%s)', (platform) => {
 beforeEach(async () => {
   vi.clearAllMocks()
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 })
@@ -25,15 +28,23 @@ beforeEach(async () => {
   manager = new FavoriteManager(storage)
   parentId = await manager.addCategory({ name: 'Parent', sortOrder: 1 })
   childId = await manager.addCategory({ name: 'Child', parentId, sortOrder: 2 })
+  if (platform === 'desktop') {
+    Object.defineProperty(window, 'electronAPI', {
+      configurable: true,
+      value: createDesktopServiceBridge({ favoriteManager: manager }),
+    })
+  }
+  const favoriteManager = platform === 'desktop' ? new FavoriteManagerElectronProxy() : manager
   wrapper = mount(CategoryManager, {
     attachTo: document.body,
-    global: { provide: { services: shallowRef({ favoriteManager: manager }) } },
+    global: { provide: { services: shallowRef({ favoriteManager }) } },
   })
   await flushPromises()
 })
 
 afterEach(() => {
   wrapper?.unmount()
+  Reflect.deleteProperty(window, 'electronAPI')
   document.body.innerHTML = ''
 })
 
@@ -154,4 +165,5 @@ describe('category parent selection', () => {
     expect((await manager.getCategories()).find(category => category.id === childId)?.parentId).toBe(parentId)
     expect(wrapper.emitted('category-updated')).toBeUndefined()
   })
+})
 })

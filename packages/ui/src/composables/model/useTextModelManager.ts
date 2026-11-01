@@ -953,12 +953,12 @@ export function useTextModelManager() {
       if (form.value.originalApiKey) {
         connectionConfig.apiKey = form.value.originalApiKey
       } else {
-        delete connectionConfig.apiKey
+        connectionConfig.apiKey = undefined
       }
     } else if (form.value.connectionConfig.apiKey) {
       connectionConfig.apiKey = form.value.connectionConfig.apiKey
     } else {
-      delete connectionConfig.apiKey
+      connectionConfig.apiKey = undefined
     }
     normalizeConnectionCustomHeaders(connectionConfig)
 
@@ -1090,7 +1090,7 @@ export function useTextModelManager() {
         ...form.value.connectionConfig,
         apiKey: form.value.displayMaskedKey && form.value.originalApiKey
           ? form.value.originalApiKey
-          : (form.value.connectionConfig.apiKey || existingConfig?.connectionConfig?.apiKey)
+          : form.value.connectionConfig.apiKey
       }
       normalizeConnectionCustomHeaders(connectionConfig)
 
