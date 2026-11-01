@@ -1,4 +1,4 @@
-import { chromium, test as base, expect, type Page, type BrowserContext } from '@playwright/test'
+import { chromium, test as base, expect, type Page, type BrowserContext, type Locator } from '@playwright/test'
 import { resolve } from 'node:path'
 
 // Load the built extension in its own headless profile. A web-hosted copy cannot
@@ -26,6 +26,13 @@ const counter = (id: string) => `<button id="${id}" onclick="this.textContent=Nu
 const markdown = `# Before\n\n\`\`\`html\n${counter('one')}\n\`\`\`\n\nBetween.\n\n\`\`\`html\n${counter('two')}\n\`\`\`\n\nAfter.`
 const output = (page: Page, index = 0) => page.locator('.variant-result-card .output-display-core').nth(index)
 
+async function clickCounter(button: Locator, host: Locator) {
+  // Bring the embedding frame into view before acting in its nested document.
+  await host.evaluate(el => el.scrollIntoView({ block: 'start', inline: 'nearest' }))
+  await expect(button).toBeInViewport()
+  await button.click()
+}
+
 async function seed(page: Page, a: string, b = '') {
   await page.evaluate(({ a, b }) => {
     const store = (document.querySelector('#app') as any).__vue_app__.config.globalProperties.$pinia._s.get('basicSystemSession')
@@ -38,13 +45,16 @@ test('renders Markdown and independent HTML blocks, keeps state across tab lifec
   await expect(page.getByTestId('html-preview-frame')).toHaveCount(3)
   await expect(output(page).locator('.markdown-content > h1')).toHaveText('Before')
   await expect(output(page).locator('.markdown-content > p')).toHaveText(['Between.', 'After.'])
-  const first = output(page).frameLocator('[data-html-preview-slot="0"] iframe').frameLocator('iframe').locator('#one')
-  const second = output(page).frameLocator('[data-html-preview-slot="1"] iframe').frameLocator('iframe').locator('#two')
-  const other = output(page, 1).frameLocator('[data-testid="html-preview-frame"]').frameLocator('iframe').locator('#other')
-  await first.click()
-  await second.click()
-  await second.click()
-  await other.click()
+  const firstHost = output(page).locator('[data-html-preview-slot="0"] iframe')
+  const secondHost = output(page).locator('[data-html-preview-slot="1"] iframe')
+  const otherHost = output(page, 1).getByTestId('html-preview-frame')
+  const first = firstHost.contentFrame().frameLocator('iframe').locator('#one')
+  const second = secondHost.contentFrame().frameLocator('iframe').locator('#two')
+  const other = otherHost.contentFrame().frameLocator('iframe').locator('#other')
+  await clickCounter(first, firstHost)
+  await clickCounter(second, secondHost)
+  await clickCounter(second, secondHost)
+  await clickCounter(other, otherHost)
   await expect(first).toHaveText('1')
   await expect(second).toHaveText('2')
   const firstWindow = await first.evaluateHandle(() => window)
@@ -63,7 +73,7 @@ test('renders Markdown and independent HTML blocks, keeps state across tab lifec
     document.dispatchEvent(new Event('visibilitychange'))
   })
   expect(await firstWindow.evaluate(() => document.querySelector('#one')?.textContent)).toBe('1')
-  await second.click()
+  await clickCounter(second, secondHost)
   await expect(second).toHaveText('3')
   await output(page).locator('[data-testid$="-view-source"], [data-testid="output-view-source"]').click()
   await expect(output(page).getByTestId('html-preview-frame')).toHaveCount(0)
@@ -77,11 +87,11 @@ test('renders Markdown and independent HTML blocks, keeps state across tab lifec
   expect(await page.evaluate(() => (window as any).__copied)).toBe(markdown)
   await expect(firstWindow.evaluate(() => document.body)).rejects.toThrow()
   expect(await otherWindow.evaluate(() => document.querySelector('#other')?.textContent)).toBe('1')
-  await other.click()
+  await clickCounter(other, otherHost)
   await expect(other).toHaveText('2')
   await output(page).getByTestId('output-view-preview').click()
   await expect(first).toHaveText('0')
-  await first.click()
+  await clickCounter(first, firstHost)
   await expect(first).toHaveText('1')
 })
 
