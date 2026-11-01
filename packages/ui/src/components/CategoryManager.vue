@@ -171,7 +171,7 @@ const editingCategory = ref<FavoriteCategory | null>(null);
 const categoryForm = ref({
   name: '',
   description: '',
-  parentId: undefined as string | undefined,
+  parentId: undefined as string | null | undefined,
   color: '#409EFF'
 });
 const saving = ref(false);
@@ -437,7 +437,7 @@ const handleSaveCategory = async () => {
       await servicesValue.favoriteManager.updateCategory(editingCategory.value.id, {
         name: categoryForm.value.name,
         description: categoryForm.value.description,
-        parentId: categoryForm.value.parentId,
+        parentId: categoryForm.value.parentId ?? undefined,
         color: categoryForm.value.color
       });
       message.success(t('favorites.categoryManager.updateSuccess'));
@@ -446,7 +446,7 @@ const handleSaveCategory = async () => {
       await servicesValue.favoriteManager.addCategory({
         name: categoryForm.value.name,
         description: categoryForm.value.description,
-        parentId: categoryForm.value.parentId,
+        parentId: categoryForm.value.parentId ?? undefined,
         color: categoryForm.value.color,
         sortOrder: Date.now()
       });
