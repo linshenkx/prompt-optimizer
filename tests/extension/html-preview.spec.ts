@@ -30,6 +30,8 @@ async function clickCounter(button: Locator, host: Locator) {
   // Bring the embedding frame into view before acting in its nested document.
   await host.evaluate(el => el.scrollIntoView({ block: 'start', inline: 'nearest' }))
   await expect(button).toBeInViewport()
+  await button.focus()
+  await expect(button).toBeFocused()
   await button.click()
 }
 
