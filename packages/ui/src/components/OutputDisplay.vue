@@ -14,6 +14,7 @@
     :placeholder="placeholder"
     :loading="loading"
     :streaming="streaming"
+    :enable-stop="enableStop"
     :preview-suspended="isShowingFullscreen"
     :compareService="compareService"
     :test-id="testId"
@@ -43,6 +44,7 @@
     :reasoningMode="reasoningMode"
     :enabledActions="enabledActions"
     :streaming="streaming"
+    :enable-stop="enableStop"
     :loading="loading"
     :placeholder="placeholder"
     :initial-view-mode="fullscreenViewMode"
@@ -83,6 +85,7 @@ interface Props {
   height?: string | number
   placeholder?: string
   loading?: boolean
+  enableStop?: boolean
   streaming?: boolean
 
   /** 透传给 OutputDisplayCore 的 data-testid（挂在根节点） */

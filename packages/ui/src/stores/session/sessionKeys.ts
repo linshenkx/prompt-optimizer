@@ -3,6 +3,7 @@ import type { LegacySessionSubModeKey } from '@prompt-optimizer/core'
 export type SubModeKey = LegacySessionSubModeKey
 
 export const SESSION_SUB_MODE_KEYS = [
+  'arena',
   'basic-system',
   'basic-user',
   'pro-multi',
@@ -13,6 +14,7 @@ export const SESSION_SUB_MODE_KEYS = [
 ] as const satisfies readonly SubModeKey[]
 
 export const SESSION_STORAGE_KEYS: Record<SubModeKey, string> = {
+  arena: 'session/v1/arena',
   'basic-system': 'session/v1/basic-system',
   'basic-user': 'session/v1/basic-user',
   'pro-multi': 'session/v1/pro-multi',

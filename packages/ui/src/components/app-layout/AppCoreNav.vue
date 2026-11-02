@@ -89,6 +89,7 @@ const activeWorkspacePath = computed(() => props.workspacePath || routerInstance
 // 从当前路由计算模式
 const functionMode = computed<FunctionMode>(() => {
     const path = activeWorkspacePath.value
+    if (path === '/arena') return 'arena'
     if (path.startsWith('/basic')) return 'basic'
     if (path.startsWith('/pro')) return 'pro'
     if (path.startsWith('/image')) return 'image'
@@ -155,6 +156,7 @@ const handleFunctionModeChange = (mode: FunctionMode) => {
 
     // 切换 functionMode 时使用默认 subMode，避免跨模式污染
     // 例如：从 /image/text2image 切到 pro，不应使用 text2image（非法）
+    if (mode === 'arena') { navigateToWorkspacePath('/arena'); return }
     const defaultSubMode = DEFAULT_SUB_MODES[mode]
     navigateToWorkspacePath(`/${mode}/${defaultSubMode}`)
 }

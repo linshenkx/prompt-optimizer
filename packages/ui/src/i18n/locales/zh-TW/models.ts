@@ -267,11 +267,10 @@ const messages = {
   },
   "model": {
     "selector": {
+      "textGeneration": "文字生成",
+      "imageGeneration": "圖像生成",
       "clear": "清除選擇",
       "useCustom": "使用「{model}」",
-      "draftScope": "儲存後套用至此共用設定",
-      "sharedScope": "修改此共用設定，影響所有使用位置",
-      "functionScope": "儲存為全域功能設定",
       "followDefault": "跟隨預設最佳化模型",
       "choose": "選擇設定與模型",
       "search": "搜尋設定或模型",
@@ -281,8 +280,6 @@ const messages = {
       "loading": "正在取得模型…",
       "retry": "取得失敗，點擊重試",
       "empty": "沒有符合的模型",
-      "columnScope": "僅用於目前測試欄",
-      "workspaceScope": "僅用於目前工作區",
       "manage": "管理設定"
     },
     "select": {

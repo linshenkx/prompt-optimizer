@@ -449,7 +449,7 @@ interface Props {
   mode?: 'create' | 'save' | 'edit'
   content?: string
   originalContent?: string
-  currentFunctionMode?: 'basic' | 'context' | 'pro' | 'image'
+  currentFunctionMode?: 'basic' | 'context' | 'pro' | 'image' | 'arena'
   currentOptimizationMode?: 'system' | 'user'
   prefill?: {
     title?: string

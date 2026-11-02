@@ -21,6 +21,7 @@ import { promptContentFromText } from './content';
 import { createRootOnlyPromptOptimizationChain } from './history';
 
 export const LEGACY_SESSION_SUB_MODE_KEYS = [
+  'arena',
   'basic-system',
   'basic-user',
   'pro-multi',
@@ -120,6 +121,7 @@ export const legacySessionSubModeKeyToPromptModeKey = (
   key: LegacySessionSubModeKey | PromptModeKey | string,
 ): PromptModeKey => {
   switch (key) {
+    case 'arena': return 'arena';
     case 'basic-user':
       return 'basic-user';
     case 'pro-variable':

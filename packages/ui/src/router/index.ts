@@ -14,6 +14,7 @@ import ContextUserWorkspace from '../components/context-mode/ContextUserWorkspac
  */
 
 const routes: RouteRecordRaw[] = [
+  { path: '/arena', name: 'arena', component: () => import('../components/arena-mode/ArenaWorkspace.vue') },
   {
     path: '/',
     // 根路径重定向由 RootBootstrapRoute 处理：等待 globalSettings 恢复完成后决定初始工作区

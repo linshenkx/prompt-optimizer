@@ -6,6 +6,7 @@ export const PROMPT_MODEL_SCHEMA_VERSION = 'prompt-model/v1' as const;
 export type PromptModelSchemaVersion = typeof PROMPT_MODEL_SCHEMA_VERSION;
 
 export type PromptModeKey =
+  | 'arena'
   | 'basic-system'
   | 'basic-user'
   | 'pro-variable'
@@ -14,7 +15,7 @@ export type PromptModeKey =
   | 'image-image2image'
   | 'image-multiimage';
 
-export type PromptModeFamily = 'basic' | 'pro' | 'image';
+export type PromptModeFamily = 'basic' | 'pro' | 'image' | 'arena';
 
 export type PromptVariableType = 'string' | 'number' | 'boolean' | 'enum';
 
@@ -76,7 +77,8 @@ export interface ImagePromptContract extends PromptContractBase {
   modeKey: 'image-text2image' | 'image-image2image' | 'image-multiimage';
 }
 
-export type PromptContract = BasicPromptContract | ProPromptContract | ImagePromptContract;
+export interface ArenaPromptContract extends PromptContractBase { family: 'arena'; modeKey: 'arena' }
+export type PromptContract = BasicPromptContract | ProPromptContract | ImagePromptContract | ArenaPromptContract;
 
 export type PromptContent =
   | {

@@ -16,7 +16,7 @@ describe('shared model selection surface', () => {
     vi.stubGlobal('visualViewport', Object.assign(new EventTarget(), { offsetTop: 0, height: 299, scale: 1 }))
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ top: 225, bottom: 257, height: 32 } as DOMRect)
     const wrapper = mount(ModelSelector, { attachTo: document.body, props: {
-      modelValue: 'one', scopeText: 'Saved on confirmation',
+      modelValue: 'one',
       groups: [{ value: 'group', label: 'Provider', choices: [{ value: 'one', label: 'One' }] }],
     } })
     mounted.push(wrapper)
@@ -61,6 +61,34 @@ describe('shared model selection surface', () => {
     document.querySelector('.text-model-menu')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))
     expect(document.activeElement?.textContent).toContain('Available')
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+  })
+
+  it('distinguishes mixed output types and searches them without conflating identical configuration or model names', async () => {
+    const wrapper = mount(ModelSelector, { attachTo: document.body, props: {
+      modelValue: 'image-model', selectedConfig: 'Same connection', selectedLabel: 'Shared name',
+      groups: [
+        { value: 'text', label: 'Same connection', kind: 'text', choices: [{ value: 'text-model', label: 'Shared name' }] },
+        { value: 'image', label: 'Same connection', kind: 'image', choices: [{ value: 'image-model', label: 'Shared name' }] },
+      ],
+    } })
+    mounted.push(wrapper)
+    expect(wrapper.find('.text-model-selector__kind').exists()).toBe(false)
+    await wrapper.setProps({ showModelTypes: true })
+    expect(wrapper.find('.text-model-selector__kind').exists()).toBe(true)
+    expect(wrapper.find('button').attributes('aria-label')).toContain('Image generation')
+    await wrapper.find('button').trigger('click')
+    await flushPromises()
+    expect(Array.from(document.querySelectorAll('.text-model-menu__kind')).map(element => element.textContent)).toEqual(['Text generation', 'Image generation'])
+    const search = document.querySelector('.text-model-menu input') as HTMLInputElement
+    search.value = 'Text generation'
+    search.dispatchEvent(new Event('input', { bubbles: true }))
+    await flushPromises()
+    expect(document.querySelectorAll('[data-config-id]')).toHaveLength(1)
+    await click(document.querySelector('[data-model-choice]'))
+    expect(wrapper.emitted('update:modelValue')).toEqual([['text-model']])
+    expect(wrapper.emitted('config')).toBeUndefined()
+    await wrapper.setProps({ modelValue: 'text-model' })
+    expect(wrapper.find('button').attributes('aria-label')).toContain('Text generation')
   })
 
   it('keeps image selection local, retains the supplied capability filter, and opens the exact shared configuration separately', async () => {

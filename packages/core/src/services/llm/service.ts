@@ -1,3 +1,4 @@
+import { resolveRuntimeTextModel, type RuntimeModelSelection } from '../model/runtime-selection';
 import type {
   ILLMService,
   Message,
@@ -126,12 +127,13 @@ export class LLMService implements ILLMService {
   async sendMessageStream(
     messages: Message[],
     provider: string,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    selection?: RuntimeModelSelection
   ): Promise<void> {
     try {
       this.validateMessages(messages);
 
-      const modelConfig = await this.modelManager.getModel(provider);
+      const modelConfig = selection?.configSnapshot ?? await this.modelManager.getModel(provider);
       if (!modelConfig) {
         throw new RequestConfigError(`Model ${provider} not found`);
       }
@@ -141,7 +143,7 @@ export class LLMService implements ILLMService {
       // 通过 Registry 获取 Adapter
       const adapter = this.registry.getAdapter(modelConfig.providerMeta.id);
 
-      const runtimeConfig = this.prepareRuntimeConfig(modelConfig);
+      const runtimeConfig = this.prepareRuntimeConfig(selection?.modelId ? resolveRuntimeTextModel(modelConfig, selection, this.registry) : modelConfig);
 
       // 使用 Adapter 发送流式消息
       await adapter.sendMessageStream(messages, runtimeConfig, callbacks);

@@ -1,3 +1,4 @@
+import type { RuntimeModelSelection } from '../model/runtime-selection';
 import { runIpcStream } from '../../utils/ipc-stream';
 import { ILLMService, Message, StreamHandlers, LLMResponse, ModelOption, ToolDefinition } from './types';
 import { safeSerializeForIPC } from '../../utils/ipc-serialization';
@@ -37,7 +38,8 @@ export class ElectronLLMProxy implements ILLMService {
   async sendMessageStream(
     messages: Message[],
     provider: string,
-    callbacks: StreamHandlers
+    callbacks: StreamHandlers,
+    selection?: RuntimeModelSelection
   ): Promise<void> {
     // 自动序列化，防止Vue响应式对象IPC传递错误
     const safeMessages = safeSerializeForIPC(messages);
@@ -52,7 +54,7 @@ const adaptedCallbacks = {
       onError: handlers.onError
     };
 
-    await this.electronAPI.llm.sendMessageStream(safeMessages, provider, adaptedCallbacks);
+    await this.electronAPI.llm.sendMessageStream(safeMessages, provider, adaptedCallbacks, selection ? safeSerializeForIPC(selection) : undefined);
 
 }, this.electronAPI.cancelStream);
 }

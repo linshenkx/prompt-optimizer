@@ -39,7 +39,7 @@ function listen() {
       return
     }
     if (layers.length && location.href === overlayUrl && history.state?.compactOverlay !== marker) {
-      layers.at(-1)?.close()
+      layers[layers.length - 1]?.close()
       // The parent may reject a close to protect an unsaved form.
       scheduleSync()
     }

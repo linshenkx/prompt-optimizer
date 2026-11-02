@@ -31,15 +31,15 @@ beforeEach(() => {
 })
 
 describe('mobile navigation panels', () => {
-  it('shows all seven specific modes together, with noninteractive group headings', async () => {
+  it('shows all workspace modes together, with noninteractive group headings', async () => {
     const wrapper = createNavigation()
     try {
       await wrapper.get('[data-testid="compact-mode-select"]').trigger('click')
-      expect(wrapper.findAll('.compact-mode-choice')).toHaveLength(7)
-      expect(wrapper.findAll('.compact-mode-group > h3')).toHaveLength(3)
+      expect(wrapper.findAll('.compact-mode-choice')).toHaveLength(8)
+      expect(wrapper.findAll('.compact-mode-group > h3')).toHaveLength(4)
       await wrapper.get('#compact-mode-group-pro').trigger('click')
       expect(routing.push).not.toHaveBeenCalled()
-      expect(wrapper.findAll('.compact-mode-choice')).toHaveLength(7)
+      expect(wrapper.findAll('.compact-mode-choice')).toHaveLength(8)
       expect(wrapper.get('[aria-current="page"]').attributes('data-testid')).toBe('compact-mode-image-text2image')
     } finally { wrapper.unmount() }
   })

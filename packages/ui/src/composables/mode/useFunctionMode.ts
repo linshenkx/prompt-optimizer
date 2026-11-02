@@ -4,7 +4,7 @@ import type { AppServices } from '../../types/services'
 import { usePreferences } from '../storage/usePreferenceManager'
 import { UI_SETTINGS_KEYS } from '@prompt-optimizer/core'
 
-export type FunctionMode = 'basic' | 'pro' | 'image'
+export type FunctionMode = 'basic' | 'pro' | 'image' | 'arena'
 
 interface UseFunctionModeApi {
   functionMode: Ref<FunctionMode>

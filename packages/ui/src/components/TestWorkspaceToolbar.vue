@@ -1,7 +1,7 @@
 <template>
-  <NCard class="test-global-controls" size="small" :style="{ flexShrink: 0 }">
+  <component :is="embedded ? 'div' : NCard" class="test-global-controls" :size="embedded ? undefined : 'small'" :style="{ flexShrink: 0 }">
     <div class="test-workspace-toolbar test-area-top" :class="{ 'test-workspace-toolbar--compact': compact }">
-      <div class="test-group-count">
+      <slot name="leading"><div class="test-group-count">
         <NText depth="2" class="test-area-label">{{ t(compact ? 'workspace.testGroups' : 'test.title') }}</NText>
         <NRadioGroup :value="count" size="small" :disabled="running"
           :aria-label="t('workspace.testGroups')" @update:value="updateCount">
@@ -9,25 +9,29 @@
             :disabled="value === 4 && !canUseFourColumns"
             :data-testid="columnTestIdPrefix ? `${columnTestIdPrefix}-${value}` : undefined">{{ value }}</NRadioButton>
         </NRadioGroup>
-      </div>
+      </div></slot>
       <div v-if="!compact && $slots.comparison" class="test-comparison-entry"><slot name="comparison" /></div>
       <div v-if="!compact" class="test-global-actions">
-        <NButton type="primary" size="small" :loading="running" :disabled="running"
-          :data-testid="runTestId" @click="emit('run')">{{ t('test.layout.runAll') }}</NButton>
+        <slot name="actions" />
+        <NButton type="primary" size="small" :loading="running" :disabled="running || runDisabled"
+          :data-testid="runTestId" @click="emit('run')">{{ runText || t('test.layout.runAll') }}</NButton>
         <slot name="evaluation" />
       </div>
     </div>
-  </NCard>
+  </component>
 </template>
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { NButton, NCard, NRadioButton, NRadioGroup, NText } from 'naive-ui'
 defineProps<{
-  count: number
+  count?: number
   running?: boolean
   compact?: boolean
-  canUseFourColumns: boolean
+  embedded?: boolean
+  canUseFourColumns?: boolean
+  runText?: string
+  runDisabled?: boolean
   runTestId: string
   columnTestIdPrefix?: string
 }>()

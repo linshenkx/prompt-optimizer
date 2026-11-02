@@ -64,7 +64,7 @@ export type OptimizationMode = "system" | "user";
 /**
  * 功能模式枚举（Basic / Pro / Image）
  */
-export type FunctionMode = "basic" | "pro" | "image";
+export type FunctionMode = "basic" | "pro" | "image" | "arena";
 
 /**
  * 子模式类型定义（三种功能模式独立）

@@ -1001,7 +1001,7 @@ function setupIPC() {
   }));
 
   // Streaming handler - more complex due to callbacks
-  ipcMain.handle('llm-sendMessageStream', withModelNetwork(async (event, messages, provider, streamId) => {
+  ipcMain.handle('llm-sendMessageStream', withModelNetwork(async (event, messages, provider, streamId, selection) => {
     const lease = streamRegistry.begin(event.sender, streamId);
     try {
       // 使用符合 StreamHandlers 接口的回调名称
@@ -1029,7 +1029,7 @@ function setupIPC() {
         }
       };
 
-      await llmService.sendMessageStream(messages, provider, callbacks);
+      await llmService.sendMessageStream(messages, provider, callbacks, selection);
       return createSuccessResponse(null);
     } catch (error) {
       return createErrorResponse(error);

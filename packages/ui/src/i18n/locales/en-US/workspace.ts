@@ -44,7 +44,6 @@ export default {
     "testGroups": "Test groups",
     "testSettings": "Test settings",
     "testSettingsDone": "Close settings",
-    "staleResult": "Settings changed. Previous response shown; test again to save.",
     "textComparison": "Text comparison",
     "previousVersion": "Previous version",
     "promptReference": "Current prompt reference",

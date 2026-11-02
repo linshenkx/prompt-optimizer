@@ -44,7 +44,6 @@ export default {
     "testGroups": "測試組數",
     "testSettings": "測試設定",
     "testSettingsDone": "收起設定",
-    "staleResult": "設定已變更，顯示上次回覆；重新測試後可儲存。",
     "textComparison": "文字對照",
     "previousVersion": "上一版本",
     "promptReference": "參照目前提示詞",

@@ -33,7 +33,7 @@ const createContext = (set: (key: string, value: unknown) => Promise<void> = vi.
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
 
 describe('session checkpoint persistence', () => {
-  it('allows repeated idle updates after all seven workspaces are hydrated', async () => {
+  it('allows repeated idle updates after all workspaces are hydrated', async () => {
     const { pinia } = createContext()
     const manager = useSessionManager(pinia)
     await manager.restoreAllSessions()
@@ -102,7 +102,7 @@ describe('session checkpoint persistence', () => {
     await manager.restoreAllSessions()
     useBasicUserSession(pinia).prompt = 'old in-memory workspace'
     const resume = await manager.beginSessionRestore()
-    expect(set).toHaveBeenCalledTimes(7)
+    expect(set).toHaveBeenCalledTimes(8)
     set.mockClear()
     expect(manager.isRestoring).toBe(true)
     expect(await manager.saveAllSessions()).toBe(false)
@@ -137,7 +137,7 @@ describe('session checkpoint persistence', () => {
     expect(await first).toBe(true)
     expect(await queued).toBe(false)
     const resume = await begin
-    expect(set).toHaveBeenCalledTimes(8) // drained writer + full pre-import checkpoint
+    expect(set).toHaveBeenCalledTimes(9) // drained writer + full pre-import checkpoint
     expect(await manager.saveAllSessions()).toBe(false)
     resume()
   })
@@ -310,7 +310,7 @@ describe('session checkpoint persistence', () => {
     expect(await manager.saveAllSessions()).toBe(true)
     const sessionKeys = set.mock.calls.map(([key]) => key).filter(key => key.startsWith('session/v1/'))
     expect(sessionKeys[0]).toBe('session/v1/pro-variable')
-    expect(new Set(sessionKeys).size).toBe(7)
+    expect(new Set(sessionKeys).size).toBe(8)
   })
 
   it('reports a handled text-store failure while still preserving the other workspaces', async () => {

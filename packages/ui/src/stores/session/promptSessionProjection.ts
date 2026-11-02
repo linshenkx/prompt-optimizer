@@ -1,3 +1,4 @@
+import type { useArenaSession } from './useArenaSession'
 import {
   createPromptSessionRegistry,
   createPromptSessionSummaryFromLegacySnapshot,
@@ -18,6 +19,7 @@ import type { ImageImage2ImageSessionApi } from './useImageImage2ImageSession'
 import type { ImageMultiImageSessionApi } from './useImageMultiImageSession'
 
 export type PromptSessionProjectionStoreMap = {
+  arena: ReturnType<typeof useArenaSession>
   'basic-system': BasicSystemSessionApi
   'basic-user': BasicUserSessionApi
   'pro-multi': ProMultiMessageSessionApi
@@ -247,6 +249,7 @@ export const buildLegacyPromptSessionSnapshot = (
   stores: PromptSessionProjectionStoreMap,
 ): LegacyPromptSessionSnapshot => {
   switch (subModeKey) {
+    case 'arena': return { subModeKey, prompt: stores.arena.state.prompt, inputImages: stores.arena.state.images, lastActiveAt: stores.arena.state.lastActiveAt, metadata: { arena: stores.arena.state } }
     case 'basic-user':
       return buildTextSnapshot(subModeKey, stores[subModeKey])
     case 'pro-multi':
@@ -268,9 +271,20 @@ export const buildLegacyPromptSessionSnapshot = (
 export const buildPromptSessionFromStores = (
   subModeKey: SubModeKey,
   stores: PromptSessionProjectionStoreMap,
-): PromptSession => promptSessionFromLegacySnapshot(
-  buildLegacyPromptSessionSnapshot(subModeKey, stores),
-)
+): PromptSession => {
+  const projected = promptSessionFromLegacySnapshot(buildLegacyPromptSessionSnapshot(subModeKey, stores))
+  if (subModeKey !== 'arena') return projected
+  const arena = stores.arena.state
+  projected.draft = { ...projected.draft, content: { kind: 'image-prompt', text: arena.prompt, images: arena.images.map(r => ({ kind: 'asset', assetId: r.id })) } }
+  projected.testRuns = [{ id: `${projected.id}:runs`, createdAt: arena.lastActiveAt, runs: Object.values(arena.results).map(r => ({
+    id: r.runId, revision: { kind: 'workspace', sessionId: projected.id },
+    input: { text: r.prompt, images: r.inputs.map(image => ({ kind: 'asset', assetId: image.id })) },
+    output: { text: r.output.result, images: r.images.map(image => ({ kind: 'asset', assetId: image.id })) },
+    status: r.status === 'success' ? 'success' : 'error', modelKey: r.model.configKey, modelName: r.model.modelId,
+    error: r.error, createdAt: r.startedAt, metadata: { arenaStatus: r.status, fingerprint: r.fingerprint },
+  })) }]
+  return projected
+}
 
 export const buildPromptSessionsFromStores = (
   stores: PromptSessionProjectionStoreMap,

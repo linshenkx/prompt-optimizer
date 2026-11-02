@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { defineComponent, ref } from 'vue'
 import { CompareService } from '@prompt-optimizer/core'
 import OutputDisplayCore from '../../../src/components/OutputDisplayCore.vue'
+import { beginOutputStream, type OutputRecord } from '../../../src/utils/output-document'
 
 const { copyTextMock, errorMock, currentRoute } = vi.hoisted(() => ({
   copyTextMock: vi.fn(),
@@ -100,7 +101,7 @@ const passthroughStub = (name: string) => defineComponent({
   template: '<div><slot /><slot name="header" /><slot name="icon" /></div>',
 })
 
-const mountOutputDisplayCore = (content = 'Optimized prompt', initialProps: { streaming?: boolean } = {}) =>
+const mountOutputDisplayCore = (content = 'Optimized prompt', initialProps: { streaming?: boolean; enableStop?: boolean; outputRecord?: OutputRecord } = {}) =>
   mount(OutputDisplayCore, {
     props: {
       content,
@@ -159,6 +160,18 @@ const selectCopyAction = async (
 }
 
 describe('OutputDisplayCore copy and open action', () => {
+  it('hides transport cancellation for channels that cannot stop, retaining the default for other callers', async () => {
+    const output: OutputRecord = { result: '', reasoning: '' }
+    const stream = beginOutputStream(output)
+    const wrapper = mountOutputDisplayCore('', { outputRecord: output, enableStop: false })
+    try {
+      await flushPromises()
+      expect(wrapper.find('[data-testid="output-stop"]').exists()).toBe(false)
+      await wrapper.setProps({ enableStop: true })
+      await wrapper.get('[data-testid="output-stop"]').trigger('click')
+      expect(stream.signal.aborted).toBe(true)
+    } finally { stream.finish(); wrapper.unmount() }
+  })
   let openSpy: ReturnType<typeof vi.spyOn>
   let originalElectronAPI: unknown
 

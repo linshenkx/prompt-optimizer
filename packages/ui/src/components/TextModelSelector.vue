@@ -1,18 +1,18 @@
 <template>
   <ModelSelector v-bind="$attrs" :model-value="modelValue ? normalizedValue : ''" :groups="groups"
-    :selected-config="selected?.primary" :selected-label="selected ? compactName(selected.primary, selectedModelName).split('/').at(-1) : ''"
+    :selected-config="additionalSelection?.group.label || selected?.primary" :selected-label="additionalSelection?.choice.label || (selected ? compactName(selected.primary, selectedModelName).split('/').pop() : '')"
     :size="size" :disabled="disabled" :placeholder="placeholder" :aria-label="ariaLabel"
-    :scope-text="t('model.selector.' + (scope === 'function' ? 'functionScope' : scope === 'column' ? 'columnScope' : 'workspaceScope'))"
+    :show-model-types="showModelTypes"
     :clearable="clearable" :clear-label="clearLabel" show-config-action
     @update:model-value="choose" @update:show="onShow" @focus="emit('focus')" @config="configure" @retry="retry" />
 </template>
 <script setup lang="ts">
 import { computed, inject, ref, unref, watch, type MaybeRef, type Ref } from 'vue'
-import { useI18n } from 'vue-i18n'
 import ModelSelector from './ModelSelector.vue'
 import { decodeTextModelSelection, encodeTextModelSelection } from '@prompt-optimizer/core'
 import type { AppServices } from '../types/services'
 import type { ModelSelectOption } from '../types/select-options'
+import type { ModelSelectorGroup } from '../types/model-selector'
 import { findTextModelSelection, getTextModelSelectionConfigId } from '../utils/text-model-selection'
 import { getTextModelCatalog, loadTextModelCatalog, mergeModelOptions, rankModelOptions, rememberTextModel } from '../composables/model/textModelCatalog'
 
@@ -20,22 +20,29 @@ defineOptions({ inheritAttrs: false })
 const props = withDefaults(defineProps<{
   modelValue?: string
   options: MaybeRef<ModelSelectOption[]>
+  additionalGroups?: ModelSelectorGroup[]
   disabled?: boolean
   size?: 'small' | 'medium' | 'large'
   placeholder?: string
   ariaLabel?: string
-  scope?: 'workspace' | 'column' | 'function'
+  showModelTypes?: boolean
   clearable?: boolean
   clearLabel?: string
-}>(), { modelValue: '', disabled: false, size: 'medium', scope: 'workspace' })
-const emit = defineEmits<{ 'update:modelValue': [value: string]; 'update:show': [value: boolean]; focus: []; config: [] }>()
-const { t } = useI18n()
+}>(), { modelValue: '', disabled: false, size: 'medium' })
+const emit = defineEmits<{ 'update:modelValue': [value: string]; 'update:show': [value: boolean]; focus: []; config: [id?: string] }>()
 const services = inject<Ref<AppServices | null>>('services', ref(null))
 const openModelManager = inject<((tab: 'text', configId: string) => void | Promise<void>) | null>('openModelManager', null)
 const open = ref(false)
 const options = computed(() => unref(props.options) || [])
 const catalog = computed(() => services.value ? getTextModelCatalog(services.value) : undefined)
 const selected = computed(() => findTextModelSelection(options.value, props.modelValue))
+const additionalSelection = computed(() => {
+  for (const group of props.additionalGroups || []) {
+    const choice = group.choices.find(item => item.value === props.modelValue)
+    if (choice) return { group, choice }
+  }
+  return undefined
+})
 const configId = computed(() => getTextModelSelectionConfigId(props.modelValue))
 const modelId = computed(() => decodeTextModelSelection(props.modelValue)?.modelId || selected.value?.raw.modelMeta.id || '')
 const selectedModelName = computed(() => {
@@ -57,18 +64,18 @@ const orderedOptions = computed(() => [
 ])
 const selectionKey = (id: string, model: string) => options.value.find(option => option.value === id)?.raw.modelMeta.id === model ? id : encodeTextModelSelection(id, model)
 const normalizedValue = computed(() => selected.value ? selectionKey(configId.value, modelId.value) : props.modelValue)
-const groups = computed(() => orderedOptions.value.map(option => {
+const groups = computed(() => [...orderedOptions.value.map(option => {
   const entry = catalog.value?.entries[option.value]
   const current = option.value === configId.value ? modelId.value : option.raw.modelMeta.id
   const all = mergeModelOptions(entry?.models || [], [{ value: option.raw.modelMeta.id, label: option.raw.modelMeta.name }], current ? [{ value: current, label: current }] : [])
   return {
-    value: option.value, label: option.primary, searchText: option.secondary, configurable: true,
+    value: option.value, label: option.primary, kind: 'text' as const, searchText: option.secondary, configurable: true,
     loading: entry?.loading, failed: entry?.failed,
     choices: rankModelOptions(all, current, catalog.value?.recent[option.value] || []).map(model => ({
       value: selectionKey(option.value, model.value), label: compactName(option.primary, model.label), searchText: model.value,
     })),
   }
-}))
+}), ...(props.additionalGroups || [])])
 
 async function refresh(force = false) {
   const currentServices = services.value
@@ -89,6 +96,7 @@ function onShow(show: boolean) {
 }
 function choose(value: string) {
   emit('update:modelValue', value)
+  if (props.additionalGroups?.some(group => group.choices.some(choice => choice.value === value))) return
   if (!value || !services.value) return
   const decoded = decodeTextModelSelection(value)
   const id = decoded?.configId || value
@@ -96,7 +104,8 @@ function choose(value: string) {
   if (model) void rememberTextModel(services.value, id, model)
 }
 async function configure(id?: string) {
-  if (id && openModelManager) await openModelManager('text', id)
+  if (id && props.additionalGroups?.some(group => group.value === id)) emit('config', id)
+  else if (id && openModelManager) await openModelManager('text', id)
   else emit('config')
 }
 function retry(id: string) {

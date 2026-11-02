@@ -1,3 +1,4 @@
+import { createArenaState } from '../../../../core/src/services/arena/types'
 import { describe, expect, it } from 'vitest'
 import { unzipSync } from 'fflate'
 import '../../../../core/node_modules/fake-indexeddb/auto/index.mjs'
@@ -99,7 +100,7 @@ describe('full backup integrity with real services', () => {
       const asset = originalFirst.metadata!.promptAsset
       const snapshots = new Map<string, Record<string, unknown>>()
       for (const mode of LEGACY_SESSION_SUB_MODE_KEYS) {
-        const snapshot = {
+        const snapshot = mode === 'arena' ? { ...createArenaState(), prompt: 'Arena draft', images: [{ id: 'session-input', _type: 'image-ref' }] } : {
           ...(mode === 'pro-multi' ? { conversationMessagesSnapshot: messages, selectedMessageId: 'context-message', messageChainMap: { 'context-message': 'audit-chain' } }
             : mode.startsWith('image-') ? { originalPrompt: `original ${mode}` } : { prompt: `draft ${mode}`, testContent: 'test input' }),
           optimizedPrompt: `optimized ${mode}\nlast line`, reasoning: 'reasoning', chainId: 'audit-chain', versionId: 'audit-record',

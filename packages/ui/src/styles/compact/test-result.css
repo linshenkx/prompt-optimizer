@@ -1,14 +1,5 @@
 /* TestWorkspaceLayout and workspace test slots own configuration and side-by-side result adaptations. These rules deliberately refine owned output/image components in narrow result columns. */
 
-.compact-stale {
-  padding: 8px 10px;
-  background: color-mix(in srgb, #b78032 8%, var(--compact-paper));
-  color: color-mix(in srgb, #b78032 65%, var(--compact-ink));
-  font-size: 12px;
-  line-height: 1.6;
-  border-radius: 8px;
-}
-
 .compact-two-region .compact-test-region .test-area-top {
   justify-content: space-between;
   font-size: 14px;
@@ -52,11 +43,6 @@
   overflow: visible !important;
 }
 
-.compact-two-region .variant-result-card .compact-stale {
-  flex-shrink: 0;
-  margin: 0 0 10px;
-}
-
 .compact-two-region .variant-result-card .output-display-core {
   flex: 1;
   min-height: 0;
@@ -97,11 +83,6 @@
 
 .compact-two-region .variant-cell__version {
   flex-shrink: 0;
-}
-
-.compact-two-region .compact-test-region .compact-stale {
-  padding: 6px 10px;
-  margin: 0 0 8px;
 }
 
 .compact-test-summary__context {
@@ -376,11 +357,6 @@
 
 .compact-two-region .test-answer-content .image-result-content .n-image img {
   max-height: none;
-}
-
-.compact-two-region .test-answer-content .compact-stale {
-  padding: 6px 8px;
-  font-size: 11px;
 }
 
 .compact-two-region .test-answer-content .output-copy-menu-icon {

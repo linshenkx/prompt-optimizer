@@ -1,4 +1,4 @@
-import type { IImageStorageService } from '@prompt-optimizer/core'
+import type { IImageStorageService, ImageResult } from '@prompt-optimizer/core'
 
 import { computeStableImageId } from '../stores/session/imageStorageMaintenance'
 
@@ -230,6 +230,19 @@ export const persistImagePayloadAsAssetId = async (
   }
 
   return imageId
+}
+
+export const normalizeGeneratedImagePayload = async (image: ImageResult['images'][number]): Promise<ImagePayload | null> => {
+  if (image.b64) return parseDataUrlPayload(image.b64) || { b64: image.b64, mimeType: image.mimeType || 'image/png' }
+  return image.url ? normalizeImageSourceToPayload(image.url) : null
+}
+
+export const persistGeneratedImage = async (
+  image: ImageResult['images'][number], storageService: IImageStorageService | null | undefined,
+  metadata?: PersistImagePayloadOptions['metadata'],
+): Promise<string | null> => {
+  const payload = await normalizeGeneratedImagePayload(image)
+  return payload ? persistImagePayloadAsAssetId({ payload, storageService, sourceType: 'generated', metadata }) : null
 }
 
 type PersistImageSourceOptions = {

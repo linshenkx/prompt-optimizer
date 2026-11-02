@@ -211,7 +211,7 @@ describe('evaluation action wiring', () => {
         ':model-key', ':options', ':refresh-models', '@update:model-key', '@config',
       ]),
       ...buildFileRequirements(['components/TestVariantConfig.vue'], 'TextModelSelector', [
-        ':model-value', ':options', 'scope="column"', '@update:model-value', '@focus', '@config',
+        ':model-value', ':options', '@update:model-value', '@focus', '@config',
       ]),
     ])
 

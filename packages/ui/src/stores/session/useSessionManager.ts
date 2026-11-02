@@ -1,3 +1,4 @@
+import { useArenaSession } from './useArenaSession'
 /**
  * Session Manager - 会话管理协调器
  *
@@ -161,6 +162,7 @@ export const useSessionManager = defineStore('sessionManager', () => {
     let subMode: string
 
     switch (mode) {
+      case 'arena': return 'arena'
       case 'basic':
         subMode = readers.getBasicSubMode()
         break
@@ -190,6 +192,7 @@ export const useSessionManager = defineStore('sessionManager', () => {
     let subMode: string
 
     switch (mode) {
+      case 'arena': return 'arena'
       case 'basic':
         subMode = basicSubMode
         break
@@ -207,6 +210,7 @@ export const useSessionManager = defineStore('sessionManager', () => {
   }
 
   const getProjectionStoreMap = (): PromptSessionProjectionStoreMap => ({
+    arena: useArenaSession(),
     'basic-system': useBasicSystemSession(),
     'basic-user': useBasicUserSession(),
     'pro-multi': useProMultiMessageSession(),
@@ -377,6 +381,9 @@ export const useSessionManager = defineStore('sessionManager', () => {
     return withSessionRestoreCheckpoint(getPiniaServices()?.preferenceService, SESSION_STORAGE_KEYS[key], async cleanup => {
       try {
         switch (key) {
+          case 'arena':
+            await useArenaSession().restoreSession()
+            break
           case 'basic-system':
             await useBasicSystemSession().restoreSession()
             break

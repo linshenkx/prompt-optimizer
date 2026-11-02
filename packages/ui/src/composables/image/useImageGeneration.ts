@@ -12,7 +12,7 @@ import type {
 } from '@prompt-optimizer/core'
 import { getI18nErrorMessage } from '../../utils/error'
 import {
-  normalizeImageSourceToPayload,
+  normalizeGeneratedImagePayload,
   persistImagePayloadAsAssetId,
 } from '../../utils/image-asset-storage'
 
@@ -31,7 +31,7 @@ const normalizeRuntimeImageResult = async (
       }
 
       try {
-        const payload = await normalizeImageSourceToPayload(image.url)
+        const payload = await normalizeGeneratedImagePayload(image)
         if (!payload) {
           return image
         }

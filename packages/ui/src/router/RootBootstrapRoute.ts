@@ -7,6 +7,7 @@ export const getInitialRouteFromGlobalSettings = (globalSettings: GlobalSettings
   const { functionMode, basicSubMode, proSubMode, imageSubMode } = globalSettings.state
 
   switch (functionMode) {
+    case 'arena': return '/arena'
     case 'basic':
       return `/basic/${basicSubMode}`
     case 'pro':

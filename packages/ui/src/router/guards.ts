@@ -24,6 +24,7 @@ export const parseSubModeKey = (path: string): SubModeKey | null => {
  * 3. 兼容旧 pro 路由（/pro/system|/pro/user）
  */
 export const beforeRouteSwitch: NavigationGuard = (to) => {
+  if (to.path.startsWith('/arena/')) return { path: '/arena', query: to.query, hash: to.hash }
   // ✅ 兼容旧 pro 路由（/pro/system|/pro/user -> /pro/multi|/pro/variable）
   if (to.path === '/pro/system') {
     return { path: '/pro/multi', query: to.query, hash: to.hash }

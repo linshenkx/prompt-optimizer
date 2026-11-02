@@ -369,7 +369,7 @@ describe('SessionManager', () => {
       ]),
     })
     expect(registry.updatedAt).toBeGreaterThanOrEqual(3000)
-    expect(manager.getAllPromptSessions()).toHaveLength(7)
+    expect(manager.getAllPromptSessions()).toHaveLength(8)
   })
 
   it('hydrates history chains without changing the synchronous session projection', async () => {

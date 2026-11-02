@@ -1,3 +1,4 @@
+import { isArenaState } from '../arena/types'
 import type { IImportExportable } from '../../interfaces/import-export'
 import type { IPreferenceService } from '../preference/types'
 import { MAX_SESSION_SNAPSHOT_BYTES } from '../preference/service'
@@ -70,6 +71,10 @@ function assertSnapshot(mode: LegacySessionSubModeKey, value: unknown): asserts 
   const snapshot = value as Record<string, unknown>
   if (new TextEncoder().encode(JSON.stringify(snapshot)).byteLength > MAX_SESSION_SNAPSHOT_BYTES) {
     invalid(`${mode} exceeds the session storage limit`)
+  }
+  if (mode === 'arena') {
+    if (!isArenaState(snapshot)) invalid('Invalid arena session')
+    return
   }
   for (const key of stringFields) {
     if (snapshot[key] !== undefined && typeof snapshot[key] !== 'string') invalid(`${mode}.${key} must be text`)

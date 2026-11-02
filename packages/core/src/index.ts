@@ -17,6 +17,9 @@
 
 // Core package entry point
 
+export * from './services/arena/types'
+export * from './services/model/runtime-selection'
+
 // 导出模板相关
 export { TemplateManager, createTemplateManager } from './services/template/manager'
 export { TemplateProcessor } from './services/template/processor'

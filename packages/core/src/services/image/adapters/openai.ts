@@ -205,13 +205,15 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
     const description = typeof model?.description === 'string'
       ? model.description
       : `${name} model`
+    const knownModel = this.getModels().find(candidate => candidate.id === id)
 
     return {
       id,
       name,
       description,
       providerId: 'openai',
-      capabilities: {
+      capabilities: knownModel?.capabilities ?? {
+        inferred: true,
         text2image: true,
         image2image: true,
         multiImage: true

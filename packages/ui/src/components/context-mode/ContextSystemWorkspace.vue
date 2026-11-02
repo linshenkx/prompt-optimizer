@@ -257,7 +257,7 @@
                                             @update:value="(value) => handleVariantVersionChange(id, value)"
                                         /></div>
                                         <div class="variant-cell__model"><NText v-if="isCompact" depth="2" class="test-settings-label">{{ t('test.model') }}</NText>
-                                            <TextModelSelector scope="column"
+                                            <TextModelSelector
                                                 :data-testid="getVariantModelTestId(id)"
                                                 :model-value="variantModelKeyModels[id].value"
                                                 @update:model-value="(value) => { variantModelKeyModels[id].value = String(value ?? '') }"

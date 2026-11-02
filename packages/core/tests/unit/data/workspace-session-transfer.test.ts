@@ -1,3 +1,4 @@
+import { createArenaState } from '../../../src/services/arena/types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DataManager } from '../../../src/services/data/manager'
 import { WorkspaceSessionTransfer } from '../../../src/services/data/workspace-session-transfer'
@@ -16,7 +17,8 @@ const imageResult = {
   metadata: { providerId: 'openai', modelId: 'image-model', configId: 'image-config' },
 }
 
-const snapshotFor = (mode: LegacySessionSubModeKey) => ({
+const arena = createArenaState()
+const snapshotFor = (mode: LegacySessionSubModeKey) => mode === 'arena' ? arena : ({
   ...(mode === 'pro-multi' ? {
     conversationMessagesSnapshot: [{ id: 'message-1', role: 'user', content: '原始消息', originalContent: '原始消息' }],
     selectedMessageId: 'message-1', messageChainMap: { 'message-1': 'chain-1' },
@@ -69,7 +71,7 @@ describe('Workspace session transfer in unified backups', () => {
     const source = createDataManager(new PreferenceService(storage))
     const exported = JSON.parse(await source.manager.exportAllData())
     expect(exported.data.workspaceSessions.version).toBe(1)
-    expect(Object.keys(exported.data.workspaceSessions.sessions)).toHaveLength(7)
+    expect(Object.keys(exported.data.workspaceSessions.sessions)).toHaveLength(8)
     expect(exported.data.userSettings).toEqual({ 'app:settings:ui:theme-id': 'dark' })
 
     const destination = new PreferenceService(new MemoryStorageProvider())

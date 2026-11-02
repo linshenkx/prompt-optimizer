@@ -30,6 +30,7 @@ export interface ImageModel {
   readonly description?: string          // 模型描述
   readonly providerId: string            // 所属 provider，如 'openai'
   readonly capabilities: {
+    inferred?: boolean                  // Unknown capability defaults, not advertised by the model catalog
     text2image: boolean                  // 支持文本生图
     image2image: boolean                 // 支持图生图
     multiImage?: boolean                 // 支持多图输入（可选）
@@ -89,6 +90,9 @@ export interface ImageInputCompatibilityOptions {
 }
 
 export interface ImageRequest {
+  /** In-memory request-local config; not part of a persisted session. */
+  configSnapshot?: ImageModelConfig
+  modelId?: string // Request-local model selection; never updates the saved configuration.
   prompt: string
   configId: string                        // 直接使用配置ID，简化调用
   inputImage?: ImageInputRef               // 可选的输入图像

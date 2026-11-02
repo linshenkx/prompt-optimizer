@@ -17,6 +17,19 @@ const flushScheduledGc = async () => {
 }
 
 describe('imageStorageMaintenance GC', () => {
+  it('retains Arena input, prior request and output assets while collecting unreferenced images', async () => {
+    const ref = (id: string) => ({ _type: 'image-ref', id })
+    const preferenceService = { get: vi.fn(async (key: string) => key === 'session/v1/arena'
+      ? { images: [ref('input')], results: { a: { inputs: [ref('prior-input')], images: [ref('output')] } } } : null) }
+    const imageStorageService = {
+      listAllMetadata: vi.fn(async () => ['input', 'prior-input', 'output', 'orphan'].map(id => ({ id }))),
+      deleteImages: vi.fn(async (_ids: string[]) => {}),
+    }
+    scheduleImageStorageGc(preferenceService as any, imageStorageService as any, { delayMs: 0, getFavoritesPayload: null })
+    await flushScheduledGc()
+    expect(imageStorageService.deleteImages).toHaveBeenCalledExactlyOnceWith(['orphan'])
+  })
+
   beforeEach(() => {
     vi.useFakeTimers()
   })

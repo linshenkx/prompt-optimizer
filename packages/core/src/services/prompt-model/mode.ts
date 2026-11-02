@@ -10,6 +10,7 @@ import type {
 } from './types';
 
 export const PROMPT_MODE_KEYS = [
+  'arena',
   'basic-system',
   'basic-user',
   'pro-variable',
@@ -59,6 +60,7 @@ export const resolvePromptModeKey = (input: LegacyPromptModeInput): PromptModeKe
   const optimizationMode = normalizeString(input.optimizationMode);
   const proSubMode = normalizeString(input.proSubMode ?? input.subMode);
 
+  if (functionMode === 'arena') return 'arena';
   if (functionMode === 'image') {
     return `image-${normalizeImageSubMode(input.imageSubMode)}` as PromptModeKey;
   }
@@ -107,6 +109,7 @@ export const createPromptContract = (
   };
 
   switch (modeKey) {
+    case 'arena': return { ...base, family: 'arena', modeKey };
     case 'basic-user':
       return {
         ...base,

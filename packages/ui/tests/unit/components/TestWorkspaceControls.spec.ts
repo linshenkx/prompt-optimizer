@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { NButton, NRadioButton, NRadioGroup } from 'naive-ui'
+import { NButton, NCard, NRadioButton, NRadioGroup } from 'naive-ui'
 import TestWorkspaceToolbar from '../../../src/components/TestWorkspaceToolbar.vue'
 import TestVariantConfig from '../../../src/components/TestVariantConfig.vue'
 
@@ -8,6 +8,36 @@ const wrappers: ReturnType<typeof mount>[] = []
 afterEach(() => wrappers.splice(0).forEach(wrapper => wrapper.unmount()))
 
 describe('shared test workspace controls', () => {
+  it('embeds shared actions without adding a second card and keeps the run action working', async () => {
+    const wrapper = mount(TestWorkspaceToolbar, {
+      props: { embedded: true, runTestId: 'embedded-run' },
+      slots: { leading: '<button>Add test column</button>', actions: '<button>Reference images</button>' },
+    })
+    wrappers.push(wrapper)
+    expect(wrapper.findComponent(NCard).exists()).toBe(false)
+    expect(wrapper.text()).toContain('Reference images')
+    await wrapper.get('[data-testid="embedded-run"]').trigger('click')
+    expect(wrapper.emitted('run')).toHaveLength(1)
+  })
+
+  it('reuses the batch toolbar for Arena without exposing fixed column counts', async () => {
+    const wrapper = mount(TestWorkspaceToolbar, {
+      props: { runTestId: 'arena-run-all', runText: 'Run all models', runDisabled: true },
+      slots: { leading: '<button>Add model</button>', comparison: 'Choose models to compare' },
+    })
+    wrappers.push(wrapper)
+    expect(wrapper.findComponent(NRadioGroup).exists()).toBe(false)
+    expect(wrapper.text()).toContain('Add model')
+    expect(wrapper.text()).toContain('Choose models to compare')
+    expect(wrapper.get('[data-testid="arena-run-all"]').text()).toBe('Run all models')
+    expect(wrapper.get('[data-testid="arena-run-all"]').attributes('disabled')).toBeDefined()
+    await wrapper.setProps({ runDisabled: false })
+    await wrapper.get('[data-testid="arena-run-all"]').trigger('click')
+    expect(wrapper.emitted('run')).toHaveLength(1)
+    await wrapper.setProps({ running: true })
+    expect(wrapper.get('[data-testid="arena-run-all"]').attributes('disabled')).toBeDefined()
+  })
+
   it('keeps the column limit, batch-run action and mode-specific evaluation controls', async () => {
     const wrapper = mount(TestWorkspaceToolbar, {
       props: { count: 2, canUseFourColumns: false, runTestId: 'run-all' },

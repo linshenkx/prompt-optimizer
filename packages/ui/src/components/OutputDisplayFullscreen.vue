@@ -18,6 +18,7 @@
             :placeholder="placeholder"
             :loading="loading"
             :streaming="streaming"
+    :enable-stop="enableStop"
             :compareService="compareService"
             @update:content="handleContentUpdate"
             @copy="handleCopy"
@@ -60,6 +61,7 @@ interface Props {
   mode: 'readonly' | 'editable'
   reasoningMode?: 'show' | 'hide' | 'auto'
   enabledActions?: ('fullscreen' | 'diff' | 'copy' | 'edit' | 'reasoning' | 'favorite')[]
+  enableStop?: boolean
   streaming?: boolean
   loading?: boolean
   placeholder?: string

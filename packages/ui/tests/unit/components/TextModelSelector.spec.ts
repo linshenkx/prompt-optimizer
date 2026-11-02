@@ -33,6 +33,27 @@ async function open(wrapper: ReturnType<typeof mount>) {
 const click = async (element: Element | null) => { (element as HTMLElement).click(); await flushPromises() }
 
 describe('shared text model selector', () => {
+  it('selects image groups in the same menu without changing text recents or saved configurations', async () => {
+    const { options, services } = fixture()
+    const value = 'image:' + encodeTextModelSelection('office', 'gpt-image-1')
+    const wrapper = mount(TextModelSelector, { attachTo: document.body,
+      props: { options, modelValue: value, showModelTypes: true, additionalGroups: [{ value: 'image:office', label: 'Image connection', kind: 'image', configurable: true,
+        choices: [{ value, label: 'Image model' }] }] },
+      global: { provide: { services: ref(services), openModelManager: vi.fn() } } })
+    mounted.push(wrapper)
+    expect(wrapper.text()).toContain('Image connection')
+    expect(wrapper.text()).toContain('Image model')
+    expect(wrapper.find('.text-model-selector').attributes('aria-label')).toContain('Image generation')
+    await open(wrapper)
+    await click(document.querySelector('[data-config-id="image:office"] [data-model-choice]'))
+    expect(wrapper.emitted('update:modelValue')!.at(-1)).toEqual([value])
+    expect(services.preferenceService.set).not.toHaveBeenCalled()
+    expect(services.modelManager.updateModel).not.toHaveBeenCalled()
+    await open(wrapper)
+    await click(document.querySelector('[data-config-id="image:office"] .text-model-menu__configure'))
+    expect(wrapper.emitted('config')!.at(-1)).toEqual(['image:office'])
+  })
+
   it('opens the clicked configuration, not the current selection, without changing either model', async () => {
     const { options, services } = fixture()
     const openModelManager = vi.fn()

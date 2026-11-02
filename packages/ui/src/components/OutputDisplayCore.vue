@@ -59,7 +59,7 @@
         </NButtonGroup>
         
         <!-- 右侧：操作按钮 -->
-        <NFlex align="center" :size="4" :wrap="false" class="output-toolbar-actions">
+        <NFlex align="center" :size="4" class="output-toolbar-actions">
           <slot name="toolbar-right-extra"></slot>
           <NDropdown v-if="foldActionControls && (isActionEnabled('copy') || isActionEnabled('favorite'))" trigger="click"
             :options="compactActionOptions" @select="handleCompactAction">
@@ -131,7 +131,7 @@
           </div>
           </template>
           <NButton
-            v-if="liveDocument && documentPhase === 'streaming'"
+            v-if="enableStop !== false && liveDocument && documentPhase === 'streaming'"
             size="small"
             data-testid="output-stop"
             @click="liveDocument.interrupt()"
@@ -365,6 +365,7 @@ interface Props {
   
   // 状态
   loading?: boolean
+  enableStop?: boolean
   streaming?: boolean
   
   // 服务
@@ -824,6 +825,7 @@ defineExpose({ resetReasoningState, forceRefreshContent, forceExitEditing, getVi
 
 .output-toolbar-actions {
   flex-shrink: 0;
+  max-width: 100%;
 }
 
 /* Desktop controls share a 28px row; compact layouts retain their touch targets. */

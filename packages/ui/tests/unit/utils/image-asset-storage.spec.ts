@@ -2,10 +2,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   normalizeImageSourceToPayload,
+  normalizeGeneratedImagePayload,
   persistImagePayloadAsAssetId,
 } from '../../../src/utils/image-asset-storage'
 
 describe('image asset storage utilities', () => {
+  it('normalizes generated base64 and data URLs through one path', async () => {
+    expect(await normalizeGeneratedImagePayload({ b64: 'data:image/webp;base64,AAAA' })).toEqual({ b64: 'AAAA', mimeType: 'image/webp' })
+    expect(await normalizeGeneratedImagePayload({ b64: 'AAAA', mimeType: 'image/jpeg' })).toEqual({ b64: 'AAAA', mimeType: 'image/jpeg' })
+    expect(await normalizeGeneratedImagePayload({ url: 'data:image/png;base64,AAAA' })).toEqual({ b64: 'AAAA', mimeType: 'image/png' })
+  })
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.restoreAllMocks()

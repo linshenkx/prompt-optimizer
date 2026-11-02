@@ -43,7 +43,6 @@
             :loading="loading"
             :allow-custom="false"
             :clearable="false"
-            :scope-text="t('model.selector.sharedScope')"
             size="small"
             :placeholder="t('image.model.quickSwitch.placeholder')"
             @update:value="handleModelSelect"
@@ -58,6 +57,7 @@
 </template>
 
 <script setup lang="ts">
+import { loadImageModelOptions } from '../composables/model/imageModelCatalog'
 import ModelIdSelector from './ModelIdSelector.vue'
 import { computed, inject, ref, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -158,20 +158,11 @@ const loadModelOptions = async () => {
   }
 
   const registry = services.imageAdapterRegistry
-  const canFetchDynamic = !!(
-    registry &&
-    services.imageService &&
-    providerId.value &&
-    registry.supportsDynamicModels(providerId.value)
-  )
-
   loading.value = true
   fetchError.value = ''
 
   try {
-    const fetched = canFetchDynamic
-      ? await services.imageService!.getDynamicModels(providerId.value, config.connectionConfig || {})
-      : []
+    const fetched = await loadImageModelOptions(services, config)
     const dynamicOptions = normalizeOptions(fetched)
     const staticOptions = getStaticOptions(registry)
     modelOptions.value = ensureCurrentOption(dynamicOptions.length ? dynamicOptions : staticOptions)

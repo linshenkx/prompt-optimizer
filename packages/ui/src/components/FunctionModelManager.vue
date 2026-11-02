@@ -20,7 +20,7 @@
           </NText>
 
           <NSpace align="center" :size="8" class="model-select-row" item-class="function-model-select-item">
-            <TextModelSelector scope="function"
+            <TextModelSelector
               :model-value="evaluationModel || ''"
               :options="evaluationModelOptions"
               :placeholder="t('functionModel.evaluationModelPlaceholder')"
@@ -55,7 +55,7 @@
           </NText>
 
           <NSpace align="center" :size="8" class="model-select-row" item-class="function-model-select-item">
-            <TextModelSelector scope="function"
+            <TextModelSelector
               :model-value="imageRecognitionModel || ''"
               :options="imageRecognitionModelOptions"
               :placeholder="t('model.select.placeholder')"

@@ -26,7 +26,8 @@ interface Window {
           onToolCall?: (toolCall: any) => void;
           onFinish?: () => void;
           onError?: (error: Error) => void;
-        }
+        },
+        selection?: import("../services/model/runtime-selection").RuntimeModelSelection
       ) => Promise<void>;
       sendMessageStreamWithTools?: (
         messages: any[],

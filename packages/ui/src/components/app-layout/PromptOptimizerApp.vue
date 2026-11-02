@@ -224,6 +224,7 @@
 </template>
 
 <script setup lang="ts">
+import { useArenaSession } from '../../stores/session/useArenaSession';
 /**
  * PromptOptimizerApp - 主应用组件
  *
@@ -501,6 +502,7 @@ const imageSubModeApi = useImageSubMode(services);
 const getWorkspacePathFromGlobalSettings = () => {
   const globalSettings = useGlobalSettings()
   const { functionMode, basicSubMode, proSubMode, imageSubMode } = globalSettings.state
+  if (functionMode === 'arena') return '/arena'
   if (functionMode === 'image') return normalizeWorkspacePath(`/image/${imageSubMode}`)
   if (functionMode === 'pro') return normalizeWorkspacePath(`/pro/${proSubMode}`)
   return normalizeWorkspacePath(`/basic/${basicSubMode}`)
@@ -1147,6 +1149,7 @@ provide("optimizationContextTools", optimizationContextTools);
 
 // 🔧 Step E: 使用 route-computed 代替旧 state
 const getCurrentSession = () => {
+    if (routeFunctionMode.value === 'arena') return null;
     if (routeFunctionMode.value === 'basic') {
         return routeBasicSubMode.value === 'system' ? basicSystemSession : basicUserSession;
     } else if (routeFunctionMode.value === 'pro') {
@@ -2319,7 +2322,7 @@ async function navigateToSubModeKey(
     BasicSubMode | ProSubMode | ImageSubMode
   ]
 
-  const path = `/${mode}/${subMode}`
+  const path = toKey === 'arena' ? '/arena' : `/${mode}/${subMode}`
   const fromPath = routerInstance.currentRoute.value.fullPath
 
   if (opts?.replace) {
@@ -2357,7 +2360,8 @@ const compactAutosave = useCompactSessionAutosave({
 });
 
 // Optional Web/PWA host API. No service worker or browser update state enters UI stores.
-const isWorkspaceBusy = () => !isReady.value || sessionManager.isSwitching ||
+const arenaSession = useArenaSession();
+const isWorkspaceBusy = () => !isReady.value || sessionManager.isSwitching || arenaSession.running ||
   hasSessionConflicts(services.value?.preferenceService) ||
   !!activeWorkspaceRef.value?.isUpdateBusy?.();
 const prepareSessionRestore = async (): Promise<(() => void) | null> => {

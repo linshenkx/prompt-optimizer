@@ -14,6 +14,7 @@ import {
 } from '@prompt-optimizer/core'
 import {
   normalizeImageSourceToPayload,
+  normalizeGeneratedImagePayload,
   persistImagePayloadAsAssetId,
 } from '../../utils/image-asset-storage'
 import {
@@ -224,14 +225,7 @@ const prepareForSave = async (
       continue
     }
 
-    const payload = img.b64
-      ? {
-          b64: img.b64,
-          mimeType: img.mimeType || 'image/png',
-        }
-      : img.url
-        ? await normalizeImageSourceToPayload(img.url)
-        : null
+    const payload = await normalizeGeneratedImagePayload(img)
 
     if (!payload) {
       processedImages.push(img)

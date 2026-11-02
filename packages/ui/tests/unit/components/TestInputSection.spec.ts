@@ -1,4 +1,4 @@
-import { defineComponent } from 'vue'
+import { defineComponent, h } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -183,6 +183,22 @@ describe('TestInputSection', () => {
     const wrapper = mountInputSection({ props: { testId: 'basic-system-test-input' } })
     await wrapper.get('[data-testid="basic-system-test-input"]').setValue('updated')
     expect(wrapper.emitted('update:modelValue')).toEqual([['updated']])
+  })
+
+  it('keeps shared fullscreen editing available from a footer without a header row', async () => {
+    const wrapper = mountInputSection({
+      props: { showHeader: false, testId: 'footer-input' },
+      slots: {
+        footer: ({ openFullscreen }) => h('button', { 'data-testid': 'footer-expand', onClick: openFullscreen }, 'Expand'),
+      },
+    })
+    expect(wrapper.find('.test-input-section__header-actions').exists()).toBe(false)
+    const dialog = wrapper.findComponent({ name: 'FullscreenDialog' })
+    expect(dialog.props('modelValue')).toBe(false)
+    await wrapper.get('[data-testid="footer-expand"]').trigger('click')
+    expect(dialog.props('modelValue')).toBe(true)
+    await dialog.get('textarea').setValue('edited in fullscreen')
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual(['edited in fullscreen'])
   })
 })
 

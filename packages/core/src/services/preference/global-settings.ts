@@ -5,7 +5,7 @@ export interface GlobalSettingsSnapshot {
   selectedThemeId: string;
   preferredLanguage: string;
   builtinTemplateLanguage: string;
-  functionMode: 'basic' | 'pro' | 'image';
+  functionMode: 'basic' | 'pro' | 'image' | 'arena';
   basicSubMode: 'system' | 'user';
   proSubMode: 'multi' | 'variable';
   imageSubMode: 'text2image' | 'image2image' | 'multiimage';
@@ -28,7 +28,7 @@ export function parseGlobalSettingsSnapshot(value: unknown): Partial<GlobalSetti
       result[key] = field;
     }
     const modes = {
-      functionMode: ['basic', 'pro', 'image'],
+      functionMode: ['basic', 'pro', 'image', 'arena'],
       basicSubMode: ['system', 'user'],
       proSubMode: ['multi', 'variable'],
       imageSubMode: ['text2image', 'image2image', 'multiimage'],

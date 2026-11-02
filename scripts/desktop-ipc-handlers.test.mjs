@@ -51,6 +51,28 @@ test('desktop preload IPC channels have main-process handlers', () => {
   assert.deepEqual(missingHandlers, [])
 })
 
+test('desktop Arena streams forward request-local selection and preserve cancellation leases', async () => {
+  const main = readText('packages/desktop/main.js')
+  const match = main.match(/ipcMain\.handle\('llm-sendMessageStream', withModelNetwork\((async \(event, messages, provider, streamId, selection\) => \{[\s\S]*?)\n  \}\)\);/)
+  assert.ok(match)
+  const selection = { modelId: 'actual-model' }
+  let released = false
+  const signal = new AbortController().signal
+  const invoke = vm.runInNewContext(`(${match[1]}\n})`, {
+    streamRegistry: { begin: () => ({ signal, release: () => { released = true } }) },
+    llmService: { sendMessageStream: async (_messages, configKey, callbacks, requestSelection) => {
+      assert.equal(configKey, 'saved-connection')
+      assert.equal(callbacks.signal, signal)
+      assert.equal(requestSelection, selection)
+    } },
+    createSuccessResponse: () => ({ success: true }),
+    createErrorResponse: error => { throw error },
+  })
+  assert.equal((await invoke({ sender: {} }, [], 'saved-connection', 'run-id', selection)).success, true)
+  assert.equal(released, true)
+  assert.match(readText('packages/desktop/preload.js'), /ipcRenderer\.invoke\('llm-sendMessageStream', messages, provider, streamId, selection\)/)
+})
+
 test('desktop backup restore acknowledges success only after the final disk flush', async () => {
   const main = readText('packages/desktop/main.js')
   const handler = main.match(/ipcMain\.handle\('data-importAllData', (async \(event, dataString\) => \{[\s\S]*?)\n  \}\);/)

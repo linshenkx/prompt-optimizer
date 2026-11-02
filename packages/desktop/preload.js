@@ -149,7 +149,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
 
     // Send streaming message
-    sendMessageStream: async (messages, provider, callbacks) => {
+    sendMessageStream: async (messages, provider, callbacks, selection) => {
       const streamId = generateStreamId();
       callbacks?.onStart?.(streamId);
       
@@ -185,7 +185,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
       // Send the streaming request
       try {
-        const result = await ipcRenderer.invoke('llm-sendMessageStream', messages, provider, streamId);
+        const result = await ipcRenderer.invoke('llm-sendMessageStream', messages, provider, streamId, selection);
         if (!result.success) {
           cleanup();
           throw createIpcError(result.error);

@@ -37,7 +37,7 @@ const createDefaultState = (): GlobalSettingsState => ({
 })
 
 const isFunctionMode = (value: unknown): value is FunctionMode =>
-  value === 'basic' || value === 'pro' || value === 'image'
+  value === 'basic' || value === 'pro' || value === 'image' || value === 'arena'
 
 const isBasicSubMode = (value: unknown): value is BasicSubMode =>
   value === 'system' || value === 'user'

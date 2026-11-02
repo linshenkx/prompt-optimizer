@@ -316,7 +316,7 @@
                                         </div>
                                         <div class="variant-cell__model">
                                             <NText v-if="isCompact" depth="2" class="test-settings-label">{{ t('test.model') }}</NText>
-                                            <TextModelSelector scope="column"
+                                            <TextModelSelector
                                                 :data-testid="getVariantModelTestId(id)"
                                                 :model-value="variantModelKeyModels[id].value"
                                                 @update:model-value="(value) => { variantModelKeyModels[id].value = String(value ?? '') }"
@@ -364,7 +364,6 @@
                                         hasPromptSnapshot: variantResults[id].requestPrompt !== undefined }"
                                     :busy="isAnyVariantRunning" @run="runVariant(id)" />
                                 <p v-if="variantFailed[id]" role="alert" class="compact-test-error">{{ t('workspace.testFailed') }}</p>
-                                <p v-if="isCompact && isVariantStale(id)" class="compact-stale">{{ t('workspace.staleResult') }}</p>
                                 <OutputDisplay
                                     :fit-content="isCompact"
                                     :test-id="getVariantOutputTestId(id)"
