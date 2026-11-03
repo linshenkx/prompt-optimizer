@@ -2,6 +2,10 @@
 
 Full release narratives now live in versioned files under `releases/`. This file stays as the index and summary entry point.
 
+## [2.15.0] - 2026-11-03
+- EN: Add Arena, a shared-input workspace for comparing multiple text and image models side by side. Support independent test columns, desktop and mobile comparison layouts, and session/backup integration while reusing existing output controls. See [Release Notes (EN)](releases/v2.15.0.en.md).
+- 中文：新增竞技场，使用同一份输入并排比较多个文本及图像模型；支持独立测试栏、桌面与移动端对比布局，并接入现有会话与备份机制，沿用已有结果操作。参见 [版本说明（中文）](releases/v2.15.0.zh-CN.md)。
+
 ## [2.15.0-beta.1] - 2026-11-03
 - EN: Preview Arena, a shared-input workspace for comparing multiple text and image models side by side. Add independent test columns, desktop and mobile comparison layouts, and session/backup integration while reusing existing output controls. See [Release Notes (EN)](releases/v2.15.0-beta.1.en.md).
 - 中文：本预览版新增竞技场，使用同一份输入并排比较多个文本及图像模型；支持独立测试栏、桌面与移动端对比布局，并接入现有会话与备份机制，沿用已有结果操作。参见 [版本说明（中文）](releases/v2.15.0-beta.1.zh-CN.md)。
