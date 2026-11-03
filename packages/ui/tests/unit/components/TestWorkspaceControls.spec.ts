@@ -71,7 +71,7 @@ describe('shared test workspace controls', () => {
     const wrapper = mount(TestVariantConfig, { props, global: { stubs } })
     wrappers.push(wrapper)
     const selector = wrapper.findComponent({ name: 'TextModelSelector' })
-    expect(selector.attributes('scope')).toBe('column')
+    expect(selector.props('modelValue')).toBe(props.modelKey)
     selector.vm.$emit('update:model-value', 'config/another-model')
     expect(wrapper.emitted('update:modelKey')).toEqual([['config/another-model']])
     wrapper.findComponent({ name: 'TestPanelVersionSelect' }).vm.$emit('update:value', 0)
