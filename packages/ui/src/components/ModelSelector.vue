@@ -190,7 +190,7 @@ watch(() => props.disabled, disabled => { if (disabled) open.value = false })
 .text-model-selector__separator { color: var(--selector-muted); }
 .text-model-selector__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
 .text-model-selector__kind { flex: none; color: var(--selector-muted); }
-.text-model-selector__placeholder { flex: 1; color: var(--selector-muted); }
+.text-model-selector__placeholder { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--selector-muted); }
 .text-model-selector__chevron { flex: none; color: var(--selector-muted); }
 .text-model-selector__chevron.rotated { transform: rotate(180deg); }
 .text-model-menu { width: min(360px, calc(100vw - 32px)); color: var(--selector-text); font-size: 13px; }

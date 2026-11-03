@@ -19,7 +19,7 @@
             {{ t('functionModel.evaluationModelUnavailable') }}
           </NText>
 
-          <NSpace align="center" :size="8" class="model-select-row" item-class="function-model-select-item">
+          <div class="model-select-row">
             <TextModelSelector
               :model-value="evaluationModel || ''"
               :options="evaluationModelOptions"
@@ -27,12 +27,11 @@
               size="medium"
               clearable
               :clear-label="t('model.selector.followDefault')"
-              class="model-select"
               @focus="refreshModels"
               @config="handleOpenModelManager"
               @update:model-value="handleEvaluationModelChange"
             />
-          </NSpace>
+          </div>
         </NSpace>
       </NCard>
 
@@ -54,18 +53,17 @@
             {{ t('functionModel.imageRecognitionModelUnavailable') }}
           </NText>
 
-          <NSpace align="center" :size="8" class="model-select-row" item-class="function-model-select-item">
+          <div class="model-select-row">
             <TextModelSelector
               :model-value="imageRecognitionModel || ''"
               :options="imageRecognitionModelOptions"
               :placeholder="t('model.select.placeholder')"
               size="medium"
-              class="model-select"
               @focus="refreshModels"
               @config="handleOpenModelManager"
               @update:model-value="handleImageRecognitionModelChange"
             />
-          </NSpace>
+          </div>
         </NSpace>
       </NCard>
     </NSpace>
@@ -251,18 +249,13 @@ defineExpose({ refresh })
 }
 
 .model-select-row {
-  flex-wrap: wrap;
-}
-
-.model-select {
-  min-width: 200px;
-  flex: 1;
+  width: 100%;
+  min-width: 0;
   max-width: 300px;
 }
 .function-model-manager--compact .function-config-card { border-radius: 12px; }
 .function-model-manager--compact .function-config-card :deep(> .n-card-header) { padding: 12px 12px 0; }
 .function-model-manager--compact .function-config-card :deep(> .n-card-content) { padding: 8px 12px 12px; }
 .function-model-manager--compact .section-hint { line-height: 1.6; }
-.function-model-manager--compact .model-select { min-width: 0; max-width: none; width: 100%; }
-.function-model-manager--compact :deep(.function-model-select-item) { width: 100%; min-width: 0; }
+.function-model-manager--compact .model-select-row { max-width: none; }
 </style>
