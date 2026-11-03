@@ -2,6 +2,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import MarkdownRenderer from '../../../src/components/MarkdownRenderer.vue'
 import { prepareMarkdownOutput } from '../../../src/utils/markdown-output'
+import { buildHtmlPreviewContent } from '../../../src/utils/html-preview'
 import { installMarkdownWorker } from '../support/markdown-worker'
 
 beforeEach(() => installMarkdownWorker(vi, prepareMarkdownOutput))
@@ -35,7 +36,8 @@ describe('inline HTML in Markdown previews', () => {
       for (const iframe of wrapper.findAll('iframe')) {
         expect(iframe.attributes('sandbox')).toBe('allow-scripts')
         const outer = new DOMParser().parseFromString(iframe.attributes('srcdoc')!, 'text/html')
-        expect(outer.querySelector('iframe')?.getAttribute('srcdoc')).toBe(page + '\n')
+        const id = outer.documentElement.getAttribute('data-preview-id')!
+        expect(outer.querySelector('iframe')?.getAttribute('srcdoc')).toBe(buildHtmlPreviewContent(page + '\n', id))
       }
       const frames = wrapper.findAll('iframe').map(frame => frame.element)
       document.dispatchEvent(new Event('visibilitychange'))
@@ -71,5 +73,27 @@ describe('inline HTML in Markdown previews', () => {
     expect(wrapper.find('[data-testid="output-source-view"]').exists()).toBe(true)
     expect(frame.parentNode?.isConnected ?? false).toBe(false)
     wrapper.unmount()
+  })
+
+  it('fills fullscreen with a single artifact, preserves multiple examples, and releases suspended frames', async () => {
+    const fence = String.fromCharCode(96).repeat(3)
+    const single = '# Explanation\n\n' + fence + 'html\n' + page + '\n' + fence + '\n\nSave the file.'
+    const wrapper = mount(MarkdownRenderer, { props: { content: single, htmlPreviews: true, expandPreview: true } })
+    try {
+      await flushPromises()
+      expect(wrapper.findAll('iframe')).toHaveLength(1)
+      expect(wrapper.find('.markdown-content').exists()).toBe(false)
+      await wrapper.setProps({ suspended: true })
+      await flushPromises()
+      expect(wrapper.find('iframe').exists()).toBe(false)
+      await wrapper.setProps({ suspended: false, expandPreview: false })
+      await flushPromises()
+      expect(wrapper.get('.markdown-content').text()).toContain('Explanation')
+      expect(wrapper.findAll('iframe')).toHaveLength(1)
+      await wrapper.setProps({ content: mixed, expandPreview: true })
+      await flushPromises()
+      expect(wrapper.get('.markdown-content').text()).toContain('both')
+      expect(wrapper.findAll('iframe')).toHaveLength(2)
+    } finally { wrapper.unmount() }
   })
 })

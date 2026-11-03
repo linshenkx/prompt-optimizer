@@ -5,6 +5,7 @@
       <NText v-if="!streaming" depth="3" class="output-source-notice">{{ t('common.outputSourceFallback') }}</NText>
       <OutputSourceView :content="content" :fit-content="disableInternalScroll" />
     </template>
+    <HtmlPreview v-else-if="expandedPreview" :html="expandedPreview" />
     <NScrollbar v-else-if="!disableInternalScroll" style="height:100%; max-height:100%" :bordered="false">
       <div ref="markdownContainer" class="markdown-content markdown-content--scrollable" />
     </NScrollbar>
@@ -31,17 +32,20 @@ const props = defineProps({
   disableInternalScroll: { type: Boolean, default: false },
   htmlPreviews: { type: Boolean, default: false },
   suspended: { type: Boolean, default: false },
+  expandPreview: { type: Boolean, default: false },
 });
 const { t } = useI18n();
 const markdownContainer = ref(null);
 const sourceMode = ref(false);
 const previewTargets = shallowRef([]);
+const expandedPreview = ref('');
 let previews = [];
 let client;
 let generation = 0;
 let html = '';
 let cachedContent;
 let cachedHtmlPreviews;
+let cachedExpandPreview;
 let renderedContainer;
 let renderedHtml;
 let renderedPreviews;
@@ -77,18 +81,26 @@ const render = () => {
   const current = ++generation;
   client?.cancel();
   if (props.streaming || props.suspended) {
+    expandedPreview.value = '';
     previewTargets.value = []; previews = []; html = '';
     renderedContainer = undefined; renderedHtml = undefined; renderedPreviews = undefined; cachedContent = undefined;
     client?.release();
     return;
   }
-  if (!props.htmlPreviews) { previewTargets.value = []; previews = []; }
-  if (cachedContent === props.content && cachedHtmlPreviews === props.htmlPreviews && !sourceMode.value) { commit(); return; }
+  if (!props.htmlPreviews) { previewTargets.value = []; previews = []; expandedPreview.value = ''; }
+  if (cachedContent === props.content && cachedHtmlPreviews === props.htmlPreviews && cachedExpandPreview === props.expandPreview && !sourceMode.value) { if (!expandedPreview.value) commit(); return; }
   client?.request(props.content, output => {
     if (disposed || current !== generation) return;
     sourceMode.value = output.kind === 'source';
     cachedContent = props.content;
     cachedHtmlPreviews = props.htmlPreviews;
+    cachedExpandPreview = props.expandPreview;
+    expandedPreview.value = output.kind === 'html' && props.expandPreview && output.previews?.length === 1 ? output.previews[0].html : '';
+    if (expandedPreview.value) {
+      previewTargets.value = []; previews = []; html = '';
+      renderedContainer = undefined; renderedHtml = undefined; renderedPreviews = undefined;
+      return;
+    }
     if (output.kind === 'html') {
       html = output.html;
       previews = output.previews ?? [];
@@ -106,7 +118,7 @@ const render = () => {
   }, undefined, props.htmlPreviews);
 };
 onMounted(() => { client = createMarkdownOutputClient(); render(); });
-watch(() => [props.content, props.streaming, props.disableInternalScroll, props.htmlPreviews, props.suspended], render, { flush: 'post' });
+watch(() => [props.content, props.streaming, props.disableInternalScroll, props.htmlPreviews, props.suspended, props.expandPreview], render, { flush: 'post' });
 onBeforeUnmount(() => { disposed = true; generation++; client?.dispose(); previewTargets.value = []; previews = []; renderedPreviews = undefined; renderedContainer = undefined; });
 </script>
 

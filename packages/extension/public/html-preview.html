@@ -17,12 +17,22 @@
       // child frame and cannot replace this receiver or impersonate its parent.
       const preview = document.querySelector('iframe');
       let currentHtml;
+      let currentId;
       window.addEventListener('message', (event) => {
+        const data = event.data;
+        if (event.source === preview.contentWindow && data?.type === 'prompt-optimizer:preview-error'
+          && data.id === currentId && typeof data.message === 'string' && data.message.length <= 2000) {
+          parent.postMessage({ type: data.type, id: currentId, message: data.message }, '*');
+          return;
+        }
         if (event.source !== parent || event.data?.type !== 'prompt-optimizer:render-html') return;
         const html = event.data.html;
-        // Match MARKDOWN_PREVIEW_INPUT_BUDGET; do not queue or retain old pages.
-        if (typeof html !== 'string' || html.length > 1024 * 1024 || html === currentHtml) return;
+        const id = event.data.id;
+        // Source budget plus the shared error monitor; retain only the latest page.
+        if (typeof html !== 'string' || html.length > 1024 * 1024 + 16384 || (html === currentHtml && id === currentId)
+          || typeof id !== 'string' || id.length > 128) return;
         currentHtml = html;
+        currentId = id;
         preview.srcdoc = html;
       });
     </script>

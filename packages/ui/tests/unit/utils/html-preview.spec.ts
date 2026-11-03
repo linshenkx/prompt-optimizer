@@ -1,9 +1,10 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
-import { buildHtmlPreviewDocument, extractHtmlCandidate, htmlSourceAsMarkdown } from '../../../src/utils/html-preview'
+import { buildHtmlPreviewContent, buildHtmlPreviewDocument, extractHtmlCandidate, htmlSourceAsMarkdown } from '../../../src/utils/html-preview'
 import { mount } from '@vue/test-utils'
 import MarkdownRenderer from '../../../src/components/MarkdownRenderer.vue'
 import { prepareMarkdownOutput } from '../../../src/utils/markdown-output'
 import { installMarkdownWorker } from '../support/markdown-worker'
+import { runInNewContext } from 'node:vm'
 
 beforeEach(() => installMarkdownWorker(vi, prepareMarkdownOutput))
 afterEach(() => vi.unstubAllGlobals())
@@ -70,9 +71,62 @@ describe('HTML preview extraction', () => {
   it('preserves scripts, head, import maps and special characters exactly in nested srcdoc', () => {
     const html = '<!doctype html><html><head><script type="importmap">{"imports":{"x":"https://example.com/x.js?a=1&b=2"}}</script></head><body><script>const text = \'</head>"&<>\';</script></body></html>'
     const document = new DOMParser().parseFromString(buildHtmlPreviewDocument(html), 'text/html')
-    expect(document.querySelector('iframe')?.getAttribute('srcdoc')).toBe(html)
+    const child = document.querySelector('iframe')?.getAttribute('srcdoc') || ''
+    expect(child).toBe(buildHtmlPreviewContent(html, ''))
+    expect(child.replace(/<script data-preview-monitor>[\s\S]*?<\/script>/u, '')).toBe(html)
     expect(document.querySelector('iframe')?.getAttribute('sandbox')).toBe('allow-scripts')
     expect(document.querySelector('meta[http-equiv]')?.getAttribute('content')).toContain('connect-src https: http: wss: ws:')
-    expect(document.querySelectorAll('script')).toHaveLength(0)
+    expect(document.querySelectorAll('script')).toHaveLength(1)
+  })
+
+  it.each([
+    '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400"><circle cx="700" cy="200" r="40"/></svg>',
+    '<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400"><path d="M0 0L800 400"/></svg>',
+  ])('previews raw SVG and explicit SVG fences through the shared isolated renderer: %s', svg => {
+    const fence = String.fromCharCode(96).repeat(3)
+    for (const source of [svg, 'Here is the image:\n' + fence + 'svg\n' + svg + '\n' + fence]) {
+      expect(extractHtmlCandidate(source)).toBe(svg)
+      const result = prepareMarkdownOutput(source, true)
+      expect(result.kind).toBe('html')
+      if (result.kind !== 'html') throw new Error('Expected SVG preview')
+      expect(result.previews?.map(preview => ({ ...preview, html: preview.html.trim() }))).toEqual([{ id: 0, html: svg }])
+      expect(result.html).not.toContain('<svg')
+    }
+    const child = new DOMParser().parseFromString(buildHtmlPreviewContent(svg, 'svg-test'), 'text/html')
+    expect(child.querySelector('svg')).not.toBeNull()
+    expect(child.querySelector('style')?.textContent).toContain('width:100%;height:100%')
+  })
+
+  it('keeps XML examples and mislabeled SVG fences inert', () => {
+    const fence = String.fromCharCode(96).repeat(3)
+    for (const source of [fence + 'xml\n<svg><script>alert(1)</script></svg>\n' + fence, fence + 'svg\n<html><script>alert(1)</script></html>\n' + fence]) {
+      expect(extractHtmlCandidate(source)).toBe('')
+      const result = prepareMarkdownOutput(source, true)
+      if (result.kind !== 'html') throw new Error('Expected literal code')
+      expect(result.previews).toBeUndefined()
+    }
+  })
+
+  it.each(['error', 'unhandledrejection', 'resource'])('reports a bounded first %s before generated scripts run', kind => {
+    const source = '<!doctype html><html><head><script type="module">import "missing-module";</script></head><body></body></html>'
+    const child = new DOMParser().parseFromString(buildHtmlPreviewContent(source, 'run-1'), 'text/html')
+    const scripts = child.querySelectorAll('script')
+    expect(scripts[0].hasAttribute('data-preview-monitor')).toBe(true)
+    expect(scripts[1].textContent).toBe('import "missing-module";')
+    const listeners = new Map<string, (event: unknown) => void>()
+    const postMessage = vi.fn()
+    runInNewContext(scripts[0].textContent!, {
+      ErrorEvent,
+      parent: { postMessage },
+      window: { addEventListener: (name: string, fn: (event: unknown) => void) => listeners.set(name, fn) },
+    })
+    if (kind === 'error') listeners.get('error')!(new ErrorEvent('error', { message: 'x'.repeat(3000) }))
+    else if (kind === 'unhandledrejection') listeners.get(kind)!({ reason: new Error('Module rejected') })
+    else listeners.get('error')!({ target: { tagName: 'SCRIPT', src: 'https://example.com/missing.js' } })
+    expect(postMessage).toHaveBeenCalledOnce()
+    expect(postMessage.mock.calls[0][0]).toMatchObject({ id: 'run-1', type: 'prompt-optimizer:preview-error' })
+    expect(postMessage.mock.calls[0][0].message.length).toBeLessThanOrEqual(2000)
+    listeners.get('error')!(new ErrorEvent('error', { message: 'Repeated error' }))
+    expect(postMessage).toHaveBeenCalledOnce()
   })
 })

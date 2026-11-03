@@ -1,5 +1,8 @@
 <template>
   <div class="html-preview">
+    <NAlert v-if="runtimeError" type="error" :title="t('common.previewFailed')" class="html-preview-error" role="alert">
+      {{ runtimeError }}
+    </NAlert>
     <iframe
       ref="frame"
       :src="hostUrl || undefined"
@@ -16,22 +19,25 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, ref, watch } from 'vue'
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { NAlert } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
-import { buildHtmlPreviewDocument, HTML_PREVIEW_HOST_KEY } from '../utils/html-preview'
+import { v4 as uuidv4 } from 'uuid'
+import { buildHtmlPreviewContent, buildHtmlPreviewDocument, HTML_PREVIEW_ERROR_TYPE, HTML_PREVIEW_HOST_KEY } from '../utils/html-preview'
 
 const props = defineProps<{ html: string }>()
 const { t } = useI18n()
 const hostUrl = inject(HTML_PREVIEW_HOST_KEY, null)
 const frame = ref<HTMLIFrameElement>()
-const document = computed(() => hostUrl ? undefined : buildHtmlPreviewDocument(props.html))
+const previewId = ref(uuidv4())
+const runtimeError = ref('')
+const document = computed(() => hostUrl ? undefined : buildHtmlPreviewDocument(props.html, previewId.value))
 let loaded = false
 
 function publishHtml() {
   if (!hostUrl || !loaded) return
   // The declared sandbox has an opaque origin, so targetOrigin must be '*'.
-  // Send only HTML to this frame; no incoming messages or privileged bridge.
-  frame.value?.contentWindow?.postMessage({ type: 'prompt-optimizer:render-html', html: props.html }, '*')
+  frame.value?.contentWindow?.postMessage({ type: 'prompt-optimizer:render-html', html: buildHtmlPreviewContent(props.html, previewId.value), id: previewId.value }, '*')
 }
 
 function onLoad() {
@@ -39,7 +45,20 @@ function onLoad() {
   publishHtml()
 }
 
-watch(() => props.html, publishHtml)
+function receiveError(event: MessageEvent) {
+  const data = event.data
+  if (event.source !== frame.value?.contentWindow || data?.type !== HTML_PREVIEW_ERROR_TYPE
+    || data.id !== previewId.value || typeof data.message !== 'string' || data.message.length > 2000) return
+  runtimeError.value = data.message
+}
+
+onMounted(() => window.addEventListener('message', receiveError))
+onBeforeUnmount(() => window.removeEventListener('message', receiveError))
+watch(() => props.html, () => {
+  previewId.value = uuidv4()
+  runtimeError.value = ''
+  publishHtml()
+})
 </script>
 
 <style scoped>
@@ -59,5 +78,5 @@ watch(() => props.html, publishHtml)
   border: 0;
   background: white;
 }
-.output-display--flow .html-preview { height: min(70vh, 640px); }
+.html-preview-error { flex: 0 0 auto; max-height: 160px; overflow: auto; overflow-wrap: anywhere; }
 </style>

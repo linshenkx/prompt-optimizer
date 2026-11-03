@@ -2,7 +2,7 @@ import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js/lib/common'
 import { diffWords } from 'diff'
 import type { CompareResult, ChangeType } from '@prompt-optimizer/core'
-import { extractHtmlCandidate } from './html-preview'
+import { extractHtmlCandidate, isSvgDocument } from './html-preview'
 import { MARKDOWN_SOURCE_BUDGET, MARKDOWN_HTML_BUDGET, MARKDOWN_NODE_BUDGET, MARKDOWN_PREVIEW_INPUT_BUDGET, MARKDOWN_PREVIEW_BUDGET, hasHtmlPreviewHint } from './markdown-output-limits'
 
 export { MARKDOWN_SOURCE_BUDGET, MARKDOWN_HTML_BUDGET, MARKDOWN_NODE_BUDGET } from './markdown-output-limits'
@@ -30,7 +30,7 @@ previewParser.renderer.rules.fence = (tokens, index, renderOptions, env: Preview
   const language = token.info.trim().split(/\s+/u)[0]?.toLowerCase()
   const lastLine = env.lines[(token.map?.[1] ?? 0) - 1]?.trim().replace(/^(?:>\s*)+/u, '') ?? ''
   const closed = lastLine.length >= token.markup.length && [...lastLine].every(char => char === token.markup[0])
-  return (language === 'html' || language === 'html5') && closed
+  return (language === 'html' || language === 'html5' || (language === 'svg' && isSvgDocument(token.content))) && closed
     ? previewSlot(token.content, env) : defaultFence(tokens, index, renderOptions, env, renderer)
 }
 previewParser.renderer.rules.html_block = (tokens, index, _options, env: PreviewEnvironment) => {
@@ -55,7 +55,7 @@ export function prepareMarkdownOutput(content: string, previewHtml = false): Mar
     env.lines = content.replace(/\r\n?/gu, '\n').split('\n')
     const tokens = previewParser.parse(content, env)
     const candidate = extractHtmlCandidate(content)
-    const fullDocument = /^(?:\s*<!--[\s\S]*?-->\s*)*\s*<(?:!doctype\s+html\b|html\b)/iu.test(content)
+    const fullDocument = isSvgDocument(content) || /^(?:\s*<!--[\s\S]*?-->\s*)*\s*<(?:!doctype\s+html\b|html\b)/iu.test(content)
     // Markdown treats standalone buttons and other inline HTML elements as a
     // paragraph. Preserve complete elements as artifacts without capturing
     // ordinary prose before or after them.

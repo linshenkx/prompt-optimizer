@@ -267,6 +267,7 @@
             :disable-internal-scroll="fitContent"
             :content="displayContent"
             :html-previews="allowHtmlPreviews"
+            :expand-preview="expandPreview"
             :suspended="previewSuspended"
             :streaming="isStreaming"
             style="flex: 1; min-height: 0; overflow: auto;"
@@ -343,6 +344,7 @@ interface Props {
   fitContent?: boolean
   initialViewMode?: 'render' | 'source' | 'diff'
   previewSuspended?: boolean
+  expandPreview?: boolean
   // 内容相关
   content?: string
   outputRecord?: OutputRecord

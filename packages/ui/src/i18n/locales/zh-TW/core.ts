@@ -111,6 +111,7 @@ const messages = {
     "copied": "已複製",
     "render": "渲染",
     "htmlPreview": "網頁預覽",
+    "previewFailed": "預覽執行失敗",
     "outputStop": "停止產生",
     "outputCancelled": "產生已停止，已接收內容已保留。",
     "outputFailed": "產生未完成，已接收內容已保留。",
