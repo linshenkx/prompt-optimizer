@@ -103,7 +103,8 @@ export const useArenaSession = defineStore('arena-session', () => {
     return { b64: stored.data, mimeType: stored.metadata.mimeType }
   }))
 
-  const addImages = async (images: ImageInputRef[]) => runSessionWrite(getPiniaServices()?.preferenceService, () => queueImageStorageMaintenance(async () => {
+  const writeInput = async (images: ImageInputRef[], prompt?: string) => runSessionWrite(getPiniaServices()?.preferenceService, () => queueImageStorageMaintenance(async () => {
+    if (prompt !== undefined && running.value) throw new Error('arena.inputBusy')
     const release = pauseImageStorageGc()
     const storageService = getPiniaServices()?.imageStorageService
     const refs: ImageRef[] = []
@@ -114,7 +115,11 @@ export const useArenaSession = defineStore('arena-session', () => {
         if (!id) throw new Error('arena.missingImage')
         refs.push({ id, _type: 'image-ref' })
       }
-      state.value.images.push(...refs)
+      if (prompt !== undefined) {
+        if (running.value) throw new Error('arena.inputBusy')
+        state.value.prompt = prompt
+        state.value.images = refs
+      } else state.value.images.push(...refs)
       attached = true
       // Only a snapshot containing these references may release their lease.
       pendingGcResumes.add(release)
@@ -124,6 +129,8 @@ export const useArenaSession = defineStore('arena-session', () => {
       if (!attached) { pendingGcResumes.delete(release); release() }
     }
   }))
+  const addImages = (images: ImageInputRef[]) => writeInput(images)
+  const replaceInput = (prompt: string, images: ImageInputRef[] = []) => writeInput(images, prompt)
 
   const busy = (id: string) => state.value.results[id]?.status === 'running'
   const cancellable = (id: string) => {
@@ -259,5 +266,5 @@ export const useArenaSession = defineStore('arena-session', () => {
     timer = setTimeout(() => { void saveSession() }, 500)
   }, { deep: true, flush: 'sync' })
   return { state, configurations, refreshConfigs, resolveConfig, running, lastActiveAt, saveError, saveSession, restoreSession,
-    isStale, resolveImages, addImages, busy, cancellable, run, runAll, stop, addContestant, removeContestant }
+    isStale, resolveImages, addImages, replaceInput, busy, cancellable, run, runAll, stop, addContestant, removeContestant }
 })

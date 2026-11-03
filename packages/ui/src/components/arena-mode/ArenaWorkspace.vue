@@ -7,6 +7,7 @@
         <template #footer="{ openFullscreen }">
           <TestWorkspaceToolbar class="arena-toolbar" embedded :running="session.running" :run-disabled="!canRunAll" run-test-id="arena-run-all" @run="perform(session.runAll)">
             <template #leading>
+              <PromptGardenInspirationPopover mode="arena" :label="t('arena.benchmarks')" :has-prompt="!!session.state.prompt.trim()" :disabled="session.running || uploading" test-id="arena-garden" @apply="importGarden" @open-import="showGardenImport = true" />
               <NButton size="small" data-testid="arena-add" @click="addColumn"><template #icon><Plus :size="16" /></template>{{ t('arena.addColumn') }}</NButton>
             </template>
             <template #actions>
@@ -52,6 +53,7 @@
       </NScrollbar>
     </section>
 
+    <PromptGardenImportDialog v-model:show="showGardenImport" @confirm="importGarden" />
   </div>
 </template>
 
@@ -59,6 +61,7 @@
 import { computed, inject, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useElementSize } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
+import { routerKey } from 'vue-router'
 import { ArrowLeft, ImagePlus, Maximize2, Play, Plus, Trash2, X } from '@lucide/vue'
 import { NAlert, NButton, NCard, NScrollbar, NText, type ScrollbarInst } from 'naive-ui'
 import { type ArenaContestant, type ImageModel } from '@prompt-optimizer/core'
@@ -71,12 +74,21 @@ import OutputDisplay from '../OutputDisplay.vue'
 import TestInputSection from '../TestInputSection.vue'
 import TestWorkspaceToolbar from '../TestWorkspaceToolbar.vue'
 import AppPreviewImageGroup from '../media/AppPreviewImageGroup.vue'
+import PromptGardenInspirationPopover from '../common/PromptGardenInspirationPopover.vue'
+import PromptGardenImportDialog from '../common/PromptGardenImportDialog.vue'
+import type { PromptGardenImportRequest } from '../../utils/prompt-garden-import'
 import { useToast } from '../../composables/ui/useToast'
 
 const session = useArenaSession()
 const models = useArenaModels()
 const { t } = useI18n()
 const toast = useToast()
+const router = inject(routerKey, null)
+const showGardenImport = ref(false)
+const importGarden = (request: PromptGardenImportRequest) => {
+  if (!router || session.running || uploading.value) return
+  void router.push({ path: '/arena', query: { importCode: request.importCode, subModeKey: 'arena', ...(request.exampleId ? { exampleId: request.exampleId } : {}) } })
+}
 const openModelManager = inject<(kind: 'text' | 'image', id?: string) => void | Promise<void>>('openModelManager', () => {})
 const uploading = ref(false)
 const deck = ref<HTMLElement>()

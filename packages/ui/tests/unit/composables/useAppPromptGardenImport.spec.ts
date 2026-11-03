@@ -95,6 +95,66 @@ const waitForCondition = async (predicate: () => boolean, timeoutMs = 1500) => {
   }
 }
 
+describe('Garden Arena imports', () => {
+  it.each(['example', 'explicit-target', 'missing-variable', 'busy', 'image-favorite'])('%s preserves the import contract', async scenario => {
+    const { pinia } = createTestPinia()
+    const message = () => ({ destroy: () => {} } as unknown as MessageReactive)
+    const error = vi.fn(message)
+    setGlobalMessageApi({ info: vi.fn(message), success: vi.fn(message), error, warning: vi.fn(message) })
+    const query: LocationQuery = { importCode: 'BM-009', ...(scenario === 'explicit-target' ? { subModeKey: 'arena' } : {}), ...(scenario === 'image-favorite' ? { saveToFavorites: 'confirm' } : {}) }
+    const currentRoute = ref(makeRoute('/arena', query))
+    const router = {
+      currentRoute,
+      push: vi.fn(async (to: RouteLocationRaw) => { applyNavigation(currentRoute, to); return undefined }),
+      replace: vi.fn(async (to: RouteLocationRaw) => { applyNavigation(currentRoute, to); return undefined }),
+    }
+    const replaceInput = vi.fn(async () => true)
+    const openSaveFavoriteDialog = vi.fn()
+    const basicUserSession = useBasicUserSession(pinia)
+    basicUserSession.updatePrompt('Keep existing workspace')
+    const missing = scenario === 'missing-variable'
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      schema: 'prompt-garden.prompt.v1', schemaVersion: 1,
+      optimizerTarget: { subModeKey: scenario === 'explicit-target' ? 'basic-user' : 'arena' },
+      prompt: { format: 'text', text: scenario === 'image-favorite' ? 'Draw a scene' : 'Draw {{USER_INPUT}}' },
+      variables: scenario === 'image-favorite' ? [] : [{ name: 'USER_INPUT', defaultValue: missing ? undefined : 'default article' }],
+      assets: { examples: missing ? [] : [{ id: 'ex-001', parameters: { USER_INPUT: 'fixed article' } }] },
+      meta: { type: scenario === 'image-favorite' ? 'image' : 'text' },
+    }), { status: 200, headers: { 'content-type': 'application/json' } })))
+    const isLoadingExternalData = ref(false)
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const scope = effectScope()
+    try {
+      scope.run(() => useAppPromptGardenImport({
+        router, hasRestoredInitialState: ref(true), isLoadingExternalData,
+        gardenBaseUrl: 'http://garden.local', arenaSession: { running: scenario === 'busy', replaceInput },
+        basicSystemSession: useBasicSystemSession(pinia), basicUserSession,
+        proMultiMessageSession: useProMultiMessageSession(pinia), proVariableSession: useProVariableSession(pinia),
+        imageText2ImageSession: useImageText2ImageSession(pinia), imageImage2ImageSession: useImageImage2ImageSession(pinia),
+        imageMultiImageSession: useImageMultiImageSession(pinia), optimizerCurrentVersions: ref([]), openSaveFavoriteDialog,
+      }))
+      await waitForCondition(() => router.replace.mock.calls.length > 0 || error.mock.calls.length > 0)
+      if (missing || scenario === 'busy') {
+        expect(replaceInput).not.toHaveBeenCalled()
+        expect(currentRoute.value.query.importCode).toBe('BM-009')
+        expect(error).toHaveBeenCalledTimes(1)
+      } else if (scenario === 'image-favorite') {
+        expect(replaceInput).not.toHaveBeenCalled()
+        expect(openSaveFavoriteDialog.mock.calls[0][0].prefill).toMatchObject({ functionMode: 'image', imageSubMode: 'text2image' })
+      } else {
+        expect(replaceInput).toHaveBeenCalledWith('Draw fixed article', [])
+        expect(currentRoute.value.path).toBe('/arena')
+        expect(currentRoute.value.query.importCode).toBeUndefined()
+        expect(error).not.toHaveBeenCalled()
+      }
+      expect(basicUserSession.prompt).toBe('Keep existing workspace')
+      await waitForCondition(() => !isLoadingExternalData.value)
+    } finally {
+      scope.stop(); consoleError.mockRestore(); vi.unstubAllGlobals()
+    }
+  })
+})
+
 describe('useAppPromptGardenImport', () => {
   afterEach(() => {
     vi.unstubAllGlobals()

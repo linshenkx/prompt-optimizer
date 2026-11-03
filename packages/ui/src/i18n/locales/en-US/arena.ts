@@ -1,5 +1,7 @@
 export default {
   "arena": {
+    benchmarks: 'Benchmarks',
+    inputBusy: 'Wait for the current tests to finish before changing the prompt',
     columns: 'Test columns',
     capacity: 'Output reached the shared storage limit. Partial content was kept.',
 

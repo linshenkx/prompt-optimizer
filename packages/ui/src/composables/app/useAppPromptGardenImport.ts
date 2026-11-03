@@ -30,6 +30,8 @@ import type { ProVariableSessionApi } from '../../stores/session/useProVariableS
 import type { ImageText2ImageSessionApi } from '../../stores/session/useImageText2ImageSession'
 import type { ImageImage2ImageSessionApi } from '../../stores/session/useImageImage2ImageSession'
 import type { ImageMultiImageSessionApi } from '../../stores/session/useImageMultiImageSession'
+import type { useArenaSession } from '../../stores/session/useArenaSession'
+import { buildPromptExecutionContext } from '../../utils/prompt-variables'
 import {
   persistImageSourceAsAssetId,
 } from '../../utils/image-asset-storage'
@@ -49,9 +51,9 @@ import {
   loadFavoriteCategoryPathLeafId,
 } from '../../utils/favorite-category-path'
 
-type SupportedSubModeKey = WorkspaceApplyTargetKey
+type SupportedSubModeKey = WorkspaceApplyTargetKey | 'arena'
 
-const SUPPORTED_KEYS = WORKSPACE_APPLY_TARGET_KEYS
+const SUPPORTED_KEYS = [...WORKSPACE_APPLY_TARGET_KEYS, 'arena'] as const
 
 const isSupportedKey = (value: string | null | undefined): value is SupportedSubModeKey => {
   if (!value) return false
@@ -110,11 +112,13 @@ const normalizeBaseUrl = (value: string): string | null => {
 }
 
 const keyToPath = (key: SupportedSubModeKey): string => {
+  if (key === 'arena') return '/arena'
   const [mode, subMode] = key.split('-')
   return `/${mode}/${subMode}`
 }
 
 const parseKeyFromCurrentPath = (path: string): SupportedSubModeKey | null => {
+  if (path === '/arena') return 'arena'
   const match = path.match(/^\/(basic|pro|image)\/([^/]+)$/)
   if (!match) return null
   const key = `${match[1]}-${match[2]}`
@@ -231,8 +235,12 @@ const extractStringArray = (value: unknown): string[] => {
     .filter(Boolean)
 }
 
-const toFavoriteModeMapping = (targetKey: SupportedSubModeKey): FavoriteModeMapping => {
+const toFavoriteModeMapping = (targetKey: SupportedSubModeKey, meta?: Record<string, unknown>): FavoriteModeMapping => {
   switch (targetKey) {
+    case 'arena':
+      return meta?.type === 'image'
+        ? { functionMode: 'image', imageSubMode: meta.generationType === 'image-to-image' ? 'image2image' : 'text2image' }
+        : { functionMode: 'basic', optimizationMode: 'user' }
     case 'basic-user':
       return { functionMode: 'basic', optimizationMode: 'user' }
     case 'pro-multi':
@@ -340,7 +348,7 @@ const saveImportedPromptToFavorites = async (opts: {
     throw new Error('Cannot save imported prompt with empty content')
   }
 
-  const modeMapping = toFavoriteModeMapping(targetKey)
+  const modeMapping = toFavoriteModeMapping(targetKey, fetched.gardenSnapshot.meta)
   const snapshot = await buildStorableGardenSnapshot(
     fetched.gardenSnapshot,
     imageStorageService,
@@ -1037,6 +1045,7 @@ export interface AppPromptGardenImportOptions {
 
   /** Fixed integration base URL (no per-link overrides). */
   gardenBaseUrl: string | null
+  arenaSession?: Pick<ReturnType<typeof useArenaSession>, 'running' | 'replaceInput'>
 
   basicSystemSession: BasicSystemSessionApi
   basicUserSession: BasicUserSessionApi
@@ -1066,6 +1075,7 @@ export function useAppPromptGardenImport(options: AppPromptGardenImportOptions) 
     hasRestoredInitialState,
     isLoadingExternalData,
     gardenBaseUrl,
+    arenaSession,
     basicSystemSession,
     basicUserSession,
     proMultiMessageSession,
@@ -1149,7 +1159,7 @@ export function useAppPromptGardenImport(options: AppPromptGardenImportOptions) 
             } else if (!openSaveFavoriteDialog) {
               console.warn('[PromptGardenImport] Favorite dialog callback unavailable, skip confirm flow')
             } else {
-              const modeMapping = toFavoriteModeMapping(targetKey)
+              const modeMapping = toFavoriteModeMapping(targetKey, fetched.gardenSnapshot.meta)
               const imageStorageService =
                 getFavoriteImageStorageService?.() || getImageStorageService?.() || null
 
@@ -1205,6 +1215,32 @@ export function useAppPromptGardenImport(options: AppPromptGardenImportOptions) 
           // Preserve existing query during navigation; we'll strip import params after import.
           await router.push({ path: targetPath, query })
           await nextTick()
+        }
+
+        if (targetKey === 'arena') {
+          if (!arenaSession || arenaSession.running) throw new Error('Arena input is unavailable while requests are running')
+          if (fetched.promptFormat !== 'text' || !fetched.promptText) throw new Error('Arena requires a text prompt')
+          const values: Record<string, string> = Object.create(null)
+          for (const variable of fetched.variables) {
+            if (!isValidVariableName(variable.name)) continue
+            const value = importedExample?.parameters?.[variable.name] ?? variable.defaultValue
+            if (value !== undefined) values[variable.name] = String(value)
+          }
+          const execution = buildPromptExecutionContext(fetched.promptText, values)
+          if (execution.missingVariables.length) throw new Error('Missing Garden example variables: ' + execution.missingVariables.join(', '))
+          const images = await Promise.all((importedExample?.inputImages || []).map(async source => {
+            const url = resolveGardenUrl({ gardenBaseUrl, url: source })
+            if (!url) throw new Error('Invalid Garden input image URL')
+            const image = await fetchImageAsBase64(url)
+            if (!image?.b64) throw new Error('Failed to load Garden input image')
+            return image
+          }))
+          if (!await arenaSession.replaceInput(execution.renderedContent, images)) throw new Error('Failed to save Arena input')
+          const cleanedQuery = omitKeys(query, ['importCode', 'subModeKey', 'exampleId', 'saveToFavorites'])
+          await router.replace({ path: '/arena', query: cleanedQuery })
+          closeImportingToast()
+          toast.success(String(i18n.global.t('toast.success.promptGardenImportSuccess')))
+          return
         }
 
         if (targetKey === 'pro-multi') {

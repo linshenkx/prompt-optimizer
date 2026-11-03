@@ -1,5 +1,7 @@
 export default {
   "arena": {
+    benchmarks: '測評題',
+    inputBusy: '請等待目前測試完成後再更換測評題',
     columns: '測試欄',
     capacity: '輸出達到共用儲存容量限制，已保留部分內容。',
 

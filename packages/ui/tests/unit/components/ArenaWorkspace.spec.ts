@@ -1,6 +1,7 @@
 import { defineComponent, reactive, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { routerKey } from 'vue-router'
 import { createArenaState } from '@prompt-optimizer/core'
 import ArenaWorkspace from '../../../src/components/arena-mode/ArenaWorkspace.vue'
 
@@ -34,13 +35,15 @@ const Input = defineComponent({
   name: 'TestInputSection', setup: () => ({ open: vi.fn() }),
   template: '<div><slot name="footer" :open-fullscreen="open" /></div>',
 })
+const routePush = vi.fn()
 const render = () => mount(ArenaWorkspace, {
-  global: { stubs: {
+  global: { provide: { [routerKey as symbol]: { push: routePush } }, stubs: {
     NButton: Button, NCard: { template: '<div><slot /></div>' },
     NScrollbar: { template: '<div class="arena-scroll-container"><slot /></div>' },
     NText: { template: '<span><slot /></span>' }, NAlert: { template: '<div role="alert"><slot /></div>' },
     TextModelSelector: { template: '<button class="text-model-selector" />' },
     TestInputSection: Input, OutputDisplay: Output,
+    PromptGardenInspirationPopover: true, PromptGardenImportDialog: true,
     AppPreviewImageGroup: { template: '<div><slot /></div>' }, ArenaImage: true,
   } },
 })
@@ -71,6 +74,20 @@ describe('Arena shared workspace presentation', () => {
     }
     return column.id
   }
+
+  it('reuses Garden discovery and imports into the Arena without running a model', async () => {
+    const wrapper = render()
+    const garden = wrapper.findComponent({ name: 'PromptGardenInspirationPopover' })
+    expect(garden.props('mode')).toBe('arena')
+    garden.vm.$emit('apply', { importCode: 'ZH-BM-001', exampleId: null, subModeKey: 'basic-user' })
+    expect(routePush).toHaveBeenCalledWith({ path: '/arena', query: { importCode: 'ZH-BM-001', subModeKey: 'arena' } })
+    expect(current.store.runAll).not.toHaveBeenCalled()
+    setResult('text'); await wrapper.vm.$nextTick()
+    expect(garden.props('disabled')).toBe(true)
+    garden.vm.$emit('apply', { importCode: 'ZH-BM-002' })
+    expect(routePush).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
 
   it('uses the existing result component for an untested column and runs its selected model', async () => {
     const wrapper = render()

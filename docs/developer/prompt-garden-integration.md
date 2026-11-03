@@ -41,6 +41,7 @@ Prompt Optimizer 在应用初始 session 恢复完成后检查当前路由 query
 
 ### 1.2 `subModeKey` 支持值
 
+- `arena`
 - `basic-system`
 - `basic-user`
 - `pro-multi`
@@ -210,6 +211,11 @@ Prompt Optimizer 会调用：
 - `pro-multi`
   - 支持 `messages`
   - 也支持 `text`，会被包装成一条 `system` 消息
+- `arena`
+  - 支持 `text`；写入竞技场公共输入，不修改测试栏、所选模型和已有结果，不自动运行
+  - 使用所选示例参数及变量默认值填入模板；缺少变量时保留导入参数并报错
+  - 所选示例的输入图片作为本次公共参考图片替换导入；图片加载完成后才更新输入
+  - 有运行中请求时拒绝替换输入
 - `basic-system`
   - 仅应返回 `text`
 - `basic-user`

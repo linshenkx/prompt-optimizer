@@ -36,6 +36,26 @@ describe('arena execution and persistence', () => {
   })
   const finish = (index: number, text = `answer ${index}`) => { calls[index].handlers.onToken(text); calls[index].gate.resolve() }
 
+  it('replaces imported input without changing models, results or starting a request', async () => {
+    const id = store.state.contestants[0].id
+    const run = store.run(id); await tick(); finish(0); await run
+    const columns = JSON.stringify(store.state.contestants)
+    const results = JSON.stringify(store.state.results)
+    expect(await store.replaceInput('Garden benchmark')).toBe(true)
+    expect(store.state.prompt).toBe('Garden benchmark')
+    expect(JSON.stringify(store.state.contestants)).toBe(columns)
+    expect(JSON.stringify(store.state.results)).toBe(results)
+    expect(calls).toHaveLength(1)
+    expect((preferences.get('session/v1/arena') as any).prompt).toBe('Garden benchmark')
+  })
+
+  it('rejects imported input while a model request is running', async () => {
+    const run = store.run(store.state.contestants[0].id); await tick()
+    await expect(store.replaceInput('replacement')).rejects.toThrow('arena.inputBusy')
+    expect(store.state.prompt).toBe('Shared task')
+    finish(0); await run
+  })
+
   it('starts runs and adds columns without the secure-context-only randomUUID API', async () => {
     const getRandomValues = globalThis.crypto.getRandomValues.bind(globalThis.crypto)
     vi.stubGlobal('crypto', { getRandomValues })
