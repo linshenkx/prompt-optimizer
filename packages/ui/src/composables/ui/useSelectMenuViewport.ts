@@ -9,6 +9,7 @@ export function getSelectMenuViewportLayout(
   viewport: VisibleViewport,
   chromeHeight = 0,
   preferredPlacement = 'bottom-start',
+  heightLimit = 320,
 ) {
   // The menu has a 4px vertical margin. Leave another 8px at the visible edge.
   const clearance = 12
@@ -18,7 +19,7 @@ export function getSelectMenuViewportLayout(
   const preferredSpace = preferredTop ? above : below
   const oppositeSpace = preferredTop ? below : above
   const useTop = preferredSpace >= 320 || preferredSpace >= oppositeSpace ? preferredTop : !preferredTop
-  const maxHeight = Math.floor(Math.min(320, useTop ? above : below))
+  const maxHeight = Math.floor(Math.min(heightLimit, useTop ? above : below))
   return {
     placement: `${useTop ? 'top' : 'bottom'}-${preferredPlacement.endsWith('end') ? 'end' : 'start'}` as const,
     maxHeight,
@@ -32,6 +33,7 @@ export function useSelectMenuViewport(options: {
   getTrigger: () => HTMLElement | null
   getMenu: () => HTMLElement | null
   getPlacement: () => string
+  maxHeight?: number
 }) {
   const layout = shallowRef<ReturnType<typeof getSelectMenuViewportLayout> | null>(null)
   let stop = () => {}
@@ -61,6 +63,7 @@ export function useSelectMenuViewport(options: {
         { offsetTop: viewport?.offsetTop ?? 0, height: viewport?.height ?? window.innerHeight },
         chromeHeight,
         options.getPlacement(),
+        options.maxHeight,
       )
     }
     const scheduleUpdate = () => {

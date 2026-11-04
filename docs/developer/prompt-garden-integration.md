@@ -575,3 +575,17 @@ Prompt Optimizer 侧核心实现：
 - `packages/ui/tests/unit/composables/useAppPromptGardenImport.spec.ts`
 - `packages/ui/tests/unit/components/GardenSnapshotPreview.spec.ts`
 - `packages/ui/tests/unit/utils/garden-snapshot-preview.spec.ts`
+
+
+## 轻量浏览目录
+
+灵感与竞技场测评题共用 `PromptGardenInspirationPopover`。灵感默认推荐，竞技场默认全部；两者都能切换视图。关闭弹层保留搜索、已加载列表和滚动位置，切换工作区或语言会清空缓存。推荐与全部共用最多 680px 的浮层；图像模式复用 NCard 与图片预览组件，桌面为双列图卡、窄屏单列，缺图和加载失败使用 NEmpty。文本模式保持紧凑列表；浮层高度根据内容和视口可用空间调整（最多 640px）。
+
+- 推荐继续使用 `GET /api/public/prompts/suggestions`，图像模式返回四条推荐并优先选择有配图的条目；文本模式保留三条混合推荐与换一批行为。
+- 全部使用 `GET /api/public/prompts/catalog?mode=arena&locale=zh-CN&limit=20&offset=0&q=关键词`。
+- 目录响应包含 `items`、`total`、`nextOffset`（结束为 `null`）、`browseUrl` 和 `ttlSeconds`；按更新时间和导入码稳定排序，同一提示词只返回一种语言。
+- `items` 复用推荐元数据，增加 `excerpt`、清晰预览地址 `previewUrl` 与已有 `categoryPath`。目录不返回完整正文；展开条目时读取现有公开 prompt-source 接口，仅以纯文本显示。
+- Garden 两个列表接口共用候选构建、分类、语言与图片地址解析，搜索复用 Garden 搜索规则。
+- 使用条目继续发出原有导入请求，不自动测试模型。返回错误时提供重试，滚动到距离底部 120px 时自动请求下一页，翻页失败保留已加载条目并暂停自动重试。
+
+本地联调需要运行包含目录接口的 Garden；旧版 Garden 不具备 `/api/public/prompts/catalog`。

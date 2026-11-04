@@ -30,6 +30,14 @@ describe('select menu visible viewport geometry', () => {
     expect(72 + 4 + layout.maxHeight).toBeLessThanOrEqual(299 - 8)
   })
 
+  it('allows the Garden browser more space while keeping its footer inside the visible viewport', () => {
+    const roomy = getSelectMenuViewportLayout({ top: 100, bottom: 132 }, { offsetTop: 0, height: 900 }, 92, 'bottom-end', 480)
+    expect(roomy.maxHeight).toBe(480)
+    const short = getSelectMenuViewportLayout({ top: 200, bottom: 232 }, { offsetTop: 0, height: 500 }, 92, 'bottom-end', 480)
+    expect(232 + 4 + short.maxHeight).toBeLessThanOrEqual(492)
+    expect(short.bodyMaxHeight + 92).toBe(short.maxHeight)
+  })
+
   it('caps tall phone menus and never creates a negative scroll height in short viewports', () => {
     expect(getSelectMenuViewportLayout({ top: 100, bottom: 132 }, { offsetTop: 0, height: 850 }).maxHeight).toBe(320)
     expect(getSelectMenuViewportLayout({ top: 80, bottom: 112 }, { offsetTop: 0, height: 190 }, 100).bodyMaxHeight).toBe(0)
