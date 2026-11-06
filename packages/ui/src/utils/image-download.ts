@@ -128,8 +128,8 @@ const decodeBase64Payload = (payload: string): ArrayBuffer => {
 }
 
 export const dataUrlToBlob = (dataUrl: string): Blob => {
-  const [metadata, payload = ''] = dataUrl.split(',', 2)
-  const mimeTypeMatch = metadata.match(DATA_URL_PATTERN)
+  const [, payload = ''] = dataUrl.split(',', 2)
+  const mimeTypeMatch = dataUrl.match(DATA_URL_PATTERN)
   const mimeType = mimeTypeMatch?.[1] || 'application/octet-stream'
   const bytes = decodeBase64Payload(payload)
   return new Blob([bytes], { type: mimeType })

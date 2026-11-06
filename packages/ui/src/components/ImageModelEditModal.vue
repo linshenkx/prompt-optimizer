@@ -178,14 +178,24 @@
             </NSpace>
           </NFormItem>
 
+          <NFormItem v-if="outputFormatDefinition" :label="t('image.params.outputFormat.label')">
+            <NSelect
+              data-testid="image-output-format-select"
+              :value="outputFormat"
+              :options="outputFormatOptions"
+              :aria-label="t('image.params.outputFormat.label')"
+              @update:value="updateOutputFormat"
+            />
+          </NFormItem>
+
           <!-- 高级参数配置区域 -->
           <NDivider :style="{ margin: isCompact ? '8px 0' : '12px 0 8px 0' }" />
           <ModelAdvancedSection
             mode="image"
             :provider-type="selectedProviderId"
-            :parameter-definitions="currentParameterDefinitions"
-            :param-overrides="configForm.paramOverrides"
-            @update:paramOverrides="updateParamOverrides"
+            :parameter-definitions="advancedParameterDefinitions"
+            :param-overrides="advancedParamOverrides"
+            @update:paramOverrides="updateAdvancedParamOverrides"
           />
         </NForm>
     </form>
@@ -195,7 +205,7 @@
         <div v-if="connectionStatus || saveError" class="image-model-editor-feedback" role="status">
           <AppPreviewImage
             v-if="testResult?.image && connectionStatus?.type === 'success'"
-            :src="testResult.image.url || (testResult.image.b64?.startsWith('data:') ? testResult.image.b64 : `data:image/png;base64,${testResult.image.b64}`)"
+            :src="testResult.image.url || (testResult.image.b64?.startsWith('data:') ? testResult.image.b64 : `data:${testResult.image.mimeType || 'image/png'};base64,${testResult.image.b64}`)"
             width="40" height="40" object-fit="cover" :preview-disabled="false"
             :alt="t('image.connection.testImagePreview')"
           />
@@ -247,7 +257,7 @@
           <!-- 测试结果图片缩略图 -->
           <AppPreviewImage
             v-if="testResult?.image && connectionStatus?.type === 'success'"
-            :src="testResult.image.url || (testResult.image.b64?.startsWith('data:') ? testResult.image.b64 : `data:image/png;base64,${testResult.image.b64}`)"
+            :src="testResult.image.url || (testResult.image.b64?.startsWith('data:') ? testResult.image.b64 : `data:${testResult.image.mimeType || 'image/png'};base64,${testResult.image.b64}`)"
             width="32"
             height="32"
             object-fit="cover"
@@ -367,6 +377,46 @@ const {
 
 // 计算属性
 const isEditing = computed(() => !!props.configId)
+
+const outputFormatDefinition = computed(() =>
+  selectedProviderId.value === 'openai'
+    ? currentParameterDefinitions.value.find(definition => definition.name === 'output_format' && definition.allowedValues?.includes('gif'))
+    : undefined
+)
+const outputFormat = computed(() => {
+  const value = configForm.value.paramOverrides?.output_format
+  return typeof value === 'string' && value ? value : 'png'
+})
+const outputFormatOptions = computed(() =>
+  (outputFormatDefinition.value?.allowedValues || []).map((value, index) => ({
+    value,
+    label: outputFormatDefinition.value?.allowedValueLabelKeys?.[index]
+      ? t(outputFormatDefinition.value.allowedValueLabelKeys[index])
+      : value.toUpperCase()
+  }))
+)
+const isAdvancedParameterVisible = (name: string) =>
+  !outputFormatDefinition.value || (
+    name !== 'output_format' && (
+      outputFormat.value === 'gif' ||
+      !['frame_count', 'frame_duration_ms'].includes(name)
+    )
+  )
+const advancedParameterDefinitions = computed(() =>
+  currentParameterDefinitions.value.filter(definition => isAdvancedParameterVisible(definition.name))
+)
+const advancedParamOverrides = computed(() =>
+  Object.fromEntries(Object.entries(configForm.value.paramOverrides || {}).filter(([name]) => isAdvancedParameterVisible(name)))
+)
+const updateAdvancedParamOverrides = (value: Record<string, unknown>) => {
+  const hiddenOverrides = Object.fromEntries(
+    Object.entries(configForm.value.paramOverrides || {}).filter(([name]) => !isAdvancedParameterVisible(name))
+  )
+  updateParamOverrides({ ...hiddenOverrides, ...value })
+}
+const updateOutputFormat = (value: string) => {
+  updateParamOverrides({ ...configForm.value.paramOverrides, output_format: value })
+}
 
 // 获取当前选择的 Provider 的 API Key URL
 const currentProviderApiKeyUrl = computed(() => {

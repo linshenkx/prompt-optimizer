@@ -55,46 +55,29 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
       {
         id: 'gpt-image-2.5-flare',
         name: 'GPT Image 2.5 Flare',
-        description: 'OpenAI fast, high-quality image generation and editing model for everyday use',
-        providerId: 'openai',
-        capabilities: {
-          text2image: true,
-          image2image: true,
-          multiImage: true
-        },
-        parameterDefinitions: [
-          {
-            name: 'size',
-            labelKey: 'image.params.size.label',
-            descriptionKey: 'image.params.size.description',
-            type: 'string',
-            defaultValue: '1024x1024',
-            allowedValues: [...GPT_IMAGE_SIZE_VALUES]
-          },
-          {
-            name: 'quality',
-            labelKey: 'image.params.quality.label',
-            descriptionKey: 'image.params.quality.description',
-            type: 'string',
-            defaultValue: 'auto',
-            allowedValues: ['auto', 'max', 'xhigh', 'high', 'medium', 'low']
-          },
-          {
-            name: 'background',
-            labelKey: 'image.params.background.label',
-            descriptionKey: 'image.params.background.description',
-            type: 'string',
-            defaultValue: 'auto',
-            allowedValues: [...GPT_IMAGE_BACKGROUND_VALUES]
-          }
-        ],
-        defaultParameterValues: {
-          size: '1024x1024',
-          quality: 'auto',
-          background: 'auto'
-        }
+        description: 'OpenAI fast, high-quality image generation and editing model for everyday use'
+      },
+      {
+        id: 'gpt-image-2.6-flare',
+        name: 'GPT Image 2.6 Flare',
+        description: 'OpenAI image generation and editing model with animated GIF output'
+      },
+      {
+        id: 'gpt-image-2.6-sunburst',
+        name: 'GPT Image 2.6 Sunburst',
+        description: 'OpenAI detailed image generation and editing model with animated GIF output'
       }
-    ]
+    ].map(model => ({
+      ...model,
+      providerId: 'openai',
+      capabilities: {
+        text2image: true,
+        image2image: true,
+        multiImage: true
+      },
+      parameterDefinitions: this.getParameterDefinitions(model.id),
+      defaultParameterValues: this.getDefaultParameterValues(model.id)
+    }))
   }
 
   public async getModelsAsync(connectionConfig: Record<string, any>): Promise<ImageModel[]> {
@@ -157,15 +140,19 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
     throw new ImageError(IMAGE_ERROR_CODES.UNSUPPORTED_TEST_TYPE, undefined, { testType })
   }
 
-  protected getParameterDefinitions(_modelId: string): readonly ImageParameterDefinition[] {
-    // GPT Image 2.x 使用统一的参数定义，n参数固定为1不暴露给用户
-    return [
+  private supportsGif(modelId: string): boolean {
+    return /(?:^|\/)gpt-image-2\.6-(?:flare|sunburst)(?:-\d{4}-\d{2}-\d{2})?$/i.test(modelId)
+  }
+
+  protected getParameterDefinitions(modelId: string): readonly ImageParameterDefinition[] {
+    const supportsGif = this.supportsGif(modelId)
+    const definitions: ImageParameterDefinition[] = [
       {
         name: 'size',
         labelKey: 'image.params.size.label',
         descriptionKey: 'image.params.size.description',
         type: 'string',
-        defaultValue: '1024x1024',
+        defaultValue: supportsGif ? 'auto' : '1024x1024',
         allowedValues: [...GPT_IMAGE_SIZE_VALUES]
       },
       {
@@ -185,13 +172,48 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
         allowedValues: [...GPT_IMAGE_BACKGROUND_VALUES]
       }
     ]
+    if (supportsGif) {
+      definitions.push(
+        {
+          name: 'output_format',
+          labelKey: 'image.params.outputFormat.label',
+          descriptionKey: 'image.params.outputFormat.description',
+          type: 'string',
+          defaultValue: 'png',
+          allowedValues: ['png', 'gif'],
+          allowedValueLabelKeys: ['image.params.outputFormat.png', 'image.params.outputFormat.gif']
+        },
+        {
+          name: 'frame_count',
+          labelKey: 'image.params.frameCount.label',
+          descriptionKey: 'image.params.frameCount.description',
+          type: 'integer',
+          defaultValue: 9,
+          minValue: 2,
+          maxValue: 16,
+          step: 1
+        },
+        {
+          name: 'frame_duration_ms',
+          labelKey: 'image.params.frameDuration.label',
+          descriptionKey: 'image.params.frameDuration.description',
+          type: 'integer',
+          defaultValue: 200,
+          minValue: 20,
+          maxValue: 2000,
+          step: 10
+        }
+      )
+    }
+    return definitions
   }
 
-  protected getDefaultParameterValues(_modelId: string): Record<string, unknown> {
+  protected getDefaultParameterValues(modelId: string): Record<string, unknown> {
     return {
-      size: '1024x1024',
+      size: this.supportsGif(modelId) ? 'auto' : '1024x1024',
       quality: 'auto',
-      background: 'auto'
+      background: 'auto',
+      ...(this.supportsGif(modelId) ? { output_format: 'png' } : {})
     }
   }
 
@@ -244,7 +266,7 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
     const merged: Record<string, any> = {
       model: config.modelId,
       prompt: request.prompt,
-      output_format: 'png', // 固定为png
+      output_format: 'png',
       stream: false,
       // 合并参数覆盖（先合并，后强制覆盖）
       ...this.getOpenAIParamOverrides(request, config)
@@ -260,7 +282,7 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
       body: JSON.stringify(payload)
     })
 
-    return this.parseImageResponse(response, config)
+    return this.parseImageResponse(response, config, merged.output_format)
   }
 
   private async generateImageEdit(
@@ -276,10 +298,9 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
     const formData = new FormData()
     formData.append('model', config.modelId)
     formData.append('prompt', request.prompt)
-    formData.append('output_format', 'png') // 固定为png
 
     // 添加参数覆盖（隐藏结果数量与 UI 内部参数）
-    const allParams = this.getOpenAIParamOverrides(request, config)
+    const allParams = { output_format: 'png', ...this.getOpenAIParamOverrides(request, config) }
     for (const [key, value] of Object.entries(allParams)) {
       if (value !== undefined && value !== null) {
         formData.append(key, String(value))
@@ -305,7 +326,7 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
       body: formData
     })
 
-    return this.parseImageResponse(response, config)
+    return this.parseImageResponse(response, config, allParams.output_format)
   }
 
   private getEditInputImages(request: ImageRequest): NonNullable<ImageRequest['inputImages']> {
@@ -324,6 +345,16 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
     for (const key of OpenAIImageAdapter.FORCED_SINGLE_OUTPUT_PARAM_KEYS) {
       delete params[key]
     }
+    if (params.output_format === 'gif') {
+      // GIF responses contain the complete animation; partial/streaming output is unsupported.
+      params.stream = false
+      for (const key of ['partial_images', 'output_compression', 'prompt_rewriter', 'mask', 'input_image_mask']) {
+        delete params[key]
+      }
+    } else {
+      delete params.frame_count
+      delete params.frame_duration_ms
+    }
     return params
   }
 
@@ -334,19 +365,36 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
     return 'png'
   }
 
-  private parseImageResponse(response: any, config: ImageModelConfig): ImageResult {
+  private getOutputMimeType(b64: string | undefined, format: string): string {
+    // Prefer the actual bytes when a compatible gateway omits or misreports its format.
+    if (b64) {
+      try {
+        const header = atob(b64.slice(0, 32))
+        if (header.startsWith('GIF87a') || header.startsWith('GIF89a')) return 'image/gif'
+        if (header.startsWith('\x89PNG\r\n\x1a\n')) return 'image/png'
+        if (header.startsWith('\xff\xd8\xff')) return 'image/jpeg'
+        if (header.startsWith('RIFF') && header.slice(8, 12) === 'WEBP') return 'image/webp'
+      } catch {
+        // Fall back to the response/request format if header inspection is unavailable.
+      }
+    }
+    return ({ png: 'image/png', gif: 'image/gif', jpeg: 'image/jpeg', webp: 'image/webp' } as Record<string, string>)[format] || 'image/png'
+  }
+
+  private parseImageResponse(response: any, config: ImageModelConfig, requestedFormat: string): ImageResult {
     if (!response.data || !Array.isArray(response.data)) {
       throw new ImageError(IMAGE_ERROR_CODES.INVALID_RESPONSE_FORMAT)
     }
 
     const images = response.data.map((item: any) => {
+      const mimeType = this.getOutputMimeType(item.b64_json, response.output_format || requestedFormat)
       if (item.b64_json) {
         // GPT Image 系列默认返回 base64；无需发送已废弃的 response_format 参数。
-        const dataUrl = `data:image/png;base64,${item.b64_json}`
+        const dataUrl = `data:${mimeType};base64,${item.b64_json}`
 
         return {
           b64: item.b64_json,
-          mimeType: 'image/png',
+          mimeType,
           url: dataUrl
         }
       }
@@ -354,7 +402,7 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
       if (item.url) {
         return {
           url: item.url,
-          mimeType: 'image/png'
+          mimeType
         }
       }
 

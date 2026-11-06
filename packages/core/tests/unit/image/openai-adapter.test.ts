@@ -38,7 +38,7 @@ describe('OpenAIImageAdapter', () => {
       const models = adapter.getModels()
 
       expect(Array.isArray(models)).toBe(true)
-      expect(models.map(model => model.id)).toEqual(['gpt-image-2.5-flare'])
+      expect(models.map(model => model.id)).toEqual(['gpt-image-2.5-flare', 'gpt-image-2.6-flare', 'gpt-image-2.6-sunburst'])
 
       const imageModel = models[0]
       expect(imageModel).toMatchObject({
@@ -80,6 +80,107 @@ describe('OpenAIImageAdapter', () => {
       ])
 
       expect(backgroundParam?.allowedValues).toEqual(['auto', 'opaque'])
+    })
+  })
+
+  describe('GIF output', () => {
+    const gif = 'R0lGODlhAgACAIEAAP8AAAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQAFAAAACwAAAAAAgACAAAIBgABCAQQEAAh+QQBFAABACwAAAAAAgACAIEAAP8AAAAAAAAAAAAIBgABCAQQEAA7'
+    const config = (overrides: Record<string, unknown> = {}): ImageModelConfig => {
+      const model = adapter.getModels().find(model => model.id === 'gpt-image-2.6-flare')!
+      return {
+        id: 'gif-test', name: 'GIF test', providerId: 'openai', modelId: model.id,
+        enabled: true, provider: adapter.getProvider(), model,
+        connectionConfig: { apiKey: 'test-key' },
+        paramOverrides: { ...model.defaultParameterValues, ...overrides }
+      }
+    }
+    const mockResponse = (data: Record<string, unknown> = {}) => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ data: [{ b64_json: gif }], ...data })
+      })
+    }
+
+    test('offers GIF only for supported models, including gateway-prefixed model IDs', () => {
+      for (const id of ['gpt-image-2.6-flare', 'gpt-image-2.6-sunburst', 'codex/gpt-image-2.6-flare']) {
+        const model = adapter.buildDefaultModel(id)
+        expect(model.parameterDefinitions.find(def => def.name === 'output_format')?.allowedValues).toEqual(['png', 'gif'])
+        expect(model.defaultParameterValues?.output_format).toBe('png')
+        expect(model.defaultParameterValues).not.toHaveProperty('frame_count')
+        expect(model.defaultParameterValues).not.toHaveProperty('frame_duration_ms')
+      }
+      expect(adapter.buildDefaultModel('gpt-image-2.5-flare').parameterDefinitions.some(def => def.name === 'frame_count')).toBe(false)
+      expect(adapter.buildDefaultModel('custom-image').parameterDefinitions.some(def => def.name === 'output_format')).toBe(false)
+    })
+
+    test('defaults to PNG and omits animation parameters even when previously configured', async () => {
+      mockResponse({ output_format: 'png', data: [{ b64_json: 'iVBORw0KGgo=' }] })
+      const cfg = config({ frame_count: 12, frame_duration_ms: 100 })
+      const result = await adapter.generate({ configId: cfg.id, prompt: 'a red square' }, cfg)
+      const body = JSON.parse((global.fetch as any).mock.calls[0][1].body)
+      expect(body.output_format).toBe('png')
+      expect(body).not.toHaveProperty('frame_count')
+      expect(body).not.toHaveProperty('frame_duration_ms')
+      expect(result.images[0].mimeType).toBe('image/png')
+    })
+
+    test('uses GIF server defaults without sending frame count or delay', async () => {
+      mockResponse()
+      const cfg = config({ output_format: 'gif' })
+      const result = await adapter.generate({ configId: cfg.id, prompt: 'a looping animation' }, cfg)
+      const body = JSON.parse((global.fetch as any).mock.calls[0][1].body)
+      expect(body).toMatchObject({ output_format: 'gif', stream: false, n: 1, size: 'auto' })
+      expect(body).not.toHaveProperty('frame_count')
+      expect(body).not.toHaveProperty('frame_duration_ms')
+      expect(result.images[0]).toEqual({ b64: gif, mimeType: 'image/gif', url: `data:image/gif;base64,${gif}` })
+    })
+
+    test.each([0, 1, 2])('sends explicit GIF settings once with %i reference images', async references => {
+      mockResponse()
+      const cfg = config({ output_format: 'gif', frame_count: 6, frame_duration_ms: 200 })
+      const result = await adapter.generate({
+        configId: cfg.id, prompt: 'a looping animation',
+        inputImages: Array.from({ length: references }, () => ({ b64: 'aGVsbG8=', mimeType: 'image/png' })),
+        paramOverrides: { frame_duration_ms: 100 }
+      }, cfg)
+      const [url, options] = (global.fetch as any).mock.calls[0]
+      expect(url).toContain(references ? '/images/edits' : '/images/generations')
+      if (references) {
+        expect(options.body.getAll('output_format')).toEqual(['gif'])
+        expect(options.body.get('frame_count')).toBe('6')
+        expect(options.body.get('frame_duration_ms')).toBe('100')
+      } else {
+        expect(JSON.parse(options.body)).toMatchObject({ output_format: 'gif', frame_count: 6, frame_duration_ms: 100 })
+      }
+      expect(result.images[0].mimeType).toBe('image/gif')
+    })
+
+    test('filters incompatible settings for GIF output', async () => {
+      mockResponse()
+      const cfg = config({
+        output_format: 'gif', stream: true, partial_images: 2, output_compression: 80,
+        prompt_rewriter: true, mask: 'mask.png', input_image_mask: 'mask.png'
+      })
+      await adapter.generate({ configId: cfg.id, prompt: 'an animation' }, cfg)
+      const body = JSON.parse((global.fetch as any).mock.calls[0][1].body)
+      expect(body.stream).toBe(false)
+      for (const key of ['partial_images', 'output_compression', 'prompt_rewriter', 'mask', 'input_image_mask']) {
+        expect(body).not.toHaveProperty(key)
+      }
+    })
+
+    test('uses actual GIF bytes over a gateway reporting PNG', async () => {
+      mockResponse({ output_format: 'png' })
+      const cfg = config()
+      const result = await adapter.generate({ configId: cfg.id, prompt: 'an animation' }, cfg)
+      expect(result.images[0].mimeType).toBe('image/gif')
+    })
+
+    test('uses the returned format rather than labeling a static response as GIF', async () => {
+      mockResponse({ output_format: 'png', data: [{ b64_json: 'iVBORw0KGgo=' }] })
+      const cfg = config({ output_format: 'gif' })
+      const result = await adapter.generate({ configId: cfg.id, prompt: 'an animation' }, cfg)
+      expect(result.images[0].mimeType).toBe('image/png')
     })
   })
 
@@ -129,7 +230,7 @@ describe('OpenAIImageAdapter', () => {
 
       const models = await adapter.getModelsAsync({ apiKey: 'test-api-key' })
 
-      expect(models.map(model => model.id)).toEqual(['gpt-image-2.5-flare'])
+      expect(models.map(model => model.id)).toEqual(['gpt-image-2.5-flare', 'gpt-image-2.6-flare', 'gpt-image-2.6-sunburst'])
     })
   })
 

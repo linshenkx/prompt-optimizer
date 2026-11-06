@@ -233,6 +233,20 @@ const messages = {
       "advancedConfigDescription": "Optional, used to override default model parameters"
     },
     "params": {
+      "outputFormat": {
+        "label": "Output Format",
+        "description": "Generate a PNG image by default, or choose an animated GIF",
+        "png": "PNG image",
+        "gif": "Animated GIF"
+      },
+      "frameCount": {
+        "label": "GIF Frame Count",
+        "description": "Optional, 2–16 frames; uses the model default when unset, typically 9 frames"
+      },
+      "frameDuration": {
+        "label": "GIF Frame Delay (ms)",
+        "description": "Optional; smaller values play faster. Uses the model default when unset, typically 200 ms per frame"
+      },
       "size": {
         "label": "Image Size",
         "description": "Generated image resolution/size, e.g., 1024x1024"
