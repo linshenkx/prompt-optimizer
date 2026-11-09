@@ -5,6 +5,8 @@ const groups = {
   // These regressions seed local sessions and exercise real UI/IndexedDB behavior.
   // They need neither provider credentials nor VCR recordings.
   workspaceRegression: [
+    'tests/e2e/regression/output-architecture.spec.ts',
+    'tests/e2e/regression/output-source-wrapping.spec.ts',
     'tests/e2e/regression/settings-and-variable-extraction.spec.ts',
     'tests/e2e/regression/html-preview.spec.ts',
     'tests/e2e/session-persistence/workspace-source-preview.spec.ts',
