@@ -72,6 +72,7 @@ onMounted(() => {
     state: EditorState.create({
       doc: props.document?.read(props.field) ?? props.content,
       extensions: [
+        EditorView.lineWrapping,
         EditorState.readOnly.of(true), EditorView.editable.of(false),
         EditorView.contentAttributes.of({ tabindex: '0', 'aria-label': 'Output source' }),
         EditorView.theme({
