@@ -93,6 +93,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+    enableStop: true,
     enableCopy: true,
     enableFullscreen: true,
     enableEdit: true,

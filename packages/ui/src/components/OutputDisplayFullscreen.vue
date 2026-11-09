@@ -19,7 +19,7 @@
             :placeholder="placeholder"
             :loading="loading"
             :streaming="streaming"
-    :enable-stop="enableStop"
+            :enable-stop="enableStop"
             :compareService="compareService"
             @update:content="handleContentUpdate"
             @copy="handleCopy"
@@ -68,6 +68,7 @@ interface Props {
   placeholder?: string
 }
 const props = withDefaults(defineProps<Props>(), {
+  enableStop: true,
   content: '',
   originalContent: '',
   reasoning: '',

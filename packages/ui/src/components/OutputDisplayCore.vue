@@ -375,6 +375,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  enableStop: true,
   content: '',
   originalContent: '',
   reasoning: '',
