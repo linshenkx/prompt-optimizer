@@ -1,4 +1,5 @@
 import MarkdownIt from 'markdown-it'
+import markdownItCjkFriendly from 'markdown-it-cjk-friendly'
 import hljs from 'highlight.js/lib/common'
 import { diffWords } from 'diff'
 import type { CompareResult, ChangeType } from '@prompt-optimizer/core'
@@ -16,8 +17,10 @@ const options = {
     try { return hljs.highlight(source, { language }).value } catch { return '' }
   },
 }
-const parser = new MarkdownIt(options)
-const previewParser = new MarkdownIt({ ...options, html: true })
+// CommonMark only closes `**` before a space or punctuation, so bold text that
+// ends in CJK punctuation and runs into the next word stays literal without this.
+const parser = new MarkdownIt(options).use(markdownItCjkFriendly)
+const previewParser = new MarkdownIt({ ...options, html: true }).use(markdownItCjkFriendly)
 type PreviewEnvironment = { previews: HtmlPreviewBlock[]; lines: string[] }
 const previewSlot = (html: string, env: PreviewEnvironment) => {
   const id = env.previews.length
