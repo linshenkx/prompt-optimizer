@@ -46,6 +46,7 @@
     "fflate": "^0.8.3",
     "highlight.js": "^11.11.1",
     "markdown-it": "^14.3.3",
+    "markdown-it-cjk-friendly": "^3.0.0",
     "naive-ui": "2.44.1",
     "pinia": "^3.0.4",
     "uuid": "^13.0.2",
