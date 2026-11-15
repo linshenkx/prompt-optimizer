@@ -126,15 +126,13 @@ export class HistoryManager implements IHistoryManager {
    */
   async deleteRecord(id: string): Promise<void> {
     try {
-      const records = await this.getRecords();
-      const recordIndex = records.findIndex(r => r.id === id);
-      
-      if (recordIndex === -1) {
-        throw new RecordNotFoundError(`Record with ID ${id} not found`, id);
-      }
-      
-      records.splice(recordIndex, 1);
-      await this.saveToStorage(records);
+      await this.storage.updateData<PromptRecord[]>(this.storageKey, current => {
+        const records = current ?? [];
+        if (!records.some(r => r.id === id)) {
+          throw new RecordNotFoundError(`Record with ID ${id} not found`, id);
+        }
+        return records.filter(r => r.id !== id);
+      });
     } catch (err) {
       if (err instanceof RecordNotFoundError) {
         throw err;
@@ -366,14 +364,14 @@ export class HistoryManager implements IHistoryManager {
    * @param chainId The ID of the chain to delete
    */
   async deleteChain(chainId: string): Promise<void> {
-    const allRecords = await this.getRecords();
-    const recordsToKeep = allRecords.filter(record => record.chainId !== chainId);
-
-    if (recordsToKeep.length === allRecords.length) {
-      throw new RecordNotFoundError(`Chain with ID ${chainId} not found`, chainId);
-    }
-
-    await this.saveToStorage(recordsToKeep);
+    await this.storage.updateData<PromptRecord[]>(this.storageKey, current => {
+      const records = current ?? [];
+      const recordsToKeep = records.filter(record => record.chainId !== chainId);
+      if (recordsToKeep.length === records.length) {
+        throw new RecordNotFoundError(`Chain with ID ${chainId} not found`, chainId);
+      }
+      return recordsToKeep;
+    });
   }
 
   // 实现 IImportExportable 接口

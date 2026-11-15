@@ -201,6 +201,8 @@ interface DataStorageInfo {
   mainSizeBytes: number
   backupFilePath: string
   backupSizeBytes: number
+  legacyFilePath?: string
+  legacySizeBytes?: number
   totalBytes: number
 }
 

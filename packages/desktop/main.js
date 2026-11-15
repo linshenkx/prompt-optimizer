@@ -95,7 +95,6 @@ const {
   createContextRepo,
   FavoriteManager,
   safeSerializeForIPC,
-  FileStorageProvider,
   runStorageStartupSafetyCheck,
   writeStartupRepairReport,
   // 导入共享的环境变量扫描常量
@@ -103,6 +102,7 @@ const {
   SUFFIX_PATTERN,
   MAX_SUFFIX_LENGTH,
 } = require('@prompt-optimizer/core');
+const { openDesktopStorage, DESKTOP_DATABASE_FILENAME } = require('@prompt-optimizer/core/node');
 const { createElectronImageInputConverter } = require('./config/image-input-normalizer');
 const convertImageInputWithElectronNativeImage = createElectronImageInputConverter(nativeImage);
 
@@ -112,7 +112,7 @@ const convertImageInputWithElectronNativeImage = createElectronImageInputConvert
  *
  * 这个函数解决的是IPC序列化问题，与存储层的数据一致性问题是不同的：
  * - IPC问题：Vue响应式对象无法被Electron序列化传递
- * - 存储问题：FileStorageProvider的数据一致性和恢复机制
+ * - 存储问题：SQLite事务的数据一致性和恢复机制
  */
 const safeSerialize = safeSerializeForIPC;
 
@@ -662,12 +662,15 @@ async function initializeServices() {
       console.warn('[Main Process]   VITE_CUSTOM_API_KEY_claude=your_claude_key npm start');
     }
     
-    console.log('[DESKTOP] Creating file storage provider for desktop environment');
+    console.log('[DESKTOP] Opening SQLite storage for desktop environment');
 
     // 使用标准用户数据目录，支持自动更新
     const userDataPath = app.getPath('userData');
     console.log('[DESKTOP] Using standard user data directory for auto-update compatibility:', userDataPath);
-    storageProvider = new FileStorageProvider(userDataPath);
+    // Do not expose services until the copy, verification and migration marker commit together.
+    const openedStorage = await openDesktopStorage(userDataPath);
+    storageProvider = openedStorage.provider;
+    console.log('[DESKTOP] Storage ready:', openedStorage.migration);
     const startupRepairReport = await runStorageStartupSafetyCheck(storageProvider);
     await writeStartupRepairReport(storageProvider, startupRepairReport);
     
@@ -2257,7 +2260,8 @@ function setupIPC() {
   ipcMain.handle('data-getStorageInfo', async () => {
     try {
       const userDataPath = app.getPath('userData');
-      const mainFilePath = path.join(userDataPath, 'prompt-optimizer-data.json');
+      const mainFilePath = path.join(userDataPath, DESKTOP_DATABASE_FILENAME);
+      const legacyFilePath = path.join(userDataPath, 'prompt-optimizer-data.json');
       const backupFilePath = path.join(userDataPath, 'prompt-optimizer-data.json.backup');
 
       const statSafe = async (p) => {
@@ -2269,8 +2273,10 @@ function setupIPC() {
         }
       };
 
-      const mainSizeBytes = await statSafe(mainFilePath);
+      const mainSizeBytes = await statSafe(mainFilePath) +
+        await statSafe(`${mainFilePath}-wal`) + await statSafe(`${mainFilePath}-shm`);
       const backupSizeBytes = await statSafe(backupFilePath);
+      const legacySizeBytes = await statSafe(legacyFilePath);
 
       return createSuccessResponse({
         userDataPath,
@@ -2278,7 +2284,9 @@ function setupIPC() {
         mainSizeBytes,
         backupFilePath,
         backupSizeBytes,
-        totalBytes: mainSizeBytes + backupSizeBytes,
+        legacyFilePath,
+        legacySizeBytes,
+        totalBytes: mainSizeBytes + backupSizeBytes + legacySizeBytes,
       });
     } catch (error) {
       return createErrorResponse(error);
@@ -2475,6 +2483,18 @@ app.on('before-quit', async (event) => {
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') {
     app.quit();
+  }
+});
+
+// Also runs for updater quits and macOS quits after the last window was closed.
+let storageClosedForQuit = false;
+app.on('will-quit', (event) => {
+  if (!storageClosedForQuit && storageProvider && typeof storageProvider.close === 'function') {
+    event.preventDefault();
+    storageClosedForQuit = true;
+    storageProvider.close()
+      .catch(error => console.error('[DESKTOP] Failed to close storage:', error))
+      .finally(() => app.quit());
   }
 });
 

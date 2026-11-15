@@ -4,7 +4,7 @@ import { DexieStorageProvider } from './dexieStorageProvider';
 import { MemoryStorageProvider } from './memoryStorageProvider';
 import { StorageError } from './errors';
 
-export type StorageType = 'localStorage' | 'dexie' | 'memory' | 'file';
+export type StorageType = 'localStorage' | 'dexie' | 'memory' | 'file' | 'sqlite';
 
 /**
  * 存储工厂类
@@ -40,7 +40,11 @@ export class StorageFactory {
           'File storage must be created directly with FileStorageProvider constructor',
           'config',
         );
-        break;
+      case 'sqlite':
+        throw new StorageError(
+          'SQLite storage must be created via @prompt-optimizer/core/node with an explicit database path',
+          'config',
+        );
       default:
         throw new StorageError(`Unsupported storage type: ${type}`, 'config', {
           details: `Unsupported storage type: ${type}`,
@@ -89,6 +93,12 @@ export class StorageFactory {
     // 检查 Electron 环境支持文件存储
     if (typeof process !== 'undefined' && process.versions?.electron) {
       types.push('file');
+    }
+
+    // Node-only entry; never import the driver into this browser-safe factory.
+    if (typeof window === 'undefined' && typeof process !== 'undefined' &&
+        Number(process.versions?.node?.split('.')[0]) >= 24) {
+      types.push('sqlite');
     }
 
     return types;
