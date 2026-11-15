@@ -100,19 +100,12 @@ export class TemplateManager implements ITemplateManager {
     // Set timestamp
     template.metadata.lastModified = Date.now();
 
-    // Get current user templates
-    const userTemplates = await this.getUserTemplates();
-    
-    // Update or add the template
-    const existingIndex = userTemplates.findIndex(t => t.id === template.id);
-    if (existingIndex >= 0) {
-      userTemplates[existingIndex] = template;
-    } else {
-      userTemplates.push(template);
-    }
-    
-    // Save to storage
-    await this.persistUserTemplates(userTemplates);
+    await this.updateUserTemplates(userTemplates => {
+      const existingIndex = userTemplates.findIndex(t => t.id === template.id);
+      if (existingIndex >= 0) userTemplates[existingIndex] = template;
+      else userTemplates.push(template);
+      return userTemplates;
+    });
   }
 
   /**
@@ -128,14 +121,7 @@ export class TemplateManager implements ITemplateManager {
       throw new TemplateValidationError(`Cannot delete built-in template: ${id}`);
     }
     
-    // Get current user templates
-    const userTemplates = await this.getUserTemplates();
-    
-    // Remove the template
-    const filteredTemplates = userTemplates.filter(t => t.id !== id);
-    
-    // Save to storage
-    await this.persistUserTemplates(filteredTemplates);
+    await this.updateUserTemplates(templates => templates.filter(t => t.id !== id));
   }
 
   /**
@@ -253,6 +239,18 @@ export class TemplateManager implements ITemplateManager {
       await this.storageProvider.setItem(
         CORE_SERVICE_KEYS.USER_TEMPLATES,
         JSON.stringify(templates)
+      );
+    } catch (error) {
+      throw new TemplateStorageError(
+        `Failed to save user templates: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  private async updateUserTemplates(modifier: (templates: Template[]) => Template[]): Promise<void> {
+    try {
+      await this.storageProvider.updateData<Template[]>(CORE_SERVICE_KEYS.USER_TEMPLATES, current =>
+        modifier((current ?? []).map(template => ({ ...template, isBuiltin: false })))
       );
     } catch (error) {
       throw new TemplateStorageError(

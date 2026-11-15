@@ -16,11 +16,16 @@
       "types": "./dist/asset-reader.d.ts",
       "import": "./dist/asset-reader.js",
       "require": "./dist/asset-reader.cjs"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js",
+      "require": "./dist/node.cjs"
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts src/asset-reader.ts --format cjs,esm --dts",
-    "dev": "tsup src/index.ts src/asset-reader.ts --format cjs,esm --dts --watch",
+    "build": "tsup src/index.ts src/asset-reader.ts src/node.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts src/asset-reader.ts src/node.ts --format cjs,esm --dts --watch",
     "test": "vitest run",
     "test:asset-reader": "vitest run --config vitest.asset-reader.config.ts",
     "test:watch": "vitest",
