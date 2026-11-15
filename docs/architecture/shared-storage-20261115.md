@@ -74,8 +74,8 @@
 
 调用约定：`new SQLiteStorageProvider(databasePath, options?)` 是底层 KV 接口，可创建新库，不检查桌面迁移状态；`await openDesktopStorage(userDataPath, options?)` 返回 `{ provider, migration }`，会建目录、建 schema、必要时导入旧源。两者均有 `await provider.close()`。本轮没有提供“仅打开已有且已完成迁移的库”的无副作用 API，MCP 接入前必须补齐或通过桌面受控桥接，不能把底层构造器当成只读查询入口。
 
-第 3 步 MCP 必须使用用户明确选择的桌面 userData 和相同 `openDesktopStorage` 入口，不创建自己的默认空库；先解决上述初始化读改写及页面刷新边界，再允许并发业务写入。MCP 当前仍用独立内存，本轮未改。不得在数据库事务里运行模型请求，也不能把 SQLite 文件放在网络共享目录上。
+第 3 步 MCP 复用同一 SQLite provider、业务数据格式和用户明确选择的桌面 userData，但默认接入不能调用会创建和迁移数据的 `openDesktopStorage` bootstrap。接入前需新增“仅打开已有且已完成迁移的库”的连接入口，或使用受控桌面桥接；缺库、未迁移或状态异常时明确报错，不静默建库、建 schema、迁移或创建默认业务数据。先解决上述初始化读改写及页面刷新边界，再允许并发业务写入。MCP 当前仍用独立内存，本轮未改。不得在数据库事务里运行模型请求，也不能把 SQLite 文件放在网络共享目录上。
 
-第 4 步浏览器仍是 Dexie/IndexedDB，需要另行研究经过授权的 Chrome 数据桥接。桌面的 `PromptOptimizerImageDB` 和 `PromptOptimizerFavoriteImageDB` 也仍在 renderer IndexedDB，本次没有迁移图片。第 5 步再按工具已有的多模型测试、比较、评估能力设计 MCP；第 6 步最后考虑 Skill，不引入项目管理服务。
+第 4 步浏览器仍是 Dexie/IndexedDB，需要另行研究经过授权的 Chrome 数据桥接。桌面的 `PromptOptimizerImageDB` 和 `PromptOptimizerFavoriteImageDB` 也仍在 renderer IndexedDB，本次没有迁移图片。第 5 步已提前与第 3 步并行设计，按工具已有的多模型测试、比较、评估能力梳理 MCP；设计并行不表示共享数据接入或业务写入已经验收。第 6 步最后考虑 Skill，不引入项目管理服务。
 
 运行时依据：[Node 24 SQLite 文档](https://nodejs.org/download/release/v24.22.1/docs/api/sqlite.html)、[SQLite WAL](https://sqlite.org/wal.html)、[SQLite 事务](https://sqlite.org/lang_transaction.html)。
