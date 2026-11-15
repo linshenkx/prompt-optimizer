@@ -1,10 +1,10 @@
 # 桌面 MCP 接入计划与第一阶段证据
 
-日期：2026-11-15。任务：`PO-MCP-DESKTOP-20261115`，轮次 1。
+日期：2026-11-15。任务：`PO-MCP-DESKTOP-20261115`，轮次 1，统筹复核后的有界文档修订。
 
-基线：`82a40b91ae9a0583f27bec121da03a157aacd42f`。本工作树分支：`feature/po-mcp-desktop-contract-20261115`。交付为 [能力合同草案 v0.1](./mcp-capability-contract.md) 和隔离验证；未改生产代码，未连接真实数据或调用付费模型。统筹提供的存储 `77b8d1c63deda7faf6af7864a6fa529645cbd9e2`、说明 `b82b877e0f1c02885e35e0c2e64b09e0b1dd124f` 已审读为设计事实，未合并；应用实际主入口隔离验收与真实现场恢复仍未完成，不能写成全阶段通过。Skill 场景文档 `439d8c5c` 已作为业务输入读入。
+源码基线：`82a40b91ae9a0583f27bec121da03a157aacd42f`；本次修订基于本线提交 `f30d8a5649592e4fe624f1977b3ca78ccbd9250f`。分支：`feature/po-mcp-desktop-contract-20261115`。交付为 [能力合同草案 v0.2](./mcp-capability-contract.md) 和既有隔离验证；本次只改两份文档，不改生产/原型代码、不重复测试。存储 `77b8d1c63deda7faf6af7864a6fa529645cbd9e2`、说明 `b82b877e0f1c02885e35e0c2e64b09e0b1dd124f` 已审读为设计事实，未合并；实际主入口隔离补验在存储线第 2 轮推进，尚无本线可据以宣称全阶段通过的最终接受结果。Skill 稿 `439d8c5c` 为已接受业务输入；Chrome 稿 `044737ba` 的 owner/实际来源/页面实例/连接代次/断连要求已纳入共用合同，不采用其 fixture 样本协议。
 
-## 1. 建议接受的首版场景
+## 1. 已接受的首版设计场景（生产能力待实现）
 
 1. 打开已完成迁移的明确桌面数据源，列出真实模型配置和收藏资产。
 2. 选中一个变量模式文本收藏的 `assetId/versionId/revision`；选择两个不同、已启用的真实文本模型配置。两者有可能指向相同远端模型，预览须显示实际身份。
@@ -12,6 +12,7 @@
 4. 执行两个请求，能按已分配的 runId 取消。保留成功、失败及部分输出的真实状态和冻结证据。
 5. 人工比较两个原输出；可选地显式选择评估模型，准备并执行 generic compare，使用冻结结果和同一测试输入。不默认调用第三个模型。
 6. 显式保存完整比较：冻结输入/运行信息、所有候选状态和原输出、可选评估。通过现有页面内新增的只读入口按 comparisonId 再次查看；不改收藏正文或当前工作稿。保存/查看是首版必交，不由收藏示例替代。
+7. 在比较列表显式删除指定已保存比较，释放其载荷占用；不触及模型/收藏/其他数据，不自动淘汰。保留最小防重标识，迟到保存重试不能复活已删除比较。
 
 这是现有变量页与多模型运行能力的一条接入路径。首版无需搬走七个 UI 工作区的全部编排，也无需建立新的测试对象管理页面。
 
@@ -47,7 +48,9 @@
 
 ## 3. 与存储线的五项连接要求
 
-已审读实现事实：Node 子入口为 `@prompt-optimizer/core/node`；`SQLiteStorageProvider(databasePath, options?)` 和 `openDesktopStorage(userDataPath, options?) → {provider,migration}`；provider 有 close/flush；文件 `prompt-optimizer-data.sqlite`；`storage_metadata` 的 `legacy-json-migration` 保存 `{version:1,source,itemCount}`。openDesktopStorage 会建目录/表和迁移，provider 首次读也会执行建库/DDL；目前没有无副作用 open-existing 入口。存储报告尾部提到共用 bootstrap，但本线依据统筹澄清，**不能将 bootstrap 直接用于 MCP 只读发现**。
+已审读版本的实现事实：Node 子入口为 `@prompt-optimizer/core/node`；`SQLiteStorageProvider(databasePath, options?)` 和 `openDesktopStorage(userDataPath, options?) → {provider,migration}`；provider 有 close/flush；文件 `prompt-optimizer-data.sqlite`；`storage_metadata` 的 `legacy-json-migration` 保存 `{version:1,source,itemCount}`。openDesktopStorage 会建目录/表和迁移，provider 首次读也会执行建库/DDL；这些版本没有 open-existing 入口，后续补齐状态等待统筹接受接口。存储报告尾部提到共用 bootstrap，但本线依据统筹澄清，**不能将 bootstrap 直接用于 MCP 只读发现**。
+
+“无副作用”限定为不创建数据源/profile/业务库，不做 DDL、业务迁移或默认配置/环境变量写回。SQLite 连接必要的锁及 WAL/SHM 创建、更新时间、回收等行为要按打开模式单独说明验证；不承诺所有磁盘文件时间戳绝不变化。只读发现的验收检查业务数据/schema 与不存在来源不被创建，不用“目录内所有文件完全无变化”替代它。
 
 下表仍是消费方需要的能力，不要求存储线照抄方法名；已实现事实与缺口分别说明。
 
@@ -55,9 +58,9 @@
 | --- | --- | --- |
 | ① 数据目录定位 | 与 Electron userData/profile/便携模式一致的定位规则或受信任 descriptor；返回稳定来源身份，不把目录路径给普通模型工具 | 同机两份 profile、路径含空格、不同 cwd 均连接指定库；不碰另一份数据 |
 | ② schema/迁移完成识别 | 已有 version=1 完成标记。仍需无建库/DDL地查询兼容状态，区分 not-created/migrating/ready/unsupported；ready 与数据一致，不能只看文件存在 | 迁移中/失败/较新 schema 均拒绝接入，无创建和自动重迁移；应用业务模型格式另行校验 |
-| ③ 仅打开已有库 | 当前明确缺失。需 open-existing/no-create 语义；读操作无默认初始化/环境变量写回，无 fallback 内存配置；结构迁移只由存储线授权入口拥有 | 路径不存在或缺 models 时失败，目录/库/业务配置无创建/写回；SQLite 锁/共享内存文件的只读行为由接口明确。不能先 new 自动建库 provider 再检查 |
+| ③ 仅打开已有库 | 已审读版本缺失，待统筹交接补齐接口。需 open-existing/no-create；无默认初始化/环境变量写回或 fallback 内存配置；迁移只由存储线授权入口拥有 | 路径不存在或缺 models 时失败，不创建数据源/业务库，不做 DDL/业务迁移或默认写入；SQLite 锁/WAL/SHM 行为另验。不能先 new 自动建库 provider 再检查 |
 | ④ 连接生命周期 | Node 与打包 Electron 的运行时兼容、打开/关闭/flush/错误清理、并行连接、busy timeout；只释放自己拥有的句柄 | 桌面关闭、打开、重启和 MCP 断开均不破坏其他连接；MCP 退出取消网络并释放句柄 |
-| ⑤ 业务并发与刷新 | 已有 CAS/updateData 在 BEGIN IMMEDIATE 后读改写，回调同步；无跨进程通知。仍需确认只打开连接路径沿用这些语义、版本读取/多 key 边界 | 比较文档的追加和幂等在一个原子修改；双写不丢记录；保存完成后重读可见，UI 每次打开查看器重新读取 |
+| ⑤ 业务并发与刷新 | 已有 CAS/updateData 在 BEGIN IMMEDIATE 后读改写，回调同步；无跨进程通知。仍需确认仅打开连接沿用语义、版本读取/多 key 边界 | 比较记录、去重关联和必要索引原子可见；删除载荷与最小防重标识一致提交；双写不丢记录，重读可见；具体键布局不在本轮锁定 |
 
 已审读 `updateData` 在 BEGIN IMMEDIATE 后读取并执行 modifier，仅获取锁重试，不重放 modifier；本轮未重跑其并发测试，也不扩展该结论到所有 manager。仅有 WAL、busy 重试或单连接互斥，不能证明上层“先读后写 metadata”安全；`supportsAtomic` 也不能自动当成多 key 业务事务。
 
@@ -67,17 +70,17 @@
 
 | 批次 | 本线实现范围 | 依赖与可审查结果 |
 | --- | --- | --- |
-| A：接受接口后只读接入 | desktop 与 legacy 装配分离；无副作用的模型/收藏 reader；受信任 source descriptor、连接隔离、白名单 | 依赖存储五项确认。用临时已有库检查零写入和跨 profile 隔离；不读取真实密钥 |
+| A：接受接口后只读接入 | desktop 与 legacy 装配分离；不初始化配置的模型/收藏 reader；共用 SourceDescriptor/ExecutionHostDescriptor、owner 隔离、白名单 | 依赖存储五项确认；已有库不做 DDL/迁移/默认写入，不存在来源不被创建；锁/WAL/SHM 单独记录。Chrome 的页面/代次绑定独立于 SQLite，断连不自动切源/重放 |
 | B：一条文本执行路径 | core 纯准备器、使用现有 LLM configSnapshot 的窄执行器、实际请求参数证据、进程内状态/取消、MCP 工具映射 | 提取前后同一输入/变量行为一致；fake adapter 检查最终请求消息/参数、配置变更不污染、取消不被迟到回调覆盖 |
-| C：保存与现有 UI 查看（首版必交） | 新增 SavedComparisonV1/窄 repository/主库单 KV 文档、原子追加/幂等、MCP save/list/get、desktop 读取接口；变量页内只读 drawer，DataManager 纳入 | 两个独立连接并发保存；同 saveKey 重试一次；记录重启后可寻址；源收藏/模型变动或删除后仍可解释；真实 UI 打开对应 ID，显示失败/取消和两组快照，保留未保存编辑 |
+| C：保存、现有 UI 查看及单条删除（首版必交） | 新增 SavedComparisonV1/窄 repository、原子保存/幂等及定向删除、MCP save/list/get/delete、desktop 接口；变量页只读 drawer/列表删除，DataManager 纳入；物理布局待定 | 双连接并发保存；同 key/同执行组去重，重启后可寻址；删除只影响该比较，重试不复活；满额可删单项再存；源资产变动后仍可解释；真实 UI 显示两组快照/失败/取消且保留工作稿；丢响应先按稳定 ID 核对 |
 | D：可选 generic 模型评估 | 提取 compare 纯规范化，冻结 evaluator/template，复用 EvaluationService；随 C 保存已选择的评估 | 两个成功结果/同一输入；显式模型和模板；原 UI 门槛保留；不选评估模型也能完成 A-C；评估失败不损失测试结果 |
 | 后续能力 | 优化/迭代的明确来源、单结果/提示词评估、多消息、图片及宿主网络 | 逐项扩展同一合同；不作为 A-D 的前提 |
 
-建议生产入口增加窄的 `TextTestCapability`（prepare/execute/get/cancel）与 `ComparisonRepository`（save/list/get），不引入按模式分支的通用 RunService。新增结果协议是满足已接受场景的必要成本：复用 PromptTestRunSet、一个 KV 文档和现有页面的只读 drawer，不新建测试项目/数据集 UI、SQLite 表或后台任务。容量建议、DTO 与 UI 入口需本轮供统筹选择；没有这些新增能力只能称为底层测试打通，不能称为场景一完成。
+统筹已接受窄的 `TextTestCapability`（prepare/execute/get/cancel）、完整比较记录与现有变量页只读 drawer、DataManager 纳入，以及可选 generic 评估；本次补入仅针对比较的 delete。生产实现使用 `ComparisonRepository`（save/list/get/delete）等窄入口，不引入按模式分支的通用 RunService。复用 PromptTestRunSet 和现有结构化存储，不新建测试项目/数据集 UI 或后台服务；物理键/分片/索引布局、容量阈值及包导出名待实现时决定，不能提前锁成一个巨大 JSON 文档。没有保存/查看能力只能称为底层测试打通，不能称为场景一完成。
 
 现有服务依赖 concrete ModelManager 的地方，应收窄为所需 reader 接口或增加明确的只读装配，不能用类型强转掩盖构造副作用。生产导出名和文件布局在接到存储接口后定稿。
 
-Chrome 线消费 A-D 的业务 DTO 和错误，不自行实现模型冻结、变量替换、compare、保存。Chrome 负责发现可达来源、鉴权/权限、浏览器连接和 UI 宿主能力；Skill 线负责选择来源/版本/模型、展示预览和保存意图的工作流。本文不写入这两条线的产物。
+Chrome 线消费 A-D 的业务 DTO 和错误，不另造变量替换、compare 或保存/删除合同；按同一语义在其执行宿主复用业务能力。Chrome 负责配对/实际 origin 与权限、页面实例/代次、租约/断连和浏览器宿主；来源登记归 owner，不信任执行器自报身份。共用宿主描述支持 Node/页面/Electron，`host.network:'node'` 仅是首个桌面适配器；新取值不代表适配已完成。Skill 线组织来源/版本/模型、预览和保存意图，复用既有授权，不增加逐工具确认。候选改写/复测仍在下一步；本次不写入其他两线产物。
 
 ## 5. 隔离验证与证据范围
 
@@ -94,20 +97,24 @@ $compiler = Join-Path (pnpm root -g) 'typescript/lib/typescript.js'
 node experiments/mcp-desktop-contract/probe.mjs --typescript $compiler
 ```
 
-脚本用进程内解析/转译钩子直接加载本仓库纯函数；`probe-core-exports.mjs` 只重导出所需纯符号，避免 core 总入口加载 SDK/存储模块。没有替换变量处理或模型参数实现。最初直接用 Node strip-types 加载遇到 UI 错误类的 TypeScript 参数属性不支持，已改用上述已安装编译器转译；不是业务函数失败。脚本不导入 MCP server/main.js、不装配会写配置的 manager、不读用户数据目录、不访问网络、不落数据库。运行环境为本机 Node `v26.13.0`；项目声明 Node `^24.22.1`，本次不宣称已在该版本复验，也不是生产包构建/类型检查。
+脚本用进程内解析/转译钩子直接加载本仓库纯函数；`probe-core-exports.mjs` 只重导出所需纯符号，避免 core 总入口加载 SDK/存储模块。没有替换变量处理或模型参数实现。最初直接用 Node strip-types 加载遇到 UI 错误类的 TypeScript 参数属性不支持，已改用上述已安装编译器转译；不是业务函数失败。脚本不导入 MCP server/main.js、不装配会写配置的 manager、不读用户数据目录、不访问网络、不落数据库。原始执行环境为本机 Node `v26.13.0` + 全局 TypeScript 5.9.3；不是生产包构建/类型检查。
 
 验证内容：合成收藏经真实资产纯函数投影和明确版本选取；现有变量校验/一次替换；`resolveRuntimeTextModel/describeRuntimeModel` 的冻结与参数语义；公开字段投影不带配置凭据；`PromptTestRun → PromptExample → UI 示例` 的输入/输出/版本转换；legacy 复现字段覆盖 canonical-only 示例追加，以及同步两种表示后保留结果；现有 compare helper 拒绝“无 workspace”的资产快照。模型配置、凭据哨兵和结果全为合成 fixture。
 
-这是**协议/纯适配验证**，共 7 项通过。未验证 SQLite/真实桌面数据、SDK 实际请求参数、真实模型效果、评估模型装配、MCP 并发取消、新增比较 repository/drawer、真正原子保存、已打开页面刷新或桌面打包。本轮不运行全仓测试或打包，因为没有生产行为改动；下一阶段按 A-D 的实际改动验证。
+统筹于 2026-11-15 提供新增复核证据：审读 `f30d8a56` 后，使用存储线已准备的 **Node 24.22.1 + 已安装全局 TypeScript** 重新运行同一 probe，7/7 通过。本线据统筹报告记录该结果，没有重新执行；不据此扩展到真实业务验收。
+
+以上都是**纯函数/协议适配验证**。未验证 SQLite/真实桌面数据、SDK 实际请求参数、真实模型效果、评估装配、MCP owner/并发取消、Chrome 实际产品接入、新增比较 repository/drawer/delete、原子保存/删除、页面刷新或桌面完整入口。既有 probe 不覆盖 v0.2 新增 DTO/删除协议；本次不改原型、不重复测试、不跑构建或全仓测试。后续按 A-D 的实际实现验收。
 
 7 项检查的名称随脚本运行直接输出，全部通过；没有生成数据库、模型配置或备份。审查可由上述命令重复执行。
 
-## 6. 交回统筹的开放问题
+## 6. 接受状态与待实现项
 
-- 存储已给实现事实，但 open-existing 入口仍缺失；需统筹确定补齐责任和接受点，不能将 Electron 迁移报告代替 Node 接入验收。
-- 首版沿用已接受的确定收藏版本/同变量/两模型场景，Node 网络与仅 pro-variable 的模式范围待核对；模型评估可选。
-- 是否接受新增 SavedComparisonV1、主库单 KV 文档与现有页面只读 drawer；容量建议、导出/清空纳入以及完整快照显示成本需明确，不能以两个示例或临时输出代替完整保存查看。
-- 评估服务冻结模型/模板的窄依赖入口；不把这项遗漏成“直接调用 evaluate 即完成”。
-- 若必须复用 Electron 的代理/证书或桌面关机后也能读取图片，需要统筹另定宿主范围；不能从共享 SQLite 推出这些能力。
+| 状态 | 范围 |
+| --- | --- |
+| 已接受的首版最小设计 | pro-variable 确定收藏版本/同变量/两个已配文本模型；窄 TextTestCapability；完整比较保存、现有变量页只读 drawer、DataManager 纳入；generic 模型评估可选；保留显式 legacy 模式，desktop 只连已迁移库 |
+| 本次已落实的文档修订 | 共用来源/宿主 DTO 纳入 Chrome owner/实际来源/页面实例/连接代次/断连要求；定向单条删除与防重边界；容量/布局可调；open-existing 副作用定义；Node 24 统筹复核证据 |
+| 待实现/验收 | 存储接口最终接受与实际主入口隔离补验；reader/服务装配提取；实际参数证据；运行/取消；比较 repository 与保存/删除/去重原子性；drawer 和 DataManager；可选评估冻结入口；Chrome 产品适配 |
+| 实现时收敛 | 物理键/分片/索引和事务映射、可调容量值、最小防重标识生命周期、生产导出名；不锁死单一 JSON 大文档 |
+| 后续范围 | 候选改写/受控复测、多消息/图片、Electron 专属网络；不能从共享 SQLite 推出这些能力 |
 
-本轮完成后等待统筹发来已接受的存储接口和下一阶段范围；不轮询其他会话、不推送、不发布、不合并原 checkout。
+本轮只做上述有界文档修订，提交后由主会话统一下发接口；不启动生产重构、不重复测试、不轮询其他会话、不推送/发布/合并原 checkout。
