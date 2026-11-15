@@ -2494,7 +2494,9 @@ app.on('will-quit', (event) => {
     storageClosedForQuit = true;
     storageProvider.close()
       .catch(error => console.error('[DESKTOP] Failed to close storage:', error))
-      .finally(() => app.quit());
+      // Let Electron finish canceling will-quit before starting another quit cycle.
+      // Re-entering from the promise microtask can leave the app running without windows.
+      .finally(() => setImmediate(() => app.quit()));
   }
 });
 

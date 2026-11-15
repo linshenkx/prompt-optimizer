@@ -41,9 +41,39 @@
 - 核心类型检查及核心测试通过：142 文件、1488 测试通过，18 文件/141 测试按仓库设置跳过。桌面配置测试 56 项、桌面 IPC 检查 20 项通过。未用模拟的两个 Promise 代替进程并发。
 - UI bundle、Web 和 Electron renderer 构建通过；产物检索无 `node:sqlite`、`SQLiteStorageProvider` 或迁移状态实现。原有 FileStorage 导出的 `fs/promises` / `path` 浏览器外部化警告及体积警告仍存在。
 - `pnpm test:storage:electron`：无窗口的真实 Electron main 进程、隔离 userData、CJS package 子路径解析、首次迁移/写入/关闭通过。Windows x64 `electron-builder --dir --publish never` 通过；用开发 Electron 加载实际 `app.asar` 内的 Node 子入口、在临时目录迁移/写入/关闭通过（`node scripts/sqlite-electron-smoke.mjs packages/desktop/dist/win-unpacked/resources/app.asar`）。不启动打包 EXE。未签名，也未制作安装包或发布。
-- 上项是 Electron 主进程环境中的 **存储模块兼容检查**。`createRequire(app.asar/main.js)` 只建立模块解析位置，没有执行应用 `main.js`。它不能证明实际主入口的隔离启动、服务初始化、renderer IPC 和退出链路完整通过；误启动真实目录也不计为这些链路的有效验收。打包目录用于入口布局和模块兼容检查，不作为最终提交的发版工件。
+- 上项是第 1 轮的 **存储模块兼容检查**。`createRequire(app.asar/main.js)` 只建立模块解析位置，没有执行应用 `main.js`。它本身不能证明实际主入口的隔离启动、服务初始化、renderer IPC 和退出链路通过；误启动真实目录也不计为有效验收。第 2 轮另行执行实际入口的有界隔离检查，见下一节。打包目录用于入口布局和模块兼容检查，不作为最终提交的发版工件。
 - `pnpm test:repo` 的 99 项及 locale/runtime-language 检查通过；UI declarations 构建、core / Web / Extension 类型检查通过。
 - `.github/workflows/test.yml` 已接入进程和迁移检查，后续 CI 在 Linux 执行；本轮没有声称 Linux/macOS 或 ARM 已实际验收，也未运行图形界面完整业务回归、断电/磁盘满/真实权限失败测试。
+
+## 第 2 轮：实际 main 启动与退出的隔离检查
+
+2026-11-15，Windows x64、开发 Electron 44.9.3 / Node 24.22.0 / SQLite 3.53.4。复现入口为 `pnpm test:storage:desktop-main`（仍需先有本工作树 core 构建和依赖）；本次分别执行该命令包含的 guard 测试与实际入口脚本。脚本不接收可执行文件、用户目录或外部环境参数。只启动依赖中的开发 `electron.exe`，不启动打包 EXE。
+
+隔离在加载应用入口前建立：
+
+- 父进程先在本工作树 `.codex-run/po-desktop-main-r2-*` 下创建唯一目录、启动器及所需路径。只复制明确列出的 desktop JS、package metadata 和图标，逐项校验 SHA-256；源 `.env` 和用户数据不复制。实际 `main.js` / `preload.js` 与本工作树内容逐字一致。依赖目录仅作代码读取来源，经链接指向本工作树依赖；路径检查解析链接的真实目标，拒绝沿依赖链接写出隔离目录。
+- 子进程只传入必要 Windows 系统定位变量、受控 PATH、生产运行模式和全部指向临时目录的 HOME/USERPROFILE/APPDATA/LOCALAPPDATA/TEMP/TMP/XDG 路径，排除继承的 provider、proxy、portable、dotenv 和 Node/Electron 启动配置。Chromium user-data/cache/crash 目录也在启动参数中预先指定，覆盖 bootstrap 执行前的初始化路径。
+- bootstrap 先创建并设置、校验 `userData/sessionData/appData/home/temp/logs/crashDumps` 及其他用户目录，再安装 `getPath/setPath/setAppLogsPath`、JS 文件读写和 SQLite 打开路径检查；之后才加载实际 main、ConsoleLogger、dotenv、业务服务。目录外写入、未授权源码目录外读取和隔离目录外 `.env*` 读取会被拒绝。dotenv 只允许本轮两份空文件，bootstrap 还禁止隐式 `dotenv/config`。
+- 运行前验证了父目录逃逸、同名前缀目录、依赖链接写出、外部 `.env.local` 和实际写调用拒绝；两项独立 guard 测试通过。每次 Electron 运行又执行 5 项无副作用的拒绝检查。应用调用 `setPath` 后无法改回外部用户数据路径。
+- 窗口强制隐藏，只加载本轮合成 HTML，使用真实 preload。Node/Electron/Chromium 网络、子进程、shell 打开、更新检查/下载/安装和窗口显示均被拦截；系统代理解析只返回 DIRECT，不读取真实 PAC。每个进程 25 秒超时，有失败即保留证据并停止该轮。
+
+实际执行结果：
+
+| 检查 | 首次启动 | 同一临时目录重启 |
+| --- | --- | --- |
+| 退出状态 / 用时 | 0 / 7465ms | 0 / 7058ms |
+| 旧 JSON / 迁移状态 | 合成单键源导入，版本 1、source=json、itemCount=1 | 沿用已提交标记与新库 |
+| 真实 preload → IPC | 读取合成偏好、写新偏好、查询 SQLite 路径 | 读取上次持久化的新偏好，再写入成功 |
+| 生命周期 | flush 完成、close 完成、normal-quit | flush 完成、close 完成、normal-quit |
+| 退出后的数据库 | 父进程重新连接，quick_check=ok，写事务可获取并回滚 | 同左 |
+| 原合成源与备份 | 源逐字相同，无新增 `.backup` | 同左 |
+| 运行期 guard 违规 / 请求计数（不含预检） | 0 / 0 | 0 / 0 |
+
+该检查发现并修正了第 1 轮新增退出钩子的真实问题：在 `will-quit` 的 Promise microtask 中立即再次 `app.quit()`，连接虽已关闭但应用未进入最终退出，两次诊断运行均在 25 秒终止。现在将重入安排到 `setImmediate`，随后上述两阶段均正常结束。这是本轮唯一生产代码修正，不扩展业务能力。通过检查的实际 main SHA-256：`97591c01bad02bebf7cd6c69b8b1319a30b23b9e67601b0e662c2fbc5769eafd`。
+
+证据保留在本工作树 `.codex-run/po-desktop-main-r2-BXy8Tm/`：`manifest.json`（入口及复制代码哈希）、`first-report.json` / `restart-report.json`（顺序、路径、关闭和 guard 记录）、各阶段 stdout/stderr、`summary.json`。诊断证据 `.codex-run/po-desktop-main-r2-PRuWVM/first-progress.json` 显示修正前停在 close 完成、没有 normal-quit。脚本和日志仅使用合成载荷；本轮没有再访问、启动或清理此前真实目录。
+
+范围仍有限：执行的是字节一致的实际源码入口及真实初始化/日志/存储/退出代码，运行环境为开发 Electron（`app.isPackaged=false`），用隐藏合成页面覆盖三个真实 IPC。没有验收完整产品 UI、其他 IPC、模型调用、图片 IndexedDB 业务、安装器、打包 EXE 的 packaged/portable 分支、更新安装退出、macOS/Linux 或系统关机。测试对路径和网络的约束是经审查入口的测试边界，不是通用操作系统沙箱。现场恢复状态继续按下一节独立记录；这些结果不单独宣布第 1/2 步整体验收完成。
 
 ## 验收误启动及尚待清理
 

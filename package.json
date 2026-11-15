@@ -30,6 +30,7 @@
     "test:unit": "pnpm -r test --run --passWithNoTests",
     "test:storage": "pnpm build:core && node --test scripts/sqlite-storage.test.mjs scripts/sqlite-migration.test.mjs",
     "test:storage:electron": "node scripts/sqlite-electron-smoke.mjs",
+    "test:storage:desktop-main": "node --test scripts/desktop-main-isolation.test.mjs && node scripts/desktop-main-isolated.mjs",
     "test:repo": "node --test scripts/run-many.test.mjs scripts/check-locale-parity.test.mjs scripts/check-no-chinese-runtime.test.mjs scripts/package-scripts.test.mjs scripts/release-channel.test.mjs scripts/release-notes.test.mjs scripts/desktop-ipc-handlers.test.mjs scripts/middleware-auth.test.mjs scripts/workspace-select-config.test.mjs scripts/docker-pwa.test.mjs && pnpm check:locale && pnpm check:no-chinese-runtime",
     "check:locale": "node scripts/check-locale-parity.mjs",
     "check:no-chinese-runtime": "node scripts/check-no-chinese-runtime.mjs",
