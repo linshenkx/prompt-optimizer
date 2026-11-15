@@ -140,6 +140,19 @@ test('cross-process batch visibility and SQL failure rollback', async t => {
   assert.equal(await b.call('get', { key: 'after-failure' }), 'ok');
 });
 
+test('complete provider KV snapshots never mix commits from an independent writer', async t => {
+  const { file, provider } = await fixture(t);
+  await provider.batchUpdate([{ key: 'left', operation: 'set', value: '0' }, { key: 'right', operation: 'set', value: '0' }]);
+  const [a, b] = await Promise.all([worker(t, file), worker(t, file)]);
+  const observing = waitEvent(b.child, 'observing');
+  const observation = b.call('observe-provider-snapshots', { ms: 500 });
+  await observing;
+  const [, snapshots] = await Promise.all([a.call('batch-loop', { count: 250 }), observation]);
+  assert.ok(snapshots.samples > 0 && snapshots.generations > 1, 'Snapshot reads must overlap the actual writes');
+  assert.deepEqual(await provider.getAllEntries(), [['left', '250'], ['right', '250']]);
+  t.diagnostic(`Consistent complete KV snapshots: ${JSON.stringify(snapshots)}`);
+});
+
 test('writer contention is bounded, WAL reads proceed, and killed writer rolls back', async t => {
   const { file, provider } = await fixture(t);
   const a = await worker(t, file);
