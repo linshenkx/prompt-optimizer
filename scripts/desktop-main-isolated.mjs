@@ -40,7 +40,7 @@ for (const relative of copied) {
   hashes[relative] = createHash('sha256').update(await readFile(to)).digest('hex');
   assert.equal(hashes[relative], createHash('sha256').update(await readFile(from)).digest('hex'));
 }
-for (const helper of ['desktop-main-bootstrap.cjs', 'desktop-main-isolation.cjs']) {
+for (const helper of ['desktop-main-bootstrap.cjs', 'desktop-main-isolation.cjs', 'desktop-main-business.cjs']) {
   await copyFile(join(sourceRoot, 'scripts/helpers', helper), join(launcher, helper));
 }
 await writeFile(join(launcher, 'package.json'), JSON.stringify({ name: 'po-storage-main-r2-fixture', version: '2.15.2', main: 'desktop-main-bootstrap.cjs' }));
@@ -91,6 +91,7 @@ for (const phase of ['first', 'restart']) {
   const report = JSON.parse(await readFile(join(root, `${phase}-report.json`), 'utf8'));
   assert.equal(report.ok, true);
   assert.equal(report.closeCompleted, true);
+  assert.equal(report.business.ok, true);
   assert.equal(report.migration.source, 'json');
   assert.equal(report.migration.itemCount, 1);
   assert.equal(await readFile(legacy, 'utf8'), legacyBytes);
@@ -103,7 +104,7 @@ for (const phase of ['first', 'restart']) {
     db.exec('BEGIN IMMEDIATE');
     db.exec('ROLLBACK');
   } finally { db.close(); }
-  phases.push({ phase, code: result.code, durationMs: Date.now() - started, mainSha256: report.mainSha256, closeCompleted: report.closeCompleted, ipcVerified: report.ipcVerified, requests: report.requests, runtime: report.runtime });
+  phases.push({ phase, code: result.code, durationMs: Date.now() - started, mainSha256: report.mainSha256, closeCompleted: report.closeCompleted, ipcVerified: report.ipcVerified, business: report.business, requests: report.requests, runtime: report.runtime });
 }
-await writeFile(join(root, 'summary.json'), JSON.stringify({ ok: true, phases, scope: 'Unmodified actual desktop main + real preload IPC, hidden synthetic renderer; no product UI/model/update acceptance' }, null, 2));
+await writeFile(join(root, 'summary.json'), JSON.stringify({ ok: true, phases, scope: 'Unmodified actual desktop main + real preload business IPC, hidden synthetic renderer; no complete product UI/model/update acceptance' }, null, 2));
 console.log(JSON.stringify({ ok: true, evidence: root, phases }, null, 2));
