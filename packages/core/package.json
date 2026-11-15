@@ -11,11 +11,16 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./asset-reader": {
+      "types": "./dist/asset-reader.d.ts",
+      "import": "./dist/asset-reader.js",
+      "require": "./dist/asset-reader.cjs"
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts",
-    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "build": "tsup src/index.ts src/asset-reader.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts src/asset-reader.ts --format cjs,esm --dts --watch",
     "test": "vitest run",
     "test:asset-reader": "vitest run --config vitest.asset-reader.config.ts",
     "test:watch": "vitest",

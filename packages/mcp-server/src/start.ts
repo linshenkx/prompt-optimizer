@@ -8,4 +8,8 @@
 import { main } from './index.js';
 
 // 启动服务器
-main().catch(console.error);
+main().catch(() => {
+  // Paths, argv and provider exceptions must not escape into CLI diagnostics.
+  process.stderr.write('MCP startup failed (INVALID_CONFIGURATION_OR_SOURCE).\n');
+  process.exitCode = 1;
+});
