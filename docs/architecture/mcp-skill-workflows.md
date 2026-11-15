@@ -37,6 +37,23 @@
 
 输出是一组可重新查看的真实产品比较结果：相同输入、两个模型的实际执行记录、可选评估和有证据的解释。保存比较记录不等于把某个模型设成默认模型，也不隐含更新收藏。
 
+### 场景一与已接受合同 v0.2 的接续
+
+依据为提交 `34898b04d07cb2abf656f13117cf22d5802f7d99` 中的 `docs/architecture/mcp-capability-contract.md`。以下收敛前文的首版语义：**合同设计已接受，实际 MCP 工具注册及生产能力尚未实现；表中名称仅为合同语义操作，不是可用工具调用。** 正式 `SKILL.md` 继续等待真实可发现接口及对应产品能力落地，不根据本文编造调用。
+
+| 场景一步骤 | 合同语义操作 | 接续边界 |
+| --- | --- | --- |
+| 1. 选择来源、收藏版本和两模型 | `sources.list`、`sources.open`、`assets.list`、`assets.getVersion`、`models.list` | 首版限定 `pro-variable` 文本资产具体版本及两个已保存、启用的模型配置，不接受动态版本别名或请求级改参。每步绑定有效 `connectionId` 和同一来源；读取按既有授权选择访问级别，保存／删除需要 `save` 权限 |
+| 2. 公平准备与预览 | `tests.prepare` | 同时验证资产／模型 revision、变量与两候选，冻结一次编译后的消息及配置，返回 `preparedId`、`previewRevision`、稳定 `comparisonId/runId`。客户端声明参数与实际请求参数证据分开；未公开参数只列遗漏情况，不输出凭据，也不把未知默认值当作已生效值 |
+| 3. 执行、查询和取消 | `tests.execute`、`runs.get`、`runs.cancel` | 执行前重验来源 epoch 和实体 revision，过期需重新准备；开始后的 UI 编辑不改变本轮。查询／取消限原连接，保留逐组终态及 partial 输出；同准备态不重复计费执行，断连不自动重放 |
+| 4. 可选模型评估 | `evaluations.prepareCompare`、`evaluations.execute` | 仅同来源、同准备组的两个成功快照可评估；明确选择评估模型，冻结证据、模型及模板。首版为一次 generic compare；无评估仍可人工比较，`patchPlan` 只作建议 |
+| 5. 保存完整比较并查看 | `comparisons.save`、`comparisons.list`、`comparisons.get` | 两组及所选评估全部终止后保存整组，成功／失败／取消与 partial 原样保留；可选评估先于不可变记录保存。稳定 ID／saveKey 去重；`viewTarget` 是语义定位对象，尚无可用深链接。产品变量页“已保存比较”只读 drawer 按 ID 重新读取（`reload-required`），实际渲染该记录才算查看通过，不替换工作稿或切换收藏版本 |
+| 6. 人工判断、按需管理结果与结束连接 | `comparisons.get`；仅显式删除时使用 `comparisons.delete`；结束时 `sources.close` | 判断限定于已保存证据。删除只针对指定比较并校验 `expectedRevision`，不改收藏、模型、工作区或其他比较；保留最小删除／去重标识，迟到保存不能复活。关闭连接释放其执行和准备资源，不关闭产品页面或共享服务 |
+
+来源／页面边界按合同区分 `sourceEpoch`、`pageInstanceId` 与 `connectionGeneration`：Chrome 绑定选定页面及代次，同 origin 多页不能按最近活动页替换执行者；失联后旧句柄失效，不自动切源。重连使用新连接，历史来源证据不授予访问权；保存应答丢失时，明确选回同一数据源后先按 `comparisonId` 核对，不能据此重发模型请求。
+
+合同已解决前文的两个接入缺口：比较评估使用 core generic 的 `custom` 快照并保留外层资产版本引用，`target.workspacePrompt` 仅承载选中原文，不创建工作稿、不伪造 workspace 来源；完整比较使用新增窄记录及只读查看入口，不向当前 session／Arena 写入，也不以收藏示例替代。记录纳入现有 DataManager；首次读取空列表不初始化业务数据。与场景一及已确认首版范围无设计冲突，候选写入和四位置复测继续留到下一步。
+
 ## 3. 场景二：依据比较结果调整提示词，再做受控复测
 
 **用户目标**：“刚才的结果可能把‘计划完成’写成‘已经完成’，针对这个问题改一版，再用同样的两个模型和输入比较。”
