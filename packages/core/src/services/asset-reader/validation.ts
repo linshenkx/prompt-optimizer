@@ -109,7 +109,6 @@ export function parseFavorites(value: unknown): Array<{ raw: Record<string, unkn
   noUnversionedEnvelope(value)
   requireData(Array.isArray(value))
   const ids = new Set<string>()
-  const assetIds = new Set<string>()
   return value.map(raw => {
     requireData(record(raw))
     noUnversionedEnvelope(raw)
@@ -123,9 +122,10 @@ export function parseFavorites(value: unknown): Array<{ raw: Record<string, unkn
     if (record(raw.metadata) && Object.prototype.hasOwnProperty.call(raw.metadata, 'promptAsset')) validateAsset(raw.metadata.promptAsset)
     const asset = promptAssetFromFavorite(raw as unknown as FavoritePrompt)
     validateAsset(asset)
-    requireData(isPromptModeKey(asset.contract.modeKey) && !assetIds.has(asset.id))
+    // Saving existing metadata as a new favorite can preserve its asset ID.
+    // Selection is scoped by favoriteId, so asset IDs need not be global here.
+    requireData(isPromptModeKey(asset.contract.modeKey))
     ids.add(raw.id)
-    assetIds.add(asset.id)
     return { raw, favoriteId: raw.id, asset }
   }).sort((a, b) => a.favoriteId < b.favoriteId ? -1 : a.favoriteId > b.favoriteId ? 1 : 0)
 }

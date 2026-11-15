@@ -188,3 +188,13 @@ core 和 MCP 的 ESM/CJS/DTS 构建、MCP 类型检查通过。专用 Vitest 配
 所有子进程环境均显式裁剪并替换用户目录和凭据为合成值；未加载真实 env/profile、用户数据、桌面主程序或 HTTP 服务。对现有 fixture 的**全部 storage_kv、storage_metadata、sqlite_schema 和 user_version**读取前后逐项相等；缺目录前后均不存在；公开响应和 stderr 不含合成凭据、私有 URL 或 profile 路径。此证据不承诺 WAL/SHM 文件及时间戳绝不变化，也不等于真实业务/桌面 UI 验收。
 
 待接续仍包括：执行宿主与实际参数证据、运行/取消、比较 repository 的保存/删除/去重、drawer 和 DataManager、可选评估、Chrome 产品接入，以及持久来源身份和替换检测。该工作树只做本地提交，不推送、合并、发布或接入真实数据。
+
+### 第 4 轮兼容补修：跨收藏共享 assetId
+
+统筹最终审查确认，现有 `FavoriteManager.addFavorite` 会生成新 favoriteId 并保留传入 metadata；`attachPromptAssetMetadata → refreshPromptAssetFromFavorite` 对合法嵌入资产保留 embeddedAsset.id。因此新增接口可形成不同 favoriteId 共享 assetId 的数据。尚未证实标准 UI 点击路径必然触发；普通 import 另有全局唯一校验，此处不改动其语义。
+
+只读 reader 移除跨收藏 assetId 全局唯一的额外限制，避免拒绝既有写入接口可形成的数据。继续校验 favoriteId 唯一、单个资产内 versionId 唯一及结构/版本合法。选择仍以 favoriteId+assetId+versionId 精确匹配；revision 包含 favoriteId 作用域，不能跨收藏复用。没有修改 FavoriteManager、UI、导入、迁移或存储写入实现。
+
+回归加入两个不同 favoriteId、相同 assetId 和相同当前 versionId、不同内容/版本的数据：两项均能列出、分页和精确读取；交叉 expectedRevision 拒绝，不能取另一收藏的独有历史；单个资产内重复 versionId 仍拒绝。真实 stdio/SQLite 合成 fixture 也加入同一 profile 内共享 assetId 的两份收藏，并核对独立历史版本、跨收藏 revision 拒绝及全量 KV/schema 不变。补修仅复核 reader、类型/构建及受影响 MCP 读路径，不重跑存储 29 项或桌面业务全套。
+
+补修验收使用 Node 24.22.1：reader **16/16**；core 与 MCP 类型检查通过，二者 ESM/CJS/DTS 构建通过；`node --test --test-name-pattern='built MCP stdio' packages/mcp-server/tests/desktop-stdio.acceptance.mjs` 受影响真实协议路径 **1/1**。其余 R4 路由/协议测试沿用前述已通过的结果，本次没有重复运行或扩张验收结论。

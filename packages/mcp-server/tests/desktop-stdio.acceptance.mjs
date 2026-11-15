@@ -32,7 +32,7 @@ function isolated(t) {
   });
   return { root, env, cleanups };
 }
-function createProfile(root, name, label, { migrated = true, empty = false, migrationVersion = 1 } = {}) {
+function createProfile(root, name, label, { migrated = true, empty = false, migrationVersion = 1, sharedAssetFavorites = false } = {}) {
   const path = join(root, name); mkdirSync(path);
   const model = { id: 'stored-id', name: label, enabled: true, providerId: 'openai-compatible', modelId: 'stored-model',
     providerMeta: { id: 'openai-compatible', requiresApiKey: true },
@@ -46,11 +46,22 @@ function createProfile(root, name, label, { migrated = true, empty = false, migr
       versions: [{ id: 'version-a', version: 4, createdAt: 1, content: { kind: 'text', text: `${label} historical` } },
         { id: 'version-b', version: 7, createdAt: 2, content: { kind: 'text', text: `${label} current` } }],
     } } };
+  const favorites = empty ? [] : [favorite];
+  if (sharedAssetFavorites && !empty) {
+    const copy = structuredClone(favorite);
+    copy.id = 'favorite-shared-copy'; copy.title = `${label} copy`; copy.content = `${label} copy current`;
+    copy.metadata.promptAsset.title = copy.title;
+    for (const version of copy.metadata.promptAsset.versions) {
+      version.version += 10;
+      version.content.text = `${label} copy ${version.id === 'version-a' ? 'historical' : 'current'}`;
+    }
+    favorites.push(copy);
+  }
   const db = new DatabaseSync(join(path, dbName));
   try {
     db.exec('PRAGMA journal_mode=WAL');
     db.exec('CREATE TABLE storage_kv (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT; CREATE TABLE storage_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT;');
-    for (const [key, value] of Object.entries({ models: empty ? {} : { saved: model, second: { ...model, name: `${label} second` } }, favorites: empty ? [] : [favorite], untouched: { private: secret } })) {
+    for (const [key, value] of Object.entries({ models: empty ? {} : { saved: model, second: { ...model, name: `${label} second` } }, favorites, untouched: { private: secret } })) {
       db.prepare('INSERT INTO storage_kv VALUES (?, ?)').run(key, JSON.stringify(value));
     }
     if (migrated) db.prepare('INSERT INTO storage_metadata VALUES (?, ?)').run('legacy-json-migration', JSON.stringify({ version: migrationVersion, source: 'json', itemCount: 3 }));
@@ -91,7 +102,7 @@ function noPrivateOutput(text, paths) {
 
 test('built MCP stdio discovers and reads actual SQLite profiles without mutation or disclosure', { timeout: 20000 }, async t => {
   const context = isolated(t);
-  const a = createProfile(context.root, 'profile a 中文', 'Profile A');
+  const a = createProfile(context.root, 'profile a 中文', 'Profile A', { sharedAssetFavorites: true });
   const b = createProfile(context.root, 'profile b', 'Profile B');
   const missing = join(context.root, 'missing', 'profile');
   const notMigrated = createProfile(context.root, 'unmigrated', 'Unmigrated', { migrated: false });
@@ -124,11 +135,17 @@ test('built MCP stdio discovers and reads actual SQLite profiles without mutatio
   failure(await mcp.call('po_models_list', { connectionId: second.connectionId, cursor: modelsA.nextCursor }), 'INVALID_CURSOR');
   assert.deepEqual(data(await mcp.call('po_models_list', { connectionId: emptyConnection.connectionId })).items, []);
   assert.deepEqual(data(await mcp.call('po_assets_list', { connectionId: emptyConnection.connectionId })).items, []);
-  const summary = data(await mcp.call('po_assets_list', { connectionId: first.connectionId })).items[0];
+  const assets = data(await mcp.call('po_assets_list', { connectionId: first.connectionId })).items;
+  assert.deepEqual(assets.map(item => [item.favoriteId, item.assetId]), [['favorite-shared', 'asset-shared'], ['favorite-shared-copy', 'asset-shared']]);
+  const summary = assets[0], copy = assets[1];
   const selection = { favoriteId: summary.favoriteId, assetId: summary.assetId, versionId: 'version-a', expectedRevision: summary.revision };
   const history = data(await mcp.call('po_assets_get_version', { connectionId: first.connectionId, ...selection }));
   assert.equal(history.content.text, 'Profile A historical'); assert.equal(history.version, 4);
   assert.deepEqual(history.variables, [{ name: 'topic', required: true }]);
+  const copySelection = { ...selection, favoriteId: copy.favoriteId, expectedRevision: copy.revision };
+  const copiedHistory = data(await mcp.call('po_assets_get_version', { connectionId: first.connectionId, ...copySelection }));
+  assert.equal(copiedHistory.content.text, 'Profile A copy historical'); assert.equal(copiedHistory.version, 14);
+  failure(await mcp.call('po_assets_get_version', { connectionId: first.connectionId, ...copySelection, expectedRevision: summary.revision }), 'REVISION_CONFLICT');
   failure(await mcp.call('po_assets_get_version', { connectionId: second.connectionId, ...selection }), 'REVISION_CONFLICT');
   failure(await mcp.call('po_assets_get_version', { connectionId: first.connectionId, ...selection, versionId: 'does-not-exist' }), 'ASSET_VERSION_NOT_FOUND');
   data(await mcp.call('po_sources_close', { connectionId: first.connectionId }));

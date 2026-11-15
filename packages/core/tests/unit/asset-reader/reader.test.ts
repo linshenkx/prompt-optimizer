@@ -138,6 +138,35 @@ describe('source-bound readonly asset discovery', () => {
     await rejectsSafely(f.reader.getAssetVersion({ favoriteId: 'fav-a', assetId: 'wrong-asset', versionId: 'version-a' }), 'ASSET_VERSION_NOT_FOUND')
   })
 
+  it('allows shared embedded asset IDs across favorites while selecting exact versions and revisions', async () => {
+    const savedFavorite = (id: string, text: string, version: number) => ({ ...favorite(id), metadata: { promptAsset: {
+      schemaVersion: 'prompt-model/v1', id: 'shared-asset', title: id, tags: ['shared'],
+      contract: createPromptContract('pro-variable'), currentVersionId: 'shared-version', createdAt: 1, updatedAt: 2, examples: [],
+      versions: [{ id: 'shared-version', version, createdAt: 1, content: { kind: 'text', text } },
+        { id: `${id}-history`, version: version + 1, createdAt: 2, content: { kind: 'text', text: `${text} history` } }],
+    } } })
+    const a = savedFavorite('fav-a', 'First saved text', 4)
+    const b = savedFavorite('fav-b', 'Second saved text', 7)
+    const f = fixture({ favorites: [a, b] })
+    const before = f.data.get('favorites')
+    const items = (await f.reader.listAssets()).items
+    expect(items.map(item => [item.favoriteId, item.assetId])).toEqual([['fav-a', 'shared-asset'], ['fav-b', 'shared-asset']])
+    expect(items[0].revision).not.toBe(items[1].revision)
+    const select = (index: number) => ({ favoriteId: items[index].favoriteId, assetId: items[index].assetId,
+      versionId: items[index].currentVersionId, expectedRevision: items[index].revision })
+    expect(await f.reader.getAssetVersion(select(0))).toMatchObject({ version: 4, content: { text: 'First saved text' } })
+    expect(await f.reader.getAssetVersion(select(1))).toMatchObject({ version: 7, content: { text: 'Second saved text' } })
+    await rejectsSafely(f.reader.getAssetVersion({ ...select(0), expectedRevision: items[1].revision }), 'REVISION_CONFLICT')
+    await rejectsSafely(f.reader.getAssetVersion({ ...select(1), expectedRevision: items[0].revision }), 'REVISION_CONFLICT')
+    await rejectsSafely(f.reader.getAssetVersion({ ...select(0), versionId: 'fav-b-history' }), 'ASSET_VERSION_NOT_FOUND')
+    const firstPage = await f.reader.listAssets({ limit: 1 })
+    expect((await f.reader.listAssets({ limit: 1, cursor: firstPage.nextCursor })).items[0].favoriteId).toBe('fav-b')
+    expect(f.data.get('favorites')).toBe(before); expect(f.writes).toEqual([])
+    const duplicateVersion = structuredClone(a)
+    duplicateVersion.metadata.promptAsset.versions[1].id = 'shared-version'
+    await rejectsSafely(fixture({ favorites: [duplicateVersion] }).reader.listAssets(), 'SOURCE_DATA_INVALID')
+  })
+
   it('binds records, revisions and cursors to the selected profile and reader lifetime', async () => {
     const a = fixture({ models: { a: model('Profile A'), b: model('Second') }, favorites: [favorite()] }, 'profile-a')
     const b = fixture({ models: { a: model('Profile B'), b: model('Second') }, favorites: [favorite('fav-a', 'Profile B prompt')] }, 'profile-b')
@@ -207,7 +236,7 @@ describe('source-bound readonly asset discovery', () => {
     expect(f.writes).toEqual([])
   })
 
-  it('rejects malformed models, duplicate assets and broken embedded versions instead of partial/default discovery', async () => {
+  it('rejects malformed models, duplicate favorite IDs and broken embedded versions instead of partial/default discovery', async () => {
     const raw = model()
     await rejectsSafely(fixture({ models: { good: raw, bad: { name: secret } } }).reader.listModels(), 'SOURCE_DATA_INVALID')
     await rejectsSafely(fixture({ favorites: [favorite(), favorite()] }).reader.listAssets(), 'SOURCE_DATA_INVALID')

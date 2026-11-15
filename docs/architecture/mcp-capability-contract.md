@@ -52,6 +52,8 @@ interface ExecutionHostDescriptor {
 
 第 4 轮只读实现是该合同的受限子集：`sources.open` 返回 `schemaVersion:'prompt-model/v1'`（读取层支持的资产业务合同），迁移状态单独由 `source.storageVersion` 表达；capabilities 仅 read=true、execute/save=false。当前身份只在 MCP 进程/打开租约内有效，identity 明示 sourceEpoch='open-lease'、stableAcrossRestart=false、inPlaceReplacementDetection=false。尚未实现持久库身份或原位文件替换检测，不把临时 sourceEpoch 当成完整来源身份，不写元数据补齐这些能力。
 
+读取层允许不同 favoriteId 共享合法嵌入 assetId：现有 addFavorite 可保留传入资产 ID 并生成新收藏 ID，读取不能额外要求跨收藏 assetId 全局唯一。favoriteId 仍须唯一，单个资产内 versionId 仍须唯一；精确选择使用 favoriteId+assetId+versionId，revision 也绑定对应收藏。此兼容不修改新增、导入或 UI 语义，也不引入迁移/写入。
+
 桌面首个适配器为 `kind:'desktop'` 来源、Node 宿主和 `network:'node'`；它不是共用快照的唯一宿主/网络取值。Chrome 的 Web/PWA 和扩展分别登记其来源，不能把 IndexedDB 与桌面库当成同一份数据；Chrome 接入独立于 SQLite。桌面目录由受信任的本地启动配置和定位器绑定，不接受工具中的任意路径；多 profile 显式选取。网页不能可靠取得 Chrome profile 路径/统一 ID，不伪造此身份。
 
 每个业务请求携带 `connectionId`；路由层从它解析 owner、实际来源、页面实例和连接代次，并分配 requestId/有界 deadline。它们不由执行器返回值或工具自报字段覆盖。结果必须匹配原请求和原代次；模型 key 也在该来源内解析。HTTP 多客户端不共享无归属来源池；stdio 的 owner 随其连接生命周期结束。同 origin 多页可共享存储但内存状态独立，不能按最近活动页替换执行者；普通/隐身上下文分别登记。
