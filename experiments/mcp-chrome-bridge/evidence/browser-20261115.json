@@ -4,6 +4,18 @@
   "date": "2026-11-15",
   "baseline": "82a40b91ae9a0583f27bec121da03a157aacd42f",
   "scope": "Isolated Chrome DevTools context po-mcp-chrome-20261115-r1; disposable raw IndexedDB fixture, not product Dexie, not user data, no model calls",
+  "coordinatorProtocolSupplement": {
+    "date": "2026-11-15",
+    "reportedBy": "coordinating chat 01a1dcfd-1be7-7403-9988-3e0acefa4481",
+    "nodeVersion": "24.22.1",
+    "command": "node --test experiments/mcp-chrome-bridge/bridge.test.mjs",
+    "tests": 7,
+    "passed": 7,
+    "failed": 0,
+    "durationSecondsApprox": 0.88,
+    "status": "统筹已补测协议测试通过",
+    "scope": "Coordinator-reported protocol test only; no additional browser or product validation. Recorded here without rerunning tests, reopening fixture pages or starting services."
+  },
   "browser": {
     "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
     "origin": "http://127.0.0.1:8251",

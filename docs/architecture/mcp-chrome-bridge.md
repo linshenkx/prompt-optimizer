@@ -133,11 +133,12 @@ WebMCP 官方仍描述为 proposed standard，当前文档给出 Chrome origin t
 
 ## 8. 已完成验证与证据
 
-命令与操作见 [原型 README](../../experiments/mcp-chrome-bridge/README.md)。机器 Node `v26.13.0`，与仓库声明的 `^24.22.1` 不同；原型只用 Node 内置模块，但 Node 24 仍待验证。
+命令与操作见 [原型 README](../../experiments/mcp-chrome-bridge/README.md)。本会话使用机器 Node `v26.13.0` 完成协议测试与隔离浏览器验证。统筹随后使用仓库声明版本 Node `24.22.1` 补测同一协议测试，7/7 通过，耗时约 0.88 秒；这是统筹报告的补测结果，没有新增浏览器或真实产品验证。
 
 | 验证 | 结果 | 证明边界 |
 | --- | --- | --- |
 | `node --test experiments/mcp-chrome-bridge/bridge.test.mjs` | 7/7 通过 | 精确路由、origin/Host/认证、配对、取消、迟到结果、deadline/断连/关闭、租约和上限；是 Node HTTP 级测试。 |
+| 同一命令，Node `24.22.1`（统筹补测） | 7/7 通过，约 0.88 秒 | 统筹已补测协议测试通过；不增加浏览器权限、产品 Dexie 或真实 MCP 集成的证明范围。 |
 | Chrome DevTools 隔离上下文，UA `Chrome/157.0.0.0` | 通过 | 两个 loopback origin；A origin 两页、B origin 一页；同名实验 IDB 中分别读到样本 A/B，调用可选中 A 的第二页。 |
 | 缺少明确来源、取消执行 | 通过 | UI 拒绝无目标；取消到达 B 执行器并中止等待。 |
 | 关闭 A 第二页，再请求旧句柄 | 通过 | 剩余两来源正常，旧句柄返回 `source_not_connected`，不转到 A 第一页。 |
@@ -148,7 +149,7 @@ WebMCP 官方仍描述为 proposed standard，当前文档给出 Chrome origin t
 ## 9. 仍需真实验证的内容
 
 1. 统筹接受的业务合同与真实 MCP stdio/HTTP 生命周期整合，尤其当前内存服务初始化依赖的解耦和 HTTP owner 隔离。
-2. HTTPS 产品来源 → 回环的权限允许/拒绝/撤销、CSP、企业策略；目标 Chrome 版本、最低兼容版本和 Node 24。不能用本地 origin 实测代替。
+2. HTTPS 产品来源 → 回环的权限允许/拒绝/撤销、CSP、企业策略；目标 Chrome 版本、最低兼容版本。Node `24.22.1` 已有统筹协议补测，真实 MCP/产品整合仍需对应验收；不能用本地 origin 实测代替浏览器权限验证。
 3. 独立测试配置中的真实产品 Dexie 模型/收藏读取、密钥投影、空数据/初始化失败，以及产品服务并发更新的可见性。
 4. 打包扩展页的 host 权限、实际 Origin 请求头、隐身与普通上下文区分；未验证前不宣称扩展连接已可用。
 5. 页面冻结、后台节流、休眠恢复和 PWA 关闭；租约时长需要真实使用校准。pagehide 成功不保证所有崩溃路径。
