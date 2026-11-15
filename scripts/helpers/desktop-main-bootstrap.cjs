@@ -7,6 +7,7 @@ const { createHash } = require('node:crypto');
 const Module = require('node:module');
 const electron = require('electron');
 const { createBoundary, installFilesystemGuards } = require('./desktop-main-isolation.cjs');
+const exerciseDesktopBusiness = require('./desktop-main-business.cjs');
 
 const [root, phase] = process.argv.slice(2);
 assert.ok(['first', 'restart'].includes(phase));
@@ -149,6 +150,8 @@ const HiddenWindow = new Proxy(electron.BrowserWindow, {
         assert.equal(result.persisted, phase === 'first' ? null : 'persisted-through-real-ipc');
         assert.equal(result.info.userDataPath, paths.userData);
         assert.equal(result.info.mainFilePath, path.join(paths.userData, 'prompt-optimizer-data.sqlite'));
+        audit.business = await window.webContents.executeJavaScript(`(${exerciseDesktopBusiness.toString()})(${JSON.stringify(phase)})`);
+        assert.equal(audit.business.ok, true);
         audit.ipcVerified = true;
         record('real-preload-ipc-verified');
         app.quit(); // Actual main before-quit/window-close/will-quit handlers run normally.
