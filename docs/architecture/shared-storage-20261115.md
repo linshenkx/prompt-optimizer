@@ -1,6 +1,6 @@
 # PO-SHARED-STORAGE-20261115
 
-本工作树实施第 1、2 步：SQLite provider、独立进程并发验证、桌面启动自动迁移。基线为远端 `develop` 的 `71f5151148e037dbb790fd6a8a4ff106ca75f52e`，分支 `feature/shared-storage-20261115`。不推送、合并或发布，未调用付费模型。打包验收曾误启动真实应用，影响与纠正见下方记录。
+本工作树实施第 1、2 步：SQLite provider、独立进程并发验证、桌面启动自动迁移，并在第 3 轮补充既有库只读入口与当前 KV 快照导出。基线为远端 `develop` 的 `71f5151148e037dbb790fd6a8a4ff106ca75f52e`，分支 `feature/shared-storage-20261115`。不推送、合并或发布，未调用付费模型。打包验收曾误启动真实应用，影响与纠正见下方记录。
 
 ## 接入与事务
 
@@ -22,8 +22,9 @@
 | 存在但无有效旧源，或读权限/I/O 错误 | 拒绝迁移，保持源不变，不创建成功标记 |
 | 有版本 1 的有效完成标记 | SQLite 权威；不再读取旧源，旧源变坏或被修改也不覆盖新库 |
 | 无标记但业务表非空、未知标记版本、新库损坏 | 停止启动，要求明确处理，不合并、不覆盖、不自动退回 JSON |
+| 现存库缺表、结构不兼容、未知 user_version、非 WAL 或零字节文件 | 拒绝启动，不补空表、不修复、不重导旧 JSON；零字节文件仅有界等待并发冷启动写入头部 |
 
-加载本地旧源、插入、逐项读取比对（包括键总数）、写完成标记、提交在同一事务。进程中断在提交前会回滚，重启重新导入；提交后重启直接复用新库。`clearAll` 只清业务表，保留标记，防止旧数据复活。
+加载本地旧源、插入、逐项读取比对（包括键总数）、写完成标记、提交在同一事务。进程中断在迁移事务提交前会回滚，重启重新导入；提交后重启直接复用新库。初始 schema 事务完整回滚、schema_version/user_version 均为 0 且没有 schema 对象时也可重试；已提交过 DDL 后将全部表删除不属于初始状态。遗留零字节文件无法区分创建中断与截断损坏，等待后仍为空则停止，不能声称所有初始化中断均可自动恢复。`clearAll` 只清业务表，保留标记，防止旧数据复活。
 
 保留源就是恢复入口，不额外创建配置或数据备份，也不删除旧文件。迁移失败时源仍可由旧版本读取，修正阻塞条件后可重试；本版会停止启动，不在失败后继续写一套分叉的 JSON。迁移成功后旧文件是历史快照，回退旧版本不会看到新写入，不能把旧文件当作当前库备份。迁移时必须关闭仍在写旧 JSON 的旧版进程；不支持新旧版本混用同一目录。
 
@@ -75,7 +76,33 @@
 
 范围仍有限：执行的是字节一致的实际源码入口及真实初始化/日志/存储/退出代码，运行环境为开发 Electron（`app.isPackaged=false`），用隐藏合成页面覆盖三个真实 IPC。没有验收完整产品 UI、其他 IPC、模型调用、图片 IndexedDB 业务、安装器、打包 EXE 的 packaged/portable 分支、更新安装退出、macOS/Linux 或系统关机。测试对路径和网络的约束是经审查入口的测试边界，不是通用操作系统沙箱。现场恢复状态继续按下一节独立记录；这些结果不单独宣布第 1/2 步整体验收完成。
 
-## 验收误启动及尚待清理
+## 第 3 轮：既有库只读入口、快照与启动结构校验
+
+新增 API 均在 Node 专用入口 `@prompt-optimizer/core/node`，没有加入浏览器通用入口：
+
+| API | 行为 |
+| --- | --- |
+| `SQLiteStorageProvider.openExistingReadOnly(absoluteDatabasePath, options?)` | 返回 `{ provider, migration }`；要求显式绝对路径及已存在、已完成迁移的兼容数据库 |
+| `openExistingDesktopStorage(absoluteUserDataPath, options?)` | 固定打开该目录的 `prompt-optimizer-data.sqlite`，复用上述原生只读连接 |
+| `provider.getAllEntries()` | 一条 `SELECT key,value … ORDER BY key` 返回完整业务 KV；不是先列键再逐项读取 |
+| `exportDesktopStorageAsLegacyJSON(absoluteUserDataPath, options?)` | 只读打开既有库、取一份当前已提交的完整 KV 快照，返回旧格式外层 JSON 字符串并关闭连接 |
+
+既有只读入口不创建目录、数据库、表、迁移标记或默认业务数据，也不读旧 JSON。缺库、未迁移、非法/未来标记、schema 或完整性异常均失败；不提供可写 existing-only 模式。`readOnly=true`、capabilities 的 atomic/batch=false；set/remove/clear/CAS/update/batch/initialize/flush 全部在执行回调前拒绝，native `readOnly` 也独立阻止直接 SQL 写入。`getItem/getAllKeys/getAllEntries/close` 可用，close 幂等。只读不代表文件系统完全无副作用：SQLite 的 WAL/SHM 访问及锁定仍可能涉及操作系统记账，不能承诺文件字节、时间戳或辅助文件完全不变。
+
+结构校验要求两张 main STRICT 行表的 key/value 列、类型、主键、NOT NULL、默认值及 hidden 标志与本版一致，WAL、user_version=0、quick_check=ok；完成标记严格检查 version/source/itemCount，计数是迁移时数量，不与清空后的当前行数混淆。可写 desktop bootstrap 原先先 `CREATE TABLE IF NOT EXISTS`、后读完成标记，确有缺失业务表被补为空表后沿用旧标记的缺口。本轮改为在任何 DDL 和 journal_mode 变更前检查既有结构，取得写锁后再次检查；只为未初始化 schema 建表。已有库缺表、表变为 view、列不兼容、未知版本或全部表被删均拒绝，不作修复。
+
+导出包含迁移后的新增/修改及未知业务键，排除内部 metadata；空键、空值、`__proto__` 和字符串内 NUL/中文均按不透明字符串保留。函数不写导出文件、不新增备份、不输出载荷，也未接入 MCP 工具。原 JSON 仍是历史快照，不能称为当前备份；即使拿到新的字符串，也没有因此承诺所有旧版业务、图片 IndexedDB 或降级流程都无损兼容。独立业务恢复与 DataManager 验证由主任务负责，不纳入本轮这两份测试的结论。
+
+最终构建在缺表修复后执行 core TypeScript noEmit 检查及 index/node 的 ESM、CJS、声明构建，全部通过。当前 dist 对应本次提交的生产源码；其后仅修改文档/测试，没有再次改变生产代码。最终证据（均在本工作树 `.codex-run`，合成数据及最小环境，所有用户/TEMP 路径指向各自临时目录）：
+
+- Windows x64 Node **24.22.1**：`po-storage-r3-final-VwBv6W/node-tests.tap`，`sqlite-storage.test.mjs` + `sqlite-migration.test.mjs` 共 **29 项通过、0 失败，14257ms**。两个进程递增合计 500；跨进程批次 SQL 快照 41689 次/247 个代数，provider 完整 KV 快照 18917 次/230 个代数均一致；锁超时 264ms 后恢复，原有 CAS/批量失败回滚/杀进程/manager 并发检查仍通过。
+- Windows x64 开发 Electron **44.9.3**、内嵌 Node **24.22.0** / SQLite **3.53.4**：`po-storage-r3-final-electron-4bKPUw/electron-tests.tap`，`ELECTRON_RUN_AS_NODE` 下迁移/既有库测试共 **23 项通过、0 失败，4218ms**。未启动窗口或打包 EXE。
+- 两种运行时都覆盖：只读全部写入口和原生写 SQL 拒绝、共享桌面已提交新值、当前全量导出、缺库不建目录/库/表、迁移状态异常、8 类结构故障下只读入口及可写 bootstrap 均拒绝且 schema/KV/metadata/旧源保持、已删全部表拒绝、初始 DDL 回滚可重试、清空不复活旧 JSON。
+- `EACCES/EIO` 在合成源文件的读取边界注入；即使有有效旧备份，也不读取备份、不生成成功标记，原两份源不变，解除注入后可重试。不是实际 Windows ACL 或物理磁盘故障测试。
+
+本轮未访问或清理真实用户目录，保留主库/WAL/SHM 的现场约束不变。未新增完整 UI/打包主入口验收，也没有声称 Linux/macOS/ARM、跨用户权限、磁盘满、文件被外部替换/截断或运行期间 schema 被外部修改已验证。
+
+## 验收误启动与现场文件保留
 
 2026-11-15 12:26（北京时间），首次打包验收错误地将 `PromptOptimizer.exe` 当作 Electron 解释器传入脚本。打包应用忽略该脚本参数，启动了自身 main，在已有 `%APPDATA%\@prompt-optimizer\desktop` 上执行了迁移。该次启动已终止；没有打印业务数据或密钥，但违反了本轮不访问真实数据目录的要求。
 
@@ -90,9 +117,9 @@
 
 可确认 `Preferences` 修改时间变为 12:26:24.9633976，`Code Cache`、`Session Storage` 等部分缓存目录元数据在本次启动期间更新，并新建了部分 GPU/着色器缓存。未审计具体偏好字段、图片 IndexedDB 记录或所有缓存文件的内容差异，因此不能确认每一项业务影响，也不能声称整个目录恢复到了启动前。既有偏好、缓存和图片库均未被清理或回写。
 
-用户已明确授权仅删除上述三份本次新建 SQLite 文件。自动审批在授权后仍拒绝清理，只返回 `blocked by policy`，所以三份文件目前仍在，需用户手动移除（先确保该测试程序已关闭）。原 JSON、原备份及所有既有目录不可删除；本轮没有绕过审批换工具执行删除。
+事故发生后，用户曾授权仅删除上述三份新建 SQLite 文件。自动审批在授权后仍拒绝清理，只返回 `blocked by policy`，本会话没有执行删除或换工具绕过审批。**后续统筹已收回手动删除建议；最新约束是 SQLite 主文件、WAL、SHM 全部保留，在完成内容核对前不移除任何一份。**原 JSON、原备份及所有既有目录同样保留。本轮不读取、打开、复制或修改真实目录来重新核对现场。
 
-待清理文件的实际路径：
+按最新约束需保留的三份文件路径：
 
 - `C:\Users\15588\AppData\Roaming\@prompt-optimizer\desktop\prompt-optimizer-data.sqlite`
 - `C:\Users\15588\AppData\Roaming\@prompt-optimizer\desktop\prompt-optimizer-data.sqlite-wal`
@@ -102,9 +129,9 @@
 
 ## 下一阶段约束
 
-调用约定：`new SQLiteStorageProvider(databasePath, options?)` 是底层 KV 接口，可创建新库，不检查桌面迁移状态；`await openDesktopStorage(userDataPath, options?)` 返回 `{ provider, migration }`，会建目录、建 schema、必要时导入旧源。两者均有 `await provider.close()`。本轮没有提供“仅打开已有且已完成迁移的库”的无副作用 API，MCP 接入前必须补齐或通过桌面受控桥接，不能把底层构造器当成只读查询入口。
+调用约定：`new SQLiteStorageProvider(databasePath, options?)` 是底层可写 KV 接口，可创建新库，不检查桌面迁移状态；`await openDesktopStorage(userDataPath, options?)` 返回 `{ provider, migration }`，会建目录、建 schema、必要时导入旧源。第 3 轮新增的 `openExistingDesktopStorage(absoluteUserDataPath, options?)` 也返回 `{ provider, migration }`，但固定使用原生只读连接，只接受已存在、已迁移且结构兼容的库。连接均通过 `await provider.close()` 关闭；不能把底层构造器当作 existing-only 入口。
 
-第 3 步 MCP 复用同一 SQLite provider、业务数据格式和用户明确选择的桌面 userData，但默认接入不能调用会创建和迁移数据的 `openDesktopStorage` bootstrap。接入前需新增“仅打开已有且已完成迁移的库”的连接入口，或使用受控桌面桥接；缺库、未迁移或状态异常时明确报错，不静默建库、建 schema、迁移或创建默认业务数据。先解决上述初始化读改写及页面刷新边界，再允许并发业务写入。MCP 当前仍用独立内存，本轮未改。不得在数据库事务里运行模型请求，也不能把 SQLite 文件放在网络共享目录上。
+第 3 步 MCP 复用同一 SQLite provider、业务数据格式和用户明确选择的桌面 userData，但默认接入不能调用会创建和迁移数据的 `openDesktopStorage` bootstrap。默认只读访问可使用第 3 轮新增的 existing-only 入口，或使用受控桌面桥接；缺库、未迁移或状态异常时明确报错，不静默建库、建 schema、迁移或创建默认业务数据。existing-only 本轮不提供可写模式，MCP 写入仍需受控桥接或另行验证的可写连接方案；还须解决上述初始化读改写及页面刷新边界。MCP 当前仍用独立内存，本轮未改。不得在数据库事务里运行模型请求，也不能把 SQLite 文件放在网络共享目录上。
 
 第 4 步浏览器仍是 Dexie/IndexedDB，需要另行研究经过授权的 Chrome 数据桥接。桌面的 `PromptOptimizerImageDB` 和 `PromptOptimizerFavoriteImageDB` 也仍在 renderer IndexedDB，本次没有迁移图片。第 5 步已提前与第 3 步并行设计，按工具已有的多模型测试、比较、评估能力梳理 MCP；设计并行不表示共享数据接入或业务写入已经验收。第 6 步最后考虑 Skill，不引入项目管理服务。
 

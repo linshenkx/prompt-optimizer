@@ -1,11 +1,38 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { StorageError } from './errors';
 import { SQLiteStorageProvider } from './sqliteStorageProvider';
-import type { LegacyStorageSnapshot, SQLiteStorageOptions, StorageMigrationResult } from './sqliteStorageProvider';
+import type { ExistingSQLiteStorage, LegacyStorageSnapshot, SQLiteStorageOptions, StorageMigrationResult } from './sqliteStorageProvider';
 
 export const DESKTOP_DATABASE_FILENAME = 'prompt-optimizer-data.sqlite';
 export const LEGACY_STORAGE_FILENAME = 'prompt-optimizer-data.json';
+
+/**
+ * Read-only access to an explicitly selected, existing and migrated desktop database.
+ * Never bootstraps or reads legacy JSON. WAL/SHM bookkeeping can still have OS side effects.
+ */
+export function openExistingDesktopStorage(
+  userDataPath: string,
+  options?: SQLiteStorageOptions,
+): Promise<ExistingSQLiteStorage> {
+  if (typeof userDataPath !== 'string' || !isAbsolute(userDataPath)) {
+    return Promise.reject(new StorageError('Existing desktop storage requires an absolute user data directory', 'config'));
+  }
+  return SQLiteStorageProvider.openExistingReadOnly(join(userDataPath, DESKTOP_DATABASE_FILENAME), options);
+}
+
+/** Explicit in-memory export of CURRENT committed KV, not the retained historical JSON source. */
+export async function exportDesktopStorageAsLegacyJSON(
+  userDataPath: string,
+  options?: SQLiteStorageOptions,
+): Promise<string> {
+  const { provider } = await openExistingDesktopStorage(userDataPath, options);
+  try {
+    return JSON.stringify(Object.fromEntries(await provider.getAllEntries()));
+  } finally {
+    await provider.close();
+  }
+}
 
 /** Read the legacy format without instantiating FileStorageProvider (which writes backups). */
 function loadLegacy(userDataPath: string): LegacyStorageSnapshot {

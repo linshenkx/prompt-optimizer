@@ -53,6 +53,19 @@ process.on('message', async ({ id, command, ...args }) => {
         } finally { db.close(); }
         break;
       }
+      case 'observe-provider-snapshots': {
+        const end = Date.now() + args.ms;
+        const generations = new Set();
+        let samples = 0;
+        while (Date.now() < end) {
+          const entries = new Map(await provider.getAllEntries());
+          if (!entries.has('left') || entries.get('left') !== entries.get('right')) throw new Error('Mixed KV snapshot');
+          generations.add(entries.get('left'));
+          if (samples++ === 0) send({ event: 'observing' });
+        }
+        result = { samples, generations: generations.size };
+        break;
+      }
       case 'batch-fail':
         await provider.batchUpdate([
           { operation: 'set', key: 'left', value: 'partial' },
