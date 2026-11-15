@@ -363,7 +363,7 @@
                                     :enableEdit="false"
                                     :enableDiff="false"
                                     :enableFavorite="false"
-                                    reasoningMode="hide"
+                                    reasoningMode="auto"
                                     mode="readonly"
                                     :style="{ height: '100%', minHeight: '0' }"
                                 >

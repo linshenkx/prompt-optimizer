@@ -3,7 +3,7 @@
     <template v-if="suspended" />
     <template v-else-if="sourceMode || streaming">
       <NText v-if="!streaming" depth="3" class="output-source-notice">{{ t('common.outputSourceFallback') }}</NText>
-      <OutputSourceView :content="content" :fit-content="disableInternalScroll" />
+      <OutputSourceView :content="content" :fit-content="disableInternalScroll" :wrap-lines="wrapLines" />
     </template>
     <HtmlPreview v-else-if="expandedPreview" :html="expandedPreview" />
     <NScrollbar v-else-if="!disableInternalScroll" style="height:100%; max-height:100%" :bordered="false">
@@ -33,6 +33,7 @@ const props = defineProps({
   htmlPreviews: { type: Boolean, default: false },
   suspended: { type: Boolean, default: false },
   expandPreview: { type: Boolean, default: false },
+  wrapLines: { type: Boolean, default: false },
 });
 const { t } = useI18n();
 const markdownContainer = ref(null);
