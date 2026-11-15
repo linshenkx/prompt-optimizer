@@ -1,8 +1,8 @@
 # 桌面 MCP 接入计划与第一阶段证据
 
-日期：2026-11-15。任务：`PO-MCP-DESKTOP-20261115`，轮次 1，统筹复核后的有界文档修订。
+日期：2026-11-15。任务：`PO-MCP-DESKTOP-20261115`，第 3 轮：批次 A 的 provider 无关只读访问层。
 
-源码基线：`82a40b91ae9a0583f27bec121da03a157aacd42f`；本次修订基于本线提交 `f30d8a5649592e4fe624f1977b3ca78ccbd9250f`。分支：`feature/po-mcp-desktop-contract-20261115`。交付为 [能力合同草案 v0.2](./mcp-capability-contract.md) 和既有隔离验证；本次只改两份文档，不改生产/原型代码、不重复测试。存储 `77b8d1c63deda7faf6af7864a6fa529645cbd9e2`、说明 `b82b877e0f1c02885e35e0c2e64b09e0b1dd124f` 已审读为设计事实，未合并；实际主入口隔离补验在存储线第 2 轮推进，尚无本线可据以宣称全阶段通过的最终接受结果。Skill 稿 `439d8c5c` 为已接受业务输入；Chrome 稿 `044737ba` 的 owner/实际来源/页面实例/连接代次/断连要求已纳入共用合同，不采用其 fixture 样本协议。
+源码初始基线：`82a40b91ae9a0583f27bec121da03a157aacd42f`；本轮实施基于 `34898b04d07cb2abf656f13117cf22d5802f7d99`。分支：`feature/po-mcp-desktop-contract-20261115`。第 1 轮合同、复核修订及原型证据仍保留，下文第 7 节记录新增 reader 与测试。存储线正在 `b3c00c9` 上实现严格 open-existing，尚未给本线最终接线接口；本轮不复制 SQLite 实现、不 cherry-pick 在途提交、不触碰任何真实目录或现存 SQLite/WAL/SHM。Skill 稿 `439d8c5c` 与 Chrome 稿 `044737ba` 仍作为已接受业务/来源要求。
 
 ## 1. 已接受的首版设计场景（生产能力待实现）
 
@@ -90,7 +90,7 @@ Chrome 线消费 A-D 的业务 DTO 和错误，不另造变量替换、compare �
 node experiments/mcp-desktop-contract/probe.mjs
 ```
 
-正常安装仓库依赖后，上述命令使用 core 的 TypeScript 编译器。此独立工作树没有 node_modules；本机验证复用已安装的全局 TypeScript 5.9.3，未安装或复制其他工作树依赖：
+正常安装仓库依赖后，上述命令使用 core 的 TypeScript 编译器。第 1 轮时本工作树尚无 node_modules，当时复用已安装的全局 TypeScript 5.9.3，未安装或复制其他工作树依赖：
 
 ```powershell
 $compiler = Join-Path (pnpm root -g) 'typescript/lib/typescript.js'
@@ -117,4 +117,32 @@ node experiments/mcp-desktop-contract/probe.mjs --typescript $compiler
 | 实现时收敛 | 物理键/分片/索引和事务映射、可调容量值、最小防重标识生命周期、生产导出名；不锁死单一 JSON 大文档 |
 | 后续范围 | 候选改写/受控复测、多消息/图片、Electron 专属网络；不能从共享 SQLite 推出这些能力 |
 
-本轮只做上述有界文档修订，提交后由主会话统一下发接口；不启动生产重构、不重复测试、不轮询其他会话、不推送/发布/合并原 checkout。
+以上是前一轮文档修订的接受状态。第 3 轮新增实现见下节；未列为实现完成的能力仍待接续，不推送/发布/合并原 checkout。
+
+## 7. 第 3 轮：真实存储格式的只读访问层
+
+新增 `packages/core/src/services/asset-reader/`，由 core 总入口导出。`createReadonlyAssetReader` 只接收 `Pick<IStorageProvider,'getItem'>` 及已绑定的 sourceId/sourceEpoch，不打开 provider，不读目录/环境，不承担 owner 授权或 schema/迁移就绪判断。调用方必须先完成这些连接边界；同一连接复用同一个 reader，关闭/代次失效后释放，不能每次工具调用新建 reader 又要求旧 revision 继续有效。本轮没有接 SQLite/MCP singleton。
+
+| 实现入口 | 行为 |
+| --- | --- |
+| listModels | 读取真实 models 文档；复用已有模型格式识别和 getTextModelConfigIdentity；白名单描述实际配置 map key/身份/能力，不返回 connectionConfig、headers、参数或任意 metadata；未接执行宿主故 executable=false |
+| listAssets | 读取真实 favorites 文档，经 promptAssetFromFavorite 纯投影；分页/模式/标题标签筛选，不输出正文、示例、默认变量值或 URL |
+| getAssetVersion | 在一次 favorites 读取内精确匹配 favoriteId/assetId/versionId；支持文本内容与变量声明白名单，可校验 expectedRevision；不替换为当前/上一版，不返回非文本或任意版本 metadata |
+| revision/分页 | 每个 reader 临时 HMAC 密钥签发，绑定来源、实体、规范化真实原记录；相同快照稳定，记录或凭据变化失效，新 reader 令牌不同；游标绑定集合与筛选条件，不发布裸凭据哈希 |
+| 错误 | 缺 key 与显式空集合不同；损坏/未知 schema/重复 ID/坏版本明确拒绝，整个列表失败而非悄悄遗漏项；错误不带原异常 cause、原文/配置/私有路径，不写日志 |
+
+兼容边界：旧收藏沿用已有纯投影 current 语义，未补写嵌入资产或新增历史。旧模型保留真实 provider/defaultModel 身份并标记 MODEL_REQUIRES_MIGRATION，不调用可能将未知 provider 回退成 OpenAI 的转换路径。元数据与显式模型身份不一致时不借用旧模型能力，标记 MODEL_METADATA_MISMATCH；本轮没有私有模型执行配置出口。后续执行须另设不可误序列化的私有读取边界，不能将公开列表还原成执行配置。
+
+测试入口为 `packages/core/vitest.asset-reader.config.ts`：envDir=false、setupFiles=[]，绕开会读取 .env 的默认配置与 setup。只在本工作树执行过滤安装，使用 frozen lockfile、ignore-scripts，未复制其他工作树依赖、创建备份或加载真实 env/profile。安装只产生本工作树忽略的 node_modules，锁文件未变。
+
+```powershell
+pnpm --config.engine-strict=false -F @prompt-optimizer/core test:asset-reader
+pnpm --config.engine-strict=false -F @prompt-optimizer/core typecheck
+pnpm --config.engine-strict=false -F @prompt-optimizer/core build
+```
+
+定向 15 项测试通过：只读陷阱 provider/零写入、导入 manager/defaults/environment/SDK registry 即失败的守卫、合成环境哨兵不回填、缺失/损坏/未知格式拒绝、配置身份/白名单、真实历史版本选取、旧收藏纯投影、profile/游标/revision 隔离、同时间戳内容变化、调用方修改返回值不污染后续读取、错误不带秘密或原 cause。原始记录均为合成 fixture，未做真实用户数据/模型验证。
+
+本轮机器 Node 为 v26.13.0，项目声明 ^24.22.1，故命令仅对该本地验证显式关闭 engine 拒绝，未改变 engines/依赖版本。第 5 节 Node 24 的 7 项 probe 复核不能当作本轮新 reader 的 Node 24 验收；后续由统筹在目标运行时复核。core 类型检查通过；CJS/ESM 构建及 DTS 声明生成通过，声明中包含新 reader/公开 DTO 导出。未运行默认 env 加载测试入口、全仓测试或 UI/Electron 构建。
+
+交回后等待统筹审查代码/测试并下发通过的 open-existing 接口；批次 A 的具体 desktop 装配、连接生命周期与真实 MCP 验收仍未完成。UI、比较 repository、存储实现和生产模型调用均不在本轮修改范围。

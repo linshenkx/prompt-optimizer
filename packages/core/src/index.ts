@@ -302,3 +302,6 @@ export * from './services/variable-value-generation/errors'
 export { VariableValueGenerationService, createVariableValueGenerationService } from './services/variable-value-generation/service'
 export * from './services/llm/local-discovery'
 export * from './services/llm/local-service-models'
+
+// Source-bound discovery only: no manager initialization or private model export.
+export * from './services/asset-reader'
