@@ -6,7 +6,7 @@
 
 - 使用运行时内置 `node:sqlite`，无新增数据库服务、第三方原生驱动或安装依赖。仓库 Node 要求 `^24.22.1`，锁定 Electron `44.9.3`；实际 Windows x64 Electron 内嵌 Node `24.22.0`、SQLite `3.53.4`。终端默认 Node 26，验证另用隔离下载的 Node `24.22.1`，未切换全机版本。
 - Node 专用入口 `@prompt-optimizer/core/node` 导出 `SQLiteStorageProvider`、`openDesktopStorage` 和文件名常量。通用入口不引用 SQLite；工厂识别 `sqlite` 类型但要求从专用入口显式创建，避免缓存错误的数据路径。构建必须保留 `node:` 前缀，tsup 默认会删除它。
-- 业务仍为字符串 KV，表 `storage_kv(key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT`；不改变模型、模板、历史等 JSON 内容。迁移状态在独立 `storage_metadata` 表，不占业务键。
+- 业务仍为字符串 KV，表 `storage_kv(key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT`；不改变模型、模板、历史等 JSON 内容。迁移状态在独立 `storage_metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT` 表，不占业务键；标记键为 `legacy-json-migration`，值为 JSON `{version:1,source:'json'|'backup'|'empty',itemCount:n}`。
 - WAL、`synchronous=FULL`；`set/remove/clear/updateData/CAS/batch` 使用短写事务。先 `BEGIN IMMEDIATE` 再读数据。默认一次 native 锁等待 50ms，最多重试 12 次、间隔 25ms，仅重试获取事务，不重放已执行的业务回调。实际墙钟等待受运行时调度影响，不是实时保证。
 - `updateData` 回调必须同步、无网络或其他 I/O。解析失败、不可序列化、回调异常或 SQL 异常均不提交；业务异常透传。批量中任何操作失败则整体回滚。失败后连接可继续使用；若回滚本身失败则禁用连接。`close()` 幂等、等待已排队操作，拒绝新增请求；`flush()` 无整文件写入或强制 checkpoint。
 
@@ -41,6 +41,7 @@
 - 核心类型检查及核心测试通过：142 文件、1488 测试通过，18 文件/141 测试按仓库设置跳过。桌面配置测试 56 项、桌面 IPC 检查 20 项通过。未用模拟的两个 Promise 代替进程并发。
 - UI bundle、Web 和 Electron renderer 构建通过；产物检索无 `node:sqlite`、`SQLiteStorageProvider` 或迁移状态实现。原有 FileStorage 导出的 `fs/promises` / `path` 浏览器外部化警告及体积警告仍存在。
 - `pnpm test:storage:electron`：无窗口的真实 Electron main 进程、隔离 userData、CJS package 子路径解析、首次迁移/写入/关闭通过。Windows x64 `electron-builder --dir --publish never` 通过；用开发 Electron 加载实际 `app.asar` 内的 Node 子入口、在临时目录迁移/写入/关闭通过（`node scripts/sqlite-electron-smoke.mjs packages/desktop/dist/win-unpacked/resources/app.asar`）。不启动打包 EXE。未签名，也未制作安装包或发布。
+- 上项是 Electron 主进程环境中的 **存储模块兼容检查**。`createRequire(app.asar/main.js)` 只建立模块解析位置，没有执行应用 `main.js`。它不能证明实际主入口的隔离启动、服务初始化、renderer IPC 和退出链路完整通过；误启动真实目录也不计为这些链路的有效验收。打包目录用于入口布局和模块兼容检查，不作为最终提交的发版工件。
 - `pnpm test:repo` 的 99 项及 locale/runtime-language 检查通过；UI declarations 构建、core / Web / Extension 类型检查通过。
 - `.github/workflows/test.yml` 已接入进程和迁移检查，后续 CI 在 Linux 执行；本轮没有声称 Linux/macOS 或 ARM 已实际验收，也未运行图形界面完整业务回归、断电/磁盘满/真实权限失败测试。
 
@@ -48,11 +49,26 @@
 
 2026-11-15 12:26（北京时间），首次打包验收错误地将 `PromptOptimizer.exe` 当作 Electron 解释器传入脚本。打包应用忽略该脚本参数，启动了自身 main，在已有 `%APPDATA%\@prompt-optimizer\desktop` 上执行了迁移。该次启动已终止；没有打印业务数据或密钥，但违反了本轮不访问真实数据目录的要求。
 
-元数据检查显示原 `prompt-optimizer-data.json` 及 `.json.backup` 的长度仍为 865717 字节，最后修改时间分别仍是 2026-10-22 11:47:26、11:46:56。本次新建的 `prompt-optimizer-data.sqlite`、`-wal`、`-shm` 创建时间集中在 12:26:14。应用还更新了 `Preferences` 和部分缓存；这些既有文件没有被清理或回写，不能声称整个目录恢复到了启动前。
+本次元数据检查记录（北京时间，未读取或打印业务载荷）：
+
+| 文件 | 长度 | 最后修改时间 |
+| --- | --- | --- |
+| `prompt-optimizer-data.json` | 865717 字节 | 2026-10-22 11:47:26.4608683 |
+| `prompt-optimizer-data.json.backup` | 865717 字节 | 2026-10-22 11:46:56.4646799 |
+
+源文件修改时间早于误启动，迁移实现也只读旧源；没有启动前内容哈希，不能将元数据记录描述成前后逐字比对。本次新建 SQLite 主文件的创建时间为 12:26:14.7943294，WAL/SHM 为 12:26:14.8186549。
+
+可确认 `Preferences` 修改时间变为 12:26:24.9633976，`Code Cache`、`Session Storage` 等部分缓存目录元数据在本次启动期间更新，并新建了部分 GPU/着色器缓存。未审计具体偏好字段、图片 IndexedDB 记录或所有缓存文件的内容差异，因此不能确认每一项业务影响，也不能声称整个目录恢复到了启动前。既有偏好、缓存和图片库均未被清理或回写。
 
 用户已明确授权仅删除上述三份本次新建 SQLite 文件。自动审批在授权后仍拒绝清理，只返回 `blocked by policy`，所以三份文件目前仍在，需用户手动移除（先确保该测试程序已关闭）。原 JSON、原备份及所有既有目录不可删除；本轮没有绕过审批换工具执行删除。
 
-测试已改为只允许已安装的开发 Electron 解释器；可选参数只能是 `.asar` 文件，EXE 参数在启动进程前即拒绝。helper 还断言 userData 位于本轮命名的临时目录内，再设置和校验 Electron userData。后续打包模块检查采用此隔离路径并已通过。
+待清理文件的实际路径：
+
+- `C:\Users\15588\AppData\Roaming\@prompt-optimizer\desktop\prompt-optimizer-data.sqlite`
+- `C:\Users\15588\AppData\Roaming\@prompt-optimizer\desktop\prompt-optimizer-data.sqlite-wal`
+- `C:\Users\15588\AppData\Roaming\@prompt-optimizer\desktop\prompt-optimizer-data.sqlite-shm`
+
+测试已改为只允许已安装的开发 Electron 解释器；可选参数只能是 `.asar` 文件，EXE 参数在启动进程前即拒绝。对应回归检查覆盖单个 EXE 参数与 EXE + ASAR 两种误用，均已通过。helper 先断言目录属于本轮临时目录，再设置 `app.setPath('userData', directory)` / `sessionData` 并核对 userData；之后才在 `whenReady` 回调里加载存储模块、读取测试源并调用 `openDesktopStorage`，所以应用存储初始化在隔离路径设置后发生。后续打包模块检查采用此路径并已通过。脚本及验证入口分别为 `scripts/sqlite-electron-smoke.mjs`、`scripts/helpers/sqlite-electron-smoke.cjs` 和 `scripts/sqlite-migration.test.mjs`，无需为文档收尾重跑已通过检查。
 
 ## 下一阶段约束
 
