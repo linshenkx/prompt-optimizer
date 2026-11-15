@@ -67,15 +67,26 @@ export function createDesktopReadonlyServer(profiles: DesktopProfile[], opener?:
 export async function startDesktopReadonlyStdio(profiles: DesktopProfile[], opener?: DesktopReadonlyOpener) {
   const { server, router } = createDesktopReadonlyServer(profiles, opener);
   let closing: Promise<void> | undefined;
+  let reportedShutdownFailure = false;
   const close = () => {
     closing ??= (async () => {
       process.stdin.off('end', onEnd); process.stdin.off('close', onEnd);
       process.off('SIGINT', onEnd); process.off('SIGTERM', onEnd);
-      try { await router.dispose(); } finally { await server.close(); }
+      try { await router.dispose(); } finally {
+        try { await server.close(); } finally {
+          // This process owns stdio. Removing SDK listeners alone leaves a live
+          // pipe on signal shutdown, so release stdin after closing its leases.
+          process.stdin.pause(); process.stdin.destroy();
+        }
+      }
     })();
     return closing;
   };
-  const onEnd = () => { void close().catch(() => { process.stderr.write('Desktop readonly shutdown failed (SOURCE_CLOSE_FAILED).\n'); process.exitCode = 1; }); };
+  const onEnd = () => { void close().catch(() => {
+    if (!reportedShutdownFailure) process.stderr.write('Desktop readonly shutdown failed (SOURCE_CLOSE_FAILED).\n');
+    reportedShutdownFailure = true; process.exitCode = 1;
+  }); };
+  server.onclose = onEnd;
   process.stdin.once('end', onEnd); process.stdin.once('close', onEnd);
   process.once('SIGINT', onEnd); process.once('SIGTERM', onEnd);
   try { await server.connect(new StdioServerTransport()); }

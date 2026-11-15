@@ -11,11 +11,22 @@ export async function main(args = process.argv.slice(2), dependencies: LaunchDep
   const selection = selectLaunchMode(args);
   if (selection.mode === 'desktop-readonly') {
     const start = dependencies.desktopMain ?? (await import('./desktop.js')).startDesktopReadonlyStdio;
-    return start(selection.profiles, dependencies.openDesktop);
+    const opener = dependencies.openDesktop ?? (await import('./desktop-storage.js')).openReadonlyDesktop;
+    return start(selection.profiles, opener);
   }
   if (dependencies.legacyMain) return dependencies.legacyMain();
+  if ((args.find(arg => arg.startsWith('--transport='))?.slice('--transport='.length) ?? 'stdio') === 'stdio') {
+    // dotenv, core defaults and legacy config log during import. Reserve stdout
+    // for SDK JSON-RPC before any of those modules can initialize.
+    console.log = console.error.bind(console);
+    console.info = console.error.bind(console);
+    console.debug = console.error.bind(console);
+  }
   // Preserve legacy env search, but only after explicit/default legacy selection.
   const preloadPath = '../preload-env.cjs';
   await import(preloadPath);
-  return (await import('./legacy.js')).main();
+  // Keep the legacy runtime in ESM even when the CLI wrapper is CJS. Its dynamic
+  // core imports must use the same module graph as its static core imports.
+  const legacyPath = './legacy.js';
+  return (await import(legacyPath)).main();
 }

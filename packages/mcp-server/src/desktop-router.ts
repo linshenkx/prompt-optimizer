@@ -50,6 +50,7 @@ export function createDesktopReadonlyRouter(profiles: DesktopProfile[], opener: 
     return { id: randomUUID(), profile: { label: profile.label, userDataPath: path } };
   });
   const connections = new Map<string, Connection>();
+  const leases = new Set<Connection>();
   let disposed = false;
   let disposal: Promise<void> | undefined;
   function sourceDescription(source: Source) {
@@ -78,7 +79,7 @@ export function createDesktopReadonlyRouter(profiles: DesktopProfile[], opener: 
       await Promise.allSettled([...connection.pending]);
       try { await connection.lease.provider.close(); }
       catch { if (source) source.failure = 'SOURCE_CLOSE_FAILED'; throw new DesktopSourceError('SOURCE_CLOSE_FAILED'); }
-      finally { if (source) source.connection = undefined; }
+      finally { leases.delete(connection); if (source) source.connection = undefined; }
     })();
     return connection.closePromise;
   }
@@ -94,9 +95,13 @@ export function createDesktopReadonlyRouter(profiles: DesktopProfile[], opener: 
       source.connection = connection;
       source.failure = undefined;
       connections.set(connection.id, connection);
+      leases.add(connection);
       return connection;
     } catch (error) {
-      if (lease) { try { await lease.provider.close(); } catch { /* No raw close error leaves the boundary. */ } }
+      if (lease) {
+        try { await lease.provider.close(); }
+        catch { source.failure = 'SOURCE_CLOSE_FAILED'; throw new DesktopSourceError('SOURCE_CLOSE_FAILED'); }
+      }
       const safe = error instanceof DesktopSourceError ? error : new DesktopSourceError('SOURCE_OPEN_FAILED');
       source.failure = safe.code;
       throw safe;
@@ -121,13 +126,14 @@ export function createDesktopReadonlyRouter(profiles: DesktopProfile[], opener: 
       if (!source) throw new DesktopSourceError('SOURCE_NOT_FOUND');
       if (source.failure === 'SOURCE_CLOSE_FAILED') throw new DesktopSourceError('SOURCE_CLOSE_FAILED');
       if (source.connection?.closePromise) await source.connection.closePromise;
+      assertOwner();
       if (!source.connection) {
         source.opening ??= openSource(source);
         try { await source.opening; } finally { source.opening = undefined; }
       }
       const connection = source.connection;
       if (!connection?.active || disposed) throw new DesktopSourceError('CONNECTION_CLOSED');
-      return { connectionId: connection.id, source: sourceDescription(source), identity,
+      return { connectionId: connection.id, source: sourceDescription(source), schemaVersion: 'prompt-model/v1', identity,
         capabilities: { read: true, execute: false, save: false } };
     },
     async close(connectionId: string) { await closeConnection(requireConnection(connectionId)); return { closed: true }; },
@@ -139,8 +145,8 @@ export function createDesktopReadonlyRouter(profiles: DesktopProfile[], opener: 
       disposed = true;
       disposal = (async () => {
         await Promise.allSettled(sources.map(source => source.opening));
-        const results = await Promise.allSettled([...connections.values()].map(closeConnection));
-        if (results.some(result => result.status === 'rejected')) throw new DesktopSourceError('SOURCE_CLOSE_FAILED');
+        const results = await Promise.allSettled([...leases].map(closeConnection));
+        if (results.some(result => result.status === 'rejected') || sources.some(source => source.failure === 'SOURCE_CLOSE_FAILED')) throw new DesktopSourceError('SOURCE_CLOSE_FAILED');
       })();
       return disposal;
     },

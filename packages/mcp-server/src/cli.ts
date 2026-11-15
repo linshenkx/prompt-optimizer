@@ -4,12 +4,13 @@ import type { DesktopProfile } from './desktop-router.js';
 
 export type LaunchSelection = { mode: 'legacy' } | { mode: 'desktop-readonly'; profiles: DesktopProfile[] };
 export function selectLaunchMode(args: string[]): LaunchSelection {
+  if (args.includes('--mode')) throw new DesktopSourceError('INVALID_INPUT');
   const modes = args.filter(arg => arg.startsWith('--mode='));
   if (modes.length > 1) throw new DesktopSourceError('INVALID_INPUT');
   const mode = modes[0]?.slice('--mode='.length) ?? 'legacy';
   const paths = args.filter(arg => arg.startsWith('--desktop-profile='));
   if (mode === 'legacy') {
-    if (paths.length || args.includes('--desktop-profile')) throw new DesktopSourceError('INVALID_INPUT');
+    if (args.some(arg => arg.startsWith('--desktop-'))) throw new DesktopSourceError('INVALID_INPUT');
     return { mode };
   }
   if (mode !== 'desktop-readonly' || args.some(arg => !arg.startsWith('--desktop-profile=') && arg !== '--mode=desktop-readonly' && arg !== '--transport=stdio')) throw new DesktopSourceError('INVALID_INPUT');

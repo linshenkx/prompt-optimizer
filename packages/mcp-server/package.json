@@ -9,11 +9,12 @@
     "prompt-optimizer-mcp": "./bin/prompt-optimizer-mcp.cjs"
   },
   "scripts": {
-    "build": "tsup src/index.ts src/start.ts src/desktop.ts --format cjs,esm --dts --clean",
+    "build": "tsup src/index.ts src/start.ts src/desktop.ts src/legacy.ts --format cjs,esm --dts --clean",
     "dev": "node dist/start.js --mode=legacy --transport=http",
     "start": "node dist/start.cjs --mode=legacy --transport=http",
     "start:desktop-readonly": "node dist/start.cjs --mode=desktop-readonly",
     "test:desktop-readonly": "vitest run --config vitest.desktop-readonly.config.ts",
+    "test:desktop-stdio": "node --test --test-concurrency=1 tests/desktop-stdio.acceptance.mjs",
     "test": "vitest run",
     "lint": "eslint src --ext .ts",
     "type-check": "tsc --noEmit"

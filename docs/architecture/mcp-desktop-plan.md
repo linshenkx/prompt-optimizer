@@ -1,8 +1,8 @@
 # 桌面 MCP 接入计划与第一阶段证据
 
-日期：2026-11-15。任务：`PO-MCP-DESKTOP-20261115`，第 3 轮：批次 A 的 provider 无关只读访问层。
+日期：2026-11-15。任务：`PO-MCP-DESKTOP-20261115`，第 4 轮：批次 A 的真实只读 desktop MCP stdio。
 
-源码初始基线：`82a40b91ae9a0583f27bec121da03a157aacd42f`；本轮实施基于 `34898b04d07cb2abf656f13117cf22d5802f7d99`。分支：`feature/po-mcp-desktop-contract-20261115`。第 1 轮合同、复核修订及原型证据仍保留，下文第 7 节记录新增 reader 与测试。存储线正在 `b3c00c9` 上实现严格 open-existing，尚未给本线最终接线接口；本轮不复制 SQLite 实现、不 cherry-pick 在途提交、不触碰任何真实目录或现存 SQLite/WAL/SHM。Skill 稿 `439d8c5c` 与 Chrome 稿 `044737ba` 仍作为已接受业务/来源要求。
+源码初始基线：`82a40b91ae9a0583f27bec121da03a157aacd42f`。分支：`feature/po-mcp-desktop-contract-20261115`。前 3 轮合同、原型与 reader 证据仍保留；第 4 轮在统筹接受 reader `cd9c2f9b` 后，按指定顺序整合已接受的存储提交至 `2d6e04f9` 及业务验收 `05a1f12f`，接入严格 open-existing，不另写 SQLite 实现。只操作本工作树及本轮新建的合成临时目录，不接触真实 env/profile 或现存用户库；当前验收与未完成边界见第 8 节。Skill 稿 `439d8c5c` 与 Chrome 稿 `044737ba` 仍作为已接受业务/来源要求。
 
 ## 1. 已接受的首版设计场景（生产能力待实现）
 
@@ -146,3 +146,45 @@ pnpm --config.engine-strict=false -F @prompt-optimizer/core build
 本轮机器 Node 为 v26.13.0，项目声明 ^24.22.1，故命令仅对该本地验证显式关闭 engine 拒绝，未改变 engines/依赖版本。第 5 节 Node 24 的 7 项 probe 复核不能当作本轮新 reader 的 Node 24 验收；后续由统筹在目标运行时复核。core 类型检查通过；CJS/ESM 构建及 DTS 声明生成通过，声明中包含新 reader/公开 DTO 导出。未运行默认 env 加载测试入口、全仓测试或 UI/Electron 构建。
 
 交回后等待统筹审查代码/测试并下发通过的 open-existing 接口；批次 A 的具体 desktop 装配、连接生命周期与真实 MCP 验收仍未完成。UI、比较 repository、存储实现和生产模型调用均不在本轮修改范围。
+
+## 8. 第 4 轮：真实只读 desktop MCP stdio
+
+本轮已整合统筹接受的存储提交至 `2d6e04f9`，以及业务验收补交 `05a1f12f`。生产连接仅调用 `@prompt-optimizer/core/node.openExistingDesktopStorage`，校验 provider 为原生只读，结束时只 close，不调用 bootstrap、迁移或 flush。仍未实现完整 v0.2 比较闭环。
+
+入口先解析 `--mode=desktop-readonly` 和 1–8 个显式绝对 profile 路径，再加载对应分支。此模式仅 stdio，配置路径不接受工具参数覆盖；不加载 dotenv、核心默认模型 barrel、ModelManager 或旧 MCP singleton。core 新增纯 `./asset-reader` 子入口；构建同时保留 `index`、`asset-reader`、`node` 三个入口和对应 exports。旧默认/显式 legacy 保留原 3 工具：加载 preloader/旧服务之前把 console 的 stdout 日志转向 stderr，并将旧运行时保留为独立 ESM 文件，避免 CJS 包装器与动态 core 导入使用两套模块图。legacy 业务初始化未改写。
+
+| 工具 | 已实现范围 |
+| --- | --- |
+| po_sources_list | 仅返回本进程配置的来源和公开可用状态，不自动开库，不暴露目录 |
+| po_sources_open | 仅 access=read；打开已有、迁移完成且兼容的库。缺库、未迁移/未知版本明确 SOURCE_NOT_READY，不创建目录、数据库或默认值 |
+| po_sources_close | 先撤销句柄，再等待进行中的读取并关闭底层 provider；不 flush |
+| po_models_list | source-bound reader 的公开模型白名单、分页；executable=false |
+| po_assets_list | source-bound reader 的收藏/资产描述、筛选及分页 |
+| po_assets_get_version | 精确匹配 favoriteId/assetId/versionId，可校验 revision；不将缺失历史替换为当前版本 |
+
+每个 MCP stdio 进程为一个 owner；一个 source 同时复用一个打开连接/reader，多 profile 分开路由。关闭后旧连接和 revision 不可用，重开分配新句柄/代次。owner 关闭时，等待正在打开的 lease，并回收迟到的打开结果；正在读的结果不再发回。清理也覆盖已经在 close 中的连接；失败仅输出固定错误码。stdin EOF、传输关闭、SIGINT/SIGTERM 进入同一清理，并在释放 provider 后结束拥有的 stdin，避免仅移除监听却留下管道阻止退出。
+
+`sources.open.schemaVersion='prompt-model/v1'` 是读取层支持的业务资产合同；`source.storageVersion='legacy-json-migration/1'` 是已核对的迁移状态，不是将 SQLite user_version 设为 1。当前 sourceId、connectionId、sourceEpoch/revision 仅限 MCP 进程/打开租约，不是持久库身份：identity 明示 `sourceEpoch='open-lease'`、`stableAcrossRestart=false`、`inPlaceReplacementDetection=false`。尚未完成跨重启稳定来源身份及打开期间原位文件替换检测；不会为此写元数据。
+
+2026-11-15 的本工作树验收使用预备的 Node **24.22.1**，无 engine override：
+
+```text
+pnpm -F @prompt-optimizer/core build
+pnpm -F @prompt-optimizer/mcp-server type-check
+pnpm -F @prompt-optimizer/mcp-server build
+pnpm -F @prompt-optimizer/mcp-server test:desktop-readonly
+pnpm -F @prompt-optimizer/mcp-server test:desktop-stdio
+```
+
+core 和 MCP 的 ESM/CJS/DTS 构建、MCP 类型检查通过。专用 Vitest 配置 envDir=false、setupFiles=[]，**8/8** 通过：模式分流/导入守卫、参数拒绝、来源/owner 隔离、重复打开、句柄撤销、晚到打开及读取回收、清理失败、六个实际 MCP handlers 的发现与非法参数拒绝。原 reader 15 项已由统筹另行在 Node 24 复核，本轮未将其冒充新增测试。
+
+真实协议验收文件为 `packages/mcp-server/tests/desktop-stdio.acceptance.mjs`，使用 Node test 独立入口，避免默认 Vitest 误执行。**4/4** 通过：
+
+1. 使用实际编译 CLI、SDK MCP Client、stdio initialize/tools/list/tools/call 和本轮新建的 SQLite fixtures，分别读取两份 profile；验证六工具、模型白名单、分页/profile/revision 隔离、精确历史版本、旧句柄失效和重开。另测显式空集合、缺目录、缺迁移标记与未知迁移版本均无回填或修复。
+2. 原始 JSON-RPC 管道以实际 SQLite lease 打开后发送 stdin EOF，子进程以 code=0、signal=null 正常退出。
+3. 桌面 HTTP 参数在启动时拒绝，stdout 为空，固定 stderr 不含参数、路径或凭据。
+4. 原 CLI/编译产物复制至全新临时项目目录，所有 legacy dotenv 搜索路径均在合成目录内；依赖通过受控 junction 指向安装代码，清理先 unlink 再删除本轮目录。默认 legacy stdio 仍发现原 3 工具，stdout 仅有效 JSON-RPC，导入日志进入 stderr；只发现工具，不执行模型。
+
+所有子进程环境均显式裁剪并替换用户目录和凭据为合成值；未加载真实 env/profile、用户数据、桌面主程序或 HTTP 服务。对现有 fixture 的**全部 storage_kv、storage_metadata、sqlite_schema 和 user_version**读取前后逐项相等；缺目录前后均不存在；公开响应和 stderr 不含合成凭据、私有 URL 或 profile 路径。此证据不承诺 WAL/SHM 文件及时间戳绝不变化，也不等于真实业务/桌面 UI 验收。
+
+待接续仍包括：执行宿主与实际参数证据、运行/取消、比较 repository 的保存/删除/去重、drawer 和 DataManager、可选评估、Chrome 产品接入，以及持久来源身份和替换检测。该工作树只做本地提交，不推送、合并、发布或接入真实数据。

@@ -4,6 +4,31 @@
 
 > **用户部署和使用指南**：请查看 [MCP 服务器用户指南](../../docs/user/mcp-server.md)
 
+## 桌面数据只读模式（v0.2 子集）
+
+需要 Node 24.22.1，并先构建 core 和 MCP。通过受信任的客户端启动配置显式绑定已完成迁移的桌面 userData 目录，例如：
+
+```text
+node packages/mcp-server/bin/prompt-optimizer-mcp.cjs --mode=desktop-readonly --desktop-profile=C:\path\to\desktop-userData
+```
+
+`--desktop-profile=<绝对路径>` 可重复，最多 8 个；所有参数使用 `--名称=值`。只支持 stdio，不启动 HTTP。启动后仅登记来源，不自动打开数据库；工具参数不能传入目录。客户端先调用 `po_sources_list`，再以返回的 `sourceId` 调用 `po_sources_open`，且 `access` 只能为 `read`。其余工具为 `po_models_list`、`po_assets_list`、`po_assets_get_version`、`po_sources_close`。
+
+此模式仅使用严格只读的 open-existing 接口：缺库、未迁移或不兼容时返回不可用，不建目录、建库、迁移、修复或补默认值。模型只返回保存的公开描述，执行能力始终不可用；资产支持精确文本版本读取。不提供运行、比较保存/删除、drawer 或 Chrome 接入。
+
+`sources.open` 的 `schemaVersion='prompt-model/v1'` 表示读取层支持的资产业务合同；`source.storageVersion='legacy-json-migration/1'` 表示已核对的迁移状态。它们不把 SQLite 的 `user_version` 改为 1。所有来源句柄、连接和 revision 都仅在本次 MCP 进程/打开租约内有效；关闭或重启后须重新发现、打开。**尚未实现跨重启的持久来源身份，也不检测打开期间的数据文件原位替换。**响应中的 `identity` 明确公布这些限制。SQLite 自身的锁及 WAL/SHM 行为不包含在业务数据和表结构零改写的承诺内。
+
+原三工具仍为默认或 `--mode=legacy` 模式，保留原环境变量配置；其 stdio 日志在加载配置之前转到 stderr。桌面只读模式会先分流，不加载这些环境配置。
+
+开发验收使用独立、禁用 dotenv 自动加载的入口：
+
+```text
+pnpm -F @prompt-optimizer/mcp-server test:desktop-readonly
+pnpm -F @prompt-optimizer/mcp-server test:desktop-stdio
+```
+
+第二个入口需先完成构建，只使用新建的合成临时 profile 和合成环境。它还会把编译产物复制到临时目录，隔离旧入口的全部 dotenv 搜索路径后验证原三工具发现，不调用模型。
+
 ## 功能特性
 
 - **optimize-user-prompt**: 优化用户提示词以提升 LLM 性能

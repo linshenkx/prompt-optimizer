@@ -1,14 +1,14 @@
 # 桌面 MCP 与共用能力合同（草案 v0.2）
 
-日期：2026-11-15。任务：`PO-MCP-DESKTOP-20261115`，轮次 1，统筹复核修订。
+日期：2026-11-15。任务：`PO-MCP-DESKTOP-20261115`，第 4 轮只读接线修订。
 
-状态：首版最小设计已获统筹接受；第 3 轮已实现 provider 无关的只读访问层，**MCP 工具及桌面接线仍未实现/发布**。源码初始基线为 `82a40b91ae9a0583f27bec121da03a157aacd42f`，本轮实施基于 `34898b04`。存储实现 `77b8d1c6`、说明 `b82b877e` 为此前审读事实；存储线正在 `b3c00c9` 上推进严格 open-existing，尚未交付本线接受的接线接口，不复制或猜测其实现。Chrome 稿 `044737ba` 的来源/生命周期要求已纳入共用 DTO，不采用其 fixture 样本协议。实现和证据见 [接入计划](./mcp-desktop-plan.md)。
+状态：首版最小设计已获统筹接受；第 3 轮完成 provider 无关只读 reader，第 4 轮已通过真实 stdio/SQLite 验收，接入六个桌面只读工具，**尚未实现完整比较闭环，未发布**。源码初始基线为 `82a40b91ae9a0583f27bec121da03a157aacd42f`；reader 接受提交为 `cd9c2f9b`，本轮按统筹要求整合已接受的存储提交至 `2d6e04f9` 和业务验收 `05a1f12f`，没有另写存储实现。Chrome 稿 `044737ba` 的来源/生命周期要求已纳入共用 DTO，不采用其 fixture 样本协议。当前已实现范围及 Node 24 的 8 项路由测试、4 项真实协议验收见 [接入计划第 8 节](./mcp-desktop-plan.md#8-第-4-轮真实只读-desktop-mcp-stdio)。
 
 ## 1. 首版承诺与边界
 
 从真实收藏选择一个 `pro-variable` 文本资产的**具体版本**，提供同一组变量，使用两个已保存且启用的文本模型配置进行测试，返回可复核快照，保存完整比较并能在产品中重新打开。人工比较必须闭环，模型评估可选，只有明确选择评估模型后才调用。先实现这一条完整路径，其他能力按第 8 节接续。
 
-统筹已接受 Skill 场景文档 `439d8c5c` 的场景一，以及窄 `TextTestCapability`、完整比较记录、现有变量页只读 drawer、DataManager 纳入和可选 generic 评估的最小设计。第 6 节的保存/查看与最小单条删除均为**待实现能力**；收藏示例不能替代完整比较。具体物理布局、容量阈值及其他生产导出名在对应实施批次收敛，本轮只实现只读访问层。
+统筹已接受 Skill 场景文档 `439d8c5c` 的场景一，以及窄 `TextTestCapability`、完整比较记录、现有变量页只读 drawer、DataManager 纳入和可选 generic 评估的最小设计。第 6 节的保存/查看与最小单条删除均为**待实现能力**；收藏示例不能替代完整比较。具体物理布局、容量阈值及其他生产导出名在对应实施批次收敛，本轮只完成读取层及 desktop stdio 接线。
 
 业务合同由 core 的窄接口拥有；MCP、桌面 UI、Chrome 只是调用方和宿主适配器。使用现有 MCP 进程和嵌入式存储，不新增数据库服务、后台服务、测试项目、数据集工作台或持久任务队列。
 
@@ -50,6 +50,8 @@ interface ExecutionHostDescriptor {
 }
 ```
 
+第 4 轮只读实现是该合同的受限子集：`sources.open` 返回 `schemaVersion:'prompt-model/v1'`（读取层支持的资产业务合同），迁移状态单独由 `source.storageVersion` 表达；capabilities 仅 read=true、execute/save=false。当前身份只在 MCP 进程/打开租约内有效，identity 明示 sourceEpoch='open-lease'、stableAcrossRestart=false、inPlaceReplacementDetection=false。尚未实现持久库身份或原位文件替换检测，不把临时 sourceEpoch 当成完整来源身份，不写元数据补齐这些能力。
+
 桌面首个适配器为 `kind:'desktop'` 来源、Node 宿主和 `network:'node'`；它不是共用快照的唯一宿主/网络取值。Chrome 的 Web/PWA 和扩展分别登记其来源，不能把 IndexedDB 与桌面库当成同一份数据；Chrome 接入独立于 SQLite。桌面目录由受信任的本地启动配置和定位器绑定，不接受工具中的任意路径；多 profile 显式选取。网页不能可靠取得 Chrome profile 路径/统一 ID，不伪造此身份。
 
 每个业务请求携带 `connectionId`；路由层从它解析 owner、实际来源、页面实例和连接代次，并分配 requestId/有界 deadline。它们不由执行器返回值或工具自报字段覆盖。结果必须匹配原请求和原代次；模型 key 也在该来源内解析。HTTP 多客户端不共享无归属来源池；stdio 的 owner 随其连接生命周期结束。同 origin 多页可共享存储但内存状态独立，不能按最近活动页替换执行者；普通/隐身上下文分别登记。
@@ -60,7 +62,7 @@ interface ExecutionHostDescriptor {
 
 Chrome 配对/令牌只属于连接层：核验实际 origin、版本与允许范围，短期票据和连接秘密不进入业务 DTO、持久比较或日志。页面关闭/冻结、租约过期、owner 断开或 MCP 结束时，该代次失效，停止派发并尽力传播 AbortSignal；调用端及时收到 `SOURCE_DISCONNECTED`，拒绝迟到结果，不自动切源、重放或重新发起模型调用。pagehide 只是提前通知，失联仍由租约确认。重连使用新句柄/代次，必要时重新选择来源；不能承诺断连时跨进程 exactly-once。网络取消未获确认时记录 `completionUnknown:true`，不把失联等同供应商已取消；保存应答丢失时按第 6 节核对稳定 ID。回环认证/权限细节由 Chrome 线实现，不把其样本动作/envelope 升格成业务合同。
 
-已核对的存储事实：`@prompt-optimizer/core/node` 导出 `SQLiteStorageProvider(databasePath, options?)` 与 `openDesktopStorage(userDataPath, options?) → {provider,migration}`，provider 有 `close/flush`；固定文件为 `prompt-optimizer-data.sqlite`；迁移标记位于 `storage_metadata` 的 `legacy-json-migration`，JSON `version=1`。这些信息属于连接适配器内部。`openDesktopStorage` 会建目录/schema 并迁移，底层 provider 首次 get 也可能建库/DDL，**两者都不能充当本合同的 open-existing 入口**。需存储线补齐仅打开已有、验证迁移完成和兼容状态的连接能力，或另行接受受控桌面桥；本轮不自行补写存储实现。
+已核对的存储事实：`@prompt-optimizer/core/node` 已导出并接受 `openExistingDesktopStorage(absoluteUserDataPath, options?) → {provider,migration}`，只打开已有、完成迁移的兼容数据库，使用原生 `readOnly` 和连接内 `query_only`。MCP 只使用这个入口，结束时仅 `close()`；`flush()` 属于被拒绝的写操作。固定文件为 `prompt-optimizer-data.sqlite`；迁移标记位于 `storage_metadata` 的 `legacy-json-migration`，JSON `version=1`。这些信息属于连接适配器内部。`openDesktopStorage` 和普通 `new SQLiteStorageProvider` 仍是可能创建/迁移的 bootstrap 路径，**不能充当本合同的 open-existing 入口**。本轮未另写存储实现。
 
 本合同的 open-existing“无副作用”准确指：不创建 profile/数据源或业务库，不执行 DDL、业务迁移、默认配置/环境变量写回。SQLite 必要锁及 WAL/SHM 的创建、更新、回收行为需按连接模式单独说明和验证；不承诺所有文件内容/时间戳绝不变化，也不能因此启用会建库/迁移的 bootstrap。
 
