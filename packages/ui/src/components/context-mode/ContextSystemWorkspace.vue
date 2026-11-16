@@ -59,7 +59,7 @@
                     <!-- 优化控制区 -->
                     <NCard class="multi-optimize-controls" :style="{ flexShrink: 0 }" size="small">
                         <OptimizationControls :compact="isCompact">
-                            <template #model><TextModelSelector
+                            <template #model><TextModelSelector parameters
                                         v-model="selectedOptimizeModelKeyModel"
                                         :options="modelSelection.textModelOptions.value"
                                         :placeholder="t('model.select.placeholder')"
@@ -257,7 +257,7 @@
                                             @update:value="(value) => handleVariantVersionChange(id, value)"
                                         /></div>
                                         <div class="variant-cell__model"><NText v-if="isCompact" depth="2" class="test-settings-label">{{ t('test.model') }}</NText>
-                                            <TextModelSelector
+                                            <TextModelSelector parameters
                                                 :data-testid="getVariantModelTestId(id)"
                                                 :model-value="variantModelKeyModels[id].value"
                                                 @update:model-value="(value) => { variantModelKeyModels[id].value = String(value ?? '') }"

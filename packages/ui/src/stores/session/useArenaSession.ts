@@ -33,10 +33,10 @@ export const useArenaSession = defineStore('arena-session', () => {
     const services = getPiniaServices()
     if (model.kind === 'text') {
       const base = configurations.value.text.find(c => c.id === model.configKey)
-      return base && services?.textAdapterRegistry ? resolveRuntimeTextModel(base, { modelId: model.modelId }, services.textAdapterRegistry) : undefined
+      return base && services?.textAdapterRegistry ? resolveRuntimeTextModel(base, { modelId: model.modelId, paramOverrides: model.paramOverrides }, services.textAdapterRegistry) : undefined
     }
     const base = configurations.value.image.find(c => c.id === model.configKey)
-    return base && services?.imageAdapterRegistry ? resolveRuntimeImageModel(base, { modelId: model.modelId }, services.imageAdapterRegistry) : undefined
+    return base && services?.imageAdapterRegistry ? resolveRuntimeImageModel(base, { modelId: model.modelId, paramOverrides: model.paramOverrides }, services.imageAdapterRegistry) : undefined
   }
   let invalidSnapshot = false
   let hydrating = false
@@ -172,10 +172,10 @@ export const useArenaSession = defineStore('arena-session', () => {
         if (!base?.enabled) throw new Error('arena.unavailable')
         let config: TextModelConfig | ImageModelConfig
         if (model.kind === 'text' && services.textAdapterRegistry) {
-          config = resolveRuntimeTextModel(copy(base as TextModelConfig), { modelId: model.modelId }, services.textAdapterRegistry)
+          config = resolveRuntimeTextModel(copy(base as TextModelConfig), { modelId: model.modelId, paramOverrides: model.paramOverrides }, services.textAdapterRegistry)
           configurations.value = { ...configurations.value, text: [...configurations.value.text.filter(c => c.id !== base.id), base as TextModelConfig] }
         } else if (model.kind === 'image' && services.imageAdapterRegistry) {
-          config = resolveRuntimeImageModel(copy(base as ImageModelConfig), { modelId: model.modelId }, services.imageAdapterRegistry)
+          config = resolveRuntimeImageModel(copy(base as ImageModelConfig), { modelId: model.modelId, paramOverrides: model.paramOverrides }, services.imageAdapterRegistry)
           configurations.value = { ...configurations.value, image: [...configurations.value.image.filter(c => c.id !== base.id), base as ImageModelConfig] }
         } else throw new Error('arena.unavailable')
         live.effective = describeRuntimeModel(config)

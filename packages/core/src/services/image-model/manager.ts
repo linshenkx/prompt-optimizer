@@ -11,6 +11,8 @@ import { ImportExportError } from '../../interfaces/import-export'
 import { IMAGE_ERROR_CODES, IMPORT_EXPORT_ERROR_CODES, type ErrorParams } from '../../constants/error-codes'
 import { BaseError } from '../llm/errors'
 import { getDefaultImageModels, getBuiltinImageConfigIds } from './defaults'
+import { decodeImageModelSelection } from '../model/selection'
+import { resolveRuntimeImageModel } from '../model/runtime-selection'
 
 class ImageModelManagerError extends BaseError {
   constructor(code: string, message?: string, params?: ErrorParams) {
@@ -253,12 +255,14 @@ export class ImageModelManager implements IImageModelManager {
   async getConfig(id: string): Promise<ImageModelConfig | null> {
     const raw = await this.storage.getItem(this.storageKey)
     const data: Record<string, ImageModelConfig> = raw ? JSON.parse(raw) : {}
-    const cfg = data[id]
+    const selection = data[id] ? null : decodeImageModelSelection(id)
+    const configId = selection?.configId ?? id
+    const cfg = data[configId]
     if (!cfg) return null
 
     // 轻量迁移兜底：返回前补齐缺失的 id，避免 UI 无法删除
     if (!(cfg as any).id) {
-      ;(cfg as any).id = id
+      ;(cfg as any).id = configId
     }
 
     // 读时迁移：合并 customParamOverrides 到 paramOverrides
@@ -266,7 +270,8 @@ export class ImageModelManager implements IImageModelManager {
 
     // 尝试修复损坏的配置，确保能够正常读取和删除
     try {
-      return this.ensureSelfContained(migrated)
+      const resolved = this.ensureSelfContained(migrated)
+      return selection ? resolveRuntimeImageModel(resolved, selection, this.registry) : resolved
     } catch (error) {
       // 即使修复失败，也返回配置（已在ensureSelfContained中标记为disabled）
       console.warn(`[ImageModelManager] Failed to fully repair config ${id}, but returning for deletion:`, error)

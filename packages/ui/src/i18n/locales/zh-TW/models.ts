@@ -1,4 +1,5 @@
 const messages = {
+  localParameters: { reasoning: '思考強度', default: '預設', defaultWithValue: '預設（{value}）', effort: { none: '關閉', minimal: '極低', low: '低', medium: '中', high: '高', xhigh: '很高', max: '最高' }, title: '模型參數', thinking: '思考', more: '參數', moreOptions: '其他參數…', reset: '恢復預設', resetParameter: '恢復繼承', inherit: '跟隨設定（{value}）', automatic: '自動' },
   localDiscovery: {
     cliproxyapiApiKeyHint: '若 CLIProxyAPI 已啟用驗證，請填寫用戶端 API Key（非管理金鑰）',
     apiKeyHint: '若 {name} 已啟用驗證，請填寫 API 金鑰',

@@ -69,6 +69,7 @@ describe('Arena shared workspace presentation', () => {
       busy: (id: string) => state.results[id]?.status === 'running',
       cancellable: (id: string) => state.results[id]?.model.kind === 'text',
       isStale: () => false,
+      resolveConfig: () => undefined,
       refreshConfigs: vi.fn(async () => {}), saveSession: vi.fn(async () => {}),
       run: vi.fn(async () => {}), runAll: vi.fn(async () => {}),
       addContestant: vi.fn(), removeContestant: vi.fn(),

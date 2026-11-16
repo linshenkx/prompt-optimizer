@@ -92,7 +92,7 @@
 
 
                         <template #model-select>
-                            <TextModelSelector
+                            <TextModelSelector parameters
                                 v-model="selectedOptimizeModelKeyModel"
                                 data-testid="basic-user-model-select"
                                 :options="modelSelection.textModelOptions"
@@ -296,7 +296,7 @@
                                         </div>
                                         <div class="variant-cell__model">
                                             <NText v-if="isCompact" depth="2" class="test-settings-label">{{ t('test.model') }}</NText>
-                                            <TextModelSelector
+                                            <TextModelSelector parameters
                                                 :data-testid="getVariantModelTestId(id)"
                                                 :model-value="variantModelKeyModels[id].value"
                                                 @update:model-value="(value) => { variantModelKeyModels[id].value = String(value ?? '') }"

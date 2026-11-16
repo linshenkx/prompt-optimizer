@@ -1,4 +1,5 @@
 const messages = {
+  localParameters: { reasoning: '思考强度', default: '默认', defaultWithValue: '默认（{value}）', effort: { none: '关闭', minimal: '极低', low: '低', medium: '中', high: '高', xhigh: '很高', max: '最高' }, title: '模型参数', thinking: '思考', more: '参数', moreOptions: '其他参数…', reset: '恢复默认', resetParameter: '恢复继承', inherit: '跟随配置（{value}）', automatic: '自动' },
   localDiscovery: {
     cliproxyapiApiKeyHint: '若 CLIProxyAPI 已启用认证，请填写客户端 API Key（非管理密钥）',
     apiKeyHint: '若 {name} 已启用认证，请填写 API 密钥',

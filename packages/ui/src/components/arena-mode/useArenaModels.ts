@@ -21,11 +21,14 @@ export function useArenaModels(): ArenaModels {
   const session = useArenaSession()
   const textOptions = computed<ModelSelectOption[]>(() => session.configurations.text.map(raw => ({ value: raw.id, primary: raw.name, secondary: raw.providerMeta.name, raw })))
   const selection = (c: ArenaContestant) => c.configKey && c.modelId ? (c.kind === 'image' ? 'image:' : '') + encodeTextModelSelection(c.configKey, c.modelId) : ''
+  const parameterCache = new Map<string, Record<string, unknown>>()
   const select = (c: ArenaContestant, value: string) => {
+    parameterCache.set(c.id + ':' + selection(c), c.paramOverrides || {})
     c.kind = value.startsWith('image:') ? 'image' : 'text'
     const decoded = decodeTextModelSelection(c.kind === 'image' ? value.slice(6) : value)
     c.configKey = decoded?.configId || value
     c.modelId = decoded?.modelId || session.configurations.text.find(m => m.id === value)?.modelMeta.id || ''
+    c.paramOverrides = parameterCache.get(c.id + ':' + selection(c)) || {}
   }
   const metadata = (c: ArenaContestant): TextModelConfig['modelMeta'] | ImageModel | null => {
     const config = session.resolveConfig(c)

@@ -12,12 +12,12 @@
 
       <NForm
         v-else
-        :label-placement="isCompact ? 'top' : 'left'"
+        :label-placement="embedded || isCompact ? 'top' : 'left'"
         label-width="auto"
-        :label-align="isCompact ? 'left' : 'right'"
+        :label-align="embedded || isCompact ? 'left' : 'right'"
         size="small"
         :show-label="true"
-        :show-feedback="true"
+        :show-feedback="showDescriptions"
         class="advanced-form"
       >
         <!-- 已定义的参数（schema中存在） -->
@@ -27,10 +27,12 @@
           class="advanced-form-item"
         >
           <template #label>
-            <NSpace align="center" :size="8" style="width: 100%;">
-              <span>{{ entry.label }}</span>
-              <NButton size="tiny" type="error" quaternary circle @click="handleRemove(entry.key)">
-                ×
+            <NSpace align="center" :size="8" :wrap="showDescriptions" style="width: 100%;">
+              <span :title="showDescriptions ? undefined : [entry.description, entry.unitLabel, entry.helpText].filter(Boolean).join('\n')">{{ entry.label }}</span>
+              <NButton size="tiny" :type="embedded ? 'default' : 'error'" quaternary circle
+                :title="t(embedded ? 'localParameters.resetParameter' : 'common.delete')"
+                :aria-label="t(embedded ? 'localParameters.resetParameter' : 'common.delete') + ' ' + entry.key" @click="handleRemove(entry.key)">
+                <RotateCcw v-if="embedded" :size="14" aria-hidden="true" /><span v-else>×</span>
               </NButton>
             </NSpace>
           </template>
@@ -46,6 +48,7 @@
           </template>
           <template v-else-if="entry.definition.allowedValues && entry.definition.allowedValues.length">
             <NSelect
+              :to="embedded ? false : undefined"
               :value="getDisplayValue(entry.definition, paramOverrides[entry.key]) as string | null"
               :options="getSelectOptions(entry.definition)"
               size="small"
@@ -109,13 +112,15 @@
           class="advanced-form-item"
         >
           <template #label>
-            <NSpace align="center" :size="8" style="width: 100%;">
+            <NSpace align="center" :size="8" :wrap="showDescriptions" style="width: 100%;">
               <span>{{ entry.key }}</span>
               <NTag type="info" size="small">
                 {{ t('modelManager.advancedParameters.customParam') }}
               </NTag>
-              <NButton size="tiny" type="error" quaternary circle @click="handleRemove(entry.key)">
-                ×
+              <NButton size="tiny" :type="embedded ? 'default' : 'error'" quaternary circle
+                :title="t(embedded ? 'localParameters.resetParameter' : 'common.delete')"
+                :aria-label="t(embedded ? 'localParameters.resetParameter' : 'common.delete') + ' ' + entry.key" @click="handleRemove(entry.key)">
+                <RotateCcw v-if="embedded" :size="14" aria-hidden="true" /><span v-else>×</span>
               </NButton>
             </NSpace>
           </template>
@@ -168,16 +173,16 @@
 
     <template v-else>
       <NAlert v-if="definedEntries.length === 0 && customEntries.length === 0" type="info" size="small">
-        {{ t('image.parameters.noParameters') }}
+        {{ t(schema.length ? 'modelManager.advancedParameters.noParamsConfigured' : 'image.parameters.noParameters') }}
       </NAlert>
       <NForm
         v-else
-        :label-placement="isCompact ? 'top' : 'left'"
+        :label-placement="embedded || isCompact ? 'top' : 'left'"
         label-width="auto"
-        :label-align="isCompact ? 'left' : 'right'"
+        :label-align="embedded || isCompact ? 'left' : 'right'"
         size="small"
         :show-label="true"
-        :show-feedback="true"
+        :show-feedback="showDescriptions"
         class="advanced-form"
       >
         <!-- 已定义的参数 -->
@@ -187,10 +192,12 @@
           class="advanced-form-item"
         >
           <template #label>
-            <NSpace align="center" :size="8" style="width: 100%;">
-              <span>{{ entry.label }}</span>
-              <NButton size="tiny" type="error" quaternary circle @click="handleRemove(entry.key)">
-                ×
+            <NSpace align="center" :size="8" :wrap="showDescriptions" style="width: 100%;">
+              <span :title="showDescriptions ? undefined : [entry.description, entry.unitLabel, entry.helpText].filter(Boolean).join('\n')">{{ entry.label }}</span>
+              <NButton size="tiny" :type="embedded ? 'default' : 'error'" quaternary circle
+                :title="t(embedded ? 'localParameters.resetParameter' : 'common.delete')"
+                :aria-label="t(embedded ? 'localParameters.resetParameter' : 'common.delete') + ' ' + entry.key" @click="handleRemove(entry.key)">
+                <RotateCcw v-if="embedded" :size="14" aria-hidden="true" /><span v-else>×</span>
               </NButton>
             </NSpace>
           </template>
@@ -206,6 +213,7 @@
           </template>
           <template v-else-if="entry.definition.allowedValues && entry.definition.allowedValues.length">
             <NSelect
+              :to="embedded ? false : undefined"
               :value="getDisplayValue(entry.definition, paramOverrides[entry.key]) as string | null"
               :options="getSelectOptions(entry.definition)"
               size="small"
@@ -265,13 +273,15 @@
           class="advanced-form-item"
         >
           <template #label>
-            <NSpace align="center" :size="8" style="width: 100%;">
+            <NSpace align="center" :size="8" :wrap="showDescriptions" style="width: 100%;">
               <span>{{ entry.key }}</span>
               <NTag type="info" size="small">
                 {{ t('modelManager.advancedParameters.customParam') }}
               </NTag>
-              <NButton size="tiny" type="error" quaternary circle @click="handleRemove(entry.key)">
-                ×
+              <NButton size="tiny" :type="embedded ? 'default' : 'error'" quaternary circle
+                :title="t(embedded ? 'localParameters.resetParameter' : 'common.delete')"
+                :aria-label="t(embedded ? 'localParameters.resetParameter' : 'common.delete') + ' ' + entry.key" @click="handleRemove(entry.key)">
+                <RotateCcw v-if="embedded" :size="14" aria-hidden="true" /><span v-else>×</span>
               </NButton>
             </NSpace>
           </template>
@@ -326,6 +336,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch, type PropType } from 'vue'
+import { RotateCcw } from '@lucide/vue'
 
 import { useI18n } from 'vue-i18n'
 import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
@@ -333,6 +344,8 @@ import { useMessage, createDiscreteApi, NAlert, NButton, NCheckbox, NForm, NForm
 import { parseCustomValue, type UnifiedParameterDefinition } from '@prompt-optimizer/core'
 
 const props = defineProps({
+  embedded: { type: Boolean, default: false },
+  showDescriptions: { type: Boolean, default: true },
   schema: {
     type: Array as PropType<readonly UnifiedParameterDefinition[]>,
     default: () => []

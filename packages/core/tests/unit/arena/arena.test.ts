@@ -41,7 +41,9 @@ describe('arena runtime contracts', () => {
   })
   it('executes the selected model with frozen saved parameters without mutating the connection', async () => {
     const registry = createTextAdapterRegistry(); const adapter = registry.getAdapter('openai')
-    const base = { id: 'text', name: 'Text', enabled: true, providerMeta: adapter.getProvider(), modelMeta: adapter.buildDefaultModel('first'), connectionConfig: { apiKey: 'secret' }, paramOverrides: { temperature: 0.2, obsolete: 1 } }
+    const previous = adapter.buildDefaultModel('first')
+    previous.parameterDefinitions = [...previous.parameterDefinitions, { name: 'obsolete', type: 'integer' }]
+    const base = { id: 'text', name: 'Text', enabled: true, providerMeta: adapter.getProvider(), modelMeta: previous, connectionConfig: { apiKey: 'secret' }, paramOverrides: { temperature: 0.2, obsolete: 1 } }
     const before = JSON.stringify(base)
     const config = resolveRuntimeTextModel(base, { modelId: 'second' }, registry)
     const send = vi.spyOn(adapter, 'sendMessageStream').mockResolvedValue()

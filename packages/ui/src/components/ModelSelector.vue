@@ -3,17 +3,17 @@
     :disabled="disabled" :style="{ padding: '0' }">
     <template #trigger>
       <button v-bind="$attrs" ref="trigger" type="button" class="text-model-selector"
-        :class="{ 'text-model-selector--small': size === 'small', 'is-open': open }"
+        :class="{ 'text-model-selector--small': size === 'small', 'text-model-selector--with-detail': !!$slots['selection-detail'], 'is-open': open }"
         :style="colors" :disabled="disabled" :aria-expanded="open" aria-haspopup="dialog"
         :aria-label="triggerLabel" :title="selectionTitle"
         @focus="emit('focus')" @keydown.down.prevent="showFromKeyboard" @keydown.esc="close">
-        <component :is="kindIcon(selectedKind)" v-if="showModelTypes && selectedKind && selectedLabel" class="text-model-selector__kind" :size="14" aria-hidden="true" />
         <span v-if="selectedLabel" class="text-model-selector__value">
           <span v-if="selectedConfig" class="text-model-selector__config">{{ selectedConfig }}</span>
           <span v-if="selectedConfig" class="text-model-selector__separator">·</span>
           <span class="text-model-selector__name">{{ selectedLabel }}</span>
         </span>
         <span v-else class="text-model-selector__placeholder">{{ placeholder || t('model.select.placeholder') }}</span>
+        <span v-if="selectedLabel && $slots['selection-detail']" class="text-model-selector__detail"><slot name="selection-detail" /></span>
         <ChevronDown class="text-model-selector__chevron" :size="14" :class="{ rotated: open }" />
       </button>
     </template>
@@ -55,16 +55,19 @@
         <button v-if="customValue" type="button" data-model-choice class="text-model-menu__choice" @click="choose(customValue)">{{ t('model.selector.useCustom', { model: customValue }) }}</button>
         <div v-if="!visibleGroups.length && !customValue" role="status" class="text-model-menu__empty">{{ t('model.selector.empty') }}</div>
       </div>
-      <footer v-if="(clearable && modelValue) || showConfigAction" class="text-model-menu__footer" data-action>
+      <div v-if="$slots.parameters || (clearable && modelValue) || showConfigAction" data-action>
+        <div v-if="$slots.parameters" class="text-model-menu__parameters"><slot name="parameters" /></div>
+      <footer v-if="(clearable && modelValue) || showConfigAction" class="text-model-menu__footer">
         <button v-if="clearable && modelValue" type="button" @click="choose('')">{{ clearLabel || t('model.selector.clear') }}</button>
         <button v-if="showConfigAction" type="button" @click="configure()">{{ t('model.selector.manage') }}</button>
       </footer>
+      </div>
     </section>
   </NPopover>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, useSlots, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NButton, NInput, NPopover, useThemeVars } from 'naive-ui'
 import { ArrowLeft, Check, ChevronDown, ChevronRight, Image as ImageIcon, MessageSquareText, Search } from '@lucide/vue'
@@ -100,13 +103,15 @@ const expanded = ref('')
 const trigger = ref<HTMLButtonElement>()
 const searchInput = ref<InstanceType<typeof NInput>>()
 const menu = ref<HTMLElement>()
+const slots = useSlots()
 // The shared surface must also fit the visual viewport above an on-screen keyboard.
 const viewport = useSelectMenuViewport({
   show: open, isCompact: ref(true), getTrigger: () => trigger.value || null,
   getMenu: () => menu.value || null, getPlacement: () => 'bottom-start',
+  get maxHeight() { return slots.parameters ? 640 : 320 },
 })
 const menuPlacement = computed(() => viewport.layout.value?.placement || 'bottom-start')
-const listHeight = computed(() => viewport.layout.value?.bodyMaxHeight ?? 340)
+const listHeight = computed(() => Math.min(340, viewport.layout.value?.bodyMaxHeight ?? 340))
 const selectedKind = computed(() => props.groups.find(group => group.choices.some(choice => choice.value === props.modelValue))?.kind)
 const kindLabel = (kind: ModelSelectorKind) => t(`model.selector.${kind === 'image' ? 'imageGeneration' : 'textGeneration'}`)
 const kindIcon = (kind?: ModelSelectorKind) => kind === 'image' ? ImageIcon : MessageSquareText
@@ -166,6 +171,7 @@ async function configure(id?: string) {
 function navigate(event: KeyboardEvent) {
   if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); return }
   if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+  if (event.target instanceof Element && event.target.closest('.text-model-menu__parameters')) return
   const buttons = Array.from((event.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('button[data-model-choice]:not(:disabled)'))
   if (!buttons.length) return
   event.preventDefault()
@@ -182,6 +188,9 @@ watch(() => props.disabled, disabled => { if (disabled) open.value = false })
 @container (max-width: 190px) {
   .text-model-selector__config, .text-model-selector__separator { display: none; }
 }
+@container (max-width: 280px) {
+  .text-model-selector--with-detail .text-model-selector__config, .text-model-selector--with-detail .text-model-selector__separator { display: none; }
+}
 .text-model-selector:hover:not(:disabled) { border-color: var(--selector-muted); }
 .text-model-selector:focus-visible, .text-model-selector.is-open { outline: 1px solid var(--selector-focus); outline-offset: 1px; }
 .text-model-selector:disabled { opacity: .5; cursor: not-allowed; }
@@ -189,7 +198,7 @@ watch(() => props.disabled, disabled => { if (disabled) open.value = false })
 .text-model-selector__config { flex: 0 1 auto; max-width: 42%; color: var(--selector-muted); overflow: hidden; text-overflow: ellipsis; }
 .text-model-selector__separator { color: var(--selector-muted); }
 .text-model-selector__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
-.text-model-selector__kind { flex: none; color: var(--selector-muted); }
+.text-model-selector__detail { flex: 0 1 auto; min-width: 0; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--selector-muted); font-size: 12px; }
 .text-model-selector__placeholder { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--selector-muted); }
 .text-model-selector__chevron { flex: none; color: var(--selector-muted); }
 .text-model-selector__chevron.rotated { transform: rotate(180deg); }
@@ -211,5 +220,6 @@ watch(() => props.disabled, disabled => { if (disabled) open.value = false })
 .text-model-menu__more, .text-model-menu__status, .text-model-menu__footer button { display: inline-flex; align-items: center; gap: 3px; padding: 5px 8px; border: 0; background: transparent; color: var(--selector-muted); font: inherit; font-size: 12px; cursor: pointer; }
 .text-model-menu__more:hover, .text-model-menu__footer button:hover { color: var(--selector-text); }
 .text-model-menu__footer { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; border-top: 1px solid var(--selector-border); padding: 6px 10px; color: var(--selector-muted); font-size: 12px; }
+.text-model-menu__parameters { border-top: 1px solid var(--selector-border); padding: 10px 14px; }
 .text-model-menu__empty { padding: 20px 10px; text-align: center; color: var(--selector-muted); }
 </style>
