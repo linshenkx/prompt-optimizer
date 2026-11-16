@@ -2,6 +2,10 @@
 
 Full release narratives now live in versioned files under `releases/`. This file stays as the index and summary entry point.
 
+## [2.15.2] - 2026-11-09
+- EN: Restore wrapping and Stop controls for streamed output, update Vue I18n and Hono Node Server security dependencies, improve Garden browsing, and add optional GPT Image 2.6 GIF output. See [Release Notes (EN)](releases/v2.15.2.en.md).
+- 中文：恢复流式输出自动换行和停止按钮，升级 Vue I18n 与 Hono Node Server 安全依赖，完善 Garden 浏览，并支持 GPT Image 2.6 可选 GIF 输出。参见 [版本说明（中文）](releases/v2.15.2.zh-CN.md)。
+
 ## [2.15.1] - 2026-11-03
 - EN: Fix collapsed selectors in Function Models, improve shared HTML/SVG previews and error reporting, and add Prompt Garden evaluation prompts to Arena. See [Release Notes (EN)](releases/v2.15.1.en.md).
 - 中文：修复功能模型选择框被挤成竖排的问题，完善共用 HTML/SVG 预览及错误显示，并接入 Prompt Garden 竞技场测评题。参见 [版本说明（中文）](releases/v2.15.1.zh-CN.md)。

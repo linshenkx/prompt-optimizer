@@ -14,7 +14,7 @@ const props = withDefaults(defineProps<{
   fitContent?: boolean
   suspended?: boolean
   wrapLines?: boolean
-}>(), { field: 'result', content: '' })
+}>(), { field: 'result', content: '', wrapLines: true })
 const container = ref<HTMLElement>()
 let view: EditorView | undefined
 let unsubscribe: (() => void) | undefined

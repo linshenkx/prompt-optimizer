@@ -1,6 +1,6 @@
 {
   "name": "prompt-optimizer",
-  "version": "2.15.1",
+  "version": "2.15.2",
   "private": true,
   "packageManager": "pnpm@10.6.1",
   "engines": {
@@ -92,6 +92,7 @@
   "license": "AGPL-3.0-only",
   "pnpm": {
     "overrides": {
+      "@hono/node-server": "2.1.3",
       "esbuild": "0.28.1",
       "@modelcontextprotocol/sdk@^1.0.0": "^1.32.0",
       "app-builder-lib>@electron/get": "^5.1.0",
