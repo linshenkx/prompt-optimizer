@@ -213,7 +213,7 @@
               </NSpace>
 
               <OptimizationControls :compact="isCompact">
-                <template #model><TextModelSelector
+                <template #model><TextModelSelector parameters
                       data-testid="image-multiimage-text-model-select"
                       v-model="selectedTextModelKey"
                       :options="textModelOptions"
@@ -346,7 +346,7 @@
                   @update:model-key="variantModelKeyModels[id].value = $event"
                   @preview="previewMobileSource(id)" @run="runVariant(id)" @config="() => appOpenModelManager && appOpenModelManager('image')">
                   <template #model>
-                    <ImageModelSelector :aria-label="getVariantLabel(id) + ' ' + t('test.model')"
+                    <ImageModelSelector parameters :aria-label="getVariantLabel(id) + ' ' + t('test.model')"
                       :data-testid="getVariantModelTestId(id)"
                       :model-value="variantModelKeyModels[id].value"
                       @update:model-value="(value) => { variantModelKeyModels[id].value = String(value ?? '') }"
@@ -386,7 +386,7 @@
                     /></div>
 
                     <div class="variant-cell__model"><NText v-if="isCompact" depth="2" class="test-settings-label">{{ t('test.model') }}</NText>
-                      <ImageModelSelector
+                      <ImageModelSelector parameters
                         :data-testid="getVariantModelTestId(id)"
                         :model-value="variantModelKeyModels[id].value"
                         @update:model-value="(value) => { variantModelKeyModels[id].value = String(value ?? '') }"
@@ -579,6 +579,7 @@ import { NButton, NCard, NEmpty, NFlex, NIcon, NInput, NSpace, NText } from 'nai
 import { useI18n } from 'vue-i18n'
 import {
   applyPatchOperationsToText,
+  getImageModelSelectionConfigId,
   type ContextMode,
   type ImageInputRef,
   type ImageModelConfig,
@@ -1020,7 +1021,7 @@ const imageModelConfigMap = computed(() => {
 
 const getVariantModelConfig = (id: TestVariantId) => {
   const modelKey = (variantModelKeyModels[id].value || '').trim()
-  return modelKey ? imageModelConfigMap.value.get(modelKey) ?? null : null
+  return modelKey ? imageModelConfigMap.value.get(getImageModelSelectionConfigId(modelKey)) ?? null : null
 }
 
 const getVariantModelSupportState = (id: TestVariantId) => {
@@ -1142,7 +1143,7 @@ watch(
     const seed = options.find((item) => item.supportsMultiImage)?.value || options[0]?.value || ''
     for (const id of ALL_VARIANT_IDS) {
       const current = variantModelKeyModels[id].value
-      if (!current || !validKeys.has(current)) {
+      if (!current || !validKeys.has(getImageModelSelectionConfigId(current))) {
         session.updateTestVariant(id, { modelKey: seed })
       }
     }
@@ -1645,7 +1646,7 @@ const runVariant = async (
 
     showTestResult(id, !!opts?.silentSuccess)
     const result = await generateMultiImage(request)
-    const usedModel = imageModels.value.find(model => model.id === request.configId)
+    const usedModel = imageModels.value.find(model => model.id === getImageModelSelectionConfigId(request.configId))
     result.metadata = {
       providerId: usedModel?.providerId || '', modelId: usedModel?.modelId || '', configId: request.configId,
       ...result.metadata, prompt: request.prompt,

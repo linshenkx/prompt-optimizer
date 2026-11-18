@@ -175,12 +175,15 @@
                 :document="liveDocument"
                 :suspended="previewSuspended"
                 field="reasoning"
+                wrap-lines
+                style="height: clamp(160px, 28vh, 360px); flex: none;"
               />
               <MarkdownRenderer
                 v-else-if="displayReasoning"
                 :content="displayReasoning"
                 :streaming="isStreaming"
                 :disableInternalScroll="true"
+                wrap-lines
                 class="prose-sm max-w-none px-3 py-2"
               />
               <NSpace v-else-if="isStreaming" class="text-gray-500 text-sm italic px-3 py-2">
@@ -375,6 +378,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  enableStop: true,
   content: '',
   originalContent: '',
   reasoning: '',

@@ -233,6 +233,20 @@ const messages = {
       "advancedConfigDescription": "選填，用於覆蓋預設模型參數"
     },
     "params": {
+      "outputFormat": {
+        "label": "輸出格式",
+        "description": "預設生成 PNG 圖片，也可以選擇 GIF 動圖",
+        "png": "PNG 圖片",
+        "gif": "GIF 動圖"
+      },
+      "frameCount": {
+        "label": "GIF 影格數",
+        "description": "選填，2–16 影格；未設定時使用模型預設值，通常為 9 影格"
+      },
+      "frameDuration": {
+        "label": "GIF 影格間隔（毫秒）",
+        "description": "選填，數值越小播放越快；未設定時通常為 200 毫秒/影格"
+      },
       "size": {
         "label": "圖像尺寸",
         "description": "生成圖像的解析度/尺寸，如 1024x1024"

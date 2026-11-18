@@ -7,7 +7,21 @@
 {% set website_label = "Website" if is_en else "官网" %}
 {% set garden_label = "Prompt Library" if is_en else "提示词库" %}
 {% set product_label = "Optimizer" if is_en else "优化器" %}
-{% set github_label = "GitHub" %}
+{% set sites_label = "Related sites" if is_en else "相关站点" %}
+{% set site_links = [
+  (config.extra.website_url, website_label, "material/home-modern", "subtle"),
+  (config.extra.product_url, product_label, "material/rocket-launch-outline", "primary"),
+  (config.extra.garden_url, garden_label, "material/library-shelves", "subtle"),
+  (config.repo_url, "GitHub", "fontawesome/brands/github", "repo")
+] %}
+{% macro render_site_links(links) %}
+  {% for href, label, icon, tone in links if href %}
+    <a href="{{ href }}" class="md-header__button po-header-link po-header-link--{{ tone }}" target="_blank" rel="noopener">
+      {% include ".icons/" ~ icon ~ ".svg" %}
+      <span class="po-header-link__label">{{ label }}</span>
+    </a>
+  {% endfor %}
+{% endmacro %}
 {% if "navigation.tabs.sticky" in features %}
   {% set class = class ~ " md-header--shadow md-header--lifted" %}
 {% elif "navigation.tabs" not in features %}
@@ -25,8 +39,9 @@
     <div class="md-header__title" data-md-component="header-title">
       <div class="md-header__ellipsis">
         <div class="md-header__topic">
-            <span class="md-ellipsis">
-            {{ site_title }}
+          <span class="md-ellipsis">
+            <span class="po-header-title-full">{{ site_title }}</span>
+            <span class="po-header-title-short">{{ "Docs" if is_en else "文档" }}</span>
           </span>
         </div>
         <div class="md-header__topic" data-md-component="header-topic">
@@ -53,59 +68,8 @@
         </div>
       {% endif %}
     {% endif %}
-    <div class="po-header-jump" aria-label="Quick links">
-      {% if config.extra.website_url %}
-        <a
-          href="{{ config.extra.website_url }}"
-          title="{{ website_label }}"
-          aria-label="{{ website_label }}"
-          class="md-header__button po-header-link po-header-link--subtle"
-          target="_blank"
-          rel="noopener"
-        >
-          {% include ".icons/material/home-modern.svg" %}
-          <span class="po-header-link__label">{{ website_label }}</span>
-        </a>
-      {% endif %}
-      {% if config.extra.product_url %}
-        <a
-          href="{{ config.extra.product_url }}"
-          title="{{ product_label }}"
-          aria-label="{{ product_label }}"
-          class="md-header__button po-header-link po-header-link--primary"
-          target="_blank"
-          rel="noopener"
-        >
-          {% include ".icons/material/rocket-launch-outline.svg" %}
-          <span class="po-header-link__label">{{ product_label }}</span>
-        </a>
-      {% endif %}
-      {% if config.extra.garden_url %}
-        <a
-          href="{{ config.extra.garden_url }}"
-          title="{{ garden_label }}"
-          aria-label="{{ garden_label }}"
-          class="md-header__button po-header-link po-header-link--subtle"
-          target="_blank"
-          rel="noopener"
-        >
-          {% include ".icons/material/library-shelves.svg" %}
-          <span class="po-header-link__label">{{ garden_label }}</span>
-        </a>
-      {% endif %}
-      {% if config.repo_url %}
-        <a
-          href="{{ config.repo_url }}"
-          title="{{ github_label }}"
-          aria-label="{{ github_label }}"
-          class="md-header__button po-header-link po-header-link--repo"
-          target="_blank"
-          rel="noopener"
-        >
-          {% include ".icons/fontawesome/brands/github.svg" %}
-          <span class="po-header-link__label">{{ github_label }}</span>
-        </a>
-      {% endif %}
+    <div class="po-header-jump" aria-label="{{ sites_label }}">
+      {{ render_site_links(site_links) }}
     </div>
     <div class="po-header-tail">
     {% if config.theme.palette %}
@@ -117,6 +81,14 @@
       {% include "partials/alternate.html" %}
     {% endif %}
     </div>
+    <details class="po-header-sites">
+      <summary class="po-header-sites__toggle" aria-label="{{ sites_label }}" title="{{ sites_label }}">
+        {% include ".icons/material/dots-horizontal.svg" %}
+      </summary>
+      <div class="po-header-sites__links">
+        {{ render_site_links(site_links) }}
+      </div>
+    </details>
     </div>
     {% if not config.theme.palette is mapping %}
       {% include "partials/javascripts/palette.html" %}

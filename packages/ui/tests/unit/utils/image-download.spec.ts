@@ -26,6 +26,29 @@ describe('downloadImageSource', () => {
     ).toBe('prompt-optimizer-20260402-151617-089.webp')
   })
 
+  it('downloads an animated GIF without re-encoding its frames', async () => {
+    const b64 = 'R0lGODlhAgACAIEAAP8AAAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQAFAAAACwAAAAAAgACAAAIBgABCAQQEAAh+QQBFAABACwAAAAAAgACAIEAAP8AAAAAAAAAAAAIBgABCAQQEAA7'
+    const originalCreateElement = document.createElement.bind(document)
+    const anchor = originalCreateElement('a')
+    vi.spyOn(anchor, 'click').mockImplementation(() => undefined)
+    vi.spyOn(document, 'createElement').mockImplementation((tagName: string) =>
+      tagName === 'a' ? anchor : originalCreateElement(tagName)
+    )
+    const createObjectURL = vi.fn(() => 'blob:gif-download')
+    await downloadImageSource(`data:image/gif;base64,${b64}`, {
+      urlApi: { createObjectURL, revokeObjectURL: vi.fn() },
+    })
+    expect(anchor.download).toMatch(/\.gif$/)
+    const blob = createObjectURL.mock.calls[0][0] as Blob
+    expect(blob.type).toBe('image/gif')
+    const reader = new FileReader()
+    const downloaded = new Promise<string>(resolve => {
+      reader.onload = () => resolve(String(reader.result))
+    })
+    reader.readAsDataURL(blob)
+    expect(await downloaded).toBe(`data:image/gif;base64,${b64}`)
+  })
+
   it('forces a named blob download for data urls instead of navigating to the data source', async () => {
     const originalCreateElement = document.createElement.bind(document)
     const anchor = originalCreateElement('a')

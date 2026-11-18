@@ -14,29 +14,27 @@ This guide starts with model setup and ends with an improved prompt you can copy
 
 If you do not have an API key yet, read [Model Management: Before you start](../basic/models.md#before-you-start). For connection errors, see [Connection Issues](../help/connection-issues.md).
 
-![Text model list in Model Management](../assets/images/getting-started/02-model-manager.png)
+![Text model list in Model Management](../assets/images/product/2026-11/model-manager.jpg)
 
-*The screenshot shows the online UI without configured keys. Preset entries are disabled until you configure and enable a model.*
+*Captured in an isolated demo environment on the November 2026 development build. Configure your own working connection; a preset name does not grant API access.*
 
 ## 2. Enter a task prompt {#enter-prompt}
 
 At the top, open **Basic → User Prompt Optimization**. In **Original Prompt** on the left, enter:
 
-> Write an email asking a coworker to send this week's progress report by Friday evening. Be polite and keep it under 100 words.
+> Write an email asking coworkers to submit this week's progress by Friday at 5 PM. Be polite, stay under 100 words, and do not invent background details.
 
 Choose your new model in **Optimization Model**. Leave the optimization template on its default setting for now.
 
-![User prompt workspace with input and model controls](../assets/images/getting-started/01-user-workspace.png)
+![User prompt workspace with input and model controls](../assets/images/product/2026-11/basic-workspace.jpg)
 
-*The screenshot shows where to click; the example prompt and API key were not entered when it was captured.*
+*Optimize the task on the left, then compare the original and revised prompts using the same model on the right.*
 
 ## 3. Improve and copy the prompt
 
 Click **Optimize** on the left. When generation ends, read the revised prompt in **Optimization Workspace**, then use its copy button. You can send that revised prompt to the model you actually plan to use.
 
-![A generated rewrite in the Optimization Workspace](../assets/images/getting-started/05-optimization-result.png)
-
-*This is a real run. The model added “6:00 PM” and an example reason for the email, neither of which was in the original request. Review and change unsupported details before copying. The right-side test models still show defaults in this screenshot; choose your configured model before testing.*
+The screenshot shows a real optimization and test run. Check dates, times, length, and tone before copying, and remove invented facts. One run does not guarantee an improvement every time.
 
 The output here is an **improved task instruction**, not the finished email. To see an email generated from that instruction inside Prompt Optimizer, run a test on the right.
 
@@ -45,6 +43,7 @@ If **Optimize** is unavailable, check that the original prompt has text and that
 ## What next?
 
 - To see whether the rewrite helped, use [Testing & Evaluation](testing-evaluation.md) to test the original and revised prompts with the same model.
+- To compare models or settings directly, see [Arena](../advanced/arena.md) and [Model Selection & Parameters](../basic/model-parameters.md).
 - To keep the prompt, use [Favorites & Import](../basic/favorites.md).
 - To work on reusable rules, variable templates, or images, see [Choose Workspace](choose-workspace.md).
 

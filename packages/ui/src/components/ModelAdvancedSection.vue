@@ -1,5 +1,74 @@
 <template>
-  <NCollapse v-model:expanded-names="expandedNames" class="model-advanced-section" :class="{ 'model-advanced-section--compact': isCompact }">
+  <DefineCustomForm>
+    <NSpace vertical :size="12">
+      <NFormItem :label="t('modelManager.advancedParameters.customKeyPlaceholder')" :label-placement="isCompact ? 'top' : undefined" :label-width="isCompact ? 0 : undefined">
+        <NInput v-model:value="customForm.key" size="small" :placeholder="t('modelManager.advancedParameters.customKeyPlaceholder')" />
+      </NFormItem>
+      <NFormItem :label="t('modelManager.advancedParameters.customValuePlaceholder')" :label-placement="isCompact ? 'top' : undefined" :label-width="isCompact ? 0 : undefined">
+        <NInput
+          v-model:value="customForm.value"
+          type="textarea"
+          size="small"
+          :autosize="{ minRows: 2, maxRows: 4 }"
+          :placeholder="t('modelManager.advancedParameters.customValuePlaceholder')"
+        />
+      </NFormItem>
+    </NSpace>
+  </DefineCustomForm>
+  <DefineEditor>
+    <ModelParameterEditor
+      ref="editorRef"
+      :mode="mode"
+      :schema="parameterDefinitions"
+      :param-overrides="paramOverrides"
+      :allow-custom="allowCustom"
+      :embedded="embedded"
+      :show-descriptions="!embedded"
+      @update:paramOverrides="emitParamOverrides"
+    />
+  </DefineEditor>
+  <DefineActions>
+    <div class="advanced-actions" @click.stop>
+      <NDropdown
+        v-if="dropdownOptions.length > 0"
+        trigger="click"
+        placement="bottom-end"
+        :options="dropdownOptions"
+        :to="embedded ? false : undefined"
+        @select="handleAddOption"
+      >
+        <NButton size="small" :type="embedded ? 'default' : 'primary'" quaternary>
+          <template #icon><UiPlus :size="14" /></template>
+          {{ t('modelManager.advancedParameters.add') }}
+        </NButton>
+      </NDropdown>
+      <NButton v-else size="small" quaternary disabled>
+        {{ t('modelManager.advancedParameters.noAvailableParams') }}
+      </NButton>
+    </div>
+  </DefineActions>
+  <div v-if="embedded" class="model-advanced-section model-advanced-section--embedded">
+    <ReuseEditor v-if="Object.keys(paramOverrides).length" />
+    <div v-for="entry in inheritedEntries" :key="entry.name" class="advanced-inherited" :data-testid="'inherited-param-' + entry.name">
+      <div class="advanced-inherited__content">
+        <NText class="advanced-inherited__name" :title="entry.label">{{ entry.label }}</NText>
+        <NText depth="3" class="advanced-inherited__value" :title="entry.display">{{ t('localParameters.inherit', { value: entry.display }) }}</NText>
+      </div>
+      <NButton size="small" quaternary :aria-label="t('common.edit') + ' ' + entry.label" @click="overrideInherited(entry.name)">{{ t('common.edit') }}</NButton>
+    </div>
+    <div v-if="showCustomModal" class="advanced-custom" data-testid="embedded-custom-parameter">
+      <ReuseCustomForm />
+      <div class="advanced-custom__actions">
+        <NButton size="small" quaternary @click="showCustomModal = false">{{ t('common.cancel') }}</NButton>
+        <NButton size="small" type="primary" data-testid="custom-parameter-add" @click="handleConfirmCustom">{{ t('common.add') }}</NButton>
+      </div>
+    </div>
+    <div class="advanced-footer">
+      <ReuseActions />
+      <slot name="actions" />
+    </div>
+  </div>
+  <NCollapse v-else v-model:expanded-names="expandedNames" class="model-advanced-section" :class="{ 'model-advanced-section--compact': isCompact }">
     <NCollapseItem name="advanced">
       <template #header>
         <NSpace vertical :size="4" class="advanced-header">
@@ -26,47 +95,18 @@
         </NSpace>
       </template>
       <template #header-extra>
-        <div class="advanced-actions" @click.stop>
-          <NDropdown
-            v-if="dropdownOptions.length > 0"
-            trigger="click"
-            placement="bottom-end"
-            :options="dropdownOptions"
-            @select="handleAddOption"
-          >
-            <NButton size="small" type="primary" quaternary>
-              <template #icon>
-                <UiPlus :size="14" />
-              </template>
-              {{ t('modelManager.advancedParameters.add') }}
-            </NButton>
-          </NDropdown>
-          <NButton
-            v-else
-            size="small"
-            quaternary
-            disabled
-          >
-            {{ t('modelManager.advancedParameters.noAvailableParams') }}
-          </NButton>
-        </div>
+        <ReuseActions />
       </template>
 
       <div class="advanced-body">
-        <ModelParameterEditor
-          ref="editorRef"
-          :mode="mode"
-          :schema="parameterDefinitions"
-          :param-overrides="paramOverrides"
-          :allow-custom="allowCustom"
-          @update:paramOverrides="emitParamOverrides"
-        />
+        <ReuseEditor />
       </div>
     </NCollapseItem>
   </NCollapse>
 
   <!-- 自定义参数输入对话框 -->
   <NModal
+    v-if="!embedded"
     v-model:show="showCustomModal"
     preset="dialog"
     :title="t('modelManager.advancedParameters.custom')"
@@ -74,26 +114,14 @@
     :negative-text="t('common.cancel')"
     @positive-click="handleConfirmCustom"
   >
-    <NSpace vertical :size="12">
-      <NFormItem :label="t('modelManager.advancedParameters.customKeyPlaceholder')" :label-placement="isCompact ? 'top' : undefined" :label-width="isCompact ? 0 : undefined">
-        <NInput v-model:value="customForm.key" size="small" :placeholder="t('modelManager.advancedParameters.customKeyPlaceholder')" />
-      </NFormItem>
-      <NFormItem :label="t('modelManager.advancedParameters.customValuePlaceholder')" :label-placement="isCompact ? 'top' : undefined" :label-width="isCompact ? 0 : undefined">
-        <NInput
-          v-model:value="customForm.value"
-          type="textarea"
-          size="small"
-          :autosize="{ minRows: 2, maxRows: 4 }"
-          :placeholder="t('modelManager.advancedParameters.customValuePlaceholder')"
-        />
-      </NFormItem>
-    </NSpace>
+    <ReuseCustomForm />
   </NModal>
 </template>
 
 <script setup lang="ts">
 import { Plus as UiPlus } from '@lucide/vue'
 import { computed, ref, reactive } from 'vue'
+import { createReusableTemplate } from '@vueuse/core'
 
 import { useI18n } from 'vue-i18n'
 import {
@@ -116,6 +144,8 @@ import ModelParameterEditor from './ModelParameterEditor.vue'
 import { useWorkspaceLayout } from '../composables/ui/useWorkspaceLayout'
 
 const props = defineProps({
+  embedded: { type: Boolean, default: false },
+  defaultExpanded: { type: Boolean, default: false },
   mode: {
     type: String as () => 'text' | 'image',
     default: 'text'
@@ -129,6 +159,10 @@ const props = defineProps({
     default: () => []
   },
   paramOverrides: {
+    type: Object as () => Record<string, unknown>,
+    default: () => ({})
+  },
+  inherited: {
     type: Object as () => Record<string, unknown>,
     default: () => ({})
   },
@@ -146,13 +180,32 @@ const { t } = useI18n()
 const { isCompact } = useWorkspaceLayout()
 const message = resolveMessageApi()
 
-const expandedNames = ref<string[]>([])
+const expandedNames = ref<string[]>(props.defaultExpanded ? ['advanced'] : [])
 const showCustomModal = ref(false)
 const customForm = reactive({
   key: '',
   value: ''
 })
 const editorRef = ref<InstanceType<typeof ModelParameterEditor>>()
+const [DefineEditor, ReuseEditor] = createReusableTemplate()
+const [DefineActions, ReuseActions] = createReusableTemplate()
+const [DefineCustomForm, ReuseCustomForm] = createReusableTemplate()
+
+const inheritedEntries = computed(() => Object.entries(props.inherited)
+  .filter(([name, value]) => value !== undefined && !Object.prototype.hasOwnProperty.call(props.paramOverrides, name))
+  .map(([name, value]) => {
+    const definition = props.parameterDefinitions.find(item => item.name === name)
+    const index = definition?.allowedValues?.indexOf(String(value)) ?? -1
+    const labelKey = definition?.allowedValueLabelKeys?.[index]
+    return { name, label: definition?.labelKey ? t(definition.labelKey) : name,
+      display: labelKey ? t(labelKey) : typeof value === 'boolean' ? t(value ? 'common.enabled' : 'common.disabled')
+        : typeof value === 'string' && value ? value : JSON.stringify(value) }
+  }))
+
+function overrideInherited(name: string) {
+  emitParamOverrides({ ...props.paramOverrides, [name]: JSON.parse(JSON.stringify(props.inherited[name])) })
+  ensureExpanded()
+}
 
 const availableDefinitions = computed(() =>
   props.parameterDefinitions.filter(
@@ -207,7 +260,8 @@ const handleAddOption = (value: string | number) => {
 
   const next = {
     ...props.paramOverrides,
-    [definition.name]: cloneDefaultValue(definition)
+    [definition.name]: Object.prototype.hasOwnProperty.call(props.inherited, definition.name)
+      ? JSON.parse(JSON.stringify(props.inherited[definition.name])) : cloneDefaultValue(definition)
   }
   emitParamOverrides(next)
   ensureExpanded()
@@ -313,6 +367,16 @@ function resolveMessageApi(): MessageApi {
 .advanced-control {
   max-width: 360px;
 }
+.advanced-custom { padding-block: 8px; }
+.advanced-inherited { display: flex; align-items: center; gap: 8px; padding-block: 5px; }
+.advanced-inherited__content { flex: 1; min-width: 0; }
+.advanced-inherited__name, .advanced-inherited__value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.advanced-inherited__name { font-size: 13px; }
+.advanced-inherited__value { font-size: 12px; }
+.advanced-custom__actions { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 8px; }
+.advanced-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.model-advanced-section--embedded :deep(.advanced-control) { min-width: 0; max-width: 100%; }
+.model-advanced-section--embedded :deep(.n-form-item-blank) { min-width: 0; }
 .model-advanced-section--compact :deep(.n-collapse-item__header-main) { min-height: 44px; }
 .model-advanced-section--compact .advanced-header { min-width: 0; }
 </style>

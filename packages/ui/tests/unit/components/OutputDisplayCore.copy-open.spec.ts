@@ -1,8 +1,10 @@
-import { mount, flushPromises } from '@vue/test-utils'
+import { mount, shallowMount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { defineComponent, ref } from 'vue'
 import { CompareService } from '@prompt-optimizer/core'
 import OutputDisplayCore from '../../../src/components/OutputDisplayCore.vue'
+import OutputDisplay from '../../../src/components/OutputDisplay.vue'
+import OutputDisplayFullscreen from '../../../src/components/OutputDisplayFullscreen.vue'
 import { beginOutputStream, type OutputRecord } from '../../../src/utils/output-document'
 
 const { copyTextMock, errorMock, currentRoute } = vi.hoisted(() => ({
@@ -160,6 +162,35 @@ const selectCopyAction = async (
 }
 
 describe('OutputDisplayCore copy and open action', () => {
+  it('shows cancellation by default for a live stream and aborts it on click', async () => {
+    const output: OutputRecord = { result: '', reasoning: '' }
+    const stream = beginOutputStream(output)
+    const wrapper = mountOutputDisplayCore('', { outputRecord: output })
+    try {
+      await flushPromises()
+      await wrapper.get('[data-testid="output-stop"]').trigger('click')
+      expect(stream.signal.aborted).toBe(true)
+    } finally { stream.finish(); wrapper.unmount() }
+  })
+
+  it('preserves the default and explicit cancellation policy through embedded and fullscreen wrappers', async () => {
+    const wrapper = shallowMount(OutputDisplay, { props: { mode: 'readonly' }, global: { provide: { services: ref({ compareService: {} }) } } })
+    const fullscreen = shallowMount(OutputDisplayFullscreen, {
+      props: { modelValue: true, mode: 'readonly' },
+      global: { provide: { services: ref({ compareService: {} }) }, renderStubDefaultSlot: true },
+    })
+    try {
+      expect(wrapper.findComponent(OutputDisplayCore).props('enableStop')).toBe(true)
+      expect(wrapper.findComponent(OutputDisplayFullscreen).props('enableStop')).toBe(true)
+      expect(fullscreen.findComponent(OutputDisplayCore).props('enableStop')).toBe(true)
+      await wrapper.setProps({ enableStop: false })
+      await fullscreen.setProps({ enableStop: false })
+      expect(wrapper.findComponent(OutputDisplayCore).props('enableStop')).toBe(false)
+      expect(wrapper.findComponent(OutputDisplayFullscreen).props('enableStop')).toBe(false)
+      expect(fullscreen.findComponent(OutputDisplayCore).props('enableStop')).toBe(false)
+    } finally { wrapper.unmount(); fullscreen.unmount() }
+  })
+
   it('hides transport cancellation for channels that cannot stop, retaining the default for other callers', async () => {
     const output: OutputRecord = { result: '', reasoning: '' }
     const stream = beginOutputStream(output)

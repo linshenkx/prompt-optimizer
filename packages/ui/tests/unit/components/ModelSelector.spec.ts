@@ -12,6 +12,48 @@ afterEach(() => { mounted.splice(0).forEach(wrapper => wrapper.unmount()); docum
 const click = async (element: Element | null) => { (element as HTMLElement).click(); await flushPromises() }
 
 describe('shared model selection surface', () => {
+  it('keeps the model list visible when the expanded parameter editor needs extra height', async () => {
+    vi.stubGlobal('visualViewport', Object.assign(new EventTarget(), { offsetTop: 0, height: 844, scale: 1 }))
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const height = this.hasAttribute('data-action') ? 360 : this.hasAttribute('data-header') ? 40 : 34
+      return { top: 80, bottom: 80 + height, height, width: 360, left: 0, right: 360 } as DOMRect
+    })
+    const wrapper = mount(ModelSelector, { attachTo: document.body, props: {
+      modelValue: 'one', selectedLabel: 'One',
+      groups: [{ value: 'group', label: 'Provider', choices: [{ value: 'one', label: 'One' }] }],
+    }, slots: { parameters: '<div>Expanded parameter editor</div>' } })
+    mounted.push(wrapper)
+    await wrapper.get('.text-model-selector').trigger('click')
+    await flushPromises()
+    const menu = document.querySelector<HTMLElement>('.text-model-menu')!
+    expect(Number.parseInt(menu.style.getPropertyValue('--selector-list-height'))).toBeGreaterThanOrEqual(96)
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+  })
+
+  it('keeps parameters in the model menu and leaves their arrow keys with the input', async () => {
+    const wrapper = mount(ModelSelector, { attachTo: document.body, props: {
+      modelValue: 'one', selectedLabel: 'One',
+      groups: [{ value: 'group', label: 'Provider', choices: [{ value: 'one', label: 'One' }] }],
+    }, slots: {
+      'selection-detail': '<span>Thinking · High</span>',
+      parameters: '<label>Budget<input aria-label="Budget" value="4096" /></label>',
+    } })
+    mounted.push(wrapper)
+    expect(wrapper.get('.text-model-selector').text()).toContain('Thinking · High')
+    expect(wrapper.findAll('button')).toHaveLength(1)
+    await wrapper.get('.text-model-selector').trigger('click')
+    await flushPromises()
+    const input = document.querySelector<HTMLInputElement>('.text-model-menu__parameters input')!
+    expect(input.closest('.text-model-menu')).not.toBeNull()
+    input.focus()
+    const arrow = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true })
+    input.dispatchEvent(arrow)
+    expect(arrow.defaultPrevented).toBe(false)
+    expect(document.activeElement).toBe(input)
+    expect(wrapper.findComponent(NPopover).props('show')).toBe(true)
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+  })
+
   it('positions the shared menu above the mobile keyboard without changing the selection', async () => {
     vi.stubGlobal('visualViewport', Object.assign(new EventTarget(), { offsetTop: 0, height: 299, scale: 1 }))
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ top: 225, bottom: 257, height: 32 } as DOMRect)
@@ -74,7 +116,7 @@ describe('shared model selection surface', () => {
     mounted.push(wrapper)
     expect(wrapper.find('.text-model-selector__kind').exists()).toBe(false)
     await wrapper.setProps({ showModelTypes: true })
-    expect(wrapper.find('.text-model-selector__kind').exists()).toBe(true)
+    expect(wrapper.find('.text-model-selector__kind').exists()).toBe(false)
     expect(wrapper.find('button').attributes('aria-label')).toContain('Image generation')
     await wrapper.find('button').trigger('click')
     await flushPromises()

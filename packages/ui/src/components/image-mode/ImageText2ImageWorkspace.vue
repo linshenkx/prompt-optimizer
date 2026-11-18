@@ -277,7 +277,7 @@
                     <!-- 控制面板 - 使用网格布局 -->
                     <OptimizationControls :compact="isCompact">
                 <template #model><template v-if="appOpenModelManager">
-                                    <TextModelSelector
+                                    <TextModelSelector parameters
                                         data-testid="image-text2image-text-model-select"
                                         v-model="selectedTextModelKey"
                                         :options="textModelOptions"
@@ -297,7 +297,7 @@
                                     />
                                 </template>
                                 <template v-else>
-                                    <TextModelSelector
+                                    <TextModelSelector parameters
                                         data-testid="image-text2image-text-model-select"
                                         v-model="selectedTextModelKey"
                                         :options="textModelOptions"
@@ -523,7 +523,7 @@
                                   @update:model-key="variantModelKeyModels[id].value = $event"
                                   @preview="previewMobileSource(id)" @run="runVariant(id)" @config="() => appOpenModelManager && appOpenModelManager('image')">
                                   <template #model>
-                                    <ImageModelSelector :aria-label="getVariantLabel(id) + ' ' + t('test.model')"
+                                    <ImageModelSelector parameters :aria-label="getVariantLabel(id) + ' ' + t('test.model')"
                                       :data-testid="getVariantModelTestId(id)"
                                       :model-value="variantModelKeyModels[id].value"
                                       @update:model-value="(value) => { variantModelKeyModels[id].value = String(value ?? '') }"
@@ -555,7 +555,7 @@
                                         /></div>
 
                                         <div class="variant-cell__model"><NText v-if="isCompact" depth="2" class="test-settings-label">{{ t('test.model') }}</NText>
-                                            <ImageModelSelector
+                                            <ImageModelSelector parameters
                                                 :data-testid="getVariantModelTestId(id)"
                                                 :model-value="variantModelKeyModels[id].value"
                                                 @update:model-value="(value) => { variantModelKeyModels[id].value = String(value ?? '') }"
@@ -899,6 +899,7 @@ import {
 } from './imageText2ImageEvaluation'
 import {
     applyPatchOperationsToText,
+    getImageModelSelectionConfigId,
     type ContextMode,
     type ImageModelConfig,
     type Text2ImageRequest,
@@ -1270,11 +1271,11 @@ watch(
         const keys = new Set((opts || []).map((o) => o.value))
 
         const legacy = session.selectedImageModelKey
-        const seed = legacy && keys.has(legacy) ? legacy : fallback
+        const seed = legacy && keys.has(getImageModelSelectionConfigId(legacy)) ? legacy : fallback
 
         for (const id of ALL_VARIANT_IDS) {
             const current = variantModelKeyModels[id].value
-            if (!current || !keys.has(current)) {
+            if (!current || !keys.has(getImageModelSelectionConfigId(current))) {
                 session.updateTestVariant(id, { modelKey: seed })
             }
         }
@@ -1906,7 +1907,7 @@ const runVariant = async (
 
         showTestResult(id, !!opts?.silentSuccess)
     const res = await generateText2Image(request)
-    const usedModel = imageModels.value.find(model => model.id === request.configId)
+    const usedModel = imageModels.value.find(model => model.id === getImageModelSelectionConfigId(request.configId))
     res.metadata = {
       providerId: usedModel?.providerId || '', modelId: usedModel?.modelId || '', configId: request.configId,
       ...res.metadata, prompt: request.prompt,
@@ -2389,7 +2390,7 @@ const refreshImageModels = async () => {
         }
 
         const current = selectedImageModelKey.value
-        const exists = imageModels.value.some(m => m.id === current)
+        const exists = imageModels.value.some(m => m.id === getImageModelSelectionConfigId(current))
         if (!exists) {
             selectedImageModelKey.value = imageModels.value[0]?.id || ''
         }

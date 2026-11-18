@@ -1,15 +1,32 @@
 <template>
-  <ModelSelector v-bind="$attrs" :model-value="modelValue ? normalizedValue : ''" :groups="groups"
+  <div class="model-selection">
+  <ModelSelector class="model-selection__picker" v-bind="$attrs" :model-value="modelValue ? normalizedValue : ''" :groups="groups"
     :selected-config="additionalSelection?.group.label || selected?.primary" :selected-label="additionalSelection?.choice.label || (selected ? compactName(selected.primary, selectedModelName).split('/').pop() : '')"
     :size="size" :disabled="disabled" :placeholder="placeholder" :aria-label="ariaLabel"
     :show-model-types="showModelTypes"
     :clearable="clearable" :clear-label="clearLabel" show-config-action
-    @update:model-value="choose" @update:show="onShow" @focus="emit('focus')" @config="configure" @retry="retry" />
+    @update:model-value="choose" @update:show="onShow" @focus="emit('focus')" @config="configure" @retry="retry">
+    <template v-if="$slots['selection-detail'] || (parameters && parameterConfig && !additionalSelection)" #selection-detail>
+      <slot name="selection-detail">
+        <ModelParameterControls v-if="parameterConfig" presentation="summary" mode="text" :model-key="configId + '/' + modelId"
+          :provider-id="parameterConfig.providerMeta.id" :definitions="parameterDefinitions" :inherited="inheritedParameters" :model-value="localParameters" />
+      </slot>
+    </template>
+    <template v-if="$slots.parameters || (parameters && parameterConfig && !additionalSelection)" #parameters>
+      <slot name="parameters">
+        <ModelParameterControls v-if="parameterConfig" mode="text" :model-key="configId + '/' + modelId"
+          :provider-id="parameterConfig.providerMeta.id" :definitions="parameterDefinitions" :inherited="inheritedParameters"
+          :model-value="localParameters" :disabled="disabled" @update:model-value="updateParameters" />
+      </slot>
+    </template>
+  </ModelSelector>
+  </div>
 </template>
 <script setup lang="ts">
 import { computed, inject, ref, unref, watch, type MaybeRef, type Ref } from 'vue'
 import ModelSelector from './ModelSelector.vue'
-import { decodeTextModelSelection, encodeTextModelSelection } from '@prompt-optimizer/core'
+import ModelParameterControls from './ModelParameterControls.vue'
+import { decodeTextModelSelection, encodeTextModelSelection, resolveRuntimeTextModel, resolveTextModelParameterDefinitions } from '@prompt-optimizer/core'
 import type { AppServices } from '../types/services'
 import type { ModelSelectOption } from '../types/select-options'
 import type { ModelSelectorGroup } from '../types/model-selector'
@@ -28,6 +45,7 @@ const props = withDefaults(defineProps<{
   showModelTypes?: boolean
   clearable?: boolean
   clearLabel?: string
+  parameters?: boolean
 }>(), { modelValue: '', disabled: false, size: 'medium' })
 const emit = defineEmits<{ 'update:modelValue': [value: string]; 'update:show': [value: boolean]; focus: []; config: [id?: string] }>()
 const services = inject<Ref<AppServices | null>>('services', ref(null))
@@ -45,6 +63,26 @@ const additionalSelection = computed(() => {
 })
 const configId = computed(() => getTextModelSelectionConfigId(props.modelValue))
 const modelId = computed(() => decodeTextModelSelection(props.modelValue)?.modelId || selected.value?.raw.modelMeta.id || '')
+const localParameters = computed(() => decodeTextModelSelection(props.modelValue)?.paramOverrides || {})
+const parameterCache = new Map<string, Record<string, unknown>>()
+const parameterConfig = computed(() => {
+  const base = options.value.find(option => option.value === configId.value)?.raw
+  if (!base) return undefined
+  try { return services.value?.textAdapterRegistry ? resolveRuntimeTextModel(base, { modelId: modelId.value }, services.value.textAdapterRegistry) : base }
+  catch { return base }
+})
+const parameterDefinitions = computed(() => {
+  const config = parameterConfig.value
+  if (!config) return []
+  return services.value?.textAdapterRegistry ? resolveTextModelParameterDefinitions({ providerId: config.providerMeta.id,
+    modelId: modelId.value, connectionConfig: config.connectionConfig || {}, savedDefinitions: config.modelMeta.parameterDefinitions,
+    registry: services.value.textAdapterRegistry }) : config.modelMeta.parameterDefinitions
+})
+const inheritedParameters = computed(() => ({ ...parameterConfig.value?.modelMeta.defaultParameterValues, ...parameterConfig.value?.paramOverrides }))
+function updateParameters(value: Record<string, unknown>) {
+  parameterCache.set(selectionKey(configId.value, modelId.value), value)
+  emit('update:modelValue', Object.keys(value).length ? encodeTextModelSelection(configId.value, modelId.value, value) : selectionKey(configId.value, modelId.value))
+}
 const selectedModelName = computed(() => {
   const known = catalog.value?.entries[configId.value]?.models.find(model => model.value === modelId.value)?.label
   if (known) return known
@@ -95,7 +133,12 @@ function onShow(show: boolean) {
   if (show) void refresh()
 }
 function choose(value: string) {
-  emit('update:modelValue', value)
+  parameterCache.set(normalizedValue.value, localParameters.value)
+  const cached = parameterCache.get(value)
+  const next = decodeTextModelSelection(value)
+  const base = options.value.find(option => option.value === value)?.raw
+  emit('update:modelValue', cached && Object.keys(cached).length && (next || base)
+    ? encodeTextModelSelection(next?.configId || value, next?.modelId || base!.modelMeta.id, cached) : value)
   if (props.additionalGroups?.some(group => group.choices.some(choice => choice.value === value))) return
   if (!value || !services.value) return
   const decoded = decodeTextModelSelection(value)
@@ -115,3 +158,7 @@ function retry(id: string) {
 watch(options, () => { if (open.value) void refresh() })
 defineExpose({ refresh })
 </script>
+<style scoped>
+.model-selection { display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0; }
+.model-selection :deep(.model-selection__picker) { flex: 1; min-width: 0; width: 0; }
+</style>

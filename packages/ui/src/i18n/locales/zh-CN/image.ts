@@ -233,6 +233,20 @@ const messages = {
       "advancedConfigDescription": "可选，用于覆盖默认模型参数"
     },
     "params": {
+      "outputFormat": {
+        "label": "输出格式",
+        "description": "默认生成 PNG 图片，也可以选择 GIF 动图",
+        "png": "PNG 图片",
+        "gif": "GIF 动图"
+      },
+      "frameCount": {
+        "label": "GIF 帧数",
+        "description": "可选，2–16 帧；未设置时由模型决定，通常为 9 帧"
+      },
+      "frameDuration": {
+        "label": "GIF 帧间隔（毫秒）",
+        "description": "可选，数值越小播放越快；未设置时通常为 200 毫秒/帧"
+      },
       "size": {
         "label": "图像尺寸",
         "description": "生成图像的分辨率/尺寸，如 1024x1024"

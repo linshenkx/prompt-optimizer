@@ -1,15 +1,21 @@
 import { defineComponent, reactive, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { routerKey } from 'vue-router'
-import { createArenaState } from '@prompt-optimizer/core'
+import { CompareService, createArenaState } from '@prompt-optimizer/core'
 import ArenaWorkspace from '../../../src/components/arena-mode/ArenaWorkspace.vue'
+import { beginOutputStream } from '../../../src/utils/output-document'
+import { prepareMarkdownOutput } from '../../../src/utils/markdown-output'
+import { installMarkdownWorker } from '../support/markdown-worker'
 
 const { current, toastError } = vi.hoisted(() => ({ current: { store: null as any }, toastError: vi.fn() }))
 vi.mock('../../../src/stores/session/useArenaSession', () => ({ useArenaSession: () => current.store }))
 vi.mock('../../../src/composables/ui/useToast', () => ({ useToast: () => ({ error: toastError }) }))
 vi.mock('../../../src/composables/image/useImageInputPreparation', () => ({
   useImageInputPreparation: () => ({ prepareInputRefs: vi.fn() }),
+}))
+vi.mock('../../../src/composables/variable/useTemporaryVariables', () => ({
+  useTemporaryVariables: () => ({ temporaryVariables: [], setVariable: vi.fn() }),
 }))
 vi.mock('../../../src/components/arena-mode/useArenaModels', () => ({
   useArenaModels: () => ({
@@ -36,21 +42,24 @@ const Input = defineComponent({
   template: '<div><slot name="footer" :open-fullscreen="open" /></div>',
 })
 const routePush = vi.fn()
-const render = () => mount(ArenaWorkspace, {
-  global: { provide: { [routerKey as symbol]: { push: routePush } }, stubs: {
+const render = (realOutput = false) => mount(ArenaWorkspace, {
+  global: { provide: { [routerKey as symbol]: { push: routePush }, services: ref({ compareService: new CompareService() }) }, stubs: {
     NButton: Button, NCard: { template: '<div><slot /></div>' },
     NScrollbar: { template: '<div class="arena-scroll-container"><slot /></div>' },
     NText: { template: '<span><slot /></span>' }, NAlert: { template: '<div role="alert"><slot /></div>' },
     TextModelSelector: { template: '<button class="text-model-selector" />' },
-    TestInputSection: Input, OutputDisplay: Output,
+    TestInputSection: Input, OutputDisplay: realOutput ? false : Output,
+    OutputDisplayFullscreen: true,
     PromptGardenInspirationPopover: true, PromptGardenImportDialog: true,
     AppPreviewImageGroup: { template: '<div><slot /></div>' }, ArenaImage: true,
   } },
 })
 
 describe('Arena shared workspace presentation', () => {
+  afterEach(() => vi.unstubAllGlobals())
   beforeEach(() => {
     vi.clearAllMocks()
+    installMarkdownWorker(vi, prepareMarkdownOutput)
     const state = reactive(createArenaState())
     state.prompt = 'Local task'
     state.contestants.forEach(column => { column.configKey = 'local'; column.modelId = 'local-model' })
@@ -60,6 +69,7 @@ describe('Arena shared workspace presentation', () => {
       busy: (id: string) => state.results[id]?.status === 'running',
       cancellable: (id: string) => state.results[id]?.model.kind === 'text',
       isStale: () => false,
+      resolveConfig: () => undefined,
       refreshConfigs: vi.fn(async () => {}), saveSession: vi.fn(async () => {}),
       run: vi.fn(async () => {}), runAll: vi.fn(async () => {}),
       addContestant: vi.fn(), removeContestant: vi.fn(),
@@ -93,10 +103,37 @@ describe('Arena shared workspace presentation', () => {
     const wrapper = render()
     const outputs = wrapper.findAllComponents(Output)
     expect(outputs).toHaveLength(2)
-    expect(outputs[0].props()).toMatchObject({ content: '', loading: false, streaming: false, reasoningMode: 'hide' })
+    expect(outputs[0].props()).toMatchObject({ content: '', loading: false, streaming: false })
     await wrapper.find('.column-run').trigger('click')
     expect(current.store.run).toHaveBeenCalledWith(current.store.state.contestants[0].id)
     wrapper.unmount()
+  })
+
+  it('shows streamed reasoning before the answer and keeps it accessible after completion and remount', async () => {
+    const id = setResult('text')
+    const result = current.store.state.results[id]
+    const stream = beginOutputStream(result.output)
+    const wrapper = render(true)
+    try {
+      expect(wrapper.text()).not.toContain('common.reasoning')
+      stream.onReasoningToken('Preparing the SVG')
+      await flushPromises()
+      expect(wrapper.text()).toContain('common.reasoning')
+      expect(wrapper.get('.reasoning-content').text()).toContain('Preparing the SVG')
+      stream.onToken('Final answer')
+    } finally {
+      stream.finish()
+      result.status = 'success'
+      wrapper.unmount()
+    }
+
+    const restored = render(true)
+    try {
+      expect(restored.text()).toContain('common.reasoning')
+      await restored.get('.n-collapse-item__header-main').trigger('click')
+      await flushPromises()
+      expect(restored.get('.reasoning-content .markdown-content').text()).toContain('Preparing the SVG')
+    } finally { restored.unmount() }
   })
 
   it('keeps the run action loading while the shared result owns text-stream cancellation', () => {

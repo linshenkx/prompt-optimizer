@@ -12,6 +12,23 @@ describe('image asset storage utilities', () => {
     expect(await normalizeGeneratedImagePayload({ b64: 'AAAA', mimeType: 'image/jpeg' })).toEqual({ b64: 'AAAA', mimeType: 'image/jpeg' })
     expect(await normalizeGeneratedImagePayload({ url: 'data:image/png;base64,AAAA' })).toEqual({ b64: 'AAAA', mimeType: 'image/png' })
   })
+
+  it('persists the original animated GIF bytes and MIME type', async () => {
+    const b64 = 'R0lGODlhAgACAIEAAP8AAAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQAFAAAACwAAAAAAgACAAAIBgABCAQQEAAh+QQBFAABACwAAAAAAgACAIEAAP8AAAAAAAAAAAAIBgABCAQQEAA7'
+    const payload = await normalizeGeneratedImagePayload({ b64, mimeType: 'image/gif' })
+    expect(payload).toEqual({ b64, mimeType: 'image/gif' })
+    const storageService = {
+      getMetadata: vi.fn(async () => null),
+      getStorageStats: vi.fn(async () => ({ count: 0, totalBytes: 0 })),
+      getConfig: vi.fn(() => ({ maxCacheSize: Infinity, maxCount: Infinity, quotaStrategy: 'reject' })),
+      saveImage: vi.fn(async () => 'gif-asset'),
+    }
+    await persistImagePayloadAsAssetId({ payload: payload!, storageService: storageService as any })
+    expect(storageService.saveImage).toHaveBeenCalledWith(expect.objectContaining({
+      data: b64,
+      metadata: expect.objectContaining({ mimeType: 'image/gif' }),
+    }))
+  })
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.restoreAllMocks()

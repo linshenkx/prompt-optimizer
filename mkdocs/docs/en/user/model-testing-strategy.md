@@ -72,6 +72,14 @@ The least helpful starting point is changing both at once:
 
 If both change together, it becomes hard to tell what actually caused the change.
 
+## Compare settings on the same model
+
+In [Arena](../advanced/arena.md) or a workspace's test columns, select the same connection and model, keep the prompt and input fixed, and change one parameter. Depending on the model, that may be an effort level, a thinking switch, a budget, or another configured parameter such as temperature.
+
+Controls follow existing model definitions; providers do not necessarily support the same levels. Run again after a change, because existing outputs belong to the previous settings. See [Model Selection & Parameters](../basic/model-parameters.md) for editing and restoring inherited values.
+
+Decide whether you are comparing **prompt versions, models, or parameters**. Change one factor at a time and repeat runs. More reasoning does not guarantee better results.
+
 ## Variable and context workspaces need extra care
 
 ### Variable Workspace

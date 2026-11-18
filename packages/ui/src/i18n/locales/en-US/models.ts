@@ -1,4 +1,5 @@
 const messages = {
+  localParameters: { reasoning: 'Reasoning effort', default: 'Default', defaultWithValue: 'Default ({value})', effort: { none: 'Off', minimal: 'Minimal', low: 'Low', medium: 'Medium', high: 'High', xhigh: 'Very high', max: 'Maximum' }, title: 'Model parameters', thinking: 'Thinking', more: 'Parameters', moreOptions: 'Other parameters…', reset: 'Reset to defaults', resetParameter: 'Use inherited value', inherit: 'Use configuration ({value})', automatic: 'Auto' },
   localDiscovery: {
     cliproxyapiApiKeyHint: 'If CLIProxyAPI requires authentication, enter a client API key (not a management key)',
     apiKeyHint: 'Enter an API key if authentication is enabled for {name}',

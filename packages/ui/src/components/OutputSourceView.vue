@@ -2,7 +2,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
-import { EditorState, Text } from '@codemirror/state'
+import { Compartment, EditorState, Text } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import type { OutputDocument, OutputField } from '../utils/output-document'
 import { scheduleOutputView, cancelOutputView } from '../utils/output-view-scheduler'
@@ -13,7 +13,8 @@ const props = withDefaults(defineProps<{
   content?: string
   fitContent?: boolean
   suspended?: boolean
-}>(), { field: 'result', content: '' })
+  wrapLines?: boolean
+}>(), { field: 'result', content: '', wrapLines: true })
 const container = ref<HTMLElement>()
 let view: EditorView | undefined
 let unsubscribe: (() => void) | undefined
@@ -24,6 +25,7 @@ let previousContent = ''
 let rawOffset = 0
 let endedWithCarriageReturn = false
 let disposed = false
+const wrapping = new Compartment()
 const synchronize = () => {
   if (!view || disposed || !visible || props.suspended || document.visibilityState === 'hidden') return
   if (props.document) {
@@ -73,6 +75,7 @@ onMounted(() => {
       doc: props.document?.read(props.field) ?? props.content,
       extensions: [
         EditorState.readOnly.of(true), EditorView.editable.of(false),
+        wrapping.of(props.wrapLines ? EditorView.lineWrapping : []),
         EditorView.contentAttributes.of({ tabindex: '0', 'aria-label': 'Output source' }),
         EditorView.theme({
           '&': { height: props.fitContent ? 'min(70vh, 640px)' : '100%', minHeight: '160px', color: 'inherit', backgroundColor: 'transparent' },
@@ -97,6 +100,7 @@ onMounted(() => {
 watch(() => [props.document, props.field], () => bindDocument())
 watch(() => props.content, schedule)
 watch(() => props.suspended, value => value ? cancelOutputView(scheduleOwner) : schedule())
+watch(() => props.wrapLines, value => view?.dispatch({ effects: wrapping.reconfigure(value ? EditorView.lineWrapping : []) }))
 onBeforeUnmount(() => {
   disposed = true
   unsubscribe?.()

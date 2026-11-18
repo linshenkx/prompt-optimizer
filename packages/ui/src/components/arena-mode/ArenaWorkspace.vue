@@ -35,7 +35,17 @@
         <article v-for="c in session.state.contestants" :key="c.id" class="arena-column" :data-column-id="c.id" :data-testid="'arena-column-' + c.id">
           <NCard size="small" class="arena-model-controls" content-style="padding: var(--arena-control-padding);">
             <div class="model-controls">
-              <TextModelSelector :model-value="models.selection(c)" :options="models.textOptions.value" :additional-groups="models.imageGroups(imageCatalog)" :disabled="session.busy(c.id)" :placeholder="t('model.select.placeholder')" :aria-label="t('model.select.placeholder')" show-model-types size="small" @update:model-value="models.select(c, $event)" @update:show="show => { if (show) void loadImages() }" @config="id => configure(c, id)" />
+              <TextModelSelector :model-value="models.selection(c)" :options="models.textOptions.value" :additional-groups="models.imageGroups(imageCatalog)" :disabled="session.busy(c.id)" :placeholder="t('model.select.placeholder')" :aria-label="t('model.select.placeholder')" show-model-types size="small" @update:model-value="models.select(c, $event)" @update:show="show => { if (show) void loadImages() }" @config="id => configure(c, id)">
+                <template v-if="parameterConfig(c)" #selection-detail>
+                  <ModelParameterControls presentation="summary" :mode="c.kind" :model-key="models.selection(c)" :provider-id="parameterConfig(c)!.providerId || ''"
+                    :definitions="parameterDefinitions(c)" :inherited="inheritedParameters(c)" :model-value="c.paramOverrides || {}" />
+                </template>
+                <template v-if="parameterConfig(c)" #parameters>
+                  <ModelParameterControls :mode="c.kind" :model-key="models.selection(c)" :provider-id="parameterConfig(c)!.providerId || ''"
+                    :definitions="parameterDefinitions(c)" :inherited="inheritedParameters(c)" :model-value="c.paramOverrides || {}" :disabled="session.busy(c.id)"
+                    @update:model-value="c.paramOverrides = $event" />
+                </template>
+              </TextModelSelector>
               <NButton class="column-run" size="small" secondary :disabled="!canRun(c)" :loading="session.busy(c.id)" :aria-label="t('test.layout.runThisColumn')" :title="t('test.layout.runThisColumn')" :data-testid="'arena-run-' + c.id" @click="perform(() => session.run(c.id))"><template v-if="!compactColumns" #icon><Play :size="13" /></template>{{ t('test.title') }}</NButton>
               <NButton class="column-delete" size="small" quaternary circle :disabled="session.state.contestants.length <= 1 || session.busy(c.id)" :aria-label="t('arena.deleteColumn')" :title="t('arena.deleteColumn')" :data-testid="'arena-delete-' + c.id" @click="removeColumn(c.id)"><template #icon><Trash2 :size="16" /></template></NButton>
             </div>
@@ -45,7 +55,7 @@
             <NCard size="small" class="arena-result-card" content-style="padding: 0; height: 100%; max-height: 100%; overflow: hidden; display: flex; flex-direction: column;">
               <p v-if="session.state.results[c.id]?.error" role="alert" class="compact-test-error">{{ translateError(session.state.results[c.id].error!) }}</p>
               <AppPreviewImageGroup v-if="session.state.results[c.id]?.images.length"><div class="result-images"><ArenaImage v-for="(image, i) in session.state.results[c.id].images" :key="image.id + '-' + i" :asset-id="image.id" :label="c.modelId + ' ' + (i + 1)" :width="280" /></div></AppPreviewImageGroup>
-              <OutputDisplay v-if="!session.state.results[c.id]?.images.length || session.state.results[c.id]?.output.result || session.state.results[c.id]?.output.reasoning" :content="session.state.results[c.id]?.output.result || ''" :reasoning="session.state.results[c.id]?.output.reasoning" :output-record="session.state.results[c.id]?.output" :loading="session.busy(c.id)" :enable-stop="session.cancellable(c.id)" mode="readonly" reasoning-mode="hide" :enable-edit="false" :enable-favorite="false" :enable-diff="false" :streaming="session.state.results[c.id]?.status === 'running' && c.kind === 'text'" height="100%" />
+              <OutputDisplay v-if="!session.state.results[c.id]?.images.length || session.state.results[c.id]?.output.result || session.state.results[c.id]?.output.reasoning" :content="session.state.results[c.id]?.output.result || ''" :reasoning="session.state.results[c.id]?.output.reasoning" :output-record="session.state.results[c.id]?.output" :loading="session.busy(c.id)" :enable-stop="session.cancellable(c.id)" mode="readonly" reasoning-mode="auto" :enable-edit="false" :enable-favorite="false" :enable-diff="false" :streaming="session.state.results[c.id]?.status === 'running' && c.kind === 'text'" height="100%" />
             </NCard>
           </div>
         </article>
@@ -64,12 +74,14 @@ import { useI18n } from 'vue-i18n'
 import { routerKey } from 'vue-router'
 import { ArrowLeft, ImagePlus, Maximize2, Play, Plus, Trash2, X } from '@lucide/vue'
 import { NAlert, NButton, NCard, NScrollbar, NText, type ScrollbarInst } from 'naive-ui'
-import { type ArenaContestant, type ImageModel } from '@prompt-optimizer/core'
+import { resolveTextModelParameterDefinitions, type ArenaContestant, type ImageModel } from '@prompt-optimizer/core'
+import { getPiniaServices } from '../../plugins/pinia'
 import { useArenaSession } from '../../stores/session/useArenaSession'
 import { useImageInputPreparation } from '../../composables/image/useImageInputPreparation'
 import { useArenaModels } from './useArenaModels'
 import ArenaImage from './ArenaImage.vue'
 import TextModelSelector from '../TextModelSelector.vue'
+import ModelParameterControls from '../ModelParameterControls.vue'
 import OutputDisplay from '../OutputDisplay.vue'
 import TestInputSection from '../TestInputSection.vue'
 import TestWorkspaceToolbar from '../TestWorkspaceToolbar.vue'
@@ -81,6 +93,21 @@ import { useToast } from '../../composables/ui/useToast'
 
 const session = useArenaSession()
 const models = useArenaModels()
+const parameterConfig = (c: ArenaContestant) => session.resolveConfig({ ...c, paramOverrides: undefined })
+const parameterDefinitions = (c: ArenaContestant) => {
+  const config = parameterConfig(c)
+  if (!config) return []
+  if (!('modelMeta' in config)) return config.model.parameterDefinitions
+  const registry = getPiniaServices()?.textAdapterRegistry
+  return registry ? resolveTextModelParameterDefinitions({ providerId: config.providerMeta.id,
+    modelId: c.modelId, connectionConfig: config.connectionConfig || {}, savedDefinitions: config.modelMeta.parameterDefinitions,
+    registry }) : config.modelMeta.parameterDefinitions
+}
+const inheritedParameters = (c: ArenaContestant) => {
+  const config = parameterConfig(c)
+  return config ? { ...('modelMeta' in config ? config.modelMeta.defaultParameterValues : config.model.defaultParameterValues), ...config.paramOverrides } : {}
+}
+
 const { t } = useI18n()
 const toast = useToast()
 const router = inject(routerKey, null)
@@ -156,12 +183,13 @@ defineExpose({ isUpdateBusy: () => session.running || uploading.value })
 .arena-deck { display: grid; align-items: stretch; gap: 12px; width: 100%; height: 100%; min-height: 0; }
 .arena-column { display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: 12px; }
 .model-controls { display: flex; gap: 8px; align-items: center; min-width: 0; }
-.model-controls > :deep(.text-model-selector) { flex: 1; min-width: 0; }
+.model-controls > :deep(.model-selection) { flex: 1; min-width: 0; }
 .model-controls > .n-button { flex-shrink: 0; }
-.arena-deck--compact .model-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
-.arena-deck--compact .model-controls > :deep(.text-model-selector) { grid-column: 1 / -1; }
-.arena-deck--compact .column-run { grid-column: 1; justify-self: end; }
-.arena-deck--compact .column-delete { grid-column: 2; }
+.arena-deck--compact .model-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; }
+.arena-deck--compact .model-controls > :deep(.model-selection) { grid-column: 1 / -1; }
+.arena-deck--compact .model-controls > :deep(.local-model-parameters) { grid-column: 1; grid-row: 2; }
+.arena-deck--compact .column-run { grid-column: 2; grid-row: 2; justify-self: end; }
+.arena-deck--compact .column-delete { grid-column: 3; grid-row: 2; }
 .model-warning { display: block; margin-top: 8px; }
 .arena-result-slot { display: flex; flex: 1; flex-direction: column; min-height: 0; }
 .arena-result-card { flex: 1; min-height: 0; overflow: hidden; }

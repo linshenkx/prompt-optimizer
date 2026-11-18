@@ -22,7 +22,6 @@ theme:
   favicon: assets/images/favicon.png
   features:
     - content.code.copy
-    - navigation.expand
     - navigation.tracking
     - navigation.top
     - navigation.footer
@@ -70,6 +69,7 @@ plugins:
             - 快速上手:
                 - 快速开始: user/quick-start.md
                 - 模型管理: basic/models.md
+                - 模型选择与参数: basic/model-parameters.md
                 - 选择工作区: user/choose-workspace.md
                 - 测试与评估: user/testing-evaluation.md
                 - 模型选择与测试策略: user/model-testing-strategy.md
@@ -81,6 +81,7 @@ plugins:
                 - 文生图工作区: image/text2image-workspace.md
                 - 图生图工作区: image/image2image-workspace.md
                 - 多图生图工作区: image/multiimage-workspace.md
+                - 竞技场: advanced/arena.md
             - 通用能力:
                 - 模板管理: basic/templates.md
                 - 历史记录: basic/history.md
@@ -135,6 +136,7 @@ plugins:
             - Getting Started:
                 - Quick Start: user/quick-start.md
                 - Model Management: basic/models.md
+                - Model Selection & Parameters: basic/model-parameters.md
                 - Choose Workspace: user/choose-workspace.md
                 - Testing & Evaluation: user/testing-evaluation.md
                 - Model Testing Strategy: user/model-testing-strategy.md
@@ -146,6 +148,7 @@ plugins:
                 - Text-to-Image Workspace: image/text2image-workspace.md
                 - Image-to-Image Workspace: image/image2image-workspace.md
                 - Multi-Image Workspace: image/multiimage-workspace.md
+                - Arena: advanced/arena.md
             - General Capabilities:
                 - Template Management: basic/templates.md
                 - History Management: basic/history.md
@@ -218,7 +221,7 @@ markdown_extensions:
   - attr_list
 
 extra_css:
-  - assets/stylesheets/brand-home.css?v=20260322-2
+  - assets/stylesheets/brand-home.css?v=20261118
 
 # 导航配置已移至 i18n 插件内，为每种语言提供本地化导航
 

@@ -1,11 +1,13 @@
 import type { ImageRef } from '../image/types'
 import { v4 as uuidv4 } from 'uuid'
+import { cleanLocalParameterOverrides } from '../model/selection'
 
 export interface ArenaContestant {
   id: string
   kind: 'text' | 'image'
   configKey: string
   modelId: string
+  paramOverrides?: Record<string, unknown>
 }
 /** Persisted provenance deliberately excludes connection credentials. */
 export interface ArenaEffectiveConfig {
@@ -38,6 +40,7 @@ export interface ArenaState {
 export const createArenaContestant = (base?: ArenaContestant): ArenaContestant => ({
   id: uuidv4(), kind: base?.kind || 'text', configKey: base?.configKey || '',
   modelId: base?.modelId || '',
+  ...(base?.paramOverrides ? { paramOverrides: cleanLocalParameterOverrides(base.paramOverrides) } : {}),
 })
 export const createArenaState = (): ArenaState => ({
   schemaVersion: 1, prompt: '', images: [], contestants: [createArenaContestant(), createArenaContestant()],
@@ -46,7 +49,8 @@ export const createArenaState = (): ArenaState => ({
 const record = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x)
 const refs = (x: unknown): x is ImageRef[] => Array.isArray(x) && x.every(i => record(i) && i._type === 'image-ref' && typeof i.id === 'string' && !!i.id)
 const contestant = (x: unknown): x is ArenaContestant => record(x) && typeof x.id === 'string' && /^[\w-]{1,100}$/.test(x.id) &&
-  (x.kind === 'text' || x.kind === 'image') && typeof x.configKey === 'string' && typeof x.modelId === 'string'
+  (x.kind === 'text' || x.kind === 'image') && typeof x.configKey === 'string' && typeof x.modelId === 'string' &&
+  (x.paramOverrides === undefined || record(x.paramOverrides))
 const effective = (x: unknown) => record(x) && typeof x.providerId === 'string' && typeof x.modelId === 'string' && record(x.connection) && record(x.parameters)
 export const isArenaState = (x: unknown): x is ArenaState => {
   if (!record(x) || x.schemaVersion !== 1 || typeof x.prompt !== 'string' || !refs(x.images) ||
@@ -64,7 +68,8 @@ export const isArenaState = (x: unknown): x is ArenaState => {
 }
 /** Drop retired controls while preserving saved inputs and historical outputs. */
 export const normalizeArenaState = (value: ArenaState): ArenaState => {
-  const model = ({ id, kind, configKey, modelId }: ArenaContestant): ArenaContestant => ({ id, kind, configKey, modelId })
+  const model = ({ id, kind, configKey, modelId, paramOverrides }: ArenaContestant): ArenaContestant => ({ id, kind, configKey, modelId,
+    ...(paramOverrides ? { paramOverrides: cleanLocalParameterOverrides(paramOverrides) } : {}) })
   return {
     schemaVersion: 1, prompt: value.prompt, images: value.images, lastActiveAt: value.lastActiveAt,
     contestants: value.contestants.map(model),

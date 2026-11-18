@@ -1,10 +1,10 @@
-# 中文专版配置（不启用 i18n，直接指向 zh 目录）
+# 中文专版配置：复用主站的共享资源，只构建中文
 site_name: Prompt Optimizer 文档（中文）
 site_url: https://docs.always200.com
 site_description: Prompt Optimizer 中文文档与部署指南
 site_author: linshenkx
 
-docs_dir: docs/zh
+docs_dir: docs
 site_dir: site
 
 theme:
@@ -15,8 +15,6 @@ theme:
   favicon: assets/images/favicon.png
   features:
     - content.code.copy
-    - navigation.instant
-    - navigation.expand
     - navigation.tracking
     - navigation.top
     - navigation.footer
@@ -40,6 +38,16 @@ plugins:
         theme: auto
         themeVariables:
           fontSize: 16px
+  - i18n:
+      docs_structure: folder
+      languages:
+        - locale: zh
+          name: 简体中文
+          default: true
+          build: true
+        - locale: en
+          name: English
+          build: false
   - glightbox
 
 markdown_extensions:
@@ -54,12 +62,13 @@ markdown_extensions:
 extra_css:
   - assets/stylesheets/brand-home.css
 
-# 中文站点导航（直连 zh 目录）
+# 中文站点导航
 nav:
   - 首页: index.md
   - 快速上手:
       - 快速开始: user/quick-start.md
       - 模型管理: basic/models.md
+      - 模型选择与参数: basic/model-parameters.md
       - 选择工作区: user/choose-workspace.md
       - 测试与评估: user/testing-evaluation.md
       - 模型选择与测试策略: user/model-testing-strategy.md
@@ -71,6 +80,7 @@ nav:
       - 文生图工作区: image/text2image-workspace.md
       - 图生图工作区: image/image2image-workspace.md
       - 多图生图工作区: image/multiimage-workspace.md
+      - 竞技场: advanced/arena.md
   - 通用能力:
       - 模板管理: basic/templates.md
       - 历史记录: basic/history.md
@@ -96,6 +106,7 @@ nav:
       - 故障排除: help/troubleshooting.md
       - 技术支持: help/support.md
   - 实战示例:
+      - 从提示词库导入并对比模型: examples/image-prompt-garden-nb151.md
       - 系统提示词工作区:
           - 示例与最佳实践: examples/system-prompt-examples.md
       - 用户提示词工作区:

@@ -36,6 +36,27 @@ describe('arena execution and persistence', () => {
   })
   const finish = (index: number, text = `answer ${index}`) => { calls[index].handlers.onToken(text); calls[index].gate.resolve() }
 
+  it('freezes each column parameters and restores them without writing the shared model', async () => {
+    const [a, b] = store.state.contestants
+    a.paramOverrides = { temperature: 0.7, reasoning_effort: 'high' }
+    b.paramOverrides = { temperature: 0.1, reasoning_effort: 'low' }
+    const batch = store.runAll(); await tick()
+    expect(calls.map(call => call.selection.configSnapshot.paramOverrides.temperature)).toEqual([0.7, 0.1])
+    expect(calls.map(call => call.selection.configSnapshot.paramOverrides.reasoning_effort)).toEqual(['high', 'low'])
+    expect(calls.map(call => call.selection.configSnapshot.modelMeta.id)).toEqual([base.modelMeta.id, base.modelMeta.id])
+    a.paramOverrides = { temperature: 0.9 }
+    expect(calls[0].selection.configSnapshot.paramOverrides.temperature).toBe(0.7)
+    finish(0); finish(1); await batch
+    expect(store.isStale(a.id)).toBe(true)
+    expect(store.state.results[a.id].model.paramOverrides).toEqual({ temperature: 0.7, reasoning_effort: 'high' })
+    expect(base.paramOverrides.temperature).toBe(0.2)
+    await store.saveSession()
+    a.paramOverrides = {}
+    await store.restoreSession()
+    expect(store.state.contestants[0].paramOverrides).toEqual({ temperature: 0.9 })
+    expect(JSON.stringify(preferences.get('session/v1/arena'))).not.toContain('private-credential')
+  })
+
   it('replaces imported input without changing models, results or starting a request', async () => {
     const id = store.state.contestants[0].id
     const run = store.run(id); await tick(); finish(0); await run

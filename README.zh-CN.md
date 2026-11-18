@@ -29,30 +29,35 @@ Prompt Optimizer是一个强大的AI提示词优化工具，帮助你编写更�
 ### 🎥 功能演示
 
 <div align="center">
-  <p><b>1. 红队审稿：让模型不再顺着说</b></p>
-  <p>同样的输入下，系统提示词优化能让小模型从泛泛而谈的附和式回答，转向更有立场、更有结构的批判式审查，明确指出论点中的漏洞、风险与隐含假设。</p>
-  <img src="images/demo/red-team-reviewer-fullpage.png" alt="红队审稿人整页演示" width="85%">
+  <p id="reviewer"><b>1. 提示词优化：让输出更清晰、更有条理</b></p>
+  <p>补充任务目标、约束和输出结构，在同一模型下并排对比优化前后，直观看到内容组织和重点表达的变化。</p>
+  <img src="images/product/2026-11/system-workspace-zh-CN.jpg" alt="提示词优化前后的输出结构对比" width="100%">
   <br>
-  <p><b>2. 闲鱼砍价回复：让变量真正决定回复策略</b></p>
-  <p>同一套提示词模板里，只需替换商品、报价、底线和语气等变量，就能快速复用到不同交易场景。优化后的提示词会明显减少“助手腔”和多余解释，让小模型更像真人卖家一样，围绕价格分歧、商品情况和成交底线直接组织回复。</p>
-  <img src="images/demo/pro-variable-bargaining-reply.png" alt="闲鱼砍价回复变量模式演示" width="85%">
+  <p id="variables"><b>2. 变量模板：一次优化，多次复用</b></p>
+  <p>把可变信息提取为变量，复用同一套指令与约束；并排对比优化前后，查看回复是否更简洁、更符合要求。</p>
+  <img src="images/product/2026-11/variable-workspace-zh-CN.jpg" alt="变量模板复用与优化前后回复对比" width="100%">
+  <details>
+    <summary>查看另一组变量输入的测试结果</summary>
+    <img src="images/product/2026-11/variable-workspace-low-offer-zh-CN.jpg" alt="替换变量后再次对比优化前后的回复" width="100%">
+  </details>
   <br>
-  <p><b>3. 文生图：把一句想法优化成更可控的主视觉提示词</b></p>
-  <p>这不是单纯把提示词写得更长，而是把一句模糊念头拆成更清晰的视觉主体、空间关系和情绪锚点。左侧只有“夜空中的漂浮图书馆”这个概念，右侧则通过优化补足了更明确的奇幻结构和画面重心，让生成结果更像可继续定制的主视觉，而不是只靠模型自由发挥。</p>
-  <img src="images/demo/text2image-floating-library-creative.png" alt="漂浮图书馆文生图演示" width="85%">
+  <p id="arena"><b>3. 竞技场：同一道题对比多个模型</b></p>
+  <p>将同一提示词交给多个模型，并排比较输出效果、风格和指令遵循，选择更适合当前任务的模型。</p>
+  <img src="images/product/2026-11/arena-comparison-zh-CN.jpg" alt="竞技场中 GPT-6.2 Astra、GPT-6.2 Sol 和 DeepSeek Flash 的同题输出对比" width="100%">
 </div>
 
 ## ✨ 核心特性
 
 - 🎯 **智能优化**：一键优化提示词，支持多轮迭代改进，提升AI回复准确度
-- 📝 **双模式优化**：支持系统提示词优化和用户提示词优化，满足不同使用场景
+- 📝 **多种优化模式**：支持系统提示词、用户提示词、变量模板和多消息上下文
+- ⚖️ **竞技场对比**：同一题面比较不同模型，或调整各列参数对比效果
 - 🔄 **分析与对比评估**：支持分析、单结果评估和多结果对比评估，帮助判断提示词是否真的改进
 - 🤖 **多模型集成**：支持OpenAI、Gemini、DeepSeek、Grok、智谱AI、SiliconFlow、MiniMax等主流AI模型
 - 🖼️ **图像生成**：支持文生图（T2I）、图生图（I2I）和多图生图，集成Gemini、Seedream、Grok等图像模型
 - 🌱 **提示词来源**：可从手写、模板、本地导入或提示词库导入码开始
 - ⭐ **智能收藏**：资源感知的提示词资产，支持版本历史、可复现示例、媒体支持、来源绑定和工作区应用
 - 📊 **高级测试模式**：上下文变量管理、多轮会话测试、工具调用（Function Calling）支持
-- 🔒 **安全架构**：纯客户端处理，数据直接与AI服务商交互，不经过中间服务器
+- 🔒 **安全架构**：应用数据默认保存在本地，模型请求发送至你配置的服务
 - 📱 **多端支持**：同时提供Web应用、桌面应用、Chrome插件和Docker部署四种使用方式
 - 🔐 **访问控制**：支持密码保护功能，保障部署安全
 - 🧩 **MCP协议支持**：支持Model Context Protocol (MCP) 协议，可与Claude Desktop等MCP兼容应用集成
@@ -81,7 +86,7 @@ Prompt Optimizer是一个强大的AI提示词优化工具，帮助你编写更�
 - 🛠️ **工具调用支持**：Function Calling集成，支持OpenAI和Gemini工具调用
 - 🔍 **分析与评估链路**：在文本模式下支持分析、评估、对比评估和基于评估的智能改写
 
-详细使用说明请查看 [图像模式文档](docs/image-mode.md)
+图像工作区文档：[文生图](https://docs.always200.com/image/text2image-workspace/) · [图生图](https://docs.always200.com/image/image2image-workspace/) · [多图生图](https://docs.always200.com/image/multiimage-workspace/)
 
 ## 快速开始
 
@@ -91,7 +96,7 @@ Prompt Optimizer是一个强大的AI提示词优化工具，帮助你编写更�
 
 第一次使用需要先在 **模型管理** 中接入一个可用的文本模型，再运行优化。按[首次使用教程](https://docs.always200.com/user/quick-start/)可从配置走到复制结果。
 
-项目是纯前端项目，所有数据只存储在浏览器本地，不会上传至任何服务器，因此直接使用在线版本也是安全可靠的
+应用数据默认保存在浏览器本地，优化和测试时会将提示词发送至你配置的模型服务。
 
 ### 2. Web部署
 
@@ -120,15 +125,9 @@ Prompt Optimizer是一个强大的AI提示词优化工具，帮助你编写更�
 Cloudflare 上的访问控制和访问分析建议分别使用 Cloudflare Access 和 Cloudflare Web Analytics，在 Cloudflare 控制台配置即可，不需要安装前端依赖或修改应用代码。
 
 ### 3. 下载桌面应用
-从 [GitHub Releases](https://github.com/linshenkx/prompt-optimizer/releases) 下载最新版本。我们为各平台提供**安装程序**和**压缩包**两种格式。
+从 [GitHub Releases](https://github.com/linshenkx/prompt-optimizer/releases) 下载对应平台的桌面版。Windows 可用 `.exe` 安装程序，macOS 可用 `.dmg` 磁盘镜像，Linux 可用 `.AppImage`。有 `.zip` 压缩包时，也可以解压后直接运行。
 
-- **安装程序 (推荐)**: 如 `*.exe`, `*.dmg`, `*.AppImage` 等。**强烈推荐使用此方式，因为它支持自动更新**。
-- **压缩包**: 如 `*.zip`。解压即用，但无法自动更新。
-
-**桌面应用核心优势**:
-- ✅ **无跨域限制**：作为原生桌面应用，它能彻底摆脱浏览器跨域（CORS）问题的困扰。这意味着您可以直接连接任何AI服务提供商的API，包括本地部署的Ollama或有严格安全策略的商业API，获得最完整、最稳定的功能体验。
-- ✅ **自动更新**：通过安装程序（如 `.exe`, `.dmg`）安装的版本，能够自动检查并更新到最新版。
-- ✅ **独立运行**：无需依赖浏览器，提供更快的响应和更佳的性能。
+桌面版可连接 Ollama 等本地模型，以及限制浏览器跨域访问的模型服务。Windows 安装版和 Linux AppImage 支持应用内更新。macOS 版可检查更新，新版本需从 GitHub Releases 下载并安装。
 
 ### 4. 安装Chrome插件
 1. 从Chrome商店安装（由于审批较慢，可能不是最新的）：[Chrome商店地址](https://chromewebstore.google.com/detail/prompt-optimizer/cakkkhboolfnadechdlgdcnjammejlna)
@@ -138,6 +137,8 @@ Cloudflare 上的访问控制和访问分析建议分别使用 Cloudflare Access
 <details>
 <summary>点击查看 Docker 部署命令</summary>
 
+设置 `ACCESS_PASSWORD` 可保护 Web 界面。`ACCESS_USERNAME` 可选，默认为 `admin`。
+
 ```bash
 # 运行容器（默认配置）
 docker run -d -p 8081:80 --restart unless-stopped --name prompt-optimizer linshen/prompt-optimizer
@@ -145,8 +146,8 @@ docker run -d -p 8081:80 --restart unless-stopped --name prompt-optimizer linshe
 # 运行容器（配置API密钥和访问密码）
 docker run -d -p 8081:80 \
   -e VITE_OPENAI_API_KEY=your_key \
-  -e ACCESS_USERNAME=your_username \  # 可选，默认为"admin"
-  -e ACCESS_PASSWORD=your_password \  # 设置访问密码
+  -e ACCESS_USERNAME=your_username \
+  -e ACCESS_PASSWORD=your_password \
   --restart unless-stopped \
   --name prompt-optimizer \
   linshen/prompt-optimizer
@@ -164,47 +165,17 @@ docker run -d -p 8081:80 \
 git clone https://github.com/linshenkx/prompt-optimizer.git
 cd prompt-optimizer
 
-# 2. 创建 .env 文件配置 API 密钥和访问认证
+# 2. 复制模板，在 .env 中设置自己的 ACCESS_PASSWORD 和所需的模型 API 密钥
 cp env.local.example .env
-# 编辑 .env 文件，填入实际的 API 密钥和配置
-# docker-compose.yml 位于 docker/ 目录下，所以后续命令显式传入根目录 .env
 
 # 3. 启动服务
 docker compose --env-file .env -f docker/docker-compose.yml up -d
 
 # 4. 查看日志
 docker compose --env-file .env -f docker/docker-compose.yml logs -f
-
-# 5. 访问服务
-Web 界面：http://localhost:8081
-MCP 服务器：http://localhost:8081/mcp
 ```
-</details>
 
-你还可以直接编辑 docker/docker-compose.yml 文件，自定义配置：
-<details>
-<summary>点击查看 docker/docker-compose.yml 示例</summary>
-
-```yaml
-services:
-  prompt-optimizer:
-    # 使用Docker Hub镜像
-    image: linshen/prompt-optimizer:latest
-    # 或使用阿里云镜像（国内用户推荐）
-    # image: registry.cn-guangzhou.aliyuncs.com/prompt-optimizer/prompt-optimizer:latest
-    container_name: prompt-optimizer
-    restart: unless-stopped
-    ports:
-      - "8081:80"  # Web应用端口（包含MCP服务器，通过/mcp路径访问）
-    environment:
-      # API密钥配置
-      - VITE_OPENAI_API_KEY=your_openai_key
-      - VITE_GEMINI_API_KEY=your_gemini_key
-      - VITE_GROK_API_KEY=your_xai_key
-      # 访问控制（可选）
-      - ACCESS_USERNAME=admin
-      - ACCESS_PASSWORD=your_password
-```
+仓库自带的 Compose 配置使用 `http://localhost:28081` 访问 Web 界面，MCP 地址为 `http://localhost:28081/mcp`。如需更改宿主机端口或传入容器的环境变量，可编辑 [Compose 配置](docker/docker-compose.yml)。
 </details>
 
 ### 7. MCP Server 使用说明
@@ -240,29 +211,7 @@ docker run -d -p 8081:80 \
 
 那么 MCP Server 将可以通过 `http://localhost:8081/mcp` 访问。
 
-#### Claude Desktop 集成示例
-
-要在 Claude Desktop 中使用 Prompt Optimizer，您需要在 Claude Desktop 的配置文件中添加服务配置。
-
-1. 找到 Claude Desktop 的配置目录：
-   - Windows: `%APPDATA%\Claude\services`
-   - macOS: `~/Library/Application Support/Claude/services`
-   - Linux: `~/.config/Claude/services`
-
-2. 编辑或创建 `services.json` 文件，添加以下内容：
-
-```json
-{
-  "services": [
-    {
-      "name": "Prompt Optimizer",
-      "url": "http://localhost:8081/mcp"
-    }
-  ]
-}
-```
-
-请确保将 `localhost:8081` 替换为您实际部署 Prompt Optimizer 的地址和端口。
+支持 Streamable HTTP 的客户端可直接使用该地址。Claude Desktop 本地接入请参阅 [stdio 配置](docs/user/mcp-server.md#claude-desktop-集成)。
 
 #### 可用工具
 
@@ -279,22 +228,12 @@ docker run -d -p 8081:80 \
 <summary>点击查看API密钥配置方法</summary>
 
 ### 方式一：通过界面配置（推荐）
-1. 点击界面右上角的"⚙️设置"按钮
-2. 选择"模型管理"选项卡
-3. 点击需要配置的模型（如OpenAI、Gemini、DeepSeek、Grok等）
-4. 在弹出的配置框中输入对应的API密钥
-5. 点击"保存"即可
 
-支持的模型：OpenAI、Gemini、DeepSeek、Grok、Zhipu智谱、SiliconFlow、自定义API（OpenAI兼容接口）
+1. 在顶部打开 **模型管理**。
+2. 在 **文本模型** 标签中点击 **添加**，选择提供商，填写 API 密钥，再选择账号可用的模型。
+3. 点击 **测试连接**，通过后点击 **创建**。
 
-除了API密钥，您还可以在模型配置界面为每个模型单独设置高级LLM参数。这些参数通过一个名为 `llmParams` 的字段进行配置，它允许您以键值对的形式指定LLM SDK支持的任何参数，从而更精细地控制模型行为。
-
-**高级LLM参数配置示例：**
-- **OpenAI/兼容API**: `{"temperature": 0.7, "max_tokens": 4096, "timeout": 60000}`
-- **Gemini**: `{"temperature": 0.8, "maxOutputTokens": 2048, "topP": 0.95}`
-- **DeepSeek**: `{"temperature": 0.5, "top_p": 0.9, "frequency_penalty": 0.1}`
-
-有关 `llmParams` 的更详细说明和配置指南，请参阅 [LLM参数配置指南](docs/developer/llm-params-guide.md)。
+在模型管理的 **高级参数** 中设置连接默认值。要调整某次测试，可在该列的模型下拉框中修改可用参数。详见[模型选择与参数](https://docs.always200.com/basic/model-parameters/)。
 
 ### 方式二：通过环境变量配置
 Docker部署时通过 `-e` 参数配置环境变量：
@@ -318,7 +257,7 @@ Docker部署时通过 `-e` 参数配置环境变量：
 </details>
 
 ## 本地开发
-详细文档可查看 [开发文档](docs/developer/development.md)
+使用 Node.js 24（24.22.1 或更高的 24.x 版本）和 pnpm 10.6.1。详见[开发文档](docs/developer/development.md)。
 
 <details>
 <summary>点击查看本地开发命令</summary>
