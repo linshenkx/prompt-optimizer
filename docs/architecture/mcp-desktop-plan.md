@@ -209,4 +209,4 @@ core 和 MCP 的 ESM/CJS/DTS 构建、MCP 类型检查通过。专用 Vitest 配
 - 在桌面变量工作区打开「已保存比较」，可以列表选择、按 ID 查看、确认后定向删除。查看使用冻结快照，保留当前草稿及测试结果。
 - 桌面升级和 MCP 写入会核对旧 JSON 的迁移指纹。遇到数据分歧时提示用户核对原有数据。相关规则见 [存储迁移](shared-storage-20261115.md)。
 
-验收由独立的 SQLite 进程测试、真实 MCP stdio 与回环模型、隔离的实际 Electron 主进程和 preload，以及变量工作区的组件交互测试覆盖。Windows 安装器和自动更新仍需单独验收。可选评估、Chrome 真实数据接入与正式 Skill 延续后续阶段。
+验收由独立的 SQLite 进程测试、真实 MCP stdio 与回环模型、隔离的实际 Electron 主进程和 preload，以及变量工作区的组件交互测试覆盖。Windows 安装器和自动更新仍需单独验收。可选评估、Chrome 真实数据接入与正式 Skill 延续后续阶段。并行研究已汇入本分支，见 [Chrome 接入方案与原型](mcp-chrome-bridge.md) 和 [Skill 工作流设计](mcp-skill-workflows.md)。
