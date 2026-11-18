@@ -4,7 +4,6 @@ For your first run, follow [Quick Start](quick-start.md) in **User Prompt Optimi
 
 | I want to... | Workspace | What else I need |
 | --- | --- | --- |
-| Compare models or parameter settings on the same task | [Arena](../advanced/arena.md) | Shared input and a model selection for each column |
 | Write an email, rewrite text, or produce a summary | [User Prompt](../basic/user-optimization.md) | One task instruction |
 | Define a support assistant's role and lasting rules | [System Prompt](../basic/system-optimization.md) | A user question to test the rules |
 | Reuse a prompt while changing topic, product, or tone | [Variable](../advanced/variables.md) | A `{{variable}}` template and test values |
@@ -12,6 +11,7 @@ For your first run, follow [Quick Start](quick-start.md) in **User Prompt Optimi
 | Generate an image from text | [Text-to-Image](../image/text2image-workspace.md) | A text model and an image model |
 | Generate from one input image | [Image-to-Image](../image/image2image-workspace.md) | An input image, a text model, and an image model |
 | Generate from several input images | [Multi-Image](../image/multiimage-workspace.md) | At least two input images and an image model that supports them |
+| Compare models or parameter settings on the same task | [Arena](../advanced/arena.md) | Shared input and a model selection for each column |
 
 **User prompt or system prompt?** “Write an email” is a concrete task for the user prompt workspace. “You are a support assistant; ask for the order number and never invent a refund policy” is a rule to apply across tasks, so use the system prompt workspace.
 

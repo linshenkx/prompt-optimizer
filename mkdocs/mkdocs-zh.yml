@@ -15,7 +15,6 @@ theme:
   favicon: assets/images/favicon.png
   features:
     - content.code.copy
-    - navigation.expand
     - navigation.tracking
     - navigation.top
     - navigation.footer
@@ -74,7 +73,6 @@ nav:
       - 测试与评估: user/testing-evaluation.md
       - 模型选择与测试策略: user/model-testing-strategy.md
   - 工作区指南:
-      - 竞技场: advanced/arena.md
       - 系统提示词工作区: basic/system-optimization.md
       - 用户提示词工作区: basic/user-optimization.md
       - 变量工作区: advanced/variables.md
@@ -82,6 +80,7 @@ nav:
       - 文生图工作区: image/text2image-workspace.md
       - 图生图工作区: image/image2image-workspace.md
       - 多图生图工作区: image/multiimage-workspace.md
+      - 竞技场: advanced/arena.md
   - 通用能力:
       - 模板管理: basic/templates.md
       - 历史记录: basic/history.md

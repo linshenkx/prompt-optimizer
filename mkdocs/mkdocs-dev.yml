@@ -17,7 +17,6 @@ theme:
   favicon: assets/images/favicon.png
   features:
     - content.code.copy
-    - navigation.expand
     - navigation.top
     - navigation.footer
   palette:
@@ -60,10 +59,10 @@ plugins:
                     - 系统提示词优化: basic/system-optimization.md
                     - 用户提示词优化: basic/user-optimization.md
                 - 高级模式:
-                    - 竞技场: advanced/arena.md
                     - 变量管理: advanced/variables.md
                     - 上下文管理: advanced/context.md
                     - 工具调用: advanced/tools.md
+                    - 竞技场: advanced/arena.md
                 - 辅助功能:
                     - 变量智能填充: auxiliary/smart-fill.md
                     - 文生图复刻: auxiliary/replicate.md
@@ -96,7 +95,6 @@ plugins:
           nav:
             - Home: index.md
             - User Guide:
-                - Arena: advanced/arena.md
                 - Model Selection & Parameters: basic/model-parameters.md
                 - Quick Start: user/quick-start.md
                 - Basic Features:
@@ -112,6 +110,7 @@ plugins:
                     - Variable Management: advanced/variables.md
                     - Tool Calling: advanced/tools.md
                     - Context Management: advanced/context.md
+                    - Arena: advanced/arena.md
                 - Auxiliary Features:
                     - Smart Variable Fill: auxiliary/smart-fill.md
                     - Text-to-Image Replicate: auxiliary/replicate.md
