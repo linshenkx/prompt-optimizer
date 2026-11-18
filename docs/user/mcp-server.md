@@ -92,30 +92,32 @@ MCP_DEFAULT_LANGUAGE=zh
 
 ### Claude Desktop 集成
 
-#### 1. 找到配置目录
+从仓库根目录运行以下命令，构建供 Claude Desktop 启动的本地服务。
 
-- **Windows**: `%APPDATA%\Claude\services`
-- **macOS**: `~/Library/Application Support/Claude/services`
-- **Linux**: `~/.config/Claude/services`
+```bash
+pnpm install
+pnpm build:core
+pnpm mcp:build
+```
 
-#### 2. 编辑配置文件
-
-创建或编辑 `services.json` 文件：
+在 `claude_desktop_config.json` 的 `mcpServers` 中添加以下配置。Windows 的配置文件位于 `%APPDATA%\Claude`，macOS 位于 `~/Library/Application Support/Claude`。
 
 ```json
 {
-  "services": [
-    {
-      "name": "Prompt Optimizer",
-      "url": "http://localhost:8081/mcp"
+  "mcpServers": {
+    "prompt-optimizer": {
+      "command": "node",
+      "args": ["/absolute/path/to/prompt-optimizer/packages/mcp-server/bin/prompt-optimizer-mcp.cjs", "--transport=stdio"],
+      "env": {
+        "VITE_OPENAI_API_KEY": "your-openai-key",
+        "MCP_DEFAULT_MODEL_PROVIDER": "openai"
+      }
     }
-  ]
+  }
 }
 ```
 
-> **注意**：如果你使用的是开发者本地部署（端口 3000），请将 URL 改为 `http://localhost:3000/mcp`。
-
-
+将脚本路径和 API 密钥换成自己的值，然后退出并重新打开 Claude Desktop。如果应用找不到 `node`，请在 `command` 中填写 Node.js 可执行文件的绝对路径。接入远程 HTTP 服务时，请参阅 [Claude 自定义连接器说明](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)。
 
 ### 其他 MCP 客户端
 
@@ -204,11 +206,7 @@ MCP_DEFAULT_MODEL_PROVIDER=openai  # 不是 OpenAI
 
 #### 5. Claude Desktop 连接失败
 
-**解决步骤**：
-1. 确认 MCP 服务器正在运行
-2. 检查 URL 是否正确
-3. 确认防火墙设置
-4. 查看 Claude Desktop 日志
+本地接入时，确认已构建 MCP 服务，检查 `command` 和脚本路径，然后查看 Claude Desktop 启动日志。使用远程连接器时，检查服务地址和网络可达性。
 
 ### 日志调试
 

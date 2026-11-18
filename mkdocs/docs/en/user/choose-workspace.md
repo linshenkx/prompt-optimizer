@@ -4,6 +4,7 @@ For your first run, follow [Quick Start](quick-start.md) in **User Prompt Optimi
 
 | I want to... | Workspace | What else I need |
 | --- | --- | --- |
+| Compare models or parameter settings on the same task | [Arena](../advanced/arena.md) | Shared input and a model selection for each column |
 | Write an email, rewrite text, or produce a summary | [User Prompt](../basic/user-optimization.md) | One task instruction |
 | Define a support assistant's role and lasting rules | [System Prompt](../basic/system-optimization.md) | A user question to test the rules |
 | Reuse a prompt while changing topic, product, or tone | [Variable](../advanced/variables.md) | A `{{variable}}` template and test values |
@@ -17,5 +18,7 @@ For your first run, follow [Quick Start](quick-start.md) in **User Prompt Optimi
 **When should I use variables?** Use `{{topic}}` and `{{tone}}` when you will repeatedly change parts of the same prompt. For one task, start in the user prompt workspace.
 
 **When should I use Context?** Use it when the answer depends on earlier turns and you want to edit a selected `system` or `user` message inside that conversation.
+
+**When should I use Arena?** Use it to compare real outputs from a prompt you already have. For rewriting and version comparisons, start in the appropriate optimization workspace. See [Model Selection & Parameters](../basic/model-parameters.md) for per-column overrides and inheritance.
 
 Each workspace still needs the right models. A text workspace needs at least one text model; image generation generally needs both a text model and an image model. See [Model Management](../basic/models.md#model-types) and [Troubleshooting](../help/troubleshooting.md).

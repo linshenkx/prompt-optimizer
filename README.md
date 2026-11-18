@@ -29,30 +29,35 @@ Prompts can start from manual writing, templates, local imports, or sources such
 ### 🎥 Feature Demonstration
 
 <div align="center">
-  <p><b>1. Hard-Nosed Reviewer: Turn Agreement into Useful Critique</b></p>
-  <p>Starting from a minimal English role prompt, optimization pushes a small model away from generic pushback and toward a clearer, more structured review that surfaces weak assumptions, evidence gaps, and concrete revision advice.</p>
-  <img src="images/demo/hard-nosed-reviewer-fullpage-en.png" alt="Hard-nosed reviewer full-page demo" width="85%">
+  <p id="reviewer"><b>1. Prompt Optimization: Clearer, Better-Structured Output</b></p>
+  <p>Clarify goals, constraints, and output structure. Compare both prompt versions on the same model to see changes in organization and emphasis.</p>
+  <img src="images/product/2026-11/system-workspace-en.jpg" alt="Comparing output structure before and after prompt optimization" width="100%">
   <br>
-  <p><b>2. Marketplace Bargaining Reply: Let Variables Change the Strategy</b></p>
-  <p>With a single reusable prompt template, you can swap in item details, price anchors, buyer offers, tone, and negotiation goals for different marketplace conversations. After optimization, the same small model does a better job turning those variables into a clearer, more transaction-ready reply instead of a generic helper-style response.</p>
-  <img src="images/demo/pro-variable-bargaining-reply-en.png" alt="Marketplace bargaining reply variable-mode demo" width="85%">
+  <p id="variables"><b>2. Variable Templates: Optimize Once, Reuse Across Inputs</b></p>
+  <p>Turn changing inputs into variables while reusing instructions and constraints. Compare prompt versions side by side for concise replies that follow your requirements.</p>
+  <img src="images/product/2026-11/variable-workspace-en.jpg" alt="Reusing a variable template and comparing original and optimized replies" width="100%">
+  <details>
+    <summary>See test results with different variable values</summary>
+    <img src="images/product/2026-11/variable-workspace-low-offer-en.jpg" alt="Comparing original and optimized replies with different variable values" width="100%">
+  </details>
   <br>
-  <p><b>3. Text-to-Image: Optimize a One-Line Idea into a More Directable Key Visual Prompt</b></p>
-  <p>This is not just prompt expansion. Starting from a vague one-line idea, Prompt Optimizer adds clearer subject cues, spatial relationships, and mood anchors. The left side is simply “a floating library in the night sky,” while the optimized version gives the model a more directed fantasy composition that feels closer to a reusable key visual than a lucky generic image.</p>
-  <img src="images/demo/text2image-floating-library-creative-en.png" alt="Floating library text-to-image demo" width="85%">
+  <p id="arena"><b>3. Arena: One Task, Multiple Models</b></p>
+  <p>Give the same prompt to multiple models. Compare output quality, style, and instruction following side by side to choose a model for your task.</p>
+  <img src="images/product/2026-11/arena-comparison-en.jpg" alt="Arena comparing GPT-6.2 Astra, GPT-6.2 Sol, and DeepSeek Flash on the same task" width="100%">
 </div>
 
 ## ✨ Core Features
 
 - 🎯 **Intelligent Optimization**: One-click prompt optimization with multi-round iterative improvements to enhance AI response accuracy
-- 📝 **Dual Mode Optimization**: Support for both system prompt optimization and user prompt optimization to meet different usage scenarios
+- 📝 **Multiple Optimization Modes**: System prompts, user prompts, variable templates, and multi-message context
+- ⚖️ **Arena Comparisons**: Compare models or parameter settings side by side on the same task
 - 🔄 **Analysis and Compare Evaluation**: Supports analysis, single-result evaluation, and multi-result compare evaluation to help determine whether a prompt has truly improved
 - 🤖 **Multi-model Integration**: Support for mainstream AI models including OpenAI, Gemini, DeepSeek, Grok, Zhipu AI, SiliconFlow, MiniMax, etc.
 - 🖼️ **Image Generation**: Support for Text-to-Image (T2I), Image-to-Image (I2I), and Multi-Image generation with models like Gemini, Seedream, Grok
 - 🌱 **Prompt Sources**: Start from manual writing, templates, local imports, or Prompt Garden import codes
 - ⭐ **Smart Favorites**: Resource-aware prompt assets with version history, reproducible examples, media support, source binding, and workspace application
 - 📊 **Advanced Testing Mode**: Context variable management, multi-turn conversation testing, Function Calling support
-- 🔒 **Secure Architecture**: Pure client-side processing with direct data interaction with AI service providers, bypassing intermediate servers
+- 🔒 **Secure Architecture**: App data is stored locally by default; model requests go to your configured service
 - 📱 **Multi-platform Support**: Available as web application, desktop application, Chrome extension, and Docker deployment
 - 🔐 **Access Control**: Password protection feature for secure deployment
 - 🧩 **MCP Protocol Support**: Supports Model Context Protocol (MCP), enabling integration with MCP-compatible AI applications like Claude Desktop
@@ -81,7 +86,7 @@ Prompts can start from manual writing, templates, local imports, or sources such
 - 🛠️ **Function Calling Support**: Function Calling integration with support for OpenAI and Gemini tool calling
 - 🔍 **Analysis and Evaluation Pipeline**: Supports analysis, evaluation, compare evaluation, and evaluation-driven smart rewrite in text modes
 
-For detailed usage instructions, please refer to the [Image Mode Documentation](docs/image-mode.md)
+Image workspace guides: [Text-to-Image](https://docs.always200.com/en/image/text2image-workspace/) · [Image-to-Image](https://docs.always200.com/en/image/image2image-workspace/) · [Multi-Image](https://docs.always200.com/en/image/multiimage-workspace/)
 
 ## Quick Start
 
@@ -118,15 +123,9 @@ Use the Deploy to Cloudflare button for the quickest public-repository setup. It
 For access control and analytics on Cloudflare, configure Cloudflare Access and Cloudflare Web Analytics in the Cloudflare dashboard. No frontend dependency or application-code change is required.
 
 ### 3. Download Desktop Application
-Download the latest version from [GitHub Releases](https://github.com/linshenkx/prompt-optimizer/releases). We provide both **installer** and **archive** formats for each platform.
+Download the desktop build for your platform from [GitHub Releases](https://github.com/linshenkx/prompt-optimizer/releases). Use the `.exe` installer for Windows, the `.dmg` disk image for macOS, or the `.AppImage` for Linux. Where available, `.zip` archives can be extracted and run directly.
 
-- **Installer (Recommended)**: Such as `*.exe`, `*.dmg`, `*.AppImage`, etc. **Strongly recommended as it supports automatic updates**.
-- **Archive**: Such as `*.zip`. Extract and use, but cannot auto-update.
-
-**Core Advantages of Desktop Application**:
-- ✅ **No CORS Limitations**: As a native desktop application, it completely eliminates browser Cross-Origin Resource Sharing (CORS) issues. This means you can directly connect to any AI service provider's API, including locally deployed Ollama or commercial APIs with strict security policies, for the most complete and stable functional experience.
-- ✅ **Automatic Updates**: Versions installed through installers (like `.exe`, `.dmg`) can automatically check and update to the latest version.
-- ✅ **Independent Operation**: No browser dependency, providing faster response and better performance.
+The desktop app can connect to local models such as Ollama and to API providers that restrict browser requests. The Windows installer and Linux AppImage support in-app updates. On macOS, the app can check for updates. Download and install the new build from GitHub Releases.
 
 ### 4. Install Chrome Extension
 1. Install from Chrome Web Store (may not be the latest version due to approval delays): [Chrome Web Store](https://chromewebstore.google.com/detail/prompt-optimizer/cakkkhboolfnadechdlgdcnjammejlna)
@@ -135,6 +134,9 @@ Download the latest version from [GitHub Releases](https://github.com/linshenkx/
 ### 5. Docker Deployment
 <details>
 <summary>Click to view Docker deployment commands</summary>
+
+Set `ACCESS_PASSWORD` to protect the web interface. `ACCESS_USERNAME` is optional and defaults to `admin`.
+
 ```bash
 # Run container (default configuration)
 docker run -d -p 8081:80 --restart unless-stopped --name prompt-optimizer linshen/prompt-optimizer
@@ -142,8 +144,8 @@ docker run -d -p 8081:80 --restart unless-stopped --name prompt-optimizer linshe
 # Run container (with API key configuration and password protection)
 docker run -d -p 8081:80 \
   -e VITE_OPENAI_API_KEY=your_key \
-  -e ACCESS_USERNAME=your_username \  # Optional, defaults to "admin"
-  -e ACCESS_PASSWORD=your_password \  # Set access password
+  -e ACCESS_USERNAME=your_username \
+  -e ACCESS_PASSWORD=your_password \
   --restart unless-stopped \
   --name prompt-optimizer \
   linshen/prompt-optimizer
@@ -153,61 +155,24 @@ docker run -d -p 8081:80 \
 ### 6. Docker Compose Deployment
 <details>
 <summary>Click to view Docker Compose deployment steps</summary>
+
 ```bash
 # 1. Clone the repository
 git clone https://github.com/linshenkx/prompt-optimizer.git
 cd prompt-optimizer
 
-# 2. Create .env file for API keys and authentication
-cat > .env << EOF
-# API Key Configuration
-VITE_OPENAI_API_KEY=your_openai_api_key
-VITE_GEMINI_API_KEY=your_gemini_api_key
-VITE_DEEPSEEK_API_KEY=your_deepseek_api_key
-VITE_GROK_API_KEY=your_xai_api_key
-VITE_ZHIPU_API_KEY=your_zhipu_api_key
-VITE_SILICONFLOW_API_KEY=your_siliconflow_api_key
-
-# Basic Authentication (Password Protection)
-ACCESS_USERNAME=your_username  # Optional, defaults to "admin"
-ACCESS_PASSWORD=your_password  # Set access password
-EOF
-
-# Because the compose file is under docker/, pass the root .env explicitly.
+# 2. Copy the template and edit .env to set your own ACCESS_PASSWORD
+#    and any model API keys used by the Compose service.
+cp env.local.example .env
 
 # 3. Start the service
 docker compose --env-file .env -f docker/docker-compose.yml up -d
 
 # 4. View logs
 docker compose --env-file .env -f docker/docker-compose.yml logs -f
-
-# 5. Access the service
-Web Interface: http://localhost:8081
-MCP Server: http://localhost:8081/mcp
 ```
-</details>
 
-You can also directly edit the docker/docker-compose.yml file to customize your configuration:
-<details>
-<summary>Click to view docker/docker-compose.yml example</summary>
-
-```yaml
-services:
-  prompt-optimizer:
-    # Use Docker Hub image
-    image: linshen/prompt-optimizer:latest
-    container_name: prompt-optimizer
-    restart: unless-stopped
-    ports:
-      - "8081:80"  # Web application port (MCP server accessible via /mcp path)
-    environment:
-      - VITE_OPENAI_API_KEY=your_openai_key
-      - VITE_GEMINI_API_KEY=your_gemini_key
-      - VITE_GROK_API_KEY=your_xai_key
-      # Access Control (Optional)
-      - ACCESS_USERNAME=admin
-      - ACCESS_PASSWORD=your_password
-```
+The included Compose file serves the web app at `http://localhost:28081` and MCP at `http://localhost:28081/mcp`. Edit the [Compose file](docker/docker-compose.yml) to change the host port or which environment variables are passed to the container.
 </details>
 
 ### 7. MCP Server Usage Instructions
@@ -243,29 +208,7 @@ docker run -d -p 8081:80 \
 
 The MCP Server will then be accessible at `http://localhost:8081/mcp`.
 
-#### Claude Desktop Integration Example
-
-To use Prompt Optimizer in Claude Desktop, you need to add the service configuration to Claude Desktop's configuration file.
-
-1. Find Claude Desktop's configuration directory:
-   - Windows: `%APPDATA%\Claude\services`
-   - macOS: `~/Library/Application Support/Claude/services`
-   - Linux: `~/.config/Claude/services`
-
-2. Edit or create the `services.json` file, adding the following content:
-
-```json
-{
-  "services": [
-    {
-      "name": "Prompt Optimizer",
-      "url": "http://localhost:8081/mcp"
-    }
-  ]
-}
-```
-
-Make sure to replace `localhost:8081` with the actual address and port where you've deployed Prompt Optimizer.
+Use that URL with a client that supports Streamable HTTP. For a local connection in Claude Desktop, see the [stdio setup](docs/user/mcp-server_en.md#claude-desktop-integration).
 
 #### Available Tools
 
@@ -282,22 +225,12 @@ For more detailed information, please refer to the [MCP Server User Guide](docs/
 <summary>Click to view API key configuration methods</summary>
 
 ### Method 1: Via Interface (Recommended)
-1. Click the "⚙️Settings" button in the upper right corner
-2. Select the "Model Management" tab
-3. Click on the model you need to configure (such as OpenAI, Gemini, DeepSeek, Grok, etc.)
-4. Enter the corresponding API key in the configuration box
-5. Click "Save"
 
-Supported models: OpenAI, Gemini, DeepSeek, Grok, Zhipu AI, SiliconFlow, Custom API (OpenAI compatible interface)
+1. Open **Model Manager** from the top bar.
+2. In **Text Models**, click **Add**. Select a provider, enter its API key, and select a model your account can use.
+3. Click **Test Connection**, then **Create**.
 
-In addition to API keys, you can configure advanced LLM parameters for each model individually. These parameters are configured through a field called `llmParams`, which allows you to specify any parameters supported by the LLM SDK in key-value pairs for fine-grained control over model behavior.
-
-**Advanced LLM Parameter Configuration Examples:**
-- **OpenAI/Compatible APIs**: `{"temperature": 0.7, "max_tokens": 4096, "timeout": 60000}`
-- **Gemini**: `{"temperature": 0.8, "maxOutputTokens": 2048, "topP": 0.95}`
-- **DeepSeek**: `{"temperature": 0.5, "top_p": 0.9, "frequency_penalty": 0.1}`
-
-For more detailed information about `llmParams` configuration, please refer to the [LLM Parameters Configuration Guide](docs/developer/llm-params-guide.md).
+Set connection defaults under **Advanced Parameters** in Model Manager. To try a different setting for one test, open that test's model dropdown and adjust the parameters it exposes. See [Model Selection and Parameters](https://docs.always200.com/en/basic/model-parameters/).
 
 ### Method 2: Via Environment Variables
 Configure environment variables through the `-e` parameter when deploying with Docker:
@@ -321,7 +254,7 @@ Configure environment variables through the `-e` parameter when deploying with D
 </details>
 
 ## Local Development
-For detailed documentation, see [Development Documentation](docs/developer/development.md)
+Use Node.js 24 (24.22.1 or later in the 24.x series) and pnpm 10.6.1. See the [development guide](docs/developer/development.md) for details.
 
 <details>
 <summary>Click to view local development commands</summary>
@@ -336,7 +269,6 @@ pnpm install
 
 # 3. Start development server
 pnpm dev               # Main development command: build core/ui and run web app
-pnpm dev:web          # Run web app only
 pnpm dev:fresh        # Complete reset and restart development environment
 ```
 </details>

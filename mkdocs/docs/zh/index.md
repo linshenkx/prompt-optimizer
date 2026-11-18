@@ -87,6 +87,20 @@ hide:
       <p>不同工作区，对应不同输入结构。</p>
     </div>
     <div class="po-docs-index-list">
+      <a class="po-docs-index-row" href="advanced/arena/">
+        <div>
+          <h3>竞技场</h3>
+          <p>用同一道题比较多个模型，或同一模型的不同参数。</p>
+        </div>
+        <code>/arena</code>
+      </a>
+      <a class="po-docs-index-row" href="basic/model-parameters/">
+        <div>
+          <h3>模型选择与参数</h3>
+          <p>选择具体模型，调整本列设置，按需恢复默认继承。</p>
+        </div>
+        <code>模型下拉框</code>
+      </a>
       <a class="po-docs-index-row" href="basic/system-optimization/">
         <div>
           <h3>系统提示词工作区</h3>

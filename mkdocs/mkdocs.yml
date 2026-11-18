@@ -70,10 +70,12 @@ plugins:
             - 快速上手:
                 - 快速开始: user/quick-start.md
                 - 模型管理: basic/models.md
+                - 模型选择与参数: basic/model-parameters.md
                 - 选择工作区: user/choose-workspace.md
                 - 测试与评估: user/testing-evaluation.md
                 - 模型选择与测试策略: user/model-testing-strategy.md
             - 工作区指南:
+                - 竞技场: advanced/arena.md
                 - 系统提示词工作区: basic/system-optimization.md
                 - 用户提示词工作区: basic/user-optimization.md
                 - 变量工作区: advanced/variables.md
@@ -135,10 +137,12 @@ plugins:
             - Getting Started:
                 - Quick Start: user/quick-start.md
                 - Model Management: basic/models.md
+                - Model Selection & Parameters: basic/model-parameters.md
                 - Choose Workspace: user/choose-workspace.md
                 - Testing & Evaluation: user/testing-evaluation.md
                 - Model Testing Strategy: user/model-testing-strategy.md
             - Workspace Guides:
+                - Arena: advanced/arena.md
                 - System Prompt Workspace: basic/system-optimization.md
                 - User Prompt Workspace: basic/user-optimization.md
                 - Variable Workspace: advanced/variables.md

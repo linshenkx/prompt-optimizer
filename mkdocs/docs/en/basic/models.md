@@ -10,15 +10,15 @@ If you do not have an account yet, choose a built-in provider from which you can
 
 ## Connect your first text model {#first-text-model}
 
-The form below uses **DeepSeek** as an example. Use a provider and model available to your own account. The screenshot was taken in September 2026; available model names can change.
+The form below uses **DeepSeek** as an example. Use a provider and model available to your own account. Screenshots show the November 2026 development build; available model names can change.
 
 1. Open the [online optimizer](https://prompt.always200.com/#/basic/user) or the desktop app. Click **Model Manager** at the top.
 2. Stay on **Text Models** and click **Add**.
 3. Fill the form as below, leaving **Enabled** selected.
 
-![Initial text model setup form](../assets/images/getting-started/03-add-model.png)
+![Text model setup form with DeepSeek selected](../assets/images/product/2026-11/model-form.jpg)
 
-*The form initially selects OpenAI. Switch to the provider you actually use.*
+*Choose your actual provider and enter your own connection details. No real API key is entered in this screenshot.*
 
 | Field | What to enter |
 | --- | --- |
@@ -28,10 +28,6 @@ The form below uses **DeepSeek** as an example. Use a provider and model availab
 | API URL | Keep the automatically filled URL for a built-in official provider |
 | Select Model | A model that your account can actually call |
 | Advanced Parameters | Keep the defaults for the first run |
-
-![Text model setup form with DeepSeek selected](../assets/images/getting-started/04-deepseek-form.png)
-
-*Screenshot of the Chinese online UI. The API key is empty; the selected model only reflects the UI at capture time.*
 
 4. Click **Test Connection**. After a success message, click **Create**. Check that your display name appears in the list and the model is enabled.
 5. Close Model Manager, return to the user prompt workspace, and select that model in **Optimization Model**. Continue with [Quick Start](../user/quick-start.md#enter-prompt).
@@ -53,11 +49,18 @@ If the connection fails, check the key, account quota, and model access, then se
 | --- | --- |
 | Improve and copy a text prompt | One text model |
 | Compare the original and revised prompts using the same model | The same one text model |
-| Compare different models | Add a second text model |
+| Compare different models | Select another model available through the connection; add a connection for another account or endpoint |
+| Compare settings on one model | Select the same model in two columns and adjust each column's parameters |
 | Improve an image prompt and actually generate an image | One text model plus one image model |
 | Extract information from a reference image, replicate, or learn a style | Also configure a vision-capable function model where required |
 
 In text workspaces, **Optimization Model** on the left rewrites the prompt. The model selected for a test on the right executes that prompt. The same text model can serve both roles. Evaluation also calls a text model; its selection follows the workspace's test and evaluation settings. See [Testing & Evaluation](../user/testing-evaluation.md).
+
+## Connections, models, and per-run parameters
+
+A saved connection contains a provider, endpoint, credentials, and default settings. The workspace dropdown can select concrete models available through that connection without duplicating credentials for each test column. Add another connection when you need a different account or endpoint.
+
+The development build also lets you adjust parameters in the dropdown and restore inherited values individually. Levels, switches, budgets, and other fields vary by model. See [Model Selection & Parameters](model-parameters.md).
 
 ## Other connection types {#other-providers}
 

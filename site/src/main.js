@@ -12,7 +12,7 @@ const translations = {
   'zh-CN': {
     htmlLang: 'zh-CN',
     title: 'Prompt Optimizer | 提示词优化，应该基于真实结果',
-    description: '在一个工作台里完成提示词优化、真实测试、结果评估与建议应用。',
+    description: '接入自己的模型，优化提示词、对照真实输出，并在竞技场比较模型与参数。支持文本、变量、上下文和图像工作区。',
     brandAriaLabel: 'Prompt Optimizer 官网首页',
     nav: {
       product: '优化器',
@@ -35,18 +35,18 @@ const translations = {
       titleTop: '基于真实结果',
       titleMid: '',
       titleBottom: '优化提示词',
-      lead: '在一个工作台里完成优化、测试、评估，让建议回到当前提示词。',
+      lead: '接入自己的模型，改写提示词，对照真实输出。也能在竞技场直接比较模型与参数。',
       primary: '打开产品',
       secondary: '查看文档',
       stats: [
         { value: '真实测试', label: '先看结果' },
-        { value: '提示词库', label: '可选来源' },
-        { value: '智能收藏', label: '复用资产' }
+        { value: '竞技场', label: '并排比较' },
+        { value: '智能收藏', label: '保存与复用' }
       ],
       visualLabel: '结果闭环',
       visualTitle: '优化、测试、评估在同一界面',
-      screenshotBadge: '工作台预览',
-      screenshotAlt: 'Prompt Optimizer 工作台截图'
+      screenshotAlt: '红队审稿：原始提示词与结构化审查报告的同模型对比',
+      screenshot: 'system-workspace-zh-CN.jpg'
     },
     workflow: {
       kicker: '工作流',
@@ -78,7 +78,7 @@ const translations = {
     scenario: {
       kicker: '工作区覆盖',
       title: '覆盖多类提示词',
-      lead: '四类结构都能进入同一套测试评估流程。',
+      lead: '从单条任务到完整上下文，选择适合输入结构的工作区；已有提示词可直接进入竞技场。',
       columns: {
         type: '结构类型',
         fit: '适用内容',
@@ -106,19 +106,26 @@ const translations = {
         {
           label: '图像生成',
           title: '文生图 / 图生图 / 多图',
-          body: '用真实图像生成结果比较不同提示词的效果，支持多图输入和风格迁移。',
+          body: '支持文生图、图生图和多图输入，可改写提示词、比较版本，并预览和下载生成结果。',
           tags: ['T2I', 'I2I', '多图生图', '风格迁移']
         }
+      ]
+    },
+    examples: {
+      title: '用同一道题，看清差异',
+      lead: '固定输入，再比较模型、提示词版本或参数。一次只改变一个因素，更容易判断效果。',
+      items: [
+        { image: 'arena-comparison-zh-CN.jpg', title: '竞技场：同题比较三个模型', body: '让 GPT-6.2 Astra、GPT-6.2 Sol 和 DeepSeek Flash 绘制同一场景，并排查看各自的构图与细节。', link: 'https://docs.always200.com/advanced/arena/', action: '了解竞技场' }
       ]
     },
     access: {
       kicker: '开放与入口',
       title: '开源可信，也能立刻开始',
-      lead: '看清它的开放能力，再选最顺手的入口。',
+      lead: '自备可用的 API Key 或本地模型。应用配置、历史与收藏默认保存在当前使用环境；调用时，相关输入会发送给你配置的模型服务，远程备份会发送到你配置的存储。',
       proof: {
         label: 'GitHub 仓库',
         title: 'linshenkx/prompt-optimizer',
-        body: '同一套产品能力覆盖 Web、桌面版、自托管、Docker 和 MCP。',
+        body: '通过 Web、桌面版、扩展或 Docker 使用工作台；MCP 为外部工具提供提示词优化能力。',
         facts: ['AGPL-3.0', 'Web / Desktop / Extension', 'Docker / MCP'],
         primary: '查看 GitHub',
         secondary: '下载 Release'
@@ -157,7 +164,7 @@ const translations = {
   en: {
     htmlLang: 'en',
     title: 'Prompt Optimizer | Prompt optimization should follow real outputs',
-    description: 'One workspace for prompt iteration, real testing, result evaluation, and applying improvements.',
+    description: 'Connect your own models, improve prompts, compare real outputs, and test models or parameters in Arena. Text, variables, context, and image workspaces.',
     brandAriaLabel: 'Prompt Optimizer website home',
     nav: {
       product: 'Optimizer',
@@ -180,18 +187,18 @@ const translations = {
       titleTop: 'Real outputs first',
       titleMid: '',
       titleBottom: 'Prompt optimization',
-      lead: 'Iterate, test, evaluate, and return changes in one workspace.',
+      lead: 'Connect your models, refine prompts, and compare real outputs. Use Arena to test models and parameter settings side by side.',
       primary: 'Open Product',
       secondary: 'Read Docs',
       stats: [
         { value: 'Real Tests', label: 'see outputs first' },
-        { value: 'Prompt Library', label: 'optional source' },
+        { value: 'Arena', label: 'side-by-side tests' },
         { value: 'Smart Favorites', label: 'reusable assets' }
       ],
       visualLabel: 'Closed Loop',
       visualTitle: 'Optimize, test, and evaluate in one interface',
-      screenshotBadge: 'Workspace preview',
-      screenshotAlt: 'Prompt Optimizer workspace screenshot'
+      screenshotAlt: 'Red-team review: original and revised prompts tested on the same model',
+      screenshot: 'system-workspace-en.jpg'
     },
     workflow: {
       kicker: 'Workflow',
@@ -223,7 +230,7 @@ const translations = {
     scenario: {
       kicker: 'Workspace coverage',
       title: 'Handle different prompt structures',
-      lead: 'Single prompts, variable templates, context chains, and image generation all fit into the same validation loop.',
+      lead: 'Choose a workspace for your input structure, or take an existing prompt straight to Arena.',
       columns: {
         type: 'Structure',
         fit: 'Best for',
@@ -251,19 +258,26 @@ const translations = {
         {
           label: 'Image generation',
           title: 'Text-to-image / Image-to-image / Multi-image',
-          body: 'Compare different prompts through real image generation, with multi-image input and style transfer support.',
+          body: 'Write and revise prompts for text-to-image, image-to-image, and multi-image workflows, then preview and download results.',
           tags: ['T2I', 'I2I', 'multi-image', 'style transfer']
         }
+      ]
+    },
+    examples: {
+      title: 'One task. Clearer comparisons.',
+      lead: 'Keep input fixed, then compare models, prompt versions, or settings. Change one factor at a time to understand the result.',
+      items: [
+        { image: 'arena-comparison-en.jpg', title: 'Arena: one task, three models', body: 'Ask GPT-6.2 Astra, GPT-6.2 Sol, and DeepSeek Flash to draw the same scene, then compare their composition and detail.', link: 'https://docs.always200.com/en/advanced/arena/', action: 'Explore Arena' }
       ]
     },
     access: {
       kicker: 'Open and access',
       title: 'Open-source credibility with immediate entry points',
-      lead: 'Check the open surface first, then choose the path that fits you.',
+      lead: 'Bring an API key or local model. Configuration, history, and favorites are stored in your current environment by default. Calls send relevant input to your configured model service; remote backups go to your configured storage.',
       proof: {
         label: 'GitHub repository',
         title: 'linshenkx/prompt-optimizer',
-        body: 'The same product surface spans web, desktop, self-hosting, Docker, and MCP.',
+        body: 'Use the workspace on the web, desktop, extension, or Docker. MCP exposes prompt optimization tools for external clients.',
         facts: ['AGPL-3.0', 'Web / Desktop / Extension', 'Docker / MCP'],
         primary: 'View on GitHub',
         secondary: 'Download Releases'
@@ -498,8 +512,9 @@ function renderApp(locale, themeMode) {
               <p>${copy.hero.visualTitle}</p>
             </div>
             <div class="hero-shot">
-              <div class="hero-shot__badge">${copy.hero.screenshotBadge}</div>
-              <img src="/images/demo/knowledge-graph-extractor.png" alt="${copy.hero.screenshotAlt}" />
+              <a href="/images/product/2026-11/${copy.hero.screenshot}" target="_blank" rel="noopener" aria-label="${copy.hero.screenshotAlt}">
+                <img src="/images/product/2026-11/${copy.hero.screenshot}" alt="${copy.hero.screenshotAlt}" width="2047" height="1018" fetchpriority="high" />
+              </a>
             </div>
           </div>
         </section>
@@ -527,6 +542,27 @@ function renderApp(locale, themeMode) {
                 `
               )
               .join('')}
+          </div>
+        </section>
+
+        <section class="section section--examples">
+          <div class="section-head" data-reveal>
+            <h2>${copy.examples.title}</h2>
+            <p class="section-lead">${copy.examples.lead}</p>
+          </div>
+          <div class="workspace-examples">
+            ${copy.examples.items.map((item) => `
+              <figure class="workspace-example" data-reveal>
+                <a class="workspace-example__image" href="/images/product/2026-11/${item.image}" target="_blank" rel="noopener" aria-label="${item.title}">
+                  <img src="/images/product/2026-11/${item.image}" alt="${item.body}" width="2047" height="1018" loading="lazy" />
+                </a>
+                <figcaption>
+                  <h3>${item.title}</h3>
+                  <p>${item.body}</p>
+                  <a href="${item.link}" target="_blank" rel="noopener">${item.action} <span aria-hidden="true">↗</span></a>
+                </figcaption>
+              </figure>
+            `).join('')}
           </div>
         </section>
 

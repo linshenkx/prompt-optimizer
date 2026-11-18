@@ -17,7 +17,6 @@ theme:
   favicon: assets/images/favicon.png
   features:
     - content.code.copy
-    - navigation.instant
     - navigation.expand
     - navigation.top
     - navigation.footer
@@ -51,6 +50,7 @@ plugins:
             - 功能指南:
                 - 基础管理:
                     - 模型管理: basic/models.md
+                    - 模型选择与参数: basic/model-parameters.md
                     - 模板管理: basic/templates.md
                     - 历史记录: basic/history.md
                     - 收藏与导入: basic/favorites.md
@@ -60,6 +60,7 @@ plugins:
                     - 系统提示词优化: basic/system-optimization.md
                     - 用户提示词优化: basic/user-optimization.md
                 - 高级模式:
+                    - 竞技场: advanced/arena.md
                     - 变量管理: advanced/variables.md
                     - 上下文管理: advanced/context.md
                     - 工具调用: advanced/tools.md
@@ -95,6 +96,8 @@ plugins:
           nav:
             - Home: index.md
             - User Guide:
+                - Arena: advanced/arena.md
+                - Model Selection & Parameters: basic/model-parameters.md
                 - Quick Start: user/quick-start.md
                 - Basic Features:
                     - System Prompt Workspace: basic/system-optimization.md

@@ -92,30 +92,32 @@ MCP_DEFAULT_LANGUAGE=zh
 
 ### Claude Desktop Integration
 
-#### 1. Find Configuration Directory
+Build the local server from the repository root.
 
-- **Windows**: `%APPDATA%\Claude\services`
-- **macOS**: `~/Library/Application Support/Claude/services`
-- **Linux**: `~/.config/Claude/services`
+```bash
+pnpm install
+pnpm build:core
+pnpm mcp:build
+```
 
-#### 2. Edit Configuration File
-
-Create or edit the `services.json` file:
+Add this entry under `mcpServers` in `claude_desktop_config.json`. The configuration file is in `%APPDATA%\Claude` on Windows and `~/Library/Application Support/Claude` on macOS.
 
 ```json
 {
-  "services": [
-    {
-      "name": "Prompt Optimizer",
-      "url": "http://localhost:8081/mcp"
+  "mcpServers": {
+    "prompt-optimizer": {
+      "command": "node",
+      "args": ["/absolute/path/to/prompt-optimizer/packages/mcp-server/bin/prompt-optimizer-mcp.cjs", "--transport=stdio"],
+      "env": {
+        "VITE_OPENAI_API_KEY": "your-openai-key",
+        "MCP_DEFAULT_MODEL_PROVIDER": "openai"
+      }
     }
-  ]
+  }
 }
 ```
 
-> **Note**: If you are using developer local deployment (port 3000), please change the URL to `http://localhost:3000/mcp`.
-
-
+Replace the script path and API key, then quit and reopen Claude Desktop. If the app cannot find `node`, set `command` to the absolute path to the Node.js executable. For a remote HTTP server, follow the [Claude custom connectors guide](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
 
 ### Other MCP Clients
 
@@ -204,11 +206,7 @@ MCP_DEFAULT_MODEL_PROVIDER=openai  # not OpenAI
 
 #### 5. Claude Desktop Connection Failure
 
-**Solution Steps**:
-1. Confirm MCP server is running
-2. Check if URL is correct
-3. Confirm firewall settings
-4. Check Claude Desktop logs
+For a local connection, confirm the MCP server has been built, check the `command` and script paths, and review the Claude Desktop logs. For a remote connector, check the server URL and its network reachability.
 
 ### Debug Logging
 

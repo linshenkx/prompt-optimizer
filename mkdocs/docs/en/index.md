@@ -87,6 +87,20 @@ hide:
       <p>Each workspace has a different input structure.</p>
     </div>
     <div class="po-docs-index-list">
+      <a class="po-docs-index-row" href="advanced/arena/">
+        <div>
+          <h3>Arena</h3>
+          <p>Compare models or settings on the same task.</p>
+        </div>
+        <code>/arena</code>
+      </a>
+      <a class="po-docs-index-row" href="basic/model-parameters/">
+        <div>
+          <h3>Model Selection &amp; Parameters</h3>
+          <p>Select a model, adjust one column, and restore inherited values.</p>
+        </div>
+        <code>Model dropdown</code>
+      </a>
       <a class="po-docs-index-row" href="basic/system-optimization/">
         <div>
           <h3>System Prompt Workspace</h3>
@@ -106,14 +120,14 @@ hide:
           <h3>Variable Workspace</h3>
           <p>Turn one prompt into a reusable template with variable boundaries.</p>
         </div>
-        <code>/advanced/variables</code>
+        <code>/pro/variable</code>
       </a>
       <a class="po-docs-index-row" href="advanced/context/">
         <div>
           <h3>Context Workspace</h3>
           <p>Optimize one target message inside a real conversation.</p>
         </div>
-        <code>/advanced/context</code>
+        <code>/pro/multi</code>
       </a>
       <a class="po-docs-index-row" href="image/text2image-workspace/">
         <div>
