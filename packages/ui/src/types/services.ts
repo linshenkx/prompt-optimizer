@@ -20,7 +20,8 @@ import type {
   IEvaluationService,
   IVariableExtractionService,
   IVariableValueGenerationService,
-  IImageStorageService
+  IImageStorageService,
+  ComparisonViewer
 } from '@prompt-optimizer/core'
 
 /**
@@ -31,6 +32,7 @@ export interface AppServices {
   templateManager: ITemplateManager;
   historyManager: IHistoryManager;
   dataManager: IDataManager;
+  savedComparisons?: ComparisonViewer;
   llmService: ILLMService;
   promptService: IPromptService;
   templateLanguageService: ITemplateLanguageService;

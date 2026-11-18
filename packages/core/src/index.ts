@@ -207,6 +207,7 @@ export { validateCustomModelConfig } from './utils/environment'
 // 导出IPC序列化工具
 export { safeSerializeForIPC, debugIPCSerializability, safeSerializeArgs } from './utils/ipc-serialization'
 export { applyPatchOperationsToText } from './utils/patch-plan'
+export * from './utils/prompt-variables'
 export type { ApplyPatchResult, ApplyPatchReportItem, ApplyPatchStatus } from './utils/patch-plan'
 
 // 导出存储键常量
@@ -305,3 +306,9 @@ export * from './services/llm/local-service-models'
 
 // Source-bound discovery only: no manager initialization or private model export.
 export * from './services/asset-reader'
+export type * from './services/text-comparison/types'
+export { createComparisonRepository } from './services/text-comparison/repository'
+export type { ComparisonRepository, ComparisonStorage } from './services/text-comparison/repository'
+export { createTextComparisonService, TextComparisonError } from './services/text-comparison/runner'
+export type { TextComparisonErrorCode } from './services/text-comparison/runner'
+export { ComparisonRepositoryError } from './services/text-comparison/validation'

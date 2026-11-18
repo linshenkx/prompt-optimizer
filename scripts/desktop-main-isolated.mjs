@@ -65,11 +65,35 @@ env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 const userData = join(root, 'profile/userData');
 await mkdir(userData, { recursive: true });
 const legacy = join(userData, 'prompt-optimizer-data.json');
-const legacyBytes = JSON.stringify({ 'pref:storage-main-r2': JSON.stringify({ origin: 'synthetic-legacy-json' }) }, null, 2);
+const database = join(userData, 'prompt-optimizer-data.sqlite');
+const legacyFixture = { 'pref:storage-main-r2': JSON.stringify({ origin: 'synthetic-legacy-json' }) };
+const legacyBytes = JSON.stringify(legacyFixture, null, 2);
 await writeFile(legacy, legacyBytes);
 
+function readDatabaseSnapshot() {
+  const db = new DatabaseSync(database, { readOnly: true });
+  try {
+    db.exec('BEGIN');
+    return {
+      kv: db.prepare('SELECT key, value FROM storage_kv ORDER BY key').all(),
+      metadata: db.prepare('SELECT key, value FROM storage_metadata ORDER BY key').all(),
+      schema: db.prepare('SELECT type, name, sql FROM sqlite_schema ORDER BY name').all(),
+      userVersion: db.prepare('PRAGMA user_version').get(),
+    };
+  } finally {
+    db.close();
+  }
+}
+
 const phases = [];
-for (const phase of ['first', 'restart']) {
+for (const phase of ['first', 'restart', 'divergence']) {
+  let expectedLegacy = legacyBytes;
+  let beforeDivergence;
+  if (phase === 'divergence') {
+    beforeDivergence = readDatabaseSnapshot();
+    expectedLegacy = JSON.stringify({ ...legacyFixture, 'pref:legacy-only-after-migration': JSON.stringify('written-later-to-JSON') }, null, 2);
+    await writeFile(legacy, expectedLegacy);
+  }
   const stdout = createWriteStream(join(root, `${phase}-stdout.log`));
   const stderr = createWriteStream(join(root, `${phase}-stderr.log`));
   const started = Date.now();
@@ -90,13 +114,29 @@ for (const phase of ['first', 'restart']) {
   assert.equal(result.code, 0, `Main failed; inspect ${phase}-stderr.log in ${root}`);
   const report = JSON.parse(await readFile(join(root, `${phase}-report.json`), 'utf8'));
   assert.equal(report.ok, true);
+  assert.equal(report.requests, 0);
+  assert.equal(await readFile(legacy, 'utf8'), expectedLegacy);
+  assert.equal((await readdir(userData)).includes('prompt-optimizer-data.json.backup'), false);
+  const phaseResult = {
+    phase, code: result.code, durationMs: Date.now() - started, mainSha256: report.mainSha256,
+    closeCompleted: report.closeCompleted, ipcVerified: report.ipcVerified,
+    requests: report.requests, runtime: report.runtime,
+  };
+  if (phase === 'divergence') {
+    assert.equal(report.storageErrorReason, 'DESKTOP_STORAGE_DIVERGED');
+    assert.equal(report.errorDialogs.length, 1);
+    assert.equal(report.windows, 0);
+    assert.deepEqual(readDatabaseSnapshot(), beforeDivergence);
+    phases.push({ ...phaseResult, dialogIntercepted: true, windows: report.windows, storesPreserved: true });
+    continue;
+  }
   assert.equal(report.closeCompleted, true);
   assert.equal(report.business.ok, true);
   assert.equal(report.migration.source, 'json');
   assert.equal(report.migration.itemCount, 1);
-  assert.equal(await readFile(legacy, 'utf8'), legacyBytes);
-  assert.equal((await readdir(userData)).includes('prompt-optimizer-data.json.backup'), false);
-  const db = new DatabaseSync(join(userData, 'prompt-optimizer-data.sqlite'));
+  if (phase === 'first') assert.equal(report.comparisonSeeded, true);
+  if (phase === 'restart') assert.ok(report.business.checked.includes('saved comparison IPC after restart'));
+  const db = new DatabaseSync(database);
   try {
     assert.equal(db.prepare('PRAGMA quick_check').get().quick_check, 'ok');
     assert.equal(db.prepare('SELECT value FROM storage_kv WHERE key = ?').get('pref:storage-main-r2-written').value, JSON.stringify('persisted-through-real-ipc'));
@@ -104,7 +144,7 @@ for (const phase of ['first', 'restart']) {
     db.exec('BEGIN IMMEDIATE');
     db.exec('ROLLBACK');
   } finally { db.close(); }
-  phases.push({ phase, code: result.code, durationMs: Date.now() - started, mainSha256: report.mainSha256, closeCompleted: report.closeCompleted, ipcVerified: report.ipcVerified, business: report.business, requests: report.requests, runtime: report.runtime });
+  phases.push({ ...phaseResult, business: report.business });
 }
-await writeFile(join(root, 'summary.json'), JSON.stringify({ ok: true, phases, scope: 'Unmodified actual desktop main + real preload business IPC, hidden synthetic renderer; no complete product UI/model/update acceptance' }, null, 2));
+await writeFile(join(root, 'summary.json'), JSON.stringify({ ok: true, phases, scope: 'Actual desktop main + real preload business IPC, comparison restoration and interrupted startup in a hidden synthetic profile; no complete product UI/model/update acceptance' }, null, 2));
 console.log(JSON.stringify({ ok: true, evidence: root, phases }, null, 2));

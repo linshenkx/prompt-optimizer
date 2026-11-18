@@ -17,6 +17,11 @@
       "import": "./dist/asset-reader.js",
       "require": "./dist/asset-reader.cjs"
     },
+    "./desktop-comparison": {
+      "types": "./dist/desktop-comparison.d.ts",
+      "import": "./dist/desktop-comparison.js",
+      "require": "./dist/desktop-comparison.cjs"
+    },
     "./node": {
       "types": "./dist/node.d.ts",
       "import": "./dist/node.js",
@@ -24,8 +29,8 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts src/asset-reader.ts src/node.ts --format cjs,esm --dts",
-    "dev": "tsup src/index.ts src/asset-reader.ts src/node.ts --format cjs,esm --dts --watch",
+    "build": "tsup src/index.ts src/asset-reader.ts src/desktop-comparison.ts src/node.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts src/asset-reader.ts src/desktop-comparison.ts src/node.ts --format cjs,esm --dts --watch",
     "test": "vitest run",
     "test:asset-reader": "vitest run --config vitest.asset-reader.config.ts",
     "test:watch": "vitest",

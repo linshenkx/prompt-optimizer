@@ -29,7 +29,7 @@ console.info('[prompt-optimizer/runtime]', {
   electron: process.versions.electron,
 });
 
-const { app, BrowserWindow, ipcMain, shell, session, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, session, Menu, nativeImage, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const {
   buildReleaseUrl,
@@ -92,6 +92,8 @@ const {
   createImageService,
   createTemplateLanguageService,
   createDataManager,
+  createComparisonRepository,
+  ComparisonRepositoryError,
   createContextRepo,
   FavoriteManager,
   safeSerializeForIPC,
@@ -102,7 +104,7 @@ const {
   SUFFIX_PATTERN,
   MAX_SUFFIX_LENGTH,
 } = require('@prompt-optimizer/core');
-const { openDesktopStorage, DESKTOP_DATABASE_FILENAME } = require('@prompt-optimizer/core/node');
+const { openDesktopStorage, DESKTOP_DATABASE_FILENAME, DESKTOP_STORAGE_DIVERGENCE_REASON } = require('@prompt-optimizer/core/node');
 const { createElectronImageInputConverter } = require('./config/image-input-normalizer');
 const convertImageInputWithElectronNativeImage = createElectronImageInputConverter(nativeImage);
 
@@ -122,6 +124,7 @@ let modelNetwork;
 let networkRestarting = false;
 let modelManager, templateManager, historyManager, llmService, promptService, templateLanguageService, preferenceService, dataManager, contextRepo, favoriteManager;
 let imageModelManager, imageService, imageUnderstandingService;
+let savedComparisons;
 let imageAdapterRegistry; // 全局引用以供 IPC 处理器使用
 let storageProvider; // 全局存储提供器引用，用于退出时保存数据
 
@@ -739,7 +742,8 @@ async function initializeServices() {
     contextRepo = createContextRepo(storageProvider);
 
     console.log('[DESKTOP] Creating Data manager...');
-    dataManager = createDataManager(modelManager, templateManager, historyManager, preferenceService, contextRepo, imageModelManager);
+    savedComparisons = createComparisonRepository(storageProvider);
+    dataManager = createDataManager(modelManager, templateManager, historyManager, preferenceService, contextRepo, imageModelManager, savedComparisons);
 
     console.log('[DESKTOP] Creating Favorite manager...');
     favoriteManager = new FavoriteManager(storageProvider);
@@ -750,6 +754,14 @@ async function initializeServices() {
   } catch (error) {
     console.error('[Main Process] Failed to initialize core services:', error);
     console.error('[Main Process] Error details:', error.stack);
+    if (error?.params?.reason === DESKTOP_STORAGE_DIVERGENCE_REASON) {
+      const copy = {
+        'zh-CN': ['请核对桌面数据', '发现旧版 JSON 和 SQLite 的数据可能已分开更新。升级已暂停，原数据仍保留。请保留 JSON、SQLite、WAL 和 SHM 文件，核对两份数据后再继续升级。'],
+        'zh-TW': ['請核對桌面資料', '發現舊版 JSON 和 SQLite 的資料可能已分開更新。升級已暫停，原資料仍保留。請保留 JSON、SQLite、WAL 和 SHM 檔案，核對兩份資料後再繼續升級。'],
+        'en-US': ['Review desktop data before upgrading', 'The legacy JSON and SQLite data may have changed independently. The upgrade was paused. Keep the JSON, SQLite, WAL and SHM files and review both copies before continuing.'],
+      }[getCurrentUiLocale()];
+      dialog.showErrorBox(copy[0], copy[1]);
+    }
     return false;
   }
 }
@@ -2226,6 +2238,18 @@ function setupIPC() {
       return createFavoriteErrorResponse(error);
     }
   });
+
+  const comparisonRequest = (action) => async (_event, ...args) => {
+    try {
+      return createSuccessResponse(await action(...args));
+    } catch (error) {
+      const code = error instanceof ComparisonRepositoryError ? error.code : 'COMPARISON_STORAGE_FAILED';
+      return { success: false, error: { code, message: `Saved comparison request failed (${code}).` } };
+    }
+  };
+  ipcMain.handle('comparison-list', comparisonRequest(options => savedComparisons.list(options)));
+  ipcMain.handle('comparison-get', comparisonRequest(id => savedComparisons.get(id)));
+  ipcMain.handle('comparison-delete', comparisonRequest((id, revision) => savedComparisons.delete(id, revision)));
 
   // Data Manager handlers
   ipcMain.handle('data-exportAllData', async (event) => {

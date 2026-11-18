@@ -1,5 +1,32 @@
 const messages = {
   "contextMode": {
+    "savedComparisons": {
+      "title": "已保存比较",
+      "version": "收藏版本",
+      "id": "比较 ID",
+      "open": "打开",
+      "refresh": "刷新",
+      "loadMore": "加载更多",
+      "empty": "暂无已保存的比较",
+      "listError": "无法加载已保存的比较，请刷新重试。",
+      "detailError": "无法打开这条比较，请核对 ID 或刷新列表。",
+      "input": "比较使用的输入",
+      "variables": "变量",
+      "parameters": "模型参数",
+      "declaredParameters": "模型配置参数",
+      "requestParameters": "适配器请求参数",
+      "requestUnavailable": "请求参数暂无记录",
+      "omittedParameters": "部分快照参数值已隐藏。",
+      "noOutput": "暂无输出记录",
+      "status": {
+        "success": "已完成",
+        "error": "失败",
+        "cancelled": "已取消"
+      },
+      "deleteTitle": "删除比较",
+      "deleteConfirm": "从已保存比较中删除「{title}」？",
+      "deleteError": "无法删除这条比较，请重新打开后再试。"
+    },
     "optimizationMode": {
       "message": "多消息",
       "variable": "变量"

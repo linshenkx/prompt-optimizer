@@ -7,10 +7,10 @@ const { createHash } = require('node:crypto');
 const Module = require('node:module');
 const electron = require('electron');
 const { createBoundary, installFilesystemGuards } = require('./desktop-main-isolation.cjs');
-const exerciseDesktopBusiness = require('./desktop-main-business.cjs');
+const { exerciseDesktopBusiness, seedDesktopComparisons } = require('./desktop-main-business.cjs');
 
 const [root, phase] = process.argv.slice(2);
-assert.ok(['first', 'restart'].includes(phase));
+assert.ok(['first', 'restart', 'divergence'].includes(phase));
 assert.equal(path.dirname(__dirname), root);
 assert.equal(fs.realpathSync(root), root);
 assert.ok(path.basename(root).startsWith('po-desktop-main-r2-'));
@@ -21,7 +21,7 @@ assert.equal(fs.realpathSync(path.join(root, 'app/packages/desktop/node_modules'
 
 const audit = {
   phase, mainSha256: manifest.mainSha256, mainLoaded: false,
-  readable: 0, writable: 0, violations: [], events: [], dotenv: [], windows: 0,
+  readable: 0, writable: 0, violations: [], events: [], dotenv: [], windows: 0, errorDialogs: [],
   ipcVerified: false, closeCompleted: false, flushCompleted: false, requests: 0,
 };
 function record(event) {
@@ -116,12 +116,49 @@ sqlite.DatabaseSync = new Proxy(sqlite.DatabaseSync, {
   },
 });
 
+let openedProvider;
+const comparisonFixturePath = path.join(root, 'comparison-fixture.json');
+async function seedSavedComparisons(favoriteId) {
+  assert.ok(openedProvider);
+  assert.ok(favoriteId);
+  const requireFromMain = Module.createRequire(mainPath);
+  const { createComparisonRepository } = requireFromMain('@prompt-optimizer/core');
+  const { SQLiteStorageProvider } = requireFromMain('@prompt-optimizer/core/node');
+  const backupStorage = new SQLiteStorageProvider(path.join(root, 'comparison-backup-fixture.sqlite'));
+  try {
+    const fixtures = await seedDesktopComparisons(
+      createComparisonRepository(openedProvider), createComparisonRepository(backupStorage), favoriteId,
+    );
+    fs.writeFileSync(comparisonFixturePath, JSON.stringify(fixtures), { flag: 'wx' });
+    audit.comparisonSeeded = true;
+    record('comparison-fixtures-seeded-before-restart');
+  } finally {
+    await backupStorage.close();
+  }
+}
+
 const load = Module._load;
+const isolatedDialog = new Proxy(electron.dialog, {
+  get(_, method) {
+    if (method !== 'showErrorBox') return forbidden('dialog.' + String(method));
+    return (title, message) => {
+      assert.equal(phase, 'divergence');
+      assert.equal(audit.errorDialogs.length, 0);
+      audit.errorDialogs.push({ title, message });
+      record('storage-divergence-error-dialog-requested');
+    };
+  },
+});
 const electronForApp = new Proxy(electron, {
-  get(target, name) { return name === 'BrowserWindow' ? HiddenWindow : target[name]; },
+  get(target, name) {
+    if (name === 'BrowserWindow') return HiddenWindow;
+    if (name === 'dialog') return isolatedDialog;
+    return target[name];
+  },
 });
 const HiddenWindow = new Proxy(electron.BrowserWindow, {
   construct(Target, [options]) {
+    assert.notEqual(phase, 'divergence', 'The failed startup must not construct an application window');
     boundary.readable(options.webPreferences.preload);
     const window = new Target({ ...options, show: false });
     audit.windows++;
@@ -150,10 +187,12 @@ const HiddenWindow = new Proxy(electron.BrowserWindow, {
         assert.equal(result.persisted, phase === 'first' ? null : 'persisted-through-real-ipc');
         assert.equal(result.info.userDataPath, paths.userData);
         assert.equal(result.info.mainFilePath, path.join(paths.userData, 'prompt-optimizer-data.sqlite'));
-        audit.business = await window.webContents.executeJavaScript(`(${exerciseDesktopBusiness.toString()})(${JSON.stringify(phase)})`);
+        const comparisons = phase === 'restart' ? JSON.parse(fs.readFileSync(comparisonFixturePath, 'utf8')) : null;
+        audit.business = await window.webContents.executeJavaScript(`(${exerciseDesktopBusiness.toString()})(${JSON.stringify(phase)}, ${JSON.stringify(comparisons)})`);
         assert.equal(audit.business.ok, true);
         audit.ipcVerified = true;
         record('real-preload-ipc-verified');
+        if (phase === 'first') await seedSavedComparisons(audit.business.favoriteId);
         app.quit(); // Actual main before-quit/window-close/will-quit handlers run normally.
       } catch (error) { fail(error); }
     });
@@ -182,7 +221,15 @@ Module._load = function (request, parent, ...args) {
   if (request === '@prompt-optimizer/core/node') {
     return { ...exported, async openDesktopStorage(directory, options) {
       assert.equal(boundary.writable(directory), paths.userData);
-      const result = await exported.openDesktopStorage(directory, options);
+      let result;
+      try {
+        result = await exported.openDesktopStorage(directory, options);
+      } catch (error) {
+        audit.storageErrorReason = error?.params?.reason;
+        record('actual-storage-open-refused');
+        throw error;
+      }
+      openedProvider = result.provider;
       audit.migration = result.migration;
       audit.database = path.relative(root, result.provider.databasePath);
       record('actual-storage-opened');
@@ -212,10 +259,23 @@ app.on('quit', (_event, code) => {
   try {
     assert.equal(code, 0);
     assert.equal(audit.mainLoaded, true);
-    assert.equal(audit.windows, 1);
-    assert.equal(audit.ipcVerified, true);
-    assert.equal(audit.closeCompleted, true);
-    assert.equal(audit.flushCompleted, true);
+    if (phase === 'divergence') {
+      assert.equal(audit.windows, 0);
+      assert.equal(audit.ipcVerified, false);
+      assert.equal(audit.migration, undefined);
+      assert.equal(audit.storageErrorReason, 'DESKTOP_STORAGE_DIVERGED');
+      assert.equal(audit.errorDialogs.length, 1);
+      assert.ok(audit.errorDialogs[0].title.trim());
+      assert.match(audit.errorDialogs[0].message, /JSON/);
+      assert.match(audit.errorDialogs[0].message, /SQLite/);
+    } else {
+      assert.equal(audit.windows, 1);
+      assert.equal(audit.ipcVerified, true);
+      assert.equal(audit.closeCompleted, true);
+      assert.equal(audit.flushCompleted, true);
+      assert.equal(audit.errorDialogs.length, 0);
+      if (phase === 'first') assert.equal(audit.comparisonSeeded, true);
+    }
     assert.equal(audit.requests, 0);
     assert.deepEqual(audit.violations, []);
     assert.equal(audit.dotenv.length, 2);

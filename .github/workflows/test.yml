@@ -46,7 +46,7 @@ jobs:
       - name: Check SQLite concurrency, interrupted migrations and business recovery
         run: node --test scripts/sqlite-storage.test.mjs scripts/sqlite-migration.test.mjs scripts/sqlite-business-regression.test.mjs
 
-      - name: Check desktop MCP read-only access and legacy compatibility
+      - name: Check desktop MCP comparison, read-only access, and legacy compatibility
         run: |
           pnpm --filter @prompt-optimizer/core test:asset-reader
           pnpm --filter @prompt-optimizer/mcp-server build

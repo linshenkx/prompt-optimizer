@@ -1,7 +1,7 @@
 import { CORE_SERVICE_KEYS } from '../../constants/storage-keys'
 import { isPromptModeKey } from '../prompt-model/mode'
 import type { PromptAsset } from '../prompt-model/types'
-import type { AssetReadPage, AssetReadPagination, AssetReaderScope, AssetReadStorage, IReadonlyAssetReader, PublicStoredAsset } from './types'
+import type { AssetReadPage, AssetReadPagination, AssetReaderScope, AssetReadStorage, IReadonlyAssetReader, PublicStoredAsset, PublicStoredModel } from './types'
 import { AssetReadError, parseFavorites, parseModels, text } from './validation'
 
 // Canonicalize parsed JSON without assigning arbitrary keys onto an object.
@@ -11,6 +11,11 @@ const canonical = (v: unknown): string => Array.isArray(v) ? `[${v.map(canonical
 
 /** No manager, registry, defaults, environment, SDK, file path or provider opening. */
 export function createReadonlyAssetReader(storage: AssetReadStorage, source: AssetReaderScope): IReadonlyAssetReader {
+  return createAssetReadAccess(storage, source).reader
+}
+
+/** Internal execution access. The asset-reader entry point exports only the public reader. */
+export function createAssetReadAccess(storage: AssetReadStorage, source: AssetReaderScope) {
   if (!text(source.sourceId) || !text(source.sourceEpoch)) throw new AssetReadError('INVALID_INPUT')
   const scope = Object.freeze({ sourceId: source.sourceId, sourceEpoch: source.sourceEpoch })
   const getItem = storage.getItem.bind(storage)
@@ -60,13 +65,24 @@ export function createReadonlyAssetReader(storage: AssetReadStorage, source: Ass
       tags: [...asset.tags], currentVersionId: asset.currentVersionId, versionCount: asset.versions.length,
       updatedAt: asset.updatedAt, revision: await revision(`favorite:${favoriteId}`, raw) }
   }
-  return {
-    async listModels(options = {}) {
-      validatePagination(options)
-      const raw = await read(CORE_SERVICE_KEYS.MODELS)
-      const models = parseModels(raw)
-      const items = await Promise.all(models.map(async ({ model, raw }) => ({ ...model, revision: await revision(`model:${model.configKey}`, raw) })))
-      return page(items, options, await revision('models-page', raw))
+  async function signedModel({ model, raw }: ReturnType<typeof parseModels>[number]) {
+    const signed: PublicStoredModel = { ...model, revision: await revision(`model:${model.configKey}`, raw) }
+    return { model: signed, raw }
+  }
+  async function readStoredModels(configKeys: string[]) {
+    const entries = parseModels(await read(CORE_SERVICE_KEYS.MODELS))
+    return Promise.all(entries.filter(({ model }) => configKeys.includes(model.configKey)).map(signedModel))
+  }
+  async function listModels<T>(options: AssetReadPagination, project: (entry: Awaited<ReturnType<typeof signedModel>>) => T) {
+    validatePagination(options)
+    const snapshot = await read(CORE_SERVICE_KEYS.MODELS)
+    const entries = await Promise.all(parseModels(snapshot).map(signedModel))
+    return page(entries.map(project), options, await revision('models-page', snapshot))
+  }
+
+  const reader: IReadonlyAssetReader = {
+    listModels(options = {}) {
+      return listModels(options, ({ model }) => model)
     },
     async listAssets(options = {}) {
       validatePagination(options)
@@ -95,4 +111,5 @@ export function createReadonlyAssetReader(storage: AssetReadStorage, source: Ass
           ...(variable.options !== undefined ? { options: [...variable.options] } : {}) })) }
     },
   }
+  return { reader, readStoredModels, listModels }
 }

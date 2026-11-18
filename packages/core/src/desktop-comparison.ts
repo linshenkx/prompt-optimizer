@@ -1,0 +1,7 @@
+export { AssetReadError } from './services/asset-reader'
+export { createComparisonRepository } from './services/text-comparison/repository'
+export type { ComparisonRepository, ComparisonStorage } from './services/text-comparison/repository'
+export { ComparisonRepositoryError } from './services/text-comparison/validation'
+export { createTextComparisonService, TextComparisonError } from './services/text-comparison/runner'
+export type { TextComparisonErrorCode } from './services/text-comparison/runner'
+export type * from './services/text-comparison/types'

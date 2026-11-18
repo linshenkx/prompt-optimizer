@@ -15,6 +15,8 @@ import { Template } from '../../../src/services/template/types';
 import { PromptRecord } from '../../../src/services/history/types';
 import { ContextRepo } from '../../../src/services/context/types';
 import { DATA_ERROR_CODES } from '../../../src/constants/error-codes';
+import { createComparisonRepository } from '../../../src/services/text-comparison/repository';
+import { ComparisonRepositoryError } from '../../../src/services/text-comparison/validation';
 
 describe('DataManager Import/Export Integration', () => {
   let dataManager: DataManager;
@@ -296,6 +298,24 @@ describe('DataManager Import/Export Integration', () => {
       const language = await preferenceService.get('app:settings:ui:preferred-language', null);
       expect(theme).toBe('light');
       expect(language).toBe('en-US');
+    });
+
+    it('handles a comparison write conflict before replacing existing history', async () => {
+      const comparisons = createComparisonRepository({
+        async getItem() { return null; },
+        async getEntriesByPrefix() { return []; },
+        async withWriteTransaction() { throw new ComparisonRepositoryError('IDEMPOTENCY_CONFLICT'); },
+      });
+      const manager = new DataManager(modelManager, templateManager, historyManager, preferenceService,
+        mockContextRepo, imageModelManager, comparisons);
+      const importHistory = vi.spyOn(historyManager, 'importData');
+      const backup = JSON.stringify({ version: 1, data: {
+        history: await historyManager.exportData(),
+        savedComparisons: { version: 1, records: [], intents: [] },
+      } });
+      await expect(manager.validateImportData(backup)).resolves.toBeUndefined();
+      await expect(manager.importAllData(backup)).rejects.toThrow('Failed to import savedComparisons');
+      expect(importHistory).not.toHaveBeenCalled();
     });
 
     it('rejects a malformed section before any valid section changes stored data', async () => {

@@ -1,9 +1,11 @@
 // Select before importing legacy: its modules load dotenv and default models.
 import { selectLaunchMode } from './cli.js';
-import type { DesktopProfile, DesktopReadonlyOpener } from './desktop-router.js';
+import type { DesktopComparisonOpener, DesktopProfile, DesktopReadonlyOpener } from './desktop-router.js';
 
 export interface LaunchDependencies {
   openDesktop?: DesktopReadonlyOpener;
+  openDesktopComparison?: DesktopComparisonOpener;
+  desktopComparisonMain?: (profiles: DesktopProfile[], opener: DesktopComparisonOpener) => Promise<unknown>;
   legacyMain?: () => Promise<void>;
   desktopMain?: (profiles: DesktopProfile[], opener?: DesktopReadonlyOpener) => Promise<unknown>;
 }
@@ -12,6 +14,11 @@ export async function main(args = process.argv.slice(2), dependencies: LaunchDep
   if (selection.mode === 'desktop-readonly') {
     const start = dependencies.desktopMain ?? (await import('./desktop.js')).startDesktopReadonlyStdio;
     const opener = dependencies.openDesktop ?? (await import('./desktop-storage.js')).openReadonlyDesktop;
+    return start(selection.profiles, opener);
+  }
+  if (selection.mode === 'desktop-comparison') {
+    const start = dependencies.desktopComparisonMain ?? (await import('./desktop.js')).startDesktopComparisonStdio;
+    const opener = dependencies.openDesktopComparison ?? (await import('./desktop-storage.js')).openComparisonDesktop;
     return start(selection.profiles, opener);
   }
   if (dependencies.legacyMain) return dependencies.legacyMain();

@@ -4,9 +4,15 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { main } from '../src/index.js';
 import { selectLaunchMode } from '../src/cli.js';
-import { createDesktopReadonlyRouter, DesktopSourceError, publicDesktopError } from '../src/desktop-router.js';
-import { createDesktopReadonlyServer } from '../src/desktop.js';
-import type { DesktopReadonlyLease } from '../src/desktop-router.js';
+import { createDesktopComparisonRouter, createDesktopReadonlyRouter, DesktopSourceError, publicDesktopError } from '../src/desktop-router.js';
+import { createDesktopComparisonServer, createDesktopReadonlyServer } from '../src/desktop.js';
+import type { DesktopComparisonLease, DesktopReadonlyLease } from '../src/desktop-router.js';
+import { createReadonlyAssetReader } from '@prompt-optimizer/core/asset-reader';
+import type { AssetReadPagination } from '@prompt-optimizer/core/asset-reader';
+import type {
+  ComparisonExecutionSource, ComparisonListOptions, CompletedTextComparison, PreparedTextComparison, PrepareTextComparison,
+  SavedComparisonResult, TextComparisonRequest,
+} from '@prompt-optimizer/core/desktop-comparison';
 
 vi.mock('../src/legacy.js', () => { throw new Error('Legacy must not load in desktop mode'); });
 vi.mock('../src/config/environment.js', () => { throw new Error('dotenv configuration must not load'); });
@@ -139,5 +145,233 @@ describe('desktop launch and source routing', () => {
       expect(JSON.stringify(models)).not.toContain(secret);
     } finally { await client.close(); await server.close(); await router.dispose(); }
     expect(a.close).toHaveBeenCalledOnce(); expect(a.writes).toEqual([]);
+  });
+});
+
+describe('desktop comparison tools', () => {
+  const selection = {
+    source: { favoriteId: 'favorite', assetId: 'asset', versionId: 'v1', expectedRevision: 'asset-revision' },
+    variables: { topic: 'synthetic topic' },
+    candidates: [
+      { id: 'a', configKey: 'saved', expectedRevision: 'rev-a' },
+      { id: 'b', configKey: 'another', expectedRevision: 'rev-b' },
+    ],
+  } as PrepareTextComparison;
+
+  function comparisonLease(source: ComparisonExecutionSource) {
+    const base = lease('A');
+    const reader = createReadonlyAssetReader(base.provider, source);
+    const request: TextComparisonRequest = { rawPrompt: '{{topic}}', variables: selection.variables,
+      messages: [{ role: 'user', content: selection.variables.topic }] };
+    const preparedId = 'prepared-a';
+    const comparisonId = 'comparison-a';
+    const run = (id: 'a' | 'b'): CompletedTextComparison['runs'][number] => ({
+      id, runId: `run-${id}`, model: { configKey: id, name: id, providerId: 'openai', modelId: id },
+      effective: { parameterCoverage: 'declared', parameters: {}, omittedParameterNames: [], requestEvidence: 'captured' },
+      status: 'success', output: id, reasoning: '', startedAt: 10, completedAt: 20,
+    });
+    const runs: CompletedTextComparison['runs'] = [run('a'), run('b')];
+    const asset = { ...selection.source, title: 'Synthetic favorite' };
+    const draft: CompletedTextComparison = { id: comparisonId, executionSource: source, source: asset, request, runs };
+    const preview: PreparedTextComparison = { preparedId, comparisonId, previewRevision: 'preview-revision',
+      expiresAt: 300, executionSource: source, source: asset, request, runs };
+    const revision = 'saved-revision';
+    const result: SavedComparisonResult = { comparison: { ...draft, schemaVersion: 'saved-comparison/v1', savedAt: 30 }, revision };
+    const privateError = new Error(`Sensitive SDK exception: ${secret} ${pathA}`);
+    const runner = {
+      reader,
+      listModels: vi.fn(async (options?: AssetReadPagination) => {
+        const models = await reader.listModels(options);
+        return { ...models, items: models.items.map(model => ({ ...model, executable: true, unavailableReason: undefined })) };
+      }),
+      prepare: vi.fn(async (_input: PrepareTextComparison) => preview),
+      execute: vi.fn(async (_preparedId: string, _previewRevision: string) => preview),
+      get: vi.fn((_preparedId: string) => preview),
+      cancel: vi.fn((_preparedId: string, _runId?: string) => preview),
+      completed: vi.fn((_preparedId: string) => draft),
+      dispose: vi.fn(() => {}),
+    };
+    const repository = {
+      save: vi.fn(async (_completed: CompletedTextComparison, _saveKey: string) => result),
+      list: vi.fn(async (_options?: ComparisonListOptions) => ({ items: [] })),
+      get: vi.fn(async (_id: string) => result),
+      delete: vi.fn(async (_id: string, _revision: string) => ({ deleted: true, alreadyDeleted: false })),
+    };
+    const comparison = {
+      runner, repository,
+      errorCode: (error: unknown) => error === privateError ? 'COMPARISON_NOT_FOUND' : undefined,
+    };
+    return { ...base, comparison, privateError, draft, preview, result } satisfies DesktopComparisonLease & {
+      privateError: Error; draft: CompletedTextComparison; preview: PreparedTextComparison; result: SavedComparisonResult;
+      close: ReturnType<typeof vi.fn>; writes: string[];
+    };
+  }
+
+  it('selects explicit stdio comparison mode without initializing a store or importing legacy', async () => {
+    const legacyMain = vi.fn(async () => {});
+    const desktopComparisonMain = vi.fn(async () => {});
+    const openDesktopComparison = vi.fn(async (_path: string, source: ComparisonExecutionSource) => comparisonLease(source));
+    const args = ['--mode=desktop-comparison', `--desktop-profile=${pathA}`, '--transport=stdio'];
+    await main(args, { legacyMain, desktopComparisonMain, openDesktopComparison });
+    expect(desktopComparisonMain).toHaveBeenCalledWith([{ label: 'Desktop profile 1', userDataPath: pathA }], openDesktopComparison);
+    expect(legacyMain).not.toHaveBeenCalled();
+    expect(openDesktopComparison).not.toHaveBeenCalled();
+    for (const invalid of [
+      ['--mode=desktop-comparison', '--desktop-profile=relative'], ['--mode=desktop-comparison'],
+      args.map(arg => arg === '--transport=stdio' ? '--transport=http' : arg),
+      [...args, '--mode=legacy'], [...args, '--port=3000'],
+    ]) expect(() => selectLaunchMode(invalid)).toThrow(DesktopSourceError);
+  });
+
+  it('validates nested inputs, routes the explicit lifecycle, and reports only public error codes', async () => {
+    const attached = new Map<string, ReturnType<typeof comparisonLease>>();
+    const opener = vi.fn(async (_path: string, source: ComparisonExecutionSource) => {
+      const created = comparisonLease(source);
+      attached.set(source.sourceId, created);
+      return created;
+    });
+    const { server, router } = createDesktopComparisonServer(profiles, opener);
+    const client = new Client({ name: 'test', version: '1' });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+    const call = async (name: string, args: Record<string, unknown> = {}) => client.callTool({ name, arguments: args });
+    const ok = async (name: string, args: Record<string, unknown> = {}) => {
+      const result = await call(name, args);
+      expect(result.isError).toBeFalsy();
+      return result.structuredContent;
+    };
+    const rejected = async (name: string, args: Record<string, unknown>, code: string) => {
+      const result = await call(name, args);
+      expect(result.isError).toBe(true);
+      expect(result.structuredContent).toMatchObject({ error: { code } });
+      expect(JSON.stringify(result)).not.toContain(secret);
+      expect(JSON.stringify(result)).not.toContain(pathA);
+    };
+    try {
+      const { tools } = await client.listTools();
+      expect(tools).toHaveLength(14);
+      expect(tools.find(tool => tool.name === 'po_tests_execute')?.annotations).toMatchObject({ readOnlyHint: false, openWorldHint: true });
+      expect(tools.find(tool => tool.name === 'po_comparisons_delete')?.annotations).toMatchObject({ destructiveHint: true });
+      const { sources } = await ok('po_sources_list') as ReturnType<typeof router.listSources>;
+      expect(opener).not.toHaveBeenCalled();
+      const sourceId = sources[0].sourceId;
+      await rejected('po_sources_open', { sourceId, access: 'read' }, 'INVALID_INPUT');
+      await rejected('po_sources_open', { sourceId, access: 'compare', userDataPath: pathA }, 'INVALID_INPUT');
+      expect(opener).not.toHaveBeenCalled();
+
+      const opened = await ok('po_sources_open', { sourceId, access: 'compare' }) as Awaited<ReturnType<typeof router.open>>;
+      const { connectionId } = opened;
+      expect(opened.capabilities).toEqual({ read: true, execute: true, save: true });
+      const { comparison, draft, preview, result, privateError } = attached.get(sourceId)!;
+      const models = await ok('po_models_list', { connectionId });
+      expect(models).toMatchObject({ items: [{ executable: true }] });
+      expect(JSON.stringify(models)).not.toContain(secret);
+      for (const malformed of [
+        { ...selection, source: { ...selection.source, path: pathA } },
+        { ...selection, candidates: [{ ...selection.candidates[0], connectionConfig: { apiKey: secret } }, selection.candidates[1]] },
+        { ...selection, variables: { topic: { value: 'nested' } } },
+        { ...selection, variables: JSON.parse('{"__proto__":"forbidden"}') },
+        { ...selection, candidates: [selection.candidates[0]] },
+      ]) await rejected('po_tests_prepare', { connectionId, ...malformed }, 'INVALID_INPUT');
+      expect(comparison.runner.prepare).not.toHaveBeenCalled();
+
+      expect(await ok('po_tests_prepare', { connectionId, ...selection })).toEqual(preview);
+      expect(comparison.runner.prepare).toHaveBeenCalledWith(selection);
+      const { preparedId, previewRevision, comparisonId } = preview;
+      expect(comparison.runner.execute).not.toHaveBeenCalled();
+      await rejected('po_tests_execute', { connectionId, preparedId, previewRevision, model: 'replacement' }, 'INVALID_INPUT');
+      await ok('po_tests_execute', { connectionId, preparedId, previewRevision });
+      expect(comparison.runner.execute).toHaveBeenCalledWith(preparedId, previewRevision);
+      await ok('po_tests_get', { connectionId, preparedId });
+      expect(comparison.runner.get).toHaveBeenCalledWith(preparedId);
+      await ok('po_tests_cancel', { connectionId, preparedId, runId: preview.runs[0].runId });
+      expect(comparison.runner.cancel).toHaveBeenCalledWith(preparedId, preview.runs[0].runId);
+
+      const saveArguments = { connectionId, preparedId, saveKey: 'test-intent' };
+      const save = await ok('po_comparisons_save', saveArguments);
+      expect(comparison.repository.save).toHaveBeenCalledWith(draft, 'test-intent');
+      expect(save).toMatchObject({ comparisonId, viewTarget: { kind: 'saved-comparison', sourceId, comparisonId } });
+      expect(await ok('po_comparisons_save', saveArguments)).toEqual(save);
+      await ok('po_comparisons_list', { connectionId, favoriteId: 'favorite', limit: 2 });
+      expect(comparison.repository.list).toHaveBeenCalledWith(expect.objectContaining({ favoriteId: 'favorite', limit: 2 }));
+      expect(await ok('po_comparisons_get', { connectionId, comparisonId })).toEqual(result);
+      comparison.repository.get.mockRejectedValueOnce(privateError);
+      await rejected('po_comparisons_get', { connectionId, comparisonId }, 'COMPARISON_NOT_FOUND');
+      comparison.repository.get.mockRejectedValueOnce(new Error(secret));
+      await rejected('po_comparisons_get', { connectionId, comparisonId }, 'COMPARISON_REQUEST_FAILED');
+      await rejected('po_comparisons_delete', { connectionId, comparisonId }, 'INVALID_INPUT');
+      await ok('po_comparisons_delete', { connectionId, comparisonId, expectedRevision: result.revision });
+      expect(comparison.repository.delete).toHaveBeenCalledWith(comparisonId, result.revision);
+
+      await ok('po_sources_close', { connectionId });
+      await rejected('po_tests_get', { connectionId, preparedId }, 'CONNECTION_CLOSED');
+      expect(comparison.runner.dispose).toHaveBeenCalledOnce();
+      expect(attached.get(sourceId)!.close).toHaveBeenCalledOnce();
+    } finally {
+      await client.close(); await server.close(); await router.dispose();
+    }
+  });
+
+  it.each(['save', 'delete'] as const)('aborts the runner and reports an unacknowledged %s before closing the lease', async operation => {
+    let attached: ReturnType<typeof comparisonLease> | undefined;
+    const router = createDesktopComparisonRouter([profiles[0]], async (_path, source) => attached = comparisonLease(source));
+    const { connectionId } = await router.open(router.listSources().sources[0].sourceId, 'compare');
+    const { comparison, close, result, preview } = attached!;
+    const entered = deferred<void>();
+    const persisted = deferred<void>();
+    const awaitWrite = async () => { entered.resolve(); await persisted.promise; };
+    comparison.repository.save.mockImplementationOnce(async () => { await awaitWrite(); return result; });
+    comparison.repository.delete.mockImplementationOnce(async () => { await awaitWrite(); return { deleted: true, alreadyDeleted: false }; });
+    const writing = operation === 'save'
+      ? router.saveComparison(connectionId, preview.preparedId, 'test-intent')
+      : router.deleteComparison(connectionId, preview.comparisonId, result.revision);
+    const rejected = expect(writing).rejects.toMatchObject({ code: 'WRITE_OUTCOME_UNKNOWN' });
+    await entered.promise;
+    const closing = router.close(connectionId);
+    const dispose = router.dispose();
+    expect(comparison.runner.dispose).toHaveBeenCalledOnce();
+    expect(close).not.toHaveBeenCalled();
+    persisted.resolve();
+    await rejected; await closing; await dispose;
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it('keeps a save from reaching the repository if the lease closes during preparation', async () => {
+    let attached: ReturnType<typeof comparisonLease> | undefined;
+    const router = createDesktopComparisonRouter([profiles[0]], async (_path, source) => attached = comparisonLease(source));
+    const { connectionId } = await router.open(router.listSources().sources[0].sourceId, 'compare');
+    const { comparison, preview, draft } = attached!;
+    let close: Promise<{ closed: boolean }> | undefined;
+    comparison.runner.completed.mockImplementationOnce(() => {
+      close = router.close(connectionId);
+      return draft;
+    });
+    await expect(router.saveComparison(connectionId, preview.preparedId, 'test-intent')).rejects.toMatchObject({ code: 'CONNECTION_CLOSED' });
+    await close; await router.dispose();
+    expect(comparison.repository.save).not.toHaveBeenCalled();
+  });
+
+  it('disposes active sources on EOF while a different source is still opening', async () => {
+    let active: ReturnType<typeof comparisonLease> | undefined;
+    let late: ReturnType<typeof comparisonLease> | undefined;
+    const notYet = deferred<void>();
+    const router = createDesktopComparisonRouter(profiles, async (path, source) => {
+      if (path === pathA) return active = comparisonLease(source);
+      late = comparisonLease(source);
+      await notYet.promise;
+      return late;
+    });
+    const { sources } = router.listSources();
+    await router.open(sources[0].sourceId, 'compare');
+    const opening = router.open(sources[1].sourceId, 'compare');
+    const rejected = expect(opening).rejects.toMatchObject({ code: 'OWNER_CLOSED' });
+    const closing = router.dispose();
+    expect(active!.comparison.runner.dispose).toHaveBeenCalledOnce();
+    notYet.resolve();
+    await rejected; await closing;
+    expect(active!.close).toHaveBeenCalledOnce();
+    expect(late!.comparison.runner.dispose).toHaveBeenCalledOnce();
+    expect(late!.close).toHaveBeenCalledOnce();
   });
 });

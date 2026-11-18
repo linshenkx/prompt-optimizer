@@ -29,6 +29,24 @@ pnpm -F @prompt-optimizer/mcp-server test:desktop-stdio
 
 第二个入口需先完成构建，只使用新建的合成临时 profile 和合成环境。它还会把编译产物复制到临时目录，隔离旧入口的全部 dotenv 搜索路径后验证原三工具发现，不调用模型。
 
+## 桌面文本比较模式
+
+使用同样的已迁移桌面目录，以 stdio 启动比较模式。
+
+```text
+node packages/mcp-server/bin/prompt-optimizer-mcp.cjs --mode=desktop-comparison "--desktop-profile=C:\path\to\desktop-userData"
+```
+
+1. 用 `po_sources_list` 查找数据源，再通过 `po_sources_open({sourceId, access: "compare"})` 建立连接。如果旧 JSON 和 SQLite 都包含需要保留的数据，打开会返回 `SOURCE_DATA_DIVERGED`。两份数据保留供核对。
+2. 用 `po_assets_list` 查找 `pro-variable` 收藏，选择一个版本。资产和模型各自的 `revision` 可从 `po_assets_get_version`、`po_models_list` 取得。首版使用 `executable: true` 的两个不同已保存配置，支持 OpenAI 和 OpenAI Compatible。
+3. 用 `po_tests_prepare` 冻结输入和模型设置。提交 `connectionId`、`source: {favoriteId, assetId, versionId, expectedRevision}`、`variables` 和两项 `candidates: [{id, configKey, expectedRevision}]`，候选 ID 依次为 `a`、`b`。返回两份请求预览、`preparedId`、`previewRevision` 和候选 `runId`。
+4. 确认后调用 `po_tests_execute`，提交原 `preparedId`、`previewRevision` 与同一 `connectionId`。这一步会将预览中的输入发给配置的模型，可能产生调用费用。网络由 MCP 的 Node 运行环境处理。用 `po_tests_get` 查询状态，用 `po_tests_cancel` 取消全部候选或指定 `runId`。关闭连接时也会取消运行中的请求。
+5. 两个候选结束后，用 `po_comparisons_save` 提交 `preparedId` 和本次保存意图的 `saveKey`。以返回的 `comparisonId` 在桌面变量工作区的「已保存比较」中重开结果，也可用 `po_comparisons_list`、`po_comparisons_get` 查询。删除时使用 `po_comparisons_delete` 提交选定记录的 `comparisonId` 和 `expectedRevision`。
+
+每项操作通过当前连接定位数据源。连接关闭后，使用新的连接可按原 `comparisonId` 重开已保存数据。查看记录会保留当前工作区的编辑。
+
+保存或删除返回 `WRITE_OUTCOME_UNKNOWN` 时，重开同一来源，通过 `po_comparisons_get` 核对该 `comparisonId` 的最终状态。保存所用的 ID 在准备阶段已经返回。
+
 ## 功能特性
 
 - **optimize-user-prompt**: 优化用户提示词以提升 LLM 性能
@@ -183,10 +201,7 @@ npx @modelcontextprotocol/inspector
 
 ## 架构设计
 
-此 MCP 服务器遵循零侵入设计原则：
-- 仅使用现有 Core 模块 API，无需修改
-- 采用内存存储实现无状态操作
-- 提供 MCP 和 Core 格式之间的参数适配
+默认优化工具使用独立的内存配置。桌面模式通过已有存储和产品服务读取资产，比较模式把结果保存为独立记录。
 
 ## 许可证
 

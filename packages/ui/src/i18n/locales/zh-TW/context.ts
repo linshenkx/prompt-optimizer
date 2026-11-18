@@ -1,5 +1,32 @@
 const messages = {
   "contextMode": {
+    "savedComparisons": {
+      "title": "已儲存比較",
+      "version": "收藏版本",
+      "id": "比較 ID",
+      "open": "開啟",
+      "refresh": "重新整理",
+      "loadMore": "載入更多",
+      "empty": "目前沒有已儲存的比較",
+      "listError": "無法載入已儲存的比較，請重新整理後再試。",
+      "detailError": "無法開啟這筆比較，請確認 ID 或重新整理清單。",
+      "input": "比較使用的輸入",
+      "variables": "變數",
+      "parameters": "模型參數",
+      "declaredParameters": "模型設定參數",
+      "requestParameters": "介接器請求參數",
+      "requestUnavailable": "目前沒有請求參數紀錄",
+      "omittedParameters": "部分快照參數值已隱藏。",
+      "noOutput": "目前沒有輸出紀錄",
+      "status": {
+        "success": "已完成",
+        "error": "失敗",
+        "cancelled": "已取消"
+      },
+      "deleteTitle": "刪除比較",
+      "deleteConfirm": "從已儲存比較中刪除「{title}」？",
+      "deleteError": "無法刪除這筆比較，請重新開啟後再試。"
+    },
     "optimizationMode": {
       "message": "多訊息",
       "variable": "變數"

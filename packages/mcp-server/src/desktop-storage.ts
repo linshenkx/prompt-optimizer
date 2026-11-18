@@ -1,5 +1,4 @@
-import { DesktopSourceError } from './desktop-router.js';
-import type { DesktopReadonlyOpener } from './desktop-router.js';
+import { DesktopSourceError, type DesktopComparisonOpener, type DesktopReadonlyOpener } from './desktop-router.js';
 
 /** Imported only after desktop selection; SQLite itself loads only on sources.open. */
 export const openReadonlyDesktop: DesktopReadonlyOpener = async absoluteUserDataPath => {
@@ -12,8 +11,51 @@ export const openReadonlyDesktop: DesktopReadonlyOpener = async absoluteUserData
     }
     return lease;
   } catch {
-    // The store may be absent, not migrated, incompatible or unreadable. Never
-    // expose its native exception/path and never bootstrap, repair or fall back.
+    // Missing, unmigrated, incompatible and unreadable stores remain unopened.
+    throw new DesktopSourceError('SOURCE_NOT_READY');
+  }
+};
+
+function isSourceDiverged(error: unknown, expectedReason: string): boolean {
+  const reason = (error as { params?: { reason?: unknown } } | null)?.params?.reason;
+  return typeof reason === 'string' && reason === expectedReason;
+}
+
+export const openComparisonDesktop: DesktopComparisonOpener = async (absoluteUserDataPath, executionSource) => {
+  let lease: import('@prompt-optimizer/core/node').ExistingSQLiteStorage | undefined;
+  try {
+    const node = await import('@prompt-optimizer/core/node');
+    try {
+      lease = await node.openExistingDesktopStorageForWriting(absoluteUserDataPath);
+    } catch (error) {
+      if (isSourceDiverged(error, node.DESKTOP_STORAGE_DIVERGENCE_REASON)) throw new DesktopSourceError('SOURCE_DATA_DIVERGED');
+      throw error;
+    }
+    if (lease.provider.readOnly) throw new DesktopSourceError('SOURCE_NOT_READY');
+
+    // Leave the product service graph out of desktop-readonly and source discovery.
+    const core = await import('@prompt-optimizer/core/desktop-comparison');
+    const runner = core.createTextComparisonService({ storage: lease.provider, executionSource });
+    return {
+      ...lease,
+      comparison: {
+        runner,
+        repository: core.createComparisonRepository(lease.provider),
+        errorCode(error) {
+          if (isSourceDiverged(error, node.DESKTOP_STORAGE_DIVERGENCE_REASON)) return 'SOURCE_DATA_DIVERGED';
+          // Match the error class bundled with the comparison runner.
+          return error instanceof core.TextComparisonError || error instanceof core.ComparisonRepositoryError ||
+            error instanceof core.AssetReadError ? error.code : undefined;
+        },
+      },
+    };
+  } catch (error) {
+    if (lease) {
+      try { await lease.provider.close(); }
+      catch { throw new DesktopSourceError('SOURCE_CLOSE_FAILED'); }
+    }
+    if (error instanceof DesktopSourceError) throw error;
+    // Paths, credentials and native/SDK errors must never be serialized.
     throw new DesktopSourceError('SOURCE_NOT_READY');
   }
 };

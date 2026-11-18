@@ -11,7 +11,8 @@ import type {
   ContextBundle,
   ImportMode,
   ImportResult,
-  ContextMode
+  ContextMode,
+  ComparisonViewer
 } from '@prompt-optimizer/core'
 import type { RemoteStorageIpcApi } from '../utils/remote-backup'
 import type { ModelNetworkAPI, ModelNetworkTest } from './model-network'
@@ -233,6 +234,7 @@ interface ElectronAPI {
   imageModel: ImageModelAPI
   context: ContextAPI
   data: DataAPI
+  savedComparisons?: ComparisonViewer
   remoteStorage: RemoteStorageIpcApi
   on: EventAPI['on']
   off: EventAPI['off']

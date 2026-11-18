@@ -198,3 +198,15 @@ core 和 MCP 的 ESM/CJS/DTS 构建、MCP 类型检查通过。专用 Vitest 配
 回归加入两个不同 favoriteId、相同 assetId 和相同当前 versionId、不同内容/版本的数据：两项均能列出、分页和精确读取；交叉 expectedRevision 拒绝，不能取另一收藏的独有历史；单个资产内重复 versionId 仍拒绝。真实 stdio/SQLite 合成 fixture 也加入同一 profile 内共享 assetId 的两份收藏，并核对独立历史版本、跨收藏 revision 拒绝及全量 KV/schema 不变。补修仅复核 reader、类型/构建及受影响 MCP 读路径，不重跑存储 29 项或桌面业务全套。
 
 补修验收使用 Node 24.22.1：reader **16/16**；core 与 MCP 类型检查通过，二者 ESM/CJS/DTS 构建通过；`node --test --test-name-pattern='built MCP stdio' packages/mcp-server/tests/desktop-stdio.acceptance.mjs` 受影响真实协议路径 **1/1**。其余 R4 路由/协议测试沿用前述已通过的结果，本次没有重复运行或扩张验收结论。
+
+## 9. v2.16.0 桌面文本比较
+
+桌面集成分支以 v2.16.0 为基线。新增显式 `--mode=desktop-comparison` 和 `access: "compare"`，通过 stdio 连接已迁移的指定数据库。既有只读模式继续使用原有六个工具，默认 legacy 模式继续提供原来的三个工具。比较进程通过独立 Core 入口加载执行和保存能力，打开来源时无需初始化默认模型和收藏。工具参数及运行方法见 [MCP README](../../packages/mcp-server/README.md)。
+
+- 选择变量工作区收藏的确定版本以及两个已启用的模型配置。复用变量校验、一次替换和 v2.16.0 的模型参数解析。开始前复核版本和配置，各候选使用同一份冻结消息。
+- 当前支持 OpenAI、OpenAI Compatible 的 Chat Completions 和 Responses 文本流。预览和实际 SDK 请求使用同一套参数转换，并记录允许公开的实际参数。MCP 的模型请求走本地 Node 进程网络配置。每个候选执行一次，接口错误保留独立状态和部分输出。
+- 显式保存两侧结果，通过稳定 ID 去重并支持重启后查询。记录、索引和去重关联一起提交。备份纳入 DataManager，定向删除保留最小标记，防止迟到的保存重试或历史备份恢复已删除的比较。
+- 在桌面变量工作区打开「已保存比较」，可以列表选择、按 ID 查看、确认后定向删除。查看使用冻结快照，保留当前草稿及测试结果。
+- 桌面升级和 MCP 写入会核对旧 JSON 的迁移指纹。遇到数据分歧时提示用户核对原有数据。相关规则见 [存储迁移](shared-storage-20261115.md)。
+
+验收由独立的 SQLite 进程测试、真实 MCP stdio 与回环模型、隔离的实际 Electron 主进程和 preload，以及变量工作区的组件交互测试覆盖。Windows 安装器和自动更新仍需单独验收。可选评估、Chrome 真实数据接入与正式 Skill 延续后续阶段。

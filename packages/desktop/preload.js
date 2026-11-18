@@ -89,6 +89,11 @@ async function invokeFavorite(channel, ...args) {
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  savedComparisons: {
+    list: (options) => invokeFavorite('comparison-list', options),
+    get: (id) => invokeFavorite('comparison-get', id),
+    delete: (id, expectedRevision) => invokeFavorite('comparison-delete', id, expectedRevision),
+  },
   localServices: {
     fetchModels: async (input) => {
       const result = await ipcRenderer.invoke('local-services-fetch-models', input);

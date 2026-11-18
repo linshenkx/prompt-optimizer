@@ -14,7 +14,7 @@
     "start": "node dist/start.cjs --mode=legacy --transport=http",
     "start:desktop-readonly": "node dist/start.cjs --mode=desktop-readonly",
     "test:desktop-readonly": "vitest run --config vitest.desktop-readonly.config.ts",
-    "test:desktop-stdio": "node --test --test-concurrency=1 tests/desktop-stdio.acceptance.mjs",
+    "test:desktop-stdio": "node --test --test-concurrency=1 tests/desktop-stdio.acceptance.mjs tests/desktop-comparison.acceptance.mjs",
     "test": "vitest run",
     "lint": "eslint src --ext .ts",
     "type-check": "tsc --noEmit"

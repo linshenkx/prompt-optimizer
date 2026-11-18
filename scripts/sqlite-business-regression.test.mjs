@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 
 // No dotenv, inherited model credentials, proxy settings or real profile is used.
 // This file runs in its own node:test process. Removing variables here does not
@@ -254,4 +256,86 @@ test('JSON → SQLite preserves business data; post-upgrade changes survive reop
   };
   await writeFile(join(root, 'summary.json'), JSON.stringify(summary, null, 2));
   t.diagnostic(JSON.stringify({ ...summary, evidence: root }));
+});
+
+test('comparison save is atomic across two processes and backup preserves identity and deletion', { timeout: 30000 }, async t => {
+  await mkdir(evidenceParent, { recursive: true });
+  const root = await mkdtemp(join(evidenceParent, 'po-comparison-storage-'));
+  const profile = join(root, 'source');
+  const restored = join(root, 'restored');
+  const { provider } = await nodeStorage.openDesktopStorage(profile);
+  t.after(() => provider.close());
+  await provider.setItem('fixture:keep', 'unrelated draft');
+  const repository = core.createComparisonRepository(provider);
+  const now = Date.now();
+  const evidence = { modelId: 'synthetic-text-model', api: 'chat-completions', parameters: { temperature: 0.2 }, omittedParameterNames: [] };
+  function run(id, status) {
+    return {
+      id, runId: globalThis.crypto.randomUUID(),
+      model: { configKey: 'config-' + id, name: 'Synthetic ' + id, providerId: 'openai-compatible', modelId: evidence.modelId },
+      effective: {
+        parameterCoverage: 'declared', parameters: evidence.parameters, omittedParameterNames: [],
+        requestEvidence: 'captured', preview: evidence, request: evidence,
+      },
+      status, output: '合成结果 ' + id, reasoning: '', startedAt: now, completedAt: now,
+    };
+  }
+  const completed = {
+    id: globalThis.crypto.randomUUID(),
+    source: { favoriteId: 'fixture-favorite', assetId: 'fixture-asset', versionId: 'fixture-version', expectedRevision: 'fixture-revision', title: '合成比较' },
+    executionSource: { kind: 'desktop', sourceId: 'fixture-source', sourceEpoch: 'fixture-epoch', connectionGeneration: 'fixture-generation', label: 'Synthetic desktop' },
+    request: { rawPrompt: 'Summarize {{topic}}', messages: [{ role: 'user', content: 'Summarize literal {{term}}' }], variables: { topic: 'literal {{term}}' } },
+    runs: [run('a', 'success'), run('b', 'cancelled')],
+  };
+  const writeWorker = `
+    globalThis.fetch = () => { throw Error('No model connection in storage fixture'); };
+    const [storageUrl, coreUrl, path, payload] = process.argv.slice(1);
+    const { openExistingDesktopStorageForWriting } = await import(storageUrl);
+    const { createComparisonRepository } = await import(coreUrl);
+    const { provider } = await openExistingDesktopStorageForWriting(path);
+    try {
+      const saved = await createComparisonRepository(provider).save(JSON.parse(payload), 'one-case');
+      console.log('comparison-fixture-result', JSON.stringify({ id: saved.comparison.id, revision: saved.revision }));
+    } finally { await provider.close(); }
+  `;
+  const workerArgs = ['--input-type=module', '--eval', writeWorker,
+    new URL('../packages/core/dist/node.js', import.meta.url).href,
+    new URL('../packages/core/dist/index.js', import.meta.url).href, profile, JSON.stringify(completed)];
+  const runWorker = promisify(execFile);
+  const env = { SystemRoot: process.env.SystemRoot, PATH: dirname(process.execPath), TEMP: root, TMP: root };
+  const writers = await Promise.all([1, 2].map(() => runWorker(process.execPath, workerArgs, {
+    cwd: root, env, windowsHide: true, timeout: 15000,
+  })));
+  const [first, second] = writers.map(({ stdout }) => {
+    const prefix = 'comparison-fixture-result ';
+    const result = stdout.split(/\r?\n/).find(line => line.startsWith(prefix));
+    assert.ok(result, 'independent writer returned a result');
+    return JSON.parse(result.slice(prefix.length));
+  });
+  assert.deepEqual(first, second);
+  assert.equal(first.id, completed.id);
+  assert.equal((await repository.list()).items.length, 1);
+  assert.deepEqual((await repository.get(completed.id)).comparison.runs, completed.runs);
+  assert.equal(await provider.getItem('fixture:keep'), 'unrelated draft');
+
+  const changed = { ...completed, id: globalThis.crypto.randomUUID() };
+  await assert.rejects(repository.save(changed, 'one-case'), { code: 'IDEMPOTENCY_CONFLICT' });
+  const backup = await repository.exportData();
+  const restoredStore = (await nodeStorage.openDesktopStorage(restored)).provider;
+  t.after(() => restoredStore.close());
+  const restoredRepository = core.createComparisonRepository(restoredStore);
+  assert.equal(await restoredRepository.validateData(backup), true);
+  await restoredRepository.importData(backup);
+  const restoredRecord = await restoredRepository.get(completed.id);
+  assert.equal(restoredRecord.revision, first.revision);
+  assert.deepEqual(restoredRecord.comparison, (await repository.get(completed.id)).comparison);
+  assert.equal(await restoredStore.getItem('fixture:keep'), null);
+
+  await assert.rejects(repository.delete(completed.id, globalThis.crypto.randomUUID()), { code: 'REVISION_CONFLICT' });
+  assert.deepEqual(await repository.delete(completed.id, first.revision), { deleted: true, alreadyDeleted: false });
+  assert.deepEqual(await repository.delete(completed.id, first.revision), { deleted: false, alreadyDeleted: true });
+  await assert.rejects(repository.save(completed, 'retry'), { code: 'COMPARISON_DELETED' });
+  assert.equal(await repository.validateData(backup), false, 'older backup must not resurrect a deleted comparison');
+  assert.equal((await repository.list()).items.length, 0);
+  assert.equal(await provider.getItem('fixture:keep'), 'unrelated draft');
 });

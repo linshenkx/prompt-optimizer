@@ -239,6 +239,7 @@ export function useAppInitializer(): {
           templateManager,
           historyManager,
           dataManager,
+          savedComparisons: window.electronAPI?.savedComparisons,
           llmService,
           promptService,
           templateLanguageService, // 使用代理而不是null

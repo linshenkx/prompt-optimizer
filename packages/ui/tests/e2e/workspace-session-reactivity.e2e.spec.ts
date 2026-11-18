@@ -2,6 +2,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, nextTick, ref } from 'vue'
 import { setActivePinia } from 'pinia'
+import type { ComparisonViewer, SavedComparisonResult } from '@prompt-optimizer/core'
+import type { AppServices } from '../../src/types/services'
 
 import BasicUserWorkspace from '../../src/components/basic-mode/BasicUserWorkspace.vue'
 import ContextUserWorkspace from '../../src/components/context-mode/ContextUserWorkspace.vue'
@@ -10,6 +12,12 @@ import { useBasicUserSession } from '../../src/stores/session/useBasicUserSessio
 import { useProVariableSession } from '../../src/stores/session/useProVariableSession'
 import { useSessionManager } from '../../src/stores/session/useSessionManager'
 import { createPreferenceServiceStub, createTestPinia } from '../utils/pinia-test-helpers'
+
+const confirmComparisonDeletion = vi.hoisted(() => vi.fn())
+
+vi.mock('../../src/composables/ui/useConfirmDialog', () => ({
+  useConfirmDialog: () => ({ warning: confirmComparisonDeletion }),
+}))
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -43,7 +51,7 @@ vi.mock('naive-ui', async (importOriginal) => {
 
   const passthrough = (name: string) => defineComponent({
     name,
-    template: `<div class="${name}" v-bind="$attrs"><slot /><slot name="header" /><slot name="footer" /><slot name="icon" /></div>`,
+    template: `<div class="${name}" v-bind="$attrs"><slot /><slot name="header" /><slot name="header-extra" /><slot name="footer" /><slot name="icon" /></div>`,
   })
 
   return {
@@ -357,5 +365,127 @@ describe('workspace session reactivity regression', () => {
 
     const saved = readSavedSnapshot(set.mock.calls.at(-1)?.[1])
     expect(saved?.testVariantResults?.a?.result).toBe('NEW-CONTEXT')
+  })
+
+  it('reopens a saved comparison beside the current variable workspace draft', async () => {
+    const comparisonId = '11111111-1111-4111-8111-111111111111'
+    const name = 'Saved review'
+    const fixture: SavedComparisonResult = {
+      revision: 'saved-v1:1',
+      comparison: {
+        schemaVersion: 'saved-comparison/v1',
+        id: comparisonId,
+        savedAt: 1000,
+        executionSource: { kind: 'desktop', sourceId: 'desktop', label: 'Desktop', sourceEpoch: 'source:1', connectionGeneration: 'generation:1' },
+        source: { favoriteId: 'favorite', assetId: 'asset', versionId: 'v2', expectedRevision: 'asset:2', title: name },
+        request: {
+          rawPrompt: 'Explain {{topic}}',
+          messages: [{ role: 'user', content: 'Explain the moon' }],
+          variables: { topic: 'the moon' },
+        },
+        runs: [
+          {
+            id: 'a', runId: 'run-a', status: 'success', output: 'Answer A', reasoning: 'Reasoning A',
+            startedAt: 100, completedAt: 200,
+            model: { configKey: 'first', name: 'First model', providerId: 'openai', modelId: 'model-a' },
+            effective: {
+              parameterCoverage: 'declared', parameters: { temperature: 0.2 }, omittedParameterNames: [],
+              requestEvidence: 'captured',
+              request: { modelId: 'model-a', api: 'chat-completions', parameters: { temperature: 0.2 }, omittedParameterNames: [] },
+            },
+          },
+          {
+            id: 'b', runId: 'run-b', status: 'cancelled', output: 'Partial answer B', reasoning: '',
+            startedAt: 100, completedAt: 150,
+            model: { configKey: 'second', name: 'Second model', providerId: 'openai-compatible', modelId: 'model-b' },
+            effective: { parameterCoverage: 'declared', parameters: {}, omittedParameterNames: [], requestEvidence: 'pending' },
+          },
+        ],
+      },
+    }
+    const viewer: ComparisonViewer = {
+      list: vi.fn<ComparisonViewer['list']>(async () => ({
+        items: [{ id: comparisonId, title: name, savedAt: 1000, statuses: ['success', 'cancelled'], revision: fixture.revision }],
+      })),
+      get: vi.fn(async () => fixture),
+      delete: vi.fn(async () => ({ deleted: true, alreadyDeleted: false })),
+    }
+    const draft = { ...buildProVariableSessionSnapshot(), temporaryVariables: { topic: 'my draft value' } }
+    const { pinia, services } = createTestPinia({
+      modelManager: createModelManager() as unknown as AppServices['modelManager'],
+      preferenceService: createPreferenceServiceStub({
+        get: async <T,>(key: string, fallback: T) => key === 'session/v1/pro-variable' ? draft as T : fallback,
+      }),
+      savedComparisons: viewer,
+    })
+    setActivePinia(pinia)
+    useSessionManager().injectSubModeReaders({
+      getFunctionMode: () => 'pro',
+      getBasicSubMode: () => 'user',
+      getProSubMode: () => 'variable',
+      getImageSubMode: () => 'text2image',
+    })
+    const store = useProVariableSession(pinia)
+    await store.restoreSession()
+
+    const wrapper = mount(ContextUserWorkspace, {
+      props: { isCompareMode: true, globalVariables: {}, predefinedVariables: {} },
+      global: {
+        plugins: [pinia],
+        provide: { services: ref(services) },
+        stubs: {
+          ...commonStubs,
+          OutputDisplay: {
+            props: ['content', 'reasoning'],
+            template: '<pre>{{ content }} {{ reasoning }}</pre>',
+          },
+        },
+      },
+    })
+
+    await flushPromises()
+    await wrapper.get('[data-testid="open-saved-comparisons"]').trigger('click')
+    await flushPromises()
+    expect(viewer.list).toHaveBeenCalledTimes(1)
+    await wrapper.get('[data-testid="saved-comparison-list-item"]').trigger('click')
+    await flushPromises()
+
+    expect(viewer.get).toHaveBeenCalledWith(comparisonId)
+    expect(wrapper.get('[data-testid="saved-comparison-detail"]').text()).toContain('Explain {{topic}}')
+    expect(wrapper.get('[data-testid="saved-comparison-input"]').text()).toBe('Explain the moon')
+    const runA = wrapper.get('[data-testid="saved-comparison-run-a"]')
+    expect(runA.text()).toContain('Reasoning A')
+    expect(runA.text()).toContain('chat-completions')
+    expect(runA.text()).toContain('temperature')
+    const runB = wrapper.get('[data-testid="saved-comparison-run-b"]')
+    expect(runB.text()).toContain('Partial answer B')
+    expect(runB.text()).toContain('contextMode.savedComparisons.status.cancelled')
+
+    await wrapper.get('[data-testid="saved-comparisons-drawer"] .n-drawer-header__close').trigger('click')
+    await wrapper.get('[data-testid="open-saved-comparisons"]').trigger('click')
+    await flushPromises()
+    const lookup = wrapper.get('[data-testid="saved-comparison-id"] input')
+    await lookup.setValue(comparisonId)
+    await wrapper.get('[data-testid="saved-comparisons-drawer"] form').trigger('submit')
+    await flushPromises()
+    expect(viewer.list).toHaveBeenCalledTimes(2)
+    expect(viewer.get).toHaveBeenCalledTimes(2)
+    expect(wrapper.get('[data-testid="saved-comparison-detail"]').text()).toContain(comparisonId)
+
+    expect(viewer.delete).not.toHaveBeenCalled()
+    confirmComparisonDeletion.mockResolvedValueOnce(false).mockResolvedValueOnce(true)
+    await wrapper.get('[data-testid="saved-comparison-delete"]').trigger('click')
+    await flushPromises()
+    expect(viewer.delete).not.toHaveBeenCalled()
+    await wrapper.get('[data-testid="saved-comparison-delete"]').trigger('click')
+    await flushPromises()
+    expect(viewer.delete).toHaveBeenCalledExactlyOnceWith(comparisonId, fixture.revision)
+    expect(wrapper.find('[data-testid="saved-comparison-detail"]').exists()).toBe(false)
+
+    expect(store.prompt).toBe(draft.prompt)
+    expect(store.optimizedPrompt).toBe(draft.optimizedPrompt)
+    expect(store.temporaryVariables).toEqual(draft.temporaryVariables)
+    expect(store.testVariantResults.a.result).toBe('OLD-A')
+    wrapper.unmount()
   })
 })
