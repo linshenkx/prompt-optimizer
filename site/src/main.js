@@ -11,8 +11,8 @@ const THEME_MODES = ['system', 'dark', 'light']
 const translations = {
   'zh-CN': {
     htmlLang: 'zh-CN',
-    title: 'Prompt Optimizer | 提示词优化，应该基于真实结果',
-    description: '接入自己的模型，优化提示词、对照真实输出，并在竞技场比较模型与参数。支持文本、变量、上下文和图像工作区。',
+    title: '提示词优化器 | Prompt Optimizer',
+    description: '开源提示词工具。用自己的模型改写给 AI 的指令，并排比较改写前后的回答，保存满意的版本。',
     brandAriaLabel: 'Prompt Optimizer 官网首页',
     nav: {
       product: '优化器',
@@ -31,109 +31,86 @@ const translations = {
       menuAria: '切换导航菜单'
     },
     hero: {
-      eyebrow: '开源提示词工作台',
-      titleTop: '基于真实结果',
-      titleMid: '',
-      titleBottom: '优化提示词',
-      lead: '接入自己的模型，改写提示词，对照真实输出。也能在竞技场直接比较模型与参数。',
-      primary: '打开产品',
-      secondary: '查看文档',
-      stats: [
-        { value: '真实测试', label: '先看结果' },
-        { value: '竞技场', label: '并排比较' },
-        { value: '智能收藏', label: '保存与复用' }
-      ],
-      visualLabel: '结果闭环',
-      visualTitle: '优化、测试、评估在同一界面',
-      screenshotAlt: '红队审稿：原始提示词与结构化审查报告的同模型对比',
+      title: '提示词优化器',
+      lead: '贴入你准备发给 AI 的指令，改写后用同一个模型测试两版，看看哪份回答更符合你的要求。',
+      primary: '打开优化器',
+      secondary: '快速开始',
+      guide: 'https://docs.always200.com/user/quick-start/',
+      setupNote: '首次使用需配置 API Key 或连接已运行的本地模型。',
+      visualTitle: '左侧改写提示词，右侧对比两版回答',
+      screenshotLabel: '点击放大工作区截图',
+      screenshotAlt: '提示词优化器工作区截图，右侧并排展示改写前后的回答',
       screenshot: 'system-workspace-zh-CN.jpg'
     },
+    imagePreview: {
+      title: '截图预览',
+      hint: '点击放大',
+      actualSize: '查看原尺寸',
+      fit: '适应窗口',
+      close: '关闭预览'
+    },
     workflow: {
-      kicker: '工作流',
-      title: '从来源到复用，一条闭环',
-      lead: '少解释，多验证。提示词进入优化器后，用真实结果决定下一步。',
+      title: '怎样优化一条提示词',
       steps: [
         {
-          label: '来源',
-          title: '任意提示词',
-          body: '手写、模板、本地导入或提示词库。'
+          title: '填入提示词',
+          body: '粘贴你准备发给 AI 的指令，也可以从模板、文件或提示词库导入。'
         },
         {
-          label: '核心',
-          title: '优化器',
-          body: '改写、变量、上下文和图像提示词。'
+          title: '改写任务要求',
+          body: '用你选的模型补清楚任务目标、约束和输出格式。'
         },
         {
-          label: '判断',
-          title: '真实测试',
-          body: '用输出、评估和对比决定是否有效。'
+          title: '比较两版回答',
+          body: '用同一个模型测试两版提示词，看改写是否解决了原来的问题。'
         },
         {
-          label: '沉淀',
-          title: '智能收藏',
-          body: '保存版本、示例、媒体和来源信息。'
+          title: '保存并复用',
+          body: '把满意的提示词和测试示例存入收藏，下次接着用。'
         }
       ]
     },
-    scenario: {
-      kicker: '工作区覆盖',
-      title: '覆盖多类提示词',
-      lead: '从单条任务到完整上下文，选择适合输入结构的工作区；已有提示词可直接进入竞技场。',
-      columns: {
-        type: '结构类型',
-        fit: '适用内容',
-        capability: '关键能力'
-      },
-      cards: [
-        {
-          label: '单条提示词',
-          title: 'system / user 单提示词',
-          body: '适合优化角色、规则与输出格式。',
-          tags: ['system', 'user', '聚焦分析']
-        },
-        {
-          label: '变量模板',
-          title: '变量模板',
-          body: '把主题、语气和角色收进模板后再验证。',
-          tags: ['占位变量', '真实输入', '模板复用']
-        },
-        {
-          label: '上下文链路',
-          title: '多消息上下文',
-          body: '当 system、user 与上下文共同影响结果时仍可分析。',
-          tags: ['system + user', '上下文', '多消息']
-        },
-        {
-          label: '图像生成',
-          title: '文生图 / 图生图 / 多图',
-          body: '支持文生图、图生图和多图输入，可改写提示词、比较版本，并预览和下载生成结果。',
-          tags: ['T2I', 'I2I', '多图生图', '风格迁移']
-        }
-      ]
-    },
-    examples: {
-      title: '用同一道题，看清差异',
-      lead: '固定输入，再比较模型、提示词版本或参数。一次只改变一个因素，更容易判断效果。',
+    workspaces: {
+      title: '按任务选择工作区',
       items: [
-        { image: 'arena-comparison-zh-CN.jpg', title: '竞技场：同题比较三个模型', body: '让 GPT-6.2 Astra、GPT-6.2 Sol 和 DeepSeek Flash 绘制同一场景，并排查看各自的构图与细节。', link: 'https://docs.always200.com/advanced/arena/', action: '了解竞技场' }
+        {
+          title: '单条提示词',
+          body: '改写一条系统或用户提示词，明确角色、规则和输出格式。'
+        },
+        {
+          title: '变量模板',
+          body: '同一套提示词需要反复替换输入时，用真实数据测试模板。'
+        },
+        {
+          title: '多消息上下文',
+          body: '把系统指令、用户消息和对话历史放在一起，测试它们如何影响回答。'
+        },
+        {
+          title: '图像提示词',
+          body: '改写并测试文生图、图生图和多图提示词，对比生成结果。'
+        }
       ]
+    },
+    arena: {
+      title: '在竞技场比较模型和参数',
+      lead: '用同一道题比较不同模型，或比较同一模型在不同设置（例如思考强度）下的回答。',
+      screenshot: 'arena-comparison-zh-CN.jpg',
+      screenshotLabel: '点击放大竞技场截图',
+      screenshotAlt: '竞技场并排展示三个模型绘制的机械鲸鱼场景',
+      caption: '同一道 HTML/SVG 绘图题，结果从左到右：GPT-6.2 Astra、GPT-6.2 Sol、DeepSeek Flash。',
+      guide: 'https://docs.always200.com/advanced/arena/',
+      action: '了解竞技场'
     },
     access: {
-      kicker: '开放与入口',
-      title: '开源可信，也能立刻开始',
-      lead: '自备可用的 API Key 或本地模型。应用配置、历史与收藏默认保存在当前使用环境；调用时，相关输入会发送给你配置的模型服务，远程备份会发送到你配置的存储。',
-      proof: {
-        label: 'GitHub 仓库',
-        title: 'linshenkx/prompt-optimizer',
-        body: '通过 Web、桌面版、扩展或 Docker 使用工作台；MCP 为外部工具提供提示词优化能力。',
-        facts: ['AGPL-3.0', 'Web / Desktop / Extension', 'Docker / MCP'],
-        primary: '查看 GitHub',
-        secondary: '下载 Release'
-      },
+      title: '选择使用方式',
+      repository: 'GitHub 开源仓库',
+      mcp: 'MCP 集成',
+      mcpGuide: 'https://docs.always200.com/user/mcp-server/',
+      dataNote: '配置、历史和收藏默认保存在当前使用环境。相关输入会发给你配置的模型服务，远程备份会发到你配置的存储。',
       entries: [
         {
-          title: '在线产品',
-          body: '直接进入工作台开始优化。',
+          title: '在线使用',
+          body: '在浏览器打开工作区。',
           href: 'https://prompt.always200.com'
         },
         {
@@ -143,12 +120,12 @@ const translations = {
         },
         {
           title: 'Chrome 插件',
-          body: '从 Chrome Web Store 安装入口。',
+          body: '从 Chrome 网上应用店安装。',
           href: 'https://chromewebstore.google.com/detail/prompt-optimizer/cakkkhboolfnadechdlgdcnjammejlna'
         },
         {
-          title: 'Docker / MCP',
-          body: '适合自托管和外部集成。',
+          title: 'Docker 部署',
+          body: '运行自己的实例。',
           href: 'https://docs.always200.com/deployment/docker-basic/'
         }
       ]
@@ -163,8 +140,8 @@ const translations = {
   },
   en: {
     htmlLang: 'en',
-    title: 'Prompt Optimizer | Prompt optimization should follow real outputs',
-    description: 'Connect your own models, improve prompts, compare real outputs, and test models or parameters in Arena. Text, variables, context, and image workspaces.',
+    title: 'Prompt Optimizer | Rewrite and test AI prompts',
+    description: 'An open-source tool to rewrite prompts with your own models, compare actual responses, and save prompts for reuse.',
     brandAriaLabel: 'Prompt Optimizer website home',
     nav: {
       product: 'Optimizer',
@@ -183,124 +160,101 @@ const translations = {
       menuAria: 'Toggle navigation menu'
     },
     hero: {
-      eyebrow: 'Open-source prompt workspace',
-      titleTop: 'Real outputs first',
-      titleMid: '',
-      titleBottom: 'Prompt optimization',
-      lead: 'Connect your models, refine prompts, and compare real outputs. Use Arena to test models and parameter settings side by side.',
-      primary: 'Open Product',
-      secondary: 'Read Docs',
-      stats: [
-        { value: 'Real Tests', label: 'see outputs first' },
-        { value: 'Arena', label: 'side-by-side tests' },
-        { value: 'Smart Favorites', label: 'reusable assets' }
-      ],
-      visualLabel: 'Closed Loop',
-      visualTitle: 'Optimize, test, and evaluate in one interface',
-      screenshotAlt: 'Red-team review: original and revised prompts tested on the same model',
+      title: 'Prompt Optimizer',
+      lead: 'Paste a prompt, rewrite it, and test both versions with the same model. See which answer fits your task better.',
+      primary: 'Open Optimizer',
+      secondary: 'Quick start',
+      guide: 'https://docs.always200.com/en/user/quick-start/',
+      setupNote: 'To get started, add an API key or connect to a running local model.',
+      visualTitle: 'Edit on the left, compare answers on the right',
+      screenshotLabel: 'Click to enlarge the workspace screenshot',
+      screenshotAlt: 'Prompt Optimizer workspace with answers before and after rewriting shown side by side',
       screenshot: 'system-workspace-en.jpg'
     },
+    imagePreview: {
+      title: 'Screenshot preview',
+      hint: 'Click to enlarge',
+      actualSize: 'View actual size',
+      fit: 'Fit to window',
+      close: 'Close preview'
+    },
     workflow: {
-      kicker: 'Workflow',
-      title: 'From source to reuse in one loop',
-      lead: 'Less explanation, more validation. Once a prompt enters Optimizer, real outputs decide what changes.',
+      title: 'How to improve a prompt',
       steps: [
         {
-          label: 'Source',
-          title: 'Any prompt',
-          body: 'Drafts, templates, local imports, or Prompt Garden.'
+          title: 'Start with a prompt',
+          body: 'Paste your own prompt or import one from a template, file, or Prompt Garden.'
         },
         {
-          label: 'Core',
-          title: 'Optimizer',
-          body: 'Rewrite text, variables, context, and image prompts.'
+          title: 'Clarify the instructions',
+          body: 'Use a model you choose to make the task, constraints, and output format more specific.'
         },
         {
-          label: 'Judge',
-          title: 'Real tests',
-          body: 'Use outputs, evaluation, and comparison to decide.'
+          title: 'Compare responses',
+          body: 'Test both prompts with the same model to see whether the rewrite helped.'
         },
         {
-          label: 'Keep',
-          title: 'Smart Favorites',
-          body: 'Save versions, examples, media, and source details.'
+          title: 'Save the version you prefer',
+          body: 'Keep the prompt and its test examples in Favorites for next time.'
         }
       ]
     },
-    scenario: {
-      kicker: 'Workspace coverage',
-      title: 'Handle different prompt structures',
-      lead: 'Choose a workspace for your input structure, or take an existing prompt straight to Arena.',
-      columns: {
-        type: 'Structure',
-        fit: 'Best for',
-        capability: 'Key capability'
-      },
-      cards: [
-        {
-          label: 'Single prompt',
-          title: 'System / user single prompt',
-          body: 'Best for roles, rules, and output instructions.',
-          tags: ['system', 'user', 'focused analysis']
-        },
-        {
-          label: 'Variables',
-          title: 'Variable templates',
-          body: 'Validate reusable templates with real values.',
-          tags: ['variables', 'real input', 'reuse']
-        },
-        {
-          label: 'Context chain',
-          title: 'Multi-message context',
-          body: 'Useful when system, user, and context all affect the result.',
-          tags: ['system + user', 'context', 'multi-message']
-        },
-        {
-          label: 'Image generation',
-          title: 'Text-to-image / Image-to-image / Multi-image',
-          body: 'Write and revise prompts for text-to-image, image-to-image, and multi-image workflows, then preview and download results.',
-          tags: ['T2I', 'I2I', 'multi-image', 'style transfer']
-        }
-      ]
-    },
-    examples: {
-      title: 'One task. Clearer comparisons.',
-      lead: 'Keep input fixed, then compare models, prompt versions, or settings. Change one factor at a time to understand the result.',
+    workspaces: {
+      title: 'Choose a workspace',
       items: [
-        { image: 'arena-comparison-en.jpg', title: 'Arena: one task, three models', body: 'Ask GPT-6.2 Astra, GPT-6.2 Sol, and DeepSeek Flash to draw the same scene, then compare their composition and detail.', link: 'https://docs.always200.com/en/advanced/arena/', action: 'Explore Arena' }
+        {
+          title: 'Single prompt',
+          body: 'Rewrite a system or user prompt to clarify its role, rules, and output format.'
+        },
+        {
+          title: 'Variable templates',
+          body: 'Test a reusable prompt with the real values you plan to swap in.'
+        },
+        {
+          title: 'Multi-message context',
+          body: 'Test how system instructions, user messages, and conversation history affect the answer together.'
+        },
+        {
+          title: 'Image prompts',
+          body: 'Rewrite prompts and compare results for text-to-image, image-to-image, and multi-image tasks.'
+        }
       ]
+    },
+    arena: {
+      title: 'Compare models and settings in Arena',
+      lead: 'Give different models the same task, or compare one model at different settings, such as reasoning effort.',
+      screenshot: 'arena-comparison-en.jpg',
+      screenshotLabel: 'Click to enlarge the Arena screenshot',
+      screenshotAlt: 'Arena showing three models’ drawings of a mechanical whale side by side',
+      caption: 'Same HTML/SVG drawing task. From left to right: GPT-6.2 Astra, GPT-6.2 Sol, and DeepSeek Flash.',
+      guide: 'https://docs.always200.com/en/advanced/arena/',
+      action: 'Explore Arena'
     },
     access: {
-      kicker: 'Open and access',
-      title: 'Open-source credibility with immediate entry points',
-      lead: 'Bring an API key or local model. Configuration, history, and favorites are stored in your current environment by default. Calls send relevant input to your configured model service; remote backups go to your configured storage.',
-      proof: {
-        label: 'GitHub repository',
-        title: 'linshenkx/prompt-optimizer',
-        body: 'Use the workspace on the web, desktop, extension, or Docker. MCP exposes prompt optimization tools for external clients.',
-        facts: ['AGPL-3.0', 'Web / Desktop / Extension', 'Docker / MCP'],
-        primary: 'View on GitHub',
-        secondary: 'Download Releases'
-      },
+      title: 'Ways to use Prompt Optimizer',
+      repository: 'GitHub repository',
+      mcp: 'MCP integration',
+      mcpGuide: 'https://docs.always200.com/en/user/mcp-server/',
+      dataNote: 'Settings, history, and favorites stay in your current environment by default. Model requests and remote backups go to the model service and storage you configure.',
       entries: [
         {
-          title: 'Web App',
-          body: 'Open the workspace and start optimizing.',
+          title: 'Web app',
+          body: 'Open the workspace in your browser.',
           href: 'https://prompt.always200.com'
         },
         {
-          title: 'Desktop Downloads',
+          title: 'Desktop downloads',
           body: 'Get installers and archives from Releases.',
           href: 'https://github.com/linshenkx/prompt-optimizer/releases'
         },
         {
-          title: 'Chrome Extension',
+          title: 'Chrome extension',
           body: 'Install it from the Chrome Web Store.',
           href: 'https://chromewebstore.google.com/detail/prompt-optimizer/cakkkhboolfnadechdlgdcnjammejlna'
         },
         {
-          title: 'Docker / MCP',
-          body: 'Best for self-hosting and integrations.',
+          title: 'Docker deployment',
+          body: 'Host your own instance.',
           href: 'https://docs.always200.com/deployment/docker-basic/'
         }
       ]
@@ -424,26 +378,12 @@ function renderNav(copy, themeMode) {
   `
 }
 
-function renderStats(stats) {
-  return stats
-    .map(
-      (item) => `
-        <article class="hero-stat">
-          <strong>${item.value}</strong>
-          <span>${item.label}</span>
-        </article>
-      `
-    )
-    .join('')
-}
-
-function renderPills(items, className = '') {
-  return items.map((item) => `<span class="${className}">${item}</span>`).join('')
-}
-
 function renderApp(locale, themeMode) {
   const copy = translations[locale]
   const resolvedTheme = resolveTheme(themeMode)
+  const menuExpanded = document.querySelector('.site-menu-button')?.getAttribute('aria-expanded') ?? 'false'
+  const focusedToggle = document.activeElement?.closest('.locale-switch, .theme-switch')
+  const focusedRegion = focusedToggle?.closest('header, footer')?.localName
 
   document.documentElement.lang = copy.htmlLang
   document.documentElement.dataset.locale = locale
@@ -474,7 +414,7 @@ function renderApp(locale, themeMode) {
           <img src="/images/logo.png" alt="" class="site-brand__logo" />
           <span class="site-brand__text">Prompt Optimizer</span>
         </a>
-        <button class="site-menu-button" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="${copy.nav.menuAria}">
+        <button class="site-menu-button" type="button" aria-expanded="${menuExpanded}" aria-controls="site-nav" aria-label="${copy.nav.menuAria}">
           <span></span>
           <span></span>
           <span></span>
@@ -486,55 +426,39 @@ function renderApp(locale, themeMode) {
 
       <main>
         <section class="hero">
-          <div class="hero-copy" data-reveal style="--reveal-delay: 20ms">
-            <div class="eyebrow">
-              <img src="/images/logo.png" alt="" />
-              <span>${copy.hero.eyebrow}</span>
-            </div>
-            <h1 class="hero-title">
-              <span class="hero-title__line hero-title__line--top">${copy.hero.titleTop}</span>
-              ${copy.hero.titleMid ? `<span class="hero-title__line hero-title__line--mid">${copy.hero.titleMid}</span>` : ''}
-              <span class="hero-title__line hero-title__line--bottom">${copy.hero.titleBottom}</span>
-            </h1>
+          <div class="hero-copy">
+            <h1 class="hero-title">${copy.hero.title}</h1>
             <p class="hero-lead">${copy.hero.lead}</p>
             <div class="hero-actions">
               <a class="button button--primary" href="https://prompt.always200.com" target="_blank" rel="noopener">${copy.hero.primary}</a>
-              <a class="button" href="https://docs.always200.com" target="_blank" rel="noopener">${copy.hero.secondary}</a>
+              <a class="button" href="${copy.hero.guide}" target="_blank" rel="noopener" aria-describedby="hero-setup">${copy.hero.secondary}</a>
             </div>
-            <div class="hero-proof">
-              ${renderStats(copy.hero.stats)}
-            </div>
+            <p class="hero-setup" id="hero-setup">${copy.hero.setupNote}</p>
           </div>
 
-          <div class="hero-visual" data-reveal style="--reveal-delay: 120ms">
-            <div class="hero-visual__meta">
-              <span class="signal-label">${copy.hero.visualLabel}</span>
-              <p>${copy.hero.visualTitle}</p>
-            </div>
+          <a class="hero-visual" href="/images/product/2026-11/${copy.hero.screenshot}" data-image-preview aria-haspopup="dialog" aria-controls="image-preview" aria-label="${copy.hero.screenshotLabel}" aria-describedby="hero-screenshot-caption">
+            <p class="hero-visual__meta" id="hero-screenshot-caption">
+              ${copy.hero.visualTitle}<span class="screenshot-hint" aria-hidden="true">${copy.imagePreview.hint}</span>
+            </p>
             <div class="hero-shot">
-              <a href="/images/product/2026-11/${copy.hero.screenshot}" target="_blank" rel="noopener" aria-label="${copy.hero.screenshotAlt}">
-                <img src="/images/product/2026-11/${copy.hero.screenshot}" alt="${copy.hero.screenshotAlt}" width="2047" height="1018" fetchpriority="high" />
-              </a>
+              <img src="/images/product/2026-11/${copy.hero.screenshot}" alt="${copy.hero.screenshotAlt}" width="2047" height="1018" fetchpriority="high" />
             </div>
-          </div>
+          </a>
         </section>
 
-        <section class="section section--workflow" data-reveal>
-          <div class="section-head section-head--center workflow-head">
-            <p class="section-kicker">${copy.workflow.kicker}</p>
+        <section class="section">
+          <div class="section-head">
             <h2>${copy.workflow.title}</h2>
-            <p class="section-lead">${copy.workflow.lead}</p>
           </div>
           <div class="workflow-line">
             ${copy.workflow.steps
               .map(
                 (step, index) => `
-                  <article class="workflow-node workflow-node--${index + 1}" data-reveal style="--reveal-delay: ${100 + index * 90}ms">
+                  <article class="workflow-node workflow-node--${index + 1}">
                     <div class="workflow-node__marker">
                       <span class="workflow-index">0${index + 1}</span>
                     </div>
                     <div class="workflow-node__body">
-                      <span class="workflow-card__label">${step.label}</span>
                       <h3>${step.title}</h3>
                       <p>${step.body}</p>
                     </div>
@@ -545,103 +469,57 @@ function renderApp(locale, themeMode) {
           </div>
         </section>
 
-        <section class="section section--examples">
-          <div class="section-head" data-reveal>
-            <h2>${copy.examples.title}</h2>
-            <p class="section-lead">${copy.examples.lead}</p>
+        <section class="section" id="arena">
+          <div class="section-head">
+            <h2>${copy.arena.title}</h2>
+            <p class="section-lead">${copy.arena.lead}</p>
           </div>
-          <div class="workspace-examples">
-            ${copy.examples.items.map((item) => `
-              <figure class="workspace-example" data-reveal>
-                <a class="workspace-example__image" href="/images/product/2026-11/${item.image}" target="_blank" rel="noopener" aria-label="${item.title}">
-                  <img src="/images/product/2026-11/${item.image}" alt="${item.body}" width="2047" height="1018" loading="lazy" />
-                </a>
-                <figcaption>
-                  <h3>${item.title}</h3>
-                  <p>${item.body}</p>
-                  <a href="${item.link}" target="_blank" rel="noopener">${item.action} <span aria-hidden="true">↗</span></a>
-                </figcaption>
-              </figure>
+          <figure class="arena-example">
+            <a class="arena-example__image" href="/images/product/2026-11/${copy.arena.screenshot}" data-image-preview aria-haspopup="dialog" aria-controls="image-preview" aria-label="${copy.arena.screenshotLabel}" aria-describedby="arena-screenshot-caption">
+              <img src="/images/product/2026-11/${copy.arena.screenshot}" alt="${copy.arena.screenshotAlt}" width="2047" height="1018" loading="lazy" />
+            </a>
+            <figcaption class="arena-example__caption">
+              <p id="arena-screenshot-caption">
+                ${copy.arena.caption}<span class="screenshot-hint" aria-hidden="true">${copy.imagePreview.hint}</span>
+              </p>
+              <a class="section-link" href="${copy.arena.guide}" target="_blank" rel="noopener">${copy.arena.action}</a>
+            </figcaption>
+          </figure>
+        </section>
+
+        <section class="section" id="workspaces">
+          <div class="section-head">
+            <h2>${copy.workspaces.title}</h2>
+          </div>
+          <div class="workspace-list">
+            ${copy.workspaces.items.map((item) => `
+              <article>
+                <h3>${item.title}</h3>
+                <p>${item.body}</p>
+              </article>
             `).join('')}
           </div>
         </section>
 
-        <section class="section section--scenario">
-          <div class="scenario-layout">
-            <div class="section-head scenario-head" data-reveal>
-              <p class="section-kicker">${copy.scenario.kicker}</p>
-              <h2>${copy.scenario.title}</h2>
-              <p class="section-lead">${copy.scenario.lead}</p>
-            </div>
-            <div class="scenario-matrix" data-reveal style="--reveal-delay: 100ms">
-              <div class="scenario-matrix__head">
-                <span>${copy.scenario.columns.type}</span>
-                <span>${copy.scenario.columns.fit}</span>
-                <span>${copy.scenario.columns.capability}</span>
-              </div>
-              ${copy.scenario.cards
-                .map(
-                  (card, index) => `
-                    <article class="scenario-row scenario-row--${index + 1}" data-reveal style="--reveal-delay: ${120 + index * 80}ms">
-                      <div class="scenario-row__meta">
-                        <span class="scenario-row__index">0${index + 1}</span>
-                        <span class="scenario-card__label">${card.label}</span>
-                      </div>
-                      <div class="scenario-row__body">
-                        <h3>${card.title}</h3>
-                        <p>${card.body}</p>
-                      </div>
-                      <div class="scenario-row__tags">
-                        ${renderPills(card.tags)}
-                      </div>
-                    </article>
-                  `
-                )
-                .join('')}
-            </div>
-          </div>
-        </section>
-
-        <section class="section section--access">
-          <div class="section-head" data-reveal>
-            <p class="section-kicker">${copy.access.kicker}</p>
+        <section class="section" id="get-started">
+          <div class="section-head">
             <h2>${copy.access.title}</h2>
-            <p class="section-lead">${copy.access.lead}</p>
           </div>
-          <article class="proof-strip" data-reveal style="--reveal-delay: 80ms">
-            <div class="proof-strip__main">
-              <div class="proof-strip__top">
-                <div class="proof-strip__title">
-                  <span class="proof-strip__label">${copy.access.proof.label}</span>
-                  <strong>${copy.access.proof.title}</strong>
-                </div>
-                <img
-                  class="proof-strip__stars"
-                  src="https://img.shields.io/github/stars/linshenkx/prompt-optimizer?style=for-the-badge&label=stars&color=2d6cff&labelColor=0b1633"
-                  alt="GitHub stars"
-                />
-              </div>
-              <p>${copy.access.proof.body}</p>
-              <div class="proof-strip__facts">
-                ${renderPills(copy.access.proof.facts)}
-              </div>
+          <div class="entry-list">
+            ${copy.access.entries.map((entry) => `
+              <a class="entry-link" href="${entry.href}" target="_blank" rel="noopener">
+                <strong>${entry.title}</strong>
+                <span>${entry.body}</span>
+              </a>
+            `).join('')}
+          </div>
+          <div class="project-details">
+            <div class="project-details__links">
+              <a class="section-link" href="https://github.com/linshenkx/prompt-optimizer" target="_blank" rel="noopener">${copy.access.repository}</a>
+              <span>AGPL-3.0</span>
+              <a class="section-link" href="${copy.access.mcpGuide}" target="_blank" rel="noopener">${copy.access.mcp}</a>
             </div>
-            <div class="proof-strip__actions">
-              <a class="button button--primary" href="https://github.com/linshenkx/prompt-optimizer" target="_blank" rel="noopener">${copy.access.proof.primary}</a>
-              <a class="button button--light" href="https://github.com/linshenkx/prompt-optimizer/releases" target="_blank" rel="noopener">${copy.access.proof.secondary}</a>
-            </div>
-          </article>
-          <div class="entry-shelf">
-            ${copy.access.entries
-              .map(
-                (entry, index) => `
-                  <a class="entry-card entry-card--${index + 1}" data-reveal style="--reveal-delay: ${120 + index * 70}ms" href="${entry.href}" target="_blank" rel="noopener">
-                    <strong>${entry.title}</strong>
-                    <span>${entry.body}</span>
-                  </a>
-                `
-              )
-              .join('')}
+            <p>${copy.access.dataNote}</p>
           </div>
         </section>
       </main>
@@ -660,24 +538,40 @@ function renderApp(locale, themeMode) {
         </div>
       </footer>
     </div>
+
+    <dialog class="image-preview" id="image-preview" aria-label="${copy.imagePreview.title}">
+      <div class="image-preview__toolbar">
+        <button class="image-preview__control" type="button" data-preview-zoom>${copy.imagePreview.actualSize}</button>
+        <form method="dialog">
+          <button class="image-preview__control image-preview__close" type="submit" aria-label="${copy.imagePreview.close}" title="${copy.imagePreview.close}" autofocus>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </form>
+      </div>
+      <div class="image-preview__viewport" tabindex="-1">
+        <img alt="" draggable="false" />
+      </div>
+    </dialog>
   `
 
   bindInteractions(locale, themeMode)
-  bindRevealAnimations()
+  bindImagePreview(copy.imagePreview)
   bindMotionEffects()
+
+  if (focusedRegion) {
+    const toggleClass = focusedToggle.classList.contains('locale-switch') ? 'locale-switch' : 'theme-switch'
+    document.querySelector(`${focusedRegion} .${toggleClass}`)?.focus({ preventScroll: true })
+  }
 }
 
 function bindInteractions(locale, themeMode) {
   const menuButton = document.querySelector('.site-menu-button')
-  const nav = document.querySelector('.site-nav')
-
-  if (menuButton && nav) {
-    menuButton.addEventListener('click', () => {
-      const expanded = menuButton.getAttribute('aria-expanded') === 'true'
-      menuButton.setAttribute('aria-expanded', String(!expanded))
-      nav.classList.toggle('site-nav--open', !expanded)
-    })
-  }
+  menuButton.addEventListener('click', () => {
+    const expanded = menuButton.getAttribute('aria-expanded') === 'true'
+    menuButton.setAttribute('aria-expanded', String(!expanded))
+  })
 
   document.querySelectorAll('[data-locale-toggle="true"]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -698,22 +592,51 @@ function bindInteractions(locale, themeMode) {
   })
 }
 
-function bindRevealAnimations() {
-  const revealTargets = document.querySelectorAll('[data-reveal]')
+function bindImagePreview(copy) {
+  const dialog = document.getElementById('image-preview')
+  if (typeof dialog.showModal !== 'function') return
 
-  if (!revealTargets.length) return
+  const viewport = dialog.querySelector('.image-preview__viewport')
+  const image = viewport.querySelector('img')
+  const zoom = dialog.querySelector('[data-preview-zoom]')
+  const page = document.documentElement
+  let origin
 
-  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
-  if (prefersReducedMotion) {
-    revealTargets.forEach((node) => node.classList.add('is-visible'))
-    return
+  const setActualSize = (actual) => {
+    dialog.toggleAttribute('data-actual-size', actual)
+    zoom.textContent = actual ? copy.fit : copy.actualSize
+    viewport.tabIndex = actual ? 0 : -1
+    viewport.scrollTo(0, 0)
   }
 
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      revealTargets.forEach((node) => node.classList.add('is-visible'))
+  document.querySelectorAll('[data-image-preview]').forEach((trigger) => {
+    trigger.addEventListener('click', (event) => {
+      if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+
+      event.preventDefault()
+      origin = { trigger, x: window.scrollX, y: window.scrollY }
+      const scrollbarWidth = window.innerWidth - page.getBoundingClientRect().width
+      page.style.setProperty('--preview-scrollbar-width', `${scrollbarWidth}px`)
+      image.alt = trigger.querySelector('img').alt
+      image.src = trigger.href
+      setActualSize(false)
+      dialog.showModal()
     })
+  })
+
+  zoom.addEventListener('click', () => setActualSize(!dialog.hasAttribute('data-actual-size')))
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog) dialog.close()
+  })
+  dialog.addEventListener('close', () => {
+    page.style.removeProperty('--preview-scrollbar-width')
+    if (!origin) return
+
+    origin.trigger.focus({ preventScroll: true })
+    if (window.scrollX !== origin.x || window.scrollY !== origin.y) {
+      window.scrollTo({ left: origin.x, top: origin.y, behavior: 'instant' })
+    }
+    origin = undefined
   })
 }
 
@@ -759,11 +682,23 @@ function bindMotionEffects() {
   }
 
   bindPointerSurface('.hero', 'hero', 5.5, 18)
-  bindPointerSurface('.proof-strip', 'proof', 3.5, 10)
 }
 
 let currentLocale = getInitialLocale()
 let currentThemeMode = getInitialThemeMode()
+
+document.addEventListener('pointerdown', (event) => {
+  if (event.target.closest('.site-header')) return
+  document.querySelector('.site-menu-button[aria-expanded="true"]')?.setAttribute('aria-expanded', 'false')
+})
+
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return
+  const menuButton = document.querySelector('.site-menu-button[aria-expanded="true"]')
+  if (!menuButton) return
+  menuButton.setAttribute('aria-expanded', 'false')
+  menuButton.focus()
+})
 
 const colorSchemeMedia = window.matchMedia('(prefers-color-scheme: dark)')
 
