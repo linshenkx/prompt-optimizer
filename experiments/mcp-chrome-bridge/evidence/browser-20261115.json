@@ -1,0 +1,119 @@
+{
+  "task": "PO-MCP-CHROME-20261115",
+  "round": 1,
+  "date": "2026-11-15",
+  "baseline": "82a40b91ae9a0583f27bec121da03a157aacd42f",
+  "scope": "Isolated Chrome DevTools context po-mcp-chrome-20261115-r1; disposable raw IndexedDB fixture, not product Dexie, not user data, no model calls",
+  "coordinatorProtocolSupplement": {
+    "date": "2026-11-15",
+    "reportedBy": "coordinating chat 01a1dcfd-1be7-7403-9988-3e0acefa4481",
+    "nodeVersion": "24.22.1",
+    "command": "node --test experiments/mcp-chrome-bridge/bridge.test.mjs",
+    "tests": 7,
+    "passed": 7,
+    "failed": 0,
+    "durationSecondsApprox": 0.88,
+    "status": "统筹已补测协议测试通过",
+    "scope": "Coordinator-reported protocol test only; no additional browser or product validation. Recorded here without rerunning tests, reopening fixture pages or starting services."
+  },
+  "browser": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+    "origin": "http://127.0.0.1:8251",
+    "dbName": "POBridgeExperiment-6fa45dd0-1d39-4005-b846-16dda8c762e4",
+    "sources": [
+      {
+        "id": "5b957743-6c55-4495-991a-9537eba4b47b",
+        "origin": "http://127.0.0.1:8251",
+        "instanceId": "774ad32d-624c-4d3a-95e6-dfdf5f335846",
+        "kind": "web-fixture",
+        "expiresAt": 1794717481763
+      },
+      {
+        "id": "cf6d8646-14ab-4768-bf38-b0af33f71e21",
+        "origin": "http://127.0.0.1:8252",
+        "instanceId": "d3fd7ed0-4f72-45da-9259-198ad460a7e9",
+        "kind": "web-fixture",
+        "expiresAt": 1794717481919
+      },
+      {
+        "id": "c2a11e89-927c-48d3-899e-5053c75b9d57",
+        "origin": "http://127.0.0.1:8251",
+        "instanceId": "22fc95e2-a62e-412e-8bce-4a71e3abe8fe",
+        "kind": "web-fixture",
+        "expiresAt": 1794717481732
+      }
+    ],
+    "noTarget": {
+      "error": "explicit_source_required"
+    },
+    "sameOriginResult": {
+      "sourceId": "c2a11e89-927c-48d3-899e-5053c75b9d57",
+      "origin": "http://127.0.0.1:8251",
+      "instanceId": "22fc95e2-a62e-412e-8bce-4a71e3abe8fe",
+      "result": {
+        "executor": "22fc95e2-a62e-412e-8bce-4a71e3abe8fe",
+        "dbName": "POBridgeExperiment-6fa45dd0-1d39-4005-b846-16dda8c762e4",
+        "samples": [
+          {
+            "id": "fixture-only",
+            "title": "Known sample A",
+            "marker": "A"
+          }
+        ]
+      }
+    },
+    "otherOriginResult": {
+      "sourceId": "cf6d8646-14ab-4768-bf38-b0af33f71e21",
+      "origin": "http://127.0.0.1:8252",
+      "instanceId": "d3fd7ed0-4f72-45da-9259-198ad460a7e9",
+      "result": {
+        "executor": "d3fd7ed0-4f72-45da-9259-198ad460a7e9",
+        "dbName": "POBridgeExperiment-6fa45dd0-1d39-4005-b846-16dda8c762e4",
+        "samples": [
+          {
+            "id": "fixture-only",
+            "title": "Known sample B",
+            "marker": "B"
+          }
+        ]
+      }
+    },
+    "cancelled": {
+      "sourceId": "cf6d8646-14ab-4768-bf38-b0af33f71e21",
+      "code": "cancelled"
+    },
+    "verdict": "PASS"
+  },
+  "executorCancellation": {
+    "executorState": "{\n  \"cancelledRequest\": \"0d25913c-e815-4eaa-a71f-52be0cdb20d9\",\n  \"executor\": \"d3fd7ed0-4f72-45da-9259-198ad460a7e9\"\n}",
+    "connection": "Connected: cf6d8646-14ab-4768-bf38-b0af33f71e21"
+  },
+  "closedPage": {
+    "sources": [
+      {
+        "id": "5b957743-6c55-4495-991a-9537eba4b47b",
+        "origin": "http://127.0.0.1:8251",
+        "instanceId": "774ad32d-624c-4d3a-95e6-dfdf5f335846",
+        "kind": "web-fixture",
+        "expiresAt": 1794717500032
+      },
+      {
+        "id": "cf6d8646-14ab-4768-bf38-b0af33f71e21",
+        "origin": "http://127.0.0.1:8252",
+        "instanceId": "d3fd7ed0-4f72-45da-9259-198ad460a7e9",
+        "kind": "web-fixture",
+        "expiresAt": 1794717499893
+      }
+    ],
+    "closedSource": "c2a11e89-927c-48d3-899e-5053c75b9d57",
+    "staleTargetResult": {
+      "error": "source_not_connected"
+    },
+    "verdict": "PASS"
+  },
+  "hostExit": {
+    "connection": "Disconnected",
+    "output": "{\n  \"disconnected\": \"Failed to fetch\"\n}"
+  },
+  "cleanup": "Fixture tabs 2,3,4 closed; demo process 65972 ended; fixture listeners 8251/8252 absent. Node test separately asserts bridge listener closes. No browser profile files accessed or changed."
+}
