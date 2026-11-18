@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
-import { SQLiteStorageProvider, openDesktopStorage, openExistingDesktopStorage, exportDesktopStorageAsLegacyJSON, DESKTOP_DATABASE_FILENAME, LEGACY_STORAGE_FILENAME } from '../packages/core/dist/node.js';
+import { SQLiteStorageProvider, openDesktopStorage, openExistingDesktopStorage, openExistingDesktopStorageForWriting, exportDesktopStorageAsLegacyJSON, DESKTOP_STORAGE_DIVERGENCE_REASON, DESKTOP_DATABASE_FILENAME, LEGACY_STORAGE_FILENAME } from '../packages/core/dist/node.js';
 
 const sample = {
   models: JSON.stringify({ synthetic: { name: 'Synthetic model', apiKey: 'test-only-placeholder' } }),
@@ -54,6 +54,11 @@ async function fixture(t, data = sample) {
     providers.push(result.provider);
     return result;
   };
+  const writable = async () => {
+    const result = await openExistingDesktopStorageForWriting(directory);
+    providers.push(result.provider);
+    return result;
+  };
   const child = command => {
     const processChild = fork(new URL('./helpers/sqlite-migration-worker.cjs', import.meta.url), [directory, command], {
       execPath: process.env.SQLITE_TEST_EXECUTABLE || process.execPath,
@@ -64,7 +69,7 @@ async function fixture(t, data = sample) {
     children.push(processChild);
     return processChild;
   };
-  return { directory, legacy, database, open, existing, child };
+  return { directory, legacy, database, open, existing, writable, child };
 }
 
 function databaseContents(file) {
@@ -115,6 +120,137 @@ test('real legacy JSON: every key/value migrates, restart is idempotent and clea
   await reopened.clearAll();
   await reopened.close();
   assert.deepEqual(await (await f.open()).provider.getAllKeys(), []);
+});
+
+function isStorageDivergence(error) {
+  return error.name === 'StorageError' && error.params?.reason === DESKTOP_STORAGE_DIVERGENCE_REASON;
+}
+
+test('a later valid JSON write blocks desktop bootstrap and MCP writes while each store remains intact', async t => {
+  const f = await fixture(t);
+  const { provider: desktop } = await f.open();
+  await desktop.setItem('sqlite-only', 'committed');
+  await desktop.close();
+  const { provider: writer } = await f.writable();
+  const before = databaseContents(f.database);
+  const latest = JSON.stringify({ ...sample, 'json-only': 'later-legacy-write' });
+  await writeFile(f.legacy, latest);
+
+  await assert.rejects(f.open(), isStorageDivergence);
+  await assert.rejects(f.writable(), isStorageDivergence);
+  let ran = false;
+  await assert.rejects(writer.withWriteTransaction(tx => {
+    ran = true;
+    tx.setItem('forbidden', 'value');
+  }), isStorageDivergence);
+  assert.equal(ran, false);
+  assert.deepEqual(databaseContents(f.database), before);
+  assert.equal(await readFile(f.legacy, 'utf8'), latest);
+
+  const { provider: reader } = await f.existing();
+  assert.equal(await reader.getItem('sqlite-only'), 'committed');
+  assert.equal(await reader.getItem('json-only'), null);
+});
+
+test('a migration fingerprint tolerates container formatting and the known historical fallback', async t => {
+  const f = await fixture(t);
+  const backup = f.legacy + '.backup';
+  const originalBackup = JSON.stringify({ previous: 'known older backup' });
+  await writeFile(backup, originalBackup);
+  const { provider } = await f.open();
+  await provider.setItem('new-sqlite-data', 'retained');
+  await provider.close();
+
+  await writeFile(f.legacy, JSON.stringify(Object.fromEntries(Object.entries(sample).reverse())) + '\n');
+  const reformatted = await f.open();
+  assert.equal(await reformatted.provider.getItem('new-sqlite-data'), 'retained');
+  await reformatted.provider.close();
+
+  await writeFile(f.legacy, '{corrupt');
+  const fromBackup = await f.writable();
+  assert.equal(await fromBackup.provider.getItem('new-sqlite-data'), 'retained');
+  await fromBackup.provider.close();
+
+  const latestBackup = JSON.stringify({ previous: 'changed fallback' });
+  await writeFile(backup, latestBackup);
+  const before = databaseContents(f.database);
+  await assert.rejects(f.open(), isStorageDivergence);
+  await assert.rejects(f.writable(), isStorageDivergence);
+  assert.equal(await readFile(backup, 'utf8'), latestBackup);
+  assert.equal(await readFile(f.legacy, 'utf8'), '{corrupt');
+  assert.deepEqual(databaseContents(f.database), before);
+});
+
+test('old version-1 markers only adopt readable legacy provenance on equal full snapshots', async t => {
+  for (const legacyCase of ['equal', 'diverged', 'missing']) {
+    const f = await fixture(t);
+    const { provider, migration } = await f.open();
+    if (legacyCase !== 'equal') await provider.setItem('sqlite-after-v1', 'preserved');
+    await provider.close();
+    const db = new DatabaseSync(f.database);
+    try {
+      db.prepare('UPDATE storage_metadata SET value = ? WHERE key = ?').run(JSON.stringify(migration), 'legacy-json-migration');
+    } finally { db.close(); }
+    const before = databaseContents(f.database);
+    if (legacyCase === 'diverged') {
+      assert.deepEqual((await f.existing()).migration, migration);
+      await assert.rejects(f.open(), isStorageDivergence);
+      await assert.rejects(f.writable(), isStorageDivergence);
+      assert.deepEqual(databaseContents(f.database), before);
+      continue;
+    }
+    if (legacyCase === 'missing') await rm(f.legacy);
+    const { provider: writer, migration: verified } = await f.writable();
+    assert.deepEqual(verified, migration);
+    await writer.setItem('additional', 'write');
+    await writer.close();
+    const reopened = await f.open();
+    assert.equal(await reopened.provider.getItem('additional'), 'write');
+    const marker = JSON.parse(databaseContents(f.database).storage_metadata[0].value);
+    if (legacyCase === 'equal') assert.match(marker.sourceFingerprint, /^[a-f0-9]{64}$/);
+    else assert.deepEqual(marker, migration);
+  }
+});
+
+test('existing-only write transactions atomically scope callbacks, snapshots and rollback', async t => {
+  const f = await fixture(t);
+  await (await f.open()).provider.close();
+  const { provider } = await f.writable();
+  assert.equal(provider.readOnly, false);
+  let savedTx;
+  const result = await provider.withWriteTransaction(tx => {
+    savedTx = tx;
+    tx.setItem('comparison/%_prefix/index', 'saved');
+    tx.setItem('comparison/%_prefix/result', 'data');
+    tx.setItem('comparison/exclude', 'data');
+    assert.equal(tx.getItem('comparison/%_prefix/index'), 'saved');
+    return 'committed';
+  });
+  assert.equal(result, 'committed');
+  assert.throws(() => savedTx.getItem('comparison/%_prefix/result'), /ended/);
+  assert.throws(() => savedTx.setItem('escaped', 'data'), /ended/);
+  assert.throws(() => savedTx.removeItem('comparison/%_prefix/result'), /ended/);
+  await assert.rejects(provider.withWriteTransaction(tx => {
+    tx.removeItem('comparison/%_prefix/result');
+    throw new Error('rollback');
+  }), /rollback/);
+  await assert.rejects(provider.withWriteTransaction(async tx => {
+    tx.setItem('async-write', 'data');
+    await Promise.resolve();
+    tx.setItem('async-write-after-turn', 'data');
+  }), /synchronous/);
+  await assert.rejects(provider.initializeFromLegacy(() => {
+    throw new Error('must not call migration loader');
+  }), /desktop storage bootstrap/);
+  assert.equal(await provider.getItem('async-write'), null);
+  assert.equal(await provider.getItem('async-write-after-turn'), null);
+  assert.deepEqual(await provider.getEntriesByPrefix('comparison/%_prefix/'), [
+    ['comparison/%_prefix/index', 'saved'], ['comparison/%_prefix/result', 'data'],
+  ]);
+  const reader = await f.existing();
+  assert.deepEqual(await reader.provider.getEntriesByPrefix('comparison/%_prefix/'), [
+    ['comparison/%_prefix/index', 'saved'], ['comparison/%_prefix/result', 'data'],
+  ]);
 });
 
 test('fresh startup and existing legacy backup are distinguished without creating or rewriting backups', async t => {
@@ -227,15 +363,19 @@ test('existing-only access rejects missing directories/files and never falls bac
   const before = await readdir(f.directory);
   const missingDirectory = join(f.directory, 'missing', 'nested');
   await assert.rejects(openExistingDesktopStorage(missingDirectory), /does not exist/);
+  await assert.rejects(openExistingDesktopStorageForWriting(missingDirectory), /does not exist/);
   await assert.rejects(access(join(f.directory, 'missing')));
   await assert.rejects(f.existing(), /does not exist/);
+  await assert.rejects(f.writable(), /does not exist/);
   await assert.rejects(exportDesktopStorageAsLegacyJSON(f.directory), /does not exist/);
   assert.deepEqual(await readdir(f.directory), before);
   assert.equal(await readFile(f.legacy, 'utf8'), original);
   await assert.rejects(openExistingDesktopStorage('relative-profile'), /absolute/);
+  await assert.rejects(openExistingDesktopStorageForWriting('relative-profile'), /absolute/);
   await assert.rejects(SQLiteStorageProvider.openExistingReadOnly('relative.sqlite'), /absolute/);
   await mkdir(f.database);
   await assert.rejects(f.existing(), /database file/);
+  await assert.rejects(f.writable(), /database file/);
   assert.deepEqual(await readdir(f.database), []);
 });
 
@@ -260,6 +400,7 @@ test('existing read-only access refuses every mutation before callbacks and pres
     () => provider.compareAndSetItem('after-migration', 'new-current-value', 'forbidden'),
     () => provider.batchUpdate([{ key: 'forbidden', operation: 'set', value: 'value' }]),
     () => provider.updateData('pref:legacy-object', () => { callbacks++; return {}; }),
+    () => provider.withWriteTransaction(() => { callbacks++; }),
     () => provider.initializeFromLegacy(() => { callbacks++; return { source: 'empty', entries: new Map() }; }),
     () => provider.flush(),
   ]) await assert.rejects(mutate(), /read-only/);
@@ -334,7 +475,9 @@ test('existing-only access and desktop bootstrap reject incompatible schema with
 test('existing-only access rejects missing, corrupt and unknown migration states without changing them', async t => {
   for (const marker of [undefined, '{broken', 'null', '[]', '{}', '{"version":2}',
     '{"version":1,"source":"other","itemCount":0}', '{"version":1,"source":"json","itemCount":-1}',
-    '{"version":1,"source":"json","itemCount":"1"}', '{"version":1,"source":"empty","itemCount":3}']) {
+    '{"version":1,"source":"json","itemCount":"1"}', '{"version":1,"source":"empty","itemCount":3}',
+    '{"version":1,"source":"json","itemCount":1,"sourceFingerprint":"broken"}',
+    '{"version":1,"source":"json","itemCount":1,"backupFingerprint":"broken"}']) {
     const f = await fixture(t);
     await (await f.open()).provider.close();
     const db = new DatabaseSync(f.database);
@@ -344,6 +487,7 @@ test('existing-only access rejects missing, corrupt and unknown migration states
     } finally { db.close(); }
     const before = databaseContents(f.database);
     await assert.rejects(f.existing(), /migration state/);
+    await assert.rejects(f.writable(), /migration state/);
     assert.deepEqual(databaseContents(f.database), before);
     await assert.rejects(f.open(), /migration state|Unmarked/);
     assert.deepEqual(databaseContents(f.database), before);
@@ -351,11 +495,13 @@ test('existing-only access rejects missing, corrupt and unknown migration states
   const corrupt = await fixture(t);
   await writeFile(corrupt.database, 'corrupt-synthetic-database');
   await assert.rejects(corrupt.existing(), /corrupt|incompatible/);
+  await assert.rejects(corrupt.writable(), /corrupt|incompatible/);
   await assert.rejects(corrupt.open(), /SQLite operation failed/);
   assert.equal(await readFile(corrupt.database, 'utf8'), 'corrupt-synthetic-database');
   const empty = await fixture(t);
   await writeFile(empty.database, '');
   await assert.rejects(empty.existing(), /schema|incompatible/);
+  await assert.rejects(empty.writable(), /schema|incompatible/);
   await assert.rejects(openDesktopStorage(empty.directory, { maxRetries: 1, retryDelayMs: 1 }), /empty or truncated/);
   assert.equal((await readFile(empty.database)).length, 0);
 });
