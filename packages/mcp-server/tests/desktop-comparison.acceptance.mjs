@@ -13,6 +13,7 @@ import { DEFAULT_INHERITED_ENV_VARS, StdioClientTransport } from '@modelcontextp
 import { DESKTOP_DATABASE_FILENAME, LEGACY_STORAGE_FILENAME, openDesktopStorage } from '@prompt-optimizer/core/node';
 
 const cli = fileURLToPath(new URL('../bin/prompt-optimizer-mcp.cjs', import.meta.url));
+const desktopCli = fileURLToPath(new URL('../bin/prompt-optimizer-desktop-mcp.cjs', import.meta.url));
 const credential = 'SYNTHETIC_COMPARISON_MCP_CREDENTIAL';
 const privateText = 'SYNTHETIC_COMPARISON_PRIVATE_SETTING';
 const rawPrompt = 'Use {{style}} for {{topic}}';
@@ -179,9 +180,10 @@ function snapshot(profile) {
 }
 
 async function connect(context, profile, networkGuard, mode = 'desktop-comparison') {
+  const entry = mode === 'desktop' ? [desktopCli] : [cli, '--mode=' + mode];
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: ['--require', networkGuard, cli, '--mode=' + mode, '--desktop-profile=' + profile],
+    args: ['--require', networkGuard, ...entry, '--desktop-profile=' + profile],
     cwd: context.root, env: context.env, stderr: 'pipe',
   });
   const client = new Client({ name: 'isolated-comparison-acceptance', version: '1' });
@@ -231,14 +233,25 @@ async function open(mcp, access = 'compare') {
   return data(await mcp.call('po_sources_open', { sourceId: source.sourceId, access }));
 }
 
-test('built comparison MCP runs saved models against the same frozen input and reopens durable results', { timeout: 45000 }, async t => {
+test('independent desktop MCP shares the source across business and comparison tools and reopens durable results', { timeout: 45000 }, async t => {
   const fixture = isolated(t);
   const recording = await recordModelRequests(fixture);
   const { directory, source, original } = await createProfile(fixture.root, recording.origin);
   const before = snapshot(directory);
-  const mcp = await connect(fixture, directory, recording.networkGuard);
+  const mcp = await connect(fixture, directory, recording.networkGuard, 'desktop');
+  const { tools } = await mcp.client.listTools({}, { timeout: 8000 });
+  const names = tools.map(tool => tool.name);
+  assert.equal(new Set(names).size, names.length);
+  assert.ok(['po_desktop_query', 'po_runs_start', 'po_tests_execute', 'po_comparisons_save'].every(name => names.includes(name)));
+
+  const { sources: [sourceEntry] } = data(await mcp.call('po_sources_list'));
+  const readBusinessFavorite = async () => data(await mcp.call('po_desktop_query', {
+    sourceId: sourceEntry.sourceId, domain: 'favorites', operation: 'searchFavorites', arguments: ['Variable comparison'],
+  })).result[0].id;
+  assert.equal(await readBusinessFavorite(), 'favorite-fixture');
   const opened = await open(mcp);
   const { connectionId } = opened;
+  assert.equal(opened.source.sourceId, sourceEntry.sourceId);
   assert.deepEqual(opened.capabilities, { read: true, execute: true, save: true });
 
   const { items: models } = data(await mcp.call('po_models_list', { connectionId }));
@@ -334,9 +347,12 @@ test('built comparison MCP runs saved models against the same frozen input and r
   assert.deepEqual(failureStatus.runs.map(run => run.status), ['error', 'success']);
   assert.equal(failureStatus.runs[0].errorCode, 'MODEL_REQUEST_FAILED');
   assert.equal(recording.calls.length, 6, 'one explicit execution sends at most one request per candidate');
+  data(await mcp.call('po_sources_close', { connectionId }));
+  failure(await mcp.call('po_comparisons_get', { connectionId, comparisonId: saved.comparisonId }), 'CONNECTION_CLOSED');
+  assert.equal(await readBusinessFavorite(), asset.favoriteId);
   await mcp.close();
 
-  const restarted = await connect(fixture, directory, recording.networkGuard);
+  const restarted = await connect(fixture, directory, recording.networkGuard, 'desktop');
   const reopened = await open(restarted);
   assert.notEqual(reopened.connectionId, connectionId);
   const list = data(await restarted.call('po_comparisons_list', { connectionId: reopened.connectionId, favoriteId: asset.favoriteId }));

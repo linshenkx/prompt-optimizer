@@ -9,7 +9,7 @@
 | `prompt-optimizer-mcp`（原命令，不带桌面模式） | 原环境变量、内存装配 | 原三个优化工具；stdio 和 HTTP `/mcp` 保留 |
 | 原命令加 `--mode=desktop-readonly` | 指定的已有桌面 SQLite | 原只读资产/模型目录与精确版本读取 |
 | 原命令加 `--mode=desktop-comparison` | 指定的已有桌面 SQLite | 原预览、冻结输入、双模型/双提示词比较、采纳与已保存比较 |
-| **`prompt-optimizer-desktop-mcp`**（独立新命令） | 指定的已有桌面 SQLite 和产品服务 | 下述完整业务目录；仅 stdio，不载入 `.env`，不替换旧命令 |
+| **`prompt-optimizer-desktop-mcp`**（独立新命令） | 指定的已有桌面 SQLite 和产品服务 | 业务目录及文本对照工具；仅 stdio，不载入 `.env`，不替换旧命令 |
 
 使用仓库支持的 Node 24 环境先构建 Core 与 MCP：
 
@@ -25,7 +25,7 @@ node packages/mcp-server/bin/prompt-optimizer-desktop-mcp.cjs --desktop-profile=
 
 ## 工具与业务覆盖
 
-先调用 `po_sources_list`，再调用 `po_desktop_catalog` 查看实时目录。`sourceId` 是当前连接的不透明标识，重连必须重新列出。
+先调用 `po_sources_list`，再调用 `po_desktop_catalog` 查看实时目录。`sourceId` 在当前 MCP 进程内标识同一个桌面来源，进程重启后需重新列出。
 
 | 工具 | 用途 |
 | --- | --- |
@@ -88,7 +88,11 @@ node packages/mcp-server/bin/prompt-optimizer-desktop-mcp.cjs --desktop-profile=
 
 `po_runs_save` 默认只归档，不修改当前草稿、收藏正文或采纳答案。重启桌面后，从顶部 **「MCP 运行成果」** 按 runId 或列表重开；原变量工作区 **「已保存比较」** 仍是独立入口。删除须带最新 `expectedUpdatedAt`，保留最小防重标记，旧重试或备份不能复活已删除运行。记录最多 200 条非删除项、总载荷 32 MiB；到限显式拒绝，不自动清理用户成果。
 
-新业务批测提供冻结的已存配置身份和候选原输出；它不冒充原 comparison 工具的“实际 SDK 参数”证据。需要实际参数预览、配对比较及显式采纳时继续使用 `desktop-comparison`。
+## 文本对照与 Skill
+
+在同一新入口中，用 `po_sources_list` 返回的 `sourceId` 调用 `po_sources_open`，指定 `access: "compare"`。其返回的 `connectionId` 用于 `po_models_list`、`po_assets_*`、`po_tests_*` 和 `po_comparisons_*`。这些工具支持预览实际模型参数、对照同一收藏的两个模型或同一模型的两版提示词，以及保存和回读完整原始结果。[工具调用说明](../../packages/mcp-server/README.md#桌面文本比较模式)
+
+配置新命令后，在包含仓库 Skill 的 Codex 项目里可调用 `$prompt-optimizer-compare`。提供桌面来源、变量工作区的收藏及版本、两个已存模型和共用变量，并说明是否执行与保存。Codex 请求确认模型调用时，可核对预览后确认本次执行。保存后在桌面变量工作区的 **「已保存比较」** 中输入返回的 `comparisonId` 即可重开。[Skill](../../.agents/skills/prompt-optimizer-compare/SKILL.md)
 
 ## 图片资源与完整备份
 

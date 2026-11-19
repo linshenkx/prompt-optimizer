@@ -229,6 +229,10 @@ function createDesktopRouter(profiles: DesktopProfile[], accessMode: DesktopAcce
   }
 
   return {
+    getSourceProfile(sourceId: string) {
+      assertOwner();
+      return sources.find(source => source.id === sourceId)?.profile;
+    },
     listSources() {
       assertOwner();
       return { sources: sources.map(sourceDescription), identity };

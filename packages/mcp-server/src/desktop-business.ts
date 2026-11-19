@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -6,7 +6,9 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema, type Tool } from '@modelcontextprotocol/sdk/types.js';
 import { openExistingDesktopStorageForWriting, type ExistingSQLiteStorage } from '@prompt-optimizer/core/node';
 import { createReadonlyAssetReader } from '@prompt-optimizer/core/asset-reader';
-import type { DesktopProfile } from './desktop-router.js';
+import { createDesktopComparisonRouter, publicDesktopError, type DesktopProfile } from './desktop-router.js';
+import { openComparisonDesktop } from './desktop-storage.js';
+import { createDesktopToolDispatcher } from './desktop.js';
 import { BusinessStage, snapshotRevision, redactConfiguration } from './desktop-business-services.js';
 import { businessOperations, DesktopBusinessError, assertJson, publicBusinessError } from './desktop-business-catalog.js';
 import { DesktopBusinessRuns, runKinds, type RunInput } from './desktop-business-runs.js';
@@ -53,24 +55,35 @@ export const desktopBusinessTools = [
     ['sourceId', 'destination', 'includeCredentials'], { ...write, destructiveHint: false }),
 ];
 
-type Source = { id: string; profile: DesktopProfile; opening?: Promise<{ lease: ExistingSQLiteStorage; runs: DesktopBusinessRuns }> };
+type BusinessSource = { lease: ExistingSQLiteStorage; runs: DesktopBusinessRuns };
 export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
-  const sources: Source[] = profiles.map(profile => ({ id: randomUUID(), profile }));
+  const router = createDesktopComparisonRouter(profiles, openComparisonDesktop);
+  const comparison = createDesktopToolDispatcher('compare', router);
+  const isComparisonTool = (name: string) => name !== 'po_sources_list' && comparison.has(name);
+  const tools = [...desktopBusinessTools, ...comparison.specs.filter(tool => isComparisonTool(tool.name))];
+  const sourceLeases = new Map<string, Promise<BusinessSource>>();
   const revisionKey = globalThis.crypto.subtle.generateKey({ name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const server = new Server({ name: 'prompt-optimizer-desktop', version: '0.2.0' }, { capabilities: { tools: {} } });
-  let closing = false;
+  let closing: Promise<void> | undefined;
   const open = async (sourceId: string) => {
     if (closing) throw new DesktopBusinessError('SOURCE_CLOSING');
-    const source = sources.find(item => item.id === sourceId);
-    if (!source) throw new DesktopBusinessError('SOURCE_NOT_FOUND');
-    source.opening ??= (async () => {
-      const lease = await openExistingDesktopStorageForWriting(source.profile.userDataPath);
-      return { lease, runs: new DesktopBusinessRuns(lease.provider, source.id, revisionKey) };
-    })();
-    try { return await source.opening; }
-    catch { source.opening = undefined; throw new DesktopBusinessError('SOURCE_NOT_READY'); }
+    let opening = sourceLeases.get(sourceId);
+    if (!opening) {
+      const profile = router.getSourceProfile(sourceId);
+      if (!profile) throw new DesktopBusinessError('SOURCE_NOT_FOUND');
+      opening = (async () => {
+        const lease = await openExistingDesktopStorageForWriting(profile.userDataPath);
+        return { lease, runs: new DesktopBusinessRuns(lease.provider, sourceId, revisionKey) };
+      })();
+      sourceLeases.set(sourceId, opening);
+    }
+    try { return await opening; }
+    catch {
+      if (sourceLeases.get(sourceId) === opening) sourceLeases.delete(sourceId);
+      throw new DesktopBusinessError('SOURCE_NOT_READY');
+    }
   };
-  const call = async (name: string, args: Record<string, unknown>): Promise<unknown> => {
+  const callBusiness = async (name: string, args: Record<string, unknown>): Promise<unknown> => {
     const definition = desktopBusinessTools.find(item => item.name === name);
     if (!definition) throw new DesktopBusinessError('UNKNOWN_TOOL');
     assertJson(args);
@@ -83,7 +96,9 @@ export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
         throw new DesktopBusinessError('INVALID_INPUT');
       }
     }
-    if (name === 'po_sources_list') return { sources: sources.map(source => ({ sourceId: source.id, label: source.profile.label, access: 'business' })) };
+    if (name === 'po_sources_list') {
+      return { sources: router.listSources().sources.map(({ sourceId, label }) => ({ sourceId, label, access: 'business' })) };
+    }
     if (name === 'po_desktop_catalog') return {
       operations: businessOperations.filter(item => !args.domain || item.domain === args.domain),
       assets: { domain: 'assets', operations: ['listAssets(options?)', 'listAssetVersions(selection, options?)', 'getAssetVersion(selection)'] },
@@ -163,25 +178,38 @@ export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
     await stage.commit(lease.provider, { key: receiptKey, value: JSON.stringify({ signature, result: response }) });
     return response;
   };
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: desktopBusinessTools }));
+  const call = (name: string, args: Record<string, unknown>) =>
+    isComparisonTool(name) ? comparison.call(name, args) : callBusiness(name, args);
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
   server.setRequestHandler(CallToolRequestSchema, async request => {
+    const { name, arguments: args } = request.params;
     try {
-      const result = await call(request.params.name, request.params.arguments ?? {});
+      const result = await call(name, args ?? {});
       const payload = result as Record<string, unknown>;
       return { structuredContent: payload, content: [{ type: 'text', text: JSON.stringify(result) }] };
     } catch (error) {
-      const payload = { error: publicBusinessError(error) };
+      const payload = { error: isComparisonTool(name) ? publicDesktopError(error, 'compare') : publicBusinessError(error) };
       return { isError: true, structuredContent: payload, content: [{ type: 'text', text: JSON.stringify(payload) }] };
     }
   });
   return {
     server, call,
-    async close() {
-      closing = true;
-      for (const source of sources) if (source.opening) {
-        const opened = await source.opening.catch(() => undefined);
-        if (opened) { await opened.runs.close(); await opened.lease.provider.close(); }
-      }
+    close() {
+      closing ??= (async () => {
+        const results = await Promise.allSettled([
+          router.dispose(),
+          ...Array.from(sourceLeases.values(), async opening => {
+            const opened = await opening.catch(() => undefined);
+            if (!opened) return;
+            try { await opened.runs.close(); }
+            finally { await opened.lease.provider.close(); }
+          }),
+        ]);
+        sourceLeases.clear();
+        const failure = results.find(result => result.status === 'rejected');
+        if (failure) throw failure.reason;
+      })();
+      return closing;
     },
   };
 }

@@ -130,66 +130,65 @@ export function matches(schema: FieldSchema, value: unknown): boolean {
 }
 
 type DesktopRouter = ReturnType<typeof createDesktopReadonlyRouter>;
-function createDesktopServer(access: DesktopAccess, router: DesktopRouter) {
+export function createDesktopToolDispatcher(access: DesktopAccess, router: DesktopRouter) {
   const specs = toolSpecs(access);
   const toolsByName = new Map(specs.map(spec => [spec.name, spec]));
+  return {
+    specs,
+    has: (name: string) => toolsByName.has(name),
+    async call(name: string, args: Record<string, unknown>) {
+      const spec = toolsByName.get(name);
+      if (!spec) throw new DesktopSourceError('UNKNOWN_TOOL');
+      if (!matches(spec.inputSchema, args)) throw new DesktopSourceError('INVALID_INPUT');
+      const { connectionId, ...fields } = args as { connectionId: string } & Record<string, unknown>;
+      const pagination = { limit: fields.limit as number | undefined, cursor: fields.cursor as string | undefined };
+      switch (name) {
+        case 'po_sources_list': return router.listSources();
+        case 'po_sources_open': return router.open(fields.sourceId as string, fields.access as string);
+        case 'po_sources_close': return router.close(connectionId);
+        case 'po_models_list': return router.listModels(connectionId, pagination);
+        case 'po_assets_list':
+          return router.listAssets(connectionId, {
+            ...pagination, modeKey: fields.modeKey as PromptModeKey | undefined, query: fields.query as string | undefined,
+          });
+        case 'po_assets_list_versions':
+          return router.listAssetVersions(connectionId, {
+            favoriteId: fields.favoriteId as string,
+            assetId: fields.assetId as string,
+            expectedRevision: fields.expectedRevision as string | undefined,
+          }, pagination);
+        case 'po_assets_get_version':
+          return router.getAssetVersion(connectionId, fields as unknown as AssetVersionSelection);
+        case 'po_tests_prepare': return router.prepare(connectionId, fields as unknown as PrepareTextComparison);
+        case 'po_tests_execute':
+          return router.execute(connectionId, fields.preparedId as string, fields.previewRevision as string);
+        case 'po_tests_get': return router.getTest(connectionId, fields.preparedId as string);
+        case 'po_tests_cancel': return router.cancel(connectionId, fields.preparedId as string, fields.runId as string | undefined);
+        case 'po_comparisons_save':
+          return router.saveComparison(connectionId, fields.preparedId as string, fields.saveKey as string);
+        case 'po_comparisons_list':
+          return router.listComparisons(connectionId, { ...pagination, favoriteId: fields.favoriteId as string | undefined });
+        case 'po_comparisons_get': return router.getComparison(connectionId, fields.comparisonId as string);
+        case 'po_comparisons_delete':
+          return router.deleteComparison(connectionId, fields.comparisonId as string, fields.expectedRevision as string);
+        default: throw new DesktopSourceError('UNKNOWN_TOOL');
+      }
+    },
+  };
+}
+
+function createDesktopServer(access: DesktopAccess, router: DesktopRouter) {
+  const dispatcher = createDesktopToolDispatcher(access, router);
   const server = new Server({
     name: access === 'compare' ? 'prompt-optimizer-desktop-comparison' : 'prompt-optimizer-desktop-readonly',
     version: '0.1.0',
   }, { capabilities: { tools: {} } });
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: specs }));
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: dispatcher.specs }));
   server.setRequestHandler(CallToolRequestSchema, async request => {
     try {
       const { name, arguments: input } = request.params;
-      const spec = toolsByName.get(name);
-      if (!spec) throw new DesktopSourceError('UNKNOWN_TOOL');
-      const args = input ?? {};
-      if (!matches(spec.inputSchema, args)) throw new DesktopSourceError('INVALID_INPUT');
-      const { connectionId, ...fields } = args as { connectionId: string } & Record<string, unknown>;
-      const pagination = { limit: fields.limit as number | undefined, cursor: fields.cursor as string | undefined };
-      let result: unknown;
-      switch (name) {
-        case 'po_sources_list': result = router.listSources(); break;
-        case 'po_sources_open': result = await router.open(fields.sourceId as string, fields.access as string); break;
-        case 'po_sources_close': result = await router.close(connectionId); break;
-        case 'po_models_list': result = await router.listModels(connectionId, pagination); break;
-        case 'po_assets_list':
-          result = await router.listAssets(connectionId, {
-            ...pagination, modeKey: fields.modeKey as PromptModeKey | undefined, query: fields.query as string | undefined,
-          });
-          break;
-        case 'po_assets_list_versions':
-          result = await router.listAssetVersions(connectionId, {
-            favoriteId: fields.favoriteId as string,
-            assetId: fields.assetId as string,
-            expectedRevision: fields.expectedRevision as string | undefined,
-          }, pagination);
-          break;
-        case 'po_assets_get_version':
-          result = await router.getAssetVersion(connectionId, fields as unknown as AssetVersionSelection);
-          break;
-        case 'po_tests_prepare': result = await router.prepare(connectionId, fields as unknown as PrepareTextComparison); break;
-        case 'po_tests_execute':
-          result = await router.execute(connectionId, fields.preparedId as string, fields.previewRevision as string);
-          break;
-        case 'po_tests_get': result = await router.getTest(connectionId, fields.preparedId as string); break;
-        case 'po_tests_cancel':
-          result = await router.cancel(connectionId, fields.preparedId as string, fields.runId as string | undefined);
-          break;
-        case 'po_comparisons_save':
-          result = await router.saveComparison(connectionId, fields.preparedId as string, fields.saveKey as string);
-          break;
-        case 'po_comparisons_list':
-          result = await router.listComparisons(connectionId, { ...pagination, favoriteId: fields.favoriteId as string | undefined });
-          break;
-        case 'po_comparisons_get': result = await router.getComparison(connectionId, fields.comparisonId as string); break;
-        case 'po_comparisons_delete':
-          result = await router.deleteComparison(connectionId, fields.comparisonId as string, fields.expectedRevision as string);
-          break;
-        default: throw new DesktopSourceError('UNKNOWN_TOOL');
-      }
-      const payload = result as Record<string, unknown>;
+      const payload = await dispatcher.call(name, input ?? {});
       return { structuredContent: payload, content: [{ type: 'text' as const, text: JSON.stringify(payload) }] };
     } catch (error) {
       const payload = { error: publicDesktopError(error, access) };

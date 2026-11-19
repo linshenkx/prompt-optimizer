@@ -4,7 +4,7 @@
 
 新增 `prompt-optimizer-desktop-mcp --desktop-profile=<已有 userData 的绝对目录>`，也可直接运行 `node packages/mcp-server/bin/prompt-optimizer-desktop-mcp.cjs --desktop-profile=...`。它仅提供 stdio，不读取 MCP 环境变量或 `.env`，不改变原命令的三个优化工具及 HTTP `/mcp`。
 
-该入口提供业务操作目录、收藏/版本、模板、文本与图片模型、上下文、历史、变量、工作区、设置、异步优化/测试/评估与成果重开，以及由运行中的 Windows 桌面提供的图片/完整资源包桥。先使用 `po_sources_list` 和 `po_desktop_catalog`，再按返回的目录、版本及冲突保护操作。
+该入口提供业务操作目录、收藏/版本、模板、文本与图片模型、上下文、历史、变量、工作区、设置、异步优化/测试/评估、文本对照与成果重开，以及由运行中的 Windows 桌面提供的图片/完整资源包桥。先用 `po_sources_list` 找到来源，再用 `po_desktop_catalog` 查看业务操作，或用 `po_sources_open` 打开同一来源做对照。
 
 完整参数、覆盖矩阵、安全限制和验收命令见 [桌面 MCP 使用说明](../../docs/user/desktop-mcp.md)。本轮为本地交付，不等于现用安装包已升级；远端模型质量不能由回环协议夹具证明。
 
@@ -41,11 +41,13 @@ pnpm -F @prompt-optimizer/mcp-server test:desktop-stdio
 
 ## 桌面文本比较模式
 
-使用同样的已迁移桌面目录，以 stdio 启动比较模式。
+将已迁移的桌面目录配置到独立桌面 MCP，通过 stdio 使用比较工具。
 
 ```text
-node packages/mcp-server/bin/prompt-optimizer-mcp.cjs --mode=desktop-comparison "--desktop-profile=C:\path\to\desktop-userData"
+node packages/mcp-server/bin/prompt-optimizer-desktop-mcp.cjs "--desktop-profile=C:\path\to\desktop-userData"
 ```
+
+原命令的 `--mode=desktop-comparison` 继续兼容已有客户端配置。
 
 1. 用 `po_sources_list` 查找数据源，再通过 `po_sources_open({sourceId, access: "compare"})` 建立连接。如果旧 JSON 和 SQLite 都包含需要保留的数据，打开会返回 `SOURCE_DATA_DIVERGED`。两份数据保留供核对。
 2. 用 `po_assets_list` 查找 `pro-variable` 收藏，选择一个版本。用 `po_assets_list_versions` 按版本号找到需要的 `versionId`。资产和模型各自的 `revision` 可从 `po_assets_get_version`、`po_models_list` 取得。首版使用 `executable: true` 的两个不同已保存配置，支持 OpenAI 和 OpenAI Compatible。
@@ -53,7 +55,7 @@ node packages/mcp-server/bin/prompt-optimizer-mcp.cjs --mode=desktop-comparison 
 4. 确认后调用 `po_tests_execute`，提交原 `preparedId`、`previewRevision` 与同一 `connectionId`。这一步会将预览中的输入发给配置的模型，可能产生调用费用。网络由 MCP 的 Node 运行环境处理。用 `po_tests_get` 查询状态，用 `po_tests_cancel` 取消全部候选或指定 `runId`。关闭连接时也会取消运行中的请求。
 5. 两个候选结束后，用 `po_comparisons_save` 提交 `preparedId` 和本次保存意图的 `saveKey`。以返回的 `comparisonId` 在桌面变量工作区的「已保存比较」中重开结果，也可用 `po_comparisons_list`、`po_comparisons_get` 查询。删除时使用 `po_comparisons_delete` 提交选定记录的 `comparisonId` 和 `expectedRevision`。
 
-每项操作通过当前连接定位数据源。连接关闭后，使用新的连接可按原 `comparisonId` 重开已保存数据。查看记录会保留当前工作区的编辑。
+对照工具通过 `connectionId` 定位已打开的来源。关闭对照连接后，业务工具仍可使用同进程内的 `sourceId`。重新打开对照连接后可按原 `comparisonId` 回读已保存数据。查看记录会保留当前工作区的编辑。
 
 保存或删除返回 `WRITE_OUTCOME_UNKNOWN` 时，重开同一来源，通过 `po_comparisons_get` 核对该 `comparisonId` 的最终状态。保存所用的 ID 在准备阶段已经返回。
 
