@@ -1,7 +1,9 @@
 import type { IImportExportable } from '../../interfaces/import-export'
+import { v4 as randomUUID } from 'uuid'
+import { hashText } from '../../utils/portable-crypto'
 import type {
   ComparisonListOptions, ComparisonViewer, CompletedTextComparison,
-  SavedComparisonResult, SavedComparisonSummary, SavedComparisonV1,
+  SavedComparison, SavedComparisonResult, SavedComparisonSummary,
 } from './types'
 import {
   byteLength, canonical, COMPARISON_RECORD_LIMIT, COMPARISON_STORAGE_LIMIT, ComparisonRepositoryError,
@@ -30,7 +32,7 @@ export interface ComparisonStorage {
 interface StoredComparison {
   id: string
   revision: string
-  comparison: SavedComparisonV1 | null
+  comparison: SavedComparison | null
 }
 interface IndexEntry extends SavedComparisonSummary {
   favoriteId: string
@@ -165,8 +167,7 @@ async function intentHash(key: string): Promise<string> {
   if (typeof key !== 'string' || !/^[a-zA-Z0-9._:-]{1,128}$/.test(key)) {
     throw new ComparisonRepositoryError('INVALID_INPUT')
   }
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(key))
-  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
+  return hashText(key)
 }
 
 function order(a: Pick<IndexEntry, 'savedAt' | 'id'>, b: Pick<IndexEntry, 'savedAt' | 'id'>) {
@@ -195,9 +196,11 @@ function listAfter(catalog: IndexEntry[], options: ComparisonListOptions) {
 export function createComparisonRepository(storage: ComparisonStorage): ComparisonRepository {
   return {
     async save(completed, saveKey) {
-      const currentComparison: SavedComparisonV1 = {
-        ...structuredClone(completed), schemaVersion: 'saved-comparison/v1', savedAt: Date.now(),
-      }
+      const { candidatePrompt, ...comparison } = structuredClone(completed)
+      const savedAt = Date.now()
+      const currentComparison: SavedComparison = candidatePrompt === undefined
+        ? { ...comparison, schemaVersion: 'saved-comparison/v1', savedAt }
+        : { ...comparison, candidatePrompt, schemaVersion: 'saved-comparison/v2', savedAt }
       if (!isSavedComparison(currentComparison)) return invalidComparisonData()
       if (byteLength(JSON.stringify(currentComparison)) > COMPARISON_RECORD_LIMIT) {
         throw new ComparisonRepositoryError('RESULT_STORAGE_LIMIT')
@@ -219,7 +222,7 @@ export function createComparisonRepository(storage: ComparisonStorage): Comparis
         }
         const catalog = readCatalog(store.getItem(INDEX_KEY))
         if (intended !== null || catalog.some(item => item.id === id)) return invalidComparisonData()
-        const revision = globalThis.crypto.randomUUID()
+        const revision = randomUUID()
         const record = { id, revision, comparison: currentComparison }
         catalog.push(indexEntry(record)!)
         checkBudget(catalog)

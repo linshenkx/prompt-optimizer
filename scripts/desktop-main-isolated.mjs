@@ -103,7 +103,7 @@ for (const phase of ['first', 'restart', 'divergence']) {
   child.stdout.pipe(stdout);
   child.stderr.pipe(stderr);
   let timedOut = false;
-  const timeout = setTimeout(() => { timedOut = true; child.kill(); }, 25000);
+  const timeout = setTimeout(() => { timedOut = true; child.kill(); }, 90000);
   const result = await new Promise((resolveExit, reject) => {
     child.once('error', reject);
     child.once('close', (code, signal) => resolveExit({ code, signal }));

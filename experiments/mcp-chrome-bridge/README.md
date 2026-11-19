@@ -2,7 +2,27 @@
 
 Task `PO-MCP-CHROME-20261115`, round 1. See [the architecture and handoff](../../docs/architecture/mcp-chrome-bridge.md).
 
-This is an isolated transport experiment, **not product integration**. It exposes no MCP business tools, model calls, real favorites, real model settings or Chrome profile files. The browser uses raw IndexedDB in a disposable browser context, not the product Dexie provider. No package installation is needed.
+## Actual product integration — 2026-11-19
+
+The production integration now lives in `packages/core/src/services/browser-bridge`, `packages/ui/src/browser-bridge` and `packages/mcp-server/src/browser*.ts`. It reuses initialized product services and the existing MCP business contract. The old fixture files below remain historical protocol research, **not evidence for product integration**.
+
+Run the actual built web product against the real SDK stdio server:
+
+```powershell
+pnpm -F @prompt-optimizer/core build
+pnpm -F @prompt-optimizer/ui build:bundle
+pnpm -F @prompt-optimizer/web build
+pnpm -F @prompt-optimizer/mcp-server build
+pnpm -F @prompt-optimizer/mcp-server test:browser-product
+```
+
+Node 24.22.1 and Playwright Chromium/Firefox runtimes are required. The script starts only temporary local product/model HTTP services, uses isolated real browser contexts, seeds synthetic saved model configurations through the browser IndexedDB API, then authorizes through the actual product consent panel. Favorite writes, asset reads, model execution, comparison save/reopen and lifecycle checks all use the real MCP and initialized product services. No user profile or paid provider is used, and no browser security feature is disabled.
+
+Current output is `evidence/20261119/acceptance.json` plus screenshots; see [the local acceptance report](../../docs/testing/browser-mcp-local-20261119.md) for measured scope and restrictions. It is separate from the historical `evidence/browser-20261115.json` fixture observations. A targeted development run accepts `--case=chromium-loopback`; the complete matrix is the final acceptance evidence.
+
+## Historical isolated transport experiment — 2026-11-15
+
+The following is an isolated transport experiment, **not product integration**. It exposes no MCP business tools, model calls, real favorites, real model settings or Chrome profile files. The browser uses raw IndexedDB in a disposable browser context, not the product Dexie provider. No package installation is needed for these older checks.
 
 ## Run checks
 

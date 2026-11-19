@@ -1,8 +1,25 @@
-# Chrome 真实数据接入：进程内回环桥接方案与隔离原型
+# 网页真实数据接入：进程内回环桥接
 
 任务：`PO-MCP-CHROME-20261115`，轮次 1，2026-11-15。基线：`82a40b91ae9a0583f27bec121da03a157aacd42f`，独立分支 `feature/mcp-chrome-bridge`。
 
-已汇入桌面 MCP 集成分支。本文记录 Chrome 接入的早期研究和独立原型，接入产品 Dexie 和扩展页仍需验证。已实现的桌面业务接口见 [桌面文本比较模式](../../packages/mcp-server/README.md#桌面文本比较模式)。
+## 2026-11-19 产品接入状态
+
+已在当前 `feature/mcp-chrome-bridge` 工作区接入**实际产品网页**，不再仅是隔离样本。基于桌面集成提交 `a6cbff83`，未修改另一条桌面业务开发线。当前源码包含以下能力；这是本地实现和验收，不表示已提交、发布或替用户安装 MCP 配置。
+
+- `packages/mcp-server/src/browser.ts` 复用既有工具合同；`browser-transport.ts` 在现有 MCP stdio 进程内按需提供 WebSocket 回环通道。无第二套独立 daemon、CDP、资料目录读取或后台 profile 扫描。
+- `packages/ui/src/composables/system/useAppInitializer.ts` 在正常产品初始化完成后提供 bridge，绑定**同一** Dexie provider、FavoriteManager、LLMService 和 text adapter registry。授权不重建业务服务或迁移/补种数据。只读 reader 读取已保存数据，不回退默认模型。
+- `packages/ui/src/components/app-layout/BrowserBridgePanel.vue` 显示网址、标签、资料隔离说明、读取/比较写入权限和模型费用提示。一次性链接令牌位于 fragment、立即从地址清除，只经首次 WebSocket 消息提交，严格匹配原始 Origin 与回环 Host。
+- 来源按精确 origin + 持久浏览器数据 context UUID + 页面 UUID 区分；sourceId/connectionId 仅当前授权/会话有效。标签不是本机资料名称探测结果，同网址的不同资料/浏览器不互相代用。
+- 收藏复用 `po_desktop_catalog/query/mutate` 的 favorites 子集和现有业务方法。写入在真实 Dexie 事务内校验 revision，保存幂等回执，防止覆盖原页面并发修改。其他桌面业务域不在本次范围。
+- 读取资产版本、准备/执行两个已保存模型配置、查询输出、保存/删除比较使用现有文本比较合同。浏览器请求直接使用页面已经初始化的 LLMService；无 API key/端点配置导出。实际产品的「已保存比较」复用同一 Dexie repository 和 DataManager，可用 comparisonId 打开持久结果。
+- 原页面撤销/pagehide/MCP 退出会使旧来源失效并取消运行；非正常断线由心跳和调用前探活处理，无自动转移来源或自动重试模型。操作结果不确定时显式返回 `WRITE_OUTCOME_UNKNOWN` / `EXECUTION_OUTCOME_UNKNOWN`。
+- 普通内网 HTTP IP 页面缺少 `crypto.subtle`/`randomUUID` 时使用已有安全随机源和可移植 SHA-256/HMAC，不以关闭浏览器安全设置为代价接入。
+
+已运行实际生产构建页面 + 实际 SDK stdio MCP 的七组 Chromium/Firefox 本机验证：收藏创建及网页可见、资产版本读取、模型真实 HTTP/SSE 请求、输出读取、比较保存与原网页重开、同网址隔离、撤销/关页失效。模型端点是本地确定性服务，不冒充外部供应商成功。详细复现、浏览器版本和限制见 [本机验收](../testing/browser-mcp-local-20261119.md)，操作方式见 [MCP README](../../packages/mcp-server/README.md#网页授权数据源模式)。
+
+尚未宣称公网 HTTPS、部署 CSP/企业网络权限、安装版 PWA、扩展页或付费模型验收。桥接目前仅提供 browser stdio 启动模式，未合并浏览器/桌面多个 owner 的 HTTP MCP 服务。
+
+> **历史快照说明：以下第 1–9 节及原型结论保留 2026-11-15 的研究、合同交接和当时缺口。其“尚未接入真实产品”等状态已由本节及 2026-11-19 验收更新，不是当前实现状态。**
 
 ## 结论与交付边界
 

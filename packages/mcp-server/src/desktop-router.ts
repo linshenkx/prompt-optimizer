@@ -264,6 +264,9 @@ function createDesktopRouter(profiles: DesktopProfile[], accessMode: DesktopAcce
     listAssets(id: string, options: Parameters<IReadonlyAssetReader['listAssets']>[0]) {
       return useConnection(id, ({ reader }) => reader.listAssets(options));
     },
+    listAssetVersions(id: string, selection: Parameters<IReadonlyAssetReader['listAssetVersions']>[0], options: AssetReadPagination) {
+      return useConnection(id, ({ reader }) => reader.listAssetVersions(selection, options));
+    },
     getAssetVersion(id: string, selection: Parameters<IReadonlyAssetReader['getAssetVersion']>[0]) {
       return useConnection(id, ({ reader }) => reader.getAssetVersion(selection));
     },

@@ -77,16 +77,24 @@
           </header>
           <NAlert v-if="deleteError" type="error">{{ t('contextMode.savedComparisons.deleteError') }}</NAlert>
 
-          <details class="saved-comparison-evidence" open>
-            <summary>{{ t('contextMode.savedComparisons.input') }}</summary>
-            <pre data-testid="saved-comparison-input">{{ detail.comparison.request.messages[0].content }}</pre>
-            <template v-if="detail.comparison.request.rawPrompt !== detail.comparison.request.messages[0].content">
+          <details v-for="input in comparisonInputs" :key="input.side" class="saved-comparison-evidence" open>
+            <summary>{{ input.label }}</summary>
+            <pre :data-testid="input.side === 'a' ? 'saved-comparison-input' : 'saved-comparison-candidate-input'">{{ input.request.messages[0].content }}</pre>
+            <template v-if="input.request.rawPrompt !== input.request.messages[0].content">
               <NText depth="3">{{ t('promptOptimizer.originalPrompt') }}</NText>
-              <pre>{{ detail.comparison.request.rawPrompt }}</pre>
+              <pre>{{ input.request.rawPrompt }}</pre>
             </template>
-            <template v-if="Object.keys(detail.comparison.request.variables).length">
+            <NButton
+              v-if="input.isDraft && clipboard.isSupported"
+              size="small"
+              data-testid="copy-saved-comparison-candidate"
+              @click="copyCandidate(input.request.rawPrompt)"
+            >
+              {{ t('contextMode.savedComparisons.copyCandidate') }}
+            </NButton>
+            <template v-if="Object.keys(input.request.variables).length">
               <NText depth="3">{{ t('contextMode.savedComparisons.variables') }}</NText>
-              <pre>{{ formatObject(detail.comparison.request.variables) }}</pre>
+              <pre>{{ formatObject(input.request.variables) }}</pre>
             </template>
           </details>
 
@@ -135,7 +143,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { NAlert, NButton, NCard, NDrawer, NDrawerContent, NEmpty, NInput, NTag, NText, NTime } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import type {
@@ -145,13 +153,17 @@ import type {
   SavedComparisonSummary,
   TextComparisonRun,
 } from '@prompt-optimizer/core'
+import { useClipboard } from '../../composables/ui/useClipboard'
 import { useConfirmDialog } from '../../composables/ui/useConfirmDialog'
+import { useToast } from '../../composables/ui/useToast'
 import OutputDisplay from '../OutputDisplay.vue'
 
 const props = defineProps<{ show: boolean; viewer: ComparisonViewer }>()
 const emit = defineEmits<{ 'update:show': [show: boolean] }>()
 const { t } = useI18n()
 const confirmDialog = useConfirmDialog()
+const clipboard = useClipboard()
+const toast = useToast()
 
 const comparisonId = ref('')
 const items = shallowRef<SavedComparisonSummary[]>([])
@@ -172,6 +184,36 @@ const statusTone = {
   error: 'error',
   cancelled: 'warning',
 } as const satisfies Record<ComparisonTerminalStatus, string>
+
+const comparisonInputs = computed(() => {
+  const comparison = detail.value?.comparison
+  if (!comparison) return []
+  const candidate = comparison.candidatePrompt
+  const baseline = {
+    side: 'a',
+    label: candidate ? t('contextMode.savedComparisons.baselineInput') : t('contextMode.savedComparisons.input'),
+    request: comparison.request,
+    isDraft: false,
+  }
+  if (!candidate) return [baseline]
+  return [baseline, {
+    side: 'b',
+    label: candidate.kind === 'draft'
+      ? t('contextMode.savedComparisons.candidateDraftInput')
+      : t('contextMode.savedComparisons.candidateVersionInput', { version: candidate.version }),
+    request: candidate.request,
+    isDraft: candidate.kind === 'draft',
+  }]
+})
+
+async function copyCandidate(text: string) {
+  try {
+    await clipboard.copyText(text)
+    toast.success(t('common.copySuccess'))
+  } catch {
+    toast.error(t('common.copyFailed'))
+  }
+}
 
 const formatObject = (value: Record<string, unknown>) => JSON.stringify(value, null, 2)
 const hasOmittedParameters = ({ effective }: TextComparisonRun) =>

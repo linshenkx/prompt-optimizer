@@ -11,6 +11,12 @@ export interface LaunchDependencies {
 }
 export async function main(args = process.argv.slice(2), dependencies: LaunchDependencies = {}) {
   const selection = selectLaunchMode(args);
+  if (selection.mode === 'desktop') {
+    console.log = console.info = console.debug = console.warn = console.error = () => {};
+    const { startDesktopBusinessStdio } = await import('./desktop-business.js');
+    return startDesktopBusinessStdio(selection.profiles);
+  }
+  if (selection.mode === 'browser') return (await import('./browser.js')).startBrowserStdio();
   if (selection.mode === 'desktop-readonly') {
     const start = dependencies.desktopMain ?? (await import('./desktop.js')).startDesktopReadonlyStdio;
     const opener = dependencies.openDesktop ?? (await import('./desktop-storage.js')).openReadonlyDesktop;

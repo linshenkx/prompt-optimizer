@@ -1,4 +1,5 @@
 import arena from './arena'
+import browserBridge from './browserBridge'
 import workspace from './workspace'
 import core from './core'
 import favorites from './favorites'
@@ -11,6 +12,7 @@ import image from './image'
 import errors from './errors'
 
 const messages = {
+  ...browserBridge,
   ...arena,
   ...workspace,
   ...core,

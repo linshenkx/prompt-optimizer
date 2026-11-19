@@ -4,7 +4,7 @@ import { TextAdapterRegistry } from '../../../src/services/llm/adapters/registry
 import type { Message, StreamHandlers } from '../../../src/services/llm/types'
 import type { TextModelConfig } from '../../../src/services/model/types'
 import { createTextComparisonService } from '../../../src/services/text-comparison/runner'
-import type { PrepareTextComparison } from '../../../src/services/text-comparison/types'
+import type { PrepareTextComparison, TextComparisonPromptSelection } from '../../../src/services/text-comparison/types'
 
 const secret = 'SYNTHETIC_COMPARISON_KEY'
 const privateParameter = 'private-example-in-saved-config'
@@ -90,6 +90,11 @@ function fixture(prompt = 'Summarize {{subject}} as {{style}}. {{currentPrompt}}
   return { service, registry, models, favorites, customVariables, data, storage, beforeSend, modelRequests, selection, persistFixtures }
 }
 
+function withCandidatePrompt(selection: PrepareTextComparison, candidatePrompt: TextComparisonPromptSelection): PrepareTextComparison {
+  const model = selection.candidates[0]
+  return { ...selection, candidatePrompt, candidates: [model, { ...model, id: 'b' }] }
+}
+
 async function terminalResult(service: ReturnType<typeof createTextComparisonService>, preparedId: string) {
   await vi.waitFor(() => expect(service.get(preparedId).runs.every(run => run.completedAt !== undefined)).toBe(true))
   return service.completed(preparedId)
@@ -147,6 +152,48 @@ describe('source-bound text comparisons', () => {
     expect(JSON.stringify(saved)).not.toMatch(/fixture\.invalid|SYNTHETIC_COMPARISON_KEY|private-example-in-saved-config/)
     expect((await start()).runs.map(run => run.status)).toEqual(['success', 'success'])
     expect(f.modelRequests).toHaveLength(2)
+  })
+
+  it('uses the same model snapshot and separate frozen inputs for a favorite and a draft', async () => {
+    const f = fixture('Summarize {{subject}}')
+    const draft = { kind: 'draft' as const, text: 'Review {{subject}} with {{style}}' }
+    const before = Array.from(f.data)
+    const preview = await f.service.prepare(withCandidatePrompt(await f.selection(), draft))
+    const originalInput = [{ role: 'user', content: 'Summarize literal {{style}}' }]
+    const draftInput = [{ role: 'user', content: 'Review literal {{style}} with saved style' }]
+    expect(preview.request.messages).toEqual(originalInput)
+    expect(preview.candidatePrompt).toMatchObject({ kind: 'draft', request: { rawPrompt: draft.text, messages: draftInput } })
+    expect(preview.runs[0].effective.preview).toEqual(preview.runs[1].effective.preview)
+    expect(f.modelRequests).toHaveLength(0)
+
+    draft.text = 'Changed by the caller after preview'
+    if (preview.candidatePrompt) preview.candidatePrompt.request.messages[0].content = 'Modified response'
+    await f.service.execute(preview.preparedId, preview.previewRevision)
+    expect(f.modelRequests.map(call => call.messages)).toEqual([originalInput, draftInput])
+    expect(f.modelRequests[0].config).toEqual(f.modelRequests[1].config)
+    expect(f.modelRequests[0].config).not.toBe(f.modelRequests[1].config)
+    f.modelRequests.forEach((call, index) => {
+      call.callbacks.onToken('Answer ' + index)
+      call.resolve()
+    })
+    const completed = await terminalResult(f.service, preview.preparedId)
+    expect(completed.candidatePrompt?.request.messages).toEqual(draftInput)
+    expect(completed.runs.map(run => [run.status, run.output])).toEqual([['success', 'Answer 0'], ['success', 'Answer 1']])
+    expect(Array.from(f.data)).toEqual(before)
+  })
+
+  it('validates the draft and prevents starting when a variable used only by the candidate changes', async () => {
+    const f = fixture('Summarize {{subject}}')
+    const selection = await f.selection()
+    const draft = { kind: 'draft' as const, text: 'Summarize {{subject}} with {{style}}' }
+    await expect(f.service.prepare({ ...selection, candidatePrompt: draft })).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+    await expect(f.service.prepare(withCandidatePrompt(selection, { ...draft, text: 'Require {{missing}}' })))
+      .rejects.toMatchObject({ code: 'MISSING_VARIABLES', missingVariables: ['missing'] })
+    const preview = await f.service.prepare(withCandidatePrompt(selection, draft))
+    f.customVariables.style = 'changed only for the candidate'
+    f.persistFixtures()
+    await expect(f.service.execute(preview.preparedId, preview.previewRevision)).rejects.toMatchObject({ code: 'STALE_PREPARATION' })
+    expect(f.modelRequests).toHaveLength(0)
   })
 
   it('uses global variables as fallback and rejects missing, reserved, and unsafe placeholders before execution', async () => {

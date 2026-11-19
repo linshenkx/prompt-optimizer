@@ -1,4 +1,13 @@
 const messages = {
+  desktopRuns: {
+    runId: '執行標識', refresh: '重新整理', empty: '尚無已儲存的 MCP 執行成果', error: '讀取失敗，請重新整理後重試',
+    output: '執行結果', input: '凍結的輸入', deleteConfirm: '永久刪除此成果？不會刪除收藏和工作區草稿。',
+    kinds: { optimize: '提示詞最佳化', 'optimize-message': '訊息最佳化', iterate: '提示詞迭代', test: '單次測試',
+      'test-conversation': '多訊息測試', evaluate: '評估', image: '圖片生成', 'test-batch': '對照測試',
+      'extract-variables': '變數擷取', 'generate-variable-values': '變數值生成', 'model-list': '模型探索',
+      'model-test': '模型連線測試', 'image-model-list': '圖片模型探索', 'image-model-test': '圖片模型連線測試',
+      'image-understand': '圖片理解' },
+  },
   "common": {
     "loading": "載入中...",
     "save": "儲存",
@@ -161,6 +170,7 @@ const messages = {
     "history": "歷史紀錄",
     "templates": "功能提示詞",
     "dataManager": "資料管理",
+    "desktopRuns": "MCP 執行成果",
     "favorites": "收藏",
     "advancedMode": "進階模式",
     "variableManager": "變數管理",

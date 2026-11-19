@@ -1,4 +1,9 @@
-import type { TextRequestEvidence } from '../llm/types'
+import type { ILLMService, TextRequestEvidence } from '../llm/types'
+import type { TextModelConfig } from '../model/types'
+
+export type TextComparisonLLM = Pick<ILLMService, 'sendMessageStream'> & {
+  describeStreamRequest(config: TextModelConfig): TextRequestEvidence | undefined
+}
 
 export interface TextComparisonSource {
   favoriteId: string
@@ -9,7 +14,7 @@ export interface TextComparisonSource {
 }
 
 export interface ComparisonExecutionSource {
-  kind: 'desktop'
+  kind: 'desktop' | 'browser'
   sourceId: string
   sourceEpoch: string
   connectionGeneration: string
@@ -22,10 +27,15 @@ export interface TextComparisonCandidateSelection {
   expectedRevision: string
 }
 
+export type TextComparisonPromptSelection =
+  | { kind: 'draft'; text: string }
+  | { kind: 'saved-version'; versionId: string }
+
 export interface PrepareTextComparison {
   source: Omit<TextComparisonSource, 'title'>
   variables: Record<string, string>
   candidates: [TextComparisonCandidateSelection, TextComparisonCandidateSelection]
+  candidatePrompt?: TextComparisonPromptSelection
 }
 
 export interface TextComparisonRequest {
@@ -33,6 +43,10 @@ export interface TextComparisonRequest {
   messages: [{ role: 'user'; content: string }]
   variables: Record<string, string>
 }
+
+export type TextComparisonPromptSnapshot =
+  | { kind: 'draft'; request: TextComparisonRequest }
+  | { kind: 'saved-version'; versionId: string; version: number; request: TextComparisonRequest }
 
 export interface TextComparisonRun {
   id: 'a' | 'b'
@@ -62,6 +76,7 @@ export interface PreparedTextComparison {
   executionSource: ComparisonExecutionSource
   source: TextComparisonSource
   request: TextComparisonRequest
+  candidatePrompt?: TextComparisonPromptSnapshot
   runs: [TextComparisonRun, TextComparisonRun]
 }
 
@@ -78,13 +93,23 @@ export interface CompletedTextComparison {
   executionSource: ComparisonExecutionSource
   source: TextComparisonSource
   request: TextComparisonRequest
+  candidatePrompt?: TextComparisonPromptSnapshot
   runs: [CompletedTextComparisonRun, CompletedTextComparisonRun]
 }
 
 export interface SavedComparisonV1 extends CompletedTextComparison {
   schemaVersion: 'saved-comparison/v1'
+  candidatePrompt?: never
   savedAt: number
 }
+
+export interface SavedComparisonV2 extends CompletedTextComparison {
+  schemaVersion: 'saved-comparison/v2'
+  candidatePrompt: TextComparisonPromptSnapshot
+  savedAt: number
+}
+
+export type SavedComparison = SavedComparisonV1 | SavedComparisonV2
 
 export interface SavedComparisonSummary {
   id: string
@@ -106,7 +131,7 @@ export interface SavedComparisonPage {
 }
 
 export interface SavedComparisonResult {
-  comparison: SavedComparisonV1
+  comparison: SavedComparison
   revision: string
 }
 

@@ -110,7 +110,11 @@ describe('source-bound readonly asset discovery', () => {
     const before = f.data.get('favorites')
     const assets = await f.reader.listAssets()
     expect(assets.items[0]).toMatchObject({ assetId: 'favorite:fav-a', currentVersionId: 'favorite:fav-a:current', modeKey: 'basic-system', versionCount: 1 })
-    const detail = await f.reader.getAssetVersion({ favoriteId: 'fav-a', assetId: 'favorite:fav-a', versionId: 'favorite:fav-a:current', expectedRevision: assets.items[0].revision })
+    const selection = { favoriteId: 'fav-a', assetId: assets.items[0].assetId, expectedRevision: assets.items[0].revision }
+    const versions = await f.reader.listAssetVersions(selection)
+    expect(versions.items).toEqual([{ versionId: 'favorite:fav-a:current', version: 1, createdAt: 1 }])
+    expect(versions.currentVersionId).toBe(versions.items[0].versionId)
+    const detail = await f.reader.getAssetVersion({ ...selection, versionId: versions.items[0].versionId })
     expect(detail.variables).toEqual([{ name: 'topic', required: true, type: 'string', options: [] }])
     expect(JSON.stringify(assets)).not.toContain(secret)
     expect(JSON.stringify(detail)).not.toContain(secret)
@@ -132,10 +136,26 @@ describe('source-bound readonly asset discovery', () => {
     }
     raw.metadata = { promptAsset: asset }
     const f = fixture({ favorites: [raw] })
-    const detail = await f.reader.getAssetVersion({ favoriteId: 'fav-a', assetId: 'real-asset', versionId: 'version-a' })
+    const selection = { favoriteId: 'fav-a', assetId: 'real-asset' }
+    const newer = await f.reader.listAssetVersions(selection, { limit: 1 })
+    expect(newer).toMatchObject({ ...selection, currentVersionId: 'version-b', versionCount: 2 })
+    expect(newer.items).toEqual([{ versionId: 'version-b', version: 7, createdAt: 2 }])
+    expect(newer.nextCursor).toBeDefined()
+    const older = await f.reader.listAssetVersions({ ...selection, expectedRevision: newer.revision }, { cursor: newer.nextCursor })
+    expect(older.items).toEqual([{ versionId: 'version-a', version: 4, createdAt: 1 }])
+    expect(older.nextCursor).toBeUndefined()
+    const detail = await f.reader.getAssetVersion({
+      ...selection, versionId: older.items[0].versionId, expectedRevision: older.revision,
+    })
     expect(detail).toMatchObject({ versionId: 'version-a', version: 4, currentVersionId: 'version-b', content: { kind: 'text', text: 'Actual historical text' } })
     expect(JSON.stringify(detail)).not.toContain(secret)
     await rejectsSafely(f.reader.getAssetVersion({ favoriteId: 'fav-a', assetId: 'wrong-asset', versionId: 'version-a' }), 'ASSET_VERSION_NOT_FOUND')
+
+    asset.versions[0].content.text = 'Changed historical text'
+    f.data.set('favorites', JSON.stringify([raw]))
+    await rejectsSafely(f.reader.listAssetVersions({ ...selection, expectedRevision: newer.revision }), 'REVISION_CONFLICT')
+    await rejectsSafely(f.reader.listAssetVersions(selection, { cursor: newer.nextCursor }), 'INVALID_CURSOR')
+    expect(f.writes).toEqual([])
   })
 
   it('allows shared embedded asset IDs across favorites while selecting exact versions and revisions', async () => {

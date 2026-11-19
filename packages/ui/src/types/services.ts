@@ -21,7 +21,8 @@ import type {
   IVariableExtractionService,
   IVariableValueGenerationService,
   IImageStorageService,
-  ComparisonViewer
+  ComparisonViewer,
+  BrowserBridgeHost,
 } from '@prompt-optimizer/core'
 
 /**
@@ -33,6 +34,7 @@ export interface AppServices {
   historyManager: IHistoryManager;
   dataManager: IDataManager;
   savedComparisons?: ComparisonViewer;
+  browserBridge?: BrowserBridgeHost;
   llmService: ILLMService;
   promptService: IPromptService;
   templateLanguageService: ITemplateLanguageService;

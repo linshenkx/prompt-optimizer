@@ -1,4 +1,13 @@
 const messages = {
+  desktopRuns: {
+    runId: '运行标识', refresh: '刷新', empty: '暂无已保存的 MCP 运行成果', error: '读取失败，请刷新后重试',
+    output: '运行结果', input: '冻结的输入', deleteConfirm: '永久删除这条成果？不会删除收藏和工作区草稿。',
+    kinds: { optimize: '提示词优化', 'optimize-message': '消息优化', iterate: '提示词迭代', test: '单次测试',
+      'test-conversation': '多消息测试', evaluate: '评估', image: '图片生成', 'test-batch': '对照测试',
+      'extract-variables': '变量提取', 'generate-variable-values': '变量值生成', 'model-list': '模型发现',
+      'model-test': '模型连接测试', 'image-model-list': '图片模型发现', 'image-model-test': '图片模型连接测试',
+      'image-understand': '图片理解' },
+  },
   "common": {
     "loading": "加载中...",
     "save": "保存",
@@ -161,6 +170,7 @@ const messages = {
     "history": "历史记录",
     "templates": "功能提示词",
     "dataManager": "数据管理",
+    "desktopRuns": "MCP 运行成果",
     "favorites": "收藏夹",
     "advancedMode": "高级模式",
     "variableManager": "变量管理",

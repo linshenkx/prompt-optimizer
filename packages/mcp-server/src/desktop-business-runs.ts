@@ -1,0 +1,317 @@
+import { createHash, randomUUID } from 'node:crypto';
+import { createDesktopRunRepository, decodeTextModelSelection, findMissingVariables, replaceVariablesInContent,
+  type DesktopRun, type StreamHandlers } from '@prompt-optimizer/core';
+import { createReadonlyAssetReader, type AssetVersionSelection } from '@prompt-optimizer/core/asset-reader';
+import type { SQLiteStorageProvider } from '@prompt-optimizer/core/node';
+import { BusinessStage, redactConfiguration, type Snapshot } from './desktop-business-services.js';
+import { DesktopBusinessError, assertJson, publicBusinessError } from './desktop-business-catalog.js';
+
+export const runKinds = ['optimize', 'optimize-message', 'iterate', 'test', 'test-conversation', 'evaluate', 'image', 'test-batch',
+  'extract-variables', 'generate-variable-values', 'model-list', 'model-test', 'image-model-list', 'image-model-test', 'image-understand'] as const;
+export interface RunInput {
+  kind: typeof runKinds[number];
+  request: Record<string, unknown>;
+  source?: AssetVersionSelection;
+  promptField?: 'systemPrompt' | 'userPrompt';
+  inputRunId?: string;
+  timeoutMs?: number;
+}
+type ActiveRun = { controller: AbortController; task: Promise<void>; state: DesktopRun };
+
+export class DesktopBusinessRuns {
+  readonly repository;
+  readonly ownerId = `${process.pid}:${randomUUID()}`;
+  private readonly active = new Map<string, ActiveRun>();
+  private closing = false;
+
+  constructor(private readonly provider: SQLiteStorageProvider, private readonly sourceId: string,
+    private readonly revisionKey = globalThis.crypto.subtle.generateKey({ name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])) {
+    this.repository = createDesktopRunRepository(provider);
+  }
+
+  async start(input: RunInput, requestKey: string, snapshot: Snapshot): Promise<DesktopRun> {
+    assertJson(input);
+    if (this.closing) throw new DesktopBusinessError('SOURCE_CLOSING');
+    if (!input || typeof input !== 'object' || !runKinds.includes(input.kind) || !input.request ||
+      typeof input.request !== 'object' || Array.isArray(input.request) ||
+      Object.keys(input).some(key => !['kind', 'request', 'source', 'promptField', 'inputRunId', 'timeoutMs'].includes(key))) {
+      throw new DesktopBusinessError('INVALID_INPUT');
+    }
+    if (input.promptField !== undefined && !['systemPrompt', 'userPrompt'].includes(input.promptField)) throw new DesktopBusinessError('INVALID_INPUT');
+    if (input.source && (!input.source.expectedRevision || typeof input.source.expectedRevision !== 'string')) {
+      throw new DesktopBusinessError('ASSET_REVISION_REQUIRED');
+    }
+    if ('configSnapshot' in input.request || 'modelConfig' in input.request) throw new DesktopBusinessError('USE_SAVED_MODEL_CONFIGURATION');
+    if (input.timeoutMs !== undefined && (!Number.isInteger(input.timeoutMs) || input.timeoutMs < 100 || input.timeoutMs > 600_000)) {
+      throw new DesktopBusinessError('INVALID_TIMEOUT');
+    }
+    const requestHash = createHash('sha256').update(JSON.stringify(input)).digest('hex');
+    const previous = (await this.repository.list()).find(run => run.requestKey === requestKey);
+    if (previous) {
+      if (previous.deleted) throw new DesktopBusinessError('RUN_DELETED');
+      if (previous.requestHash !== requestHash) throw new DesktopBusinessError('REQUEST_KEY_REUSED');
+      return this.get(previous.id);
+    }
+    if (this.active.size >= 4) throw new DesktopBusinessError('RUN_CAPACITY_REACHED');
+    const stage = new BusinessStage(snapshot);
+    const request = structuredClone(input.request);
+    if (input.inputRunId) {
+      const dependency = await this.get(input.inputRunId);
+      if (dependency.status !== 'succeeded') throw new DesktopBusinessError('INPUT_RUN_NOT_SUCCEEDED');
+      const output = dependency.output ?? dependency.partial;
+      if (typeof output !== 'string' || !output.trim()) throw new DesktopBusinessError('INPUT_RUN_NOT_TEXT');
+      if (input.kind === 'test') request[input.promptField ?? 'systemPrompt'] = output;
+      else if (input.kind === 'evaluate') {
+        const original = (dependency.input as { request: Record<string, unknown> }).request;
+        request.target ??= { workspacePrompt: dependency.kind === 'optimize' ? output : original.systemPrompt || original.userPrompt };
+        if (request.type === 'result') {
+          request.testCase = { id: dependency.id, input: { kind: 'text', label: 'MCP test input', content: original.userPrompt ?? '' } };
+          request.snapshot = { id: dependency.id, label: 'MCP test result', testCaseId: dependency.id,
+            promptRef: { kind: 'custom' }, promptText: original.systemPrompt ?? '', output, modelKey: original.modelKey };
+        }
+      } else throw new DesktopBusinessError('INPUT_RUN_NOT_SUPPORTED');
+    }
+    if (input.source) {
+      const reader = createReadonlyAssetReader(stage, { sourceId: this.sourceId, sourceEpoch: 'business-v1' }, { revisionKey: this.revisionKey });
+      const version = await reader.getAssetVersion(input.source);
+      const text = version.content.text;
+      if (input.kind === 'optimize') request.targetPrompt = text;
+      else if (input.kind === 'iterate') request.originalPrompt = text;
+      else if (input.kind === 'test') request[input.promptField ?? 'systemPrompt'] = text;
+      else if (input.kind === 'evaluate') request.target = { ...(request.target as object ?? {}), workspacePrompt: text };
+      else throw new DesktopBusinessError('SOURCE_NOT_SUPPORTED_FOR_RUN');
+    }
+    const prepareTest = async (candidate: Record<string, unknown>) => {
+      if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate) || 'configSnapshot' in candidate || 'modelConfig' in candidate) {
+        throw new DesktopBusinessError('INVALID_CANDIDATE');
+      }
+      if (candidate.source) {
+        const selection = candidate.source as AssetVersionSelection;
+        if (!selection.expectedRevision) throw new DesktopBusinessError('ASSET_REVISION_REQUIRED');
+        const reader = createReadonlyAssetReader(stage, { sourceId: this.sourceId, sourceEpoch: 'business-v1' }, { revisionKey: this.revisionKey });
+        const version = await reader.getAssetVersion(selection);
+        if (candidate.promptField !== undefined && !['systemPrompt', 'userPrompt'].includes(candidate.promptField as string)) throw new DesktopBusinessError('INVALID_INPUT');
+        candidate[(candidate.promptField as string) ?? 'systemPrompt'] = version.content.text;
+      }
+      if (candidate.variables !== undefined) {
+        const variables = candidate.variables as Record<string, string>;
+        if (!variables || typeof variables !== 'object' || Array.isArray(variables) || Object.values(variables).some(value => typeof value !== 'string')) {
+          throw new DesktopBusinessError('INVALID_VARIABLES');
+        }
+        for (const field of ['systemPrompt', 'userPrompt']) {
+          if (typeof candidate[field] !== 'string') continue;
+          if (findMissingVariables(candidate[field] as string, variables).length) throw new DesktopBusinessError('MISSING_VARIABLES');
+          candidate[field] = replaceVariablesInContent(candidate[field] as string, variables, 1024 * 1024);
+        }
+      }
+      return candidate;
+    };
+    if (input.kind === 'test') await prepareTest(request);
+    if (input.kind === 'test-batch') {
+      if (!Array.isArray(request.candidates) || request.candidates.length < 2 || request.candidates.length > 4) throw new DesktopBusinessError('INVALID_CANDIDATES');
+      request.candidates = await Promise.all(request.candidates.map(candidate => prepareTest(candidate)));
+    }
+    const candidates = input.kind === 'test-batch' ? request.candidates as Record<string, unknown>[] : [request];
+    const executionModels = [];
+    const imageKind = ['image', 'image-model-list', 'image-model-test'].includes(input.kind);
+    for (const candidate of candidates) {
+      const key = candidate.modelKey ?? candidate.evaluationModelKey ?? candidate.extractionModelKey ?? candidate.generationModelKey ?? candidate.configId;
+      if (typeof key !== 'string') throw new DesktopBusinessError('INVALID_MODEL_KEY');
+      const stored = JSON.parse(snapshot.get(imageKind ? 'image-models' : 'models') ?? '{}') as Record<string, unknown>;
+      const configKey = imageKind ? key : decodeTextModelSelection(key)?.configId ?? key;
+      if (!Object.hasOwn(stored, configKey)) throw new DesktopBusinessError('MODEL_NOT_CONFIGURED');
+      const config = await (await stage.service(imageKind ? 'imageModels' : 'models'))[imageKind ? 'getConfig' : 'getModel'](key) as Record<string, unknown> | null;
+      if (!config) throw new DesktopBusinessError('MODEL_NOT_FOUND');
+      executionModels.push(redactConfiguration({ configKey, name: config.name, providerId: config.providerId,
+        modelId: config.modelId, paramOverrides: config.paramOverrides, coverage: 'frozen-saved-config' }));
+    }
+    const state: DesktopRun = {
+      id: randomUUID(), requestKey, requestHash, ownerId: this.ownerId, kind: input.kind,
+      status: 'running', createdAt: Date.now(), updatedAt: Date.now(), saved: false,
+      input: redactConfiguration({ ...input, request, executionModels, sourceRevision: input.source?.expectedRevision }), partial: '', reasoning: '',
+    };
+    const persisted = await this.repository.create(state);
+    if (persisted.id !== state.id) return this.get(persisted.id);
+    const controller = new AbortController();
+    const active: ActiveRun = { controller, state, task: Promise.resolve() };
+    this.active.set(state.id, active);
+    active.task = this.execute(stage, input.kind, request, controller, state, input.timeoutMs ?? 180_000)
+      .finally(() => { if (state.error?.code !== 'RUN_PERSISTENCE_FAILED') this.active.delete(state.id); });
+    return structuredClone(state);
+  }
+
+  private async execute(stage: BusinessStage, kind: RunInput['kind'], request: Record<string, unknown>,
+    controller: AbortController, state: DesktopRun, timeoutMs: number): Promise<void> {
+    const timer = setTimeout(() => controller.abort(new DesktopBusinessError('RUN_TIMEOUT')), timeoutMs);
+    let pollPending = false;
+    const cancellationTimer = setInterval(() => {
+      if (pollPending) return;
+      pollPending = true;
+      void this.repository.get(state.id).then(run => {
+        if (run.cancelRequested) controller.abort(new DesktopBusinessError('RUN_CANCELLED'));
+      }).catch(() => {}).finally(() => { pollPending = false; });
+    }, 500);
+    const handlers: StreamHandlers = {
+      signal: controller.signal,
+      onToken: token => {
+        controller.signal.throwIfAborted();
+        if ((state.partial?.length ?? 0) + token.length > 4 * 1024 * 1024) {
+          controller.abort(new DesktopBusinessError('OUTPUT_LIMIT_REACHED'));
+          controller.signal.throwIfAborted();
+        }
+        state.partial += token;
+      },
+      onReasoningToken: token => {
+        controller.signal.throwIfAborted();
+        if ((state.reasoning?.length ?? 0) + token.length > 4 * 1024 * 1024) {
+          controller.abort(new DesktopBusinessError('OUTPUT_LIMIT_REACHED'));
+          controller.signal.throwIfAborted();
+        }
+        state.reasoning += token;
+      },
+      onComplete: () => {},
+      onError: error => { throw error; },
+    };
+    try {
+      let onAbort: (() => void) | undefined;
+      const interrupted = new Promise<never>((_resolve, reject) => {
+        onAbort = () => reject(controller.signal.reason);
+        controller.signal.addEventListener('abort', onAbort, { once: true });
+        if (controller.signal.aborted) onAbort();
+      });
+      let output: unknown;
+      try { output = await Promise.race([this.perform(stage, kind, request, handlers), interrupted]); }
+      finally { if (onAbort) controller.signal.removeEventListener('abort', onAbort); }
+      controller.signal.throwIfAborted();
+      state.status = 'succeeded'; state.output = output ?? state.partial;
+    } catch (error) {
+      state.status = controller.signal.aborted ? 'cancelled' : 'failed';
+      state.error = publicBusinessError(controller.signal.aborted ? controller.signal.reason : error);
+    } finally {
+      clearTimeout(timer);
+      clearInterval(cancellationTimer);
+      state.updatedAt = Date.now();
+      try { Object.assign(state, await this.repository.update(state.id, state)); }
+      catch { state.error = publicBusinessError(new DesktopBusinessError('RUN_PERSISTENCE_FAILED')); state.status = 'failed'; }
+    }
+  }
+
+  private async perform(stage: BusinessStage, kind: RunInput['kind'], request: Record<string, unknown>, handlers: StreamHandlers): Promise<unknown> {
+    if (kind === 'extract-variables') return (await stage.service('variableExtraction')).extract(request);
+    if (kind === 'generate-variable-values') return (await stage.service('variableValues')).generate(request);
+    if (kind === 'model-list' || kind === 'model-test') {
+      if (typeof request.modelKey !== 'string') throw new DesktopBusinessError('INVALID_MODEL_KEY');
+      const service = await stage.service('llm');
+      if (kind === 'model-list') return service.fetchModelList(request.modelKey);
+      await service.testConnection(request.modelKey); return { connected: true };
+    }
+    if (kind === 'image-model-list' || kind === 'image-model-test') {
+      if (typeof request.modelKey !== 'string') throw new DesktopBusinessError('INVALID_MODEL_KEY');
+      const config = await (await stage.service('imageModels')).getConfig(request.modelKey) as { providerId: string; connectionConfig: unknown } | null;
+      if (!config) throw new DesktopBusinessError('MODEL_NOT_FOUND');
+      const service = await stage.service('image');
+      return kind === 'image-model-list' ? service.getDynamicModels(config.providerId, config.connectionConfig) : service.testConnection(config);
+    }
+    if (kind === 'image-understand') {
+      if (typeof request.modelKey !== 'string') throw new DesktopBusinessError('INVALID_MODEL_KEY');
+      const modelConfig = await (await stage.service('models')).getModel(request.modelKey);
+      await (await stage.service('imageUnderstanding')).understandStream({ ...request, modelConfig }, handlers);
+      return undefined;
+    }
+    if (kind === 'evaluate') {
+      const service = await stage.service('evaluation');
+      let output: unknown;
+      await service.evaluateStream(request, {
+        ...handlers, onComplete: (result: unknown) => { output = result; },
+      });
+      if (!output) throw new DesktopBusinessError('EVALUATION_RESULT_MISSING');
+      return output;
+    }
+    if (kind === 'image') {
+      const service = await stage.service('image');
+      return service.generate(request);
+    }
+    if (kind === 'test-batch') {
+      const candidates = request.candidates;
+      if (!Array.isArray(candidates) || candidates.length < 2 || candidates.length > 4) throw new DesktopBusinessError('INVALID_CANDIDATES');
+      return Promise.all(candidates.map(async (candidate: Record<string, unknown>, index: number) => {
+        let text = '';
+        try {
+          await this.perform(stage, 'test', candidate, { ...handlers, onToken: token => {
+            handlers.signal?.throwIfAborted();
+            if (text.length + token.length > 1024 * 1024) throw new DesktopBusinessError('OUTPUT_LIMIT_REACHED');
+            text += token;
+          } });
+          return { id: String(index + 1), status: 'succeeded', output: text };
+        } catch (error) {
+          return { id: String(index + 1), status: handlers.signal?.aborted ? 'cancelled' : 'failed', output: text, error: publicBusinessError(error) };
+        }
+      }));
+    }
+    const service = await stage.service('prompt');
+    if (kind === 'optimize') await service.optimizePromptStream(request, handlers);
+    else if (kind === 'optimize-message') await service.optimizeMessageStream(request, handlers);
+    else if (kind === 'test-conversation') await service.testCustomConversationStream(request, handlers);
+    else if (kind === 'test') await service.testPromptStream(request.systemPrompt ?? '', request.userPrompt ?? '', request.modelKey, handlers, request.inputImages);
+    else if (kind === 'iterate') await service.iteratePromptStream(request.originalPrompt, request.lastOptimizedPrompt,
+      request.iterateInput, request.modelKey, handlers, request.templateId, request.contextData);
+    else throw new DesktopBusinessError('INVALID_RUN_KIND');
+    return undefined;
+  }
+
+  async get(id: string): Promise<DesktopRun> {
+    const active = this.active.get(id);
+    const state = active?.state ?? await this.repository.get(id);
+    if (state.status === 'running' && state.ownerId !== this.ownerId) {
+      const ownerPid = Number(state.ownerId.split(':')[0]);
+      if (Number.isSafeInteger(ownerPid) && ownerPid > 0) {
+        try { process.kill(ownerPid, 0); }
+        catch (error) {
+          if ((error as NodeJS.ErrnoException).code === 'ESRCH') return this.repository.update(id, {
+            status: 'interrupted', error: publicBusinessError(new DesktopBusinessError('RUN_INTERRUPTED')),
+          });
+        }
+      }
+    }
+    const output = structuredClone(state);
+    if (output.status === 'succeeded' && output.output === undefined) output.output = output.partial;
+    return output;
+  }
+
+  async cancel(id: string): Promise<DesktopRun> {
+    const run = await this.get(id);
+    if (run.status !== 'running') return run;
+    const active = this.active.get(id);
+    await this.repository.update(id, { cancelRequested: true });
+    active?.controller.abort(new DesktopBusinessError('RUN_CANCELLED'));
+    return this.get(id);
+  }
+
+  async save(id: string, target: 'archive' | 'history' = 'archive'): Promise<DesktopRun> {
+    const run = await this.get(id);
+    if (run.status === 'running') throw new DesktopBusinessError('RUN_ACTIVE');
+    if (target === 'history') {
+      if (run.historyChainId) return run;
+      if (run.status !== 'succeeded' || typeof run.output !== 'string' ||
+        !['optimize', 'optimize-message', 'iterate'].includes(run.kind)) throw new DesktopBusinessError('RUN_NOT_HISTORY_COMPATIBLE');
+      const stage = new BusinessStage(new Map(await this.provider.getAllEntries()));
+      const input = (run.input as { request: Record<string, unknown> }).request;
+      const chain = await (await stage.service('history')).createNewChain({
+        id: randomUUID(), originalPrompt: input.targetPrompt ?? input.originalPrompt ?? '', optimizedPrompt: run.output,
+        type: input.optimizationMode === 'user' ? 'userOptimize' : 'optimize', timestamp: Date.now(),
+        modelKey: input.modelKey, templateId: input.templateId ?? '', metadata: { desktopRunId: run.id },
+      }) as { chainId: string };
+      const saved = await createDesktopRunRepository(stage).update(id, { saved: true, historyChainId: chain.chainId });
+      await stage.commit(this.provider);
+      return saved;
+    }
+    return this.repository.update(id, { ...run, saved: true, input: redactConfiguration(run.input) });
+  }
+
+  async close(): Promise<void> {
+    this.closing = true;
+    const runs = [...this.active.values()];
+    for (const run of runs) run.controller.abort(new DesktopBusinessError('SOURCE_CLOSING'));
+    await Promise.all(runs.map(run => run.task));
+  }
+}

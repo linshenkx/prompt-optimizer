@@ -1,6 +1,6 @@
 import type { TextRequestEvidence } from '../llm/types'
 import { isPublicTextRequestOmissions, isPublicTextRequestParameters } from '../llm/request-evidence'
-import type { ComparisonTerminalStatus, SavedComparisonV1 } from './types'
+import type { ComparisonTerminalStatus, SavedComparison } from './types'
 
 export const COMPARISON_RECORD_LIMIT = 1024 * 1024
 export const COMPARISON_STORAGE_LIMIT = 16 * COMPARISON_RECORD_LIMIT
@@ -82,20 +82,40 @@ function validRun(value: unknown, id: 'a' | 'b'): boolean {
   return effective.requestEvidence === 'pending' && effective.request === undefined && value.status !== 'success'
 }
 
-export function isSavedComparison(value: unknown): value is SavedComparisonV1 {
-  if (!object(value, ['schemaVersion', 'id', 'savedAt', 'source', 'executionSource', 'request', 'runs']) ||
-    value.schemaVersion !== 'saved-comparison/v1' || !uuid(value.id) || !timestamp(value.savedAt)) return false
+function validRequest(value: unknown): boolean {
+  return object(value, ['rawPrompt', 'messages', 'variables']) && named(value.rawPrompt) &&
+    Array.isArray(value.messages) && value.messages.length === 1 &&
+    object(value.messages[0], ['role', 'content']) && value.messages[0].role === 'user' && named(value.messages[0].content) &&
+    object(value.variables) && Object.values(value.variables).every(item => typeof item === 'string')
+}
 
-  const { source, executionSource, request, runs } = value
-  return object(source, ['favoriteId', 'assetId', 'versionId', 'expectedRevision', 'title']) &&
-    [source.favoriteId, source.assetId, source.versionId, source.expectedRevision, source.title].every(named) &&
-    object(executionSource, ['kind', 'sourceId', 'sourceEpoch', 'connectionGeneration', 'label']) &&
-    executionSource.kind === 'desktop' &&
-    [executionSource.sourceId, executionSource.sourceEpoch, executionSource.connectionGeneration, executionSource.label].every(named) &&
-    object(request, ['rawPrompt', 'messages', 'variables']) && named(request.rawPrompt) &&
-    Array.isArray(request.messages) && request.messages.length === 1 &&
-    object(request.messages[0], ['role', 'content']) && request.messages[0].role === 'user' && named(request.messages[0].content) &&
-    object(request.variables) && Object.values(request.variables).every(item => typeof item === 'string') &&
-    Array.isArray(runs) && runs.length === 2 && validRun(runs[0], 'a') && validRun(runs[1], 'b') &&
-    runs[0].runId !== runs[1].runId && runs[0].model.configKey !== runs[1].model.configKey
+function validCandidatePrompt(value: unknown, baselineVersionId: unknown): boolean {
+  if (!object(value) || !validRequest(value.request)) return false
+  if (value.kind === 'draft') return object(value, ['kind', 'request'])
+  return value.kind === 'saved-version' && object(value, ['kind', 'versionId', 'version', 'request']) &&
+    named(value.versionId) && value.versionId !== baselineVersionId && timestamp(value.version) && value.version > 0
+}
+
+export function isSavedComparison(value: unknown): value is SavedComparison {
+  if (!object(value, ['schemaVersion', 'id', 'savedAt', 'source', 'executionSource', 'request', 'candidatePrompt', 'runs']) ||
+    (value.schemaVersion !== 'saved-comparison/v1' && value.schemaVersion !== 'saved-comparison/v2') ||
+    !uuid(value.id) || !timestamp(value.savedAt)) return false
+
+  const { source, executionSource, request, candidatePrompt, runs } = value
+  if (!object(source, ['favoriteId', 'assetId', 'versionId', 'expectedRevision', 'title']) ||
+    ![source.favoriteId, source.assetId, source.versionId, source.expectedRevision, source.title].every(named) ||
+    !object(executionSource, ['kind', 'sourceId', 'sourceEpoch', 'connectionGeneration', 'label']) ||
+    (executionSource.kind !== 'desktop' && executionSource.kind !== 'browser') ||
+    ![executionSource.sourceId, executionSource.sourceEpoch, executionSource.connectionGeneration, executionSource.label].every(named) ||
+    !validRequest(request) || !Array.isArray(runs) || runs.length !== 2 ||
+    !validRun(runs[0], 'a') || !validRun(runs[1], 'b') || runs[0].runId === runs[1].runId) return false
+
+  const [baseline, candidate] = runs
+  if (value.schemaVersion === 'saved-comparison/v1') {
+    return candidatePrompt === undefined && baseline.model.configKey !== candidate.model.configKey
+  }
+  return validCandidatePrompt(candidatePrompt, source.versionId) &&
+    canonical(baseline.model) === canonical(candidate.model) &&
+    evidence(baseline.effective.preview) &&
+    canonical(baseline.effective.preview) === canonical(candidate.effective.preview)
 }

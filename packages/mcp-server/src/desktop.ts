@@ -25,6 +25,7 @@ type FieldSchema =
 type ToolSpec = Tool & { inputSchema: ObjectSchema };
 const string = { type: 'string', minLength: 1 } as const;
 const pagination = { limit: { type: 'integer', minimum: 1, maximum: 100 } as const, cursor: string };
+const assetSelectionFields = { favoriteId: string, assetId: string, expectedRevision: string };
 const readOnly = { readOnlyHint: true, destructiveHint: false };
 const localAction = { readOnlyHint: false, destructiveHint: false, openWorldHint: false };
 
@@ -45,6 +46,11 @@ const prepareInput = connectionInput({
     type: 'object', additionalProperties: { type: 'string' },
     propertyNames: { not: { enum: ['__proto__', 'constructor', 'prototype'] } },
   },
+  candidatePrompt: object({
+    kind: { type: 'string', enum: ['draft', 'saved-version'] },
+    text: string,
+    versionId: string,
+  }, ['kind']),
   candidates: {
     type: 'array', minItems: 2, maxItems: 2,
     items: object({ id: { type: 'string', enum: ['a', 'b'] }, configKey: string, expectedRevision: string },
@@ -53,7 +59,7 @@ const prepareInput = connectionInput({
 }, ['source', 'variables', 'candidates']);
 
 const comparisonTools: ToolSpec[] = [
-  tool('po_tests_prepare', 'Validate a pro-variable favorite version and two enabled, saved model configurations. Freeze and preview their shared input and parameters without calling either model.',
+  tool('po_tests_prepare', 'Preview a variable-workspace favorite with two different saved model configurations. To compare prompts under the same model, pass candidatePrompt as a draft with text or a saved-version with versionId and use the same model configuration and revision for A and B.',
     prepareInput, localAction),
   tool('po_tests_execute', 'Start both prepared model requests. This sends the previewed prompt to the saved model endpoints using the MCP Node runtime network settings and can incur charges.',
     connectionInput({ preparedId: string, previewRevision: string }, ['preparedId', 'previewRevision']),
@@ -74,7 +80,7 @@ const comparisonTools: ToolSpec[] = [
     { ...localAction, destructiveHint: true, idempotentHint: true }),
 ];
 
-function toolSpecs(access: DesktopAccess) {
+export function toolSpecs(access: DesktopAccess) {
   const comparison = access === 'compare';
   const shared = [
     tool('po_sources_list', 'List configured desktop source labels without opening storage.', object({}, [])),
@@ -89,9 +95,10 @@ function toolSpecs(access: DesktopAccess) {
       : 'List saved model descriptions; execution is unavailable.', connectionInput(pagination, [])),
     tool('po_assets_list', 'List saved prompt assets without contents or private metadata.',
       connectionInput({ ...pagination, modeKey: string, query: { type: 'string' } }, [])),
+    tool('po_assets_list_versions', 'List the versions of a saved prompt in descending version order. Use the returned version ID and asset revision to read the requested version.',
+      connectionInput({ ...assetSelectionFields, ...pagination }, ['favoriteId', 'assetId'])),
     tool('po_assets_get_version', 'Read one exact saved or legacy current text version.',
-      connectionInput({ favoriteId: string, assetId: string, versionId: string, expectedRevision: string },
-        ['favoriteId', 'assetId', 'versionId'])),
+      connectionInput({ ...assetSelectionFields, versionId: string }, ['favoriteId', 'assetId', 'versionId'])),
   ];
   return comparison ? [...shared, ...comparisonTools] : shared;
 }
@@ -101,7 +108,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
   const prototype: unknown = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
 }
-function matches(schema: FieldSchema, value: unknown): boolean {
+export function matches(schema: FieldSchema, value: unknown): boolean {
   switch (schema.type) {
     case 'string':
       return typeof value === 'string' && (!schema.minLength || value.trim().length >= schema.minLength) &&
@@ -151,6 +158,13 @@ function createDesktopServer(access: DesktopAccess, router: DesktopRouter) {
           result = await router.listAssets(connectionId, {
             ...pagination, modeKey: fields.modeKey as PromptModeKey | undefined, query: fields.query as string | undefined,
           });
+          break;
+        case 'po_assets_list_versions':
+          result = await router.listAssetVersions(connectionId, {
+            favoriteId: fields.favoriteId as string,
+            assetId: fields.assetId as string,
+            expectedRevision: fields.expectedRevision as string | undefined,
+          }, pagination);
           break;
         case 'po_assets_get_version':
           result = await router.getAssetVersion(connectionId, fields as unknown as AssetVersionSelection);

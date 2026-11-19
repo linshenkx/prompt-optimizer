@@ -125,7 +125,7 @@ describe('desktop launch and source routing', () => {
     pending.resolve(a); await checked; await disposed;
     expect(a.close).toHaveBeenCalledOnce();
   });
-  it('discovers six real MCP tools and rejects write access and path injection', async () => {
+  it('discovers seven real MCP tools and rejects write access and path injection', async () => {
     const a = lease('A'); const opener = vi.fn(async () => a);
     const { server, router } = createDesktopReadonlyServer([profiles[0]], opener);
     const client = new Client({ name: 'test', version: '1' });
@@ -133,7 +133,7 @@ describe('desktop launch and source routing', () => {
     await server.connect(serverTransport); await client.connect(clientTransport);
     try {
       const tools = (await client.listTools()).tools;
-      expect(tools).toHaveLength(6); expect(tools.every(tool => tool.annotations?.readOnlyHint)).toBe(true);
+      expect(tools).toHaveLength(7); expect(tools.every(tool => tool.annotations?.readOnlyHint)).toBe(true);
       const sources = (await client.callTool({ name: 'po_sources_list', arguments: {} })).structuredContent as { sources: Array<{ sourceId: string }> };
       expect(opener).not.toHaveBeenCalled();
       for (const args of [{ sourceId: sources.sources[0].sourceId, access: 'save' }, { sourceId: sources.sources[0].sourceId, access: 'read', userDataPath: pathB }]) {
@@ -250,7 +250,8 @@ describe('desktop comparison tools', () => {
     };
     try {
       const { tools } = await client.listTools();
-      expect(tools).toHaveLength(14);
+      expect(tools).toHaveLength(15);
+      expect(tools.find(tool => tool.name === 'po_assets_list_versions')?.annotations).toMatchObject({ readOnlyHint: true });
       expect(tools.find(tool => tool.name === 'po_tests_execute')?.annotations).toMatchObject({ readOnlyHint: false, openWorldHint: true });
       expect(tools.find(tool => tool.name === 'po_comparisons_delete')?.annotations).toMatchObject({ destructiveHint: true });
       const { sources } = await ok('po_sources_list') as ReturnType<typeof router.listSources>;

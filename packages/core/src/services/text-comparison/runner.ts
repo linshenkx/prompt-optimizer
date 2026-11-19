@@ -1,4 +1,5 @@
 import type { AssetReadPagination, AssetReadStorage } from '../asset-reader/types'
+import { v4 as randomUUID } from 'uuid'
 import { TextAdapterRegistry } from '../llm/adapters/registry'
 import { LLMService } from '../llm/service'
 import type { ITextAdapterRegistry, TextRequestEvidence } from '../llm/types'
@@ -14,6 +15,7 @@ import type {
   PreparedTextComparison,
   PrepareTextComparison,
   TextComparisonRun,
+  TextComparisonLLM,
 } from './types'
 
 export { TextComparisonError } from './errors'
@@ -34,7 +36,7 @@ interface ComparisonGroup {
   controllers: Map<string, AbortController>
 }
 
-const id = () => globalThis.crypto.randomUUID()
+const id = () => randomUUID()
 
 function createRun(side: 'a' | 'b', candidate: PreparedComparisonCandidate): TextComparisonRun {
   return { id: side, runId: id(), model: candidate.model, effective: candidate.effective,
@@ -49,19 +51,21 @@ export function createTextComparisonService({
   storage,
   executionSource,
   registry = new TextAdapterRegistry(),
+  llm: connectedLLM,
 }: {
   storage: AssetReadStorage
   executionSource: ComparisonExecutionSource
   registry?: ITextAdapterRegistry
+  llm?: TextComparisonLLM
 }) {
   const source: ComparisonExecutionSource = {
-    kind: 'desktop',
+    kind: executionSource.kind,
     sourceId: executionSource.sourceId,
     sourceEpoch: executionSource.sourceEpoch,
     connectionGeneration: executionSource.connectionGeneration,
     label: executionSource.label,
   }
-  const llm = new LLMService({
+  const llm = connectedLLM ?? new LLMService({
     async getModel() { throw new TextComparisonError('MODEL_CONFIGURATION_INVALID') },
   }, registry)
   const preparation = createComparisonPreparation(storage, source, registry, llm)
@@ -146,7 +150,8 @@ export function createTextComparisonService({
     }
 
     try {
-      await llm.sendMessageStream(structuredClone(group.view.request.messages), run.model.configKey, {
+      const request = run.id === 'b' && group.view.candidatePrompt ? group.view.candidatePrompt.request : group.view.request
+      await llm.sendMessageStream(structuredClone(request.messages), run.model.configKey, {
         signal: controller.signal,
         onRequest: acceptEvidence,
         onToken: token => { append('output', token) },
@@ -175,6 +180,7 @@ export function createTextComparisonService({
     try {
       const current = await preparation.prepare(selection)
       if (canonical(current.request) !== canonical(group.view.request) ||
+        canonical(current.candidatePrompt) !== canonical(group.view.candidatePrompt) ||
         current.candidates.some((item, index) => canonical(item.effective.preview) !== canonical(candidates[index].effective.preview))) {
         throw new TextComparisonError('STALE_PREPARATION')
       }
@@ -226,6 +232,7 @@ export function createTextComparisonService({
           executionSource: source,
           source: result.source,
           request: result.request,
+          ...(result.candidatePrompt ? { candidatePrompt: result.candidatePrompt } : {}),
           runs: [createRun('a', result.candidates[0]), createRun('b', result.candidates[1])],
         }
         const group: ComparisonGroup = {
@@ -270,7 +277,9 @@ export function createTextComparisonService({
       const [a, b] = view.runs
       if (!isCompleted(a) || !isCompleted(b)) throw new TextComparisonError('COMPARISON_NOT_COMPLETE')
       return structuredClone({
-        id: view.comparisonId, executionSource: view.executionSource, source: view.source, request: view.request, runs: [a, b],
+        id: view.comparisonId, executionSource: view.executionSource, source: view.source, request: view.request,
+        ...(view.candidatePrompt ? { candidatePrompt: view.candidatePrompt } : {}),
+        runs: [a, b],
       })
     },
     dispose() {

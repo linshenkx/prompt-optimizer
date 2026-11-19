@@ -6,14 +6,20 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "prompt-optimizer-mcp": "./bin/prompt-optimizer-mcp.cjs"
+    "prompt-optimizer-mcp": "./bin/prompt-optimizer-mcp.cjs",
+    "prompt-optimizer-desktop-mcp": "./bin/prompt-optimizer-desktop-mcp.cjs"
   },
   "scripts": {
-    "build": "tsup src/index.ts src/start.ts src/desktop.ts src/legacy.ts --format cjs,esm --dts --clean",
+    "build": "tsup src/index.ts src/start.ts src/desktop.ts src/desktop-business.ts src/browser.ts src/legacy.ts --format cjs,esm --dts --clean",
     "dev": "node dist/start.js --mode=legacy --transport=http",
     "start": "node dist/start.cjs --mode=legacy --transport=http",
     "start:desktop-readonly": "node dist/start.cjs --mode=desktop-readonly",
+    "start:desktop": "node bin/prompt-optimizer-desktop-mcp.cjs",
+    "start:browser": "node dist/start.cjs --mode=browser",
+    "test:browser": "vitest run --config vitest.browser.config.ts",
+    "test:browser-product": "node tests/browser-product.acceptance.mjs",
     "test:desktop-readonly": "vitest run --config vitest.desktop-readonly.config.ts",
+    "test:desktop-business": "vitest run --config vitest.desktop-business.config.ts && node --test tests/desktop-business.acceptance.mjs",
     "test:desktop-stdio": "node --test --test-concurrency=1 tests/desktop-stdio.acceptance.mjs tests/desktop-comparison.acceptance.mjs",
     "test": "vitest run",
     "lint": "eslint src --ext .ts",
@@ -33,13 +39,15 @@
     "@prompt-optimizer/core": "workspace:*",
     "debug": "^4.4.3",
     "dotenv": "^17.3.1",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "ws": "^8.23.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/debug": "^4.1.13",
     "@types/express": "^5.0.6",
     "@types/node": "^24.13.4",
+    "@types/ws": "^8.18.2",
     "@typescript-eslint/eslint-plugin": "^8.57.2",
     "@typescript-eslint/parser": "^8.57.2",
     "eslint": "^10.1.0",

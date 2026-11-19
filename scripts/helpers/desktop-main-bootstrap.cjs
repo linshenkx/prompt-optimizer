@@ -10,7 +10,8 @@ const { createBoundary, installFilesystemGuards } = require('./desktop-main-isol
 const { exerciseDesktopBusiness, seedDesktopComparisons } = require('./desktop-main-business.cjs');
 
 const [root, phase] = process.argv.slice(2);
-assert.ok(['first', 'restart', 'divergence'].includes(phase));
+assert.ok(['first', 'restart', 'divergence', 'product', 'product-restart'].includes(phase));
+const productUi = phase.startsWith('product');
 assert.equal(path.dirname(__dirname), root);
 assert.equal(fs.realpathSync(root), root);
 assert.ok(path.basename(root).startsWith('po-desktop-main-r2-'));
@@ -35,7 +36,7 @@ const exit = app.exit.bind(app);
 const stderr = process.stderr.write.bind(process.stderr);
 function fail(error) {
   stderr(`Desktop main fixture failed: ${error.message}\n`);
-  try { fs.writeFileSync(path.join(root, `${phase}-failure.json`), JSON.stringify({ ...audit, failure: error.message }, null, 2)); } catch {}
+  try { if (!fs.existsSync(path.join(root, `${phase}-failure.json`))) fs.writeFileSync(path.join(root, `${phase}-failure.json`), JSON.stringify({ ...audit, failure: error.message }, null, 2)); } catch {}
   exit(1);
 }
 process.on('uncaughtException', fail);
@@ -122,13 +123,18 @@ async function seedSavedComparisons(favoriteId) {
   assert.ok(openedProvider);
   assert.ok(favoriteId);
   const requireFromMain = Module.createRequire(mainPath);
-  const { createComparisonRepository } = requireFromMain('@prompt-optimizer/core');
+  const { createComparisonRepository, createDesktopRunRepository } = requireFromMain('@prompt-optimizer/core');
   const { SQLiteStorageProvider } = requireFromMain('@prompt-optimizer/core/node');
   const backupStorage = new SQLiteStorageProvider(path.join(root, 'comparison-backup-fixture.sqlite'));
   try {
     const fixtures = await seedDesktopComparisons(
       createComparisonRepository(openedProvider), createComparisonRepository(backupStorage), favoriteId,
     );
+    fixtures.desktopRun = await createDesktopRunRepository(openedProvider).create({
+      id: require('node:crypto').randomUUID(), requestKey: 'isolated-desktop-saved-run', requestHash: 'synthetic',
+      ownerId: '0:completed-fixture', kind: 'evaluate', status: 'succeeded', createdAt: Date.now(), updatedAt: Date.now(),
+      saved: true, input: { request: { userPrompt: 'Synthetic desktop input' } }, output: { score: { overall: 88 } },
+    });
     fs.writeFileSync(comparisonFixturePath, JSON.stringify(fixtures), { flag: 'wx' });
     audit.comparisonSeeded = true;
     record('comparison-fixtures-seeded-before-restart');
@@ -160,7 +166,7 @@ const HiddenWindow = new Proxy(electron.BrowserWindow, {
   construct(Target, [options]) {
     assert.notEqual(phase, 'divergence', 'The failed startup must not construct an application window');
     boundary.readable(options.webPreferences.preload);
-    const window = new Target({ ...options, show: false });
+    const window = new Target({ ...options, show: false, webPreferences: { ...options.webPreferences, backgroundThrottling: false, ...(productUi ? { offscreen: true } : {}) } });
     audit.windows++;
     assert.equal(window.isVisible(), false);
     window.show = forbidden('window.show');
@@ -176,6 +182,13 @@ const HiddenWindow = new Proxy(electron.BrowserWindow, {
     window.webContents.once('did-finish-load', async () => {
       try {
         assert.equal(window.isVisible(), false);
+        if (productUi) {
+          audit.business = await require('./desktop-product-ui.cjs').exerciseProductUi(window, root, phase);
+          audit.ipcVerified = true;
+          record('complete-product-ui-verified');
+          app.quit();
+          return;
+        }
         const result = await window.webContents.executeJavaScript(`(async () => {
           const api = window.electronAPI;
           const legacy = await api.preference.get('storage-main-r2', null);

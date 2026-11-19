@@ -93,6 +93,7 @@ const {
   createTemplateLanguageService,
   createDataManager,
   createComparisonRepository,
+  createDesktopRunRepository,
   ComparisonRepositoryError,
   createContextRepo,
   FavoriteManager,
@@ -743,7 +744,7 @@ async function initializeServices() {
 
     console.log('[DESKTOP] Creating Data manager...');
     savedComparisons = createComparisonRepository(storageProvider);
-    dataManager = createDataManager(modelManager, templateManager, historyManager, preferenceService, contextRepo, imageModelManager, savedComparisons);
+    dataManager = createDataManager(modelManager, templateManager, historyManager, preferenceService, contextRepo, imageModelManager, savedComparisons, createDesktopRunRepository(storageProvider));
 
     console.log('[DESKTOP] Creating Favorite manager...');
     favoriteManager = new FavoriteManager(storageProvider);
@@ -2250,6 +2251,15 @@ function setupIPC() {
   ipcMain.handle('comparison-list', comparisonRequest(options => savedComparisons.list(options)));
   ipcMain.handle('comparison-get', comparisonRequest(id => savedComparisons.get(id)));
   ipcMain.handle('comparison-delete', comparisonRequest((id, revision) => savedComparisons.delete(id, revision)));
+  const desktopRuns = createDesktopRunRepository(storageProvider);
+  require('./config/desktop-resources').installDesktopResources(ipcMain, storageProvider);
+  const runRequest = action => async (_event, ...args) => {
+    try { return createSuccessResponse(await action(...args)); }
+    catch { return { success: false, error: { message: 'Saved desktop run request failed.' } }; }
+  };
+  ipcMain.handle('desktop-runs-list', runRequest(async () => (await desktopRuns.list()).filter(run => run.saved)));
+  ipcMain.handle('desktop-runs-get', runRequest(id => desktopRuns.get(id)));
+  ipcMain.handle('desktop-runs-delete', runRequest((id, updatedAt) => desktopRuns.delete(id, updatedAt)));
 
   // Data Manager handlers
   ipcMain.handle('data-exportAllData', async (event) => {

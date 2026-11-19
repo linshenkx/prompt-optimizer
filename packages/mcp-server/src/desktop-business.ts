@@ -1,0 +1,206 @@
+import { createHash, randomUUID } from 'node:crypto';
+import { writeFile } from 'node:fs/promises';
+import { isAbsolute } from 'node:path';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { CallToolRequestSchema, ListToolsRequestSchema, type Tool } from '@modelcontextprotocol/sdk/types.js';
+import { openExistingDesktopStorageForWriting, type ExistingSQLiteStorage } from '@prompt-optimizer/core/node';
+import { createReadonlyAssetReader } from '@prompt-optimizer/core/asset-reader';
+import type { DesktopProfile } from './desktop-router.js';
+import { BusinessStage, snapshotRevision, redactConfiguration } from './desktop-business-services.js';
+import { businessOperations, DesktopBusinessError, assertJson, publicBusinessError } from './desktop-business-catalog.js';
+import { DesktopBusinessRuns, runKinds, type RunInput } from './desktop-business-runs.js';
+import { requestDesktopResource, resourceOperations } from './desktop-business-resources.js';
+
+const text = { type: 'string', minLength: 1 } as const;
+const read = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
+const write = { readOnlyHint: false, destructiveHint: true, openWorldHint: false };
+const sourceFields = { sourceId: text };
+function spec(name: string, description: string, properties: Record<string, object>, required: string[], annotations = read): Tool {
+  return { name, description, inputSchema: { type: 'object', properties, required, additionalProperties: false }, annotations };
+}
+export const desktopBusinessTools = [
+  spec('po_resources', 'Use the open desktop renderer for real image stores or full ZIP import/export (app data, favorites and image resources). Windows desktop must be running this version. File writes create a NEW absolute file. Package transfers contain credentials and require includeCredentials=true. Input limit 20MiB. image deletion requires expectedDigest returned by images.get and refuses referenced images. A RESOURCE_RESULT_UNKNOWN may mean an edit applied; do not automatically retry with a new key.',
+    { ...sourceFields, operation: { type: 'string', enum: resourceOperations }, requestKey: text, file: text,
+      store: { type: 'string', enum: ['imageCache', 'favoriteImages'] }, id: text, mimeType: text,
+      expectedDigest: text, includeCredentials: { type: 'boolean' } }, ['sourceId', 'operation', 'requestKey'], write),
+  spec('po_sources_list', 'List explicitly configured local desktop sources. Does not open or create a profile.', {}, []),
+  spec('po_desktop_catalog', 'Discover available desktop business operations, ordered positional arguments, and asynchronous run kinds. Optional arguments have ?. Queries return a source revision; writes require that revision and a unique requestKey. No arbitrary service methods are callable.', { domain: text }, []),
+  spec('po_desktop_query', 'Read current desktop data through the product business services. Call the catalog first. Model credentials and private endpoint details are redacted. Assets expose exact saved versions.',
+    { ...sourceFields, domain: text, operation: text, arguments: { type: 'array', items: {} } }, ['sourceId', 'domain', 'operation']),
+  spec('po_desktop_mutate', 'Perform an explicitly selected desktop edit using existing service validation. Requires a recent query revision. Reuse requestKey only for an exact retry; conflicting desktop edits are not overwritten. Deletion and import can be destructive.',
+    { ...sourceFields, domain: text, operation: text, arguments: { type: 'array', items: {} }, expectedRevision: text, requestKey: text },
+    ['sourceId', 'domain', 'operation', 'expectedRevision', 'requestKey'], write),
+  spec('po_runs_start', 'Start optimization, message optimization, iteration, one test, a conversation test, evaluation, image generation, or 2-4 tests. This uses saved model credentials and can incur charges. Input and configurations are frozen from a single desktop snapshot. Query status with po_runs_get; network requests use the local Node runtime, not Electron proxy settings.',
+    { ...sourceFields, requestKey: text, expectedRevision: text, input: { type: 'object', properties: {
+      kind: { type: 'string', enum: [...runKinds] }, request: { type: 'object' }, source: { type: 'object' },
+      promptField: { type: 'string', enum: ['systemPrompt', 'userPrompt'] }, inputRunId: text,
+      timeoutMs: { type: 'integer', minimum: 100, maximum: 600000 },
+    }, required: ['kind', 'request'], additionalProperties: false } }, ['sourceId', 'requestKey', 'expectedRevision', 'input'],
+    { ...write, destructiveHint: false, openWorldHint: true }),
+  spec('po_runs_get', 'Get the current state, partial output, reasoning, final output, and sanitized failure for one run.',
+    { ...sourceFields, runId: text }, ['sourceId', 'runId']),
+  spec('po_runs_list', 'List run summaries, optionally only explicitly saved results. No model calls are made.',
+    { ...sourceFields, savedOnly: { type: 'boolean' } }, ['sourceId']),
+  spec('po_runs_cancel', 'Request cancellation of a running operation, including another client connected to the same source. Partial text is retained. Providers may continue processing a request already submitted.',
+    { ...sourceFields, runId: text }, ['sourceId', 'runId'], { ...write, destructiveHint: false }),
+  spec('po_runs_save', 'Save a terminal optimization, test, evaluation, or image run for desktop reopening without overwriting the current workspace.',
+    { ...sourceFields, runId: text, target: { type: 'string', enum: ['archive', 'history'] } }, ['sourceId', 'runId'], { ...write, destructiveHint: false }),
+  spec('po_runs_delete', 'Delete one terminal run with an optimistic timestamp guard.',
+    { ...sourceFields, runId: text, expectedUpdatedAt: { type: 'integer', minimum: 0 } }, ['sourceId', 'runId', 'expectedUpdatedAt'], write),
+  spec('po_data_export_file', 'Explicitly export the current product data to a NEW absolute local file, including model credentials. Never overwrites a file. Do not upload or share the result without user authorization.',
+    { ...sourceFields, destination: text, includeCredentials: { type: 'boolean', const: true } },
+    ['sourceId', 'destination', 'includeCredentials'], { ...write, destructiveHint: false }),
+];
+
+type Source = { id: string; profile: DesktopProfile; opening?: Promise<{ lease: ExistingSQLiteStorage; runs: DesktopBusinessRuns }> };
+export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
+  const sources: Source[] = profiles.map(profile => ({ id: randomUUID(), profile }));
+  const revisionKey = globalThis.crypto.subtle.generateKey({ name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const server = new Server({ name: 'prompt-optimizer-desktop', version: '0.2.0' }, { capabilities: { tools: {} } });
+  let closing = false;
+  const open = async (sourceId: string) => {
+    if (closing) throw new DesktopBusinessError('SOURCE_CLOSING');
+    const source = sources.find(item => item.id === sourceId);
+    if (!source) throw new DesktopBusinessError('SOURCE_NOT_FOUND');
+    source.opening ??= (async () => {
+      const lease = await openExistingDesktopStorageForWriting(source.profile.userDataPath);
+      return { lease, runs: new DesktopBusinessRuns(lease.provider, source.id, revisionKey) };
+    })();
+    try { return await source.opening; }
+    catch { source.opening = undefined; throw new DesktopBusinessError('SOURCE_NOT_READY'); }
+  };
+  const call = async (name: string, args: Record<string, unknown>): Promise<unknown> => {
+    const definition = desktopBusinessTools.find(item => item.name === name);
+    if (!definition) throw new DesktopBusinessError('UNKNOWN_TOOL');
+    assertJson(args);
+    if (args.savedOnly !== undefined && typeof args.savedOnly !== 'boolean') throw new DesktopBusinessError('INVALID_INPUT');
+    if (JSON.stringify(args).length > 8 * 1024 * 1024) throw new DesktopBusinessError('INPUT_LIMIT_REACHED');
+    if ((definition.inputSchema.required ?? []).some(key => args[key] === undefined) ||
+      Object.keys(args).some(key => !Object.hasOwn(definition.inputSchema.properties ?? {}, key))) throw new DesktopBusinessError('INVALID_INPUT');
+    for (const key of ['sourceId', 'domain', 'operation', 'expectedRevision', 'requestKey', 'runId']) {
+      if (args[key] !== undefined && (typeof args[key] !== 'string' || !(args[key] as string).trim() || (args[key] as string).length > 512)) {
+        throw new DesktopBusinessError('INVALID_INPUT');
+      }
+    }
+    if (name === 'po_sources_list') return { sources: sources.map(source => ({ sourceId: source.id, label: source.profile.label, access: 'business' })) };
+    if (name === 'po_desktop_catalog') return {
+      operations: businessOperations.filter(item => !args.domain || item.domain === args.domain),
+      assets: { domain: 'assets', operations: ['listAssets(options?)', 'listAssetVersions(selection, options?)', 'getAssetVersion(selection)'] },
+      runKinds, runInput: 'request uses the existing product service request. source optionally selects favoriteId/assetId/versionId/expectedRevision. test: systemPrompt,userPrompt,modelKey,inputImages?; optimize: targetPrompt,optimizationMode,modelKey,templateId?; iterate: originalPrompt,lastOptimizedPrompt,iterateInput,modelKey,templateId; evaluate: EvaluationRequest; test-batch: candidates of 2-4 test requests.',
+    };
+    const { lease, runs } = await open(args.sourceId as string);
+    if (name === 'po_resources') return requestDesktopResource(lease.provider, args);
+    if (name === 'po_runs_get') return runs.get(args.runId as string);
+    if (name === 'po_runs_cancel') return runs.cancel(args.runId as string);
+    if (name === 'po_runs_save') {
+      if (args.target !== undefined && !['archive', 'history'].includes(args.target as string)) throw new DesktopBusinessError('INVALID_INPUT');
+      return runs.save(args.runId as string, args.target as 'archive' | 'history' | undefined);
+    }
+    if (name === 'po_runs_delete') {
+      if (!Number.isSafeInteger(args.expectedUpdatedAt) || (args.expectedUpdatedAt as number) < 0) throw new DesktopBusinessError('INVALID_INPUT');
+      await runs.repository.delete(args.runId as string, args.expectedUpdatedAt as number); return { deleted: true };
+    }
+    if (name === 'po_runs_list') return { runs: (await runs.repository.list()).filter(run => !run.deleted && (!args.savedOnly || run.saved))
+      .map(({ id, kind, status, createdAt, updatedAt, saved }) => ({ id, kind, status, createdAt, updatedAt, saved })) };
+    const snapshot = new Map(await lease.provider.getAllEntries());
+    const revision = snapshotRevision(snapshot);
+    const stage = new BusinessStage(snapshot);
+    const parameters = args.arguments ?? [];
+    if (!Array.isArray(parameters)) throw new DesktopBusinessError('INVALID_ARGUMENTS');
+    if (name === 'po_desktop_query') {
+      let result;
+      if (args.domain === 'assets') {
+        const reader = createReadonlyAssetReader(stage, { sourceId: args.sourceId as string, sourceEpoch: 'business-v1' }, { revisionKey });
+        if (!['listAssets', 'listAssetVersions', 'getAssetVersion'].includes(args.operation as string)) throw new DesktopBusinessError('UNKNOWN_OPERATION');
+        result = await (reader[args.operation as keyof typeof reader] as (...values: unknown[]) => unknown)(...parameters);
+      } else result = await stage.invoke(args.domain as string, args.operation as string, parameters, 'read');
+      if (args.domain === 'settings' && args.operation === 'get' && typeof parameters[0] === 'string') {
+        result = (redactConfiguration({ [parameters[0]]: result }) as Record<string, unknown>)[parameters[0]];
+      }
+      if (['models', 'imageModels', 'settings', 'data'].includes(args.domain as string)) {
+        result = typeof result === 'string' && args.domain === 'data'
+          ? JSON.stringify(redactConfiguration(JSON.parse(result))) : redactConfiguration(result);
+      }
+      return { revision, result };
+    }
+    if (name === 'po_data_export_file') {
+      if (args.includeCredentials !== true || typeof args.destination !== 'string' || !isAbsolute(args.destination)) throw new DesktopBusinessError('INVALID_INPUT');
+      const data = await stage.invoke('data', 'exportAllData', [], 'read');
+      await writeFile(args.destination, data as string, { flag: 'wx', mode: 0o600 });
+      return { exported: true, containsCredentials: true };
+    }
+    const signature = createHash('sha256').update(JSON.stringify({ domain: args.domain, operation: args.operation, parameters })).digest('hex');
+    const receiptKey = 'mcp:receipt:' + createHash('sha256').update(args.requestKey as string).digest('hex');
+    if (name === 'po_desktop_mutate') {
+      const previous = snapshot.get(receiptKey);
+      if (previous) {
+        const receipt = JSON.parse(previous) as { signature: string; result: unknown };
+        if (receipt.signature !== signature) throw new DesktopBusinessError('REQUEST_KEY_REUSED');
+        return receipt.result;
+      }
+    }
+    if (name === 'po_runs_start') {
+      const previous = (await runs.repository.list()).find(run => run.requestKey === args.requestKey);
+      if (!previous && revision !== args.expectedRevision) throw new DesktopBusinessError('REVISION_CONFLICT');
+      return runs.start(args.input as unknown as RunInput, args.requestKey as string, snapshot);
+    }
+    if (revision !== args.expectedRevision) throw new DesktopBusinessError('REVISION_CONFLICT');
+    if (['workspaces', 'settings', 'variables', 'data'].includes(args.domain as string)) {
+      const descriptor = await stage.getItem('mcp:renderer:resources');
+      if (descriptor) {
+        const owner = JSON.parse(descriptor) as { pid?: number };
+        if (Number.isSafeInteger(owner.pid) && (owner.pid as number) > 0) {
+          let active = true;
+          try { process.kill(owner.pid as number, 0); }
+          catch (error) { active = (error as NodeJS.ErrnoException).code !== 'ESRCH'; }
+          if (active) throw new DesktopBusinessError('DESKTOP_STATE_IN_USE');
+        }
+      }
+    }
+    const result = redactConfiguration(await stage.invoke(args.domain as string, args.operation as string, parameters, 'write'));
+    const response = { revision: snapshotRevision(stage.values), result };
+    await stage.commit(lease.provider, { key: receiptKey, value: JSON.stringify({ signature, result: response }) });
+    return response;
+  };
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: desktopBusinessTools }));
+  server.setRequestHandler(CallToolRequestSchema, async request => {
+    try {
+      const result = await call(request.params.name, request.params.arguments ?? {});
+      const payload = result as Record<string, unknown>;
+      return { structuredContent: payload, content: [{ type: 'text', text: JSON.stringify(result) }] };
+    } catch (error) {
+      const payload = { error: publicBusinessError(error) };
+      return { isError: true, structuredContent: payload, content: [{ type: 'text', text: JSON.stringify(payload) }] };
+    }
+  });
+  return {
+    server, call,
+    async close() {
+      closing = true;
+      for (const source of sources) if (source.opening) {
+        const opened = await source.opening.catch(() => undefined);
+        if (opened) { await opened.runs.close(); await opened.lease.provider.close(); }
+      }
+    },
+  };
+}
+
+export async function startDesktopBusinessStdio(profiles: DesktopProfile[]) {
+  const host = createDesktopBusinessServer(profiles);
+  let shutdown: Promise<void> | undefined;
+  const close = () => {
+    shutdown ??= (async () => {
+      try { await host.close(); } finally {
+        await host.server.close(); process.stdin.pause(); process.stdin.destroy();
+      }
+    })();
+    return shutdown;
+  };
+  const onClose = () => { void close().catch(() => { process.exitCode = 1; }); };
+  process.stdin.once('end', onClose); process.stdin.once('close', onClose);
+  process.once('SIGINT', onClose); process.once('SIGTERM', onClose);
+  host.server.onclose = onClose;
+  await host.server.connect(new StdioServerTransport());
+  return { ...host, close };
+}

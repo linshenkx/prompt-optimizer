@@ -75,6 +75,8 @@ export class TemplateLanguageService implements ITemplateLanguageService {
    * Get current language
    */
   async getCurrentLanguage(): Promise<BuiltinTemplateLanguage> {
+    const language = await this.preferenceService.get(UI_SETTINGS_KEYS.BUILTIN_TEMPLATE_LANGUAGE, this.currentLanguage);
+    if (this.SUPPORTED_LANGUAGES.includes(language)) this.currentLanguage = language;
     return this.currentLanguage;
   }
 

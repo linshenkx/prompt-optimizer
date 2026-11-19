@@ -9,7 +9,7 @@ import { createAssetReadAccess } from '../asset-reader/reader'
 import type { AssetReadPagination, AssetReadStorage, PublicStoredModel } from '../asset-reader/types'
 import { record, text } from '../asset-reader/validation'
 import { PREDEFINED_VARIABLES } from '../context/constants'
-import type { LLMService } from '../llm/service'
+import type { TextComparisonLLM } from './types'
 import type { ITextAdapterRegistry, TextRequestEvidence } from '../llm/types'
 import { projectTextRequestEvidence } from '../llm/request-evidence'
 import { isTextModelConfig } from '../model/converter'
@@ -17,9 +17,11 @@ import { describeRuntimeModel, resolveRuntimeTextModel } from '../model/runtime-
 import type { TextModelConfig } from '../model/types'
 import { TextComparisonError } from './errors'
 import type { TextComparisonErrorCode } from './errors'
+import { object } from './validation'
 import type {
   ComparisonExecutionSource,
   PrepareTextComparison,
+  TextComparisonPromptSnapshot,
   TextComparisonRequest,
   TextComparisonRun,
   TextComparisonSource,
@@ -68,7 +70,7 @@ function isCredentialFieldValid(config: TextModelConfig, field: 'baseURL' | 'api
 function inspectCandidate(
   entry: ModelEntry,
   registry: ITextAdapterRegistry,
-  llm: LLMService,
+  llm: TextComparisonLLM,
 ): PreparedComparisonCandidate | UnavailableModelReason {
   const { model, raw } = entry
   if (model.unavailableReason !== 'EXECUTION_NOT_CONNECTED') return model.unavailableReason
@@ -108,8 +110,23 @@ export function validateComparisonSelection(input: PrepareTextComparison) {
     ![input.source.favoriteId, input.source.assetId, input.source.versionId, input.source.expectedRevision].every(text) ||
     !Array.isArray(input.candidates) || input.candidates.length !== 2 ||
     input.candidates[0]?.id !== 'a' || input.candidates[1]?.id !== 'b' ||
-    !input.candidates.every(candidate => text(candidate.configKey) && text(candidate.expectedRevision)) ||
-    input.candidates[0].configKey === input.candidates[1].configKey) throw new TextComparisonError('INVALID_INPUT')
+    !input.candidates.every(candidate => text(candidate.configKey) && text(candidate.expectedRevision))) {
+    throw new TextComparisonError('INVALID_INPUT')
+  }
+
+  const { candidatePrompt, candidates: [baseline, candidate], source } = input
+  const sameModel = baseline.configKey === candidate.configKey
+  if (candidatePrompt === undefined) {
+    if (sameModel) throw new TextComparisonError('INVALID_INPUT')
+  } else {
+    if (!sameModel || baseline.expectedRevision !== candidate.expectedRevision) throw new TextComparisonError('INVALID_INPUT')
+    if (object(candidatePrompt, ['kind', 'text']) && candidatePrompt.kind === 'draft' && text(candidatePrompt.text)) {
+      if (candidatePrompt.text.length > MAX_PROMPT_LENGTH) throw new TextComparisonError('TEXT_LIMIT')
+    } else if (!object(candidatePrompt, ['kind', 'versionId']) || candidatePrompt.kind !== 'saved-version' ||
+      !text(candidatePrompt.versionId) || candidatePrompt.versionId === source.versionId) {
+      throw new TextComparisonError('INVALID_INPUT')
+    }
+  }
 
   let suppliedLength = 0
   for (const [name, value] of Object.entries(input.variables)) {
@@ -169,7 +186,7 @@ export function createComparisonPreparation(
   storage: AssetReadStorage,
   executionSource: ComparisonExecutionSource,
   registry: ITextAdapterRegistry,
-  llm: LLMService,
+  llm: TextComparisonLLM,
 ) {
   const access = createAssetReadAccess(storage, executionSource)
   return {
@@ -185,9 +202,10 @@ export function createComparisonPreparation(
     async prepare(input: PrepareTextComparison): Promise<{
       source: TextComparisonSource
       request: TextComparisonRequest
+      candidatePrompt?: TextComparisonPromptSnapshot
       candidates: [PreparedComparisonCandidate, PreparedComparisonCandidate]
     }> {
-      const { candidates, source, variables } = input
+      const { candidates, source, variables, candidatePrompt } = input
       const [asset, models, savedVariables] = await Promise.all([
         access.reader.getAssetVersion(source),
         access.readStoredModels(candidates.map(candidate => candidate.configKey)),
@@ -196,6 +214,18 @@ export function createComparisonPreparation(
       if (asset.modeKey !== 'pro-variable') throw new TextComparisonError('ASSET_CONTENT_UNSUPPORTED')
 
       const request = prepareRequest(asset.content.text, savedVariables, variables)
+      let candidateSnapshot: TextComparisonPromptSnapshot | undefined
+      if (candidatePrompt?.kind === 'draft') {
+        candidateSnapshot = { kind: 'draft', request: prepareRequest(candidatePrompt.text, savedVariables, variables) }
+      } else if (candidatePrompt) {
+        const selected = await access.reader.getAssetVersion({ ...source, versionId: candidatePrompt.versionId })
+        candidateSnapshot = {
+          kind: 'saved-version',
+          versionId: selected.versionId,
+          version: selected.version,
+          request: prepareRequest(selected.content.text, savedVariables, variables),
+        }
+      }
       function resolveCandidate(selection: PrepareTextComparison['candidates'][number]): PreparedComparisonCandidate {
         const entry = models.find(item => item.model.configKey === selection.configKey)
         if (!entry) throw new TextComparisonError('MODEL_NOT_FOUND')
@@ -204,6 +234,7 @@ export function createComparisonPreparation(
         if (typeof candidate === 'string') throw new TextComparisonError(candidate satisfies TextComparisonErrorCode)
         return candidate
       }
+      const baseline = resolveCandidate(candidates[0])
       return {
         source: {
           favoriteId: asset.favoriteId,
@@ -213,7 +244,8 @@ export function createComparisonPreparation(
           title: asset.title,
         },
         request,
-        candidates: [resolveCandidate(candidates[0]), resolveCandidate(candidates[1])],
+        candidatePrompt: candidateSnapshot,
+        candidates: [baseline, candidateSnapshot ? structuredClone(baseline) : resolveCandidate(candidates[1])],
       }
     },
   }

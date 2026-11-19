@@ -1,4 +1,13 @@
 const messages = {
+  desktopRuns: {
+    runId: 'Run ID', refresh: 'Refresh', empty: 'No saved MCP results', error: 'Could not load results. Refresh to retry.',
+    output: 'Result', input: 'Frozen input', deleteConfirm: 'Permanently delete this result? Favorites and workspace drafts are not affected.',
+    kinds: { optimize: 'Prompt optimization', 'optimize-message': 'Message optimization', iterate: 'Prompt iteration', test: 'Single test',
+      'test-conversation': 'Conversation test', evaluate: 'Evaluation', image: 'Image generation', 'test-batch': 'Comparison test',
+      'extract-variables': 'Variable extraction', 'generate-variable-values': 'Variable values', 'model-list': 'Model discovery',
+      'model-test': 'Model connection', 'image-model-list': 'Image model discovery', 'image-model-test': 'Image model connection',
+      'image-understand': 'Image understanding' },
+  },
   "common": {
     "loading": "Loading...",
     "save": "Save",
@@ -161,6 +170,7 @@ const messages = {
     "history": "History",
     "templates": "Templates",
     "dataManager": "Data Manager",
+    "desktopRuns": "MCP Results",
     "favorites": "Favorite Library",
     "advancedMode": "Advanced Mode",
     "variableManager": "Variable Manager",

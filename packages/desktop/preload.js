@@ -89,6 +89,20 @@ async function invokeFavorite(channel, ...args) {
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  desktopResources: {
+    register: () => ipcRenderer.invoke('desktop-resources-register'),
+    complete: packet => ipcRenderer.invoke('desktop-resources-complete', packet),
+    onRequest: handler => {
+      const listener = (_event, packet) => handler(packet);
+      ipcRenderer.on('desktop-resource-request', listener);
+      return () => ipcRenderer.removeListener('desktop-resource-request', listener);
+    },
+  },
+  desktopRuns: {
+    list: () => invokeFavorite('desktop-runs-list'),
+    get: id => invokeFavorite('desktop-runs-get', id),
+    delete: (id, updatedAt) => invokeFavorite('desktop-runs-delete', id, updatedAt),
+  },
   savedComparisons: {
     list: (options) => invokeFavorite('comparison-list', options),
     get: (id) => invokeFavorite('comparison-get', id),

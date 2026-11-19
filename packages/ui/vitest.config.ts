@@ -7,6 +7,7 @@ export default defineConfig({
   plugins: [vue()],
   resolve: {
     alias: {
+      '@prompt-optimizer/core/bridge-protocol': resolve(__dirname, '../core/src/bridge-protocol.ts'),
       '@prompt-optimizer/core': resolve(__dirname, '../core/src/index.ts'),
     },
   },

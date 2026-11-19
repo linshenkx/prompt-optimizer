@@ -223,6 +223,7 @@ export interface ILLMService {
    * @throws {APIError} 当请求失败时
    */
   sendMessageStructured(messages: Message[], provider: string): Promise<LLMResponse>;
+  describeStreamRequest?(config: TextModelConfig): TextRequestEvidence | undefined;
 
 
 

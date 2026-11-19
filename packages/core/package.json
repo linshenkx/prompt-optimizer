@@ -7,6 +7,11 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./bridge-protocol": {
+      "types": "./dist/bridge-protocol.d.ts",
+      "import": "./dist/bridge-protocol.js",
+      "require": "./dist/bridge-protocol.cjs"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
@@ -29,10 +34,11 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts src/asset-reader.ts src/desktop-comparison.ts src/node.ts --format cjs,esm --dts",
-    "dev": "tsup src/index.ts src/asset-reader.ts src/desktop-comparison.ts src/node.ts --format cjs,esm --dts --watch",
+    "build": "tsup src/index.ts src/bridge-protocol.ts src/asset-reader.ts src/desktop-comparison.ts src/node.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts src/bridge-protocol.ts src/asset-reader.ts src/desktop-comparison.ts src/node.ts --format cjs,esm --dts --watch",
     "test": "vitest run",
     "test:asset-reader": "vitest run --config vitest.asset-reader.config.ts",
+    "test:browser-bridge": "vitest run --config vitest.browser-bridge.config.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:gate": "vitest run tests/unit/utils/vcr.spec.ts tests/unit/utils/llm-mock-service.spec.ts tests/unit/preference/read-snapshot.test.ts tests/unit/preference/compare-and-set.test.ts tests/unit/preference/indexeddb-compare-and-set.test.ts tests/unit/preference/import-export.test.ts tests/unit/preference/global-settings-import.test.ts tests/unit/model/parameter-definition-compatibility.test.ts tests/unit/model/manager.parameter-compatibility.test.ts",
@@ -41,8 +47,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "@types/node": "^24.13.4",
     "@types/mustache": "^4.2.6",
+    "@types/node": "^24.13.4",
     "dotenv": "^17.3.1",
     "fake-indexeddb": "6.2.6",
     "msw": "^2.12.14",
@@ -53,6 +59,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
     "@google/genai": "^1.52.0",
+    "@noble/hashes": "^2.4.0",
     "dexie": "^4.4.1",
     "diff": "^8.0.4",
     "jsonrepair": "^3.13.3",

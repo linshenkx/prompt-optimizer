@@ -31,6 +31,15 @@
     <!-- 弹窗型管理/配置入口 -->
     <div class="modal-action-group" data-testid="header-modal-actions">
         <ActionButtonUI
+            v-if="desktopRunsAvailable"
+            icon="📋"
+            :text="$t('nav.desktopRuns')"
+            data-testid="header-desktop-runs"
+            @click="emit('open-desktop-runs')"
+            size="medium"
+            :round="true"
+        />
+        <ActionButtonUI
             icon="📝"
             :text="$t('nav.templates')"
             @click="emit('open-templates')"
@@ -189,6 +198,7 @@ interface Props {
     appVersion: string
     favoritesActive?: boolean
     backupReminderDue?: boolean
+    desktopRunsAvailable?: boolean
 }
 
 withDefaults(defineProps<Props>(), {
@@ -204,6 +214,7 @@ const emit = defineEmits<{
     'open-templates': []
     /** 打开历史记录 */
     'open-history': []
+    'open-desktop-runs': []
     /** 打开模型管理器 */
     'open-model-manager': []
     /** 打开收藏夹 */

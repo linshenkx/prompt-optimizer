@@ -65,11 +65,21 @@ async function exerciseDesktopBusiness(phase, comparisons) {
 
   const listed = await api.savedComparisons.list({ favoriteId: ids.favoriteId });
   if (comparisons) {
+    check((await api.desktopRuns.list()).some(run => run.id === comparisons.desktopRun.id), 'saved MCP run appears through actual preload');
+    const desktopRun = await api.desktopRuns.get(comparisons.desktopRun.id);
+    check(desktopRun.output.score.overall === 88 && desktopRun.status === 'succeeded', 'saved evaluation result reopens after desktop restart');
+    const archive = JSON.parse(await api.data.exportAllData());
+    check(archive.data.desktopRuns.runs.some(run => run.id === desktopRun.id), 'full app data export includes saved MCP results');
+    await api.desktopRuns.delete(desktopRun.id, desktopRun.updatedAt);
+    check(!(await api.desktopRuns.list()).some(run => run.id === desktopRun.id), 'delete one saved MCP run through preload');
     const { comparison, revision } = comparisons.persisted;
     check(listed.items.length === 1 && listed.items[0].id === comparison.id, 'comparison from prior launch appears in list');
     check(JSON.stringify(listed.items[0].statuses) === '["success","cancelled"]', 'comparison summary retains both statuses');
     const reloaded = await api.savedComparisons.get(comparison.id);
     check(JSON.stringify(reloaded.comparison) === JSON.stringify(comparison) && reloaded.revision === revision, 'comparison IPC retains request evidence and outputs');
+    check(reloaded.comparison.schemaVersion === 'saved-comparison/v2' &&
+      reloaded.comparison.candidatePrompt.request.messages[0].content === 'Describe: Synthetic input',
+      'same-model comparison keeps both rendered inputs after restart');
     check((await api.savedComparisons.list({ favoriteId: 'another-favorite' })).items.length === 0, 'comparison list applies favorite filter');
   } else {
     check(listed.items.length === 0, 'first launch has no saved comparison');
@@ -97,6 +107,7 @@ async function exerciseDesktopBusiness(phase, comparisons) {
     await api.data.validateImportData(backupJson);
     await api.data.importAllData(backupJson);
     const reopened = await api.savedComparisons.get(restored.comparison.id);
+    check(reopened.comparison.schemaVersion === 'saved-comparison/v1', 'older two-model comparisons can still be restored');
     check(JSON.stringify(reopened.comparison) === JSON.stringify(restored.comparison) && reopened.revision === restored.revision, 'DataManager restores full comparison into active desktop profile');
     const stored = JSON.parse(await api.data.exportAllData()).data.savedComparisons;
     check(stored.records.length === 2 && stored.records.some(record => record.id === restored.comparison.id), 're-export includes restored comparison');
@@ -127,17 +138,32 @@ async function exerciseDesktopBusiness(phase, comparisons) {
   check((await api.favoriteManager.getFavorites()).length === 1, 'single deletion retains unrelated favorite');
   check((await api.model.getAllModels()).some(item => item.id === modelId), 'single deletion retains model');
   const checked = ['model edit', 'template', 'history', 'context', 'favorite/category/tag', 'workspace A/B draft', 'app export/import', 'favorite export/import', 'invalid import retains data', 'single deletion'];
-  if (comparisons) checked.push('saved comparison IPC after restart', 'comparison export/import', 'comparison deletion and draft preservation');
+  if (comparisons) {
+    const candidate = comparisons.persisted.comparison.candidatePrompt.request.rawPrompt;
+    const original = await api.favoriteManager.getFavorite(ids.favoriteId);
+    const versions = original.metadata.promptAsset.versions;
+    check(original.content !== candidate, 'retaining the comparison did not adopt the draft');
+    await api.favoriteManager.updateFavorite(ids.favoriteId, { content: candidate });
+    const adopted = await api.favoriteManager.getFavorite(ids.favoriteId);
+    const adoptedAsset = adopted.metadata.promptAsset;
+    check(adopted.content === candidate && adoptedAsset.versions.length === versions.length + 1,
+      'saving the candidate through the favorite editor adds a version');
+    check(versions.every(version => adoptedAsset.versions.some(item =>
+      item.id === version.id && JSON.stringify(item.content) === JSON.stringify(version.content))),
+      'existing prompt versions survive explicit adoption');
+    checked.push('saved comparison IPC after restart', 'comparison export/import',
+      'comparison deletion and draft preservation', 'explicit adoption adds a favorite version');
+  }
   return { ok: true, phase, checked, favoriteId: ids.favoriteId, completeProductUi: false };
 }
 
 async function seedDesktopComparisons(repository, backupRepository, favoriteId) {
   const { randomUUID } = require('node:crypto');
 
-  function fixture(title) {
+  function fixture(title, comparePrompts = false) {
     const startedAt = 1700000000000;
     const run = (id, status, temperature, output) => {
-      const modelId = 'synthetic-model-' + id;
+      const modelId = 'synthetic-model-' + (comparePrompts ? 'a' : id);
       const parameters = { temperature };
       const evidence = { api: 'chat-completions', modelId, parameters, omittedParameterNames: [] };
       return {
@@ -160,14 +186,23 @@ async function seedDesktopComparisons(repository, backupRepository, favoriteId) 
         rawPrompt: 'Upgrade: {{text}}', variables: { text: 'Synthetic input' },
         messages: [{ role: 'user', content: 'Upgrade: Synthetic input' }],
       },
+      ...(comparePrompts ? {
+        candidatePrompt: {
+          kind: 'draft',
+          request: {
+            rawPrompt: 'Describe: {{text}}', variables: { text: 'Synthetic input' },
+            messages: [{ role: 'user', content: 'Describe: Synthetic input' }],
+          },
+        },
+      } : {}),
       runs: [
         run('a', 'success', 0.2, 'Complete synthetic output'),
-        run('b', 'cancelled', 0.7, 'Partial synthetic output'),
+        run('b', 'cancelled', comparePrompts ? 0.2 : 0.7, 'Partial synthetic output'),
       ],
     };
   }
 
-  const persisted = await repository.save(fixture('Saved comparison from the first launch'), 'desktop-ipc-saved');
+  const persisted = await repository.save(fixture('Saved prompt comparison from the first launch', true), 'desktop-ipc-saved');
   const restored = await backupRepository.save(fixture('Saved comparison from the isolated backup'), 'desktop-ipc-restored');
   return { persisted, restored, backup: await backupRepository.exportData() };
 }

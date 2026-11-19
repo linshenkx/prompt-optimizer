@@ -23,6 +23,7 @@ test('desktop preload IPC channels have main-process handlers', () => {
   const main = [
     readText('packages/desktop/main.js'),
     readText('packages/desktop/remote-storage.js'),
+    readText('packages/desktop/config/desktop-resources.js'),
   ].join('\n')
 
   const preloadChannels = collectMatches(preload, [

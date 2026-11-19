@@ -1,6 +1,7 @@
 import Dexie, { type Table } from 'dexie';
 import { IStorageProvider } from './types';
 import { StorageError } from './errors';
+import type { ComparisonTransaction } from '../text-comparison/repository';
 
 /**
  * 数据表接口定义
@@ -112,6 +113,39 @@ export class DexieStorageProvider implements IStorageProvider {
       if (value === null) await this.db.storage.delete(key);
       else await this.db.storage.put({ key, value, timestamp: Date.now() });
       return true;
+    });
+  }
+
+  async getAllEntries(): Promise<Array<[string, string]>> {
+    await this.initialize();
+    return (await this.db.storage.toArray()).map(record => [record.key, record.value]);
+  }
+
+  async getEntriesByPrefix(prefix: string): Promise<Array<[string, string]>> {
+    await this.initialize();
+    return (await this.db.storage.where('key').startsWith(prefix).toArray()).map(record => [record.key, record.value]);
+  }
+
+  async withProductTransaction<Value>(action: () => Promise<Value>): Promise<Value> {
+    await this.initialize();
+    return this.db.transaction('rw', this.db.storage, action);
+  }
+
+  async withWriteTransaction<Value>(modifier: (store: ComparisonTransaction) => Value): Promise<Value> {
+    return this.withProductTransaction(async () => {
+      const values = new Map(await this.getAllEntries());
+      const changed = new Map<string, string | null>();
+      const result = modifier({
+        getItem: key => values.get(key) ?? null,
+        setItem: (key, value) => { values.set(key, value); changed.set(key, value); },
+        removeItem: key => { values.delete(key); changed.set(key, null); },
+      });
+      if (result && typeof (result as { then?: unknown }).then === 'function') throw new StorageError('Asynchronous transaction modifier refused', 'write');
+      for (const [key, value] of changed) {
+        if (value === null) await this.db.storage.delete(key);
+        else await this.db.storage.put({ key, value, timestamp: Date.now() });
+      }
+      return result;
     });
   }
 

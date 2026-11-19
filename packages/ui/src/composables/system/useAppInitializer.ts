@@ -2,6 +2,9 @@ import { ref, shallowRef, onMounted, type Ref } from 'vue'
 
 import {
   StorageFactory,
+  DexieStorageProvider,
+  createComparisonRepository,
+  createBrowserBridgeHost,
   STARTUP_REPAIR_REPORT_PREFERENCE_KEY,
   createModelManager,
   createTemplateManager,
@@ -443,6 +446,8 @@ export function useAppInitializer(): {
 
         // 创建 ContextRepo（使用相同的存储提供器）
         const contextRepo = createContextRepo(storageProvider);
+        if (!(storageProvider instanceof DexieStorageProvider)) throw new Error('Web storage is unavailable');
+        const savedComparisons = createComparisonRepository(storageProvider);
 
         // 创建 DataManager（需要contextRepo）
         dataManager = createDataManager(
@@ -452,6 +457,7 @@ export function useAppInitializer(): {
           preferenceService,
           contextRepo,
           imageModelManagerInstance,
+          savedComparisons,
         );
 
         // 创建收藏管理器
@@ -499,12 +505,17 @@ export function useAppInitializer(): {
           console.warn('[AppInitializer] Failed to read context mode; using default value:', err);
         }
 
+        const browserBridge = ['http:', 'https:'].includes(window.location.protocol)
+          ? createBrowserBridgeHost({ storage: storageProvider, favoriteManager, registry: textAdapterRegistryInstance, llmService, promptService }) : undefined;
+
         // 将所有服务实例赋值给 services.value
         services.value = {
           modelManager: modelManagerAdapter, // 使用适配器
           templateManager: templateManagerAdapter, // 使用适配器
           historyManager: historyManagerAdapter, // 使用适配器
           dataManager,
+          savedComparisons,
+          browserBridge,
           llmService,
           promptService,
           templateLanguageService: languageService,

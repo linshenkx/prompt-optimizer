@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { createServer as createNetServer } from 'node:net';
 import { StdioClientTransport, DEFAULT_INHERITED_ENV_VARS } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js';
 
@@ -112,7 +114,10 @@ test('built MCP stdio discovers and reads actual SQLite profiles without mutatio
   const before = [a, b, notMigrated, empty, future].map(snapshot);
   const mcp = await connect(t, paths, context);
   const tools = (await mcp.client.listTools()).tools;
-  assert.deepEqual(tools.map(tool => tool.name).sort(), ['po_assets_get_version', 'po_assets_list', 'po_models_list', 'po_sources_close', 'po_sources_list', 'po_sources_open']);
+  assert.deepEqual(tools.map(tool => tool.name).sort(), [
+    'po_assets_get_version', 'po_assets_list', 'po_assets_list_versions', 'po_models_list',
+    'po_sources_close', 'po_sources_list', 'po_sources_open',
+  ]);
   assert.ok(tools.every(tool => tool.annotations.readOnlyHint && tool.inputSchema.additionalProperties === false));
   const listed = data(await mcp.call('po_sources_list'));
   assert.equal(listed.sources.length, 6); assert.ok(listed.sources.every(source => source.availability === 'disconnected')); assert.equal(existsSync(missing), false);
@@ -138,7 +143,21 @@ test('built MCP stdio discovers and reads actual SQLite profiles without mutatio
   const assets = data(await mcp.call('po_assets_list', { connectionId: first.connectionId })).items;
   assert.deepEqual(assets.map(item => [item.favoriteId, item.assetId]), [['favorite-shared', 'asset-shared'], ['favorite-shared-copy', 'asset-shared']]);
   const summary = assets[0], copy = assets[1];
-  const selection = { favoriteId: summary.favoriteId, assetId: summary.assetId, versionId: 'version-a', expectedRevision: summary.revision };
+  const assetSelection = { favoriteId: summary.favoriteId, assetId: summary.assetId };
+  const listInput = { connectionId: first.connectionId, ...assetSelection, expectedRevision: summary.revision };
+  const firstVersions = data(await mcp.call('po_assets_list_versions', { ...listInput, limit: 1 }));
+  assert.equal(firstVersions.currentVersionId, summary.currentVersionId);
+  assert.equal(firstVersions.versionCount, 2);
+  assert.equal(firstVersions.revision, summary.revision);
+  assert.deepEqual(firstVersions.items, [{ versionId: 'version-b', version: 7, createdAt: 2 }]);
+  assert.ok(firstVersions.nextCursor);
+  const moreVersions = data(await mcp.call('po_assets_list_versions', { ...listInput, cursor: firstVersions.nextCursor }));
+  assert.deepEqual(moreVersions.items, [{ versionId: 'version-a', version: 4, createdAt: 1 }]);
+  assert.equal(moreVersions.nextCursor, undefined);
+  failure(await mcp.call('po_assets_list_versions', { connectionId: second.connectionId, ...assetSelection, cursor: firstVersions.nextCursor }), 'INVALID_CURSOR');
+  failure(await mcp.call('po_assets_list_versions', { connectionId: first.connectionId, favoriteId: copy.favoriteId, assetId: copy.assetId, cursor: firstVersions.nextCursor }), 'INVALID_CURSOR');
+
+  const selection = { ...assetSelection, versionId: moreVersions.items[0].versionId, expectedRevision: moreVersions.revision };
   const history = data(await mcp.call('po_assets_get_version', { connectionId: first.connectionId, ...selection }));
   assert.equal(history.content.text, 'Profile A historical'); assert.equal(history.version, 4);
   assert.deepEqual(history.variables, [{ name: 'topic', required: true }]);
@@ -225,4 +244,46 @@ test('default legacy stdio still discovers its original three tools with JSON-RP
   assert.match(mcp.stderr(), /Environment variables loaded for MCP server/);
   assert.ok(!mcp.stderr().includes(secret));
   await mcp.client.close();
+});
+
+test('legacy HTTP /mcp retains initialization, sessions and its original three tools', { timeout: 30000 }, async t => {
+  const context = isolated(t);
+  const project = join(context.root, 'project'), pkg = join(project, 'packages/mcp-server');
+  mkdirSync(join(pkg, 'dist'), { recursive: true }); mkdirSync(join(pkg, 'bin'));
+  copyFileSync(binary, join(pkg, 'bin', basename(binary)));
+  cpSync(fileURLToPath(new URL('../dist', import.meta.url)), join(pkg, 'dist'), { recursive: true });
+  copyFileSync(fileURLToPath(new URL('../preload-env.cjs', import.meta.url)), join(pkg, 'preload-env.cjs'));
+  writeFileSync(join(pkg, 'package.json'), JSON.stringify({ type: 'module' }));
+  const dependencies = join(pkg, 'node_modules');
+  symlinkSync(fileURLToPath(new URL('../node_modules', import.meta.url)), dependencies, process.platform === 'win32' ? 'junction' : 'dir');
+  context.cleanups.push(() => unlinkSync(dependencies));
+  for (const directory of [project, join(project, 'packages'), pkg]) for (const file of ['.env', '.env.local']) {
+    writeFileSync(join(directory, file), `VITE_OPENAI_API_KEY=${secret}\n`);
+  }
+  const listener = createNetServer(); listener.listen(0, '127.0.0.1'); await once(listener, 'listening');
+  const port = listener.address().port; await new Promise(resolveClose => listener.close(resolveClose));
+  const guard = join(context.root, 'http-loopback.cjs');
+  writeFileSync(guard, `const net = require('node:net'); const listen = net.Server.prototype.listen;
+    net.Server.prototype.listen = function(port, callback) { return listen.call(this, port, '127.0.0.1', callback); };
+    global.fetch = () => { throw new Error('No provider traffic in HTTP compatibility acceptance'); };`);
+  const child = spawn(process.execPath, ['--require', guard, join(pkg, 'bin', basename(binary)), '--transport=http', '--port=' + port], {
+    cwd: pkg, env: { ...context.env, DEBUG: 'mcp:*' }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let diagnostics = ''; child.stdout.on('data', bytes => { diagnostics += bytes; }); child.stderr.on('data', bytes => { diagnostics += bytes; });
+  const closed = once(child, 'close');
+  context.cleanups.push(async () => { if (child.exitCode === null) { child.kill(); await closed; } });
+  const deadline = Date.now() + 15000;
+  while (!diagnostics.includes('MCP Server running on HTTP port')) {
+    assert.equal(child.exitCode, null, diagnostics.replaceAll(secret, '[SYNTHETIC]'));
+    assert.ok(Date.now() < deadline, 'Isolated HTTP startup timed out');
+    await new Promise(resolveWait => setTimeout(resolveWait, 50));
+  }
+  const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`));
+  const client = new Client({ name: 'legacy-http-compatibility', version: '1' });
+  context.cleanups.push(() => client.close());
+  await client.connect(transport);
+  assert.ok(transport.sessionId);
+  assert.deepEqual((await client.listTools()).tools.map(tool => tool.name).sort(), ['iterate-prompt', 'optimize-system-prompt', 'optimize-user-prompt']);
+  await transport.terminateSession(); await client.close();
+  assert.ok(!diagnostics.includes(secret));
 });

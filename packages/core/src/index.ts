@@ -164,6 +164,9 @@ export * from './services/compare/errors'
 
 // 导出数据管理相关
 export { DataManager, createDataManager } from './services/data/manager'
+export { WorkspaceSessionTransfer } from './services/data/workspace-session-transfer'
+export { createDesktopRunRepository, DesktopRunRepositoryError, DESKTOP_RUNS_KEY } from './services/desktop-runs/repository'
+export type { DesktopRun, DesktopRunStatus, DesktopRunRepository } from './services/desktop-runs/repository'
 export type { IDataManager } from './services/data/manager'
 export { ElectronDataManagerProxy } from './services/data/electron-proxy'
 
@@ -208,6 +211,8 @@ export { validateCustomModelConfig } from './utils/environment'
 export { safeSerializeForIPC, debugIPCSerializability, safeSerializeArgs } from './utils/ipc-serialization'
 export { applyPatchOperationsToText } from './utils/patch-plan'
 export * from './utils/prompt-variables'
+export { VARIABLE_VALIDATION, getVariableNameValidationError, isReservedVariableName } from './utils/variable-validation'
+export type { ReservedVariableName, VariableNameValidationError } from './utils/variable-validation'
 export type { ApplyPatchResult, ApplyPatchReportItem, ApplyPatchStatus } from './utils/patch-plan'
 
 // 导出存储键常量
@@ -311,4 +316,7 @@ export { createComparisonRepository } from './services/text-comparison/repositor
 export type { ComparisonRepository, ComparisonStorage } from './services/text-comparison/repository'
 export { createTextComparisonService, TextComparisonError } from './services/text-comparison/runner'
 export type { TextComparisonErrorCode } from './services/text-comparison/runner'
+export { createBrowserBridgeHost } from './services/browser-bridge/session'
+export type { BrowserBridgeHost, BrowserSourceSession } from './services/browser-bridge/session'
+export * from './services/browser-bridge/protocol'
 export { ComparisonRepositoryError } from './services/text-comparison/validation'

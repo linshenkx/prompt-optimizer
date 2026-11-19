@@ -14,6 +14,11 @@ import { useSessionManager } from '../../src/stores/session/useSessionManager'
 import { createPreferenceServiceStub, createTestPinia } from '../utils/pinia-test-helpers'
 
 const confirmComparisonDeletion = vi.hoisted(() => vi.fn())
+const copyCandidateText = vi.hoisted(() => vi.fn(async (_text: string) => {}))
+
+vi.mock('../../src/composables/ui/useClipboard', () => ({
+  useClipboard: () => ({ isSupported: true, copyText: copyCandidateText }),
+}))
 
 vi.mock('../../src/composables/ui/useConfirmDialog', () => ({
   useConfirmDialog: () => ({ warning: confirmComparisonDeletion }),
@@ -367,7 +372,7 @@ describe('workspace session reactivity regression', () => {
     expect(saved?.testVariantResults?.a?.result).toBe('NEW-CONTEXT')
   })
 
-  it('reopens a saved comparison beside the current variable workspace draft', async () => {
+  it.each(['models', 'prompts'] as const)('reopens a saved comparison of %s beside the current workspace draft', async kind => {
     const comparisonId = '11111111-1111-4111-8111-111111111111'
     const name = 'Saved review'
     const fixture: SavedComparisonResult = {
@@ -402,6 +407,29 @@ describe('workspace session reactivity regression', () => {
           },
         ],
       },
+    }
+    if (kind === 'prompts') {
+      const [baseline, candidate] = fixture.comparison.runs
+      const preview = baseline.effective.request
+      fixture.comparison = {
+        ...fixture.comparison,
+        schemaVersion: 'saved-comparison/v2',
+        candidatePrompt: {
+          kind: 'draft',
+          request: {
+            rawPrompt: 'Explain {{topic}} in three bullets',
+            messages: [{ role: 'user', content: 'Explain the moon in three bullets' }],
+            variables: { topic: 'the moon' },
+          },
+        },
+        runs: [
+          { ...baseline, effective: { ...baseline.effective, preview } },
+          {
+            ...candidate, model: baseline.model,
+            effective: { ...candidate.effective, parameters: baseline.effective.parameters, preview },
+          },
+        ],
+      }
     }
     const viewer: ComparisonViewer = {
       list: vi.fn<ComparisonViewer['list']>(async () => ({
@@ -453,6 +481,13 @@ describe('workspace session reactivity regression', () => {
     expect(viewer.get).toHaveBeenCalledWith(comparisonId)
     expect(wrapper.get('[data-testid="saved-comparison-detail"]').text()).toContain('Explain {{topic}}')
     expect(wrapper.get('[data-testid="saved-comparison-input"]').text()).toBe('Explain the moon')
+    if (kind === 'prompts') {
+      expect(wrapper.get('[data-testid="saved-comparison-candidate-input"]').text()).toBe('Explain the moon in three bullets')
+      await wrapper.get('[data-testid="copy-saved-comparison-candidate"]').trigger('click')
+      expect(copyCandidateText).toHaveBeenLastCalledWith('Explain {{topic}} in three bullets')
+    } else {
+      expect(wrapper.find('[data-testid="saved-comparison-candidate-input"]').exists()).toBe(false)
+    }
     const runA = wrapper.get('[data-testid="saved-comparison-run-a"]')
     expect(runA.text()).toContain('Reasoning A')
     expect(runA.text()).toContain('chat-completions')

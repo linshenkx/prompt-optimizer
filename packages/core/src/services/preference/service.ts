@@ -327,6 +327,9 @@ export class PreferenceService implements IPreferenceService {
    * @returns 键名列表
    */
   async keys(): Promise<string[]> {
+    if (this.storageProvider.getEntriesByPrefix) {
+      return (await this.storageProvider.getEntriesByPrefix(this.PREFIX)).map(([key]) => key.slice(this.PREFIX.length));
+    }
     // 由于IStorageProvider没有getAllKeys方法，我们只能返回已知的键
     // 这是一个限制，但在大多数情况下应该足够了
     return Array.from(this.keyCache);

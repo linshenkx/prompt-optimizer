@@ -37,14 +37,27 @@ export interface PublicStoredTextVersion extends PublicStoredAsset {
   content: { kind: 'text'; text: string }
   variables: Array<{ name: string; required: boolean; type?: PromptVariableType; options?: string[] }>
 }
-export interface AssetVersionSelection {
+export interface PublicStoredVersionSummary {
+  versionId: string
+  version: number
+  createdAt: number
+}
+
+export type PublicStoredAssetVersions = AssetReadPage<PublicStoredVersionSummary> &
+  Pick<PublicStoredAsset, 'favoriteId' | 'assetId' | 'currentVersionId' | 'versionCount' | 'revision'>
+
+export interface AssetSelection {
   favoriteId: string
   assetId: string
-  versionId: string
   expectedRevision?: string
+}
+
+export interface AssetVersionSelection extends AssetSelection {
+  versionId: string
 }
 export interface IReadonlyAssetReader {
   listModels(options?: AssetReadPagination): Promise<AssetReadPage<PublicStoredModel>>
   listAssets(options?: AssetReadPagination & { modeKey?: PromptModeKey; query?: string }): Promise<AssetReadPage<PublicStoredAsset>>
+  listAssetVersions(selection: AssetSelection, options?: AssetReadPagination): Promise<PublicStoredAssetVersions>
   getAssetVersion(selection: AssetVersionSelection): Promise<PublicStoredTextVersion & AssetReaderScope>
 }

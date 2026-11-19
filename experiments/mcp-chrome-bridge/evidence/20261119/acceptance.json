@@ -1,0 +1,460 @@
+{
+  "date": "2026-11-19T03:23:57.286Z",
+  "node": "v24.22.1",
+  "product": "built packages/web/dist (not a sample page)",
+  "model": "real browser product LLMService + local deterministic SSE endpoint; no paid models",
+  "tools": [
+    "po_sources_list",
+    "po_sources_open",
+    "po_sources_close",
+    "po_models_list",
+    "po_assets_list",
+    "po_assets_get_version",
+    "po_tests_prepare",
+    "po_tests_execute",
+    "po_tests_get",
+    "po_tests_cancel",
+    "po_comparisons_save",
+    "po_comparisons_list",
+    "po_comparisons_get",
+    "po_comparisons_delete",
+    "po_sources_authorize",
+    "po_desktop_catalog",
+    "po_desktop_query",
+    "po_desktop_mutate"
+  ],
+  "records": [
+    {
+      "name": "chromium-loopback",
+      "origin": "http://127.0.0.1:11578",
+      "browserVersion": "153.0.8010.12",
+      "status": "passed",
+      "operations": [
+        "po_sources_authorize",
+        "po_sources_list",
+        "po_sources_open",
+        "po_desktop_query",
+        "po_desktop_mutate:addFavorite",
+        "po_assets_list",
+        "po_assets_get_version",
+        "po_models_list",
+        "po_tests_prepare",
+        "po_tests_execute",
+        "po_tests_get",
+        "po_comparisons_save",
+        "po_comparisons_get"
+      ],
+      "errors": [],
+      "saveRetryDeduplicated": true,
+      "favoriteVisibleInOriginalPage": true,
+      "comparisonReopenedInOriginalPage": true,
+      "source": {
+        "sourceId": "96b873ca-ee5c-4c0b-a792-b11c7158ae48",
+        "contextId": "6fc653f8-f79e-4a5a-83f4-be03ca0e02bc",
+        "pageId": "634e461b-6417-40f0-a6cd-71a55c426806"
+      },
+      "favoriteId": "fav_1795058576671_ky3ixqp7a",
+      "comparisonId": "ecad1efa-c171-4002-95d1-6dfec24423f7",
+      "sameOriginStorageIsolation": true,
+      "revokedConnectionInvalid": true,
+      "persistedAfterPageReload": true,
+      "readonlyWriteDenied": true,
+      "closedPageConnectionInvalid": true
+    },
+    {
+      "name": "chromium-loopback-second-profile",
+      "origin": "http://127.0.0.1:11578",
+      "browserVersion": "153.0.8010.12",
+      "status": "passed",
+      "operations": [
+        "po_sources_authorize",
+        "po_sources_list",
+        "po_sources_open",
+        "po_desktop_query",
+        "po_desktop_mutate:addFavorite",
+        "po_assets_list",
+        "po_assets_get_version",
+        "po_models_list",
+        "po_tests_prepare",
+        "po_tests_execute",
+        "po_tests_get",
+        "po_comparisons_save",
+        "po_comparisons_get"
+      ],
+      "errors": [],
+      "saveRetryDeduplicated": true,
+      "favoriteVisibleInOriginalPage": true,
+      "comparisonReopenedInOriginalPage": true,
+      "source": {
+        "sourceId": "4c9102dd-39d7-4829-b806-88464774a41f",
+        "contextId": "968d5c30-5722-4243-8741-6d9fdcf7ed69",
+        "pageId": "99b652dd-97cf-4da9-beba-2554b95f33ac"
+      },
+      "favoriteId": "fav_1795058580683_w6qksya7a",
+      "comparisonId": "91dca8b4-0434-47e8-86df-3ec8543eff15",
+      "sameOriginStorageIsolation": true,
+      "revokedConnectionInvalid": true,
+      "persistedAfterPageReload": true,
+      "readonlyWriteDenied": true,
+      "closedPageConnectionInvalid": true
+    },
+    {
+      "name": "chromium-custom-domain",
+      "origin": "http://po-bridge.localhost:11578",
+      "browserVersion": "153.0.8010.12",
+      "status": "passed",
+      "operations": [
+        "po_sources_authorize",
+        "po_sources_list",
+        "po_sources_open",
+        "po_desktop_query",
+        "po_desktop_mutate:addFavorite",
+        "po_assets_list",
+        "po_assets_get_version",
+        "po_models_list",
+        "po_tests_prepare",
+        "po_tests_execute",
+        "po_tests_get",
+        "po_comparisons_save",
+        "po_comparisons_get"
+      ],
+      "errors": [],
+      "saveRetryDeduplicated": true,
+      "favoriteVisibleInOriginalPage": true,
+      "comparisonReopenedInOriginalPage": true,
+      "source": {
+        "sourceId": "a66bf534-7649-4f16-8fe7-0db521d113d5",
+        "contextId": "2264bccf-209c-4c34-8570-1f47a976fe91",
+        "pageId": "787f720a-ec32-4b7f-8ec7-13540205a3a2"
+      },
+      "favoriteId": "fav_1795058584682_i5oy57fy4",
+      "comparisonId": "da6aaea1-91ee-4b80-85e8-097bbd94ac6d",
+      "revokedConnectionInvalid": true,
+      "persistedAfterPageReload": true,
+      "readonlyWriteDenied": true,
+      "closedPageConnectionInvalid": true
+    },
+    {
+      "name": "chromium-lan-ip",
+      "origin": "http://192.168.31.2:11578",
+      "browserVersion": "153.0.8010.12",
+      "status": "passed",
+      "operations": [
+        "po_sources_authorize",
+        "po_sources_list",
+        "po_sources_open",
+        "po_desktop_query",
+        "po_desktop_mutate:addFavorite",
+        "po_assets_list",
+        "po_assets_get_version",
+        "po_models_list",
+        "po_tests_prepare",
+        "po_tests_execute",
+        "po_tests_get",
+        "po_comparisons_save",
+        "po_comparisons_get"
+      ],
+      "errors": [],
+      "saveRetryDeduplicated": true,
+      "favoriteVisibleInOriginalPage": true,
+      "comparisonReopenedInOriginalPage": true,
+      "source": {
+        "sourceId": "61b65d04-179a-49ce-85c2-53b758c17a69",
+        "contextId": "d2589950-9a17-4866-b8b4-47cc83f42a30",
+        "pageId": "4d9c22b8-d3b3-4274-aa56-9f34e0e2422e"
+      },
+      "favoriteId": "fav_1795058588584_p9ncgne1v",
+      "comparisonId": "f5a06996-ef5f-47d7-95e0-adf518e99636",
+      "revokedConnectionInvalid": true,
+      "persistedAfterPageReload": true,
+      "readonlyWriteDenied": true,
+      "closedPageConnectionInvalid": true
+    },
+    {
+      "name": "firefox-loopback",
+      "origin": "http://127.0.0.1:11578",
+      "browserVersion": "155.0",
+      "status": "passed",
+      "operations": [
+        "po_sources_authorize",
+        "po_sources_list",
+        "po_sources_open",
+        "po_desktop_query",
+        "po_desktop_mutate:addFavorite",
+        "po_assets_list",
+        "po_assets_get_version",
+        "po_models_list",
+        "po_tests_prepare",
+        "po_tests_execute",
+        "po_tests_get",
+        "po_comparisons_save",
+        "po_comparisons_get"
+      ],
+      "errors": [
+        "[JavaScript Error: \"The connection to ws://127.0.0.1:12893/bridge was interrupted while the page was loading.\" {file: \"http://127.0.0.1:11578/assets/main-DCxfj6vO.js\" line: 1950}]"
+      ],
+      "saveRetryDeduplicated": true,
+      "favoriteVisibleInOriginalPage": true,
+      "comparisonReopenedInOriginalPage": true,
+      "source": {
+        "sourceId": "4492e797-0478-4d76-b9e0-e1fb983fec56",
+        "contextId": "cd4f283e-a4cc-488c-8caa-8872361d7074",
+        "pageId": "57478a6a-4c78-440b-9ded-002a6cbb225c"
+      },
+      "favoriteId": "fav_1795058600018_g36iqk98c",
+      "comparisonId": "5c832a42-bfea-425b-b060-306e880085a3",
+      "sameOriginStorageIsolation": true,
+      "revokedConnectionInvalid": true,
+      "persistedAfterPageReload": true,
+      "readonlyWriteDenied": true,
+      "closedPageConnectionInvalid": true
+    },
+    {
+      "name": "firefox-custom-domain",
+      "origin": "http://po-bridge.localhost:11578",
+      "browserVersion": "155.0",
+      "status": "passed",
+      "operations": [
+        "po_sources_authorize",
+        "po_sources_list",
+        "po_sources_open",
+        "po_desktop_query",
+        "po_desktop_mutate:addFavorite",
+        "po_assets_list",
+        "po_assets_get_version",
+        "po_models_list",
+        "po_tests_prepare",
+        "po_tests_execute",
+        "po_tests_get",
+        "po_comparisons_save",
+        "po_comparisons_get"
+      ],
+      "errors": [
+        "[JavaScript Error: \"The connection to ws://127.0.0.1:12893/bridge was interrupted while the page was loading.\" {file: \"http://po-bridge.localhost:11578/assets/main-DCxfj6vO.js\" line: 1950}]"
+      ],
+      "saveRetryDeduplicated": true,
+      "favoriteVisibleInOriginalPage": true,
+      "comparisonReopenedInOriginalPage": true,
+      "source": {
+        "sourceId": "ff39775f-3815-4b39-a498-c887ef6b31bb",
+        "contextId": "6da7b171-5b66-4c97-9949-13e5019054fa",
+        "pageId": "42ad3d9c-3d73-4bf1-ab8a-a7deb0c9de74"
+      },
+      "favoriteId": "fav_1795058607479_q4u2eqvpd",
+      "comparisonId": "fd86926d-3137-4683-8506-07b622988c3f",
+      "revokedConnectionInvalid": true,
+      "persistedAfterPageReload": true,
+      "readonlyWriteDenied": true,
+      "closedPageConnectionInvalid": true
+    },
+    {
+      "name": "firefox-lan-ip",
+      "origin": "http://192.168.31.2:11578",
+      "browserVersion": "155.0",
+      "status": "passed",
+      "operations": [
+        "po_sources_authorize",
+        "po_sources_list",
+        "po_sources_open",
+        "po_desktop_query",
+        "po_desktop_mutate:addFavorite",
+        "po_assets_list",
+        "po_assets_get_version",
+        "po_models_list",
+        "po_tests_prepare",
+        "po_tests_execute",
+        "po_tests_get",
+        "po_comparisons_save",
+        "po_comparisons_get"
+      ],
+      "errors": [
+        "[JavaScript Error: \"The connection to ws://127.0.0.1:12893/bridge was interrupted while the page was loading.\" {file: \"http://192.168.31.2:11578/assets/main-DCxfj6vO.js\" line: 1950}]"
+      ],
+      "saveRetryDeduplicated": true,
+      "favoriteVisibleInOriginalPage": true,
+      "comparisonReopenedInOriginalPage": true,
+      "source": {
+        "sourceId": "8e64af01-2022-429b-a698-53d364e714a9",
+        "contextId": "f1a7f5ae-2732-41c3-90b6-fc9ac02d7c12",
+        "pageId": "a535711c-adc3-42f1-a1b1-2f0684a0eb64"
+      },
+      "favoriteId": "fav_1795058614417_jx2o0weix",
+      "comparisonId": "cda696a8-117a-4160-8b47-5300f2e2bac6",
+      "revokedConnectionInvalid": true,
+      "persistedAfterPageReload": true,
+      "readonlyWriteDenied": true,
+      "closedPageConnectionInvalid": true
+    }
+  ],
+  "modelRequests": [
+    {
+      "host": "127.0.0.1:11578",
+      "model": "bridge-test",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Summarize chromium-loopback."
+        }
+      ],
+      "temperature": 0.2,
+      "stream": true
+    },
+    {
+      "host": "127.0.0.1:11578",
+      "model": "bridge-test",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Summarize chromium-loopback."
+        }
+      ],
+      "temperature": 0.8,
+      "stream": true
+    },
+    {
+      "host": "127.0.0.1:11578",
+      "model": "bridge-test",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Summarize chromium-loopback-second-profile."
+        }
+      ],
+      "temperature": 0.2,
+      "stream": true
+    },
+    {
+      "host": "127.0.0.1:11578",
+      "model": "bridge-test",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Summarize chromium-loopback-second-profile."
+        }
+      ],
+      "temperature": 0.8,
+      "stream": true
+    },
+    {
+      "host": "po-bridge.localhost:11578",
+      "model": "bridge-test",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Summarize chromium-custom-domain."
+        }
+      ],
+      "temperature": 0.2,
+      "stream": true
+    },
+    {
+      "host": "po-bridge.localhost:11578",
+      "model": "bridge-test",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Summarize chromium-custom-domain."
+        }
+      ],
+      "temperature": 0.8,
+      "stream": true
+    },
+    {
+      "host": "192.168.31.2:11578",
+      "model": "bridge-test",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Summarize chromium-lan-ip."
+        }
+      ],
+      "temperature": 0.2,
+      "stream": true
+    },
+    {
+      "host": "192.168.31.2:11578",
+      "model": "bridge-test",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Summarize chromium-lan-ip."
+        }
+      ],
+      "temperature": 0.8,
+      "stream": true
+    },
+    {
+      "host": "127.0.0.1:11578",
+      "model": "bridge-test",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Summarize firefox-loopback."
+        }
+      ],
+      "temperature": 0.2,
+      "stream": true
+    },
+    {
+      "host": "127.0.0.1:11578",
+      "model": "bridge-test",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Summarize firefox-loopback."
+        }
+      ],
+      "temperature": 0.8,
+      "stream": true
+    },
+    {
+      "host": "po-bridge.localhost:11578",
+      "model": "bridge-test",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Summarize firefox-custom-domain."
+        }
+      ],
+      "temperature": 0.2,
+      "stream": true
+    },
+    {
+      "host": "po-bridge.localhost:11578",
+      "model": "bridge-test",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Summarize firefox-custom-domain."
+        }
+      ],
+      "temperature": 0.8,
+      "stream": true
+    },
+    {
+      "host": "192.168.31.2:11578",
+      "model": "bridge-test",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Summarize firefox-lan-ip."
+        }
+      ],
+      "temperature": 0.2,
+      "stream": true
+    },
+    {
+      "host": "192.168.31.2:11578",
+      "model": "bridge-test",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Summarize firefox-lan-ip."
+        }
+      ],
+      "temperature": 0.8,
+      "stream": true
+    }
+  ],
+  "mcpDiagnostics": ""
+}

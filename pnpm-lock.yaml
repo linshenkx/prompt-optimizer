@@ -52,6 +52,9 @@ importers:
       '@google/genai':
         specifier: ^1.52.0
         version: 1.52.0(@modelcontextprotocol/sdk@1.32.1(zod@4.6.7))
+      '@noble/hashes':
+        specifier: ^2.4.0
+        version: 2.4.0
       dexie:
         specifier: ^4.4.1
         version: 4.4.5
@@ -66,7 +69,7 @@ importers:
         version: 4.2.0
       openai:
         specifier: ^6.33.0
-        version: 6.49.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.6.7)
+        version: 6.49.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.23.0)(zod@4.6.7)
       uuid:
         specifier: ^13.0.2
         version: 13.0.2
@@ -97,7 +100,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.12
-        version: 4.1.12(@types/node@24.13.4)(jsdom@29.1.1(@noble/hashes@1.8.0))(msw@2.15.0(@types/node@24.13.4)(typescript@5.9.3))(vite@8.3.5(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2))
+        version: 4.1.12(@types/node@24.13.4)(jsdom@29.1.1(@noble/hashes@2.4.0))(msw@2.15.0(@types/node@24.13.4)(typescript@5.9.3))(vite@8.3.5(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2))
 
   packages/desktop:
     dependencies:
@@ -162,7 +165,7 @@ importers:
         version: 8.3.5(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)
       vitest:
         specifier: ^4.1.12
-        version: 4.1.12(@types/node@24.13.4)(jsdom@29.1.1(@noble/hashes@1.8.0))(msw@2.15.0(@types/node@24.13.4)(typescript@5.9.3))(vite@8.3.5(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2))
+        version: 4.1.12(@types/node@24.13.4)(jsdom@29.1.1(@noble/hashes@2.4.0))(msw@2.15.0(@types/node@24.13.4)(typescript@5.9.3))(vite@8.3.5(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2))
 
   packages/mcp-server:
     dependencies:
@@ -181,6 +184,9 @@ importers:
       express:
         specifier: ^5.2.1
         version: 5.2.1
+      ws:
+        specifier: ^8.23.0
+        version: 8.23.0
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1
@@ -194,6 +200,9 @@ importers:
       '@types/node':
         specifier: ^24.13.4
         version: 24.13.4
+      '@types/ws':
+        specifier: ^8.18.2
+        version: 8.18.2
       '@typescript-eslint/eslint-plugin':
         specifier: ^8.57.2
         version: 8.70.0(@typescript-eslint/parser@8.70.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3))(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3)
@@ -214,7 +223,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.12
-        version: 4.1.12(@types/node@24.13.4)(jsdom@29.1.1(@noble/hashes@1.8.0))(msw@2.15.0(@types/node@24.13.4)(typescript@5.9.3))(vite@8.3.5(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2))
+        version: 4.1.12(@types/node@24.13.4)(jsdom@29.1.1(@noble/hashes@2.4.0))(msw@2.15.0(@types/node@24.13.4)(typescript@5.9.3))(vite@8.3.5(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2))
 
   packages/ui:
     dependencies:
@@ -326,7 +335,7 @@ importers:
         version: 17.12.0
       jsdom:
         specifier: ^29.0.1
-        version: 29.1.1(@noble/hashes@1.8.0)
+        version: 29.1.1(@noble/hashes@2.4.0)
       postcss:
         specifier: ^8.5.28
         version: 8.5.28
@@ -341,7 +350,7 @@ importers:
         version: 8.3.5(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)
       vitest:
         specifier: ^4.1.12
-        version: 4.1.12(@types/node@24.13.4)(jsdom@29.1.1(@noble/hashes@1.8.0))(msw@2.15.0(@types/node@24.13.4)(typescript@5.9.3))(vite@8.3.5(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2))
+        version: 4.1.12(@types/node@24.13.4)(jsdom@29.1.1(@noble/hashes@2.4.0))(msw@2.15.0(@types/node@24.13.4)(typescript@5.9.3))(vite@8.3.5(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2))
       vue-eslint-parser:
         specifier: ^10.4.0
         version: 10.4.1(eslint@10.10.0(jiti@2.7.0))
@@ -363,7 +372,7 @@ importers:
         version: 6.0.8(vite@8.3.5(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2))(vue@3.5.42(typescript@5.9.3))
       jsdom:
         specifier: ^29.0.1
-        version: 29.1.1(@noble/hashes@1.8.0)
+        version: 29.1.1(@noble/hashes@2.4.0)
       vite:
         specifier: ^8.3.3
         version: 8.3.5(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)
@@ -372,7 +381,7 @@ importers:
         version: 2.0.0(vite@8.3.5(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2))(workbox-build@7.4.1)(workbox-window@7.4.1)
       vitest:
         specifier: ^4.1.12
-        version: 4.1.12(@types/node@24.13.4)(jsdom@29.1.1(@noble/hashes@1.8.0))(msw@2.15.0(@types/node@24.13.4)(typescript@5.9.3))(vite@8.3.5(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2))
+        version: 4.1.12(@types/node@24.13.4)(jsdom@29.1.1(@noble/hashes@2.4.0))(msw@2.15.0(@types/node@24.13.4)(typescript@5.9.3))(vite@8.3.5(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2))
       workbox-precaching:
         specifier: 7.4.1
         version: 7.4.1
@@ -1499,6 +1508,10 @@ packages:
     resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
     engines: {node: ^14.21.3 || >=16}
 
+  '@noble/hashes@2.4.0':
+    resolution: {integrity: sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==}
+    engines: {node: '>= 20.19.0'}
+
   '@nodable/entities@3.0.0':
     resolution: {integrity: sha512-8L9xFeTYKhm49xfIypoe2W5wV1m/3Z58kT+7kR9A8OyFxcPduI4VmxaUMQyKYrRjUoLLSXv6EKKID5Tvj9cUVw==}
 
@@ -1837,6 +1850,9 @@ packages:
   '@smithy/core@3.33.3':
     resolution: {integrity: sha512-CsOeKq/9kA3y6VJHt+/+VTCtBaxJ4OTFpgrjIUhPpDIKxBci1k2bJaQASF2h/ELWrulGp+t97DZ0mevfAD8idg==}
     engines: {node: '>=18.0.0'}
+    deprecated: |-
+      Deprecated due to a bug in custom logger data redaction. Upgrade to the latest version. If you used a custom logger with this
+        version, review your logs and rotate any credentials or other secrets. See https://github.com/aws/aws-sdk-js-v3/issues/8393.
 
   '@smithy/credential-provider-imds@4.5.2':
     resolution: {integrity: sha512-A9uSdn72ozbRUSit0eib0TW7nXuNPlaeM0zcGkJ+nE6tFcSDbnmtwoxbTCFBukVQcszDAyvsd7+rTduPTXpygg==}
@@ -2058,6 +2074,9 @@ packages:
 
   '@types/web-bluetooth@0.0.21':
     resolution: {integrity: sha512-oIQLCGWtcFZy2JW77j9k8nHzAOpqMHLQejDA48XXMWH6tjCQHz5RCFz1bzsmROyL6PUm+LLnUiI4BCn221inxA==}
+
+  '@types/ws@8.18.2':
+    resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
 
   '@typescript-eslint/eslint-plugin@8.70.0':
     resolution: {integrity: sha512-/v8HZt6RlyIZxB3ntehELOcUcfxKPVGWXnQdJuHRmzrqgF8nQypcC/oxGW+Ot4VGKDq81XugPKxx0n5PBtf9PA==}
@@ -5283,6 +5302,18 @@ packages:
       utf-8-validate:
         optional: true
 
+  ws@8.23.0:
+    resolution: {integrity: sha512-wCkmX8QMOrKjgO8HW2WyDbTSGeqkocxgDzS9iR79rEAexty6/2qzilx3Ag8Tqf9ykop3irLKle0MtVn5qjVnoQ==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   xml-name-validator@5.0.0:
     resolution: {integrity: sha512-EvGK8EJ3DhaHfbRlETOWAS5pO9MZITeauHKJyb8wyajUfQUenkIg2MvLDTZ4T/TgIcm3HU0TFBgWWboAZ30UHg==}
     engines: {node: '>=18'}
@@ -6499,9 +6530,9 @@ snapshots:
       '@eslint/core': 1.2.1
       levn: 0.4.1
 
-  '@exodus/bytes@1.15.1(@noble/hashes@1.8.0)':
+  '@exodus/bytes@1.15.1(@noble/hashes@2.4.0)':
     optionalDependencies:
-      '@noble/hashes': 1.8.0
+      '@noble/hashes': 2.4.0
 
   '@google/genai@1.52.0(@modelcontextprotocol/sdk@1.32.1(zod@4.6.7))':
     dependencies:
@@ -6687,6 +6718,8 @@ snapshots:
   '@noble/hashes@1.4.0': {}
 
   '@noble/hashes@1.8.0': {}
+
+  '@noble/hashes@2.4.0': {}
 
   '@nodable/entities@3.0.0': {}
 
@@ -7135,6 +7168,10 @@ snapshots:
   '@types/trusted-types@2.0.7': {}
 
   '@types/web-bluetooth@0.0.21': {}
+
+  '@types/ws@8.18.2':
+    dependencies:
+      '@types/node': 24.13.4
 
   '@typescript-eslint/eslint-plugin@8.70.0(@typescript-eslint/parser@8.70.0(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3))(eslint@10.10.0(jiti@2.7.0))(typescript@5.9.3)':
     dependencies:
@@ -7886,10 +7923,10 @@ snapshots:
 
   data-uri-to-buffer@4.0.1: {}
 
-  data-urls@7.0.0(@noble/hashes@1.8.0):
+  data-urls@7.0.0(@noble/hashes@2.4.0):
     dependencies:
       whatwg-mimetype: 5.0.0
-      whatwg-url: 16.0.1(@noble/hashes@1.8.0)
+      whatwg-url: 16.0.1(@noble/hashes@2.4.0)
     transitivePeerDependencies:
       - '@noble/hashes'
 
@@ -8686,9 +8723,9 @@ snapshots:
 
   hot-patcher@2.0.1: {}
 
-  html-encoding-sniffer@6.0.0(@noble/hashes@1.8.0):
+  html-encoding-sniffer@6.0.0(@noble/hashes@2.4.0):
     dependencies:
-      '@exodus/bytes': 1.15.1(@noble/hashes@1.8.0)
+      '@exodus/bytes': 1.15.1(@noble/hashes@2.4.0)
     transitivePeerDependencies:
       - '@noble/hashes'
 
@@ -8921,17 +8958,17 @@ snapshots:
     dependencies:
       argparse: 2.0.1
 
-  jsdom@29.1.1(@noble/hashes@1.8.0):
+  jsdom@29.1.1(@noble/hashes@2.4.0):
     dependencies:
       '@asamuzakjp/css-color': 5.1.11
       '@asamuzakjp/dom-selector': 7.1.1
       '@bramus/specificity': 2.4.2
       '@csstools/css-syntax-patches-for-csstree': 1.1.12(css-tree@3.2.1)
-      '@exodus/bytes': 1.15.1(@noble/hashes@1.8.0)
+      '@exodus/bytes': 1.15.1(@noble/hashes@2.4.0)
       css-tree: 3.2.1
-      data-urls: 7.0.0(@noble/hashes@1.8.0)
+      data-urls: 7.0.0(@noble/hashes@2.4.0)
       decimal.js: 10.6.0
-      html-encoding-sniffer: 6.0.0(@noble/hashes@1.8.0)
+      html-encoding-sniffer: 6.0.0(@noble/hashes@2.4.0)
       is-potential-custom-element-name: 1.0.1
       lru-cache: 11.5.2
       parse5: 8.0.1
@@ -8942,7 +8979,7 @@ snapshots:
       w3c-xmlserializer: 5.0.0
       webidl-conversions: 8.0.1
       whatwg-mimetype: 5.0.0
-      whatwg-url: 16.0.1(@noble/hashes@1.8.0)
+      whatwg-url: 16.0.1(@noble/hashes@2.4.0)
       xml-name-validator: 5.0.0
     transitivePeerDependencies:
       - '@noble/hashes'
@@ -9386,11 +9423,11 @@ snapshots:
     dependencies:
       wrappy: 1.0.2
 
-  openai@6.49.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.6.7):
+  openai@6.49.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.23.0)(zod@4.6.7):
     optionalDependencies:
       '@aws-sdk/credential-provider-node': 3.972.83
       '@smithy/signature-v4': 5.7.3
-      ws: 8.21.3
+      ws: 8.23.0
       zod: 4.6.7
 
   optionator@0.9.4:
@@ -10371,7 +10408,7 @@ snapshots:
       jiti: 2.7.0
       terser: 5.51.2
 
-  vitest@4.1.12(@types/node@24.13.4)(jsdom@29.1.1(@noble/hashes@1.8.0))(msw@2.15.0(@types/node@24.13.4)(typescript@5.9.3))(vite@8.3.5(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)):
+  vitest@4.1.12(@types/node@24.13.4)(jsdom@29.1.1(@noble/hashes@2.4.0))(msw@2.15.0(@types/node@24.13.4)(typescript@5.9.3))(vite@8.3.5(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)):
     dependencies:
       '@vitest/expect': 4.1.12
       '@vitest/mocker': 4.1.12(msw@2.15.0(@types/node@24.13.4)(typescript@5.9.3))(vite@8.3.5(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2))
@@ -10395,7 +10432,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 24.13.4
-      jsdom: 29.1.1(@noble/hashes@1.8.0)
+      jsdom: 29.1.1(@noble/hashes@2.4.0)
     transitivePeerDependencies:
       - msw
 
@@ -10527,9 +10564,9 @@ snapshots:
 
   whatwg-mimetype@5.0.0: {}
 
-  whatwg-url@16.0.1(@noble/hashes@1.8.0):
+  whatwg-url@16.0.1(@noble/hashes@2.4.0):
     dependencies:
-      '@exodus/bytes': 1.15.1(@noble/hashes@1.8.0)
+      '@exodus/bytes': 1.15.1(@noble/hashes@2.4.0)
       tr46: 6.0.0
       webidl-conversions: 8.0.1
     transitivePeerDependencies:
@@ -10717,6 +10754,8 @@ snapshots:
   wrappy@1.0.2: {}
 
   ws@8.21.3: {}
+
+  ws@8.23.0: {}
 
   xml-name-validator@5.0.0: {}
 

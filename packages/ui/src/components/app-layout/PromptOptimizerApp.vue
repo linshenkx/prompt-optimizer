@@ -59,6 +59,8 @@
                         @open-model-manager="modelManager.showConfig = true"
                         @open-favorites="openFavoritesPage"
                         @open-data-manager="showDataManager = true"
+                        @open-desktop-runs="showDesktopRuns = true"
+                        :desktop-runs-available="!!desktopRunsViewer"
                         @open-variables="handleOpenVariableManager()"
                         :favorites-active="isFavoritesRoute"
                         :backup-reminder-due="dataBackupReminderDue"
@@ -85,6 +87,7 @@
                     </RouterView>
                 </template>
             </MainLayoutUI>
+            <BrowserBridgePanel v-if="services.browserBridge" :host="services.browserBridge" :product-version="appVersion" />
 
             <!-- Modals and Drawers that are conditionally rendered -->
             <ModelManagerUI
@@ -124,6 +127,11 @@
                 :prepare-restore="prepareSessionRestore"
                 @import-code-consumed="incomingBackupImportCode = ''"
                 @imported="handleDataImported"
+            />
+            <DesktopRunsDrawer
+                v-if="desktopRunsViewer"
+                v-model:show="showDesktopRuns"
+                :viewer="desktopRunsViewer"
             />
 
             <!-- 收藏管理对话框 -->
@@ -245,6 +253,7 @@ import {
 } from "vue";
 import { RouterView } from "vue-router";
 import { setLucideProps } from '@lucide/vue';
+import { startDesktopResourceWorker } from '../../utils/desktop-resource-worker';
 import { APP_ICON_DEFAULTS } from '../../config/icons';
 
 setLucideProps(APP_ICON_DEFAULTS);
@@ -295,6 +304,10 @@ import ToolManagerModal from '../tool/ToolManagerModal.vue'
 import ContextEditor from '../context-mode/ContextEditor.vue'
 import PromptPreviewPanel from '../PromptPreviewPanel.vue'
 import AppHeaderActions from './AppHeaderActions.vue'
+import BrowserBridgePanel from './BrowserBridgePanel.vue'
+import DesktopRunsDrawer from '../desktop/DesktopRunsDrawer.vue'
+const desktopRunsViewer = typeof window === 'undefined' ? undefined : window.electronAPI?.desktopRuns
+const showDesktopRuns = ref(false)
 import AppCoreNav from './AppCoreNav.vue'
 import { createWorkspaceRouteSwitchController } from './workspaceRouteSwitch'
 import { favoritesPageActionsKey } from '../favorites/favorites-page-context'
@@ -2371,6 +2384,13 @@ const prepareSessionRestore = async (): Promise<(() => void) | null> => {
   compactAutosave.cancelPending();
   return resume;
 };
+let stopDesktopResources: (() => void) | undefined;
+watch(isReady, ready => {
+  if (ready && services.value && !stopDesktopResources) stopDesktopResources = startDesktopResourceWorker({
+    services: services.value, flush: () => sessionManager.saveAllSessions(), prepareRestore: prepareSessionRestore,
+  });
+}, { immediate: true });
+onBeforeUnmount(() => { stopDesktopResources?.(); });
 const prepareForUpdate = createAppUpdatePreparation({
   isBusy: () => isWorkspaceBusy() || sessionManager.isRestoring || hasCompactModalLayers() ||
     modelManager.showConfig || templateManagerState.showTemplates || historyManager.showHistory ||
