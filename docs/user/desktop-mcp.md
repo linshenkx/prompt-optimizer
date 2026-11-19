@@ -1,6 +1,6 @@
 # 桌面 MCP 本地业务入口
 
-更新：2026-11-19。适用于本地源码工作树；不是已发布安装包的功能声明。
+适用于包含新版桌面 MCP 的 Windows 安装包和本地源码构建。
 
 ## 入口与兼容
 
@@ -11,7 +11,17 @@
 | 原命令加 `--mode=desktop-comparison` | 指定的已有桌面 SQLite | 原预览、冻结输入、双模型/双提示词比较、采纳与已保存比较 |
 | **`prompt-optimizer-desktop-mcp`**（独立新命令） | 指定的已有桌面 SQLite 和产品服务 | 业务目录及文本对照工具；仅 stdio，不载入 `.env`，不替换旧命令 |
 
-使用仓库支持的 Node 24 环境先构建 Core 与 MCP：
+## 从 Windows 安装包连接 Codex
+
+1. 安装并启动桌面应用，完成已有数据的迁移。
+2. 从桌面菜单 **Help → Copy Codex MCP Configuration** 复制配置。将 `[mcp_servers.prompt_optimizer_desktop]` 配置段粘贴到 Codex 的 `config.toml`。如果已有同名配置段，替换该段。
+3. 在 Codex 中重新载入 MCP 配置后，调用 `po_sources_list` 查看桌面来源。Codex 按需启动安装包自带的运行时，使用桌面应用的实际数据目录。
+
+要使用首个对照 Skill，可将安装目录下的 `resources/skills/prompt-optimizer-compare` 文件夹复制到目标 Codex 项目的 `.agents/skills`，然后调用 `$prompt-optimizer-compare`。查收藏、运行和回读仍使用同一份 MCP 配置。
+
+## 从源码启动
+
+使用仓库支持的 Node 24 环境先构建 Core 与 MCP。
 
 ```powershell
 pnpm --filter @prompt-optimizer/core build
@@ -21,7 +31,7 @@ node packages/mcp-server/bin/prompt-optimizer-desktop-mcp.cjs --desktop-profile=
 
 `--desktop-profile` 必须是明确授权的绝对 **userData 目录**，不是 SQLite 文件；可指定最多八个目录。已有数据库必须通过 schema、迁移及旧 JSON 分歧检查。不存在、损坏、未迁移或有分歧时拒绝打开，不为 MCP 自动创建库、迁移或覆盖资料。先由桌面程序完成迁移。新命令不接受调用者覆盖 `--mode` 或切成 HTTP。
 
-客户端配置应把支持的 Node 可执行文件设为 `command`，把本工作树的新 `.cjs` 文件及 `--desktop-profile=...` 放在 `args`。不要把凭据放进 MCP 客户端环境变量；桌面模式只使用已保存的模型配置。本文没有修改用户的客户端配置、安装包或现用数据。
+源码模式的客户端配置把支持的 Node 可执行文件设为 `command`，把已构建的 `.cjs` 入口及 `--desktop-profile=...` 放在 `args`。桌面模式使用已保存的模型配置。
 
 ## 工具与业务覆盖
 

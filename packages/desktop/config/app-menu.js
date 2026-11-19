@@ -15,6 +15,7 @@ function buildPageZoomMenuItems({ onPageZoomAction = () => {} } = {}) {
 function buildAppMenuTemplate({
   isMac = process.platform === 'darwin',
   onPageZoomAction,
+  onCopyCodexMcpConfig,
 } = {}) {
   return [
     ...(isMac ? [{ role: 'appMenu' }] : []),
@@ -33,6 +34,10 @@ function buildAppMenuTemplate({
       ],
     },
     { role: 'windowMenu' },
+    ...(onCopyCodexMcpConfig ? [{
+      role: 'help',
+      submenu: [{ id: 'copy-codex-mcp-config', label: 'Copy Codex MCP Configuration', click: onCopyCodexMcpConfig }],
+    }] : []),
   ];
 }
 

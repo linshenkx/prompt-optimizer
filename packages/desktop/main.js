@@ -1,3 +1,11 @@
+const { buildCodexMcpConfig, isDesktopMcpInvocation } = require('./config/desktop-mcp');
+if (isDesktopMcpInvocation(process.argv[1], process.resourcesPath)) {
+  // A client missing the MCP environment option must not start the desktop app.
+  process.stderr.write('Desktop MCP requires ELECTRON_RUN_AS_NODE=1.\n');
+  require('electron').app.exit(1);
+  return;
+}
+
 const { createStreamRegistry } = require('./stream-runtime');
 const streamRegistry = createStreamRegistry();
 /*
@@ -29,7 +37,7 @@ console.info('[prompt-optimizer/runtime]', {
   electron: process.versions.electron,
 });
 
-const { app, BrowserWindow, ipcMain, shell, session, Menu, nativeImage, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, session, Menu, nativeImage, dialog, clipboard } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const {
   buildReleaseUrl,
@@ -465,6 +473,13 @@ function createWindow() {
       buildAppMenuTemplate({
         isMac: process.platform === 'darwin',
         onPageZoomAction: handlePageZoomAction,
+        onCopyCodexMcpConfig: app.isPackaged && process.platform === 'win32'
+          ? () => clipboard.writeText(buildCodexMcpConfig({
+            executable: process.execPath,
+            resourcesPath: process.resourcesPath,
+            userDataPath: app.getPath('userData'),
+          }))
+          : undefined,
       })
     )
   );

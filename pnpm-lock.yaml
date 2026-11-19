@@ -110,6 +110,9 @@ importers:
       '@prompt-optimizer/core':
         specifier: workspace:*
         version: link:../core
+      '@prompt-optimizer/mcp-server':
+        specifier: workspace:*
+        version: link:../mcp-server
       dotenv:
         specifier: ^17.3.1
         version: 17.4.2
