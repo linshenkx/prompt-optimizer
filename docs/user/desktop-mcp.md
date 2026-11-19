@@ -102,7 +102,7 @@ node packages/mcp-server/bin/prompt-optimizer-desktop-mcp.cjs --desktop-profile=
 
 在同一新入口中，用 `po_sources_list` 返回的 `sourceId` 调用 `po_sources_open`，指定 `access: "compare"`。其返回的 `connectionId` 用于 `po_models_list`、`po_assets_*`、`po_tests_*` 和 `po_comparisons_*`。这些工具支持预览实际模型参数、对照同一收藏的两个模型或同一模型的两版提示词，以及保存和回读完整原始结果。[工具调用说明](../../packages/mcp-server/README.md#桌面文本比较模式)
 
-配置新命令后，在包含仓库 Skill 的 Codex 项目里可调用 `$prompt-optimizer-compare`。提供桌面来源、变量工作区的收藏及版本、两个已存模型和共用变量，并说明是否执行与保存。Codex 请求确认模型调用时，可核对预览后确认本次执行。保存后在桌面变量工作区的 **「已保存比较」** 中输入返回的 `comparisonId` 即可重开。[Skill](../../.agents/skills/prompt-optimizer-compare/SKILL.md)
+配置新命令后，在包含仓库 Skill 的 Codex 项目里可调用 `$prompt-optimizer-compare`。可在同一收藏版本上对照两个已存模型，或用同一个已存模型对照两版提示词。提供来源、收藏、确切版本、模型和共用变量，并说明是否执行与保存。Codex 请求确认模型调用时，可核对预览后确认本次执行。保存后在桌面或原网页变量工作区的 **「已保存比较」** 中输入返回的 `comparisonId` 即可重开。[Skill](../../.agents/skills/prompt-optimizer-compare/SKILL.md)
 
 ## 图片资源与完整备份
 
