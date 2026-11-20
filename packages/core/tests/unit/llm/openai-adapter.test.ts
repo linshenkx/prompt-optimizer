@@ -202,7 +202,8 @@ describe('OpenAIAdapter', () => {
         usage: {
           prompt_tokens: 10,
           completion_tokens: 20,
-          total_tokens: 30
+          total_tokens: 30,
+          prompt_tokens_details: { cached_tokens: 4 }
         }
       };
 
@@ -214,7 +215,48 @@ describe('OpenAIAdapter', () => {
       expect(response.reasoning).toBeUndefined();
       expect(response.metadata).toEqual({
         model: 'gpt-5-mini',
-        finishReason: 'stop'
+        finishReason: 'stop',
+        usage: { inputTokens: 10, outputTokens: 20, cachedInputTokens: 4, totalTokens: 30 }
+      });
+    });
+
+    it.each([
+      {
+        label: 'DeepSeek cache hits when the standard field is invalid',
+        usage: { prompt_tokens_details: { cached_tokens: -1 }, prompt_cache_hit_tokens: 5 },
+        expected: { inputTokens: null, outputTokens: null, cachedInputTokens: 5, totalTokens: null }
+      },
+      {
+        label: 'zero counts and a missing total, with the standard cache field taking precedence',
+        usage: { prompt_tokens: 0, completion_tokens: 7, prompt_tokens_details: { cached_tokens: 0 }, prompt_cache_hit_tokens: 5 },
+        expected: { inputTokens: 0, outputTokens: 7, cachedInputTokens: 0, totalTokens: null }
+      },
+      {
+        label: 'a reported total alongside invalid numeric fields',
+        usage: { prompt_tokens: '12', completion_tokens: 1.5, total_tokens: 0 },
+        expected: { inputTokens: null, outputTokens: null, cachedInputTokens: null, totalTokens: 0 }
+      },
+      { label: 'missing usage', usage: undefined, expected: undefined },
+      { label: 'null usage', usage: null, expected: undefined },
+      { label: 'empty usage', usage: {}, expected: undefined },
+      {
+        label: 'entirely invalid usage',
+        usage: { prompt_tokens: -1, completion_tokens: '2', total_tokens: Infinity, prompt_cache_hit_tokens: true },
+        expected: undefined
+      }
+    ])('should handle $label', async ({ usage, expected }) => {
+      mockOpenAIInstance.chat.completions.create.mockResolvedValue({
+        choices: [{ message: { content: 'Answer' }, finish_reason: 'stop' }],
+        ...(usage === undefined ? {} : { usage })
+      });
+
+      const response = await adapter.sendMessage(mockMessages, mockConfig);
+
+      expect(response.content).toBe('Answer');
+      expect(response.metadata).toStrictEqual({
+        model: 'gpt-5-mini',
+        finishReason: 'stop',
+        ...(expected === undefined ? {} : { usage: expected })
       });
     });
 
