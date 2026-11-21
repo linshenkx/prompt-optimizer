@@ -44,7 +44,7 @@ export function createBrowserServer(transport = createBrowserTransport()) {
     ...(tool.name === 'po_sources_open' ? { inputSchema: { ...tool.inputSchema,
       properties: { sourceId: text, access: { type: 'string', enum: ['read', 'compare'] } } } } : {}),
   })), ...extraSpecs];
-  const server = new Server({ name: 'prompt-optimizer-browser', version: '0.1.0' }, { capabilities: { tools: {} } });
+  const server = new Server({ name: 'prompt-optimizer-browser', version: '0.1.1' }, { capabilities: { tools: {} } });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
 
   async function callTool(name: string, input: Record<string, unknown> = {}) {

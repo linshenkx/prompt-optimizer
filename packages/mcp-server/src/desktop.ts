@@ -181,7 +181,7 @@ function createDesktopServer(access: DesktopAccess, router: DesktopRouter) {
   const dispatcher = createDesktopToolDispatcher(access, router);
   const server = new Server({
     name: access === 'compare' ? 'prompt-optimizer-desktop-comparison' : 'prompt-optimizer-desktop-readonly',
-    version: '0.1.0',
+    version: '0.1.1',
   }, { capabilities: { tools: {} } });
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: dispatcher.specs }));

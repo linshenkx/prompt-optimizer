@@ -48,7 +48,7 @@ async function createServerInstance(config: MCPServerConfig) {
   // 创建 MCP Server 实例 - 使用正确的 API
   const server = new Server({
     name: 'prompt-optimizer-mcp-server',
-    version: '0.1.0'
+    version: '0.1.1'
   }, {
     capabilities: {
       tools: {}
