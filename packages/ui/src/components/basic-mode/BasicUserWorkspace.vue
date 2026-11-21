@@ -210,6 +210,18 @@
                       :compact="isCompact" :running="isAnyVariantRunning" :can-use-four-columns="canUseFourColumns"
                       run-test-id="basic-user-test-run-all"
                       @run="runAllVariants">
+                      <template #actions>
+                        <SaveTestResultExamplesBatchButton
+                          sub-mode-key="basic-user"
+                          :content="logic.optimizedPrompt.value || logic.prompt.value"
+                          :original-content="logic.prompt.value"
+                          function-mode="basic"
+                          optimization-mode="user"
+                          :variant-ids="saveExampleReadyVariantIds"
+                          :disabled="isAnyVariantRunning"
+                          test-id="save-test-examples-batch-basic-user"
+                        />
+                      </template>
                       <template #comparison>
                         <CompareRoleSummary :entries="compareRoleConfig.entries.value"
                           :warning="compareToolbarStatus?.label" :disabled="isAnyVariantRunning" @click="openCompareRoleConfig" />
@@ -538,6 +550,7 @@ import { resolveSourceAssetRef } from '../../utils/source-asset'
 import { beginOutputStream } from '../../utils/output-document'
 import OutputDisplay from '../OutputDisplay.vue'
 import SaveTestResultExampleButton from '../SaveTestResultExampleButton.vue'
+import SaveTestResultExamplesBatchButton from '../SaveTestResultExamplesBatchButton.vue'
 import {
   AnalyzeActionIcon,
   CompareHelpButton,
@@ -736,6 +749,10 @@ const { sourceAreaFeedback, pulseSourceAreaForSelection } =
 const isAnyVariantRunning = computed(() => activeVariantIds.value.some((id) => !!variantRunning[id]))
 
 const getVariantLabel = (id: TestVariantId) => ({ a: 'A', b: 'B', c: 'C', d: 'D' }[id])
+// 可批量保存为示例的测试列：与单列保存按钮的可用条件保持一致
+const saveExampleReadyVariantIds = computed(() =>
+  activeVariantIds.value.filter((id) => hasVariantResult(id) && !variantRunning[id] && !variantFailed[id])
+)
 
 const handleVariantVersionChange = (id: TestVariantId, value: string | number) => {
   const selection = value as TestPanelVersionValue

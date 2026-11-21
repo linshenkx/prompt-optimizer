@@ -331,6 +331,18 @@
       :compact="isCompact" :running="isAnyVariantRunning" :can-use-four-columns="canUseFourColumns"
       run-test-id="image-multiimage-test-run-all" column-test-id-prefix="image-multiimage-columns"
       @run="runAllVariants">
+      <template #actions>
+        <SaveTestResultExamplesBatchButton
+          sub-mode-key="image-multiimage"
+          :content="optimizedPrompt || originalPrompt"
+          :original-content="originalPrompt"
+          function-mode="image"
+          image-sub-mode="multiimage"
+          :variant-ids="saveExampleReadyVariantIds"
+          :disabled="isAnyVariantRunning"
+          test-id="save-test-examples-batch-image-multiimage"
+        />
+      </template>
     </TestWorkspaceToolbar></template>
     <template #variant-controls><NCard class="test-variant-controls" size="small" :style="{ flexShrink: 0 }" :content-style="isCompact ? undefined : { padding: '12px' }">
             <div class="variant-deck" :style="{ gridTemplateColumns: isCompact ? 'minmax(0, 1fr)' : testGridTemplateColumns }">
@@ -637,6 +649,7 @@ import VariableValuePreviewDialog from '../variable/VariableValuePreviewDialog.v
 import TestPanelVersionSelect from '../TestPanelVersionSelect.vue'
 import ImageTokenUsage from './ImageTokenUsage.vue'
 import SaveTestResultExampleButton from '../SaveTestResultExampleButton.vue'
+import SaveTestResultExamplesBatchButton from '../SaveTestResultExamplesBatchButton.vue'
 import { EvaluationPanel } from '../evaluation'
 
 const { t } = useI18n()
@@ -997,6 +1010,10 @@ const testGridTemplateColumns = computed(() => `repeat(${testColumnCountModel.va
 const isAnyVariantRunning = computed(() => activeVariantIds.value.some((id) => variantRunning[id]))
 
 const getVariantLabel = (id: TestVariantId) => ({ a: 'A', b: 'B', c: 'C', d: 'D' }[id])
+// 可批量保存为示例的测试列：与单列保存按钮的可用条件保持一致
+const saveExampleReadyVariantIds = computed(() =>
+  activeVariantIds.value.filter((id) => hasVariantResult(id) && !variantRunning[id])
+)
 
 const handleVariantVersionChange = (id: TestVariantId, value: string | number) => {
   const selection = value as TestPanelVersionValue

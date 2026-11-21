@@ -22,23 +22,18 @@ import { computed, inject, ref } from 'vue'
 import { NButton, NIcon } from 'naive-ui'
 import { Star } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
-import {
-  promptExampleFromTestRun,
-  type PromptSession,
-  type PromptTestRun,
-} from '@prompt-optimizer/core'
+import type { PromptSession } from '@prompt-optimizer/core'
 
 import { useToast } from '../composables/ui/useToast'
 import ThemedTooltip from './common/ThemedTooltip.vue'
 import { useSessionManager, type SubModeKey } from '../stores/session/useSessionManager'
 import type { SaveFavoritePayload } from '../types/workspace'
-import {
-  favoriteReproducibilityExampleFromPromptExample,
-  type FavoriteReproducibilityDraft,
-  type FavoriteReproducibilityVariable,
-} from '../utils/favorite-reproducibility'
-import { isValidVariableName } from '../types/variable'
+import type { FavoriteReproducibilityDraft } from '../utils/favorite-reproducibility'
 import { resolveSourceAssetRef } from '../utils/source-asset'
+import {
+  buildTestResultExampleDraft,
+  buildTestResultExampleEntries,
+} from '../utils/test-result-example-draft'
 
 const props = withDefaults(defineProps<{
   subModeKey: SubModeKey
@@ -65,49 +60,6 @@ const appHandleSaveFavorite = inject<((data: SaveFavoritePayload) => void) | nul
 const isSavingExample = ref(false)
 
 const disabled = computed(() => props.disabled || isSavingExample.value || !props.content.trim())
-
-const findTestRun = (session: PromptSession): PromptTestRun | null => {
-  for (const runSet of session.testRuns) {
-    const found = runSet.runs.find((run) =>
-      run.metadata?.legacyVariantId === props.variantId ||
-      run.id.endsWith(`:test:${props.variantId}`),
-    )
-    if (found) return found
-  }
-  return null
-}
-
-const resolveExampleBasedOnVersionId = (
-  session: PromptSession,
-  run: PromptTestRun,
-): string => {
-  if (run.revision.kind === 'record') {
-    return run.revision.recordId
-  }
-
-  if (run.revision.kind === 'root') {
-    return session.optimization.root.id
-  }
-
-  if (run.revision.kind === 'asset-version') {
-    return run.revision.versionId
-  }
-
-  return `${session.id}:draft`
-}
-
-const buildVariableDraft = (parameters: Record<string, string> | undefined): FavoriteReproducibilityVariable[] => {
-  if (!parameters) return []
-
-  return Object.keys(parameters)
-    .filter((name) => isValidVariableName(name))
-    .map((name) => ({
-      name,
-      required: false,
-      options: [],
-      source: 'test-run',
-    }))
-}
 
 const openSaveFavoriteDialog = (
   session: PromptSession,
@@ -138,28 +90,13 @@ const handleSaveExample = async () => {
   isSavingExample.value = true
   try {
     const session = await sessionManager.getHydratedPromptSession(props.subModeKey)
-    const run = findTestRun(session)
-    if (!run) {
+    const entries = buildTestResultExampleEntries(session, [props.variantId])
+    if (entries.length === 0) {
       toast.warning(t('favorites.dialog.reproducibility.noTestResultToSave'))
       return
     }
 
-    const example = promptExampleFromTestRun(run, {
-      basedOnVersionId: resolveExampleBasedOnVersionId(session, run),
-    })
-    const favoriteExample = example
-      ? favoriteReproducibilityExampleFromPromptExample(example)
-      : null
-
-    if (!favoriteExample) {
-      toast.warning(t('favorites.dialog.reproducibility.noTestResultToSave'))
-      return
-    }
-
-    const reproducibilityDraft = {
-      variables: buildVariableDraft(favoriteExample.parameters),
-      examples: [favoriteExample],
-    }
+    const reproducibilityDraft = buildTestResultExampleDraft(entries)
 
     openSaveFavoriteDialog(session, reproducibilityDraft)
   } finally {
