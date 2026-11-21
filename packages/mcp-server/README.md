@@ -76,6 +76,8 @@ npm 包发布后，使用 Node.js 24.22.1 或更新的 24.x，将以下命令配
 npx -y --prefer-online --package=@prompt-optimizer/mcp-server@latest prompt-optimizer-mcp --mode=browser
 ```
 
+> **版本前提**：`--mode=browser` 与 `prompt-optimizer-desktop-mcp` 分别需要包含网页授权桥接或桌面 SQLite 存储的新版 Web / 桌面客户端；旧版未升级客户端仅可使用默认的 legacy 环境变量模式。
+
 维护者可在仓库根目录运行 `pnpm mcp:pack`，在 `dist/npm/` 生成包含运行时、私有 Core 和比较 Skill 的命令行安装包。使用 `pnpm mcp:pack --out-dir <目录>` 可指定输出目录。
 
 本地源码构建支持 `--mode=browser`。它是现有 MCP 包的另一种显式启动模式，不是独立常驻服务，不扫描 Chrome/Firefox 的资料目录，也不使用 CDP。原有 legacy、desktop-readonly、desktop-comparison 模式不变。

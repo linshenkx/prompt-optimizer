@@ -42,6 +42,12 @@ async function collectNotices(builds) {
   return [...new Set(notices)].sort().join('\n\n' + '-'.repeat(72) + '\n\n') + '\n';
 }
 
+const repoBlobBase = 'https://github.com/linshenkx/prompt-optimizer/blob/master/';
+
+function rewriteReadmeLinks(markdown) {
+  return markdown.replace(/\]\(\.\.\/\.\.\/([^)\s]+)\)/g, (_, target) => `](${repoBlobBase}${target})`);
+}
+
 const tempRoot = await realpath(tmpdir());
 const staging = await mkdtemp(join(tempRoot, 'prompt-optimizer-mcp-npm-'));
 try {
@@ -52,6 +58,7 @@ try {
   const bundleOptions = {
     absWorkingDir: packageDir,
     bundle: true,
+    minify: true,
     platform: 'node',
     target: 'node24',
     metafile: true,
@@ -88,7 +95,8 @@ try {
 
   await Promise.all([
     cp(join(packageDir, 'bin'), join(staging, 'bin'), { recursive: true }),
-    copyFile(join(packageDir, 'README.md'), join(staging, 'README.md')),
+    readFile(join(packageDir, 'README.md'), 'utf8')
+      .then(content => writeFile(join(staging, 'README.md'), rewriteReadmeLinks(content))),
     copyFile(join(repoDir, 'LICENSE'), join(staging, 'LICENSE')),
     copyFile(join(repoDir, '.agents', skill), join(staging, skill)),
     writeFile(join(staging, 'package.json'), JSON.stringify(manifest, null, 2) + '\n'),

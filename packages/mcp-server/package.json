@@ -35,6 +35,15 @@
   ],
   "author": "Prompt Optimizer Team",
   "license": "AGPL-3.0-only",
+  "homepage": "https://github.com/linshenkx/prompt-optimizer#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/linshenkx/prompt-optimizer.git",
+    "directory": "packages/mcp-server"
+  },
+  "bugs": {
+    "url": "https://github.com/linshenkx/prompt-optimizer/issues"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.0",
     "@prompt-optimizer/core": "workspace:*",
