@@ -11,6 +11,7 @@
   },
   "scripts": {
     "build": "tsup src/index.ts src/start.ts src/desktop.ts src/desktop-business.ts src/browser.ts src/legacy.ts --format cjs,esm --dts --clean",
+    "pack:npm": "node scripts/pack-npm.mjs",
     "dev": "node dist/start.js --mode=legacy --transport=http",
     "start": "node dist/start.cjs --mode=legacy --transport=http",
     "start:desktop-readonly": "node dist/start.cjs --mode=desktop-readonly",
@@ -50,6 +51,7 @@
     "@types/ws": "^8.18.2",
     "@typescript-eslint/eslint-plugin": "^8.57.2",
     "@typescript-eslint/parser": "^8.57.2",
+    "esbuild": "0.28.1",
     "eslint": "^10.1.0",
     "globals": "^17.4.0",
     "tsup": "^8.5.1",

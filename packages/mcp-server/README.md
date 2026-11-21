@@ -70,6 +70,14 @@ node packages/mcp-server/bin/prompt-optimizer-desktop-mcp.cjs "--desktop-profile
 
 ## 网页授权数据源模式
 
+npm 包发布后，使用 Node.js 24.22.1 或更新的 24.x，将以下命令配置为客户端的 stdio 启动命令。
+
+```sh
+npx -y --prefer-online --package=@prompt-optimizer/mcp-server@latest prompt-optimizer-mcp --mode=browser
+```
+
+维护者可在仓库根目录运行 `pnpm mcp:pack`，在 `dist/npm/` 生成包含运行时、私有 Core 和比较 Skill 的命令行安装包。使用 `pnpm mcp:pack --out-dir <目录>` 可指定输出目录。
+
 本地源码构建支持 `--mode=browser`。它是现有 MCP 包的另一种显式启动模式，不是独立常驻服务，不扫描 Chrome/Firefox 的资料目录，也不使用 CDP。原有 legacy、desktop-readonly、desktop-comparison 模式不变。
 
 ```text
