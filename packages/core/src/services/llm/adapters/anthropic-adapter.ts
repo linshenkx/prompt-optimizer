@@ -66,43 +66,56 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
 
     return [
       {
-        id: 'claude-sonnet-5',
-        name: 'Claude Sonnet 5',
-        description: 'Balanced Claude 5 model for coding, agents, and general-purpose work',
+        id: 'claude-sonnet-5-5',
+        name: 'Claude Sonnet 5.5',
+        description: 'Balanced Claude model for everyday coding, agents, and general-purpose work',
         providerId,
         capabilities: {
           supportsTools: true,
           supportsReasoning: true,
           maxContextLength: 1000000
         },
-        parameterDefinitions: this.getParameterDefinitions('claude-sonnet-5'),
-        defaultParameterValues: this.getDefaultParameterValues('claude-sonnet-5')
+        parameterDefinitions: this.getParameterDefinitions('claude-sonnet-5-5'),
+        defaultParameterValues: this.getDefaultParameterValues('claude-sonnet-5-5')
       },
       {
-        id: 'claude-opus-5',
-        name: 'Claude Opus 5',
-        description: 'Most capable Claude model for complex reasoning and agentic tasks',
+        id: 'claude-opus-5-5',
+        name: 'Claude Opus 5.5',
+        description: 'Capable Claude model for complex reasoning and agentic tasks',
         providerId,
         capabilities: {
           supportsTools: true,
           supportsReasoning: true,
           maxContextLength: 1000000
         },
-        parameterDefinitions: this.getParameterDefinitions('claude-opus-5'),
-        defaultParameterValues: this.getDefaultParameterValues('claude-opus-5')
+        parameterDefinitions: this.getParameterDefinitions('claude-opus-5-5'),
+        defaultParameterValues: this.getDefaultParameterValues('claude-opus-5-5')
       },
       {
-        id: 'claude-haiku-4-5-20251001',
-        name: 'Claude Haiku 4.5',
+        id: 'claude-haiku-5-5',
+        name: 'Claude Haiku 5.5',
         description: 'Fast, efficient Claude model for high-throughput workloads',
         providerId,
         capabilities: {
           supportsTools: true,
           supportsReasoning: true,
-          maxContextLength: 200000
+          maxContextLength: 1000000
         },
-        parameterDefinitions: this.getParameterDefinitions('claude-haiku-4-5-20251001'),
-        defaultParameterValues: this.getDefaultParameterValues('claude-haiku-4-5-20251001')
+        parameterDefinitions: this.getParameterDefinitions('claude-haiku-5-5'),
+        defaultParameterValues: this.getDefaultParameterValues('claude-haiku-5-5')
+      },
+      {
+        id: 'claude-fable-5-2',
+        name: 'Claude Fable 5.2',
+        description: 'Most capable Claude model for the most demanding reasoning and long-horizon work',
+        providerId,
+        capabilities: {
+          supportsTools: true,
+          supportsReasoning: true,
+          maxContextLength: 1000000
+        },
+        parameterDefinitions: this.getParameterDefinitions('claude-fable-5-2'),
+        defaultParameterValues: this.getDefaultParameterValues('claude-fable-5-2')
       }
     ]
   }
@@ -222,7 +235,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
         name: 'effort',
         labelKey: 'params.reasoning_effort.label',
         descriptionKey: 'params.reasoning_effort.description',
-        description: 'Adaptive reasoning effort for Claude 5.',
+        description: 'Adaptive reasoning effort for Claude models with adaptive thinking.',
         type: 'string' as const,
         defaultValue: 'high',
         default: 'high',
@@ -257,8 +270,12 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
     }
   }
 
+  /**
+   * 仅支持 adaptive thinking + effort 的模型：拒绝 budget_tokens 与采样参数（temperature/top_p/top_k）
+   * Claude 5 全系（Opus/Sonnet/Haiku/Fable/Mythos）以及 Opus 4.7/4.8
+   */
   private isAdaptiveThinkingModel(modelId: string): boolean {
-    return /^claude-(?:sonnet|opus)-5(?:-|$)/.test(modelId)
+    return /^claude-(?:(?:opus|sonnet|haiku|fable|mythos)-5|opus-4-[78])(?:-|$)/.test(modelId)
   }
 
   private applyThinkingConfig(
