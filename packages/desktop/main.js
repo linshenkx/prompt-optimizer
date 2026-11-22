@@ -29,8 +29,9 @@ console.info('[prompt-optimizer/runtime]', {
   electron: process.versions.electron,
 });
 
-const { app, BrowserWindow, ipcMain, shell, session, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, session, Menu, nativeImage, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
+const { createShutdownController, requestWorkspaceSave } = require('./config/shutdown');
 const {
   buildReleaseUrl,
   resolveUpdateRepositoryConfig,
@@ -189,24 +190,47 @@ function getContextMenuLabels(locale) {
   const normalized = normalizeUiLocale(locale) || 'en-US';
   return CONTEXT_MENU_LABELS[normalized] || CONTEXT_MENU_LABELS['en-US'];
 }
-let isQuitting = false; // 防止重复保存数据的标志
-let isUpdaterQuitting = false; // 标识是否为更新安装退出，跳过数据保存
-let forceQuitTimer = null; // 强制退出定时器
-const MAX_SAVE_TIME = 5000; // 最大保存时间：5秒
-let emergencyExitTimer = null; // 应急退出定时器
-const EMERGENCY_EXIT_TIME = 10000; // 应急退出时间：10秒
+let isUpdaterQuitting = false;
 
-// 应急退出机制：无论如何都要在10秒内退出
-function setupEmergencyExit() {
-  if (emergencyExitTimer) {
-    clearTimeout(emergencyExitTimer);
+const UNSAVED_WORKSPACE_DIALOG = {
+  'en-US': {
+    message: 'Workspace or application data could not be saved.',
+    buttons: ['Keep open', 'Exit anyway'],
+  },
+  'zh-CN': {
+    message: '工作区或应用数据保存失败。',
+    buttons: ['保持打开', '仍然退出'],
+  },
+  'zh-TW': {
+    message: '工作區或應用程式資料儲存失敗。',
+    buttons: ['保持開啟', '仍然結束'],
+  },
+};
+
+async function saveBeforeExit(win) {
+  try {
+    await requestWorkspaceSave(ipcMain, win, 5000);
+  } finally {
+    await storageProvider?.flush();
   }
-
-  emergencyExitTimer = setTimeout(() => {
-    console.error('[DESKTOP] EMERGENCY EXIT: Force terminating process after 10 seconds');
-    process.exit(1); // 强制终止进程
-  }, EMERGENCY_EXIT_TIME);
 }
+
+const shutdown = createShutdownController({
+  app,
+  getWindow: () => mainWindow,
+  isInstallingUpdate: () => isUpdaterQuitting,
+  save: saveBeforeExit,
+  confirmDiscard: async (win) => {
+    const options = {
+      type: 'warning', defaultId: 0, cancelId: 0,
+      ...UNSAVED_WORKSPACE_DIALOG[getCurrentUiLocale()],
+    };
+    const result = win && !win.isDestroyed()
+      ? await dialog.showMessageBox(win, options)
+      : await dialog.showMessageBox(options);
+    return result.response === 1;
+  },
+});
 
 // === System Proxy → Undici Global Dispatcher (A1 方案) ===
 // 说明：在主进程中尽量早地设置 undici 全局代理分发器，使 Node/SDK 请求复用系统代理。
@@ -306,6 +330,7 @@ function setupPreferenceHandlers() {
   ipcMain.handle('preference-set', async (event, key, value) => {
     try {
       await preferenceService.set(key, value);
+      if (key.startsWith('session/')) await storageProvider.flush();
       return createSuccessResponse(null);
     } catch (error) {
       return createErrorResponse(error);
@@ -542,54 +567,11 @@ function createWindow() {
     }
   }
 
-  // 窗口关闭前保存数据
-  mainWindow.on('close', async (event) => {
-    // 如果是更新安装退出，直接关闭窗口，不保存数据
-    if (isUpdaterQuitting) {
-      console.log('[DESKTOP] Updater quit detected, skipping data save');
-      return;
-    }
-
-    if (!isQuitting && storageProvider && typeof storageProvider.flush === 'function') {
-      event.preventDefault(); // 阻止立即关闭
-      isQuitting = true; // 设置退出标志
-
-      // 启动应急退出机制
-      setupEmergencyExit();
-
-      // 设置强制退出定时器，确保程序不会卡住
-      forceQuitTimer = setTimeout(() => {
-        console.warn('[DESKTOP] Force closing window due to timeout');
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.destroy();
-        }
-      }, MAX_SAVE_TIME);
-
-      try {
-        console.log('[DESKTOP] Saving data before window close...');
-        await Promise.race([
-          storageProvider.flush(),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Save timeout')), MAX_SAVE_TIME - 1000)
-          )
-        ]);
-        console.log('[DESKTOP] Data saved successfully');
-      } catch (error) {
-        console.error('[DESKTOP] Failed to save data before close:', error);
-      } finally {
-        if (forceQuitTimer) {
-          clearTimeout(forceQuitTimer);
-          forceQuitTimer = null;
-        }
-        if (emergencyExitTimer) {
-          clearTimeout(emergencyExitTimer);
-          emergencyExitTimer = null;
-        }
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.destroy();
-        }
-      }
-    }
+  shutdown.resetApproval();
+  mainWindow.on('close', shutdown.onClose);
+  mainWindow.webContents.on('will-prevent-unload', () => {
+    shutdown.resetApproval();
+    isUpdaterQuitting = false;
   });
 
   // Emitted when the window is closed.
@@ -2424,52 +2406,7 @@ process.on('SIGTERM', () => {
 
 // 全局异常处理已在 console-logger 中设置
 
-// 应用退出前保存数据
-app.on('before-quit', async (event) => {
-  // 如果是更新安装退出，直接退出，不保存数据
-  if (isUpdaterQuitting) {
-    console.log('[DESKTOP] Updater quit detected, allowing immediate quit');
-    return;
-  }
-
-  if (!isQuitting && storageProvider && typeof storageProvider.flush === 'function') {
-    event.preventDefault(); // 阻止立即退出
-    isQuitting = true; // 设置退出标志
-
-    // 启动应急退出机制
-    setupEmergencyExit();
-
-    // 设置强制退出定时器，确保应用不会卡住
-    const forceAppQuitTimer = setTimeout(() => {
-      console.warn('[DESKTOP] Force quitting app due to timeout');
-      process.exit(0); // 强制退出进程
-    }, MAX_SAVE_TIME);
-
-    try {
-      console.log('[DESKTOP] Saving data before quit...');
-      await Promise.race([
-        storageProvider.flush(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Save timeout')), MAX_SAVE_TIME - 1000)
-        )
-      ]);
-      console.log('[DESKTOP] Data saved successfully');
-    } catch (error) {
-      console.error('[DESKTOP] Failed to save data before quit:', error);
-    } finally {
-      clearTimeout(forceAppQuitTimer);
-      if (emergencyExitTimer) {
-        clearTimeout(emergencyExitTimer);
-        emergencyExitTimer = null;
-      }
-      // 使用setImmediate确保在下一个事件循环中退出
-      setImmediate(() => {
-        // 保留退出标志，让第二次 before-quit 放行，避免重复保存并循环退出。
-        app.quit(); // 手动退出
-      });
-    }
-  }
-});
+app.on('before-quit', shutdown.onQuit);
 
 // Quit when all windows are closed, except on macOS.
 app.on('window-all-closed', function () {
@@ -3096,7 +3033,8 @@ async function setupUpdateHandlers() {
       console.log('[Updater] If the application does not restart automatically, please launch it manually');
       console.log('[Updater] ==========================================');
       
-      // 设置更新安装退出标志，跳过数据保存逻辑
+      await saveBeforeExit(mainWindow);
+      // The updater closes windows before before-quit. The checkpoint is complete.
       isUpdaterQuitting = true;
       console.log('[Updater] Set updater quit flag to skip data save');
       
@@ -3112,6 +3050,7 @@ async function setupUpdateHandlers() {
         message: 'Installation started, application will restart'
       });
     } catch (error) {
+      isUpdaterQuitting = false;
       console.error('[Updater] Install failed:', error);
       console.error('[Updater] ===== INSTALLATION ERROR =====');
       console.error('[Updater] Error details:', error.message);

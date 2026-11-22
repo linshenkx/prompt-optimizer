@@ -2191,7 +2191,14 @@ const refreshDataBackupReminder = () => {
   dataBackupReminderDue.value = isDataBackupReminderDue()
 }
 
+let stopDesktopSaveRequest: (() => void) | undefined
 onMounted(() => {
+  stopDesktopSaveRequest = window.electronAPI?.app?.onWorkspaceSaveRequest?.(async () => {
+    await nextTick()
+    if (sessionManager.isRestoring) return false
+    if (!isReady.value && !sessionManager.hasUnsavedSessions) return true
+    return await sessionManager.saveAllSessions() && !sessionManager.hasUnsavedSessions
+  })
   // Route-level lazy loading can break after a new deployment when this tab is still running an old main bundle.
   // Prompt user to refresh instead of auto-reloading.
   if (typeof window !== 'undefined') {
@@ -2272,6 +2279,7 @@ onMounted(() => {
 
 // 应用卸载前清理并保存所有会话
 onBeforeUnmount(async () => {
+  stopDesktopSaveRequest?.()
   window.removeEventListener('beforeunload', warnBeforeUnload);
   isAppUnmounted = true;
 

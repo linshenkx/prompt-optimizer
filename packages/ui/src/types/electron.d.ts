@@ -31,6 +31,7 @@ interface ElectronResponse<T = unknown> {
 
 // 应用相关API
 interface AppAPI {
+  onWorkspaceSaveRequest?(save: () => Promise<boolean>): () => void
   getVersion(): Promise<string>
   /** Sync UI locale to Electron main process (for localized native menus, etc.) */
   setLocale(locale: string): Promise<void>

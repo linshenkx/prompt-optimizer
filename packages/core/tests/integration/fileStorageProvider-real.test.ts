@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { FileStorageProvider } from '../../src/services/storage/fileStorageProvider';
@@ -91,6 +91,53 @@ describe('FileStorageProvider - Real File System Integration', () => {
       // 验证数据持久化
       expect(await newProvider.getItem('persist-key')).toBe('persist-value');
       expect(await newProvider.getItem('another-key')).toBe('another-value');
+    });
+
+    it('retains buffered edits after scheduled and explicit writes fail', async () => {
+      await provider.setItem('session', 'original draft');
+      await provider.flush();
+      const obstruction = storageFile + '.tmp';
+      await fs.mkdir(obstruction);
+      const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        await provider.setItem('session', 'last draft');
+        await vi.waitFor(() => expect(logged).toHaveBeenCalledWith('[FileStorage] Scheduled write failed:', expect.any(Error)), { timeout: 2500 });
+        for (let attempt = 0; attempt < 4; attempt++) {
+          await expect(provider.flush()).rejects.toThrow('Atomic write failed');
+        }
+      } finally {
+        logged.mockRestore();
+        await fs.rmdir(obstruction);
+      }
+      await provider.flush();
+      expect(await new FileStorageProvider(testDir).getItem('session')).toBe('last draft');
+    });
+
+    it('flushes edits made while an earlier snapshot is being written', async () => {
+      await provider.setItem('session', 'earlier draft');
+      const writes = provider as unknown as { atomicWrite: (data: string) => Promise<void> };
+      const write = writes.atomicWrite.bind(provider);
+      let writing!: () => void;
+      const started = new Promise<void>(resolve => { writing = resolve; });
+      let release!: () => void;
+      const held = new Promise<void>(resolve => { release = resolve; });
+      const spy = vi.spyOn(writes, 'atomicWrite').mockImplementationOnce(async data => {
+        writing();
+        await held;
+        await write(data);
+      });
+      try {
+        const first = provider.flush();
+        await started;
+        await provider.setItem('session', 'latest draft');
+        release();
+        await first;
+        await provider.flush();
+        expect(await new FileStorageProvider(testDir).getItem('session')).toBe('latest draft');
+      } finally {
+        release();
+        spy.mockRestore();
+      }
     });
 
     it('should handle batch operations with real files', async () => {
