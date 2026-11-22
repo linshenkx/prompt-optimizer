@@ -1,13 +1,25 @@
+import type { LLMTokenUsage } from '@prompt-optimizer/core'
+import { sanitizeTokenUsage } from './token-usage'
 import { Text } from '@codemirror/state'
 import { toRaw, shallowRef, unref, reactive, type Ref } from 'vue'
 
-export type OutputRecord = { result: string; reasoning: string; status?: OutputPhase }
+export type OutputRecord = { result: string; reasoning: string; status?: OutputPhase; tokenUsage?: LLMTokenUsage }
+export type TestVariantResult = OutputRecord & { requestPrompt?: string }
 export type OutputField = 'result' | 'reasoning'
 export type OutputPhase = 'streaming' | 'complete' | 'cancelled' | 'capacity' | 'failed'
 export function restoredOutputStatus(value: unknown): { status?: OutputPhase } {
   const status = value === 'streaming' ? 'cancelled' : value
   return ['complete', 'cancelled', 'capacity', 'failed'].includes(status as string) ? { status: status as OutputPhase } : {}
 }
+export function restoreTestVariantMetadata(record: Record<string, unknown>) {
+  const tokenUsage = sanitizeTokenUsage(record.tokenUsage)
+  return {
+    ...restoredOutputStatus(record.status),
+    ...(typeof record.requestPrompt === 'string' ? { requestPrompt: record.requestPrompt } : {}),
+    ...(tokenUsage ? { tokenUsage } : {}),
+  }
+}
+
 export class OutputInterruptedError extends Error {
   constructor(public readonly reason: 'cancelled' | 'capacity') {
     super(`Output ${reason}`)

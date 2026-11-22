@@ -371,7 +371,7 @@
                                     :output-record="getVariantResult(id)"
                                     :reasoning="getVariantResult(id).reasoning"
                                     :streaming="variantRunning[id]"
-                                    :token-usage="getOutputTokenUsage(getVariantResult(id))"
+                                    :token-usage="getVariantResult(id)?.tokenUsage"
                                     :enableCopy="true"
                                     :enableFullscreen="true"
                                     :enableEdit="false"
@@ -534,7 +534,7 @@ import PromptPanelUI from '../PromptPanel.vue'
 import WorkspaceUtilityMenu from '../common/WorkspaceUtilityMenu.vue'
 import { resolveSourceAssetRef } from '../../utils/source-asset'
 import { beginOutputStream } from '../../utils/output-document'
-import { clearOutputTokenUsage, getOutputTokenUsage, setOutputTokenUsage } from '../../utils/token-usage'
+import { setOutputTokenUsage } from '../../utils/token-usage'
 import TestInputSection from '../TestInputSection.vue'
 import TestImageAttachmentControl from '../TestImageAttachmentControl.vue'
 import OutputDisplay from '../OutputDisplay.vue'
@@ -1098,8 +1098,7 @@ const runVariant = async (
     evaluationHandler.clearBeforeTest()
   }
 
-  const targetRecord = { result: '', reasoning: '', requestPrompt: `[system]\n${input.systemPrompt}\n\n[user]\n${input.userPrompt}` }
-  variantResults.value[id] = targetRecord
+  variantResults.value[id] = { result: '', reasoning: '', requestPrompt: `[system]\n${input.systemPrompt}\n\n[user]\n${input.userPrompt}` }
   variantRunning[id] = true
   variantFailed[id] = false
   const inputImages = opts?.inputImages ?? getTestInputImages()
@@ -1154,9 +1153,7 @@ const runVariant = async (
   } finally {
     stream.finish(variantFailed[id])
     if (!variantFailed[id] && !stream.signal.aborted && stream.document.isCurrent && capturedUsage !== undefined) {
-      setOutputTokenUsage(targetRecord, capturedUsage)
-    } else {
-      clearOutputTokenUsage(targetRecord)
+      setOutputTokenUsage(stream.document.record, capturedUsage)
     }
     if (stream.document.isCurrent) {
       variantRunning[id] = false

@@ -30,7 +30,10 @@ for (const scenario of [
         callbacks.onReasoningToken(`\n${secondThought}`)
         await finish
         callbacks.onToken('这是最终正文。')
-        callbacks.onComplete?.()
+        callbacks.onComplete?.({
+          content: '这是最终正文。',
+          metadata: { usage: { inputTokens: 15, outputTokens: 27, cachedInputTokens: 0, totalTokens: 42 } },
+        })
       }
       if (scenario.route === 'arena') {
         await session.refreshConfigs()
@@ -71,17 +74,25 @@ for (const scenario of [
     await page.evaluate(() => (window as any).__completeReasoning())
     await expect(output.getByTestId('output-stop')).toHaveCount(0)
     await expect(output.locator('.output-display-body')).toContainText('这是最终正文。')
+    await expect(output.locator('.output-token-usage-pill')).toContainText('42')
     if (!await output.locator('.n-collapse-item--active').count()) await output.locator('.n-collapse-item__header-main').click()
     await expect(reasoning.locator('.markdown-content')).toBeVisible()
     await expect(reasoning.locator('.markdown-content')).toContainText(firstThought)
     await expect(reasoning.locator('.markdown-content')).toContainText(secondThought)
     await expect.poll(async () => (await reasoning.boundingBox())?.height ?? 0).toBeGreaterThan(40)
-    await page.evaluate(async store => {
-      const session = (document.querySelector('#app') as any).__vue_app__.config.globalProperties.$pinia._s.get(store)
-      await session.saveSession()
-    }, scenario.store)
+    await expect.poll(() => page.evaluate(async route => {
+      const root = document.querySelector('[data-testid="arena-workspace"], [data-testid="workspace"]') as any
+      const preferences = root.__vueParentComponent.provides.services.value.preferenceService
+      const value = await preferences.get(route === 'arena' ? 'session/v1/arena' : 'session/v1/basic-user', null)
+      const saved = typeof value === 'string' ? JSON.parse(value) : value
+      const result = route === 'arena'
+        ? saved?.results[saved.contestants[0].id]?.output
+        : saved?.testVariantResults.a
+      return result?.tokenUsage?.totalTokens
+    }, scenario.route)).toBe(42)
     await page.reload()
     await expect(output.locator('.output-display-body')).toContainText('这是最终正文。')
+    await expect(output.locator('.output-token-usage-pill')).toContainText('42')
     if (!await output.locator('.n-collapse-item--active').count()) await output.locator('.n-collapse-item__header-main').click()
     await expect(reasoning.locator('.markdown-content')).toBeVisible()
     await expect(reasoning.locator('.markdown-content')).toContainText(firstThought)

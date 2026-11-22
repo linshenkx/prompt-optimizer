@@ -369,7 +369,7 @@
                                     :output-record="getVariantResult(id)"
                                     :reasoning="getVariantResult(id).reasoning"
                                     :streaming="variantRunning[id]"
-                                    :token-usage="getOutputTokenUsage(getVariantResult(id))"
+                                    :token-usage="getVariantResult(id)?.tokenUsage"
                                     :enableCopy="true"
                                     :enableFullscreen="true"
                                     :enableEdit="false"
@@ -537,7 +537,7 @@ import WorkspaceUtilityMenu from '../common/WorkspaceUtilityMenu.vue'
 import ThemedTooltip from '../common/ThemedTooltip.vue'
 import { resolveSourceAssetRef } from '../../utils/source-asset'
 import { beginOutputStream } from '../../utils/output-document'
-import { clearOutputTokenUsage, getOutputTokenUsage, setOutputTokenUsage } from '../../utils/token-usage'
+import { setOutputTokenUsage } from '../../utils/token-usage'
 import OutputDisplay from '../OutputDisplay.vue'
 import SaveTestResultExampleButton from '../SaveTestResultExampleButton.vue'
 import {
@@ -956,8 +956,7 @@ const runVariant = async (
   }
 
   // 清空该列结果并开始流式写入
-  const targetRecord = { result: '', reasoning: '', requestPrompt: input.prompt }
-  variantResults.value[id] = targetRecord
+  variantResults.value[id] = { result: '', reasoning: '', requestPrompt: input.prompt }
   variantRunning[id] = true
   variantFailed[id] = false
   const runFingerprint = getVariantFingerprint(id)
@@ -989,9 +988,7 @@ const runVariant = async (
   } finally {
     stream.finish(variantFailed[id])
     if (!variantFailed[id] && !stream.signal.aborted && stream.document.isCurrent && capturedUsage !== undefined) {
-      setOutputTokenUsage(targetRecord, capturedUsage)
-    } else {
-      clearOutputTokenUsage(targetRecord)
+      setOutputTokenUsage(stream.document.record, capturedUsage)
     }
     if (stream.document.isCurrent) {
       variantRunning[id] = false

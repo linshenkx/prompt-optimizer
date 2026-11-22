@@ -12,7 +12,7 @@ import { createSessionSnapshotWriter, readSessionSnapshot, runSessionWrite, trac
 import { pauseImageStorageGc, queueImageStorageMaintenance } from './imageStorageMaintenance'
 import { persistGeneratedImage, persistImagePayloadAsAssetId } from '../../utils/image-asset-storage'
 import { beginOutputStream, getOutputDocument, restoredOutputStatus } from '../../utils/output-document'
-import { clearOutputTokenUsage, setOutputTokenUsage } from '../../utils/token-usage'
+import { setOutputTokenUsage } from '../../utils/token-usage'
 
 const KEY = 'session/v1/arena'
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value))
@@ -86,6 +86,7 @@ export const useArenaSession = defineStore('arena-session', () => {
     hydrating = true
     state.value = value ? normalizeArenaState(copy(value as ReturnType<typeof createArenaState>)) : createArenaState()
     for (const result of Object.values(state.value.results)) {
+      setOutputTokenUsage(result.output, result.output.tokenUsage)
       result.output.status = restoredOutputStatus(result.output.status).status
     }
     writer.restored(service, KEY)
@@ -240,8 +241,6 @@ export const useArenaSession = defineStore('arena-session', () => {
           stream.finish(live.status === 'error')
           if (current() && live.status === 'success' && capturedUsage !== undefined) {
             setOutputTokenUsage(live.output, capturedUsage)
-          } else {
-            clearOutputTokenUsage(live.output)
           }
         }
       })()

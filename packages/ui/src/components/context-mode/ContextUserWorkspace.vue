@@ -358,7 +358,7 @@
                                     :output-record="getVariantResult(id)"
                                     :reasoning="getVariantResult(id).reasoning"
                                     :streaming="variantRunning[id]"
-                                    :token-usage="getOutputTokenUsage(getVariantResult(id))"
+                                    :token-usage="getVariantResult(id)?.tokenUsage"
                                     :enableCopy="true"
                                     :enableFullscreen="true"
                                     :enableEdit="false"
@@ -537,7 +537,7 @@ import PromptPreviewPanel from "../PromptPreviewPanel.vue";
 import ContextUserTestPanel from "./ContextUserTestPanel.vue";
 import OutputDisplay from "../OutputDisplay.vue";
 import { beginOutputStream } from '../../utils/output-document'
-import { clearOutputTokenUsage, getOutputTokenUsage, setOutputTokenUsage } from '../../utils/token-usage'
+import { setOutputTokenUsage } from '../../utils/token-usage'
 import SaveTestResultExampleButton from '../SaveTestResultExampleButton.vue'
 import SelectWithConfig from "../SelectWithConfig.vue";
 import TextModelSelector from "../TextModelSelector.vue";
@@ -1273,8 +1273,7 @@ const runVariant = async (
         evaluationHandler.clearBeforeTest()
     }
 
-    const targetRecord = { result: '', reasoning: '', requestPrompt: ctx.renderedContent }
-    variantResults.value[id] = targetRecord
+    variantResults.value[id] = { result: '', reasoning: '', requestPrompt: ctx.renderedContent }
     showTestResult(id, !!opts?.silentSuccess)
     variantRunning[id] = true
     const runFingerprint = getVariantFingerprint(id)
@@ -1319,9 +1318,7 @@ const runVariant = async (
     } finally {
         stream.finish(failed)
         if (!failed && !stream.signal.aborted && stream.document.isCurrent && capturedUsage !== undefined) {
-            setOutputTokenUsage(targetRecord, capturedUsage)
-        } else {
-            clearOutputTokenUsage(targetRecord)
+            setOutputTokenUsage(stream.document.record, capturedUsage)
         }
         if (stream.document.isCurrent) {
             variantRunning[id] = false

@@ -1,4 +1,4 @@
-import { restoredOutputStatus, type OutputPhase } from '../../utils/output-document'
+import { restoreTestVariantMetadata, type TestVariantResult } from '../../utils/output-document'
 /**
  * Basic-User Session Store
  *
@@ -37,13 +37,7 @@ export type TestVariantId = 'a' | 'b' | 'c' | 'd'
 
 export type TestColumnCount = 2 | 3 | 4
 
-export interface TestVariantResult {
-  status?: OutputPhase
-  /** Resolved prompt sent for this answer, independent of later edits. */
-  requestPrompt?: string
-  result: string
-  reasoning: string
-}
+export type { TestVariantResult }
 
 export type TestVariantResults = Record<TestVariantId, TestVariantResult>
 
@@ -530,10 +524,10 @@ export const useBasicUserSession = defineStore('basicUserSession', () => {
 
         const coerceVariantResult = (value: unknown): TestVariantResult | null => {
           if (!value || typeof value !== 'object') return null
-          const v = value as { result?: unknown; reasoning?: unknown; requestPrompt?: unknown }
+          const v = value as Record<string, unknown>
           if (typeof v.result !== 'string') return null
           if (typeof v.reasoning !== 'string') return null
-          return { result: v.result, reasoning: v.reasoning, ...restoredOutputStatus((v as { status?: unknown }).status), ...(typeof v.requestPrompt === 'string' ? { requestPrompt: v.requestPrompt } : {}) }
+          return { result: v.result, reasoning: v.reasoning, ...restoreTestVariantMetadata(v) }
         }
 
         const ids: TestVariantId[] = ['a', 'b', 'c', 'd']

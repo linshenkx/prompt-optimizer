@@ -1,15 +1,11 @@
-import { ref, toRaw } from 'vue'
 import type { LLMTokenUsage } from '@prompt-optimizer/core'
-
-const usageByRecord = new WeakMap<object, LLMTokenUsage>()
-const usageVersion = ref(0)
 
 function readSafeTokenCount(value: unknown): number | null {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null
 }
 
 /**
- * Validates and normalizes provider-agnostic token usage for ephemeral UI display.
+ * Validates and normalizes provider-agnostic token usage for a single model result.
  * Returns null if the payload is invalid or contains no valid counts.
  */
 export function sanitizeTokenUsage(usage: unknown): LLMTokenUsage | null {
@@ -28,48 +24,10 @@ export function sanitizeTokenUsage(usage: unknown): LLMTokenUsage | null {
   return Object.values(normalized).some((count) => count !== null) ? normalized : null
 }
 
-/**
- * Associates ephemeral token usage with an output record without mutating persisted session data.
- */
-export function setOutputTokenUsage(record: object | null | undefined, usage: unknown): void {
-  if (!record || typeof record !== 'object') {
-    return
-  }
-
-  const rawRecord = toRaw(record)
-  const sanitized = sanitizeTokenUsage(usage)
-  if (sanitized) {
-    usageByRecord.set(rawRecord, sanitized)
-  } else {
-    usageByRecord.delete(rawRecord)
-  }
-  usageVersion.value++
-}
-
-/**
- * Clears any ephemeral token usage bound to an output record.
- */
-export function clearOutputTokenUsage(record: object | null | undefined): void {
-  if (!record || typeof record !== 'object') {
-    return
-  }
-
-  const rawRecord = toRaw(record)
-  if (usageByRecord.delete(rawRecord)) {
-    usageVersion.value++
-  }
-}
-
-/**
- * Reads ephemeral token usage bound to an output record reactively.
- */
-export function getOutputTokenUsage(record: object | null | undefined): LLMTokenUsage | null {
-  void usageVersion.value
-  if (!record || typeof record !== 'object') {
-    return null
-  }
-
-  return usageByRecord.get(toRaw(record)) ?? null
+export function setOutputTokenUsage(record: { tokenUsage?: LLMTokenUsage }, usage: unknown): void {
+  const counts = sanitizeTokenUsage(usage)
+  if (counts) record.tokenUsage = counts
+  else delete record.tokenUsage
 }
 
 /**

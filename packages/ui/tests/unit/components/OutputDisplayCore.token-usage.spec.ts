@@ -5,11 +5,7 @@ import type { LLMTokenUsage } from '@prompt-optimizer/core'
 import OutputDisplay from '../../../src/components/OutputDisplay.vue'
 import OutputDisplayCore from '../../../src/components/OutputDisplayCore.vue'
 import { beginOutputStream, type OutputRecord } from '../../../src/utils/output-document'
-import {
-  clearOutputTokenUsage,
-  getOutputTokenUsage,
-  setOutputTokenUsage,
-} from '../../../src/utils/token-usage'
+import { setOutputTokenUsage } from '../../../src/utils/token-usage'
 
 vi.mock('../../../src/router', () => ({
   router: {
@@ -263,14 +259,14 @@ describe('OutputDisplayCore token usage footer', () => {
     expect(wrapper.get('[data-testid="output-token-usage"] .output-token-usage-pill').text()).toBe('40 tokens')
   })
 
-  it('tracks ephemeral token usage per reactive record without mutating the record', async () => {
+  it('binds token usage to the corresponding result and clears absent counts', async () => {
     const recordA = reactive<OutputRecord>({ result: 'A', reasoning: '', status: 'complete' })
     const recordB = reactive<OutputRecord>({ result: 'B', reasoning: '', status: 'complete' })
 
     const Harness = defineComponent({
       components: { OutputDisplayCore },
       setup() {
-        return { recordA, recordB, getOutputTokenUsage }
+        return { recordA, recordB }
       },
       template: `
         <div>
@@ -279,14 +275,14 @@ describe('OutputDisplayCore token usage footer', () => {
             mode="readonly"
             :content="recordA.result"
             :output-record="recordA"
-            :token-usage="getOutputTokenUsage(recordA)"
+            :token-usage="recordA.tokenUsage"
           />
           <OutputDisplayCore
             test-id="col-b"
             mode="readonly"
             :content="recordB.result"
             :output-record="recordB"
-            :token-usage="getOutputTokenUsage(recordB)"
+            :token-usage="recordB.tokenUsage"
           />
         </div>
       `,
@@ -312,9 +308,9 @@ describe('OutputDisplayCore token usage footer', () => {
 
     expect(wrapper.get('[data-testid="col-a-token-usage"] .output-token-usage-pill').text()).toBe('32 tokens')
     expect(wrapper.find('[data-testid="col-b-token-usage"]').exists()).toBe(false)
-    expect(Object.keys(recordA)).toEqual(['result', 'reasoning', 'status'])
+    expect(JSON.parse(JSON.stringify(recordA)).tokenUsage.totalTokens).toBe(32)
 
-    clearOutputTokenUsage(recordA)
+    setOutputTokenUsage(recordA, undefined)
     await flushPromises()
     expect(wrapper.find('[data-testid="col-a-token-usage"]').exists()).toBe(false)
   })
