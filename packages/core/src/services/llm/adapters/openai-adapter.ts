@@ -1177,12 +1177,24 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       reasoning = processed.reasoning || ''
     }
 
+    const readTokenCount = (value: unknown): number | null =>
+      typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null
+    const reportedUsage = response.usage
+    const usage = {
+      inputTokens: readTokenCount(reportedUsage?.prompt_tokens),
+      outputTokens: readTokenCount(reportedUsage?.completion_tokens),
+      cachedInputTokens: readTokenCount(reportedUsage?.prompt_tokens_details?.cached_tokens)
+        ?? readTokenCount(reportedUsage?.prompt_cache_hit_tokens),
+      totalTokens: readTokenCount(reportedUsage?.total_tokens)
+    }
+
     return {
       content: content,
       reasoning: reasoning || undefined,
       metadata: {
         model: modelId,
-        finishReason: choice.finish_reason || undefined
+        finishReason: choice.finish_reason || undefined,
+        ...(Object.values(usage).some(count => count !== null) ? { usage } : {})
       }
     }
   }

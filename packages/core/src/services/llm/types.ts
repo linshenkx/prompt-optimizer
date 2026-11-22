@@ -150,6 +150,13 @@ export interface LLMResponse {
     model?: string;
     tokens?: number;
     finishReason?: string;
+    /** Provider-reported token counts. A null value indicates an unreported or invalid count. */
+    usage?: {
+      inputTokens: number | null;
+      outputTokens: number | null;
+      cachedInputTokens: number | null;
+      totalTokens: number | null;
+    };
   };
 }
 
