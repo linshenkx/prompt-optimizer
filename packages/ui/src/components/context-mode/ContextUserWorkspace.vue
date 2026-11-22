@@ -358,6 +358,7 @@
                                     :output-record="getVariantResult(id)"
                                     :reasoning="getVariantResult(id).reasoning"
                                     :streaming="variantRunning[id]"
+                                    :token-usage="getOutputTokenUsage(getVariantResult(id))"
                                     :enableCopy="true"
                                     :enableFullscreen="true"
                                     :enableEdit="false"
@@ -536,6 +537,7 @@ import PromptPreviewPanel from "../PromptPreviewPanel.vue";
 import ContextUserTestPanel from "./ContextUserTestPanel.vue";
 import OutputDisplay from "../OutputDisplay.vue";
 import { beginOutputStream } from '../../utils/output-document'
+import { clearOutputTokenUsage, getOutputTokenUsage, setOutputTokenUsage } from '../../utils/token-usage'
 import SaveTestResultExampleButton from '../SaveTestResultExampleButton.vue'
 import SelectWithConfig from "../SelectWithConfig.vue";
 import TextModelSelector from "../TextModelSelector.vue";
@@ -1277,12 +1279,14 @@ const runVariant = async (
         evaluationHandler.clearBeforeTest()
     }
 
-    variantResults.value[id] = { result: '', reasoning: '', requestPrompt: ctx.renderedContent }
+    const targetRecord = { result: '', reasoning: '', requestPrompt: ctx.renderedContent }
+    variantResults.value[id] = targetRecord
     showTestResult(id, !!opts?.silentSuccess)
     variantRunning[id] = true
     const runFingerprint = getVariantFingerprint(id)
     let failed = false
     const stream = beginOutputStream(variantResults.value[id], proVariableSession, `test:${id}`)
+    let capturedUsage: unknown
 
     try {
         const messages: ConversationMessage[] = [
@@ -1300,8 +1304,10 @@ const runVariant = async (
                 signal: stream.signal,
                 onToken: stream.onToken,
                 onReasoningToken: stream.onReasoningToken,
-                onComplete: () => {
-                    // 由 finally 统一收尾
+                onComplete: (response) => {
+                    if (!stream.signal.aborted) {
+                        capturedUsage = response?.metadata?.usage
+                    }
                 },
                 onError: (error: Error) => {
                     throw error
@@ -1309,9 +1315,6 @@ const runVariant = async (
             },
         )
 
-        if (!opts?.silentSuccess) {
-            toast.success(t('toast.success.testComplete'))
-        }
         return true
     } catch (_error) {
         failed = true
@@ -1321,11 +1324,23 @@ const runVariant = async (
         return false
     } finally {
         stream.finish(failed)
+        if (!failed && !stream.signal.aborted && stream.document.isCurrent && capturedUsage !== undefined) {
+            setOutputTokenUsage(targetRecord, capturedUsage)
+        } else {
+            clearOutputTokenUsage(targetRecord)
+        }
         if (stream.document.isCurrent) {
             variantRunning[id] = false
             variantLastRunFingerprint.value[id] = failed ? `failed:${runFingerprint}` : runFingerprint
             if (opts?.persist !== false) {
-                void proVariableSession.saveSession()
+                const saved = await proVariableSession.saveSession()
+                if (stream.document.isCurrent && !stream.signal.aborted) {
+                    if (!saved) {
+                        toast.warning(t('workspace.testResultSaveFailed'))
+                    } else if (!failed && !opts?.silentSuccess) {
+                        toast.success(t('toast.success.testComplete'))
+                    }
+                }
             }
         }
     }
@@ -1347,11 +1362,13 @@ const runAllVariants = useWorkspaceTestBatch({
           allowParallel: true,
           persist: false,
         }),
-      complete: (results) => {
-        void proVariableSession.saveSession()
-
+      complete: async (results) => {
+        const saved = await proVariableSession.saveSession()
+        if (!saved) {
+          toast.warning(t('workspace.testResultSaveFailed'))
+        }
         if (results.every(Boolean)) {
-          toast.success(t('toast.success.testComplete'))
+          if (saved) toast.success(t('toast.success.testComplete'))
         } else {
           toast.error(t('toast.error.testFailed'))
         }

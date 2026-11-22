@@ -51,6 +51,20 @@ describe('GeminiAdapter', () => {
     { role: 'user', content: 'Hello, Gemini!' }
   ];
 
+  const imageRequest = {
+    systemPrompt: 'system prompt',
+    userPrompt: 'describe this image',
+    images: [{ b64: 'ZmFrZQ==', mimeType: 'image/png' }]
+  };
+  const usageMetadata = {
+    promptTokenCount: 12,
+    candidatesTokenCount: 4,
+    thoughtsTokenCount: 3,
+    cachedContentTokenCount: 5,
+    totalTokenCount: 19
+  };
+  const expectedUsage = { inputTokens: 12, outputTokens: 7, cachedInputTokens: 5, totalTokens: 19 };
+
   beforeEach(() => {
     adapter = new GeminiAdapter();
   });
@@ -194,6 +208,46 @@ describe('GeminiAdapter', () => {
     });
   });
 
+  describe('token usage', () => {
+    it('reads usage metadata from non-streaming text and image responses', async () => {
+      const generateContent = vi.fn().mockResolvedValue({ text: 'Answer', usageMetadata });
+      (adapter as any).createClient = () => ({ models: { generateContent } });
+
+      const textResponse = await adapter.sendMessage(mockMessages, mockConfig);
+      const imageResponse = await adapter.sendImageUnderstanding(imageRequest, mockConfig);
+
+      expect(textResponse.metadata?.usage).toEqual(expectedUsage);
+      expect(imageResponse.metadata?.usage).toEqual(expectedUsage);
+    });
+
+    it.each(['text', 'tools'] as const)('keeps the latest valid usage for the %s stream', async mode => {
+      const generateContentStream = vi.fn().mockResolvedValue({
+        async *[Symbol.asyncIterator]() {
+          yield { text: 'Answer', usageMetadata: { promptTokenCount: 1 } };
+          yield { usageMetadata };
+          yield { usageMetadata: { promptTokenCount: -1 } };
+        }
+      });
+      (adapter as any).createClient = () => ({ models: { generateContentStream } });
+      const callbacks = { onToken: vi.fn(), onComplete: vi.fn(), onError: vi.fn() };
+
+      if (mode === 'tools') {
+        await adapter['doSendMessageStreamWithTools'](mockMessages, mockConfig, [
+          { type: 'function', function: { name: 'lookup', parameters: { type: 'object' } } }
+        ], callbacks);
+      } else {
+        await adapter.sendMessageStream(mockMessages, mockConfig, callbacks);
+      }
+
+      expect(callbacks.onToken).toHaveBeenCalledWith('Answer');
+      expect(callbacks.onComplete).toHaveBeenCalledWith(expect.objectContaining({
+        content: 'Answer',
+        metadata: { model: mockConfig.modelMeta.id, usage: expectedUsage }
+      }));
+      expect(callbacks.onError).not.toHaveBeenCalled();
+    });
+  });
+
   describe('sendImageUnderstandingStream', () => {
     it('streams multimodal responses with inline image data', async () => {
       const generateContentStream = vi.fn().mockResolvedValue({
@@ -212,6 +266,7 @@ describe('GeminiAdapter', () => {
               },
             }],
           }
+          yield { usageMetadata }
         },
       })
 
@@ -228,20 +283,7 @@ describe('GeminiAdapter', () => {
         onError: vi.fn(),
       }
 
-      await (adapter as any).sendImageUnderstandingStream(
-        {
-          systemPrompt: 'system prompt',
-          userPrompt: 'describe this image',
-          images: [
-            {
-              b64: 'ZmFrZQ==',
-              mimeType: 'image/png',
-            },
-          ],
-        },
-        mockConfig,
-        callbacks,
-      )
+      await adapter.sendImageUnderstandingStream(imageRequest, mockConfig, callbacks)
 
       expect(generateContentStream).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -264,7 +306,11 @@ describe('GeminiAdapter', () => {
       )
       expect(callbacks.onToken).toHaveBeenCalledWith('视觉')
       expect(callbacks.onToken).toHaveBeenCalledWith('结果')
-      expect(callbacks.onComplete).toHaveBeenCalled()
+      expect(callbacks.onComplete).toHaveBeenCalledWith({
+        content: '视觉结果',
+        reasoning: undefined,
+        metadata: { model: mockConfig.modelMeta.id, usage: expectedUsage }
+      })
     })
   })
 });

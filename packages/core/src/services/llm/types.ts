@@ -139,6 +139,14 @@ export interface ImageUnderstandingRequest {
   responseMimeType?: string;
 }
 
+/** Provider token counts. A null value indicates an unreported or invalid count. */
+export interface LLMTokenUsage {
+  inputTokens: number | null;
+  outputTokens: number | null;
+  cachedInputTokens: number | null;
+  totalTokens: number | null;
+}
+
 /**
  * LLM响应结构
  */
@@ -148,15 +156,10 @@ export interface LLMResponse {
   toolCalls?: ToolCall[];  // 🆕 工具调用信息
   metadata?: {
     model?: string;
+    /** @deprecated Use metadata.usage instead. */
     tokens?: number;
     finishReason?: string;
-    /** Provider-reported token counts. A null value indicates an unreported or invalid count. */
-    usage?: {
-      inputTokens: number | null;
-      outputTokens: number | null;
-      cachedInputTokens: number | null;
-      totalTokens: number | null;
-    };
+    usage?: LLMTokenUsage;
   };
 }
 

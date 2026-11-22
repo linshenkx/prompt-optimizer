@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { AbstractTextProviderAdapter } from './abstract-adapter'
 import { APIError } from '../errors'
 import { isLocalServiceAddress } from '../local-service-models'
+import { normalizeAnthropicUsage } from '../usage'
 import type {
   TextProvider,
   TextModel,
@@ -344,11 +345,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
       return {
         content: this.extractContent(response),
         reasoning,
-        metadata: {
-          model: response.model,
-          finishReason: response.stop_reason || undefined,
-          tokens: response.usage ? (response.usage.input_tokens || 0) + (response.usage.output_tokens || 0) : undefined
-        }
+        metadata: this.buildResponseMetadata(response)
       }
     } catch (error) {
       throw this.handleError(error)
@@ -423,11 +420,7 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
       return {
         content: this.extractContent(response),
         reasoning,
-        metadata: {
-          model: response.model,
-          finishReason: response.stop_reason || undefined,
-          tokens: response.usage ? (response.usage.input_tokens || 0) + (response.usage.output_tokens || 0) : undefined
-        }
+        metadata: this.buildResponseMetadata(response)
       }
     } catch (error) {
       throw this.handleError(error)
@@ -519,17 +512,11 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
 
       const message = await stream.finalMessage()
 
-        await callbacks.onComplete({
-          content: this.extractContent(message),
-          reasoning: accumulatedReasoning || undefined,
-          metadata: {
-            model: message.model,
-            finishReason: message.stop_reason || undefined,
-            tokens: message.usage
-              ? (message.usage.input_tokens || 0) + (message.usage.output_tokens || 0)
-              : undefined
-          }
-        })
+      await callbacks.onComplete({
+        content: this.extractContent(message),
+        reasoning: accumulatedReasoning || undefined,
+        metadata: this.buildResponseMetadata(message)
+      })
 
     } catch (error) {
       callbacks.onError(this.handleError(error))
@@ -614,16 +601,12 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
       // 等待流完成
       const message = await stream.finalMessage()
 
-        const response: LLMResponse = {
-          content: this.extractContent(message),
-          reasoning: accumulatedReasoning || undefined,
-          metadata: {
-            model: message.model,
-            finishReason: message.stop_reason || undefined,
-            tokens: message.usage ? (message.usage.input_tokens || 0) + (message.usage.output_tokens || 0) : undefined
-          }
-        }
-        await callbacks.onComplete(response)
+      const response: LLMResponse = {
+        content: this.extractContent(message),
+        reasoning: accumulatedReasoning || undefined,
+        metadata: this.buildResponseMetadata(message)
+      }
+      await callbacks.onComplete(response)
 
     } catch (error) {
       callbacks.onError(this.handleError(error))
@@ -749,17 +732,13 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
       // 等待流完成
       const message = await stream.finalMessage()
 
-        const response: LLMResponse = {
-          content: accumulatedContent,
-          reasoning: accumulatedReasoning || undefined,
-          toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-          metadata: {
-            model: message.model,
-            finishReason: message.stop_reason || undefined,
-            tokens: message.usage ? (message.usage.input_tokens || 0) + (message.usage.output_tokens || 0) : undefined
-          }
-        }
-        await callbacks.onComplete(response)
+      const response: LLMResponse = {
+        content: accumulatedContent,
+        reasoning: accumulatedReasoning || undefined,
+        toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+        metadata: this.buildResponseMetadata(message)
+      }
+      await callbacks.onComplete(response)
 
     } catch (error) {
       callbacks.onError(this.handleError(error))
@@ -820,6 +799,21 @@ export class AnthropicAdapter extends AbstractTextProviderAdapter {
     return systemMessages.length > 0
       ? systemMessages.map(msg => msg.content).join('\n')
       : undefined
+  }
+
+  private buildResponseMetadata(message: Anthropic.Message): NonNullable<LLMResponse['metadata']> {
+    const usage = normalizeAnthropicUsage(message?.usage)
+    const tokens = usage?.totalTokens
+      ?? (usage && (usage.inputTokens !== null || usage.outputTokens !== null)
+        ? (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0)
+        : undefined)
+
+    return {
+      model: message.model,
+      finishReason: message.stop_reason || undefined,
+      tokens,
+      ...(usage ? { usage } : {})
+    }
   }
 
   /**

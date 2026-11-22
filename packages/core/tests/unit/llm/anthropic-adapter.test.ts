@@ -196,8 +196,46 @@ describe('AnthropicAdapter', () => {
       expect(response.metadata).toEqual({
         model: 'claude-sonnet-4-5',
         finishReason: 'end_turn',
-        tokens: 62
+        tokens: 62,
+        usage: { inputTokens: 12, outputTokens: 50, cachedInputTokens: null, totalTokens: 62 }
       });
+    });
+
+    it('includes cache creation and cache reads in the input and legacy total', async () => {
+      (Anthropic as any).prototype.messages = {
+        create: vi.fn().mockResolvedValue({
+          content: [{ type: 'text', text: 'Image description' }],
+          model: 'claude-sonnet-4-5',
+          usage: {
+            input_tokens: 2,
+            output_tokens: 5,
+            cache_creation_input_tokens: 10,
+            cache_read_input_tokens: 20
+          }
+        })
+      };
+
+      const response = await adapter.sendImageUnderstanding({
+        userPrompt: 'describe this image',
+        images: [{ b64: 'ZmFrZQ==', mimeType: 'image/png' }]
+      }, mockConfig);
+
+      expect(response.metadata?.tokens).toBe(37);
+      expect(response.metadata?.usage).toEqual({
+        inputTokens: 32, outputTokens: 5, cachedInputTokens: 20, totalTokens: 37
+      });
+    });
+
+    it('omits normalized usage when the message has no usage', async () => {
+      (Anthropic as any).prototype.messages = {
+        create: vi.fn().mockResolvedValue({ content: [{ type: 'text', text: 'ok' }] })
+      };
+
+      const response = await adapter.sendMessage(mockMessages, mockConfig);
+
+      expect(response.content).toBe('ok');
+      expect(response.metadata?.tokens).toBeUndefined();
+      expect(response.metadata).not.toHaveProperty('usage');
     });
 
     it('should throw descriptive error when HTTP request fails', async () => {
@@ -272,7 +310,8 @@ describe('AnthropicAdapter', () => {
         metadata: {
           model: 'claude-sonnet-4-5',
           finishReason: 'end_turn',
-          tokens: 30
+          tokens: 30,
+          usage: { inputTokens: 10, outputTokens: 20, cachedInputTokens: null, totalTokens: 30 }
         }
       });
       expect(callbacks.onError).not.toHaveBeenCalled();
@@ -372,7 +411,8 @@ describe('AnthropicAdapter', () => {
         metadata: {
           model: 'claude-sonnet-4-5',
           finishReason: 'end_turn',
-          tokens: 54
+          tokens: 54,
+          usage: { inputTokens: 18, outputTokens: 36, cachedInputTokens: null, totalTokens: 54 }
         }
       });
       expect(callbacks.onError).not.toHaveBeenCalled();

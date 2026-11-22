@@ -1017,9 +1017,9 @@ function setupIPC() {
             event.sender.send(`stream-thinking-${streamId}`, thinking);
           }
         },
-        onComplete: () => {
+        onComplete: (response) => {
           if (!event.sender.isDestroyed()) {
-            event.sender.send(`stream-finish-${streamId}`);
+            event.sender.send(`stream-finish-${streamId}`, response !== undefined ? safeSerialize(response) : undefined);
           }
         },
         onError: (error) => {
@@ -1057,9 +1057,9 @@ function setupIPC() {
             event.sender.send(`stream-tool-call-${streamId}`, toolCall);
           }
         },
-        onComplete: () => {
+        onComplete: (response) => {
           if (!event.sender.isDestroyed()) {
-            event.sender.send(`stream-finish-${streamId}`);
+            event.sender.send(`stream-finish-${streamId}`, response !== undefined ? safeSerialize(response) : undefined);
           }
         },
         onError: (error) => {
@@ -1157,11 +1157,11 @@ function setupIPC() {
         sender.send(`stream-tool-call-${streamId}`, toolCall);
       }
     },
-    onComplete: () => {
+    onComplete: (response) => {
       lease.release();
       lease.signal.throwIfAborted();
       if (!sender.isDestroyed()) {
-        sender.send(`stream-finish-${streamId}`);
+        sender.send(`stream-finish-${streamId}`, response !== undefined ? safeSerialize(response) : undefined);
       }
     },
     onError: (error) => {

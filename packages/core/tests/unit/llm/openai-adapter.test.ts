@@ -78,6 +78,20 @@ describe('OpenAIAdapter', () => {
     { role: 'user', content: 'Hello, world!' }
   ];
 
+  const chatUsage = {
+    prompt_tokens: 10,
+    completion_tokens: 4,
+    prompt_tokens_details: { cached_tokens: 3 },
+    total_tokens: 14
+  };
+  const responsesUsage = {
+    input_tokens: 10,
+    output_tokens: 4,
+    input_tokens_details: { cached_tokens: 3 },
+    total_tokens: 14
+  };
+  const expectedUsage = { inputTokens: 10, outputTokens: 4, cachedInputTokens: 3, totalTokens: 14 };
+
   beforeEach(() => {
     adapter = new OpenAIAdapter();
     openAICompatibleAdapter = new OpenAICompatibleAdapter();
@@ -260,6 +274,53 @@ describe('OpenAIAdapter', () => {
       });
     });
 
+    it('should capture the latest valid usage from raw SSE', async () => {
+      const chunks = [
+        { choices: [{ delta: { content: 'Answer' } }], usage: { prompt_tokens: 1 } },
+        { choices: [{ delta: {}, finish_reason: 'stop' }] },
+        { choices: [], usage: chatUsage },
+        { usage: { total_tokens: -1 } }
+      ];
+      mockOpenAIInstance.chat.completions.create.mockResolvedValue(
+        [...chunks.map(chunk => `data: ${JSON.stringify(chunk)}`), 'data: [DONE]'].join('\n\n')
+      );
+
+      const response = await adapter.sendMessage(mockMessages, mockConfig);
+      expect(response.content).toBe('Answer');
+      expect(response.metadata).toEqual({
+        model: 'gpt-5-mini', finishReason: 'stop', usage: expectedUsage
+      });
+    });
+
+    it('should capture usage from a JSON string fallback', async () => {
+      mockOpenAIInstance.chat.completions.create.mockResolvedValue(JSON.stringify({
+        choices: [{ message: { content: 'Answer' }, finish_reason: 'stop' }],
+        usage: chatUsage
+      }));
+
+      const response = await adapter.sendMessage(mockMessages, mockConfig);
+      expect(response.content).toBe('Answer');
+      expect(response.metadata).toEqual({
+        model: 'gpt-5-mini', finishReason: 'stop', usage: expectedUsage
+      });
+    });
+
+    it('should capture usage when a non-streaming request receives an async stream', async () => {
+      mockOpenAIInstance.chat.completions.create.mockResolvedValue({
+        async *[Symbol.asyncIterator]() {
+          yield { choices: [{ delta: { content: 'Answer' }, finish_reason: 'stop' }] };
+          yield { usage: chatUsage };
+          yield { choices: [], usage: null };
+        }
+      });
+
+      const response = await adapter.sendMessage(mockMessages, mockConfig);
+      expect(response.content).toBe('Answer');
+      expect(response.metadata).toEqual({
+        model: 'gpt-5-mini', finishReason: 'stop', usage: expectedUsage
+      });
+    });
+
     it('should preserve error stack on failure', async () => {
       const originalError = new Error('OpenAI API Error');
       originalError.stack = 'Original Stack Trace';
@@ -290,7 +351,8 @@ describe('OpenAIAdapter', () => {
       mockOpenAIInstance.responses.create.mockResolvedValue({
         id: 'resp_123',
         object: 'response',
-        output_text: 'Hello from responses'
+        output_text: 'Hello from responses',
+        usage: responsesUsage
       });
 
       const response = await adapter.sendMessage(mockMessages, responsesConfig);
@@ -306,7 +368,7 @@ describe('OpenAIAdapter', () => {
       expect(response.content).toBe('Hello from responses');
       expect(response.metadata).toEqual({
         model: 'gpt-5-mini',
-        finishReason: undefined
+        usage: expectedUsage
       });
     });
   });
@@ -581,6 +643,9 @@ describe('OpenAIAdapter', () => {
               finish_reason: 'stop'
             }]
           };
+          yield { choices: [], usage: { prompt_tokens: 3 } };
+          yield { usage: chatUsage };
+          yield { usage: { total_tokens: -1 } };
         }
       };
 
@@ -597,7 +662,86 @@ describe('OpenAIAdapter', () => {
 
       expect(callbacks.onToken).toHaveBeenCalledWith('Hello');
       expect(callbacks.onToken).toHaveBeenCalledWith(' World');
-      expect(callbacks.onComplete).toHaveBeenCalled();
+      expect(callbacks.onComplete).toHaveBeenCalledWith({
+        content: 'Hello World',
+        reasoning: undefined,
+        metadata: { model: 'gpt-5-mini', usage: expectedUsage }
+      });
+      expect(mockOpenAIInstance.chat.completions.create.mock.calls[0][0]).toEqual(
+        expect.objectContaining({
+          stream: true,
+          stream_options: { include_usage: true }
+        })
+      );
+      expect(callbacks.onError).not.toHaveBeenCalled();
+    });
+
+    it('should not inject stream_options for custom baseURL, compatible adapter, or explicit stream_options', async () => {
+      const makeStream = () => ({
+        async *[Symbol.asyncIterator]() {
+          yield { choices: [{ delta: { content: 'ok' }, finish_reason: 'stop' }] };
+        }
+      });
+      const callbacks = { onToken: vi.fn(), onComplete: vi.fn(), onError: vi.fn() };
+
+      mockOpenAIInstance.chat.completions.create.mockResolvedValue(makeStream());
+      await adapter.sendMessageStream(mockMessages, {
+        ...mockConfig,
+        connectionConfig: { apiKey: 'test-api-key', baseURL: 'https://proxy.example.com/v1' }
+      }, callbacks);
+      expect(mockOpenAIInstance.chat.completions.create.mock.calls[0][0]).not.toHaveProperty('stream_options');
+
+      mockOpenAIInstance.chat.completions.create.mockResolvedValue(makeStream());
+      await openAICompatibleAdapter.sendMessageStream(mockMessages, {
+        ...mockConfig,
+        providerMeta: { ...mockConfig.providerMeta, id: 'openai-compatible' },
+        connectionConfig: { apiKey: 'test-api-key', baseURL: 'https://api.openai.com/v1' }
+      }, callbacks);
+      expect(mockOpenAIInstance.chat.completions.create.mock.calls[1][0]).not.toHaveProperty('stream_options');
+
+      mockOpenAIInstance.chat.completions.create.mockResolvedValue(makeStream());
+      await adapter.sendMessageStream(mockMessages, {
+        ...mockConfig,
+        paramOverrides: { stream_options: { include_usage: false } }
+      }, callbacks);
+      expect(mockOpenAIInstance.chat.completions.create.mock.calls[2][0].stream_options).toEqual({
+        include_usage: false
+      });
+    });
+
+    it('should capture usage-only Chat Completions chunks in tool streams', async () => {
+      mockOpenAIInstance.chat.completions.create.mockResolvedValue({
+        async *[Symbol.asyncIterator]() {
+          yield {
+            choices: [{ delta: { tool_calls: [{
+              index: 0,
+              id: 'call_1',
+              type: 'function',
+              function: { name: 'lookup', arguments: '{}' }
+            }] } }]
+          };
+          yield { choices: [], usage: { total_tokens: 1 } };
+          yield { usage: chatUsage };
+        }
+      });
+      const callbacks = { onToken: vi.fn(), onComplete: vi.fn(), onError: vi.fn() };
+
+      await adapter.sendMessageStreamWithTools(mockMessages, mockConfig, [
+        { type: 'function', function: { name: 'lookup', parameters: { type: 'object' } } }
+      ], callbacks);
+
+      expect(callbacks.onComplete).toHaveBeenCalledWith({
+        content: '',
+        reasoning: undefined,
+        toolCalls: [{ id: 'call_1', type: 'function', function: { name: 'lookup', arguments: '{}' } }],
+        metadata: { model: 'gpt-5-mini', usage: expectedUsage }
+      });
+      expect(mockOpenAIInstance.chat.completions.create.mock.calls[0][0]).toEqual(
+        expect.objectContaining({
+          stream: true,
+          stream_options: { include_usage: true }
+        })
+      );
       expect(callbacks.onError).not.toHaveBeenCalled();
     });
 
@@ -627,7 +771,8 @@ describe('OpenAIAdapter', () => {
           yield {
             type: 'response.completed',
             response: {
-              output_text: 'Hello Responses'
+              output_text: 'Hello Responses',
+              usage: responsesUsage
             }
           };
         }
@@ -657,7 +802,8 @@ describe('OpenAIAdapter', () => {
         content: 'Hello Responses',
         reasoning: undefined,
         metadata: {
-          model: 'gpt-5-mini'
+          model: 'gpt-5-mini',
+          usage: expectedUsage
         }
       });
       expect(callbacks.onError).not.toHaveBeenCalled();
@@ -930,6 +1076,7 @@ describe('OpenAIAdapter', () => {
               finish_reason: 'stop'
             }]
           };
+          yield { choices: [], usage: chatUsage };
         }
       };
 
@@ -979,7 +1126,17 @@ describe('OpenAIAdapter', () => {
       );
       expect(callbacks.onToken).toHaveBeenCalledWith('视觉');
       expect(callbacks.onToken).toHaveBeenCalledWith('结果');
-      expect(callbacks.onComplete).toHaveBeenCalled();
+      expect(callbacks.onComplete).toHaveBeenCalledWith({
+        content: '视觉结果',
+        reasoning: undefined,
+        metadata: { model: 'gpt-5-mini', usage: expectedUsage }
+      });
+      expect(mockOpenAIInstance.chat.completions.create.mock.calls[0][0]).toEqual(
+        expect.objectContaining({
+          stream: true,
+          stream_options: { include_usage: true }
+        })
+      );
       expect(callbacks.onError).not.toHaveBeenCalled();
     });
 

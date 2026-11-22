@@ -2,7 +2,7 @@ import { runTasksWithExecutionMode } from '../../utils/runTasksSequentially'
 
 interface PreparedTestBatch<TId> {
   run: (id: TId) => Promise<boolean>
-  complete: (results: readonly boolean[]) => void
+  complete: (results: readonly boolean[]) => void | Promise<void>
 }
 
 interface WorkspaceTestBatchOptions<TId> {
@@ -30,6 +30,6 @@ export function useWorkspaceTestBatch<TId>(options: WorkspaceTestBatchOptions<TI
 
     const batch = options.prepare(ids)
     const results = await runTasksWithExecutionMode(ids, (id) => batch.run(id))
-    batch.complete(results)
+    await batch.complete(results)
   }
 }

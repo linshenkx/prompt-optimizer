@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import { AbstractTextProviderAdapter } from './abstract-adapter'
 import { APIError } from '../errors'
+import { normalizeChatCompletionUsage, normalizeResponsesUsage } from '../usage'
 import { normalizeCustomRequestHeaders } from '../../../utils/custom-request-headers'
 import type {
   TextProvider,
@@ -9,6 +10,7 @@ import type {
   Message,
   ImageUnderstandingRequest,
   LLMResponse,
+  LLMTokenUsage,
   StreamHandlers,
   ToolDefinition,
   ParameterDefinition
@@ -369,6 +371,31 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     return rawRequestStyle === 'responses' ? 'responses' : 'chat_completions'
   }
 
+  private shouldIncludeStreamUsage(
+    config: TextModelConfig,
+    restParams: Record<string, unknown>
+  ): boolean {
+    if (restParams.stream_options !== undefined) {
+      return false
+    }
+
+    const providerId = config.providerMeta?.id || this.getProvider().id
+    if (this.getProvider().id !== 'openai' || providerId !== 'openai') {
+      return false
+    }
+
+    const rawBaseURL = (config.connectionConfig?.baseURL || this.getProvider().defaultBaseURL || '').trim()
+    if (!rawBaseURL) {
+      return true
+    }
+
+    try {
+      return new URL(rawBaseURL).hostname.toLowerCase() === 'api.openai.com'
+    } catch {
+      return false
+    }
+  }
+
   private buildResponsesInput(messages: Message[]): any[] {
     return messages.map((message, index) => {
       if (message.role === 'tool') {
@@ -513,6 +540,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         : await openai.responses.create(responsesConfig)
     let accumulatedContent = ''
     let accumulatedReasoning = ''
+    let usage: LLMTokenUsage | undefined
     const thinkState = { isInThinkMode: false, buffer: '' }
     const toolCalls = new Map<number, any>()
 
@@ -586,6 +614,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         }
         case 'response.completed': {
           const completedResponse = event.response
+          usage = normalizeResponsesUsage(completedResponse?.usage) ?? usage
           if (!accumulatedContent && completedResponse?.output_text) {
             accumulatedContent = completedResponse.output_text
           }
@@ -610,7 +639,8 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       reasoning: accumulatedReasoning || undefined,
       toolCalls: toolCalls.size > 0 ? Array.from(toolCalls.values()) : undefined,
       metadata: {
-        model: config.modelMeta.id
+        model: config.modelMeta.id,
+        ...(usage ? { usage } : {})
       }
     })
   }
@@ -689,13 +719,15 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       ? response.output_text
       : this.extractResponsesText(response?.output)
     const reasoning = this.extractResponsesReasoning(response?.output)
+    const usage = normalizeResponsesUsage(response?.usage)
 
     return {
       content,
       reasoning: reasoning || undefined,
       toolCalls: this.extractResponsesToolCalls(response?.output),
       metadata: {
-        model: modelId
+        model: modelId,
+        ...(usage ? { usage } : {})
       }
     }
   }
@@ -1104,6 +1136,9 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         model: config.modelMeta.id,
         messages,
         stream: true,
+        ...(this.shouldIncludeStreamUsage(config, restParams)
+          ? { stream_options: { include_usage: true } }
+          : {}),
         ...restParams
       }
 
@@ -1113,9 +1148,11 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
 
       let accumulatedReasoning = ''
       let accumulatedContent = ''
+      let usage: LLMTokenUsage | undefined
       const thinkState = { isInThinkMode: false, buffer: '' }
 
       for await (const chunk of stream as any) {
+        usage = normalizeChatCompletionUsage(chunk?.usage) ?? usage
         const reasoningContent = chunk.choices?.[0]?.delta?.reasoning_content || ''
         if (reasoningContent) {
           accumulatedReasoning += reasoningContent
@@ -1133,7 +1170,8 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         content: accumulatedContent,
         reasoning: accumulatedReasoning || undefined,
         metadata: {
-          model: config.modelMeta.id
+          model: config.modelMeta.id,
+          ...(usage ? { usage } : {})
         }
       })
     } catch (error) {
@@ -1177,16 +1215,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       reasoning = processed.reasoning || ''
     }
 
-    const readTokenCount = (value: unknown): number | null =>
-      typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null
-    const reportedUsage = response.usage
-    const usage = {
-      inputTokens: readTokenCount(reportedUsage?.prompt_tokens),
-      outputTokens: readTokenCount(reportedUsage?.completion_tokens),
-      cachedInputTokens: readTokenCount(reportedUsage?.prompt_tokens_details?.cached_tokens)
-        ?? readTokenCount(reportedUsage?.prompt_cache_hit_tokens),
-      totalTokens: readTokenCount(reportedUsage?.total_tokens)
-    }
+    const usage = normalizeChatCompletionUsage(response.usage)
 
     return {
       content: content,
@@ -1194,7 +1223,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       metadata: {
         model: modelId,
         finishReason: choice.finish_reason || undefined,
-        ...(Object.values(usage).some(count => count !== null) ? { usage } : {})
+        ...(usage ? { usage } : {})
       }
     }
   }
@@ -1207,6 +1236,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     let accumulatedContent = ''
     let accumulatedReasoning = ''
     let finishReason: string | undefined
+    let usage: LLMTokenUsage | undefined
 
     // 按行分割 SSE 数据
     const lines = sseString.split('\n')
@@ -1232,6 +1262,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         }
         try {
           const chunk = JSON.parse(jsonStr)
+          usage = normalizeChatCompletionUsage(chunk?.usage) ?? usage
 
           // 处理推理内容
           const reasoningContent = chunk.choices?.[0]?.delta?.reasoning_content || ''
@@ -1264,12 +1295,14 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         const fallbackReasoning = fallbackJson.choices?.[0]?.message?.reasoning_content || ''
         if (fallbackContent || fallbackReasoning) {
           const processed = this.processThinkTags(fallbackContent)
+          const fallbackUsage = normalizeChatCompletionUsage(fallbackJson.usage)
           return {
             content: processed.content,
             reasoning: fallbackReasoning || processed.reasoning || undefined,
             metadata: {
               model: modelId,
-              finishReason: fallbackJson.choices?.[0]?.finish_reason
+              finishReason: fallbackJson.choices?.[0]?.finish_reason,
+              ...(fallbackUsage ? { usage: fallbackUsage } : {})
             }
           }
         }
@@ -1290,7 +1323,8 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       reasoning: accumulatedReasoning || processed.reasoning || undefined,
       metadata: {
         model: modelId,
-        finishReason
+        finishReason,
+        ...(usage ? { usage } : {})
       }
     }
   }
@@ -1326,8 +1360,10 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     let accumulatedContent = ''
     let accumulatedReasoning = ''
     let finishReason: string | undefined
+    let usage: LLMTokenUsage | undefined
 
     for await (const chunk of stream) {
+      usage = normalizeChatCompletionUsage(chunk?.usage) ?? usage
       // 处理推理内容
       const reasoningContent = chunk.choices?.[0]?.delta?.reasoning_content || ''
       if (reasoningContent) {
@@ -1354,7 +1390,8 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       reasoning: accumulatedReasoning || processed.reasoning || undefined,
       metadata: {
         model: modelId,
-        finishReason
+        finishReason,
+        ...(usage ? { usage } : {})
       }
     }
   }
@@ -1398,6 +1435,9 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         model: config.modelMeta.id,
         messages: formattedMessages,
         stream: true, // 流式标志
+        ...(this.shouldIncludeStreamUsage(config, restParams)
+          ? { stream_options: { include_usage: true } }
+          : {}),
         ...restParams // 用户自定义参数
       }
 
@@ -1409,13 +1449,15 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       // 累积内容
       let accumulatedReasoning = ''
       let accumulatedContent = ''
+      let usage: LLMTokenUsage | undefined
 
       // think标签状态跟踪
       const thinkState = { isInThinkMode: false, buffer: '' }
 
       for await (const chunk of stream as any) {
+        usage = normalizeChatCompletionUsage(chunk?.usage) ?? usage
         // 处理推理内容（SiliconFlow 等提供商在 delta 中提供 reasoning_content）
-        const reasoningContent = chunk.choices[0]?.delta?.reasoning_content || ''
+        const reasoningContent = chunk.choices?.[0]?.delta?.reasoning_content || ''
         if (reasoningContent) {
           accumulatedReasoning += reasoningContent
 
@@ -1426,7 +1468,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         }
 
         // 处理主要内容
-        const content = chunk.choices[0]?.delta?.content || ''
+        const content = chunk.choices?.[0]?.delta?.content || ''
         if (content) {
           accumulatedContent += content
 
@@ -1440,7 +1482,8 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         content: accumulatedContent,
         reasoning: accumulatedReasoning || undefined,
         metadata: {
-          model: config.modelMeta.id
+          model: config.modelMeta.id,
+          ...(usage ? { usage } : {})
         }
       }
 
@@ -1496,6 +1539,9 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         tools: tools,
         tool_choice: 'auto',
         stream: true,
+        ...(this.shouldIncludeStreamUsage(config, restParams)
+          ? { stream_options: { include_usage: true } }
+          : {}),
         ...restParams
       }
 
@@ -1505,12 +1551,14 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
 
       let accumulatedReasoning = ''
       let accumulatedContent = ''
+      let usage: LLMTokenUsage | undefined
       const toolCalls: any[] = []
       const thinkState = { isInThinkMode: false, buffer: '' }
 
       for await (const chunk of stream as any) {
+        usage = normalizeChatCompletionUsage(chunk?.usage) ?? usage
         // 处理推理内容
-        const reasoningContent = chunk.choices[0]?.delta?.reasoning_content || ''
+        const reasoningContent = chunk.choices?.[0]?.delta?.reasoning_content || ''
         if (reasoningContent) {
           accumulatedReasoning += reasoningContent
           if (callbacks.onReasoningToken) {
@@ -1519,7 +1567,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         }
 
         // 处理工具调用
-        const toolCallDeltas = chunk.choices[0]?.delta?.tool_calls
+        const toolCallDeltas = chunk.choices?.[0]?.delta?.tool_calls
         if (toolCallDeltas) {
           for (const toolCallDelta of toolCallDeltas) {
             if (toolCallDelta.index !== undefined) {
@@ -1563,7 +1611,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         }
 
         // 处理主要内容
-        const content = chunk.choices[0]?.delta?.content || ''
+        const content = chunk.choices?.[0]?.delta?.content || ''
         if (content) {
           accumulatedContent += content
           this.processStreamContentWithThinkTags(content, callbacks, thinkState)
@@ -1574,7 +1622,10 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
         content: accumulatedContent,
         reasoning: accumulatedReasoning || undefined,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-        metadata: { model: config.modelMeta.id }
+        metadata: {
+          model: config.modelMeta.id,
+          ...(usage ? { usage } : {})
+        }
       }
 
       await callbacks.onComplete(response)

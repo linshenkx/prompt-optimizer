@@ -94,6 +94,13 @@ const messages = {
     "enableMarkdown": "Enable Markdown rendering",
     "disableMarkdown": "Disable Markdown rendering",
     "thinking": "Thinking Process",
+    "tokenUsage": {
+      "summary": "{count} tokens",
+      "input": "Input",
+      "output": "Output",
+      "cached": "Cached",
+      "total": "Total"
+    },
     "variables": {
       "detected": "Variables Detected",
       "manageVariables": "Manage Variables",
