@@ -462,7 +462,6 @@ import {
 } from '../../stores/session/useProMultiMessageSession'
 import {
     NCard,
-    NFlex,
     NButton,
     NText,
     NEmpty,
@@ -490,7 +489,6 @@ import {
 } from '../evaluation'
 import { buildCompareToolbarStatus } from '../evaluation/compare-ui'
 import WorkspaceUtilityMenu from '../common/WorkspaceUtilityMenu.vue'
-import ThemedTooltip from '../common/ThemedTooltip.vue'
 import { resolveSourceAssetRef } from '../../utils/source-asset'
 import { useConversationOptimization } from '../../composables/prompt/useConversationOptimization'
 import { usePromptDisplayAdapter } from '../../composables/prompt/usePromptDisplayAdapter'
@@ -1193,8 +1191,6 @@ const getVariantVersionLabel = (id: TestVariantId): string => {
     )
 }
 
-const getVariantResolvedVersion = (id: TestVariantId): number =>
-    resolveSelectedMessageContent(variantVersionModels[id].value).resolvedVersion
 
 const compareReadyVariantIds = computed(() =>
     activeVariantIds.value.filter((id) => hasVariantResult(id) && !isVariantStale(id))
@@ -1221,9 +1217,6 @@ const compareRoleConfig = useCompareRoleConfig({
     persistedRoleSignatures: toRef(proMultiSession, 'compareSnapshotRoleSignatures'),
     persistRoles: (roles, signatures) => proMultiSession.updateCompareSnapshotRoles(roles, signatures),
 })
-const compareRoleEntryMap = computed(() =>
-    Object.fromEntries(compareRoleConfig.entries.value.map((entry) => [entry.id, entry]))
-)
 const compareToolbarStatus = computed(() =>
     activeVariantIds.value.length >= 2
         ? buildCompareToolbarStatus(

@@ -532,7 +532,6 @@ import { NButton, NCard, NFlex, NIcon, NText } from 'naive-ui'
 import InputPanelUI from '../InputPanel.vue'
 import PromptPanelUI from '../PromptPanel.vue'
 import WorkspaceUtilityMenu from '../common/WorkspaceUtilityMenu.vue'
-import ThemedTooltip from '../common/ThemedTooltip.vue'
 import { resolveSourceAssetRef } from '../../utils/source-asset'
 import { beginOutputStream } from '../../utils/output-document'
 import { clearOutputTokenUsage, getOutputTokenUsage, setOutputTokenUsage } from '../../utils/token-usage'
@@ -959,8 +958,6 @@ const getVariantVersionLabel = (id: TestVariantId): string => {
   )
 }
 
-const getVariantResolvedVersion = (id: TestVariantId): number =>
-  resolveTestPrompt(variantVersionModels[id].value).resolvedVersion
 
 const compareReadyVariantIds = computed(() =>
   activeVariantIds.value.filter((id) => hasVariantResult(id) && !isVariantStale(id))
@@ -983,9 +980,6 @@ const compareRoleConfig = useCompareRoleConfig({
   persistedRoleSignatures: toRef(session, 'compareSnapshotRoleSignatures'),
   persistRoles: (roles, signatures) => session.updateCompareSnapshotRoles(roles, signatures),
 })
-const compareRoleEntryMap = computed(() =>
-  Object.fromEntries(compareRoleConfig.entries.value.map((entry) => [entry.id, entry]))
-)
 const compareToolbarStatus = computed(() =>
   activeVariantIds.value.length >= 2
     ? buildCompareToolbarStatus(

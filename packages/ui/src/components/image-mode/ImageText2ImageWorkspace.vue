@@ -821,7 +821,6 @@ import {
 import { useI18n } from "vue-i18n";
 import PromptPanelUI from "../PromptPanel.vue";
 import WorkspaceUtilityMenu from '../common/WorkspaceUtilityMenu.vue'
-import ThemedTooltip from '../common/ThemedTooltip.vue'
 import PromptGardenInspirationPopover from '../common/PromptGardenInspirationPopover.vue'
 import PromptGardenImportDialog from '../common/PromptGardenImportDialog.vue'
 import PromptPreviewPanel from "../PromptPreviewPanel.vue";
@@ -1336,8 +1335,6 @@ const activateVariantSource = (id: TestVariantId) => {
     pulseSourceAreaForSelection(selection, resolved.resolvedVersion, 'change')
 }
 
-const getVariantResolvedVersion = (id: TestVariantId): number =>
-    resolvePromptForSelection(variantVersionModels[id].value).resolvedVersion
 
 const getVariantVersionTestId = (id: TestVariantId) => {
     if (id === 'a') return 'image-text2image-test-original-version-select'

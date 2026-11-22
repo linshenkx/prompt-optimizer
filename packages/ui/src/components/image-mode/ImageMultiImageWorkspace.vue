@@ -632,7 +632,6 @@ import AppPreviewImage from '../media/AppPreviewImage.vue'
 import { VariableAwareInput } from '../variable-extraction'
 import TemporaryVariablesPanel from '../variable/TemporaryVariablesPanel.vue'
 import WorkspaceUtilityMenu from '../common/WorkspaceUtilityMenu.vue'
-import ThemedTooltip from '../common/ThemedTooltip.vue'
 import VariableValuePreviewDialog from '../variable/VariableValuePreviewDialog.vue'
 import TestPanelVersionSelect from '../TestPanelVersionSelect.vue'
 import ImageTokenUsage from './ImageTokenUsage.vue'
@@ -1556,8 +1555,6 @@ const resolvePromptForSelection = (selection: TestPanelVersionValue) =>
     originalPrompt: session.originalPrompt || '',
   })
 
-const getVariantResolvedVersion = (id: TestVariantId): number =>
-  resolvePromptForSelection(variantVersionModels[id].value).resolvedVersion
 
 const getVariantRequest = (id: TestVariantId) => {
   const modelKey = (variantModelKeyModels[id].value || '').trim()
