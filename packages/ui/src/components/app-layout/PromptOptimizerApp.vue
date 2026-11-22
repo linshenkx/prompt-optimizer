@@ -69,6 +69,13 @@
                     />
                 </template>
                 <template #main>
+                    <NAlert v-if="saveFailure" class="workspace-save-warning" type="warning" data-testid="workspace-save-warning">
+                        {{ t(saveFailure[1] === 'conflict' ? 'workspace.sessionConflict' : 'workspace.sessionSaveFailed') }}
+                        <NButton v-if="saveFailure[1] === 'failed'" size="tiny" :loading="sessionManager.isSaving"
+                            @click="sessionManager.flushSubModeSession(saveFailure[0])">
+                            {{ t('common.retry') }}
+                        </NButton>
+                    </NAlert>
                     <!-- 🔧 路由架构：使用 RouterView 自动渲染对应的工作区容器 -->
                     <!-- - /basic/system → BasicSystemWorkspace -->
                     <!-- - /basic/user → BasicUserWorkspace -->
@@ -261,6 +268,8 @@ import { openExternalUrl } from '../../utils/open-external-url'
 import { registerOptionalIntegrations } from '../../integrations/registerOptionalIntegrations';
 import { useI18n } from "vue-i18n";
 import {
+    NAlert,
+    NButton,
     NConfigProvider,
     NGlobalStyle,
     NResult,
@@ -277,9 +286,9 @@ import CompactNavigation from './CompactNavigation.vue'
 import { useWorkspaceViewState } from '../../composables/ui/useWorkspaceViewState'
 import { useWorkspaceLayout } from '../../composables/ui/useWorkspaceLayout'
 import { hasCompactModalLayers } from '../../composables/ui/useCompactModalBack'
-import { hasSessionConflicts, SESSION_CONFLICT_EVENT } from '../../stores/session/sessionPersistence'
+import { hasSessionConflicts } from '../../stores/session/sessionPersistence'
 import { createAppUpdatePreparation } from '../../composables/ui/useAppUpdatePreparation'
-import { useCompactSessionAutosave } from '../../composables/session/useCompactSessionAutosave'
+import { useSessionAutosave } from '../../composables/session/useSessionAutosave'
 const { isCompact, keyboardViewportHeight, keyboardViewportTop } = useWorkspaceLayout()
 import '../../styles/compact-workspace.css'
 
@@ -418,22 +427,12 @@ const promptRefreshForNewDeploy = async (reason: unknown) => {
       return;
     }
 
-    if (isCompact.value) {
-      const checkpoint = await prepareForUpdate();
-      if (checkpoint !== 'ready') {
-        console.warn('[PromptOptimizerApp] Refresh deferred by application checkpoint:', checkpoint);
-        window.sessionStorage.removeItem(CHUNK_LOAD_REFRESH_GUARD_KEY);
-        toast.warning(t('toast.warning.chunkLoadRefreshDeclined'), 8000);
-        return;
-      }
-    } else {
-      // Keep the existing desktop chunk-recovery flow. PWA updates use their
-      // separate explicit checkpoint through the Web host component.
-      try {
-        await sessionManager.saveAllSessions();
-      } catch (error) {
-        console.warn('[PromptOptimizerApp] saveAllSessions failed before refresh:', error);
-      }
+    const checkpoint = !isReady.value && !sessionManager.hasUnsavedSessions ? 'ready' : await prepareForUpdate();
+    if (checkpoint !== 'ready') {
+      console.warn('[PromptOptimizerApp] Refresh deferred by application checkpoint:', checkpoint);
+      window.sessionStorage.removeItem(CHUNK_LOAD_REFRESH_GUARD_KEY);
+      toast.warning(t('toast.warning.chunkLoadRefreshDeclined'), 8000);
+      return;
     }
 
     window.location.reload();
@@ -773,8 +772,6 @@ const advancedModeEnabled = computed(() => routeFunctionMode.value === "pro");
 // 这些函数已被 AppCoreNav 的 router.push 导航替代（2024-01-06）
 
 // 测试内容状态
-const testContent = ref("");
-const isCompareMode = ref(true);
 
 // Naive UI 主题配置
 const { naiveTheme, themeOverrides, initTheme } = useNaiveTheme();
@@ -1167,120 +1164,10 @@ const getCurrentSession = () => {
 const getCurrentBasicSession = () =>
     routeBasicSubMode.value === 'system' ? basicSystemSession : basicUserSession;
 
-const getCurrentImageSession = () =>
-    routeImageSubMode.value === 'text2image'
-        ? imageText2ImageSession
-        : routeImageSubMode.value === 'multiimage'
-            ? imageMultiImageSession
-            : imageImage2ImageSession;
-
-/**
- * 🔧 方案 A 修复：恢复 Basic 模式的 session 状态（移除冗余赋值）
- *
- * 设计原则：
- * - Basic 模式的核心状态（prompt/optimizedPrompt/reasoning/chainId/versionId）
- *   已通过 computed 绑定到 session store（单一真源），无需手动赋值
- * - 只恢复未绑定的 UI 状态（testContent/modelManager/isCompareMode）
- *
- * 根因分析：
- * - 旧逻辑手动赋值 optimizer.prompt 等字段，破坏了"单一真源"架构
- * - 导致模式切换时，旧模式的 UI 状态可能通过 watch 污染新模式的 session store
- */
-const restoreBasicOrProVariableSession = () => {
-    if (routeFunctionMode.value !== 'basic') return;
-    const session = getCurrentBasicSession();
-
-    // ✅ 核心状态（prompt/optimizedPrompt/reasoning/chainId/versionId）
-    // 已通过 basicSessionPrompt 等 computed 绑定，自动从 session store 读取，无需手动赋值
-
-    // ✅ 恢复未绑定的 UI 状态
-    testContent.value = session.testContent || '';
-
-    // 恢复对比模式
-    isCompareMode.value = session.isCompareMode;
-
-};
-
-/**
- * 🔧 方案 A 修复：Pro-user（变量模式）会话恢复（移除冗余赋值）
- *
- * 设计原则：
- * - Pro-user 使用 ContextUserWorkspace 内部的 useContextUserOptimization 状态树
- * - 核心状态（prompt/optimizedPrompt/reasoning/chainId/versionId）
- *   已通过 computed 绑定到 proVariableSession（单一真源），无需手动赋值
- * - 只恢复未绑定的 UI 状态（testContent/isCompareMode）和过程态重置
- *
- * 根因分析：
- * - 旧逻辑手动赋值 contextUserOptimization.prompt 等字段，破坏了"单一真源"架构
- * - 导致模式切换时，旧模式的 UI 状态可能通过 watch 污染新模式的 session store
- */
-const restoreProVariableSessionToUserWorkspace = async () => {
-    // ✅ 核心状态（prompt/optimizedPrompt/reasoning/chainId/versionId）
-    // 已通过 sessionPrompt 等 computed 绑定到 proVariableSession，无需手动赋值
-
-    // ✅ 恢复未绑定的 UI 状态
-    testContent.value = proVariableSession.testContent || '';
-    isCompareMode.value = proVariableSession.isCompareMode;
-
-    // 等待 DOM 更新，确保 ContextUserWorkspace 已挂载并建立 ref
-    await nextTick();
-
-    let contextUserOptimization = userWorkspaceRef.value?.contextUserOptimization;
-    if (!contextUserOptimization) {
-        // 防御性重试：部分切换路径下首次 nextTick 可能仍未建立 ref
-        await nextTick();
-        contextUserOptimization = userWorkspaceRef.value?.contextUserOptimization;
-        if (!contextUserOptimization) return;
-    }
-
-    // ✅ 只恢复非绑定字段
-    // currentVersions 需要从历史记录重新拉取
-    contextUserOptimization.currentVersions = [];
-
-    // 重置过程态（避免恢复后停留在 loading）
-    contextUserOptimization.isOptimizing = false;
-    contextUserOptimization.isIterating = false;
-
-    // 尝试从历史记录恢复版本列表
-    const historyManager = services.value?.historyManager;
-    const chainId = proVariableSession.chainId || '';
-    if (historyManager && chainId) {
-        try {
-            const chain = await historyManager.getChain(chainId);
-            contextUserOptimization.currentVersions = chain.versions;
-            // currentVersionId 已通过 binding 绑定，无需手动赋值
-        } catch (error) {
-            console.warn('[PromptOptimizerApp] Failed to restore the Pro-user chain; continuing with the session snapshot:', error);
-        }
-    }
-};
-
-/**
- * 🔧 方案 A 修复：恢复 Pro-system 模式的 session 状态（移除冗余赋值）
- *
- * 设计原则：
- * - Pro-system 模式使用 useConversationOptimization 的状态树（不是 optimizer）
- * - 核心状态（optimizedPrompt/reasoning/chainId/versionId/selectedMessageId）
- *   已通过 computed 绑定到 proMultiMessageSession（单一真源），无需手动赋值
- * - 只恢复未绑定的 UI 状态（modelManager/isCompareMode/optimizationContext）
- *
- * 根因分析：
- * - 旧逻辑错误地赋值给 optimizer，但 Pro-system 实际使用 conversationOptimization
- * - 这导致 optimizer 的 watch 触发，可能污染其他模式的 session store
- */
 const restoreProMultiMessageSession = async () => {
     const session = proMultiMessageSession;
-    const savedState = session.$state;
-
-    // ✅ 核心状态（optimizedPrompt/reasoning/chainId/versionId/selectedMessageId）
-    // 已通过 useConversationOptimization 的 computed 绑定到 session.state，无需手动赋值
-
-    // ✅ 恢复未绑定的 UI 状态
-    // 恢复对比模式
-    isCompareMode.value = savedState.isCompareMode;
-
-    // Pro Multi messages are session-owned. Ensure a default example exists when empty.
-    if (!session.conversationMessagesSnapshot || session.conversationMessagesSnapshot.length === 0) {
+    // Keep the existing startup example. A route switch must keep an empty draft empty.
+    if (!hasRestoredInitialState.value && session.conversationMessagesSnapshot.length === 0) {
         let seed = 0;
         const makeId = () => {
             const maybeCrypto = globalThis.crypto as unknown as { randomUUID?: () => string } | undefined;
@@ -1321,49 +1208,9 @@ const restoreProMultiMessageSession = async () => {
     systemWorkspaceRef.value?.restoreConversationOptimizationFromSession?.();
 };
 
-/**
- * 🔧 方案 A 修复：恢复 Image 模式的 session 状态（移除所有冗余赋值）
- *
- * 设计原则：
- * - Image 模式使用独立的 Session Store（完全不涉及 optimizer）
- * - 所有状态（originalPrompt/optimizedPrompt/reasoning/chainId/versionId/isCompareMode等）
- *   已通过 computed 绑定到 imageText2ImageSession/imageImage2ImageSession（单一真源）
- * - ImageWorkspace 是完全独立的组件，状态由自身管理
- *
- * 根因分析：
- * - 旧逻辑错误地赋值给 optimizer，但 Image 模式根本不使用 optimizer
- * - 这导致 optimizer 的 watch 触发，污染 Basic 模式的 session store（因为切换后 getCurrentSession 返回新模式）
- * - 即使恢复 isCompareMode，也已通过 ImageWorkspace 的 computed 自动同步，无需手动赋值
- *
- * 结论：
- * - Image 模式的所有状态由 ImageWorkspace 独立管理，此函数无需做任何操作
- */
-const restoreImageSession = () => {
-    // ✅ Image 模式的所有状态已通过 ImageWorkspace 的 computed 绑定到 session store
-    // 无需任何手动恢复操作，状态会自动从 session store 读取
-};
-
-/**
- * 从 session store 恢复状态到 UI（内部实现）
- * 🔧 Codex 修复：按 mode/subMode 分支调用对应的恢复函数，避免调用不存在的方法
- *
- * 注意：这是内部实现，不包含互斥控制逻辑
- * 互斥控制由 useSessionRestoreCoordinator 处理
- */
-// 🔧 Step E: 使用 route-computed 代替旧 state
 const restoreSessionToUIInternal = async () => {
-    if (routeFunctionMode.value === 'basic') {
-        // Basic 模式：使用通用恢复逻辑
-        restoreBasicOrProVariableSession();
-    } else if (routeFunctionMode.value === 'pro' && routeProSubMode.value === 'variable') {
-        // Pro-variable（变量模式）：恢复到 ContextUserWorkspace
-        await restoreProVariableSessionToUserWorkspace();
-    } else if (routeFunctionMode.value === 'pro' && routeProSubMode.value === 'multi') {
-        // Pro-multi（多消息模式）：使用专用恢复逻辑（异步，等待 DOM 更新）
+    if (routeFunctionMode.value === 'pro' && routeProSubMode.value === 'multi') {
         await restoreProMultiMessageSession();
-    } else if (routeFunctionMode.value === 'image') {
-        // Image 模式：使用专用恢复逻辑
-        restoreImageSession();
     }
 };
 
@@ -1377,12 +1224,10 @@ const restoreSessionToUI = restoreCoordinator.executeRestore;
 const workspaceRouteSwitch = createWorkspaceRouteSwitchController({
     hasRestoredInitialState,
     parseSubModeKey,
-    getActiveSubModeKey: sessionManager.getActiveSubModeKey,
-    switchMode: sessionManager.switchMode,
-    switchSubMode: sessionManager.switchSubMode,
+    flushWorkspace: sessionManager.flushSubModeSession,
     restoreSessionToUI,
-    onError: (error, fromKey, toKey) => {
-        console.error(`[PromptOptimizerApp] Route switch failed: ${fromKey} -> ${toKey}`, error);
+    onError: (error, toPath, fromPath) => {
+        console.error(`[PromptOptimizerApp] Route switch failed: ${fromPath} -> ${toPath}`, error);
     },
 });
 
@@ -1394,8 +1239,6 @@ const workspaceRouteSwitch = createWorkspaceRouteSwitchController({
 watch(
     () => optimizer.prompt,
     (newPrompt) => {
-        if (sessionManager.isSwitching) return;
-
         // ⚠️ 严格限制在 Basic 模式
         // - Pro 模式：没有 prompt 字段
         // - Image 模式：使用独立的 ImageWorkspace 状态，不涉及 optimizer
@@ -1435,7 +1278,7 @@ watch(
         }
 
         const session = getCurrentSession();
-        if (session && !sessionManager.isSwitching) {
+        if (session) {
             session.updateOptimizedResult({
                 optimizedPrompt: newOptimizedPrompt || '',
                 reasoning: newReasoning || '',
@@ -1453,8 +1296,6 @@ watch(
 watch(
     () => modelManager.selectedOptimizeModel,
     (newModel) => {
-        if (sessionManager.isSwitching) return;
-
         // 🔧 Pro 模式的模型选择已由 workspace/controller 持久化到 session store
         // 避免在此处写入导致双写或污染
         if (routeFunctionMode.value === 'pro') return;
@@ -1486,8 +1327,6 @@ watch(
 watch(
     () => modelManager.selectedTestModel,
     (newModel) => {
-        if (sessionManager.isSwitching) return;
-
         // 🔧 Pro 模式的测试模型选择已由 workspace/controller 持久化到 session store
         // Image 模式不使用 testModel 字段
         if (routeFunctionMode.value === 'image') return;
@@ -1524,7 +1363,6 @@ const currentSelectedTemplate = computed<Template | null>({
 watch(
     currentSelectedTemplate,
     (newTemplate) => {
-        if (sessionManager.isSwitching) return;
         if (!hasRestoredInitialState.value) return;
 
         // ⚠️ Image 模式使用独立的 session 模板管理
@@ -1542,7 +1380,6 @@ watch(
 watch(
     () => optimizer.selectedIterateTemplate,
     (newTemplate) => {
-        if (sessionManager.isSwitching) return;
         if (!hasRestoredInitialState.value) return;
 
         // ⚠️ 仅 Basic 模式使用此迭代模板
@@ -1553,42 +1390,6 @@ watch(
         if (routeFunctionMode.value === 'pro') return;
 
         getCurrentBasicSession().updateIterateTemplate(newTemplate?.id || null);
-    }
-);
-
-// 同步测试内容到 session store（用于刷新/切换后保留测试输入）
-// 🔧 清理：Pro 模式的测试内容已由 workspace 内部管理
-watch(
-    testContent,
-    (newContent) => {
-        if (sessionManager.isSwitching) return;
-        if (!hasRestoredInitialState.value) return;
-
-        // 🔧 仅 Basic 模式使用此 testContent
-        // Image 模式没有 testContent；Pro 模式已由 workspace 内部管理
-        if (routeFunctionMode.value === 'image') return;
-        if (routeFunctionMode.value === 'pro') return;
-
-        getCurrentBasicSession().updateTestContent(newContent || '');
-    },
-    { flush: 'sync' }
-);
-
-// 同步对比模式到 session store
-// 🔧 清理：Pro 模式的对比模式已由 workspace/controller 直接管理
-watch(
-    isCompareMode,
-    (newMode) => {
-        // 🔧 Pro 模式的对比模式已由 workspace/controller 持久化到 session store
-        if (routeFunctionMode.value === 'pro') return;
-
-        if (routeFunctionMode.value === 'basic') {
-            getCurrentBasicSession().toggleCompareMode(newMode);
-            return;
-        }
-        if (routeFunctionMode.value === 'image') {
-            getCurrentImageSession().toggleCompareMode(newMode);
-        }
     }
 );
 
@@ -2041,10 +1842,9 @@ watch(services, async (newServices) => {
 
 // 8. 处理数据导入成功后的刷新
 const handleDataImported = () => {
-    useToast().success(t("dataManager.import.successWithRefresh"));
-    setTimeout(() => {
-        window.location.reload();
-    }, 1500);
+    // Writes remain frozen for the old stores until the imported data is loaded.
+    window.removeEventListener('beforeunload', warnBeforeUnload);
+    window.location.reload();
 };
 
 // 监听变量管理器关闭
@@ -2279,17 +2079,7 @@ const handleModelManagerClosed = async () => {
  *   watch(router.currentRoute.fullPath, ...) - 工作区路由切换事务
  */
 
-/**
- * 🔧 Step C - 新增：路由变化监听（替代旧 state-watch，避免双触发）
- *
- * 主链路：路由变化 → sessionManager.switchMode/switchSubMode → restoreSessionToUI
- *
- * 设计原则：
- * - 路由变化是唯一触发模式切换事务的入口
- * - 使用 route-computed 解析 fromKey/toKey（与 Step A 保持一致）
- * - 保留 isLoadingExternalData 和 hasRestoredInitialState 短路逻辑
- * - 收藏、历史等外部数据加载流程通过 navigateToSubModeKey 显式等待同一事务
- */
+// History and favorites wait for the same route transaction before applying their data.
 watch(
   () => routerInstance.currentRoute.value.fullPath,
   async (toPath, fromPath) => {
@@ -2334,41 +2124,40 @@ async function navigateToSubModeKey(
   await workspaceRouteSwitch.run(routerInstance.currentRoute.value.fullPath, fromPath)
 }
 
-// 🔧 Step C 阶段2：已删除四个旧 state-watch，route-watch 成为唯一触发源
-// - watch(functionMode, ...) ❌ 已删除（2024-01-06）
-// - watch(basicSubMode, ...) ❌ 已删除（2024-01-06）
-// - watch(proSubMode, ...) ❌ 已删除（2024-01-06）
-// - watch(imageSubMode, ...) ❌ 已删除（2024-01-06）
-//
-// 主链路：route.fullPath 变化 → sessionManager.switchMode/switchSubMode → restoreSessionToUI
-// 首次恢复由 onMounted watchEffect 负责，后续工作区路由切换由 workspaceRouteSwitch 负责
-
-// 应用启动时恢复当前会话（在services ready后自动触发）
-// 注意：恢复逻辑已集成到services ready的watch中
-
-
-// 定时自动保存（每30秒）
-let autoSaveIntervalId: number | null = null
-// Services 初始化超时定时器
 let initTimeoutId: number | null = null
 
-const compactAutosave = useCompactSessionAutosave({
-  enabled: computed(() => isCompact.value && isReady.value),
-  busy: computed(() => sessionManager.isSwitching || sessionManager.isSaving),
+const saveFailure = computed(() => {
+  const key = sessionManager.getActiveSubModeKey()
+  const activeFailure = sessionManager.saveFailures.get(key)
+  return activeFailure ? [key, activeFailure] as const : sessionManager.saveFailures.entries().next().value
+})
+
+const autosave = useSessionAutosave({
+  enabled: isReady,
+  busy: computed(() => sessionManager.isSaving || sessionManager.isRestoring),
   subscribe: sessionManager.subscribeToSessionChanges,
   save: sessionManager.saveSubModeSessionWithStatus,
 });
 
+const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+  event.preventDefault()
+  event.returnValue = true
+}
+watch(() => sessionManager.hasUnsavedSessions, unsaved => {
+  if (unsaved) window.addEventListener('beforeunload', warnBeforeUnload)
+  else window.removeEventListener('beforeunload', warnBeforeUnload)
+}, { flush: 'sync' })
+
 // Optional Web/PWA host API. No service worker or browser update state enters UI stores.
 const arenaSession = useArenaSession();
-const isWorkspaceBusy = () => !isReady.value || sessionManager.isSwitching || arenaSession.running ||
+const isWorkspaceBusy = () => !isReady.value || arenaSession.running ||
   hasSessionConflicts(services.value?.preferenceService) ||
   !!activeWorkspaceRef.value?.isUpdateBusy?.();
 const prepareSessionRestore = async (): Promise<(() => void) | null> => {
   if (isWorkspaceBusy()) return null;
   const resume = await sessionManager.beginSessionRestore();
   if (isWorkspaceBusy()) { resume(); return null; }
-  compactAutosave.cancelPending();
+  autosave.cancelPending();
   return resume;
 };
 const prepareForUpdate = createAppUpdatePreparation({
@@ -2377,17 +2166,12 @@ const prepareForUpdate = createAppUpdatePreparation({
     showDataManager.value || showFavoriteManager.value || showSaveFavoriteDialog.value ||
     showVariableManager.value || showToolManager.value || showContextEditor.value,
   subscribeToChanges: sessionManager.subscribeToSessionChanges,
-  flush: async () => {
-    compactAutosave.cancelPending();
-    await nextTick();
-    return sessionManager.saveAllSessions();
-  },
+  flush: sessionManager.saveAllSessions,
 });
 defineExpose({ prepareForUpdate });
 
 // ⚠️ 具名函数：pagehide 事件处理器（Codex 建议）
 const handlePagehide = () => {
-  compactAutosave.cancelPending();
   // 注意：这里不能用 await，因为浏览器不会等异步完成
   sessionManager.saveAllSessions().catch(err => {
     console.error('[PromptOptimizerApp] Async save failed during pagehide:', err)
@@ -2397,7 +2181,6 @@ const handlePagehide = () => {
 // ⚠️ 具名函数：visibilitychange 事件处理器（Codex 建议）
 const handleVisibilityChange = () => {
   if (document.visibilityState === 'hidden') {
-    compactAutosave.cancelPending();
     sessionManager.saveAllSessions().catch(err => {
       console.error('[PromptOptimizerApp] Save failed during visibilitychange:', err)
     })
@@ -2407,10 +2190,8 @@ const handleVisibilityChange = () => {
 const refreshDataBackupReminder = () => {
   dataBackupReminderDue.value = isDataBackupReminderDue()
 }
-const handleSessionConflict = () => { toast.warning(t('workspace.sessionConflict')); };
 
 onMounted(() => {
-  window.addEventListener(SESSION_CONFLICT_EVENT, handleSessionConflict);
   // Route-level lazy loading can break after a new deployment when this tab is still running an old main bundle.
   // Prompt user to refresh instead of auto-reloading.
   if (typeof window !== 'undefined') {
@@ -2474,20 +2255,6 @@ onMounted(() => {
       // 🔧 Codex 修复：标记首次恢复已完成，允许 watch 响应后续模式切换
       hasRestoredInitialState.value = true
 
-      // 启动自动保存定时器
-      autoSaveIntervalId = window.setInterval(async () => {
-        // ⚠️ Codex 要求：切换期间禁用自动保存，避免竞态条件
-        // ⚠️ 注意：SessionManager.saveSubModeSession 内部已有全局锁（saveInFlight），无需额外锁
-        if (sessionManager.isSwitching) {
-          return
-        }
-
-        const currentKey = sessionManager.getActiveSubModeKey()
-        await sessionManager.saveSubModeSession(currentKey)
-      }, 30000) // 每30秒
-
-      // ⚠️ Codex 建议：使用 pagehide 代替 beforeunload（更可靠）
-      // pagehide 在页面即将卸载时触发，比 beforeunload 更可靠
       if (typeof window !== 'undefined') {
         window.addEventListener('pagehide', handlePagehide)
 
@@ -2505,16 +2272,11 @@ onMounted(() => {
 
 // 应用卸载前清理并保存所有会话
 onBeforeUnmount(async () => {
-  window.removeEventListener(SESSION_CONFLICT_EVENT, handleSessionConflict);
+  window.removeEventListener('beforeunload', warnBeforeUnload);
   isAppUnmounted = true;
 
   // 🔧 Codex 修复：设置卸载标志，阻止后续 microtask 执行恢复
   restoreCoordinator.markUnmounted();
-
-  // 清除定时器
-  if (autoSaveIntervalId !== null) {
-    window.clearInterval(autoSaveIntervalId)
-  }
 
   // ⚠️ 清除初始化超时定时器（Codex 建议：避免悬挂定时器）
   if (initTimeoutId !== null) {
@@ -2545,6 +2307,11 @@ onBeforeUnmount(async () => {
 </script>
 
 <style scoped>
+.workspace-save-warning {
+  flex: 0 0 auto;
+  margin-bottom: 8px;
+}
+
 .active-button {
     background-color: var(--n-primary-color) !important;
     color: var(--n-text-color-primary) !important;

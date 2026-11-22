@@ -166,7 +166,7 @@ const loadImages = async () => {
 }
 const refresh = () => { imageLoadVersion++; imageCatalog.value = {}; void perform(session.refreshConfigs) }
 onMounted(() => { refresh(); window.addEventListener('basic-workspace-refresh-text-models', refresh); window.addEventListener('image-workspace-refresh-image-models', refresh) })
-onUnmounted(() => { imageLoadVersion++; void session.saveSession(); window.removeEventListener('basic-workspace-refresh-text-models', refresh); window.removeEventListener('image-workspace-refresh-image-models', refresh) })
+onUnmounted(() => { imageLoadVersion++; window.removeEventListener('basic-workspace-refresh-text-models', refresh); window.removeEventListener('image-workspace-refresh-image-models', refresh) })
 
 defineExpose({ isUpdateBusy: () => session.running || uploading.value })
 </script>

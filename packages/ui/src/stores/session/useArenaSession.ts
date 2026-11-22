@@ -8,7 +8,7 @@ import {
   type TextModelConfig, type ImageModelConfig,
 } from '@prompt-optimizer/core'
 import { getPiniaServices } from '../../plugins/pinia'
-import { createSessionSnapshotWriter, readSessionSnapshot, runSessionWrite, type SessionWritePermit } from './sessionPersistence'
+import { createSessionSnapshotWriter, readSessionSnapshot, runSessionWrite, trackSessionSave, type SessionWritePermit } from './sessionPersistence'
 import { pauseImageStorageGc, queueImageStorageMaintenance } from './imageStorageMaintenance'
 import { persistGeneratedImage, persistImagePayloadAsAssetId } from '../../utils/image-asset-storage'
 import { beginOutputStream, getOutputDocument, restoredOutputStatus } from '../../utils/output-document'
@@ -50,17 +50,20 @@ export const useArenaSession = defineStore('arena-session', () => {
   // Call only with session access already held (lock order: access, then image queue).
   const persistSnapshot = async () => {
     const service = getPiniaServices()?.preferenceService
-    if (!service || invalidSnapshot) return false
-    const releasable = [...pendingGcResumes]
-    try {
-      await writer.write(service, KEY, state.value)
-      saveError.value = ''
-      for (const release of releasable) { pendingGcResumes.delete(release); release() }
-      return true
-    } catch (error) {
-      saveError.value = String(error)
-      return false
-    }
+    if (!service) return false
+    return trackSessionSave(service, 'arena', async () => {
+      if (invalidSnapshot) return false
+      const releasable = [...pendingGcResumes]
+      try {
+        await writer.write(service, KEY, state.value)
+        saveError.value = ''
+        for (const release of releasable) { pendingGcResumes.delete(release); release() }
+        return true
+      } catch (error) {
+        saveError.value = String(error)
+        return false
+      }
+    })
   }
   const saveSession = (permit?: SessionWritePermit) => runSessionWrite(getPiniaServices()?.preferenceService, persistSnapshot, permit)
 
@@ -267,13 +270,9 @@ export const useArenaSession = defineStore('arena-session', () => {
     state.value.contestants = state.value.contestants.filter(c => c.id !== id)
     delete state.value.results[id]
   }
-  // Persist draft edits even when no workspace component is mounted.
-  let timer: ReturnType<typeof setTimeout> | undefined
   watch(() => [state.value.prompt, state.value.images, state.value.contestants], () => {
     if (hydrating) return
     state.value.lastActiveAt = Date.now()
-    clearTimeout(timer)
-    timer = setTimeout(() => { void saveSession() }, 500)
   }, { deep: true, flush: 'sync' })
   return { state, configurations, refreshConfigs, resolveConfig, running, lastActiveAt, saveError, saveSession, restoreSession,
     isStale, resolveImages, addImages, replaceInput, busy, cancellable, run, runAll, stop, addContestant, removeContestant }

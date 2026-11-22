@@ -601,7 +601,7 @@ export const useImageImage2ImageSession = defineStore('imageImage2ImageSession',
   const sessionSnapshot = createSessionSnapshotWriter(() => sessionContent)
 
   const saveSession = (permit?: SessionWritePermit): Promise<boolean> =>
-    runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit)
+    runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit, 'image-image2image')
 
   const persistSession = async () => {
     return await queueImageStorageMaintenance(async () => {

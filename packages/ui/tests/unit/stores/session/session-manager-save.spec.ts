@@ -107,8 +107,7 @@ describe('session checkpoint persistence', () => {
     expect(manager.isRestoring).toBe(true)
     expect(await manager.saveAllSessions()).toBe(false)
     expect(await manager.saveSubModeSession('basic-user')).toBe(false)
-    await manager.switchMode('basic-user', 'pro-variable')
-    await manager.switchSubMode('basic-user', 'basic-system')
+    expect(await manager.flushSubModeSession('basic-user')).toBe(false)
     expect(set).not.toHaveBeenCalled()
     resume()
     resume()
@@ -302,15 +301,16 @@ describe('session checkpoint persistence', () => {
     expect(await store.saveSession()).toBe(true)
   })
 
-  it('saves the active workspace first and acknowledges every workspace', async () => {
+  it('saves the active workspace first and skips untouched workspaces', async () => {
     const set = vi.fn(async (_key: string, _value: unknown) => {})
     const { pinia } = createContext(set)
     const manager = useSessionManager(pinia)
     manager.injectSubModeReaders({ getFunctionMode: () => 'pro', getBasicSubMode: () => 'system', getProSubMode: () => 'variable', getImageSubMode: () => 'text2image' })
+    await manager.restoreAllSessions()
+    useBasicUserSession(pinia).prompt = 'background edit'
+    useProVariableSession(pinia).optimizedPrompt = 'active edit'
     expect(await manager.saveAllSessions()).toBe(true)
-    const sessionKeys = set.mock.calls.map(([key]) => key).filter(key => key.startsWith('session/v1/'))
-    expect(sessionKeys[0]).toBe('session/v1/pro-variable')
-    expect(new Set(sessionKeys).size).toBe(8)
+    expect(set.mock.calls.map(([key]) => key)).toEqual(['session/v1/pro-variable', 'session/v1/basic-user'])
   })
 
   it('reports a handled text-store failure while still preserving the other workspaces', async () => {
@@ -319,13 +319,31 @@ describe('session checkpoint persistence', () => {
       if (key === 'session/v1/basic-user') throw new Error('quota exceeded')
     })
     const { pinia } = createContext(set)
-    expect(await useSessionManager(pinia).saveAllSessions()).toBe(false)
+    const manager = useSessionManager(pinia)
+    await manager.restoreAllSessions()
+    useBasicUserSession(pinia).prompt = 'failed draft'
+    useImageMultiImageSession(pinia).optimizedPrompt = 'save this anyway'
+    expect(await manager.saveAllSessions()).toBe(false)
     expect(set.mock.calls.some(([key]) => key === 'session/v1/image-multiimage')).toBe(true)
   })
 
   it('does not claim that missing storage services completed a checkpoint', async () => {
     const { pinia } = createTestPinia({ preferenceService: undefined })
     expect(await useSessionManager(pinia).saveAllSessions()).toBe(false)
+  })
+
+  it('acknowledges a successful direct store save without scheduling another write', async () => {
+    const set = vi.fn(async (_key: string, _value: unknown) => {})
+    const { pinia } = createContext(set)
+    const manager = useSessionManager(pinia)
+    await manager.restoreAllSessions()
+    const store = useBasicUserSession(pinia)
+    store.prompt = 'direct result'
+    expect(manager.hasUnsavedSessions).toBe(true)
+    expect(await store.saveSession()).toBe(true)
+    expect(manager.hasUnsavedSessions).toBe(false)
+    expect(await manager.saveAllSessions()).toBe(true)
+    expect(set).toHaveBeenCalledOnce()
   })
 
   it('waits for an in-flight save and flushes edits made during that save', async () => {
@@ -349,7 +367,9 @@ describe('session checkpoint persistence', () => {
     const checkpoint = manager.saveAllSessions()
     release()
     expect(await first).toBe(true)
+    expect(manager.hasUnsavedSessions).toBe(true)
     expect(await checkpoint).toBe(true)
+    expect(manager.hasUnsavedSessions).toBe(false)
     expect(snapshots).toEqual(['old snapshot', 'latest edit'])
   })
 
@@ -373,7 +393,7 @@ describe('session checkpoint persistence', () => {
     expect(await first).toBe(true)
   })
 
-  it('unsubscribes mobile change tracking without creating a second snapshot', async () => {
+  it('unsubscribes workspace change tracking without creating a second snapshot', async () => {
     const { pinia } = createContext()
     const manager = useSessionManager(pinia)
     const changed = vi.fn()

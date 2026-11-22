@@ -26,6 +26,7 @@ export default {
     "testActions": "更多测试操作",
     "unsavedForm": "修改还没有保存，确认放弃并返回吗？",
     "sessionConflict": "另一个窗口已更新此工作区，当前草稿仍保留但尚未保存。请先复制需要保留的内容，再刷新继续。",
+    "sessionSaveFailed": "工作区保存失败。请重试，或在刷新前复制需要保留的内容。",
     "testResultSaveFailed": "工作区保存失败。请在刷新前复制需要保留的结果。",
     "testFailed": "测试失败。可重新运行本组，已生成的内容仅供参考。",
     "failed": "失败",

@@ -556,6 +556,27 @@ export function useContextUserOptimization(
     }
   )
 
+  watch(
+    historyManager,
+    async (history, _previous, onCleanup) => {
+      const chainId = state.currentChainId
+      const versionId = state.currentVersionId
+      const versions = state.currentVersions
+      if (!history || !chainId || versions.length) return
+      let cancelled = false
+      onCleanup(() => { cancelled = true })
+      try {
+        const chain = await history.getChain(chainId)
+        if (!cancelled && state.currentChainId === chainId && state.currentVersionId === versionId && state.currentVersions === versions) {
+          state.currentVersions = chain.versions
+        }
+      } catch (error) {
+        if (!cancelled) console.warn('[ContextUserOptimization] Failed to restore the workspace history chain:', error)
+      }
+    },
+    { immediate: true },
+  )
+
   // 返回 reactive 对象
   return state
 }

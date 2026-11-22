@@ -4,7 +4,7 @@ import { useImageText2ImageSession } from '../../../../src/stores/session/useIma
 import { useImageImage2ImageSession } from '../../../../src/stores/session/useImageImage2ImageSession'
 
 describe('Session stores (image) persistence', () => {
-  it('image-text2image clearContent removes image content while preserving workspace selections', () => {
+  it('image-text2image clearContent removes image content while preserving workspace selections', async () => {
     const { pinia } = createTestPinia({
       imageStorageService: {
         saveImage: vi.fn(),
@@ -44,6 +44,8 @@ describe('Session stores (image) persistence', () => {
     expect(store.selectedIterateTemplateId).toBe('iterate-template')
     expect(store.layout.testColumnCount).toBe(3)
     expect(store.testVariants.find((variant) => variant.id === 'd')?.modelKey).toBe('variant-model')
+    // Drain the selection setters' pending writes before the fixture clears its services.
+    await store.saveSession()
   })
 
   it('image-text2image clearTemporaryVariables persists the cleared snapshot', async () => {

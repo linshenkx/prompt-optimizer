@@ -492,7 +492,7 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
   const sessionSnapshot = createSessionSnapshotWriter(() => sessionContent)
 
   const saveSession = (permit?: SessionWritePermit): Promise<boolean> =>
-    runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit)
+    runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit, 'basic-system')
 
   const persistSession = async (): Promise<boolean> => {
     const capturedContent = sessionSnapshot.capture()

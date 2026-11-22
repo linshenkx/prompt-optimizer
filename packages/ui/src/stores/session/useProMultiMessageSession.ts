@@ -481,7 +481,7 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
   const sessionSnapshot = createSessionSnapshotWriter(() => sessionContent)
 
   const saveSession = (permit?: SessionWritePermit): Promise<boolean> =>
-    runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit)
+    runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit, 'pro-multi')
 
   const persistSession = async (): Promise<boolean> => {
     const $services = getPiniaServices()
