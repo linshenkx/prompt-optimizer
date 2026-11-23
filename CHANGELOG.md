@@ -2,6 +2,10 @@
 
 Full release narratives now live in versioned files under `releases/`. This file stays as the index and summary entry point.
 
+## [2.16.2] - 2026-11-23
+- EN: Improve compatibility with OpenAI-compatible image APIs by using provider defaults for optional settings. See [Release Notes (EN)](releases/v2.16.2.en.md).
+- 中文：可选生图参数留空时使用服务端默认值，改善 OpenAI 兼容生图接口的参数兼容性。参见 [版本说明（中文）](releases/v2.16.2.zh-CN.md)。
+
 ## [2.16.1] - 2026-11-23
 - EN: Save workspace drafts across reloads and desktop restarts, keep reported token usage with test results, and save multiple results as examples. See [Release Notes (EN)](releases/v2.16.1.en.md).
 - 中文：刷新页面和重开桌面应用后恢复工作区草稿，随测试结果保存模型报告的 token 用量，并支持批量收藏测试示例。参见 [版本说明（中文）](releases/v2.16.1.zh-CN.md)。
