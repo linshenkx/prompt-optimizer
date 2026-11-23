@@ -11,6 +11,12 @@ export interface LaunchDependencies {
 }
 export async function main(args = process.argv.slice(2), dependencies: LaunchDependencies = {}) {
   const selection = selectLaunchMode(args);
+  if (selection.mode === 'product') {
+    // Only JSON-RPC belongs on stdout. Product dependencies may log during import.
+    console.log = console.info = console.debug = console.error.bind(console);
+    const { startProductStdio } = await import('./product.js');
+    return startProductStdio(selection.profiles, selection.productUrl);
+  }
   if (selection.mode === 'desktop') {
     console.log = console.info = console.debug = console.warn = console.error = () => {};
     const { startDesktopBusinessStdio } = await import('./desktop-business.js');

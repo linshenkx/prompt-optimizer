@@ -1,5 +1,7 @@
 # MCP 服务器用户指南
 
+连接桌面或网页资料，请参阅[新版 MCP 使用说明](./desktop-mcp.md)。本文介绍 Legacy 环境变量入口。
+
 Prompt Optimizer 支持 Model Context Protocol (MCP) 协议，可以与 Claude Desktop 等支持 MCP 的 AI 应用集成。
 
 ## 🎯 功能特性

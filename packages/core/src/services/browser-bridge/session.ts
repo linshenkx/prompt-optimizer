@@ -14,13 +14,20 @@ import { createTextComparisonService } from '../text-comparison/runner'
 import { canonical } from '../text-comparison/validation'
 import { hashText, signText } from '../../utils/portable-crypto'
 import { assertBridgeJson, BrowserBridgeError, browserFavoriteOperations, type BrowserAccess } from './protocol'
+import { createProductBusiness } from '../mcp-business/session'
 
 type BrowserStorage = IStorageProvider & ComparisonStorage & {
   getAllEntries(): Promise<Array<[string, string]>>
   withProductTransaction<Value>(action: () => Promise<Value>): Promise<Value>
 }
 
+export interface BrowserProductOperations {
+  mutate<T>(domain: string, action: () => Promise<T>): Promise<T>
+  resource(input: Record<string, unknown>): Promise<unknown>
+}
+
 export interface BrowserBridgeHost {
+  setProductOperations(operations: BrowserProductOperations | undefined): void
   contextId(): Promise<string>
   open(source: ComparisonExecutionSource, access: BrowserAccess, contextId: string): BrowserSourceSession
 }
@@ -57,7 +64,9 @@ export function createBrowserBridgeHost({ storage: inputStorage, favoriteManager
     .sort(([left], [right]) => left.localeCompare(right))
   const revision = async () => signText(key, canonical(await snapshot()))
 
+  let operations: BrowserProductOperations | undefined
   return {
+    setProductOperations(value) { operations = value },
     async contextId() {
       let identity = await storage.getItem(CONTEXT_KEY)
       if (!identity) {
@@ -72,7 +81,12 @@ export function createBrowserBridgeHost({ storage: inputStorage, favoriteManager
       const repository = createComparisonRepository(storage)
       let disposed = false
       const assertActive = () => { if (disposed) throw new BrowserBridgeError('CONNECTION_CLOSED') }
-      const write = () => { if (access !== 'compare') throw new BrowserBridgeError('COMPARISON_ACCESS_REQUIRED') }
+      const business = createProductBusiness(storage, source.sourceId, {
+        owner: { id: source.connectionGeneration, isGone: () => false },
+        assertActive,
+        guardedStorageKeys: [CONTEXT_KEY],
+      })
+      const write = () => { if (access === 'read') throw new BrowserBridgeError('COMPARISON_ACCESS_REQUIRED') }
       const textRuns = createBrowserTextRuns(promptService, (expectedRevision, modelKey) => storage.withProductTransaction(async () => {
         assertActive()
         if (await revision() !== expectedRevision) throw new BrowserBridgeError('REVISION_CONFLICT')
@@ -126,7 +140,60 @@ export function createBrowserBridgeHost({ storage: inputStorage, favoriteManager
           const pagination = { limit: input.limit as number | undefined, cursor: input.cursor as string | undefined }
           let result: unknown
           switch (name) {
-            case 'po_models_list': result = access === 'compare' ? await runner.listModels(pagination) : await runner.reader.listModels(pagination); break
+            case 'product': {
+              const { name: method, args } = input
+              if (typeof method !== 'string' || !args || typeof args !== 'object' || Array.isArray(args)) {
+                throw new BrowserBridgeError('INVALID_INPUT')
+              }
+              const fields = args as Record<string, unknown>
+              if (!['po_desktop_query', 'po_runs_get', 'po_runs_list'].includes(method) && access !== 'business') {
+                throw new BrowserBridgeError('BUSINESS_ACCESS_REQUIRED')
+              }
+              if (method === 'po_resources') {
+                if (['package.import', 'package.export'].includes(String(fields.operation)) && fields.includeCredentials !== true) {
+                  throw new BrowserBridgeError('CREDENTIAL_TRANSFER_CONFIRMATION_REQUIRED')
+                }
+                if (!operations) throw new BrowserBridgeError('SOURCE_NOT_READY')
+                const handler = operations.resource
+                const resource = String(fields.operation)
+                if (!['images.save', 'images.delete', 'package.import'].includes(resource)) {
+                  result = await handler(fields)
+                  break
+                }
+                if (typeof fields.requestKey !== 'string' || !fields.requestKey || fields.requestKey.length > 512) {
+                  throw new BrowserBridgeError('INVALID_INPUT')
+                }
+                const resourceKey = 'mcp:resource-receipt:' + hashText(fields.requestKey)
+                const signature = hashText(canonical(fields))
+                const pending = JSON.stringify({ signature })
+                if (!await storage.compareAndSetItem!(resourceKey, null, pending)) {
+                  const saved = JSON.parse((await storage.getItem(resourceKey)) ?? '{}') as { signature?: string; result?: unknown }
+                  if (saved.signature !== signature) throw new BrowserBridgeError('REQUEST_KEY_REUSED')
+                  if (!Object.prototype.hasOwnProperty.call(saved, 'result')) throw new BrowserBridgeError('RESOURCE_RESULT_UNKNOWN')
+                  result = saved.result
+                  break
+                }
+                try {
+                  result = await handler(fields)
+                } catch (error) {
+                  const code = error instanceof Error && 'code' in error ? error.code : undefined
+                  if (['WORKSPACE_BUSY', 'IMAGE_NOT_FOUND', 'IMAGE_REVISION_CONFLICT', 'IMAGE_REFERENCED'].includes(String(code))) {
+                    await storage.compareAndSetItem!(resourceKey, pending, null)
+                    throw error
+                  }
+                  throw new BrowserBridgeError('RESOURCE_RESULT_UNKNOWN')
+                }
+                if (!await storage.compareAndSetItem!(resourceKey, pending, JSON.stringify({ signature, result }))) {
+                  throw new BrowserBridgeError('RESOURCE_RESULT_UNKNOWN')
+                }
+              } else if (method === 'po_desktop_mutate' && operations) {
+                result = await operations.mutate(String(fields.domain), () => business.call(method, fields))
+              } else {
+                result = await business.call(method, fields, access === 'read')
+              }
+              break
+            }
+            case 'po_models_list': result = access !== 'read' ? await runner.listModels(pagination) : await runner.reader.listModels(pagination); break
             case 'po_assets_list': result = await runner.reader.listAssets({ ...pagination, modeKey: input.modeKey as PromptModeKey | undefined, query: input.query as string | undefined }); break
             case 'po_assets_list_versions':
               result = await runner.reader.listAssetVersions({
@@ -157,7 +224,7 @@ export function createBrowserBridgeHost({ storage: inputStorage, favoriteManager
           assertActive()
           return result
         },
-        dispose() { disposed = true; runner.dispose(); textRuns.dispose() },
+        dispose() { disposed = true; runner.dispose(); textRuns.dispose(); void business.close().catch(() => {}) },
       }
     },
   }

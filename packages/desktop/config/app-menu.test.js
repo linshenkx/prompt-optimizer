@@ -56,7 +56,7 @@ test('installed Codex configuration preserves absolute paths with spaces', () =>
   const resourcesPath = join(__dirname, 'Installed App', 'resources');
   const userDataPath = join(__dirname, 'Desktop data');
   const [section, command, args, env] = buildCodexMcpConfig({ executable, resourcesPath, userDataPath }).split('\n');
-  assert.equal(section, '[mcp_servers.prompt_optimizer_desktop]');
+  assert.equal(section, '[mcp_servers.prompt_optimizer_product]');
   assert.equal(JSON.parse(command.slice('command = '.length)), executable);
   const [entry, profile] = JSON.parse(args.slice('args = '.length));
   assert.equal(profile, '--desktop-profile=' + userDataPath);

@@ -2,7 +2,7 @@ import http from 'node:http';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { WebSocket, WebSocketServer } from 'ws';
 import {
-  BROWSER_BRIDGE_MAX_BYTES, BROWSER_BRIDGE_PROTOCOL, BrowserBridgeError,
+  BROWSER_BRIDGE_MAX_BYTES, PRODUCT_BRIDGE_MAX_BYTES, BROWSER_BRIDGE_PROTOCOL, BrowserBridgeError, isBrowserAccess, allowsBrowserAccess,
   type BrowserAccess, type BrowserSourceIdentity,
 } from '@prompt-optimizer/core/bridge-protocol';
 
@@ -80,7 +80,7 @@ export function createBrowserTransport({ ticketMs = 120_000, requestMs = 15_000,
       const server = http.createServer((_request, response) => {
         response.writeHead(404, { 'Cache-Control': 'no-store' }).end();
       });
-      const websocket = new WebSocketServer({ noServer: true, maxPayload: BROWSER_BRIDGE_MAX_BYTES, perMessageDeflate: false });
+      const websocket = new WebSocketServer({ noServer: true, maxPayload: PRODUCT_BRIDGE_MAX_BYTES, perMessageDeflate: false });
       listener = server;
       sockets = websocket;
       await new Promise<void>((resolve, reject) => {
@@ -107,7 +107,7 @@ export function createBrowserTransport({ ticketMs = 120_000, requestMs = 15_000,
           client.on('pong', () => { if (source) source.alive = true; });
           client.on('message', (bytes, binary) => {
             try {
-              if (binary) throw new BrowserBridgeError('INVALID_MESSAGE');
+              if (binary || (source?.access !== 'business' && bytes.length > BROWSER_BRIDGE_MAX_BYTES)) throw new BrowserBridgeError('INVALID_MESSAGE');
               const message = JSON.parse(bytes.toString()) as Record<string, unknown>;
               if (!source) {
                 const ticket = typeof message.ticket === 'string' ? tickets.get(message.ticket) : undefined;
@@ -154,8 +154,9 @@ export function createBrowserTransport({ ticketMs = 120_000, requestMs = 15_000,
     if (source.pending.size >= 16) throw new BrowserBridgeError('SOURCE_BUSY');
     return new Promise((resolve, reject) => {
       const id = randomUUID();
-      const outcomeCode = name === 'po_desktop_mutate' || name === 'po_comparisons_save' || name === 'po_comparisons_delete'
-        ? 'WRITE_OUTCOME_UNKNOWN' : (name === 'po_tests_execute' || name === 'po_runs_start') ? 'EXECUTION_OUTCOME_UNKNOWN' : undefined;
+      const method = name === 'product' ? input.name : name;
+      const outcomeCode = ['po_desktop_mutate', 'po_comparisons_save', 'po_comparisons_delete', 'po_runs_save', 'po_runs_delete', 'po_runs_cancel', 'po_resources'].includes(String(method))
+        ? 'WRITE_OUTCOME_UNKNOWN' : (method === 'po_tests_execute' || method === 'po_runs_start') ? 'EXECUTION_OUTCOME_UNKNOWN' : undefined;
       const timer = setTimeout(() => {
         source.pending.delete(id);
         reject(new BrowserBridgeError(outcomeCode ?? 'SOURCE_NOT_RESPONDING'));
@@ -179,7 +180,7 @@ export function createBrowserTransport({ ticketMs = 120_000, requestMs = 15_000,
     async authorize(productUrl: string, access: BrowserAccess) {
       let url: URL;
       try { url = new URL(productUrl); } catch { throw new BrowserBridgeError('INVALID_INPUT'); }
-      if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || !['read', 'compare'].includes(access)) {
+      if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || !isBrowserAccess(access)) {
         throw new BrowserBridgeError('INVALID_INPUT');
       }
       if (tickets.size >= 8) throw new BrowserBridgeError('SOURCE_LIMIT');
@@ -192,11 +193,12 @@ export function createBrowserTransport({ ticketMs = 120_000, requestMs = 15_000,
       return { authorizationUrl: url.href, origin: url.origin, access, expiresAt,
         instructions: 'Open this one-use link in the desired browser profile and explicitly authorize on the product page. Then call po_sources_list; no browser profiles are scanned.' };
     },
+    hasConnection(connectionId: string) { return connections.has(connectionId); },
     listSources() { return { sources: [...sources.values()].filter(source => source.socket.readyState === WebSocket.OPEN).map(description) }; },
     async open(sourceId: string, access: BrowserAccess) {
       const source = sources.get(sourceId);
       if (!source) throw new BrowserBridgeError('SOURCE_NOT_FOUND');
-      if (access === 'compare' && source.access !== 'compare') throw new BrowserBridgeError('COMPARISON_ACCESS_REQUIRED');
+      if (!allowsBrowserAccess(source.access, access)) throw new BrowserBridgeError('COMPARISON_ACCESS_REQUIRED');
       if (source.opening) {
         if (source.openingAccess !== access) throw new BrowserBridgeError('ACCESS_MISMATCH');
         return source.opening;

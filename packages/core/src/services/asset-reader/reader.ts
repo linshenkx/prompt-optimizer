@@ -14,19 +14,24 @@ const canonical = (v: unknown): string => Array.isArray(v) ? `[${v.map(canonical
     : JSON.stringify(v)
 
 /** No manager, registry, defaults, environment, SDK, file path or provider opening. */
-export function createReadonlyAssetReader(storage: AssetReadStorage, source: AssetReaderScope, options?: { revisionKey?: Promise<CryptoKey> }): IReadonlyAssetReader {
+export interface AssetReaderRevisionKeys {
+  revisionKey?: Promise<CryptoKey>
+  portableRevisionKey?: Uint8Array
+}
+
+export function createReadonlyAssetReader(storage: AssetReadStorage, source: AssetReaderScope, options?: AssetReaderRevisionKeys): IReadonlyAssetReader {
   return createAssetReadAccess(storage, source, options).reader
 }
 
 /** Internal execution access. The asset-reader entry point exports only the public reader. */
-export function createAssetReadAccess(storage: AssetReadStorage, source: AssetReaderScope, options?: { revisionKey?: Promise<CryptoKey> }) {
+export function createAssetReadAccess(storage: AssetReadStorage, source: AssetReaderScope, options?: AssetReaderRevisionKeys) {
   if (!text(source.sourceId) || !text(source.sourceEpoch)) throw new AssetReadError('INVALID_INPUT')
   const scope = Object.freeze({ sourceId: source.sourceId, sourceEpoch: source.sourceEpoch })
   const getItem = storage.getItem.bind(storage)
   // Per-reader keyed revisions are deterministic for the exact snapshot/scope,
   // but never publish an unkeyed digest of credentials or arbitrary metadata.
   let revisionKey: Promise<CryptoKey> | undefined = options?.revisionKey
-  let portableKey: Uint8Array | undefined
+  let portableKey = options?.portableRevisionKey
   async function revision(kind: string, snapshot: unknown): Promise<string> {
     try {
       if (!globalThis.crypto.subtle) {

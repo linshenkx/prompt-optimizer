@@ -14,8 +14,8 @@
       <template v-if="authorization">
         <NInput v-model:value="label" :maxlength="80" :placeholder="t('browserBridge.label')"
           :input-props="{ 'aria-label': t('browserBridge.label') }" data-testid="browser-bridge-label" />
-        <p>{{ t(authorization.access === 'compare' ? 'browserBridge.compareScope' : 'browserBridge.readScope') }}</p>
-        <NAlert v-if="authorization.access === 'compare'" type="warning" :show-icon="false">{{ t('browserBridge.charges') }}</NAlert>
+        <p>{{ t(authorization.access === 'business' ? 'browserBridge.businessScope' : authorization.access === 'compare' ? 'browserBridge.compareScope' : 'browserBridge.readScope') }}</p>
+        <NAlert v-if="authorization.access !== 'read'" type="warning" :show-icon="false">{{ t('browserBridge.charges') }}</NAlert>
         <NButton type="primary" :disabled="!label.trim() || state === 'connecting'" :loading="state === 'connecting'"
           data-testid="browser-bridge-authorize" @click="authorize">{{ t('browserBridge.authorize') }}</NButton>
       </template>

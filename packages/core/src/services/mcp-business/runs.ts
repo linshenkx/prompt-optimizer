@@ -1,10 +1,12 @@
-import { createHash, randomUUID } from 'node:crypto';
-import { createDesktopRunRepository, decodeTextModelSelection, findMissingVariables, replaceVariablesInContent,
-  type DesktopRun, type StreamHandlers } from '@prompt-optimizer/core';
-import { createReadonlyAssetReader, type AssetVersionSelection } from '@prompt-optimizer/core/asset-reader';
-import type { SQLiteStorageProvider } from '@prompt-optimizer/core/node';
-import { BusinessStage, redactConfiguration, type Snapshot } from './desktop-business-services.js';
-import { DesktopBusinessError, assertJson, publicBusinessError } from './desktop-business-catalog.js';
+import { v4 as randomUUID } from 'uuid';
+import { hashText } from '../../utils/portable-crypto';
+import { createDesktopRunRepository, type DesktopRun } from '../desktop-runs/repository';
+import { decodeTextModelSelection } from '../model/selection';
+import { findMissingVariables, replaceVariablesInContent, type StreamHandlers } from '../../index';
+import { createReadonlyAssetReader, type AssetReaderRevisionKeys } from '../asset-reader/reader';
+import type { AssetVersionSelection } from '../asset-reader/types';
+import { BusinessStage, redactConfiguration, type BusinessStorage, type Snapshot } from './services';
+import { DesktopBusinessError, assertJson, publicBusinessError } from './catalog';
 
 export const runKinds = ['optimize', 'optimize-message', 'iterate', 'test', 'test-conversation', 'evaluate', 'image', 'test-batch',
   'extract-variables', 'generate-variable-values', 'model-list', 'model-test', 'image-model-list', 'image-model-test', 'image-understand'] as const;
@@ -18,14 +20,13 @@ export interface RunInput {
 }
 type ActiveRun = { controller: AbortController; task: Promise<void>; state: DesktopRun };
 
-export class DesktopBusinessRuns {
+export class ProductRuns {
   readonly repository;
-  readonly ownerId = `${process.pid}:${randomUUID()}`;
   private readonly active = new Map<string, ActiveRun>();
   private closing = false;
 
-  constructor(private readonly provider: SQLiteStorageProvider, private readonly sourceId: string,
-    private readonly revisionKey = globalThis.crypto.subtle.generateKey({ name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])) {
+  constructor(private readonly provider: BusinessStorage, private readonly sourceId: string,
+    private readonly owner: { id: string; isGone(id: string): boolean }, private readonly revisionKeys: AssetReaderRevisionKeys) {
     this.repository = createDesktopRunRepository(provider);
   }
 
@@ -45,7 +46,7 @@ export class DesktopBusinessRuns {
     if (input.timeoutMs !== undefined && (!Number.isInteger(input.timeoutMs) || input.timeoutMs < 100 || input.timeoutMs > 600_000)) {
       throw new DesktopBusinessError('INVALID_TIMEOUT');
     }
-    const requestHash = createHash('sha256').update(JSON.stringify(input)).digest('hex');
+    const requestHash = hashText(JSON.stringify(input));
     const previous = (await this.repository.list()).find(run => run.requestKey === requestKey);
     if (previous) {
       if (previous.deleted) throw new DesktopBusinessError('RUN_DELETED');
@@ -72,7 +73,7 @@ export class DesktopBusinessRuns {
       } else throw new DesktopBusinessError('INPUT_RUN_NOT_SUPPORTED');
     }
     if (input.source) {
-      const reader = createReadonlyAssetReader(stage, { sourceId: this.sourceId, sourceEpoch: 'business-v1' }, { revisionKey: this.revisionKey });
+      const reader = createReadonlyAssetReader(stage, { sourceId: this.sourceId, sourceEpoch: 'business-v1' }, this.revisionKeys);
       const version = await reader.getAssetVersion(input.source);
       const text = version.content.text;
       if (input.kind === 'optimize') request.targetPrompt = text;
@@ -88,7 +89,7 @@ export class DesktopBusinessRuns {
       if (candidate.source) {
         const selection = candidate.source as AssetVersionSelection;
         if (!selection.expectedRevision) throw new DesktopBusinessError('ASSET_REVISION_REQUIRED');
-        const reader = createReadonlyAssetReader(stage, { sourceId: this.sourceId, sourceEpoch: 'business-v1' }, { revisionKey: this.revisionKey });
+        const reader = createReadonlyAssetReader(stage, { sourceId: this.sourceId, sourceEpoch: 'business-v1' }, this.revisionKeys);
         const version = await reader.getAssetVersion(selection);
         if (candidate.promptField !== undefined && !['systemPrompt', 'userPrompt'].includes(candidate.promptField as string)) throw new DesktopBusinessError('INVALID_INPUT');
         candidate[(candidate.promptField as string) ?? 'systemPrompt'] = version.content.text;
@@ -119,19 +120,23 @@ export class DesktopBusinessRuns {
       if (typeof key !== 'string') throw new DesktopBusinessError('INVALID_MODEL_KEY');
       const stored = JSON.parse(snapshot.get(imageKind ? 'image-models' : 'models') ?? '{}') as Record<string, unknown>;
       const configKey = imageKind ? key : decodeTextModelSelection(key)?.configId ?? key;
-      if (!Object.hasOwn(stored, configKey)) throw new DesktopBusinessError('MODEL_NOT_CONFIGURED');
+      if (!Object.prototype.hasOwnProperty.call(stored, configKey)) throw new DesktopBusinessError('MODEL_NOT_CONFIGURED');
       const config = await (await stage.service(imageKind ? 'imageModels' : 'models'))[imageKind ? 'getConfig' : 'getModel'](key) as Record<string, unknown> | null;
       if (!config) throw new DesktopBusinessError('MODEL_NOT_FOUND');
       executionModels.push(redactConfiguration({ configKey, name: config.name, providerId: config.providerId,
         modelId: config.modelId, paramOverrides: config.paramOverrides, coverage: 'frozen-saved-config' }));
     }
     const state: DesktopRun = {
-      id: randomUUID(), requestKey, requestHash, ownerId: this.ownerId, kind: input.kind,
+      id: randomUUID(), requestKey, requestHash, ownerId: this.owner.id, kind: input.kind,
       status: 'running', createdAt: Date.now(), updatedAt: Date.now(), saved: false,
       input: redactConfiguration({ ...input, request, executionModels, sourceRevision: input.source?.expectedRevision }), partial: '', reasoning: '',
     };
+    if (this.closing) throw new DesktopBusinessError('SOURCE_CLOSING');
     const persisted = await this.repository.create(state);
     if (persisted.id !== state.id) return this.get(persisted.id);
+    if (this.closing) return this.repository.update(state.id, {
+      status: 'cancelled', error: publicBusinessError(new DesktopBusinessError('SOURCE_CLOSING')),
+    });
     const controller = new AbortController();
     const active: ActiveRun = { controller, state, task: Promise.resolve() };
     this.active.set(state.id, active);
@@ -259,19 +264,14 @@ export class DesktopBusinessRuns {
     return undefined;
   }
 
-  async get(id: string): Promise<DesktopRun> {
+  async get(id: string, recover = true): Promise<DesktopRun> {
     const active = this.active.get(id);
     const state = active?.state ?? await this.repository.get(id);
-    if (state.status === 'running' && state.ownerId !== this.ownerId) {
-      const ownerPid = Number(state.ownerId.split(':')[0]);
-      if (Number.isSafeInteger(ownerPid) && ownerPid > 0) {
-        try { process.kill(ownerPid, 0); }
-        catch (error) {
-          if ((error as NodeJS.ErrnoException).code === 'ESRCH') return this.repository.update(id, {
-            status: 'interrupted', error: publicBusinessError(new DesktopBusinessError('RUN_INTERRUPTED')),
-          });
-        }
-      }
+    if (state.status === 'running' && state.ownerId !== this.owner.id && this.owner.isGone(state.ownerId)) {
+      const interrupted = {
+        status: 'interrupted' as const, error: publicBusinessError(new DesktopBusinessError('RUN_INTERRUPTED')),
+      };
+      return recover ? this.repository.update(id, interrupted) : { ...state, ...interrupted };
     }
     const output = structuredClone(state);
     if (output.status === 'succeeded' && output.output === undefined) output.output = output.partial;

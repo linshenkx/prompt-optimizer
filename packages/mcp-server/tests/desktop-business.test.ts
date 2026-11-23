@@ -4,8 +4,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { openDesktopStorage } from '@prompt-optimizer/core/node';
 import { createDesktopBusinessServer } from '../src/desktop-business';
-import { BusinessStage } from '../src/desktop-business-services';
-import { businessOperations } from '../src/desktop-business-catalog';
+import { BusinessStage, businessOperations } from '@prompt-optimizer/core/bridge-protocol';
 import { createDesktopRunRepository } from '@prompt-optimizer/core';
 
 describe('desktop business services against isolated real SQLite', () => {

@@ -253,7 +253,7 @@ import {
 } from "vue";
 import { RouterView } from "vue-router";
 import { setLucideProps } from '@lucide/vue';
-import { startDesktopResourceWorker } from '../../utils/desktop-resource-worker';
+import { createProductResourceHandler, startDesktopResourceWorker } from '../../utils/desktop-resource-worker';
 import { APP_ICON_DEFAULTS } from '../../config/icons';
 
 setLucideProps(APP_ICON_DEFAULTS);
@@ -306,7 +306,8 @@ import PromptPreviewPanel from '../PromptPreviewPanel.vue'
 import AppHeaderActions from './AppHeaderActions.vue'
 import BrowserBridgePanel from './BrowserBridgePanel.vue'
 import DesktopRunsDrawer from '../desktop/DesktopRunsDrawer.vue'
-const desktopRunsViewer = typeof window === 'undefined' ? undefined : window.electronAPI?.desktopRuns
+const desktopRunsViewer = computed(() => services.value?.browserRuns ??
+  (typeof window === 'undefined' ? undefined : window.electronAPI?.desktopRuns))
 const showDesktopRuns = ref(false)
 import AppCoreNav from './AppCoreNav.vue'
 import { createWorkspaceRouteSwitchController } from './workspaceRouteSwitch'
@@ -2384,13 +2385,40 @@ const prepareSessionRestore = async (): Promise<(() => void) | null> => {
   compactAutosave.cancelPending();
   return resume;
 };
-let stopDesktopResources: (() => void) | undefined;
+let stopProductResources: (() => void) | undefined;
 watch(isReady, ready => {
-  if (ready && services.value && !stopDesktopResources) stopDesktopResources = startDesktopResourceWorker({
-    services: services.value, flush: () => sessionManager.saveAllSessions(), prepareRestore: prepareSessionRestore,
+  if (!ready || !services.value || stopProductResources) return;
+  const appServices = services.value;
+  const options = { services: appServices, flush: () => sessionManager.saveAllSessions(), prepareRestore: prepareSessionRestore };
+  const bridge = appServices.browserBridge;
+  if (!bridge) {
+    stopProductResources = startDesktopResourceWorker(options);
+    return;
+  }
+  const resource = createProductResourceHandler(options);
+  const afterReply = () => setTimeout(() => window.location.reload(), 150);
+  bridge.setProductOperations({
+    async mutate(domain, action) {
+      if (!['workspaces', 'settings', 'variables', 'data'].includes(domain)) return action();
+      const release = await prepareSessionRestore();
+      if (!release) throw Object.assign(new Error('Workspace busy'), { code: 'WORKSPACE_BUSY' });
+      try {
+        const result = await action();
+        afterReply();
+        return result;
+      } finally { release(); }
+    },
+    async resource(input) {
+      const { operation, ...args } = input;
+      if (typeof operation !== 'string') throw Object.assign(new Error('Invalid input'), { code: 'INVALID_INPUT' });
+      const { result, reload } = await resource(operation, args);
+      if (reload) afterReply();
+      return result;
+    },
   });
+  stopProductResources = () => bridge.setProductOperations(undefined);
 }, { immediate: true });
-onBeforeUnmount(() => { stopDesktopResources?.(); });
+onBeforeUnmount(() => { stopProductResources?.(); });
 const prepareForUpdate = createAppUpdatePreparation({
   isBusy: () => isWorkspaceBusy() || sessionManager.isRestoring || hasCompactModalLayers() ||
     modelManager.showConfig || templateManagerState.showTemplates || historyManager.showHistory ||

@@ -1,17 +1,20 @@
-import { createHmac, randomBytes } from 'node:crypto';
-import * as core from '@prompt-optimizer/core';
-import type { SQLiteStorageProvider } from '@prompt-optimizer/core/node';
-import { DesktopBusinessError, assertJson, businessOperations } from './desktop-business-catalog.js';
+import * as core from '../../index';
+import { signText } from '../../utils/portable-crypto';
+import type { ComparisonStorage } from '../text-comparison/repository';
+import { DesktopBusinessError, assertJson, businessOperations } from './catalog';
 
 type Callable = (...parameters: unknown[]) => unknown;
 export type Service = Record<string, Callable>;
 export type Snapshot = Map<string, string>;
+export type BusinessStorage = core.IStorageProvider & ComparisonStorage & {
+  getAllEntries(): Promise<Array<[string, string]>>;
+};
 const internalKey = (key: string) => key.startsWith('mcp:');
-const revisionSecret = randomBytes(32);
+const revisionSecret = globalThis.crypto.getRandomValues(new Uint8Array(32));
 
-export function snapshotRevision(snapshot: Snapshot): string {
-  return createHmac('sha256', revisionSecret).update(JSON.stringify([...snapshot].filter(([key]) => !internalKey(key))
-    .sort(([left], [right]) => left.localeCompare(right)))).digest('hex');
+export function snapshotRevision(snapshot: Snapshot, sourceId: string): string {
+  const entries = [...snapshot].filter(([key]) => !internalKey(key)).sort(([left], [right]) => left.localeCompare(right));
+  return signText(revisionSecret, JSON.stringify([sourceId, entries]));
 }
 
 export function redactConfiguration(value: unknown): unknown {
@@ -193,8 +196,9 @@ export class BusinessStage implements core.IStorageProvider {
     return result ?? null;
   }
 
-  async commit(provider: SQLiteStorageProvider, extra?: { key: string; value: string }): Promise<void> {
+  async commit(provider: BusinessStorage, extra?: { key: string; value: string }, check?: () => void): Promise<void> {
     await provider.withWriteTransaction(transaction => {
+      check?.();
       for (const key of new Set([...this.observed, ...this.changed])) {
         if (transaction.getItem(key) !== (this.original.get(key) ?? null)) throw new DesktopBusinessError('REVISION_CONFLICT');
       }

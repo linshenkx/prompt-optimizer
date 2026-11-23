@@ -35,6 +35,7 @@ export interface AppServices {
   dataManager: IDataManager;
   savedComparisons?: ComparisonViewer;
   browserBridge?: BrowserBridgeHost;
+  browserRuns?: NonNullable<NonNullable<Window['electronAPI']>['desktopRuns']>
   llmService: ILLMService;
   promptService: IPromptService;
   templateLanguageService: ITemplateLanguageService;

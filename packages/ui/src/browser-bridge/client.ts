@@ -1,6 +1,6 @@
 import { v4 as randomUUID } from 'uuid'
 import {
-  BROWSER_BRIDGE_MAX_BYTES, BROWSER_BRIDGE_PROTOCOL, BrowserBridgeError, publicBrowserError,
+  BROWSER_BRIDGE_MAX_BYTES, PRODUCT_BRIDGE_MAX_BYTES, BROWSER_BRIDGE_PROTOCOL, BrowserBridgeError, publicBrowserError, isBrowserAccess, allowsBrowserAccess,
   type BrowserAccess,
 } from '@prompt-optimizer/core/bridge-protocol'
 import type { BrowserBridgeHost, BrowserSourceSession, ComparisonExecutionSource } from '@prompt-optimizer/core'
@@ -16,7 +16,7 @@ function captureAuthorization(): PageAuthorization | undefined {
   params.delete('poBridge')
   const rest = params.toString()
   window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}#${path}${rest ? '?' + rest : ''}`)
-  const match = /^(\d{1,5})\.([A-Za-z0-9_-]{43})\.(read|compare)$/.exec(value)
+  const match = /^(\d{1,5})\.([A-Za-z0-9_-]{43})\.(read|compare|business)$/.exec(value)
   if (!match || Number(match[1]) < 1 || Number(match[1]) > 65535) return
   return { port: Number(match[1]), ticket: match[2], access: match[3] as BrowserAccess }
 }
@@ -41,6 +41,7 @@ export function connectBrowserPage(host: BrowserBridgeHost, authorization: PageA
   let authorizedSourceId: string | undefined
   let chain = Promise.resolve()
   const pageId = randomUUID()
+  const maxBytes = authorization.access === 'business' ? PRODUCT_BRIDGE_MAX_BYTES : BROWSER_BRIDGE_MAX_BYTES
   const close = () => {
     if (stopped) return
     stopped = true
@@ -56,7 +57,7 @@ export function connectBrowserPage(host: BrowserBridgeHost, authorization: PageA
   const send = (value: unknown) => {
     if (stopped || socket?.readyState !== WebSocket.OPEN) return
     const json = JSON.stringify(value)
-    if (new TextEncoder().encode(json).byteLength > BROWSER_BRIDGE_MAX_BYTES) throw new BrowserBridgeError('RESULT_STORAGE_LIMIT')
+    if (new TextEncoder().encode(json).byteLength > maxBytes) throw new BrowserBridgeError('RESULT_STORAGE_LIMIT')
     socket.send(json)
   }
 
@@ -79,11 +80,11 @@ export function connectBrowserPage(host: BrowserBridgeHost, authorization: PageA
         const source = input.executionSource as ComparisonExecutionSource
         if (!source || source.kind !== 'browser' || source.sourceId !== authorizedSourceId || source.sourceEpoch !== pageId ||
           source.label !== label || !/^[a-f0-9-]{36}$/.test(source.connectionGeneration) || input.contextId !== contextId ||
-          !['read', 'compare'].includes(input.access as string) || (input.access === 'compare' && authorization.access !== 'compare')) {
+          !isBrowserAccess(input.access) || !allowsBrowserAccess(authorization.access, input.access)) {
           throw new BrowserBridgeError('AUTHORIZATION_FAILED')
         }
         session?.dispose()
-        session = host.open(source, input.access as BrowserAccess, contextId)
+        session = host.open(source, input.access, contextId)
         result = { ready: true }
       } else if (message.name === 'close') {
         session?.dispose(); session = undefined
@@ -111,7 +112,7 @@ export function connectBrowserPage(host: BrowserBridgeHost, authorization: PageA
       identity: { contextId, pageId, browser: browserLabel(), label, productVersion } })
     socket.onmessage = event => {
       chain = chain.then(async () => {
-        if (typeof event.data !== 'string' || new TextEncoder().encode(event.data).byteLength > BROWSER_BRIDGE_MAX_BYTES) throw new BrowserBridgeError('INVALID_MESSAGE')
+        if (typeof event.data !== 'string' || new TextEncoder().encode(event.data).byteLength > maxBytes) throw new BrowserBridgeError('INVALID_MESSAGE')
         await handle(JSON.parse(event.data) as Record<string, unknown>, contextId)
       }).catch(() => fail('INVALID_MESSAGE'))
     }

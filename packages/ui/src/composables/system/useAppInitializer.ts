@@ -4,6 +4,7 @@ import {
   StorageFactory,
   DexieStorageProvider,
   createComparisonRepository,
+  createDesktopRunRepository,
   createBrowserBridgeHost,
   STARTUP_REPAIR_REPORT_PREFERENCE_KEY,
   createModelManager,
@@ -448,6 +449,7 @@ export function useAppInitializer(): {
         const contextRepo = createContextRepo(storageProvider);
         if (!(storageProvider instanceof DexieStorageProvider)) throw new Error('Web storage is unavailable');
         const savedComparisons = createComparisonRepository(storageProvider);
+        const productRuns = createDesktopRunRepository(storageProvider);
 
         // 创建 DataManager（需要contextRepo）
         dataManager = createDataManager(
@@ -458,6 +460,7 @@ export function useAppInitializer(): {
           contextRepo,
           imageModelManagerInstance,
           savedComparisons,
+          productRuns,
         );
 
         // 创建收藏管理器
@@ -516,6 +519,11 @@ export function useAppInitializer(): {
           dataManager,
           savedComparisons,
           browserBridge,
+          browserRuns: browserBridge ? {
+            list: async () => (await productRuns.list()).filter(run => run.saved && !run.deleted),
+            get: productRuns.get,
+            delete: productRuns.delete,
+          } : undefined,
           llmService,
           promptService,
           templateLanguageService: languageService,

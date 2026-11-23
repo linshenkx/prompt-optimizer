@@ -1,5 +1,5 @@
-import { DesktopRunRepositoryError } from '@prompt-optimizer/core';
-import { AssetReadError } from '@prompt-optimizer/core/asset-reader';
+import { DesktopRunRepositoryError } from '../desktop-runs/repository';
+import { AssetReadError } from '../asset-reader/validation';
 
 export interface BusinessOperation {
   domain: string;
@@ -78,7 +78,7 @@ export const businessOperations: BusinessOperation[] = Object.entries(definition
   })));
 
 export class DesktopBusinessError extends Error {
-  constructor(readonly code: string) { super(`Desktop business request failed (${code}).`); }
+  constructor(readonly code: string) { super(`Product operation failed (${code}).`); }
 }
 
 export function assertJson(value: unknown, depth = 0, budget = { remaining: 100_000 }): void {
@@ -97,5 +97,5 @@ export function assertJson(value: unknown, depth = 0, budget = { remaining: 100_
 
 export function publicBusinessError(error: unknown): { code: string; message: string } {
   const code = error instanceof DesktopBusinessError || error instanceof DesktopRunRepositoryError || error instanceof AssetReadError ? error.code : 'BUSINESS_OPERATION_FAILED';
-  return { code, message: `Desktop business request failed (${code}).` };
+  return { code, message: `Product operation failed (${code}).` };
 }

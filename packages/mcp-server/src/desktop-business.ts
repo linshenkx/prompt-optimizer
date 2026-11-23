@@ -1,18 +1,15 @@
-import { createHash } from 'node:crypto';
-import { writeFile } from 'node:fs/promises';
-import { isAbsolute } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, type Tool } from '@modelcontextprotocol/sdk/types.js';
 import { openExistingDesktopStorageForWriting, type ExistingSQLiteStorage } from '@prompt-optimizer/core/node';
-import { createReadonlyAssetReader } from '@prompt-optimizer/core/asset-reader';
 import { createDesktopComparisonRouter, publicDesktopError, type DesktopProfile } from './desktop-router.js';
 import { openComparisonDesktop } from './desktop-storage.js';
 import { createDesktopToolDispatcher } from './desktop.js';
-import { BusinessStage, snapshotRevision, redactConfiguration } from './desktop-business-services.js';
-import { businessOperations, DesktopBusinessError, assertJson, publicBusinessError } from './desktop-business-catalog.js';
-import { DesktopBusinessRuns, runKinds, type RunInput } from './desktop-business-runs.js';
-import { requestDesktopResource, resourceOperations } from './desktop-business-resources.js';
+import {
+  DesktopBusinessError, assertJson, createProductBusiness, productBusinessCatalog, publicBusinessError, runKinds,
+} from '@prompt-optimizer/core/bridge-protocol';
+import { requestDesktopResource, resourceOperations, writeCredentialExport } from './desktop-business-resources.js';
 
 const text = { type: 'string', minLength: 1 } as const;
 const read = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
@@ -55,7 +52,14 @@ export const desktopBusinessTools = [
     ['sourceId', 'destination', 'includeCredentials'], { ...write, destructiveHint: false }),
 ];
 
-type BusinessSource = { lease: ExistingSQLiteStorage; runs: DesktopBusinessRuns };
+function runOwnerGone(ownerId: string) {
+  const pid = Number(ownerId.split(':')[0]);
+  if (!Number.isSafeInteger(pid) || pid <= 0) return false;
+  try { process.kill(pid, 0); return false; }
+  catch (error) { return (error as NodeJS.ErrnoException).code === 'ESRCH'; }
+}
+
+type BusinessSource = { lease: ExistingSQLiteStorage; business: ReturnType<typeof createProductBusiness> };
 export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
   const router = createDesktopComparisonRouter(profiles, openComparisonDesktop);
   const comparison = createDesktopToolDispatcher('compare', router);
@@ -73,7 +77,21 @@ export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
       if (!profile) throw new DesktopBusinessError('SOURCE_NOT_FOUND');
       opening = (async () => {
         const lease = await openExistingDesktopStorageForWriting(profile.userDataPath);
-        return { lease, runs: new DesktopBusinessRuns(lease.provider, sourceId, revisionKey) };
+        const business = createProductBusiness(lease.provider, sourceId, {
+          owner: { id: process.pid + ':' + randomUUID(), isGone: runOwnerGone },
+          revisionKey,
+          beforeMutation: async domain => {
+            if (!['workspaces', 'settings', 'variables', 'data'].includes(domain)) return;
+            const descriptor = await lease.provider.getItem('mcp:renderer:resources');
+            if (descriptor) {
+              const { pid } = JSON.parse(descriptor) as { pid?: number };
+              if (Number.isSafeInteger(pid) && pid! > 0 && !runOwnerGone(String(pid))) {
+                throw new DesktopBusinessError('DESKTOP_STATE_IN_USE');
+              }
+            }
+          },
+        });
+        return { lease, business };
       })();
       sourceLeases.set(sourceId, opening);
     }
@@ -83,7 +101,7 @@ export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
       throw new DesktopBusinessError('SOURCE_NOT_READY');
     }
   };
-  const callBusiness = async (name: string, args: Record<string, unknown>): Promise<unknown> => {
+  const callBusiness = async (name: string, args: Record<string, unknown>, readOnly: boolean): Promise<unknown> => {
     const definition = desktopBusinessTools.find(item => item.name === name);
     if (!definition) throw new DesktopBusinessError('UNKNOWN_TOOL');
     assertJson(args);
@@ -99,87 +117,14 @@ export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
     if (name === 'po_sources_list') {
       return { sources: router.listSources().sources.map(({ sourceId, label }) => ({ sourceId, label, access: 'business' })) };
     }
-    if (name === 'po_desktop_catalog') return {
-      operations: businessOperations.filter(item => !args.domain || item.domain === args.domain),
-      assets: { domain: 'assets', operations: ['listAssets(options?)', 'listAssetVersions(selection, options?)', 'getAssetVersion(selection)'] },
-      runKinds, runInput: 'request uses the existing product service request. source optionally selects favoriteId/assetId/versionId/expectedRevision. test: systemPrompt,userPrompt,modelKey,inputImages?; optimize: targetPrompt,optimizationMode,modelKey,templateId?; iterate: originalPrompt,lastOptimizedPrompt,iterateInput,modelKey,templateId; evaluate: EvaluationRequest; test-batch: candidates of 2-4 test requests.',
-    };
-    const { lease, runs } = await open(args.sourceId as string);
+    if (name === 'po_desktop_catalog') return productBusinessCatalog(args.domain);
+    const { lease, business } = await open(args.sourceId as string);
     if (name === 'po_resources') return requestDesktopResource(lease.provider, args);
-    if (name === 'po_runs_get') return runs.get(args.runId as string);
-    if (name === 'po_runs_cancel') return runs.cancel(args.runId as string);
-    if (name === 'po_runs_save') {
-      if (args.target !== undefined && !['archive', 'history'].includes(args.target as string)) throw new DesktopBusinessError('INVALID_INPUT');
-      return runs.save(args.runId as string, args.target as 'archive' | 'history' | undefined);
-    }
-    if (name === 'po_runs_delete') {
-      if (!Number.isSafeInteger(args.expectedUpdatedAt) || (args.expectedUpdatedAt as number) < 0) throw new DesktopBusinessError('INVALID_INPUT');
-      await runs.repository.delete(args.runId as string, args.expectedUpdatedAt as number); return { deleted: true };
-    }
-    if (name === 'po_runs_list') return { runs: (await runs.repository.list()).filter(run => !run.deleted && (!args.savedOnly || run.saved))
-      .map(({ id, kind, status, createdAt, updatedAt, saved }) => ({ id, kind, status, createdAt, updatedAt, saved })) };
-    const snapshot = new Map(await lease.provider.getAllEntries());
-    const revision = snapshotRevision(snapshot);
-    const stage = new BusinessStage(snapshot);
-    const parameters = args.arguments ?? [];
-    if (!Array.isArray(parameters)) throw new DesktopBusinessError('INVALID_ARGUMENTS');
-    if (name === 'po_desktop_query') {
-      let result;
-      if (args.domain === 'assets') {
-        const reader = createReadonlyAssetReader(stage, { sourceId: args.sourceId as string, sourceEpoch: 'business-v1' }, { revisionKey });
-        if (!['listAssets', 'listAssetVersions', 'getAssetVersion'].includes(args.operation as string)) throw new DesktopBusinessError('UNKNOWN_OPERATION');
-        result = await (reader[args.operation as keyof typeof reader] as (...values: unknown[]) => unknown)(...parameters);
-      } else result = await stage.invoke(args.domain as string, args.operation as string, parameters, 'read');
-      if (args.domain === 'settings' && args.operation === 'get' && typeof parameters[0] === 'string') {
-        result = (redactConfiguration({ [parameters[0]]: result }) as Record<string, unknown>)[parameters[0]];
-      }
-      if (['models', 'imageModels', 'settings', 'data'].includes(args.domain as string)) {
-        result = typeof result === 'string' && args.domain === 'data'
-          ? JSON.stringify(redactConfiguration(JSON.parse(result))) : redactConfiguration(result);
-      }
-      return { revision, result };
-    }
-    if (name === 'po_data_export_file') {
-      if (args.includeCredentials !== true || typeof args.destination !== 'string' || !isAbsolute(args.destination)) throw new DesktopBusinessError('INVALID_INPUT');
-      const data = await stage.invoke('data', 'exportAllData', [], 'read');
-      await writeFile(args.destination, data as string, { flag: 'wx', mode: 0o600 });
-      return { exported: true, containsCredentials: true };
-    }
-    const signature = createHash('sha256').update(JSON.stringify({ domain: args.domain, operation: args.operation, parameters })).digest('hex');
-    const receiptKey = 'mcp:receipt:' + createHash('sha256').update(args.requestKey as string).digest('hex');
-    if (name === 'po_desktop_mutate') {
-      const previous = snapshot.get(receiptKey);
-      if (previous) {
-        const receipt = JSON.parse(previous) as { signature: string; result: unknown };
-        if (receipt.signature !== signature) throw new DesktopBusinessError('REQUEST_KEY_REUSED');
-        return receipt.result;
-      }
-    }
-    if (name === 'po_runs_start') {
-      const previous = (await runs.repository.list()).find(run => run.requestKey === args.requestKey);
-      if (!previous && revision !== args.expectedRevision) throw new DesktopBusinessError('REVISION_CONFLICT');
-      return runs.start(args.input as unknown as RunInput, args.requestKey as string, snapshot);
-    }
-    if (revision !== args.expectedRevision) throw new DesktopBusinessError('REVISION_CONFLICT');
-    if (['workspaces', 'settings', 'variables', 'data'].includes(args.domain as string)) {
-      const descriptor = await stage.getItem('mcp:renderer:resources');
-      if (descriptor) {
-        const owner = JSON.parse(descriptor) as { pid?: number };
-        if (Number.isSafeInteger(owner.pid) && (owner.pid as number) > 0) {
-          let active = true;
-          try { process.kill(owner.pid as number, 0); }
-          catch (error) { active = (error as NodeJS.ErrnoException).code !== 'ESRCH'; }
-          if (active) throw new DesktopBusinessError('DESKTOP_STATE_IN_USE');
-        }
-      }
-    }
-    const result = redactConfiguration(await stage.invoke(args.domain as string, args.operation as string, parameters, 'write'));
-    const response = { revision: snapshotRevision(stage.values), result };
-    await stage.commit(lease.provider, { key: receiptKey, value: JSON.stringify({ signature, result: response }) });
-    return response;
+    if (name === 'po_data_export_file') return writeCredentialExport(args, () => business.call(name, args));
+    return business.call(name, args, readOnly);
   };
-  const call = (name: string, args: Record<string, unknown>) =>
-    isComparisonTool(name) ? comparison.call(name, args) : callBusiness(name, args);
+  const call = (name: string, args: Record<string, unknown>, readOnly = false) =>
+    isComparisonTool(name) ? comparison.call(name, args) : callBusiness(name, args, readOnly);
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
   server.setRequestHandler(CallToolRequestSchema, async request => {
     const { name, arguments: args } = request.params;
@@ -193,7 +138,7 @@ export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
     }
   });
   return {
-    server, call,
+    server, call, tools,
     close() {
       closing ??= (async () => {
         const results = await Promise.allSettled([
@@ -201,7 +146,7 @@ export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
           ...Array.from(sourceLeases.values(), async opening => {
             const opened = await opening.catch(() => undefined);
             if (!opened) return;
-            try { await opened.runs.close(); }
+            try { await opened.business.close(); }
             finally { await opened.lease.provider.close(); }
           }),
         ]);

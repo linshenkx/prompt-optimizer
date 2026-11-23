@@ -1,6 +1,15 @@
 export const BROWSER_BRIDGE_PROTOCOL = 'po-browser-bridge/1'
 export const BROWSER_BRIDGE_MAX_BYTES = 2 * 1024 * 1024
-export type BrowserAccess = 'read' | 'compare'
+export const PRODUCT_BRIDGE_MAX_BYTES = 32 * 1024 * 1024
+export type BrowserAccess = 'read' | 'compare' | 'business'
+
+export function isBrowserAccess(access: unknown): access is BrowserAccess {
+  return access === 'read' || access === 'compare' || access === 'business'
+}
+
+export function allowsBrowserAccess(granted: BrowserAccess, requested: BrowserAccess): boolean {
+  return requested === 'read' || granted === requested || granted === 'business'
+}
 export const browserTextRunKinds = ['optimize', 'test'] as const
 
 export interface BrowserSourceIdentity {

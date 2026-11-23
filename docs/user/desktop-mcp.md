@@ -1,52 +1,35 @@
-# 桌面 MCP 本地业务入口
+# 新版 MCP 使用说明
 
-适用于包含新版桌面 MCP 的 Windows 安装包和本地源码构建。
+新版 MCP 连接已有的桌面或网页资料，使用一套工具完成查询、编辑、模型运行、对照和保存。Legacy 环境变量入口继续兼容旧客户端。
 
-## 入口与兼容
+## 安装和选择资料
 
-| 入口 | 使用的数据 | 传输与能力 |
-| --- | --- | --- |
-| `prompt-optimizer-mcp`（原命令，不带桌面模式） | 原环境变量、内存装配 | 原三个优化工具；stdio 和 HTTP `/mcp` 保留 |
-| 原命令加 `--mode=desktop-readonly` | 指定的已有桌面 SQLite | 原只读资产/模型目录与精确版本读取 |
-| 原命令加 `--mode=desktop-comparison` | 指定的已有桌面 SQLite | 原预览、冻结输入、双模型/双提示词比较、采纳与已保存比较 |
-| **`prompt-optimizer-desktop-mcp`**（独立新命令） | 指定的已有桌面 SQLite 和产品服务 | 业务目录及文本对照工具；仅 stdio，不载入 `.env`，不替换旧命令 |
-
-## 从 Windows 安装包连接 Codex
-
-1. 安装并启动桌面应用，完成已有数据的迁移。
-2. 从桌面菜单 **Help → Copy Codex MCP Configuration** 复制配置。将 `[mcp_servers.prompt_optimizer_desktop]` 配置段粘贴到 Codex 的 `config.toml`。如果已有同名配置段，替换该段。
-3. 在 Codex 中重新载入 MCP 配置后，调用 `po_sources_list` 查看桌面来源。Codex 按需启动安装包自带的运行时，使用桌面应用的实际数据目录。
-
-要使用首个对照 Skill，可将安装目录下的 `resources/skills/prompt-optimizer-compare` 文件夹复制到目标 Codex 项目的 `.agents/skills`，然后调用 `$prompt-optimizer-compare`。查收藏、运行和回读仍使用同一份 MCP 配置。
-
-## 从源码启动
-
-使用仓库支持的 Node 24 环境先构建 Core 与 MCP。
+在 Windows 桌面应用中使用 **Help → Copy Codex MCP Configuration**，将生成的配置段粘贴到 Codex 的 `config.toml`。从源码构建时，使用 Node 24.22.1 构建 Core 和 MCP 后运行：
 
 ```powershell
-pnpm --filter @prompt-optimizer/core build
-pnpm --filter @prompt-optimizer/mcp-server build
-node packages/mcp-server/bin/prompt-optimizer-desktop-mcp.cjs --desktop-profile="C:/absolute/path/to/existing/userData"
+node packages/mcp-server/bin/prompt-optimizer-product-mcp.cjs
 ```
 
-`--desktop-profile` 必须是明确授权的绝对 **userData 目录**，不是 SQLite 文件；可指定最多八个目录。已有数据库必须通过 schema、迁移及旧 JSON 分歧检查。不存在、损坏、未迁移或有分歧时拒绝打开，不为 MCP 自动创建库、迁移或覆盖资料。先由桌面程序完成迁移。新命令不接受调用者覆盖 `--mode` 或切成 HTTP。
+使用本地构建的 npm 包时，可在 MCP 客户端把命令设为 Node 24.22.1 所在安装目录下的 `npx`（Windows 上为 `npx.cmd`），参数设为 `--yes --package=<本地 tgz 绝对路径> prompt-optimizer-product-mcp`，并在后面追加所需的资料参数。用 `pnpm --filter @prompt-optimizer/mcp-server pack:npm` 生成 `dist/npm/` 下的安装包。
 
-源码模式的客户端配置把支持的 Node 可执行文件设为 `command`，把已构建的 `.cjs` 入口及 `--desktop-profile=...` 放在 `args`。桌面模式使用已保存的模型配置。
+无参数时使用当前用户的默认桌面资料。用 `--desktop-profile=<绝对 userData 目录>` 指定已迁移的桌面资料，可传多个。也可用 `--product-url=<产品网页 URL>` 将网页设为默认来源，在实际网页打开一次性链接授权。MCP 只访问已存在的桌面 SQLite，网页通过明确授权的产品页面读写本地存储。
+
+Skill 可以用 `po_sources_list` 中的 Origin、浏览器和资料标签选择本次来源。相同网页在不同浏览器或资料里分开列出。同一资料打开多个标签时，连接仍固定在所选页面。用户本次明确选择优先于启动参数，其次使用默认桌面。用 `po_sources_open` 取得 `connectionId`，后续业务调用持续使用该连接。选定来源不可用时重新连接同一资料。
 
 ## 工具与业务覆盖
 
-先调用 `po_sources_list`，再调用 `po_desktop_catalog` 查看实时目录。`sourceId` 在当前 MCP 进程内标识同一个桌面来源，进程重启后需重新列出。
+用 `po_catalog` 查看业务目录。`sourceId` 用于打开来源，`connectionId` 用于业务请求；重新连接后使用新返回的句柄。
 
 | 工具 | 用途 |
 | --- | --- |
-| `po_desktop_query` | 按 `domain`、`operation`、位置参数数组 `arguments` 查询；返回 `revision` 与 `result` |
-| `po_desktop_mutate` | 同一目录的产品写操作，要求 `expectedRevision` 和新 `requestKey` |
+| `po_query` | 按 `domain`、`operation`、位置参数数组 `arguments` 查询；返回 `revision` 与 `result` |
+| `po_mutate` | 同一目录的产品写操作，要求 `expectedRevision` 和新 `requestKey` |
 | `po_runs_start/get/list/cancel` | 启动异步业务，按稳定 runId 获取状态、部分文本、推理文本、最终输出及脱敏错误；可取消 |
 | `po_runs_save/delete` | 显式归档或定向删除；优化/迭代可用 `target: "history"` 存入原历史记录 |
 | `po_data_export_file` | 将应用 JSON（含凭据）导出到**不存在的新绝对路径**；须 `includeCredentials: true` |
-| `po_resources` | 运行中的 Windows 桌面资源桥：图片库读写和完整 ZIP 导入导出，见后文 |
+| `po_resources` | 图片库读写和完整 ZIP 导入导出。桌面需要应用窗口就绪，网页需要授权页面在线 |
 
-`po_desktop_query/mutate` 的目录均绑定现有产品服务方法，而非任意方法名或原始数据库写入：
+`po_query` / `po_mutate` 的目录均绑定现有产品服务方法，而非任意方法名或原始数据库写入：
 
 | domain | 产品操作 |
 | --- | --- |
@@ -62,13 +45,13 @@ node packages/mcp-server/bin/prompt-optimizer-desktop-mcp.cjs --desktop-profile=
 | `settings` | 偏好设置读取、枚举、导入导出、设置和删除；会话必须用 `workspaces` 的校验路径 |
 | `data` | 应用 JSON 的校验、导入和脱敏导出；含会话、已保存比较及已保存 MCP 成果，不含收藏/图片二进制 |
 
-参数位置及必选项由 `po_desktop_catalog` 返回，例如：
+参数位置及必选项由 `po_catalog` 返回，例如：
 
 ```json
-{"sourceId":"<fresh-source-id>","domain":"favorites","operation":"searchFavorites","arguments":["待查关键词"]}
+{"connectionId":"<connection-id>","domain":"favorites","operation":"searchFavorites","arguments":["待查关键词"]}
 ```
 
-查询结果的 `revision` 传给后续 `po_desktop_mutate.expectedRevision`。写操作在内存中调用原服务、校验并暂存，最终通过 SQLite 同一事务比较原值后提交；发现竞争变更返回 `REVISION_CONFLICT`，不要盲目重试或覆盖。相同 requestKey 与原封不动的参数可读取既有回执；复用为另一个请求会被拒绝。普通查询及目录初始化不把默认配置/迁移结果写回数据库。
+查询结果的 `revision` 传给后续 `po_mutate.expectedRevision`。写操作调用原产品服务做校验并暂存，在所选资料的存储事务内核对原值后提交。发现竞争变更时返回 `REVISION_CONFLICT`。同一个 `requestKey` 和完全相同的参数可读取既有回执。普通查询及目录初始化只读取资料。
 
 配置查询会遮盖 API key、连接配置、请求头、私有地址路径等字段，包含 JSON 字符串里的配置。脱敏结果不是可直接回写的完整备份；更新配置应仅提交用户明确提供的字段。模型生成内容、用户提示词和导出的文件仍可能敏感，不应自动分享。
 
@@ -96,33 +79,33 @@ node packages/mcp-server/bin/prompt-optimizer-desktop-mcp.cjs --desktop-profile=
 
 `inputRunId` 可以将成功优化的文本直接交给 test，或将成功测试的原输入/输出快照交给 result 评估。先 `po_runs_start`，再轮询 `po_runs_get`；成功启动不代表执行成功。批次顶层 succeeded 代表编排结束，还须检查每个候选的 status。取消会保留已收到的文本，但不能保证服务商停止已提交的工作/计费。失败不伪装成成功结果。
 
-`po_runs_save` 默认只归档，不修改当前草稿、收藏正文或采纳答案。重启桌面后，从顶部 **「MCP 运行成果」** 按 runId 或列表重开；原变量工作区 **「已保存比较」** 仍是独立入口。删除须带最新 `expectedUpdatedAt`，保留最小防重标记，旧重试或备份不能复活已删除运行。记录最多 200 条非删除项、总载荷 32 MiB；到限显式拒绝，不自动清理用户成果。
+`po_runs_save` 默认只归档，不修改当前草稿、收藏正文或采纳答案。重新打开产品后，从顶部 **「MCP 运行成果」** 按 runId 或列表重开；原变量工作区 **「已保存比较」** 仍是独立入口。删除须带最新 `expectedUpdatedAt`，保留最小防重标记，旧重试或备份不能复活已删除运行。记录最多 200 条非删除项、总载荷 32 MiB；到限显式拒绝，不自动清理用户成果。
 
 ## 文本对照与 Skill
 
-在同一新入口中，用 `po_sources_list` 返回的 `sourceId` 调用 `po_sources_open`，指定 `access: "compare"`。其返回的 `connectionId` 用于 `po_models_list`、`po_assets_*`、`po_tests_*` 和 `po_comparisons_*`。这些工具支持预览实际模型参数、对照同一收藏的两个模型或同一模型的两版提示词，以及保存和回读完整原始结果。[工具调用说明](../../packages/mcp-server/README.md#桌面文本比较模式)
+在同一新入口中，用 `po_sources_list` 返回的 `sourceId` 调用 `po_sources_open`，指定 `access: "write"`。其返回的 `connectionId` 用于 `po_models_list`、`po_assets_*`、`po_tests_*` 和 `po_comparisons_*`。这些工具支持预览实际模型参数、对照同一收藏的两个模型或同一模型的两版提示词，以及保存和回读完整原始结果。
 
 配置新命令后，在包含仓库 Skill 的 Codex 项目里可调用 `$prompt-optimizer-compare`。可在同一收藏版本上对照两个已存模型，或用同一个已存模型对照两版提示词。提供来源、收藏、确切版本、模型和共用变量，并说明是否执行与保存。Codex 请求确认模型调用时，可核对预览后确认本次执行。保存后在桌面或原网页变量工作区的 **「已保存比较」** 中输入返回的 `comparisonId` 即可重开。[Skill](../../.agents/skills/prompt-optimizer-compare/SKILL.md)
 
 ## 图片资源与完整备份
 
-`po_resources` 支持 `images.list/get/save/delete`、`package.export/import`。必须保持本次源码构建的 Windows 桌面已就绪；由其真实 renderer 访问现有 IndexedDB，Node 不猜测或直接修改浏览器数据库。桥按同源数据目录的随机命名管道和临时秘密授权，不监听 TCP/HTTP，不返回管道秘密。桌面未启动或尚未就绪时返回错误。
+`po_resources` 支持 `images.list/get/save/delete`、`package.export/import`。资源操作由已就绪的产品界面执行。Windows 桌面通过本机命名管道连接界面，网页通过已授权的页面连接；MCP 客户端使用同样的参数。
 
 - `store` 是 `imageCache` 或 `favoriteImages`；save/get 使用显式绝对 `file` 路径，save 需 MIME。get/export 不覆盖已有文件。
 - save 不替换内容不同的现有图片，不触发自动淘汰。delete 需要 get/save 返回的 digest，并在刷新会话后拒绝删除仍被工作区/收藏引用的图片。
 - `imageCache` 的未引用图片仍受产品原有垃圾回收规则约束。需要长期保留时，应先建立有效的工作区引用或收藏图片引用；资源传输成功不表示已自动建立引用。删除已不存在的图片返回 `alreadyAbsent: true`。
-- package 导出/导入使用原完整资源包实现，包含应用 JSON、收藏、图片与校验清单；两者都须明确 `includeCredentials: true`。输入文件最多 20 MiB，桥响应最多 32 MiB；更大的资料使用原桌面备份 UI，不拆包绕过限额。
-- import 通过原会话恢复协调器、完整包校验及容量/哈希预检；正在运行的工作或保存冲突会阻止恢复。成功回执后刷新桌面，避免旧内存会话自动保存回去。
+- package 导出/导入使用原完整资源包实现，包含应用 JSON、收藏、图片与校验清单；两者都须明确 `includeCredentials: true`。输入文件最多 20 MiB，桥响应最多 32 MiB；更大的资料使用产品备份界面。
+- import 通过原会话恢复协调器、完整包校验及容量/哈希预检；正在运行的工作或保存冲突会阻止恢复。成功回执后刷新原产品界面，加载恢复的数据。
 - 每个变更使用独立 requestKey；`RESOURCE_RESULT_UNKNOWN` 表示结果未能确认，先检查实际资料/已有回执，不能换一个 key 重复执行。资源请求按顺序执行，避免上一条回执送达与 renderer 释放工作之间的竞争。
 
-`workspaces/settings/variables/data` 的直接写操作在检测到活动 renderer 时返回 `DESKTOP_STATE_IN_USE`，避免当前页面的未保存状态被替换；关闭桌面再做这些操作，完成后重开。需要在运行中的桌面整体恢复时使用受协调的 package.import。收藏、模型、模板等外部改动也应重新打开对应页面确认，不能把数据库写成功等同于当前页面已重新载入。MCP 的模型联网使用 Node 配置，不自动继承 Electron 的代理或原生图片格式转换能力；本轮没有承诺所有第三方服务商都在真实远端验收通过。
+`workspaces/settings/variables/data` 的直接写操作在检测到活动 renderer 时返回 `DESKTOP_STATE_IN_USE`，避免当前页面的未保存状态被替换；关闭桌面再做这些操作，完成后重开。需要在运行中的桌面整体恢复时使用受协调的 package.import。收藏、模型、模板等外部改动也应重新打开对应页面确认，不能把数据库写成功等同于当前页面已重新载入。桌面模型请求使用 MCP 的 Node 网络配置，网页模型请求使用授权页面的网络配置。
 
 ## 本地验证入口与边界
 
 ```powershell
 pnpm --filter @prompt-optimizer/core exec vitest run --config vitest.desktop-business.config.ts
 pnpm --filter @prompt-optimizer/mcp-server test:desktop-business
-pnpm --filter @prompt-optimizer/mcp-server test:desktop-readonly
+pnpm --filter @prompt-optimizer/mcp-server test:browser-product
 pnpm --filter @prompt-optimizer/mcp-server test:desktop-stdio
 pnpm --filter @prompt-optimizer/ui exec vitest run --config vitest.desktop-business.config.ts
 node --test scripts/desktop-ipc-handlers.test.mjs
@@ -134,7 +117,7 @@ node scripts/desktop-business-ui.acceptance.mjs
 
 **回环夹具不是真实远端 LLM**，88 分仅验证结构/保存与展示，不证明优化质量。该验收没有调用付费服务商，也没有安装或发布桌面包、注册系统 MCP 配置、修改真实 profile、提交或推送代码。远端模型质量/费用、Windows 安装器、跨平台资源桥和 Chrome 真实数据接入不在这份通过声明内。
 
-## 逐项证据与实际缺口
+## 既有桌面验收记录
 
 2026-11-19 本地交付清单在 `.codex-run/desktop-mcp-delivery-20261119/manifest.json`，包含源码 SHA-256、命令与日志、原始隔离验收目录、运行标识及截图路径。它不是安装包或远端上线回执。
 
@@ -153,6 +136,6 @@ node scripts/desktop-business-ui.acceptance.mjs
 | 工作区、设置与并发编辑 | `workspaces/settings` | 外部偏好更新重读、旧 revision 拒绝、原子提交与幂等、损坏数据拒绝已测；活动桌面拒绝直接替换状态，未实现所有页面实时无刷新同步 |
 | 图片与理解/生成 | `po_resources images.*`；`image/image-understand` | 实际 renderer/IndexedDB 保存、读取、列出和删除通过；带收藏引用的图片随完整 ZIP 恢复并在进程重启后逐字节一致。引用保护由真实服务加合成 IndexedDB 单元验证；远端图像生成/理解与原生格式转换未验收 |
 | 数据导入导出 | `data`、`po_data_export_file`、`po_resources package.*` | 真实 Core 数据/工作区回归、凭据查询脱敏、归档导入与完整资源 ZIP 导出/导入通过；大于资源桥限额的资料继续使用桌面 UI |
-| 原比较和旧客户端 | `desktop-comparison`；原三个工具 | 两种冻结比较及保存重开、只读无写入、EOF 退出、原 stdio、HTTP `/mcp` 初始化/会话/三工具发现均通过；没有改变旧客户端配置 |
+| 原比较和旧客户端 | 已有客户端配置 | 两种冻结比较及保存重开、只读无写入、EOF 退出、原 stdio、HTTP `/mcp` 初始化/会话/三工具发现均通过；没有改变旧客户端配置 |
 
 验收分层：Core 定向回归 **123** 项、MCP 业务单元 **10** 项、新入口实际 stdio **1** 项、只读单元 **14** 项、旧/比较实际协议 **7** 项、UI 单元 **2** 项、IPC 静态合同 **20** 项；另有实际 Electron main/preload 三阶段和完整产品 UI 两阶段。原生进程验收的网络审计为零外部请求；完整 UI 验收的三次模型请求仅发往隔离脚本创建的本机端点。
