@@ -7,7 +7,7 @@ description: 用提示词优化器 MCP 对照变量工作区的提示词，支�
 
 使用新版提示词优化器 MCP。在用户指定比较方式、提示词、模型和变量时按其要求执行。
 
-1. 用 `po_sources_list` 查看桌面资料、已授权网页和默认来源。用户未指定来源时使用默认来源。用户可指定桌面资料或产品网页 URL；同一 Origin 可能出现在多个浏览器或资料中，按浏览器和资料标签匹配，仍有歧义时列出选项。指定网页尚未授权时，用 `po_sources_authorize` 生成单次链接，请用户在目标浏览器资料里打开并授权。用选定的 `sourceId` 调用 `po_sources_open`，传 `access: "write"`；使用默认来源时可省略 `sourceId`。后续所有步骤用该次返回的 `connectionId`，来源断开时重新连接同一资料。
+1. 用 `po_sources_list` 查看已配置的桌面资料和已登记的网页。用户未指定时使用默认来源。同一网址匹配多份资料时按浏览器和资料名称选择，仍有歧义时列出选项。首次连接网页，用 `po_sources_authorize({productUrl, access: "write"})` 生成一次性链接；已配置默认网页可省略 `productUrl`，已登记的网页用 `sourceId` 重连。请用户在存有目标资料的浏览器中打开链接、允许连接，并在对照期间保持标签页开启。用 `po_sources_open({sourceId, access: "write"})` 获取后续操作使用的 `connectionId`。打开默认来源时可省略 `sourceId`。
 2. 用 `po_assets_list` 的 `modeKey: "pro-variable"` 与 `query` 找到收藏，匹配标题或指定 ID。用 `po_assets_list_versions` 查到确切的 `versionId`，再用 `po_assets_get_version` 核对所选版本的内容。传入对应的 `favoriteId`、`assetId` 和最新返回的资产 `revision` 作为 `expectedRevision`。用户指定「当前版本」时用 `currentVersionId`。
 3. 用 `po_models_list` 查找所选的 `executable: true` 模型配置，取得 `configKey` 和 `revision`。列表有下一页时，按需用返回的游标继续查找。按用户要比较的对象组织 A、B 两项。
    - **同一提示词对照两个模型。** A、B 使用不同的 `configKey`，各自的 `expectedRevision` 取对应模型的 `revision`。两项共同使用 `source` 所选版本及变量。

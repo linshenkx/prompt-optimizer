@@ -5,8 +5,10 @@ import {
   BROWSER_BRIDGE_MAX_BYTES, PRODUCT_BRIDGE_MAX_BYTES, BROWSER_BRIDGE_PROTOCOL, BrowserBridgeError, isBrowserAccess, allowsBrowserAccess,
   type BrowserAccess, type BrowserSourceIdentity,
 } from '@prompt-optimizer/core/bridge-protocol';
+import { browserSourceId, parseProductUrl, type BrowserRegistration } from './browser-source-registry.js';
 
-interface Ticket { origin: string; access: BrowserAccess; expiresAt: number }
+type ExpectedBrowser = Pick<BrowserRegistration, 'browser' | 'browserContextId' | 'label'>;
+interface Ticket { productUrl: URL; access: BrowserAccess; expiresAt: number; expected?: ExpectedBrowser }
 interface Pending {
   resolve(value: unknown): void;
   reject(error: unknown): void;
@@ -15,7 +17,8 @@ interface Pending {
 }
 interface Source {
   id: string;
-  origin: string;
+  executionSourceId: string;
+  registration: BrowserRegistration;
   access: BrowserAccess;
   identity: BrowserSourceIdentity;
   socket: WebSocket;
@@ -25,9 +28,13 @@ interface Source {
   opening?: Promise<unknown>;
   openingAccess?: BrowserAccess;
   alive: boolean;
+  ready: boolean;
 }
 
-export function createBrowserTransport({ ticketMs = 120_000, requestMs = 15_000, heartbeatMs = 2_000 } = {}) {
+export function createBrowserTransport({ ticketMs = 120_000, requestMs = 15_000, heartbeatMs = 2_000, rememberSource }: {
+  ticketMs?: number; requestMs?: number; heartbeatMs?: number;
+  rememberSource?: (entry: BrowserRegistration) => Promise<void>;
+} = {}) {
   const tickets = new Map<string, Ticket>();
   const sources = new Map<string, Source>();
   const connections = new Map<string, Source>();
@@ -92,7 +99,7 @@ export function createBrowserTransport({ ticketMs = 120_000, requestMs = 15_000,
         const origin = request.headers.origin;
         if (disposed || request.url !== '/bridge' || request.headers.host !== `127.0.0.1:${port}` ||
           typeof origin !== 'string' || websocket.clients.size >= 16 ||
-          ![...tickets.values()].some(ticket => ticket.origin === origin && ticket.expiresAt > Date.now())) {
+          ![...tickets.values()].some(ticket => ticket.productUrl.origin === origin && ticket.expiresAt > Date.now())) {
           socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n'); return;
         }
         websocket.handleUpgrade(request, socket, head, client => {
@@ -112,19 +119,32 @@ export function createBrowserTransport({ ticketMs = 120_000, requestMs = 15_000,
               if (!source) {
                 const ticket = typeof message.ticket === 'string' ? tickets.get(message.ticket) : undefined;
                 const identity = message.identity as BrowserSourceIdentity | undefined;
-                if (!ticket || ticket.expiresAt <= Date.now() || ticket.origin !== origin || message.protocol !== BROWSER_BRIDGE_PROTOCOL ||
+                if (!ticket || ticket.expiresAt <= Date.now() || ticket.productUrl.origin !== origin || message.protocol !== BROWSER_BRIDGE_PROTOCOL ||
                   message.type !== 'authorize' || message.access !== ticket.access || !identity || !/^[a-f0-9-]{36}$/.test(identity.contextId) || !/^[a-f0-9-]{36}$/.test(identity.pageId) ||
                   ![identity.label, identity.browser, identity.productVersion].every(value => typeof value === 'string' && value.length > 0 && value.length <= 100) || sources.size >= 8) {
                   throw new BrowserBridgeError('AUTHORIZATION_FAILED');
                 }
+                if (ticket.expected && (ticket.expected.browser !== identity.browser || ticket.expected.browserContextId !== identity.contextId)) {
+                  throw new BrowserBridgeError('AUTHORIZATION_FAILED');
+                }
                 tickets.delete(message.ticket as string);
                 clearTimeout(authenticationTimer);
-                source = { id: randomUUID(), origin, access: ticket.access, identity: {
+                const entry = { origin, productUrl: ticket.productUrl.href, browser: identity.browser,
+                  browserContextId: identity.contextId, label: ticket.expected?.label ?? identity.label };
+                const id = randomUUID();
+                const executionSourceId = rememberSource ? browserSourceId(entry) : id;
+                const confirmed: Source = { id, executionSourceId, registration: entry, access: ticket.access, identity: {
                   contextId: identity.contextId, pageId: identity.pageId, label: identity.label,
                   browser: identity.browser, productVersion: identity.productVersion,
-                }, socket: client, pending: new Map(), alive: true };
-                sources.set(source.id, source);
-                client.send(JSON.stringify({ type: 'authorized', sourceId: source.id, access: source.access }));
+                }, socket: client, pending: new Map(), alive: true, ready: false };
+                source = confirmed;
+                sources.set(id, confirmed);
+                void (async () => {
+                  await rememberSource?.(entry);
+                  if (client.readyState !== WebSocket.OPEN || disposed) return;
+                  confirmed.ready = true;
+                  client.send(JSON.stringify({ type: 'authorized', sourceId: executionSourceId, access: confirmed.access }));
+                })().catch(() => { drop(confirmed); stopIdle(); });
                 return;
               }
               if (message.type === 'revoke') { drop(source); return; }
@@ -168,19 +188,17 @@ export function createBrowserTransport({ ticketMs = 120_000, requestMs = 15_000,
   }
   function description(source: Source) {
     return {
-      sourceId: source.id, kind: 'browser', label: source.identity.label, origin: source.origin,
-      browser: source.identity.browser, browserContextId: source.identity.contextId, pageId: source.identity.pageId,
+      ...source.registration, sourceId: source.id, kind: 'browser' as const, pageId: source.identity.pageId,
       sourceEpoch: source.identity.pageId, connectionGeneration: source.connectionId ?? 'unconnected',
       productVersion: source.identity.productVersion, storageVersion: 'dexie/1', contractVersion: 'po-capabilities/0.2',
-      availability: 'connected', readiness: 'ready', authorizedAccess: source.access,
+      availability: 'connected' as const, readiness: 'ready', authorizedAccess: source.access,
     };
   }
 
   return {
-    async authorize(productUrl: string, access: BrowserAccess) {
-      let url: URL;
-      try { url = new URL(productUrl); } catch { throw new BrowserBridgeError('INVALID_INPUT'); }
-      if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || !isBrowserAccess(access)) {
+    async authorize(productUrl: string, access: BrowserAccess, expected?: ExpectedBrowser) {
+      const url = parseProductUrl(productUrl);
+      if (!url || !isBrowserAccess(access)) {
         throw new BrowserBridgeError('INVALID_INPUT');
       }
       if (tickets.size >= 8) throw new BrowserBridgeError('SOURCE_LIMIT');
@@ -188,16 +206,17 @@ export function createBrowserTransport({ ticketMs = 120_000, requestMs = 15_000,
       if (disposed) throw new BrowserBridgeError('OWNER_CLOSED');
       const token = randomBytes(32).toString('base64url');
       const expiresAt = Date.now() + ticketMs;
-      tickets.set(token, { origin: url.origin, access, expiresAt });
+      tickets.set(token, { productUrl: new URL(url), access, expiresAt, expected });
       url.hash = `/pro/variable?poBridge=${port}.${token}.${access}`;
+      if (expected) url.hash += '&' + new URLSearchParams({ poBridgeLabel: expected.label });
       return { authorizationUrl: url.href, origin: url.origin, access, expiresAt,
-        instructions: 'Open this one-use link in the desired browser profile and explicitly authorize on the product page. Then call po_sources_list; no browser profiles are scanned.' };
+        instructions: 'Open this one-use link in the desired browser profile and explicitly authorize on the product page. Then call po_sources_list.' };
     },
     hasConnection(connectionId: string) { return connections.has(connectionId); },
-    listSources() { return { sources: [...sources.values()].filter(source => source.socket.readyState === WebSocket.OPEN).map(description) }; },
+    listSources() { return { sources: [...sources.values()].filter(source => source.ready && source.socket.readyState === WebSocket.OPEN).map(description) }; },
     async open(sourceId: string, access: BrowserAccess) {
       const source = sources.get(sourceId);
-      if (!source) throw new BrowserBridgeError('SOURCE_NOT_FOUND');
+      if (!source?.ready) throw new BrowserBridgeError('SOURCE_NOT_FOUND');
       if (!allowsBrowserAccess(source.access, access)) throw new BrowserBridgeError('COMPARISON_ACCESS_REQUIRED');
       if (source.opening) {
         if (source.openingAccess !== access) throw new BrowserBridgeError('ACCESS_MISMATCH');
@@ -211,7 +230,7 @@ export function createBrowserTransport({ ticketMs = 120_000, requestMs = 15_000,
       source.openingAccess = access;
       source.opening = (async () => {
         const connectionId = randomUUID();
-        const executionSource = { kind: 'browser', sourceId, sourceEpoch: source.identity.pageId, connectionGeneration: connectionId, label: source.identity.label };
+        const executionSource = { kind: 'browser', sourceId: source.executionSourceId, sourceEpoch: source.identity.pageId, connectionGeneration: connectionId, label: source.identity.label };
         await request(source, 'open', { executionSource, access, contextId: source.identity.contextId });
         if (!sources.has(sourceId)) throw new BrowserBridgeError('CONNECTION_CLOSED');
         source.connectionId = connectionId;

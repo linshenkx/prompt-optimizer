@@ -52,12 +52,19 @@ const desktopFixture = await openDesktopStorage(desktopProfile);
 await desktopFixture.provider.close();
 const defaultOrigin = `http://127.0.0.1:${port}`;
 const cli = resolve(root, 'packages/mcp-server/bin/prompt-optimizer-product-mcp.cjs');
-const clientTransport = new StdioClientTransport({ command: process.execPath,
-  args: [cli, '--desktop-profile=' + desktopProfile, '--product-url=' + defaultOrigin], cwd: root, stderr: 'pipe' });
-const client = new Client({ name: 'codex-browser-acceptance', version: '1' });
+const profileHome = resolve(desktopProfile, 'browser-home');
+const env = { HOME: profileHome, APPDATA: resolve(profileHome, 'Roaming'), LOCALAPPDATA: resolve(profileHome, 'Local'),
+  XDG_CONFIG_HOME: resolve(profileHome, '.config') };
 const diagnostics = [];
-clientTransport.stderr?.on('data', chunk => diagnostics.push(chunk.toString()));
-await client.connect(clientTransport);
+async function connectMcp(args = ['--product-url=' + defaultOrigin]) {
+  const transport = new StdioClientTransport({ command: process.execPath, env,
+    args: [cli, ...args], cwd: root, stderr: 'pipe' });
+  const mcp = new Client({ name: 'codex-browser-acceptance', version: '1' });
+  transport.stderr?.on('data', chunk => diagnostics.push(chunk.toString()));
+  await mcp.connect(transport);
+  return mcp;
+}
+let client = await connectMcp(['--desktop-profile=' + desktopProfile]);
 const tools = (await client.listTools()).tools.map(tool => tool.name);
 async function call(name, args = {}, allowedError) {
   const response = await client.callTool({ name, arguments: args }, undefined, { timeout: 20_000 });
@@ -67,17 +74,23 @@ async function call(name, args = {}, allowedError) {
 }
 
 const initial = await call('po_sources_list');
-assert.equal(initial.defaultProductUrl, defaultOrigin + '/');
-assert.equal((await call('po_sources_open', {}, 'SOURCE_NOT_READY')).error.code, 'SOURCE_NOT_READY');
+assert.equal(initial.browserRegistryAvailable, true);
 const desktopSourceId = initial.sources.find(source => source.kind === 'desktop').sourceId;
+assert.equal(initial.defaultSourceId, desktopSourceId);
 const simultaneous = await Promise.all(['read', 'write'].map(access =>
-  call('po_sources_open', { sourceId: desktopSourceId, access }, 'ACCESS_MISMATCH')));
+  call('po_sources_open', { access }, 'ACCESS_MISMATCH')));
 assert.equal(simultaneous.filter(result => result.error?.code === 'ACCESS_MISMATCH').length, 1);
 const desktop = simultaneous.find(result => result.connectionId);
 const catalog = await call('po_catalog');
 assert(catalog.runKinds.includes('evaluate'));
 assert(Array.isArray((await call('po_query', { connectionId: desktop.connectionId, domain: 'templates', operation: 'listTemplates' })).result));
 await call('po_sources_close', { connectionId: desktop.connectionId });
+await client.close();
+client = await connectMcp();
+const webOnly = await call('po_sources_list');
+assert.equal(webOnly.defaultProductUrl, defaultOrigin + '/');
+assert.equal(webOnly.defaultSourceId, undefined);
+assert.equal((await call('po_sources_open', {}, 'SOURCE_NOT_READY')).error.code, 'SOURCE_NOT_READY');
 
 const adapter = new TextAdapterRegistry().getAdapter('openai-compatible');
 function models(origin) {
@@ -99,7 +112,9 @@ async function workflow(browser, origin, name) {
   records.push(record);
   try {
     await page.goto(`${origin}/#/pro/variable`, { waitUntil: 'domcontentloaded', timeout: 25_000 });
-    await page.getByTestId('browser-bridge-entry').waitFor();
+    await page.getByTestId('workspace').waitFor();
+    assert.equal(await page.getByTestId('browser-bridge-panel').count(), 0);
+    assert.equal(await page.getByTestId('browser-bridge-revoke').count(), 0);
     await page.evaluate(async savedModels => {
       const database = await new Promise((resolve, reject) => {
         const request = indexedDB.open('PromptOptimizerDB');
@@ -116,19 +131,54 @@ async function workflow(browser, origin, name) {
         });
       } finally { database.close(); }
     }, models(origin));
+    if (name === 'chromium-loopback') {
+      const before = (await call('po_sources_list')).sources;
+      const declined = await call('po_sources_authorize', { access: 'read' });
+      await page.goto(declined.authorizationUrl, { waitUntil: 'domcontentloaded' });
+      await page.getByTestId('browser-bridge-cancel').click();
+      await page.getByTestId('browser-bridge-panel').waitFor({ state: 'hidden' });
+      assert.deepEqual((await call('po_sources_list')).sources, before);
+      assert.equal(await page.getByTestId('browser-bridge-revoke').count(), 0);
+      record.cancelledBeforeConnecting = true;
+    }
+    if (name === 'chromium-loopback-second-profile') {
+      const original = openPages.find(item => item.record.name === 'chromium-loopback');
+      const wrongProfile = await call('po_sources_authorize', { access: 'read' });
+      assert.equal(wrongProfile.sourceId, original.source.sourceId);
+      await page.goto(wrongProfile.authorizationUrl, { waitUntil: 'domcontentloaded' });
+      await page.getByTestId('browser-bridge-authorize').click();
+      await page.getByTestId('browser-bridge-error').waitFor();
+      await page.keyboard.press('Escape');
+      await page.getByTestId('browser-bridge-panel').waitFor({ state: 'hidden' });
+      record.wrongProfileRejected = true;
+    }
     const ticket = await call('po_sources_authorize', { productUrl: origin, access: 'write' });
     record.operations.push('po_sources_authorize');
     await page.goto(ticket.authorizationUrl, { waitUntil: 'domcontentloaded', timeout: 25_000 });
     await page.getByTestId('browser-bridge-authorize').waitFor();
     assert(!page.url().includes('poBridge='), 'One-use token must be removed from page history');
     assert(!(await call('po_sources_list')).sources.some(source => source.label === name), 'Approval must precede discovery');
-    await page.getByTestId('browser-bridge-label').locator('input').fill(name);
+    if (name === 'chromium-loopback') {
+      const panel = page.getByTestId('browser-bridge-panel');
+      await panel.screenshot({ path: resolve(output, 'authorization-desktop.png'), animations: 'disabled' });
+      await page.setViewportSize({ width: 375, height: 740 });
+      await panel.screenshot({ path: resolve(output, 'authorization-mobile.png'), animations: 'disabled' });
+      assert(await panel.evaluate(element => element.scrollWidth <= element.clientWidth));
+      await page.setViewportSize({ width: 1440, height: 1100 });
+    }
+    const expectedLabel = name === 'firefox-custom-domain' ? 'Firefox' : name;
+    if (expectedLabel === name) {
+      await page.getByTestId('browser-bridge-label-toggle').click();
+      await page.getByTestId('browser-bridge-label').locator('input').fill(name);
+    } else {
+      record.usedDefaultLabel = true;
+    }
     await page.getByTestId('browser-bridge-authorize').click();
-    await page.getByTestId('browser-bridge-state').filter({ hasText: /authorized|已授权|已授權/ }).waitFor({ timeout: 12_000 });
-    const source = (await call('po_sources_list')).sources.find(source => source.label === name);
+    await page.getByTestId('browser-bridge-revoke').waitFor({ timeout: 12_000 });
+    const source = (await call('po_sources_list')).sources.find(source => source.origin === origin && source.label === expectedLabel);
     assert(source, 'Authorized real product page must be discovered');
     assert.equal(source.origin, origin);
-    const connection = await call('po_sources_open', { sourceId: source.sourceId, access: 'write' });
+    const connection = await call('po_sources_open', name === 'chromium-loopback' ? { access: 'write' } : { sourceId: source.sourceId, access: 'write' });
     record.operations.push('po_sources_list', 'po_sources_open');
     assert(Array.isArray((await call('po_query', { connectionId: connection.connectionId, domain: 'templates', operation: 'listTemplates' })).result));
     const query = await call('po_query', { connectionId: connection.connectionId, domain: 'favorites', operation: 'getFavorites' });
@@ -248,6 +298,7 @@ async function workflow(browser, origin, name) {
   }
 }
 
+
 try {
   const engines = [['chromium', chromium], ['firefox', firefox]];
   const localIp = Object.values(networkInterfaces()).flat().find(address => address?.family === 'IPv4' && address.address.startsWith('192.168.31.'))?.address;
@@ -266,6 +317,7 @@ try {
   const sameOrigin = openPages.filter(item => item.record.name.includes('loopback'));
   if (sameOrigin.length >= 2) {
     assert.equal((await call('po_sources_open', {}, 'SOURCE_AMBIGUOUS')).error.code, 'SOURCE_AMBIGUOUS');
+    assert.equal((await call('po_sources_authorize', {}, 'SOURCE_AMBIGUOUS')).error.code, 'SOURCE_AMBIGUOUS');
     assert.equal(new Set(sameOrigin.map(item => item.source.browserContextId)).size, sameOrigin.length);
     for (const item of sameOrigin) {
       const assets = await call('po_assets_list', { connectionId: item.connection.connectionId });
@@ -275,20 +327,26 @@ try {
   }
   for (const item of openPages) {
     await item.page.keyboard.press('Escape');
-    await item.page.getByTestId('browser-bridge-entry').click();
     await item.page.getByTestId('browser-bridge-revoke').click();
     await new Promise(resolve => setTimeout(resolve, 100));
     assert.equal((await call('po_assets_list', { connectionId: item.connection.connectionId }, 'CONNECTION_CLOSED')).error.code, 'CONNECTION_CLOSED');
-    assert(!(await call('po_sources_list')).sources.some(source => source.sourceId === item.source.sourceId));
+    const offline = (await call('po_sources_list')).sources.find(source => source.sourceId === item.source.sourceId);
+    assert.equal(offline?.availability, 'offline');
+    assert.equal(offline.authorizedAccess, undefined);
+    assert.equal((await call('po_sources_open', { sourceId: item.source.sourceId }, 'SOURCE_OFFLINE')).error.code, 'SOURCE_OFFLINE');
     item.record.revokedConnectionInvalid = true;
     await item.page.reload({ waitUntil: 'domcontentloaded', timeout: 25_000 });
-    await item.page.getByTestId('browser-bridge-entry').waitFor();
-    const ticket = await call('po_sources_authorize', { productUrl: item.record.origin, access: 'read' });
+    await item.page.getByTestId('workspace').waitFor();
+    assert.equal(await item.page.getByTestId('browser-bridge-revoke').count(), 0);
+    const ticket = await call('po_sources_authorize', { sourceId: item.source.sourceId, access: 'read' });
     await item.page.goto(ticket.authorizationUrl, { waitUntil: 'domcontentloaded' });
+    await item.page.getByTestId('browser-bridge-panel').getByText(item.source.label, { exact: true }).waitFor();
     await item.page.getByTestId('browser-bridge-authorize').click();
-    await item.page.getByTestId('browser-bridge-state').filter({ hasText: /authorized|已授权|已授權/ }).waitFor();
+    await item.page.getByTestId('browser-bridge-revoke').waitFor();
     const source = (await call('po_sources_list')).sources.find(source => source.origin === item.record.origin && source.browserContextId === item.source.browserContextId && source.pageId !== item.source.pageId);
     assert(source);
+    assert.equal(source.sourceId, item.source.sourceId);
+    assert.equal(source.label, item.source.label);
     const reopened = await call('po_sources_open', { sourceId: source.sourceId, access: 'read' });
     assert.equal((await call('po_sources_open', { sourceId: source.sourceId, access: 'write' }, 'BUSINESS_ACCESS_REQUIRED')).error.code, 'BUSINESS_ACCESS_REQUIRED');
     assert.equal((await call('po_mutate', { connectionId: reopened.connectionId, domain: 'favorites', operation: 'deleteFavorite', arguments: [item.record.favoriteId],
@@ -301,6 +359,18 @@ try {
     await new Promise(resolve => setTimeout(resolve, 100));
     assert.equal((await call('po_assets_list', { connectionId: reopened.connectionId }, 'CONNECTION_CLOSED')).error.code, 'CONNECTION_CLOSED');
     item.record.closedPageConnectionInvalid = true;
+  }
+  for (const browser of browsers.splice(0)) await browser.close();
+  await client.close();
+  client = await connectMcp();
+  const restarted = await call('po_sources_list');
+  for (const item of openPages) {
+    const source = restarted.sources.find(source => source.sourceId === item.source.sourceId);
+    assert.equal(source?.availability, 'offline');
+    assert.equal(source.label, item.source.label);
+    assert.equal(source.productUrl, item.record.origin + '/');
+    assert.equal(source.pageId, undefined);
+    item.record.offlineAfterMcpRestart = true;
   }
 } finally {
   for (const browser of browsers) await browser.close();

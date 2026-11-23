@@ -1,70 +1,114 @@
 <template>
-  <div class="browser-bridge-entry">
-    <NButton size="small" :type="state === 'connected' ? 'success' : 'default'" round
-      data-testid="browser-bridge-entry" @click="show = true">{{ t('browserBridge.title') }}</NButton>
-  </div>
-  <NModal v-model:show="show" preset="card" :title="t('browserBridge.title')" class="browser-bridge-dialog"
-    :style="{ width: 'min(520px, calc(100vw - 32px))' }" data-testid="browser-bridge-panel">
+  <NButton v-if="state === 'connected'" class="browser-bridge-entry" size="small" round
+    data-testid="browser-bridge-revoke" @click="disconnect">
+    {{ t('browserBridge.connected') }} · {{ t('browserBridge.revoke') }}
+  </NButton>
+  <NModal :show="show" preset="card" :title="pending ? t('browserBridge.title') : t('browserBridge.connection')"
+    :style="{ width: 'min(440px, calc(100vw - 32px))' }" data-testid="browser-bridge-panel" @update:show="dismiss">
     <NSpace vertical :size="16">
-      <NAlert :type="state === 'connected' ? 'success' : 'info'" :show-icon="false" data-testid="browser-bridge-state">
-        {{ t(`browserBridge.${state}`) }}
-      </NAlert>
-      <p>{{ origin }}</p>
-      <p>{{ t('browserBridge.context') }}</p>
-      <template v-if="authorization">
-        <NInput v-model:value="label" :maxlength="80" :placeholder="t('browserBridge.label')"
-          :input-props="{ 'aria-label': t('browserBridge.label') }" data-testid="browser-bridge-label" />
-        <p>{{ t(authorization.access === 'business' ? 'browserBridge.businessScope' : authorization.access === 'compare' ? 'browserBridge.compareScope' : 'browserBridge.readScope') }}</p>
-        <NAlert v-if="authorization.access !== 'read'" type="warning" :show-icon="false">{{ t('browserBridge.charges') }}</NAlert>
-        <NButton type="primary" :disabled="!label.trim() || state === 'connecting'" :loading="state === 'connecting'"
-          data-testid="browser-bridge-authorize" @click="authorize">{{ t('browserBridge.authorize') }}</NButton>
+      <strong class="browser-bridge-origin">{{ origin }}</strong>
+      <template v-if="scope && !failure">
+        <p>{{ t(scopeDescriptions[scope]) }}</p>
+        <p>{{ t('browserBridge.lifetime') }}</p>
       </template>
-      <p v-else-if="state !== 'connected'">{{ t('browserBridge.instructions') }}</p>
+      <span v-if="pending?.registeredLabel">{{ pending.registeredLabel }}</span>
+      <details v-else-if="pending">
+        <summary data-testid="browser-bridge-label-toggle">{{ t('browserBridge.label') }}</summary>
+        <NInput v-model:value="label" class="browser-bridge-label" :maxlength="80" :placeholder="defaultLabel"
+          :input-props="{ 'aria-label': t('browserBridge.label') }" data-testid="browser-bridge-label" />
+      </details>
       <NAlert v-if="failure" type="error" :show-icon="false" data-testid="browser-bridge-error">
         {{ t('browserBridge.failure') }} ({{ failure }})
       </NAlert>
-      <NButton v-if="state === 'connected'" type="error" secondary data-testid="browser-bridge-revoke" @click="revoke">
-        {{ t('browserBridge.revoke') }}
-      </NButton>
+      <NSpace justify="end">
+        <template v-if="pending || state === 'connecting'">
+          <NButton data-testid="browser-bridge-cancel" @click="dismiss">{{ t('common.cancel') }}</NButton>
+          <NButton type="primary" :loading="state === 'connecting'" data-testid="browser-bridge-authorize" @click="authorize">
+            {{ t('browserBridge.authorize') }}
+          </NButton>
+        </template>
+        <NButton v-else @click="dismiss">{{ t('common.close') }}</NButton>
+      </NSpace>
     </NSpace>
   </NModal>
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { NAlert, NButton, NInput, NModal, NSpace } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import type { BrowserBridgeHost } from '@prompt-optimizer/core'
-import { browserLabel, connectBrowserPage, takeBrowserAuthorization } from '../../browser-bridge/client'
+import { takeBrowserAuthorization, type PageAuthorization } from '../../browser-bridge/authorization-link'
+import { browserLabel, connectBrowserPage } from '../../browser-bridge/client'
 
 const props = defineProps<{ host: BrowserBridgeHost; productVersion: string }>()
 const { t } = useI18n()
-const authorization = ref(takeBrowserAuthorization())
-const show = ref(Boolean(authorization.value))
+const scopeDescriptions = {
+  business: 'browserBridge.businessScope',
+  compare: 'browserBridge.compareScope',
+  read: 'browserBridge.readScope',
+} as const
+const pending = ref(takeBrowserAuthorization())
+const show = ref(Boolean(pending.value))
 const state = ref<'connecting' | 'connected' | 'disconnected'>('disconnected')
+const activeScope = ref<PageAuthorization['access']>()
+const scope = computed(() => pending.value?.access ?? activeScope.value)
 const failure = ref('')
-const label = ref(browserLabel())
+const defaultLabel = browserLabel()
+const label = ref(defaultLabel)
 const origin = window.location.origin
 let connection: ReturnType<typeof connectBrowserPage> | undefined
-const capture = () => {
+
+function capture() {
   const next = takeBrowserAuthorization()
-  if (next) { authorization.value = next; show.value = true; failure.value = '' }
+  if (!next) return
+  if (state.value === 'connecting') connection?.close()
+  pending.value = next
+  failure.value = ''
+  show.value = true
 }
-window.addEventListener('hashchange', capture)
+
+function dismiss() {
+  pending.value = undefined
+  if (state.value === 'connecting') connection?.close()
+  failure.value = ''
+  show.value = false
+}
 
 function authorize() {
-  if (!authorization.value || !label.value.trim()) return
+  const request = pending.value
+  if (!request) return
   connection?.close()
-  connection = connectBrowserPage(props.host, authorization.value, label.value.trim(), props.productVersion, (next, error) => {
+  pending.value = undefined
+  activeScope.value = request.access
+  const sourceLabel = request.registeredLabel || label.value.trim() || defaultLabel
+  connection = connectBrowserPage(props.host, request, sourceLabel, props.productVersion, (next, error) => {
     state.value = next
-    failure.value = error ?? ''
-    if (next === 'connected') authorization.value = undefined
+    if (next === 'connected') show.value = false
+    if (next === 'disconnected') activeScope.value = undefined
+    if (error) {
+      failure.value = error
+      show.value = true
+    }
   })
 }
-function revoke() { connection?.close(); authorization.value = undefined }
-onBeforeUnmount(() => { connection?.close(); window.removeEventListener('hashchange', capture) })
+
+function disconnect() {
+  connection?.close()
+  dismiss()
+}
+
+window.addEventListener('hashchange', capture)
+onBeforeUnmount(() => {
+  window.removeEventListener('hashchange', capture)
+  connection?.close()
+})
 </script>
 
 <style scoped>
 .browser-bridge-entry { position: fixed; bottom: 16px; left: 16px; z-index: 30; }
+.browser-bridge-origin { overflow-wrap: anywhere; }
+.browser-bridge-label { margin-top: 8px; }
+summary { cursor: pointer; }
+p { margin: 0; }
 </style>

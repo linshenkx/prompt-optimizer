@@ -10,8 +10,9 @@ node packages/mcp-server/bin/prompt-optimizer-product-mcp.cjs
 
 - `--desktop-profile=<绝对目录>` 指定已有桌面资料目录。可传多个，首个作为桌面默认资料。
 - `--product-url=<网页 URL>` 将指定网页设为默认来源。使用 `po_sources_authorize` 生成链接，在目标浏览器资料的产品页中授权。
-- Skill 可用 `po_sources_list` 列出桌面和已授权网页，按 Origin、浏览器和资料选择本次来源。同一 Origin 的多个匹配需要确认。默认优先级为本次选择、启动参数、桌面。
-- 用 `po_sources_open` 获取 `connectionId`。此后的查询、写入、模型运行和对照都使用该连接；来源断开后重新连接同一资料。
+- 只用网页版也可独立运行 MCP。首次提供完整产品入口地址，或设置默认网页后直接申请链接。日常访问时页面隐藏 MCP 入口。打开链接、确认权限后，保持该标签页开启即可使用网页资料和模型。
+- 已登记网页用 `po_sources_authorize({sourceId})` 重新授权，首次连接用 `po_sources_authorize({productUrl})`。用户在目标浏览器资料中打开链接并确认。相同网址的多份资料需按浏览器和资料名称选择。
+- 用 `po_sources_open` 获取 `connectionId`。此后的查询、写入、模型运行和对照都使用该连接。离线网页需授权恢复连接后再操作。
 
 用 `po_catalog` 查同一份业务目录，再用 `po_query`、`po_mutate`、`po_runs_*` 和文本对照工具处理资料。已保存结果写回所选来源，可以在原产品重开。配套 Skill 为 `prompt-optimizer-compare`。
 

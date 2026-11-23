@@ -63,6 +63,30 @@ describe('in-process browser transport (auxiliary protocol evidence)', () => {
     await expect(new Promise((_resolve, reject) => rejected.once('error', reject))).rejects.toThrow('403');
   });
 
+  it('binds a reconnect ticket to the exact browser and storage context', async () => {
+    const transport = bridge();
+    const expected = { browser: 'Test', browserContextId: randomUUID(), label: 'Named profile' };
+    const ticket = await transport.authorize('http://product.localhost:18181/installed-here/', 'read', expected);
+    const link = new URL(ticket.authorizationUrl);
+    expect(link.pathname).toBe('/installed-here/');
+    const [port, token] = link.hash.split('poBridge=')[1].split('.');
+    for (const [browser, contextId] of [['Test', randomUUID()], ['Other browser', expected.browserContextId], ['Test', expected.browserContextId]]) {
+      const client = new WebSocket('ws://127.0.0.1:' + port + '/bridge', { origin: link.origin });
+      clients.push(client);
+      const outcome = await new Promise<string>((resolve, reject) => {
+        client.once('error', reject);
+        client.once('close', () => resolve('rejected'));
+        client.once('message', () => resolve('authorized'));
+        client.once('open', () => client.send(JSON.stringify({ type: 'authorize', protocol: BROWSER_BRIDGE_PROTOCOL, ticket: token, access: 'read',
+          identity: { contextId, pageId: randomUUID(), label: 'New default label', browser, productVersion: 'test' } })));
+      });
+      const correct = browser === expected.browser && contextId === expected.browserContextId;
+      expect(outcome).toBe(correct ? 'authorized' : 'rejected');
+      expect(transport.listSources().sources).toHaveLength(correct ? 1 : 0);
+    }
+    expect(transport.listSources().sources[0].label).toBe(expected.label);
+  });
+
   it('never upgrades read authorization or concurrent connection access', async () => {
     const transport = bridge();
     const readonly = await authorize(transport, undefined, undefined, 'read');

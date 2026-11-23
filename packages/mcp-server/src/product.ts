@@ -1,5 +1,5 @@
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, type Tool } from '@modelcontextprotocol/sdk/types.js';
@@ -7,6 +7,7 @@ import {
   assertJson, BrowserBridgeError, productBusinessCatalog, publicBrowserError, type BrowserAccess,
 } from '@prompt-optimizer/core/bridge-protocol';
 import { createBrowserTransport } from './browser-transport.js';
+import { browserSourceId, createBrowserRegistry } from './browser-source-registry.js';
 import { createDesktopBusinessServer } from './desktop-business.js';
 import { matches, toolSpecs } from './desktop.js';
 import type { DesktopProfile } from './desktop-router.js';
@@ -41,15 +42,16 @@ function tool(name: string, description: string, properties: Record<string, obje
 export function createProductServer(
   profiles: DesktopProfile[] = [defaultDesktopProfile()],
   productUrl?: string,
-  browser = createBrowserTransport(),
 ) {
+  const registry = createBrowserRegistry(join(dirname(defaultDesktopProfile().userDataPath), 'mcp-browser-sources-v1'));
+  const browser = createBrowserTransport({ rememberSource: registry.remember });
   const desktop = createDesktopBusinessServer(profiles);
   const connections = new Map<string, Connection>();
   const businessTools = desktop.tools.filter(spec => 'sourceId' in (spec.inputSchema.properties ?? {}) && spec.name !== 'po_sources_open');
   const business = new Set(businessTools.map(spec => spec.name));
   const tools = [
-    tool('po_sources_list', 'List desktop profiles and authorized browser storage. Each browser source includes its Origin, browser and profile label. Use the configured default when the user has not chosen a source.', {}),
-    tool('po_sources_authorize', 'Create a one-use authorization link for a product URL. Open it in the user-selected browser/profile. If productUrl is omitted, use the configured browser URL.', { productUrl: text, access }),
+    tool('po_sources_list', 'List configured desktop sources and previously authorized browser sources, including offline ones. For a new browser source, ask for the product URL and use po_sources_authorize.', {}),
+    tool('po_sources_authorize', 'Create a one-use link. Use sourceId to reconnect a remembered browser profile, or productUrl to add a profile. With neither, use the configured web default. If several profiles match, select one by sourceId. Open the link in that profile and approve.', { sourceId: text, productUrl: text, access }),
     tool('po_sources_open', 'Open the selected sourceId or the configured default. Returns the connectionId used by all product tools. A requested permission never exceeds page authorization.', { sourceId: text, access }),
     tool('po_sources_close', 'Close the connection. The source can be reopened while it remains available.', { connectionId: text }, ['connectionId']),
     tool('po_catalog', 'Discover the shared product operations and kinds of model runs for desktop and browser sources.', { domain: text }),
@@ -70,21 +72,32 @@ export function createProductServer(
   const byName = new Map(tools.map(spec => [spec.name, spec]));
 
   async function listSources() {
-    const configured = await desktop.call('po_sources_list', {}) as { sources: Array<{ sourceId: string; label: string }> };
+    const [configured, remembered] = await Promise.all([
+      desktop.call('po_sources_list', {}) as Promise<{ sources: Array<{ sourceId: string; label: string }> }>,
+      registry.list(),
+    ]);
     const desktopSources = configured.sources.map(source => ({ ...source, kind: 'desktop' as const, authorizedAccess: 'write' as const }));
     const browserSources = new Map<string, BrowserSource>();
     for (const source of browser.listSources().sources) {
-      const key = JSON.stringify([source.origin, source.browser, source.browserContextId]);
+      const key = browserSourceId(source);
       const previous = browserSources.get(key);
       if (!previous || (previous.authorizedAccess !== 'business' && source.authorizedAccess === 'business')) browserSources.set(key, source);
     }
-    const webSources = [...browserSources.values()].map(source => ({
-      ...source, kind: 'browser' as const, authorizedAccess: source.authorizedAccess === 'business' ? 'write' as const : 'read' as const,
+    const online = [...browserSources.entries()].map(([sourceId, source]) => ({
+      ...source, sourceId, authorizedAccess: source.authorizedAccess === 'business' ? 'write' as const : 'read' as const,
     }));
+    const offline = remembered.sources.map(source => ({
+      ...source, sourceId: browserSourceId(source), kind: 'browser' as const, availability: 'offline' as const,
+      readiness: 'authorization-required' as const,
+    })).filter(source => !browserSources.has(source.sourceId));
+    const webSources = [...online, ...offline];
     const matches = productUrl ? webSources.filter(source => source.origin === new URL(productUrl).origin) : [];
     const defaultSourceId = productUrl ? (matches.length === 1 ? matches[0].sourceId : undefined) : desktopSources[0]?.sourceId;
-    return { sources: [...desktopSources, ...webSources], defaultSourceId, defaultProductUrl: productUrl,
-      ...(productUrl && matches.length > 1 ? { defaultSourceReason: 'SOURCE_AMBIGUOUS' } : {}) };
+    return { browserSources, result: {
+      sources: [...desktopSources, ...webSources], defaultSourceId, defaultProductUrl: productUrl,
+      browserRegistryAvailable: remembered.browserRegistryAvailable,
+      ...(productUrl && matches.length > 1 ? { defaultSourceReason: 'SOURCE_AMBIGUOUS' } : {}),
+    } };
   }
 
   function connection(connectionId: unknown) {
@@ -112,24 +125,34 @@ export function createProductServer(
       (input.savedOnly !== undefined && typeof input.savedOnly !== 'boolean') ||
       (input.arguments !== undefined && !Array.isArray(input.arguments))) throw new BrowserBridgeError('INVALID_INPUT');
     switch (name) {
-      case 'po_sources_list': return listSources();
+      case 'po_sources_list': return (await listSources()).result;
       case 'po_sources_authorize': {
-        const url = input.productUrl ?? productUrl;
-        if (typeof url !== 'string') throw new BrowserBridgeError('PRODUCT_URL_REQUIRED');
-        return browser.authorize(url, input.access === 'read' ? 'read' : 'business');
+        const permission = input.access === 'read' ? 'read' : 'business';
+        if (input.sourceId && input.productUrl) throw new BrowserBridgeError('INVALID_INPUT');
+        if (typeof input.productUrl === 'string') return browser.authorize(input.productUrl, permission);
+        if (!input.sourceId && !productUrl) throw new BrowserBridgeError('PRODUCT_URL_REQUIRED');
+        const { result } = await listSources();
+        if (!input.sourceId && result.defaultSourceReason) throw new BrowserBridgeError('SOURCE_AMBIGUOUS');
+        const selected = input.sourceId ?? result.defaultSourceId;
+        if (!selected && productUrl) return browser.authorize(productUrl, permission);
+        const source = result.sources.find(item => item.sourceId === selected);
+        if (source?.kind !== 'browser') throw new BrowserBridgeError('SOURCE_NOT_FOUND');
+        return { ...await browser.authorize(source.productUrl, permission, source),
+          sourceId: source.sourceId, browser: source.browser, label: source.label };
       }
       case 'po_catalog': return productBusinessCatalog(input.domain);
       case 'po_sources_open': {
-        const listed = await listSources();
+        const { browserSources, result: listed } = await listSources();
         const sourceId = input.sourceId ?? listed.defaultSourceId;
         if (!sourceId) throw new BrowserBridgeError(listed.defaultSourceReason ?? 'SOURCE_NOT_READY');
         const source = listed.sources.find(item => item.sourceId === sourceId);
         if (!source) throw new BrowserBridgeError('SOURCE_NOT_FOUND');
+        if (source.kind === 'browser' && source.availability === 'offline') throw new BrowserBridgeError('SOURCE_OFFLINE');
         const permission = (input.access ?? source.authorizedAccess) as Access;
         if (permission === 'write' && source.authorizedAccess !== 'write') throw new BrowserBridgeError('BUSINESS_ACCESS_REQUIRED');
         const opened = (source.kind === 'desktop'
           ? await desktop.call('po_sources_open', { sourceId, access: 'compare' })
-          : await browser.open(source.sourceId, (permission === 'write' ? 'business' : 'read') satisfies BrowserAccess)) as { connectionId: string };
+          : await browser.open(browserSources.get(source.sourceId)!.sourceId, (permission === 'write' ? 'business' : 'read') satisfies BrowserAccess)) as { connectionId: string };
         const current = connections.get(opened.connectionId);
         if (current && current.access !== permission) throw new BrowserBridgeError('ACCESS_MISMATCH');
         connections.set(opened.connectionId, { sourceId: source.sourceId, kind: source.kind, access: permission });

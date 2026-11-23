@@ -10,7 +10,7 @@ const ticket = 'a'.repeat(43)
 describe('product browser authorization links', () => {
   it('scrubs a cold-start ticket before the consent component mounts and consumes it only once', async () => {
     window.history.replaceState({}, '', `/?keep=yes#/pro/variable?poBridge=4242.${ticket}.read&view=saved`)
-    const { takeBrowserAuthorization } = await import('../../src/browser-bridge/client')
+    const { takeBrowserAuthorization } = await import('../../src/browser-bridge/authorization-link')
     expect(window.location.href).not.toContain('poBridge')
     expect(window.location.search).toBe('?keep=yes')
     expect(window.location.hash).toBe('#/pro/variable?view=saved')
@@ -19,16 +19,17 @@ describe('product browser authorization links', () => {
   })
 
   it('accepts a fresh same-document link after the product has already initialized', async () => {
-    const { takeBrowserAuthorization } = await import('../../src/browser-bridge/client')
+    const { takeBrowserAuthorization } = await import('../../src/browser-bridge/authorization-link')
     expect(takeBrowserAuthorization()).toBeUndefined()
-    window.location.hash = `/pro/variable?poBridge=4343.${ticket}.compare`
-    expect(takeBrowserAuthorization()).toEqual({ port: 4343, ticket, access: 'compare' })
+    const params = new URLSearchParams({ poBridge: `4343.${ticket}.compare`, poBridgeLabel: 'Firefox · 工作 & 个人' })
+    window.location.hash = `/pro/variable?${params}`
+    expect(takeBrowserAuthorization()).toEqual({ port: 4343, ticket, access: 'compare', registeredLabel: 'Firefox · 工作 & 个人' })
     expect(window.location.hash).toBe('#/pro/variable')
     expect(takeBrowserAuthorization()).toBeUndefined()
   })
 
   it('removes but refuses invalid ports, ticket formats and unrecognized scopes', async () => {
-    const { takeBrowserAuthorization } = await import('../../src/browser-bridge/client')
+    const { takeBrowserAuthorization } = await import('../../src/browser-bridge/authorization-link')
     for (const value of [`0.${ticket}.read`, `65536.${ticket}.read`, '4343.short.read', `4343.${ticket}.admin`]) {
       window.location.hash = `/pro/variable?poBridge=${value}`
       expect(takeBrowserAuthorization()).toBeUndefined()
