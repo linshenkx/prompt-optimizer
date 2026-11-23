@@ -66,7 +66,7 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
 describe('image output format', () => {
-  it('defaults to PNG and keeps GIF settings optional in the advanced section', async () => {
+  it('can use the provider format default and keeps GIF settings optional', async () => {
     state.current.currentParameterDefinitions.value = [
       { name: 'quality', type: 'string' },
       { name: 'output_format', type: 'string', allowedValues: ['png', 'gif'] },
@@ -79,7 +79,7 @@ describe('image output format', () => {
     const wrapper = await createWrapper()
     const select = wrapper.getComponent('[data-testid="image-output-format-select"]')
     const advanced = wrapper.getComponent({ name: 'ModelAdvancedSection' })
-    expect(select.props('value')).toBe('png')
+    expect(select.props('value')).toBeNull()
     expect(advanced.props('parameterDefinitions').map((def: any) => def.name)).toEqual(['quality'])
     expect(advanced.props('paramOverrides')).toEqual({ quality: 'high' })
 
@@ -93,8 +93,9 @@ describe('image output format', () => {
     await flushPromises()
     expect(state.current.configForm.value.paramOverrides).toEqual({ quality: 'high', output_format: 'gif', frame_count: 8, frame_duration_ms: 100 })
 
-    select.vm.$emit('update:value', 'png')
+    select.vm.$emit('update:value', null)
     await flushPromises()
+    expect(state.current.configForm.value.paramOverrides).not.toHaveProperty('output_format')
     expect(advanced.props('paramOverrides')).toEqual({ quality: 'high' })
     advanced.vm.$emit('update:paramOverrides', { quality: 'low' })
     await flushPromises()

@@ -183,7 +183,9 @@
               data-testid="image-output-format-select"
               :value="outputFormat"
               :options="outputFormatOptions"
+              :placeholder="t('localParameters.default')"
               :aria-label="t('image.params.outputFormat.label')"
+              clearable
               @update:value="updateOutputFormat"
             />
           </NFormItem>
@@ -385,7 +387,7 @@ const outputFormatDefinition = computed(() =>
 )
 const outputFormat = computed(() => {
   const value = configForm.value.paramOverrides?.output_format
-  return typeof value === 'string' && value ? value : 'png'
+  return typeof value === 'string' && value ? value : null
 })
 const outputFormatOptions = computed(() =>
   (outputFormatDefinition.value?.allowedValues || []).map((value, index) => ({
@@ -414,8 +416,14 @@ const updateAdvancedParamOverrides = (value: Record<string, unknown>) => {
   )
   updateParamOverrides({ ...hiddenOverrides, ...value })
 }
-const updateOutputFormat = (value: string) => {
-  updateParamOverrides({ ...configForm.value.paramOverrides, output_format: value })
+const updateOutputFormat = (value: string | null) => {
+  const overrides = { ...configForm.value.paramOverrides }
+  if (value === null) {
+    delete overrides.output_format
+  } else {
+    overrides.output_format = value
+  }
+  updateParamOverrides(overrides)
 }
 
 // 获取当前选择的 Provider 的 API Key URL

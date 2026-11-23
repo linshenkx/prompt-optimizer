@@ -80,6 +80,8 @@ describe('OpenAIImageAdapter', () => {
       ])
 
       expect(backgroundParam?.allowedValues).toEqual(['auto', 'opaque'])
+      expect(model?.parameterDefinitions.find(p => p.name === 'output_format')?.allowedValues).toEqual(['png', 'jpeg', 'webp'])
+      expect(model?.defaultParameterValues).toEqual({})
     })
   })
 
@@ -104,21 +106,19 @@ describe('OpenAIImageAdapter', () => {
     test('offers GIF only for supported models, including gateway-prefixed model IDs', () => {
       for (const id of ['gpt-image-2.6-flare', 'gpt-image-2.6-sunburst', 'codex/gpt-image-2.6-flare']) {
         const model = adapter.buildDefaultModel(id)
-        expect(model.parameterDefinitions.find(def => def.name === 'output_format')?.allowedValues).toEqual(['png', 'gif'])
-        expect(model.defaultParameterValues?.output_format).toBe('png')
-        expect(model.defaultParameterValues).not.toHaveProperty('frame_count')
-        expect(model.defaultParameterValues).not.toHaveProperty('frame_duration_ms')
+        expect(model.parameterDefinitions.find(def => def.name === 'output_format')?.allowedValues).toEqual(['png', 'gif', 'jpeg', 'webp'])
+        expect(model.defaultParameterValues).toEqual({})
       }
       expect(adapter.buildDefaultModel('gpt-image-2.5-flare').parameterDefinitions.some(def => def.name === 'frame_count')).toBe(false)
       expect(adapter.buildDefaultModel('custom-image').parameterDefinitions.some(def => def.name === 'output_format')).toBe(false)
     })
 
-    test('defaults to PNG and omits animation parameters even when previously configured', async () => {
+    test('uses the provider format default and omits previously configured animation parameters', async () => {
       mockResponse({ output_format: 'png', data: [{ b64_json: 'iVBORw0KGgo=' }] })
       const cfg = config({ frame_count: 12, frame_duration_ms: 100 })
       const result = await adapter.generate({ configId: cfg.id, prompt: 'a red square' }, cfg)
       const body = JSON.parse((global.fetch as any).mock.calls[0][1].body)
-      expect(body.output_format).toBe('png')
+      expect(body).toEqual({ model: cfg.modelId, prompt: 'a red square', n: 1 })
       expect(body).not.toHaveProperty('frame_count')
       expect(body).not.toHaveProperty('frame_duration_ms')
       expect(result.images[0].mimeType).toBe('image/png')
@@ -129,7 +129,7 @@ describe('OpenAIImageAdapter', () => {
       const cfg = config({ output_format: 'gif' })
       const result = await adapter.generate({ configId: cfg.id, prompt: 'a looping animation' }, cfg)
       const body = JSON.parse((global.fetch as any).mock.calls[0][1].body)
-      expect(body).toMatchObject({ output_format: 'gif', stream: false, n: 1, size: 'auto' })
+      expect(body).toEqual({ model: cfg.modelId, prompt: 'a looping animation', output_format: 'gif', n: 1 })
       expect(body).not.toHaveProperty('frame_count')
       expect(body).not.toHaveProperty('frame_duration_ms')
       expect(result.images[0]).toEqual({ b64: gif, mimeType: 'image/gif', url: `data:image/gif;base64,${gif}` })
@@ -163,7 +163,7 @@ describe('OpenAIImageAdapter', () => {
       })
       await adapter.generate({ configId: cfg.id, prompt: 'an animation' }, cfg)
       const body = JSON.parse((global.fetch as any).mock.calls[0][1].body)
-      expect(body.stream).toBe(false)
+      expect(body).not.toHaveProperty('stream')
       for (const key of ['partial_images', 'output_compression', 'prompt_rewriter', 'mask', 'input_image_mask']) {
         expect(body).not.toHaveProperty(key)
       }
@@ -287,6 +287,7 @@ describe('OpenAIImageAdapter', () => {
       const [, options] = (global.fetch as any).mock.calls[0]
       const body = JSON.parse(options.body)
       expect(body.size).toBe('3840x2160')
+      expect(body.quality).toBe('standard')
       expect(body.response_format).toBeUndefined()
     })
 
@@ -327,6 +328,29 @@ describe('OpenAIImageAdapter', () => {
 
       expect(result.images).toHaveLength(1)
       expect(result.images[0].url).toBe('https://example.com/cat.png')
+      const [, options] = vi.mocked(global.fetch).mock.calls[0]
+      expect(JSON.parse(options?.body as string)).toEqual({
+        model: config.modelId,
+        prompt: request.prompt,
+        size: '512x512',
+        n: 1
+      })
+    })
+
+    test.each([
+      ['jpeg', '/9j/'],
+      ['webp', 'UklGRgAAAABXRUJQ']
+    ])('preserves a configured %s format and labels its image data', async (format, image) => {
+      const config: ImageModelConfig = {
+        id: 'format-test', name: 'Format test', providerId: 'openai', modelId: 'gpt-image-2',
+        enabled: true, connectionConfig: { apiKey: 'test-key' }, paramOverrides: { output_format: format }
+      }
+      global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: [{ b64_json: image }] }) })
+
+      const result = await adapter.generate({ configId: config.id, prompt: 'a red square' }, config)
+      const [, options] = vi.mocked(global.fetch).mock.calls[0]
+      expect(JSON.parse(options?.body as string)).toHaveProperty('output_format', format)
+      expect(result.images[0].url).toBe(`data:image/${format};base64,${image}`)
     })
 
     test('should submit single image edits with the single image field', async () => {
@@ -372,6 +396,8 @@ describe('OpenAIImageAdapter', () => {
       expect(formData.get('prompt')).toBe('make this reference more cinematic')
       expect(formData.get('size')).toBe('1024x1024')
       expect(formData.get('n')).toBe('1')
+      expect(formData.has('output_format')).toBe(false)
+      expect(formData.has('stream')).toBe(false)
       expect(formData.get('response_format')).toBeNull()
       expect(formData.getAll('image')).toHaveLength(1)
       expect(formData.getAll('image[]')).toHaveLength(0)

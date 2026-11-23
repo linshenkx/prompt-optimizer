@@ -235,7 +235,7 @@ const messages = {
     "params": {
       "outputFormat": {
         "label": "Output Format",
-        "description": "Generate a PNG image by default, or choose an animated GIF",
+        "description": "Choose an output format or use the model default",
         "png": "PNG image",
         "gif": "Animated GIF"
       },
