@@ -2,6 +2,10 @@
 
 Full release narratives now live in versioned files under `releases/`. This file stays as the index and summary entry point.
 
+## [2.16.1] - 2026-11-23
+- EN: Save workspace drafts across reloads and desktop restarts, keep reported token usage with test results, and save multiple results as examples. See [Release Notes (EN)](releases/v2.16.1.en.md).
+- 中文：刷新页面和重开桌面应用后恢复工作区草稿，随测试结果保存模型报告的 token 用量，并支持批量收藏测试示例。参见 [版本说明（中文）](releases/v2.16.1.zh-CN.md)。
+
 ## [2.16.0] - 2026-11-18
 - EN: Adjust reasoning and other model parameters from the model selector, compare different settings for the same model, and restore reasoning text visibility and wrapping. See [Release Notes (EN)](releases/v2.16.0.en.md).
 - 中文：在模型下拉框内调整思考强度和其他参数，支持对比同一模型的不同设置，恢复思考内容显示与自动换行。参见 [版本说明（中文）](releases/v2.16.0.zh-CN.md)。
