@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { ref } from 'vue'
 import type { ImageResult } from '@prompt-optimizer/core'
 
 import { createTestPinia } from '../../utils/pinia-test-helpers'
@@ -48,13 +49,22 @@ const stubs = {
   },
   AdaptiveModal: {
     name: 'AdaptiveModal',
-    props: ['show', 'positiveText', 'positiveButtonProps'],
-    emits: ['update:show', 'positive-click', 'negative-click'],
+    props: ['show', 'positiveText', 'positiveButtonProps', 'onPositiveClick'],
+    emits: ['update:show', 'after-leave'],
+    methods: {
+      close() {
+        this.$emit('update:show', false)
+        this.$emit('after-leave')
+      },
+      async confirm() {
+        if (await this.onPositiveClick?.() !== false) this.close()
+      },
+    },
     template: `
       <div v-if="show" data-testid="batch-modal">
         <slot />
-        <button data-testid="batch-confirm" :disabled="positiveButtonProps?.disabled" @click="$emit('positive-click')">{{ positiveText }}</button>
-        <button data-testid="batch-cancel" @click="$emit('negative-click')">cancel</button>
+        <button data-testid="batch-confirm" :disabled="positiveButtonProps?.disabled" @click="confirm">{{ positiveText }}</button>
+        <button data-testid="batch-cancel" @click="close">cancel</button>
       </div>
     `,
   },
@@ -64,6 +74,7 @@ const mountBatchButton = (
   pinia: ReturnType<typeof createTestPinia>['pinia'],
   handleSaveFavorite: ReturnType<typeof vi.fn>,
   props: Record<string, unknown>,
+  addFavorite = vi.fn(async () => 'saved'),
 ) => mount(SaveTestResultExamplesBatchButton, {
   props: {
     testId: 'save-examples-batch',
@@ -71,7 +82,7 @@ const mountBatchButton = (
   },
   global: {
     plugins: [pinia],
-    provide: { handleSaveFavorite },
+    provide: { handleSaveFavorite, services: ref({ favoriteManager: { addFavorite } }) },
     stubs,
   },
 })
@@ -109,6 +120,19 @@ const openSelection = async (wrapper: ReturnType<typeof mountBatchButton>) => {
   await flushPromises()
 }
 
+const seedMixedPrompts = (pinia: ReturnType<typeof createTestPinia>['pinia']) => {
+  const session = seedBasicSystemSession(pinia)
+  session.testVariantResults.a.runSnapshot = {
+    prompt: 'Tested prompt 1 {{topic}}',
+    input: { text: 'Input A' },
+  }
+  session.testVariantResults.b.requestPrompt = '[system]\nOlder tested prompt 2\n\n[user]\nInput B'
+  session.testVariantResults.c.runSnapshot = {
+    prompt: 'Tested prompt 1 {{topic}}',
+    input: { text: 'Input C' },
+  }
+}
+
 describe('SaveTestResultExamplesBatchButton', () => {
   beforeEach(() => {
     toastMock.error.mockClear()
@@ -128,7 +152,7 @@ describe('SaveTestResultExamplesBatchButton', () => {
     expect(wrapper.find('[data-testid="save-examples-batch"]').exists()).toBe(false)
   })
 
-  it('preselects every ready column and saves them as multiple examples', async () => {
+  it('opens the normal favorite editor directly when the columns share a prompt', async () => {
     const { pinia } = createTestPinia()
     const handleSaveFavorite = vi.fn()
     seedBasicSystemSession(pinia)
@@ -139,16 +163,6 @@ describe('SaveTestResultExamplesBatchButton', () => {
     })
 
     await openSelection(wrapper)
-
-    expect(wrapper.find('[data-testid="batch-modal"]').exists()).toBe(true)
-    const checkboxes = wrapper.findAll('input[type="checkbox"]')
-    expect(checkboxes).toHaveLength(3)
-    expect(checkboxes.every((checkbox) => (checkbox.element as HTMLInputElement).checked)).toBe(true)
-    expect(wrapper.text()).toContain('Output B')
-    expect(wrapper.text()).toContain('model-c')
-
-    await wrapper.get('[data-testid="batch-confirm"]').trigger('click')
-    await flushPromises()
 
     expect(handleSaveFavorite).toHaveBeenCalledTimes(1)
     const payload = handleSaveFavorite.mock.calls[0][0]
@@ -177,36 +191,86 @@ describe('SaveTestResultExamplesBatchButton', () => {
     expect(wrapper.find('[data-testid="batch-modal"]').exists()).toBe(false)
   })
 
-  it('saves only the columns that remain selected', async () => {
+  it('saves configured and legacy results with their own prompts and test inputs', async () => {
     const { pinia } = createTestPinia()
     const handleSaveFavorite = vi.fn()
-    seedBasicSystemSession(pinia)
+    seedMixedPrompts(pinia)
+    const addFavorite = vi.fn(async () => 'saved')
 
     const wrapper = mountBatchButton(pinia, handleSaveFavorite, {
       ...basicSystemProps,
       variantIds: ['a', 'b', 'c'],
-    })
+    }, addFavorite)
 
     await openSelection(wrapper)
     const checkboxes = wrapper.findAll('input[type="checkbox"]')
-    await checkboxes[1].setValue(false)
+    expect(checkboxes).toHaveLength(3)
+    expect(checkboxes.every((checkbox) => (checkbox.element as HTMLInputElement).checked)).toBe(true)
 
     expect(wrapper.get('[data-testid="batch-confirm"]').text()).toContain('"count":2')
 
     await wrapper.get('[data-testid="batch-confirm"]').trigger('click')
     await flushPromises()
 
-    const examples = handleSaveFavorite.mock.calls[0][0].prefill.reproducibilityDraft.examples
-    expect(examples.map((example: { outputText?: string }) => example.outputText)).toEqual([
-      'Output A',
-      'Output C',
-    ])
+    expect(handleSaveFavorite).not.toHaveBeenCalled()
+    expect(addFavorite).toHaveBeenCalledTimes(2)
+    expect(addFavorite).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      content: 'Tested prompt 1 {{topic}}',
+      metadata: expect.objectContaining({
+        reproducibility: expect.objectContaining({
+          variables: expect.arrayContaining([expect.objectContaining({ name: 'topic' })]),
+          examples: [
+            expect.objectContaining({ id: 'ex-001', text: 'Input A', outputText: 'Output A' }),
+            expect.objectContaining({ id: 'ex-002', text: 'Input C', outputText: 'Output C' }),
+          ],
+        }),
+      }),
+    }))
+    expect(addFavorite).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      content: 'Older tested prompt 2',
+      metadata: expect.objectContaining({
+        reproducibility: expect.objectContaining({
+          examples: [expect.objectContaining({ id: 'ex-001', text: 'Input B', outputText: 'Output B' })],
+        }),
+      }),
+    }))
+    expect(wrapper.find('[data-testid="batch-modal"]').exists()).toBe(false)
+  })
+
+  it('excludes unchecked columns and retries only groups that did not save', async () => {
+    const { pinia } = createTestPinia()
+    seedMixedPrompts(pinia)
+    const addFavorite = vi.fn(async () => 'saved')
+      .mockResolvedValueOnce('first')
+      .mockRejectedValueOnce(new Error('Storage error'))
+    const wrapper = mountBatchButton(pinia, vi.fn(), {
+      ...basicSystemProps,
+      variantIds: ['a', 'b', 'c'],
+    }, addFavorite)
+
+    await openSelection(wrapper)
+    await wrapper.get('[data-testid="save-examples-batch-item-c"] input').setValue(false)
+    await wrapper.get('[data-testid="batch-confirm"]').trigger('click')
+    await flushPromises()
+    expect(addFavorite).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      metadata: expect.objectContaining({
+        reproducibility: expect.objectContaining({
+          examples: [expect.objectContaining({ outputText: 'Output A' })],
+        }),
+      }),
+    }))
+    expect(wrapper.get('[data-testid="batch-confirm"]').text()).toContain('"count":1')
+    expect(toastMock.error).toHaveBeenCalledTimes(1)
+    await wrapper.get('[data-testid="batch-confirm"]').trigger('click')
+    await flushPromises()
+    expect(addFavorite).toHaveBeenCalledTimes(3)
+    expect(addFavorite).toHaveBeenNthCalledWith(3, expect.objectContaining({ content: 'Older tested prompt 2' }))
   })
 
   it('disables confirmation when nothing is selected and cancels without saving', async () => {
     const { pinia } = createTestPinia()
     const handleSaveFavorite = vi.fn()
-    seedBasicSystemSession(pinia)
+    seedMixedPrompts(pinia)
 
     const wrapper = mountBatchButton(pinia, handleSaveFavorite, {
       ...basicSystemProps,
@@ -238,10 +302,6 @@ describe('SaveTestResultExamplesBatchButton', () => {
     })
 
     await openSelection(wrapper)
-
-    expect(wrapper.findAll('input[type="checkbox"]')).toHaveLength(1)
-    await wrapper.get('[data-testid="batch-confirm"]').trigger('click')
-    await flushPromises()
 
     expect(handleSaveFavorite.mock.calls[0][0].prefill.reproducibilityDraft.examples).toHaveLength(1)
   })
@@ -300,11 +360,6 @@ describe('SaveTestResultExamplesBatchButton', () => {
     })
 
     await openSelection(wrapper)
-    expect(wrapper.text()).toContain('favorites.dialog.reproducibility.outputImageCount:{"count":1}')
-
-    await wrapper.get('[data-testid="batch-confirm"]').trigger('click')
-    await flushPromises()
-
     const draft = handleSaveFavorite.mock.calls[0][0].prefill.reproducibilityDraft
     expect(draft.variables).toEqual([
       { name: 'scene', required: false, options: [], source: 'test-run' },

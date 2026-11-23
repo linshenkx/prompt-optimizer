@@ -348,6 +348,18 @@ describe('prompt-model session mapping', () => {
     })
   })
 
+  it('retains each legacy basic-user request prompt for saving test results', () => {
+    const [runSet] = promptTestRunSetsFromLegacySessionSnapshot({
+      subModeKey: 'basic-user',
+      prompt: 'Current prompt',
+      testVariants: [{ id: 'b', version: 'workspace', modelKey: 'model' }],
+      testVariantResults: {
+        b: { result: 'Old output', reasoning: '', requestPrompt: 'Older tested prompt' },
+      },
+    })
+    expect(runSet.runs[0].metadata?.promptText).toBe('Older tested prompt')
+  })
+
   it('builds a registry for implicit sessions and tracks the active normalized mode', () => {
     const basic = createPromptSessionSummaryFromLegacySnapshot({
       subModeKey: 'basic-system',

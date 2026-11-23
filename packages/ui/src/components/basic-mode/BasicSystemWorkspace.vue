@@ -861,7 +861,7 @@ const isAnyVariantRunning = computed(() => activeVariantIds.value.some((id) => !
 const getVariantLabel = (id: TestVariantId) => ({ a: 'A', b: 'B', c: 'C', d: 'D' }[id])
 // 可批量保存为示例的测试列：与单列保存按钮的可用条件保持一致
 const saveExampleReadyVariantIds = computed(() =>
-  activeVariantIds.value.filter((id) => hasVariantResult(id) && !variantRunning[id] && !isVariantStale(id))
+  activeVariantIds.value.filter((id) => hasVariantResult(id) && !variantRunning[id] && !variantFailed[id])
 )
 
 const handleVariantVersionChange = (id: TestVariantId, value: string | number) => {

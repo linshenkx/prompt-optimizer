@@ -407,6 +407,7 @@ import { useToast } from '../composables/ui/useToast'
 import { useTagSuggestions } from '../composables/ui/useTagSuggestions'
 import type { AppServices } from '../types/services'
 import { getI18nErrorMessage } from '../utils/error'
+import { persistFavoriteExampleImages } from '../utils/favorite-example-images'
 import { buildFavoriteMediaMetadata, parseFavoriteMediaMetadata } from '../utils/favorite-media'
 import { normalizeFavoriteFunctionMode } from '../utils/favorite-mode'
 import {
@@ -429,7 +430,6 @@ import {
   type FavoriteReproducibilityVariable,
 } from '../utils/favorite-reproducibility'
 import {
-  persistImagePayloadAsAssetId,
   persistImageSourceAsAssetId,
   resolveAssetIdToDataUrl,
 } from '../utils/image-asset-storage'
@@ -929,112 +929,14 @@ const buildMediaMetadataForSave = async () => {
   })
 }
 
-const persistSourcesForFavoriteAssets = async (sources: string[]) => {
-  const normalizedSources = dedupeStrings(
-    sources.map((item) => String(item || '').trim()).filter(Boolean),
-  )
-  const preferredStorage = getPreferredStorageService()
-  const assetIds: string[] = []
-  const fallbackSources: string[] = []
-
-  for (const source of normalizedSources) {
-    if (!preferredStorage) {
-      fallbackSources.push(source)
-      continue
-    }
-
-    try {
-      const assetId = await persistImageSourceAsAssetId({
-        source,
-        storageService: preferredStorage,
-        sourceType: 'uploaded',
-      })
-
-      if (assetId) {
-        assetIds.push(assetId)
-      } else {
-        fallbackSources.push(source)
-      }
-    } catch (error) {
-      console.warn('[FavoriteEditorForm] Failed to persist example image source:', error)
-      fallbackSources.push(source)
-    }
-  }
-
-  return {
-    assetIds: dedupeStrings(assetIds),
-    fallbackSources: dedupeStrings(fallbackSources),
-  }
-}
-
-const ensureExampleAssetsInFavoriteStorage = async (ids: string[]): Promise<string[]> => {
-  const preferred = getPreferredStorageService()
-  const fallback = getReadStorageCandidates().find((storage) => storage !== preferred)
-  if (!preferred || !fallback || ids.length === 0) return ids
-  if (typeof preferred.getMetadata !== 'function' || typeof fallback.getImage !== 'function') return ids
-
-  const resolved: string[] = []
-  for (const id of dedupeStrings(ids)) {
-    try {
-      if (await preferred.getMetadata(id)) {
-        resolved.push(id)
-        continue
-      }
-      const image = await fallback.getImage(id)
-      if (!image) {
-        resolved.push(id)
-        continue
-      }
-      const copiedId = await persistImagePayloadAsAssetId({
-        payload: { b64: image.data, mimeType: image.metadata.mimeType },
-        storageService: preferred,
-        sourceType: image.metadata.source,
-      })
-      resolved.push(copiedId || id)
-    } catch (error) {
-      console.warn('[FavoriteEditorForm] Failed to copy example image to favorite storage:', id, error)
-      resolved.push(id)
-    }
-  }
-  return resolved
-}
-
-const buildReproducibilityDraftForSave = async () => {
-  const examples: FavoriteReproducibilityExample[] = []
-
-  for (const example of toRaw(reproducibilityExamples.value)) {
-    const exampleImages = await persistSourcesForFavoriteAssets(example.images || [])
-    const inputImages = await persistSourcesForFavoriteAssets(example.inputImages || [])
-    const copiedOutputIds = await ensureExampleAssetsInFavoriteStorage(example.imageAssetIds || [])
-    const copiedInputIds = await ensureExampleAssetsInFavoriteStorage(example.inputImageAssetIds || [])
-
-    examples.push({
-      ...example,
-      messages: example.messages?.map((message) => ({ ...message })) || [],
-      parameters: { ...example.parameters },
-      outputText: example.outputText,
-      images: exampleImages.fallbackSources,
-      imageAssetIds: dedupeStrings([
-        ...copiedOutputIds,
-        ...exampleImages.assetIds,
-      ]),
-      inputImages: inputImages.fallbackSources,
-      inputImageAssetIds: dedupeStrings([
-        ...copiedInputIds,
-        ...inputImages.assetIds,
-      ]),
-      metadata: example.metadata ? { ...example.metadata } : undefined,
-    })
-  }
-
-  return {
-    variables: toRaw(reproducibilityVariables.value).map((variable) => ({
-      ...variable,
-      options: [...variable.options],
-    })),
-    examples,
-  }
-}
+const buildReproducibilityDraftForSave = () => persistFavoriteExampleImages(
+  {
+    examples: toRaw(reproducibilityExamples.value),
+    variables: toRaw(reproducibilityVariables.value),
+  },
+  services?.value?.favoriteImageStorageService,
+  services?.value?.imageStorageService,
+)
 
 const handleBeforeImageUpload = async (options: { file: UploadFileInfo }) => {
   const raw = (options.file as unknown as { file?: Blob | null }).file

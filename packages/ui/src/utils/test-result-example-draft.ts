@@ -5,6 +5,7 @@ import {
 } from '@prompt-optimizer/core'
 
 import { isValidVariableName } from '../types/variable'
+import { scanVariableNames } from './prompt-variables'
 import {
   favoriteReproducibilityExampleFromPromptExample,
   type FavoriteReproducibilityDraft,
@@ -16,6 +17,17 @@ export type TestResultExampleEntry = {
   variantId: string
   promptText?: string
   example: FavoriteReproducibilityExample
+}
+
+export const groupTestResultExamples = (entries: readonly TestResultExampleEntry[], fallbackPrompt: string) => {
+  const groups = new Map<string, TestResultExampleEntry[]>()
+  for (const entry of entries) {
+    const content = entry.promptText ?? fallbackPrompt
+    const group = groups.get(content)
+    if (group) group.push(entry)
+    else groups.set(content, [entry])
+  }
+  return Array.from(groups, ([content, entries]) => ({ content, entries }))
 }
 
 export const findTestRunForVariant = (
@@ -88,8 +100,9 @@ export const buildTestResultExampleEntries = (
  */
 export const buildTestResultVariableDraft = (
   examples: readonly FavoriteReproducibilityExample[],
+  prompt = '',
 ): FavoriteReproducibilityVariable[] => {
-  const names = new Set<string>()
+  const names = new Set(scanVariableNames(prompt))
   for (const example of examples) {
     for (const name of Object.keys(example.parameters || {})) {
       if (isValidVariableName(name)) names.add(name)
@@ -106,10 +119,11 @@ export const buildTestResultVariableDraft = (
 
 export const buildTestResultExampleDraft = (
   entries: readonly TestResultExampleEntry[],
+  prompt?: string,
 ): FavoriteReproducibilityDraft => {
   const examples = entries.map((entry) => entry.example)
   return {
-    variables: buildTestResultVariableDraft(examples),
+    variables: buildTestResultVariableDraft(examples, prompt),
     examples,
   }
 }

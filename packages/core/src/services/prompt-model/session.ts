@@ -511,7 +511,11 @@ export const promptTestRunSetsFromLegacySessionSnapshot = (
       : legacySystemPrompt?.userText
         ? { ...fallbackInput, text: legacySystemPrompt.userText }
         : fallbackInput;
-    const promptText = runSnapshot?.prompt ?? legacySystemPrompt?.prompt;
+    const legacyUserPrompt = !runSnapshot && modeKey === 'basic-user' && result && 'requestPrompt' in result
+      && typeof result.requestPrompt === 'string' && result.requestPrompt.trim()
+      ? result.requestPrompt
+      : undefined;
+    const promptText = runSnapshot?.prompt ?? legacySystemPrompt?.prompt ?? legacyUserPrompt;
     const versionSelection = runSnapshot?.version ?? variant.version;
 
     runs.push({
