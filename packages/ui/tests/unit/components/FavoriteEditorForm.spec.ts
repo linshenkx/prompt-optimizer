@@ -1179,4 +1179,82 @@ describe('FavoriteEditorForm', () => {
       'ex-002',
     ])
   })
+  it('appends a batch of test result examples with sequential ids in one save', async () => {
+    const favorite: FavoritePrompt = {
+      ...createFavoriteWithoutMedia('append-example-batch'),
+      content: 'Existing favorite content',
+      metadata: {
+        reproducibility: {
+          variables: [{ name: 'topic', required: false }],
+          examples: [
+            {
+              id: 'existing-example',
+              parameters: { topic: 'old' },
+            },
+          ],
+        },
+      },
+    }
+    const updateFavorite = vi.fn(async () => {})
+    const batchExample = (variantId: string, outputText: string) => ({
+      id: `test-run:implicit:basic-system:test:${variantId}`,
+      parameters: { topic: 'new' },
+      outputText,
+      images: [],
+      imageAssetIds: [],
+      inputImages: [],
+      inputImageAssetIds: [],
+    })
+
+    const wrapper = mount(FavoriteEditorForm, {
+      props: {
+        mode: 'edit',
+        favorite,
+        content: 'Incoming workspace content',
+        applyIncomingContentOnEdit: true,
+        prefill: {
+          functionMode: 'basic',
+          optimizationMode: 'system',
+          updateIntent: 'examples',
+          reproducibilityDraft: {
+            variables: [{ name: 'topic', required: false, options: [], source: 'test-run' }],
+            examples: [batchExample('a', 'Output A'), batchExample('c', 'Output C')],
+          },
+        },
+      },
+      global: {
+        stubs: naiveStubs,
+        provide: {
+          services: ref({
+            favoriteImageStorageService: {},
+            imageStorageService: {},
+            favoriteManager: {
+              getAllTags: vi.fn(async () => []),
+              addTag: vi.fn(async () => {}),
+              updateFavorite,
+            },
+          } as any),
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const editor = wrapper.findComponent({ name: 'FavoriteReproducibilityEditor' })
+    expect(editor.props('addedExampleIds')).toEqual(['ex-002', 'ex-003'])
+
+    await wrapper.findAll('button').at(-1)?.trigger('click')
+    await flushPromises()
+
+    expect(updateFavorite).toHaveBeenCalledWith('append-example-batch', expect.objectContaining({
+      content: 'Existing favorite content',
+    }))
+    const savedMetadata = updateFavorite.mock.calls[0]?.[1]?.metadata as Record<string, any>
+    expect(savedMetadata.reproducibility.examples.map((example: any) => [example.id, example.outputText])).toEqual([
+      ['existing-example', undefined],
+      ['ex-002', 'Output A'],
+      ['ex-003', 'Output C'],
+    ])
+    expect(savedMetadata.reproducibility.variables.map((variable: any) => variable.name)).toEqual(['topic'])
+  })
 })
