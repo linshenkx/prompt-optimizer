@@ -405,7 +405,7 @@
                                                 :original-content="logic.prompt.value"
                                                 function-mode="basic"
                                                 optimization-mode="system"
-                                                :disabled="variantRunning[id] || isVariantStale(id)"
+                                                :disabled="variantRunning[id] || variantFailed[id]"
                                                 :test-id="`save-test-example-basic-system-${id}`"
                                             />
                                             <EvaluationScoreBadge
@@ -1115,10 +1115,24 @@ const runVariant = async (
     evaluationHandler.clearBeforeTest()
   }
 
-  variantResults.value[id] = { result: '', reasoning: '', requestPrompt: `[system]\n${input.systemPrompt}\n\n[user]\n${input.userPrompt}` }
+  const inputImages = opts?.inputImages ?? getTestInputImages()
+  const initialTestImageAssetId = inputImages.length > 0 ? session.testImageAssetId?.trim() || undefined : undefined
+  variantResults.value[id] = {
+    result: '',
+    reasoning: '',
+    requestPrompt: `[system]\n${input.systemPrompt}\n\n[user]\n${input.userPrompt}`,
+    runSnapshot: {
+      prompt: input.systemPrompt,
+      modelKey: input.modelKey,
+      version: variantVersionModels[id].value,
+      input: {
+        text: input.userPrompt,
+        ...(initialTestImageAssetId ? { images: [{ kind: 'asset', assetId: initialTestImageAssetId }] } : {}),
+      },
+    },
+  }
   variantRunning[id] = true
   variantFailed[id] = false
-  const inputImages = opts?.inputImages ?? getTestInputImages()
   const runFingerprint = opts?.runFingerprint ?? getVariantFingerprint(id)
 
   const stream = beginOutputStream(variantResults.value[id], session, `test:${id}`)
@@ -1173,6 +1187,15 @@ const runVariant = async (
       setOutputTokenUsage(stream.document.record, capturedUsage)
     }
     if (stream.document.isCurrent) {
+      if (
+        inputImages.length > 0 &&
+        !variantResults.value[id]?.runSnapshot?.input?.images?.length &&
+        session.testImageAssetId &&
+        session.testImageB64 === inputImages[0]?.b64 &&
+        variantResults.value[id]?.runSnapshot?.input
+      ) {
+        variantResults.value[id].runSnapshot!.input!.images = [{ kind: 'asset', assetId: session.testImageAssetId }]
+      }
       variantRunning[id] = false
       variantLastRunFingerprint.value[id] = variantFailed[id] ? `failed:${runFingerprint}` : runFingerprint
       if (opts?.persist !== false) {

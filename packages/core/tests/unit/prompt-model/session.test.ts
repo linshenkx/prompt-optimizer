@@ -289,6 +289,65 @@ describe('prompt-model session mapping', () => {
     })
   })
 
+  it('prefers runSnapshot over current controls, parses legacy requestPrompt, and marks cancelled runs as error', () => {
+    const testRuns = promptTestRunSetsFromLegacySessionSnapshot({
+      subModeKey: 'basic-system',
+      prompt: 'Current original',
+      optimizedPrompt: 'Current optimized',
+      testContent: 'Current test input',
+      testVariants: [
+        { id: 'a', version: 'workspace', modelKey: 'new-model' },
+        { id: 'b', version: 'workspace', modelKey: 'legacy-model' },
+        { id: 'c', version: 'workspace', modelKey: 'cancelled-model' },
+      ],
+      testVariantResults: {
+        a: {
+          result: 'Snapshot output',
+          reasoning: '',
+          status: 'complete',
+          runSnapshot: {
+            prompt: 'Captured system prompt',
+            modelKey: 'captured-model',
+            version: 0,
+            input: { text: 'Captured user input' },
+          },
+        },
+        b: {
+          result: 'Legacy output',
+          reasoning: '',
+          requestPrompt: '[system]\nLegacy system prompt\n\n[user]\nLegacy user input',
+        },
+        c: {
+          result: 'Partial cancelled output',
+          reasoning: '',
+          status: 'cancelled',
+        },
+      },
+      lastActiveAt: 5000,
+    })
+
+    expect(testRuns[0].runs).toHaveLength(3)
+    expect(testRuns[0].runs[0]).toMatchObject({
+      status: 'success',
+      modelKey: 'captured-model',
+      revision: { kind: 'root' },
+      input: { text: 'Captured user input' },
+      output: { text: 'Snapshot output' },
+      metadata: { promptText: 'Captured system prompt' },
+    })
+    expect(testRuns[0].runs[1]).toMatchObject({
+      status: 'success',
+      modelKey: 'legacy-model',
+      input: { text: 'Legacy user input' },
+      output: { text: 'Legacy output' },
+      metadata: { promptText: 'Legacy system prompt' },
+    })
+    expect(testRuns[0].runs[2]).toMatchObject({
+      status: 'error',
+      output: { text: 'Partial cancelled output' },
+    })
+  })
+
   it('builds a registry for implicit sessions and tracks the active normalized mode', () => {
     const basic = createPromptSessionSummaryFromLegacySnapshot({
       subModeKey: 'basic-system',

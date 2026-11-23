@@ -429,6 +429,7 @@ import {
   type FavoriteReproducibilityVariable,
 } from '../utils/favorite-reproducibility'
 import {
+  persistImagePayloadAsAssetId,
   persistImageSourceAsAssetId,
   resolveAssetIdToDataUrl,
 } from '../utils/image-asset-storage'
@@ -966,12 +967,46 @@ const persistSourcesForFavoriteAssets = async (sources: string[]) => {
   }
 }
 
+const ensureExampleAssetsInFavoriteStorage = async (ids: string[]): Promise<string[]> => {
+  const preferred = getPreferredStorageService()
+  const fallback = getReadStorageCandidates().find((storage) => storage !== preferred)
+  if (!preferred || !fallback || ids.length === 0) return ids
+  if (typeof preferred.getMetadata !== 'function' || typeof fallback.getImage !== 'function') return ids
+
+  const resolved: string[] = []
+  for (const id of dedupeStrings(ids)) {
+    try {
+      if (await preferred.getMetadata(id)) {
+        resolved.push(id)
+        continue
+      }
+      const image = await fallback.getImage(id)
+      if (!image) {
+        resolved.push(id)
+        continue
+      }
+      const copiedId = await persistImagePayloadAsAssetId({
+        payload: { b64: image.data, mimeType: image.metadata.mimeType },
+        storageService: preferred,
+        sourceType: image.metadata.source,
+      })
+      resolved.push(copiedId || id)
+    } catch (error) {
+      console.warn('[FavoriteEditorForm] Failed to copy example image to favorite storage:', id, error)
+      resolved.push(id)
+    }
+  }
+  return resolved
+}
+
 const buildReproducibilityDraftForSave = async () => {
   const examples: FavoriteReproducibilityExample[] = []
 
   for (const example of toRaw(reproducibilityExamples.value)) {
     const exampleImages = await persistSourcesForFavoriteAssets(example.images || [])
     const inputImages = await persistSourcesForFavoriteAssets(example.inputImages || [])
+    const copiedOutputIds = await ensureExampleAssetsInFavoriteStorage(example.imageAssetIds || [])
+    const copiedInputIds = await ensureExampleAssetsInFavoriteStorage(example.inputImageAssetIds || [])
 
     examples.push({
       ...example,
@@ -980,12 +1015,12 @@ const buildReproducibilityDraftForSave = async () => {
       outputText: example.outputText,
       images: exampleImages.fallbackSources,
       imageAssetIds: dedupeStrings([
-        ...(example.imageAssetIds || []),
+        ...copiedOutputIds,
         ...exampleImages.assetIds,
       ]),
       inputImages: inputImages.fallbackSources,
       inputImageAssetIds: dedupeStrings([
-        ...(example.inputImageAssetIds || []),
+        ...copiedInputIds,
         ...inputImages.assetIds,
       ]),
       metadata: example.metadata ? { ...example.metadata } : undefined,

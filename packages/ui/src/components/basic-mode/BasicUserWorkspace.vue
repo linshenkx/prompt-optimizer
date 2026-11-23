@@ -403,7 +403,7 @@
                                         :original-content="logic.prompt.value"
                                         function-mode="basic"
                                         optimization-mode="user"
-                                        :disabled="variantRunning[id] || variantFailed[id] || (isCompact && isVariantStale(id))"
+                                        :disabled="variantRunning[id] || variantFailed[id]"
                                         :test-id="`save-test-example-basic-user-${id}`"
                                       />
                                       <EvaluationScoreBadge
@@ -973,7 +973,17 @@ const runVariant = async (
   }
 
   // 清空该列结果并开始流式写入
-  variantResults.value[id] = { result: '', reasoning: '', requestPrompt: input.prompt }
+  variantResults.value[id] = {
+    result: '',
+    reasoning: '',
+    requestPrompt: input.prompt,
+    runSnapshot: {
+      prompt: input.prompt,
+      modelKey: input.modelKey,
+      version: variantVersionModels[id].value,
+      input: {},
+    },
+  }
   variantRunning[id] = true
   variantFailed[id] = false
   const runFingerprint = getVariantFingerprint(id)

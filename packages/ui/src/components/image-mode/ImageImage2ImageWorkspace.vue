@@ -787,6 +787,7 @@ import {
     buildPromptExecutionContext,
     hashString,
     hashVariables,
+    pickUsedVariables,
 } from '../../utils/prompt-variables'
 import {
     buildTestPanelVersionOptions,
@@ -1581,6 +1582,10 @@ const runVariant = async (
     const request = getVariantRequest(id)
     if (!request) return false
     const runFingerprint = getVariantFingerprint(id)
+    const runVersion = variantVersionModels[id].value
+    const resolvedPromptText = resolvePromptForSelection(runVersion).text
+    const usedParameters = pickUsedVariables([resolvedPromptText], mergedGenerationVariables.value)
+    const runInputImageId = session.inputImageId?.trim() || undefined
 
     variantRunning[id] = true
     try {
@@ -1599,6 +1604,15 @@ const runVariant = async (
     res.metadata = {
       providerId: usedModel?.providerId || '', modelId: usedModel?.modelId || '', configId: request.configId,
       ...res.metadata, prompt: request.prompt,
+      runSnapshot: {
+        prompt: resolvedPromptText,
+        modelKey: request.configId,
+        version: runVersion,
+        input: {
+          ...(usedParameters ? { parameters: usedParameters } : {}),
+          ...(runInputImageId ? { images: [{ kind: 'asset', assetId: runInputImageId }] } : {}),
+        },
+      },
     }
         const inputImageInfo = await createVariantInputImageInfo(request.inputImage)
         session.updateTestVariantResult(id, withVariantInputImageInfo(res, inputImageInfo))

@@ -14,6 +14,7 @@ import {
 
 export type TestResultExampleEntry = {
   variantId: string
+  promptText?: string
   example: FavoriteReproducibilityExample
 }
 
@@ -70,7 +71,12 @@ export const buildTestResultExampleEntries = (
       ? favoriteReproducibilityExampleFromPromptExample(example)
       : null
     if (favoriteExample) {
-      entries.push({ variantId, example: favoriteExample })
+      const promptText = run.metadata?.promptText
+      entries.push({
+        variantId,
+        ...(typeof promptText === 'string' && promptText.trim() ? { promptText } : {}),
+        example: favoriteExample,
+      })
     }
   }
 

@@ -34,6 +34,15 @@ export const scanVariableNames = (content: string): string[] => {
   return result;
 };
 
+export const pickUsedVariables = (
+  templates: readonly string[],
+  variables: Record<string, string>,
+): Record<string, string> | undefined => {
+  const used = new Set(templates.flatMap((template) => scanVariableNames(template)));
+  const entries = Object.entries(variables).filter(([name]) => used.has(name));
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+};
+
 export const findForbiddenTemplateSyntax = (
   content: string,
 ): ForbiddenTemplateSyntax[] => {

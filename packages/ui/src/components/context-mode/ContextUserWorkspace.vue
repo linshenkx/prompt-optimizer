@@ -598,7 +598,7 @@ import { useWorkspaceModelSelection } from '../../composables/workspaces/useWork
 import { useWorkspaceTemplateSelection } from '../../composables/workspaces/useWorkspaceTemplateSelection';
 import { OptionAccessors } from '../../utils/data-transformer';
 import { useElementSize } from '@vueuse/core'
-import { buildPromptExecutionContext, hashString, hashVariables } from '../../utils/prompt-variables'
+import { buildPromptExecutionContext, hashString, hashVariables, pickUsedVariables } from '../../utils/prompt-variables'
 import { useWorkspaceTestBatch } from '../../composables/workspaces/useWorkspaceTestBatch'
 import {
     buildTestPanelVersionPromptRef,
@@ -1290,7 +1290,20 @@ const runVariant = async (
         evaluationHandler.clearBeforeTest()
     }
 
-    variantResults.value[id] = { result: '', reasoning: '', requestPrompt: ctx.renderedContent }
+    const usedParameters = pickUsedVariables([userPrompt], { ...baseVars, ...mergedTestVariables.value })
+    variantResults.value[id] = {
+        result: '',
+        reasoning: '',
+        requestPrompt: ctx.renderedContent,
+        runSnapshot: {
+            prompt: userPrompt,
+            modelKey: input.modelKey,
+            version: variantVersionModels[id].value,
+            input: {
+                ...(usedParameters ? { parameters: usedParameters } : {}),
+            },
+        },
+    }
     showTestResult(id, !!opts?.silentSuccess)
     variantRunning[id] = true
     const runFingerprint = getVariantFingerprint(id)

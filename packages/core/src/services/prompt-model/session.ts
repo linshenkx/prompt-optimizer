@@ -16,6 +16,7 @@ import {
   type PromptSessionSummary,
   type PromptTestRun,
   type PromptTestRunSet,
+  type PromptTestRunSnapshot,
 } from './types';
 import { promptContentFromText } from './content';
 import { createRootOnlyPromptOptimizationChain } from './history';
@@ -44,6 +45,9 @@ export interface LegacyPromptSessionTestVariant {
 export interface LegacyTextTestVariantResult {
   result?: string;
   reasoning?: string;
+  status?: string;
+  requestPrompt?: string;
+  runSnapshot?: PromptTestRunSnapshot;
 }
 
 export interface LegacyImageResultItem {
@@ -429,6 +433,48 @@ const createRunInput = (
   };
 };
 
+const parseLegacySystemRequestPrompt = (
+  requestPrompt: unknown,
+): { prompt?: string; userText?: string } | null => {
+  if (typeof requestPrompt !== 'string') return null;
+  const prefix = '[system]\n';
+  const separator = '\n\n[user]\n';
+  if (!requestPrompt.startsWith(prefix)) return null;
+  const separatorIndex = requestPrompt.indexOf(separator, prefix.length);
+  if (separatorIndex < 0) return null;
+  const prompt = requestPrompt.slice(prefix.length, separatorIndex);
+  const userText = requestPrompt.slice(separatorIndex + separator.length);
+  return {
+    ...(prompt.trim() ? { prompt } : {}),
+    ...(userText.trim() ? { userText } : {}),
+  };
+};
+
+const readRunSnapshot = (
+  result: LegacyTextTestVariantResult | LegacyImageResult | null | undefined,
+): PromptTestRunSnapshot | null => {
+  if (!result || !isPlainObject(result)) return null;
+  const raw =
+    'runSnapshot' in result && isPlainObject(result.runSnapshot)
+      ? result.runSnapshot
+      : 'metadata' in result && isPlainObject(result.metadata) && isPlainObject(result.metadata.runSnapshot)
+        ? result.metadata.runSnapshot
+        : null;
+  if (!raw) return null;
+
+  const version =
+    raw.version === 'workspace' || raw.version === 'previous' || (typeof raw.version === 'number' && Number.isFinite(raw.version))
+      ? raw.version
+      : undefined;
+
+  return {
+    ...(typeof raw.prompt === 'string' && raw.prompt.trim() ? { prompt: raw.prompt } : {}),
+    ...(asTrimmedString(raw.modelKey) ? { modelKey: asTrimmedString(raw.modelKey) } : {}),
+    ...(version !== undefined ? { version } : {}),
+    ...(isPlainObject(raw.input) ? { input: raw.input as PromptRunInput } : {}),
+  };
+};
+
 export const promptTestRunSetsFromLegacySessionSnapshot = (
   snapshot: LegacyPromptSessionSnapshot,
   options: PromptSessionFromLegacySnapshotOptions = {},
@@ -450,13 +496,32 @@ export const promptTestRunSetsFromLegacySessionSnapshot = (
       : textOutputFromLegacyResult(result);
     if (!output) continue;
 
+    const phase = result && 'status' in result ? result.status : undefined;
+    const status: PromptTestRun['status'] =
+      phase === undefined || phase === 'complete' ? 'success' : 'error';
+    const runSnapshot = readRunSnapshot(result);
+    const legacySystemPrompt =
+      !runSnapshot && modeKey === 'basic-system' && result && 'requestPrompt' in result
+        ? parseLegacySystemRequestPrompt(result.requestPrompt)
+        : null;
+
+    const fallbackInput = createRunInput(snapshot, modeKey);
+    const input: PromptRunInput = runSnapshot?.input
+      ? runSnapshot.input
+      : legacySystemPrompt?.userText
+        ? { ...fallbackInput, text: legacySystemPrompt.userText }
+        : fallbackInput;
+    const promptText = runSnapshot?.prompt ?? legacySystemPrompt?.prompt;
+    const versionSelection = runSnapshot?.version ?? variant.version;
+
     runs.push({
       id: `${sessionId}:test:${variant.id}`,
-      revision: revisionFromLegacyVersion(variant.version, chainId, sessionId),
-      input: createRunInput(snapshot, modeKey),
+      revision: revisionFromLegacyVersion(versionSelection, chainId, sessionId),
+      input,
       output,
-      status: 'success',
+      status,
       modelKey:
+        runSnapshot?.modelKey ??
         asTrimmedString(variant.modelKey) ??
         asTrimmedString(snapshot.selectedTestModelKey) ??
         asTrimmedString(snapshot.selectedImageModelKey),
@@ -468,8 +533,9 @@ export const promptTestRunSetsFromLegacySessionSnapshot = (
         ...(snapshot.versionId ? { versionId: snapshot.versionId } : {}),
         ...(assetBinding ? { assetBinding } : {}),
         ...(origin ? { origin } : {}),
+        ...(promptText ? { promptText } : {}),
         legacyVariantId: variant.id,
-        legacyVersionSelection: variant.version,
+        legacyVersionSelection: versionSelection,
         ...(snapshot.testVariantLastRunFingerprint?.[variant.id]
           ? { legacyFingerprint: snapshot.testVariantLastRunFingerprint[variant.id] }
           : {}),

@@ -524,6 +524,7 @@ import {
     buildConversationExecutionContext,
     hashString,
     hashVariables,
+    pickUsedVariables,
 } from '../../utils/prompt-variables'
 import {
     applyPatchOperationsToText,
@@ -1356,7 +1357,26 @@ const runVariant = async (
         evaluationHandler.clearBeforeTest()
     }
 
-    variantResults.value[id] = { result: '', reasoning: '', requestPrompt: formatConversationAsText(input.messages) }
+    const runVersion = variantVersionModels[id].value
+    const rawMessages = buildMessagesForSelection(runVersion)
+    const usedParameters = pickUsedVariables(
+        rawMessages.map((message) => message.content),
+        { ...(variableManager?.allVariables.value || {}), ...mergedTestVariables.value },
+    )
+    variantResults.value[id] = {
+        result: '',
+        reasoning: '',
+        requestPrompt: formatConversationAsText(input.messages),
+        runSnapshot: {
+            prompt: resolveSelectedMessageContent(runVersion).text,
+            modelKey: input.modelKey,
+            version: runVersion,
+            input: {
+                messages: rawMessages.map((message) => ({ ...message })),
+                ...(usedParameters ? { parameters: usedParameters } : {}),
+            },
+        },
+    }
     variantToolCalls[id] = []
     showTestResult(id, !!opts?.silentSuccess)
     variantRunning[id] = true

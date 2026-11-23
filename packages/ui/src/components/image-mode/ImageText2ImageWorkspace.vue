@@ -878,6 +878,7 @@ import {
     buildPromptExecutionContext,
     hashString,
     hashVariables,
+    pickUsedVariables,
 } from '../../utils/prompt-variables'
 import {
     buildTestPanelVersionOptions,
@@ -1903,6 +1904,9 @@ const runVariant = async (
     const request = getVariantRequest(id)
     if (!request) return false
     const runFingerprint = getVariantFingerprint(id)
+    const runVersion = variantVersionModels[id].value
+    const resolvedPromptText = resolvePromptForSelection(runVersion).text
+    const usedParameters = pickUsedVariables([resolvedPromptText], mergedGenerationVariables.value)
 
     if (!opts?.skipClearEvaluation) {
         evaluationHandler.clearBeforeTest()
@@ -1925,6 +1929,14 @@ const runVariant = async (
     res.metadata = {
       providerId: usedModel?.providerId || '', modelId: usedModel?.modelId || '', configId: request.configId,
       ...res.metadata, prompt: request.prompt,
+      runSnapshot: {
+        prompt: resolvedPromptText,
+        modelKey: request.configId,
+        version: runVersion,
+        input: {
+          ...(usedParameters ? { parameters: usedParameters } : {}),
+        },
+      },
     }
         session.updateTestVariantResult(id, res)
         session.setTestVariantLastRunFingerprint(id, runFingerprint)

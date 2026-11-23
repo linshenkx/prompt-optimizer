@@ -5,7 +5,9 @@ import type { ImageResult, PromptRecordChain } from '@prompt-optimizer/core'
 import { createTestPinia } from '../../utils/pinia-test-helpers'
 import SaveTestResultExampleButton from '../../../src/components/SaveTestResultExampleButton.vue'
 import { useBasicSystemSession } from '../../../src/stores/session/useBasicSystemSession'
+import { useBasicUserSession } from '../../../src/stores/session/useBasicUserSession'
 import { useImageMultiImageSession } from '../../../src/stores/session/useImageMultiImageSession'
+import { useImageText2ImageSession } from '../../../src/stores/session/useImageText2ImageSession'
 
 const toastMock = vi.hoisted(() => ({
   error: vi.fn(),
@@ -646,6 +648,149 @@ describe('SaveTestResultExampleButton', () => {
     await triggerSaveExample(wrapper)
 
     expect(handleSaveFavorite).not.toHaveBeenCalled()
+    expect(toastMock.warning).toHaveBeenCalledWith('favorites.dialog.reproducibility.noTestResultToSave')
+  })
+
+  it('saves basic-user and plain text2image results without separate test input', async () => {
+    const { pinia } = createTestPinia()
+    const handleSaveFavorite = vi.fn()
+    const userSession = useBasicUserSession(pinia)
+    userSession.optimizedPrompt = 'Write a haiku about rain'
+    userSession.testVariants = [
+      { id: 'a', version: 'workspace', modelKey: 'user-model' },
+      { id: 'b', version: 'workspace', modelKey: '' },
+      { id: 'c', version: 'workspace', modelKey: '' },
+      { id: 'd', version: 'workspace', modelKey: '' },
+    ]
+    userSession.testVariantResults = {
+      a: { result: 'Soft rain falls gently', reasoning: '', status: 'complete' },
+      b: { result: '', reasoning: '' },
+      c: { result: '', reasoning: '' },
+      d: { result: '', reasoning: '' },
+    }
+
+    const userWrapper = mountButton(pinia, handleSaveFavorite, {
+      subModeKey: 'basic-user',
+      variantId: 'a',
+      content: 'Write a haiku about rain',
+      functionMode: 'basic',
+      optimizationMode: 'user',
+    })
+    await triggerSaveExample(userWrapper)
+
+    expect(handleSaveFavorite).toHaveBeenCalledTimes(1)
+    expect(handleSaveFavorite.mock.calls[0][0]).toMatchObject({
+      content: 'Write a haiku about rain',
+      prefill: {
+        reproducibilityDraft: {
+          examples: [{ outputText: 'Soft rain falls gently' }],
+        },
+      },
+    })
+
+    const imageSession = useImageText2ImageSession(pinia)
+    imageSession.optimizedPrompt = 'A glowing lantern in snow'
+    imageSession.testVariants = [
+      { id: 'a', version: 'workspace', modelKey: 'img-model' },
+      { id: 'b', version: 'workspace', modelKey: '' },
+      { id: 'c', version: 'workspace', modelKey: '' },
+      { id: 'd', version: 'workspace', modelKey: '' },
+    ]
+    imageSession.testVariantResults = {
+      a: { images: [{ _type: 'image-ref', id: 'img-out-1' } as any] },
+      b: null,
+      c: null,
+      d: null,
+    }
+
+    const imageWrapper = mountButton(pinia, handleSaveFavorite, {
+      subModeKey: 'image-text2image',
+      variantId: 'a',
+      content: 'A glowing lantern in snow',
+      functionMode: 'image',
+      imageSubMode: 'text2image',
+    })
+    await triggerSaveExample(imageWrapper)
+
+    expect(handleSaveFavorite).toHaveBeenCalledTimes(2)
+    expect(handleSaveFavorite.mock.calls[1][0]).toMatchObject({
+      content: 'A glowing lantern in snow',
+      prefill: {
+        reproducibilityDraft: {
+          examples: [{ imageAssetIds: ['img-out-1'] }],
+        },
+      },
+    })
+  })
+
+  it('uses captured runSnapshot prompt and input when present, and rejects cancelled outputs', async () => {
+    const { pinia } = createTestPinia()
+    const handleSaveFavorite = vi.fn()
+    const session = useBasicSystemSession(pinia)
+
+    session.prompt = 'New original'
+    session.optimizedPrompt = 'New optimized'
+    session.testContent = 'New test input'
+    session.testVariants = [
+      { id: 'a', version: 'workspace', modelKey: 'new-model' },
+      { id: 'b', version: 'workspace', modelKey: 'new-model' },
+      { id: 'c', version: 'workspace', modelKey: '' },
+      { id: 'd', version: 'workspace', modelKey: '' },
+    ]
+    session.testVariantResults = {
+      a: {
+        result: 'Original run answer',
+        reasoning: '',
+        status: 'complete',
+        runSnapshot: {
+          prompt: 'Original system prompt',
+          modelKey: 'original-model',
+          version: 0,
+          input: { text: 'Original user input' },
+        },
+      },
+      b: {
+        result: 'Partial cancelled text',
+        reasoning: '',
+        status: 'cancelled',
+      },
+      c: { result: '', reasoning: '' },
+      d: { result: '', reasoning: '' },
+    }
+
+    const wrapperA = mountButton(pinia, handleSaveFavorite, {
+      subModeKey: 'basic-system',
+      variantId: 'a',
+      content: 'New optimized',
+      functionMode: 'basic',
+      optimizationMode: 'system',
+    })
+    await triggerSaveExample(wrapperA)
+
+    expect(handleSaveFavorite).toHaveBeenCalledTimes(1)
+    expect(handleSaveFavorite.mock.calls[0][0]).toMatchObject({
+      content: 'Original system prompt',
+      prefill: {
+        reproducibilityDraft: {
+          examples: [{
+            text: 'Original user input',
+            outputText: 'Original run answer',
+            metadata: { modelKey: 'original-model' },
+          }],
+        },
+      },
+    })
+
+    const wrapperB = mountButton(pinia, handleSaveFavorite, {
+      subModeKey: 'basic-system',
+      variantId: 'b',
+      content: 'New optimized',
+      functionMode: 'basic',
+      optimizationMode: 'system',
+    })
+    await triggerSaveExample(wrapperB)
+
+    expect(handleSaveFavorite).toHaveBeenCalledTimes(1)
     expect(toastMock.warning).toHaveBeenCalledWith('favorites.dialog.reproducibility.noTestResultToSave')
   })
 })

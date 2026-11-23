@@ -9,6 +9,7 @@ import {
 
 const resolveAssetIdToDataUrlMock = vi.fn()
 const persistImageSourceAsAssetIdMock = vi.fn()
+const persistImagePayloadAsAssetIdMock = vi.fn()
 const compactViewport = ref(false)
 
 vi.mock('../../../src/composables/ui/useWorkspaceLayout', () => ({
@@ -18,6 +19,7 @@ vi.mock('../../../src/composables/ui/useWorkspaceLayout', () => ({
 vi.mock('../../../src/utils/image-asset-storage', () => ({
   resolveAssetIdToDataUrl: (...args: unknown[]) => resolveAssetIdToDataUrlMock(...args),
   persistImageSourceAsAssetId: (...args: unknown[]) => persistImageSourceAsAssetIdMock(...args),
+  persistImagePayloadAsAssetId: (...args: unknown[]) => persistImagePayloadAsAssetIdMock(...args),
 }))
 
 vi.mock('../../../src/composables/ui/useTagSuggestions', () => ({
@@ -213,6 +215,7 @@ describe('FavoriteEditorForm', () => {
     compactViewport.value = false
     resolveAssetIdToDataUrlMock.mockReset()
     persistImageSourceAsAssetIdMock.mockReset()
+    persistImagePayloadAsAssetIdMock.mockReset()
   })
 
   afterEach(() => {
@@ -1179,6 +1182,79 @@ describe('FavoriteEditorForm', () => {
       'ex-002',
     ])
   })
+
+  it('copies workspace example image assets into favorite storage best-effort without blocking missing assets', async () => {
+    const favorite: FavoritePrompt = {
+      ...createFavoriteWithoutMedia('copy-workspace-assets'),
+      metadata: {
+        reproducibility: {
+          variables: [],
+          examples: [
+            {
+              id: 'case-copy',
+              parameters: {},
+              images: [],
+              imageAssetIds: ['workspace-output-1', 'already-in-fav'],
+              inputImages: [],
+              inputImageAssetIds: ['workspace-input-1', 'missing-legacy-asset'],
+            },
+          ],
+        },
+      },
+    }
+    const updateFavorite = vi.fn(async () => {})
+    const favoriteImageStorageService = {
+      getMetadata: vi.fn(async (id: string) => (id === 'already-in-fav' ? { id } : null)),
+    }
+    const imageStorageService = {
+      getImage: vi.fn(async (id: string) => {
+        if (id === 'workspace-output-1') {
+          return { data: 'b64-out', metadata: { mimeType: 'image/png', source: 'generated' } }
+        }
+        if (id === 'workspace-input-1') {
+          return { data: 'b64-in', metadata: { mimeType: 'image/jpeg', source: 'uploaded' } }
+        }
+        return null
+      }),
+    }
+    persistImagePayloadAsAssetIdMock.mockImplementation(({ payload }: { payload: { b64: string } }) => {
+      if (payload.b64 === 'b64-out') return 'fav-copied-output-1'
+      if (payload.b64 === 'b64-in') return 'fav-copied-input-1'
+      return null
+    })
+
+    const wrapper = mount(FavoriteEditorForm, {
+      props: {
+        mode: 'edit',
+        favorite,
+      },
+      global: {
+        stubs: naiveStubs,
+        provide: {
+          services: ref({
+            favoriteImageStorageService,
+            imageStorageService,
+            favoriteManager: {
+              getAllTags: vi.fn(async () => []),
+              addTag: vi.fn(async () => {}),
+              updateFavorite,
+            },
+          } as any),
+        },
+      },
+    })
+
+    await flushPromises()
+    await wrapper.findAll('button').at(-1)?.trigger('click')
+    await flushPromises()
+
+    expect(updateFavorite).toHaveBeenCalledTimes(1)
+    const savedMetadata = updateFavorite.mock.calls[0]?.[1]?.metadata as Record<string, any>
+    const savedExample = savedMetadata.reproducibility.examples[0]
+    expect(savedExample.imageAssetIds).toEqual(['fav-copied-output-1', 'already-in-fav'])
+    expect(savedExample.inputImageAssetIds).toEqual(['fav-copied-input-1', 'missing-legacy-asset'])
+  })
+
   it('appends a batch of test result examples with sequential ids in one save', async () => {
     const favorite: FavoritePrompt = {
       ...createFavoriteWithoutMedia('append-example-batch'),

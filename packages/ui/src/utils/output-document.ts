@@ -1,10 +1,10 @@
-import type { LLMTokenUsage } from '@prompt-optimizer/core'
+import type { LLMTokenUsage, PromptTestRunSnapshot } from '@prompt-optimizer/core'
 import { sanitizeTokenUsage } from './token-usage'
 import { Text } from '@codemirror/state'
 import { toRaw, shallowRef, unref, reactive, type Ref } from 'vue'
 
 export type OutputRecord = { result: string; reasoning: string; status?: OutputPhase; tokenUsage?: LLMTokenUsage }
-export type TestVariantResult = OutputRecord & { requestPrompt?: string }
+export type TestVariantResult = OutputRecord & { requestPrompt?: string; runSnapshot?: PromptTestRunSnapshot }
 export type OutputField = 'result' | 'reasoning'
 export type OutputPhase = 'streaming' | 'complete' | 'cancelled' | 'capacity' | 'failed'
 export function restoredOutputStatus(value: unknown): { status?: OutputPhase } {
@@ -13,10 +13,15 @@ export function restoredOutputStatus(value: unknown): { status?: OutputPhase } {
 }
 export function restoreTestVariantMetadata(record: Record<string, unknown>) {
   const tokenUsage = sanitizeTokenUsage(record.tokenUsage)
+  const runSnapshot =
+    record.runSnapshot && typeof record.runSnapshot === 'object' && !Array.isArray(record.runSnapshot)
+      ? (record.runSnapshot as PromptTestRunSnapshot)
+      : undefined
   return {
     ...restoredOutputStatus(record.status),
     ...(typeof record.requestPrompt === 'string' ? { requestPrompt: record.requestPrompt } : {}),
     ...(tokenUsage ? { tokenUsage } : {}),
+    ...(runSnapshot ? { runSnapshot } : {}),
   }
 }
 

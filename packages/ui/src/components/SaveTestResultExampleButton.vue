@@ -63,6 +63,7 @@ const disabled = computed(() => props.disabled || isSavingExample.value || !prop
 
 const openSaveFavoriteDialog = (
   session: PromptSession,
+  content: string,
   reproducibilityDraft: FavoriteReproducibilityDraft,
 ) => {
   if (!appHandleSaveFavorite) {
@@ -71,7 +72,7 @@ const openSaveFavoriteDialog = (
   }
 
   appHandleSaveFavorite({
-    content: props.content,
+    content,
     originalContent: props.originalContent,
     candidateSource: resolveSourceAssetRef(session.origin, session.assetBinding),
     prefill: {
@@ -98,7 +99,7 @@ const handleSaveExample = async () => {
 
     const reproducibilityDraft = buildTestResultExampleDraft(entries)
 
-    openSaveFavoriteDialog(session, reproducibilityDraft)
+    openSaveFavoriteDialog(session, entries[0]?.promptText ?? props.content, reproducibilityDraft)
   } finally {
     isSavingExample.value = false
   }

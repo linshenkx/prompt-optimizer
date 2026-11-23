@@ -623,7 +623,7 @@ import { useWorkspaceTextModelSelection } from '../../composables/workspaces/use
 import { useWorkspaceTemplateSelection } from '../../composables/workspaces/useWorkspaceTemplateSelection'
 import { useElementSize } from '@vueuse/core'
 import { useLocalPromptPreviewPanel } from '../../composables/prompt/useLocalPromptPreviewPanel'
-import { buildPromptExecutionContext } from '../../utils/prompt-variables'
+import { buildPromptExecutionContext, pickUsedVariables } from '../../utils/prompt-variables'
 import { useWorkspaceTestBatch } from '../../composables/workspaces/useWorkspaceTestBatch'
 import { buildTestPanelVersionOptions, resolveTestPanelVersionSelection } from '../../utils/testPanelVersion'
 import { buildMultiImageVariantFingerprint } from '../../utils/multiimage-workspace'
@@ -1646,6 +1646,13 @@ const runVariant = async (
   const request = getVariantRequest(id)
   if (!request) return false
     const runFingerprint = getVariantFingerprint(id)
+    const runVersion = variantVersionModels[id].value
+    const resolvedPromptText = resolvePromptForSelection(runVersion).text
+    const usedParameters = pickUsedVariables([resolvedPromptText], mergedGenerationVariables.value)
+    const runInputImageRefs = session.inputImages
+      .map((image) => image.assetId?.trim())
+      .filter((assetId): assetId is string => Boolean(assetId))
+      .map((assetId) => ({ kind: 'asset' as const, assetId }))
 
   variantRunning[id] = true
   try {
@@ -1664,6 +1671,15 @@ const runVariant = async (
     result.metadata = {
       providerId: usedModel?.providerId || '', modelId: usedModel?.modelId || '', configId: request.configId,
       ...result.metadata, prompt: request.prompt,
+      runSnapshot: {
+        prompt: resolvedPromptText,
+        modelKey: request.configId,
+        version: runVersion,
+        input: {
+          ...(usedParameters ? { parameters: usedParameters } : {}),
+          ...(runInputImageRefs.length > 0 ? { images: runInputImageRefs } : {}),
+        },
+      },
     }
     const inputImagesInfo = await createVariantInputImagesInfo(request.inputImages)
     session.updateTestVariantResult(id, withVariantInputImagesInfo(result, inputImagesInfo))
