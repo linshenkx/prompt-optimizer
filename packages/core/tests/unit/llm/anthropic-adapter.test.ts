@@ -93,9 +93,10 @@ describe('AnthropicAdapter', () => {
       expect(claude4).toBeDefined();
       expect(claude4?.providerId).toBe('anthropic');
       expect(models.map(model => model.id)).toEqual([
-        'claude-sonnet-5',
-        'claude-opus-5',
-        'claude-haiku-4-5-20251001'
+        'claude-sonnet-5-5',
+        'claude-opus-5-5',
+        'claude-haiku-5-5',
+        'claude-fable-5-2'
       ]);
     });
   });
@@ -145,7 +146,7 @@ describe('AnthropicAdapter', () => {
     it('should use adaptive thinking and effort for Claude 5', async () => {
       const mockCreate = vi.fn().mockResolvedValue({
         content: [{ type: 'text', text: 'ok' }],
-        model: 'claude-sonnet-5',
+        model: 'claude-sonnet-5-5',
         stop_reason: 'end_turn',
         usage: { input_tokens: 1, output_tokens: 1 }
       });
@@ -162,11 +163,81 @@ describe('AnthropicAdapter', () => {
       });
 
       expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({
-        model: 'claude-sonnet-5',
+        model: 'claude-sonnet-5-5',
         thinking: { type: 'adaptive' },
         output_config: { effort: 'medium' }
       }));
       expect(mockCreate.mock.calls[0][0].temperature).toBeUndefined();
+    });
+
+    it.each([
+      'claude-sonnet-5-5',
+      'claude-opus-5-5',
+      'claude-haiku-5-5',
+      'claude-fable-5-2',
+      'claude-mythos-5-2',
+      'claude-sonnet-5',
+      'claude-opus-5',
+      'claude-opus-4-8',
+      'claude-opus-4-7'
+    ])('should send adaptive thinking without sampling params for %s', async (modelId) => {
+      const mockCreate = vi.fn().mockResolvedValue({
+        content: [{ type: 'text', text: 'ok' }],
+        model: modelId,
+        stop_reason: 'end_turn',
+        usage: { input_tokens: 1, output_tokens: 1 }
+      });
+      (Anthropic as any).prototype.messages = { create: mockCreate, stream: vi.fn() };
+
+      const modelMeta = adapter.buildDefaultModel(modelId);
+      expect(modelMeta.parameterDefinitions?.map(def => def.name)).toEqual(['max_tokens', 'effort']);
+
+      await adapter.sendMessage(mockMessages, {
+        ...mockConfig,
+        modelMeta,
+        paramOverrides: {
+          effort: 'low',
+          temperature: 0.2,
+          top_p: 0.9,
+          top_k: 5,
+          thinking_budget_tokens: 2048
+        }
+      });
+
+      const request = mockCreate.mock.calls[0][0];
+      expect(request.thinking).toEqual({ type: 'adaptive' });
+      expect(request.output_config).toEqual({ effort: 'low' });
+      expect(request.temperature).toBeUndefined();
+      expect(request.top_p).toBeUndefined();
+      expect(request.top_k).toBeUndefined();
+    });
+
+    it.each([
+      'claude-haiku-4-5-20251001',
+      'claude-opus-4-6',
+      'claude-sonnet-4-5'
+    ])('should keep budget thinking and sampling params for %s', async (modelId) => {
+      const mockCreate = vi.fn().mockResolvedValue({
+        content: [{ type: 'text', text: 'ok' }],
+        model: modelId,
+        stop_reason: 'end_turn',
+        usage: { input_tokens: 1, output_tokens: 1 }
+      });
+      (Anthropic as any).prototype.messages = { create: mockCreate, stream: vi.fn() };
+
+      await adapter.sendMessage(mockMessages, {
+        ...mockConfig,
+        modelMeta: adapter.buildDefaultModel(modelId),
+        paramOverrides: {
+          temperature: 0.2,
+          thinking_budget_tokens: 2048
+        }
+      });
+
+      const request = mockCreate.mock.calls[0][0];
+      expect(request.thinking).toEqual({ type: 'enabled', budget_tokens: 2048 });
+      expect(request.temperature).toBe(0.2);
+      expect(request.output_config).toBeUndefined();
     });
 
     it('should return response content from Anthropic API', async () => {
