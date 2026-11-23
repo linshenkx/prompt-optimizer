@@ -44,6 +44,7 @@ export function createDesktopServiceBridge(services: Record<string, unknown>): u
       return {
         contextBridge: { exposeInMainWorld: (_name: string, value: unknown) => { api = value } },
         ipcRenderer: {
+          on: () => {},
           invoke: async (channel: string, ...args: unknown[]) => {
             const handler = handlers.get(channel)
             if (!handler) throw new Error(`Desktop handler not registered: ${channel}`)
