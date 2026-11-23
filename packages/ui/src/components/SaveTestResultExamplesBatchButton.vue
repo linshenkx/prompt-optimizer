@@ -1,20 +1,22 @@
 <template>
   <template v-if="variantIds.length >= 2">
-    <NButton
-      size="small"
-      secondary
-      :disabled="disabled"
-      :loading="isPreparing"
-      :data-testid="testId"
-      @click="handleOpenSelection"
-    >
-      <template #icon>
-        <NIcon :size="14">
-          <Star />
-        </NIcon>
-      </template>
-      {{ t('favorites.dialog.reproducibility.saveTestResultExamplesBatch') }}
-    </NButton>
+    <ThemedTooltip :label="saveAllLabel">
+      <NButton
+        size="small"
+        secondary
+        :aria-label="saveAllLabel"
+        :disabled="disabled"
+        :loading="isPreparing"
+        :data-testid="testId"
+        @click="handleOpenSelection"
+      >
+        <template #icon>
+          <NIcon :size="16">
+            <Star />
+          </NIcon>
+        </template>
+      </NButton>
+    </ThemedTooltip>
 
     <AdaptiveModal
       v-model:show="showSelection"
@@ -72,6 +74,7 @@ import { Star } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 
 import AdaptiveModal from './common/AdaptiveModal.vue'
+import ThemedTooltip from './common/ThemedTooltip.vue'
 import { useToast } from '../composables/ui/useToast'
 import { useSessionManager, type SubModeKey } from '../stores/session/useSessionManager'
 import type { AppServices } from '../types/services'
@@ -109,6 +112,7 @@ const props = withDefaults(defineProps<{
 })
 
 const { t } = useI18n()
+const saveAllLabel = computed(() => t('favorites.dialog.reproducibility.saveTestResultExamplesBatch'))
 const toast = useToast()
 const sessionManager = useSessionManager()
 const services = inject<Ref<AppServices | null> | null>('services', null)
