@@ -105,4 +105,120 @@ describe('HistoryManager with DexieStorageProvider', () => {
     expect(next.versions).toHaveLength(50);
     expect(await manager.getChain(created.chainId)).toEqual(next);
   });
+
+  it('queues concurrent Dexie mutations so a rejected delete does not reject the next valid mutation', async () => {
+    const provider = new DexieStorageProvider();
+    providers.push(provider);
+    const manager = new HistoryManager(provider, stubModelManager);
+
+    const chainA = await manager.createNewChain({
+      id: 'root-dexie-queue-a',
+      originalPrompt: 'Original A',
+      optimizedPrompt: 'v1 A',
+      type: 'optimize',
+      modelKey: 'openai',
+      templateId: 'tpl-1',
+    });
+    const chainB = await manager.createNewChain({
+      id: 'root-dexie-queue-b',
+      originalPrompt: 'Original B',
+      optimizedPrompt: 'v1 B',
+      type: 'optimize',
+      modelKey: 'openai',
+      templateId: 'tpl-1',
+    });
+
+    const results = await Promise.allSettled([
+      manager.deleteChain('missing-chain'),
+      manager.deleteChain(chainA.chainId),
+      manager.addIteration({
+        chainId: chainB.chainId,
+        originalPrompt: 'Original B',
+        optimizedPrompt: 'v2 B',
+        modelKey: 'openai',
+        templateId: 'tpl-1',
+      }),
+    ]);
+
+    expect(results[0].status).toBe('rejected');
+    expect((results[0] as PromiseRejectedResult).reason).toBeInstanceOf(RecordNotFoundError);
+    expect(results[1].status).toBe('fulfilled');
+    expect(results[2].status).toBe('fulfilled');
+    expect((results[2] as PromiseFulfilledResult<Awaited<ReturnType<typeof manager.addIteration>>>).value.currentRecord.version).toBe(2);
+
+    await expect(manager.getChain(chainA.chainId)).rejects.toBeInstanceOf(RecordNotFoundError);
+    const updatedB = await manager.getChain(chainB.chainId);
+    expect(updatedB.versions.map(v => v.version)).toEqual([1, 2]);
+  });
+
+  it('preserves roots of all active chains when alternating iterations exceed 50 records', async () => {
+    const provider = new DexieStorageProvider();
+    providers.push(provider);
+    const manager = new HistoryManager(provider, stubModelManager);
+
+    const chainA = await manager.createNewChain({
+      id: 'root-dexie-alt-a',
+      originalPrompt: 'Original A',
+      optimizedPrompt: 'A v1',
+      type: 'optimize',
+      modelKey: 'openai',
+      templateId: 'tpl-1',
+    });
+    const chainB = await manager.createNewChain({
+      id: 'root-dexie-alt-b',
+      originalPrompt: 'Original B',
+      optimizedPrompt: 'B v1',
+      type: 'optimize',
+      modelKey: 'openai',
+      templateId: 'tpl-1',
+    });
+
+    for (let i = 0; i < 24; i++) {
+      await manager.addIteration({
+        chainId: chainA.chainId,
+        originalPrompt: 'Original A',
+        optimizedPrompt: `A v${i + 2}`,
+        modelKey: 'openai',
+        templateId: 'tpl-1',
+      });
+      await manager.addIteration({
+        chainId: chainB.chainId,
+        originalPrompt: 'Original B',
+        optimizedPrompt: `B v${i + 2}`,
+        modelKey: 'openai',
+        templateId: 'tpl-1',
+      });
+    }
+
+    await manager.addIteration({
+      chainId: chainA.chainId,
+      originalPrompt: 'Original A',
+      optimizedPrompt: 'A v26',
+      modelKey: 'openai',
+      templateId: 'tpl-1',
+    });
+    await manager.addIteration({
+      chainId: chainB.chainId,
+      originalPrompt: 'Original B',
+      optimizedPrompt: 'B v26',
+      modelKey: 'openai',
+      templateId: 'tpl-1',
+    });
+    const chainC = await manager.createNewChain({
+      id: 'root-dexie-alt-c',
+      originalPrompt: 'Original C',
+      optimizedPrompt: 'C v1',
+      type: 'optimize',
+      modelKey: 'openai',
+      templateId: 'tpl-1',
+    });
+
+    expect((await manager.getRecords()).length).toBeLessThanOrEqual(50);
+    expect((await manager.getChain(chainA.chainId)).rootRecord.version).toBe(1);
+    expect((await manager.getChain(chainB.chainId)).rootRecord.version).toBe(1);
+    expect((await manager.getChain(chainC.chainId)).rootRecord.version).toBe(1);
+    expect((await manager.getAllChains()).map(c => c.chainId).sort()).toEqual(
+      [chainA.chainId, chainB.chainId, chainC.chainId].sort(),
+    );
+  });
 });

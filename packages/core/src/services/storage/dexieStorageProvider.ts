@@ -175,19 +175,21 @@ export class DexieStorageProvider implements IStorageProvider {
   ): Promise<void> {
     await this.initialize();
 
-    // 获取键级别的锁
     const lockKey = `atomic_${key}`;
-    if (this.keyLocks.has(lockKey)) {
-      await this.keyLocks.get(lockKey);
-    }
+    const previous = this.keyLocks.get(lockKey) ?? Promise.resolve();
+    const current = previous
+      .catch(() => {})
+      .then(() => this._performAtomicUpdateWithRetry(key, updateFn));
 
-    const lockPromise = this._performAtomicUpdateWithRetry(key, updateFn);
-    this.keyLocks.set(lockKey, lockPromise);
+    const tail = current.catch(() => {});
+    this.keyLocks.set(lockKey, tail);
 
     try {
-      await lockPromise;
+      await current;
     } finally {
-      this.keyLocks.delete(lockKey);
+      if (this.keyLocks.get(lockKey) === tail) {
+        this.keyLocks.delete(lockKey);
+      }
     }
   }
 

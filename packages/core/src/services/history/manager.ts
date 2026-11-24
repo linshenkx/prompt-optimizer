@@ -39,6 +39,47 @@ export class HistoryManager implements IHistoryManager {
     }
   }
 
+  private trimRecordsPreservingRoots(records: PromptRecord[]): PromptRecord[] {
+    if (records.length <= this.maxRecords) {
+      return records;
+    }
+
+    const retained = [...records];
+    const chainCounts = new Map<string, number>();
+    const rootCounts = new Map<string, number>();
+    for (const r of retained) {
+      chainCounts.set(r.chainId, (chainCounts.get(r.chainId) ?? 0) + 1);
+      if (r.version === 1) {
+        rootCounts.set(r.chainId, (rootCounts.get(r.chainId) ?? 0) + 1);
+      }
+    }
+
+    while (retained.length > this.maxRecords) {
+      let evictIndex = -1;
+      for (let i = retained.length - 1; i >= 1; i--) {
+        const candidate = retained[i];
+        const count = chainCounts.get(candidate.chainId) ?? 0;
+        const roots = rootCounts.get(candidate.chainId) ?? 0;
+        // Never evict the sole root of a chain that still has other retained records;
+        // evicting a 1-record chain's root cleanly drops that entire chain.
+        if (candidate.version !== 1 || count <= 1 || roots > 1) {
+          evictIndex = i;
+          break;
+        }
+      }
+      if (evictIndex === -1) {
+        evictIndex = retained.length - 1;
+      }
+      const [evicted] = retained.splice(evictIndex, 1);
+      chainCounts.set(evicted.chainId, (chainCounts.get(evicted.chainId) ?? 1) - 1);
+      if (evicted.version === 1) {
+        rootCounts.set(evicted.chainId, (rootCounts.get(evicted.chainId) ?? 1) - 1);
+      }
+    }
+
+    return retained;
+  }
+
   /**
    * Add a new record using atomic operation
    * @param record The record to add
@@ -70,8 +111,8 @@ export class HistoryManager implements IHistoryManager {
           // Add record to existing records (at the beginning)
           const updatedRecords = [record, ...records];
           
-          // Ensure we don't exceed maxRecords
-          return updatedRecords.slice(0, this.maxRecords);
+          // Ensure we don't exceed maxRecords without orphaning active chains
+          return this.trimRecordsPreservingRoots(updatedRecords);
         }
       );
     } catch (err: any) {
@@ -285,15 +326,7 @@ export class HistoryManager implements IHistoryManager {
         );
       }
 
-      let nextRecords = [record, ...records];
-      if (nextRecords.length > this.maxRecords) {
-        nextRecords = nextRecords.slice(0, this.maxRecords);
-        if (!nextRecords.some(r => r.id === rootRecord.id)) {
-          // Preserve the chain root so this chain remains readable under the retention limit.
-          nextRecords = [...nextRecords.slice(0, this.maxRecords - 1), rootRecord];
-        }
-      }
-
+      const nextRecords = this.trimRecordsPreservingRoots([record, ...records]);
       const retainedChainRecords = nextRecords
         .filter(r => r.chainId === params.chainId)
         .sort((a, b) => a.version - b.version);

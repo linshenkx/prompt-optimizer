@@ -366,3 +366,60 @@ test('PreferenceService clear is atomic against concurrent SQLite peer batch upd
     await peer.close();
   }
 });
+
+test('HistoryManager preserves roots of both active chains across 48 alternating iterations and record 51 on SQLite', async t => {
+  const { provider } = await fixture(t);
+  const manager = new HistoryManager(provider, { getModel: async () => undefined });
+  const chainA = await manager.createNewChain({
+    id: 'root-alt-a',
+    originalPrompt: 'Original A',
+    optimizedPrompt: 'A v1',
+    type: 'optimize',
+    modelKey: 'openai',
+    templateId: 'tpl-1',
+  });
+  const chainB = await manager.createNewChain({
+    id: 'root-alt-b',
+    originalPrompt: 'Original B',
+    optimizedPrompt: 'B v1',
+    type: 'optimize',
+    modelKey: 'openai',
+    templateId: 'tpl-1',
+  });
+
+  for (let i = 0; i < 24; i++) {
+    await manager.addIteration({
+      chainId: chainA.chainId,
+      originalPrompt: 'Original A',
+      optimizedPrompt: `A v${i + 2}`,
+      modelKey: 'openai',
+      templateId: 'tpl-1',
+    });
+    await manager.addIteration({
+      chainId: chainB.chainId,
+      originalPrompt: 'Original B',
+      optimizedPrompt: `B v${i + 2}`,
+      modelKey: 'openai',
+      templateId: 'tpl-1',
+    });
+  }
+
+  assert.equal((await manager.getRecords()).length, 50);
+  await manager.addIteration({
+    chainId: chainA.chainId,
+    originalPrompt: 'Original A',
+    optimizedPrompt: 'A v26',
+    modelKey: 'openai',
+    templateId: 'tpl-1',
+  });
+
+  assert.equal((await manager.getRecords()).length, 50);
+  const readA = await manager.getChain(chainA.chainId);
+  const readB = await manager.getChain(chainB.chainId);
+  assert.equal(readA.rootRecord.version, 1);
+  assert.equal(readA.currentRecord.version, 26);
+  assert.equal(readB.rootRecord.version, 1);
+  assert.equal(readB.currentRecord.version, 25);
+  const allChains = await manager.getAllChains();
+  assert.deepEqual(allChains.map(c => c.chainId).sort(), [chainA.chainId, chainB.chainId].sort());
+});
