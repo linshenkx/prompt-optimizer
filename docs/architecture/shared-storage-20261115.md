@@ -6,7 +6,7 @@
 
 - 使用运行时内置 `node:sqlite`，无新增数据库服务、第三方原生驱动或安装依赖。仓库 Node 要求 `^24.22.1`，锁定 Electron `44.9.3`；实际 Windows x64 Electron 内嵌 Node `24.22.0`、SQLite `3.53.4`。终端默认 Node 26，验证另用隔离下载的 Node `24.22.1`，未切换全机版本。
 - Node 专用入口 `@prompt-optimizer/core/node` 导出 `SQLiteStorageProvider`、`openDesktopStorage` 和文件名常量。通用入口不引用 SQLite；工厂识别 `sqlite` 类型但要求从专用入口显式创建，避免缓存错误的数据路径。构建必须保留 `node:` 前缀，tsup 默认会删除它。
-- 业务仍为字符串 KV，表 `storage_kv(key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT`；不改变模型、模板、历史等 JSON 内容。迁移状态在独立 `storage_metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT` 表，不占业务键；标记键为 `legacy-json-migration`，值包含 `{version:1,source:'json'|'backup'|'empty',itemCount:n}`。
+- 业务仍为字符串 KV，表 `storage_kv(key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT`；不改变模型、模板、历史等 JSON 内容。SQLite `TEXT` 按合法 UTF-8 存储，原始字符串中若含孤立 UTF-16 代理项会在写入和迁移时规范化为 `U+FFFD`（迁移遇到规范化后键名冲突会拒绝并回滚，而正常 JSON 序列化字段通过 `\uXXXX` 转义无损保留）。迁移状态在独立 `storage_metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT` 表，不占业务键；标记键为 `legacy-json-migration`，值包含 `{version:1,source:'json'|'backup'|'empty',itemCount:n}`。
 - WAL、`synchronous=FULL`；`set/remove/clear/updateData/CAS/batch` 使用短写事务。先 `BEGIN IMMEDIATE` 再读数据。默认一次 native 锁等待 50ms，最多重试 12 次、间隔 25ms，仅重试获取事务，不重放已执行的业务回调。实际墙钟等待受运行时调度影响，不是实时保证。
 - `updateData` 回调必须同步、无网络或其他 I/O。解析失败、不可序列化、回调异常或 SQL 异常均不提交；业务异常透传。批量中任何操作失败则整体回滚。失败后连接可继续使用；若回滚本身失败则禁用连接。`close()` 幂等、等待已排队操作，拒绝新增请求；`flush()` 无整文件写入或强制 checkpoint。
 

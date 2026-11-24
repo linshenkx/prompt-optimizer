@@ -39,6 +39,16 @@ type BatchOperation = Parameters<IStorageProvider['batchUpdate']>[0][number];
 type LegacySourceLoader = () => LegacyStorageSnapshot;
 type ExistingFileIdentity = Pick<BigIntStats, 'dev' | 'ino' | 'birthtimeNs'>;
 
+/** Normalizes unpaired UTF-16 surrogates to U+FFFD to match UTF-8 SQLite TEXT semantics. */
+function toWellFormedUtf8Text(value: string): string {
+  const native = (value as string & { toWellFormed?: () => string }).toWellFormed;
+  if (typeof native === 'function') return native.call(value);
+  return value.replace(
+    /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
+    '\uFFFD',
+  );
+}
+
 interface SQLiteWriteTransaction {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
@@ -334,7 +344,8 @@ export class SQLiteStorageProvider implements IStorageProvider {
     if (typeof key !== 'string' || typeof value !== 'string') {
       throw new StorageError('SQLite keys and values must be strings', 'write');
     }
-    db.prepare('INSERT INTO storage_kv(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, value);
+    db.prepare('INSERT INTO storage_kv(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
+      .run(toWellFormedUtf8Text(key), toWellFormedUtf8Text(value));
   }
 
   getItem(key: string): Promise<string | null> {
@@ -457,11 +468,20 @@ export class SQLiteStorageProvider implements IStorageProvider {
         throw new StorageError('Unmarked SQLite data requires explicit reconciliation', 'config');
       }
       const legacy = load();
-      for (const [key, value] of legacy.entries) this.write(db, key, value);
-      if (!this.matchesSnapshot(db, legacy.entries)) {
+      const normalized = new Map<string, string>();
+      for (const [rawKey, rawValue] of legacy.entries) {
+        const key = toWellFormedUtf8Text(rawKey);
+        const value = toWellFormedUtf8Text(rawValue);
+        if (normalized.has(key)) {
+          throw new StorageError('Legacy storage contains keys that collide after UTF-8 normalization', 'write');
+        }
+        normalized.set(key, value);
+        this.write(db, key, value);
+      }
+      if (!this.matchesSnapshot(db, normalized)) {
         throw new StorageError('SQLite migration verification failed', 'write');
       }
-      const result: StorageMigrationResult = { version: 1, source: legacy.source, itemCount: legacy.entries.size };
+      const result: StorageMigrationResult = { version: 1, source: legacy.source, itemCount: normalized.size };
       db.prepare('INSERT INTO storage_metadata(key, value) VALUES (?, ?)').run(BOOTSTRAP_KEY, JSON.stringify(result));
       return result;
     }));

@@ -85,6 +85,10 @@ test('SQLite strings, lifecycle and rollback preserve existing data', async t =>
   await provider.setItem('unicode', '中文 👋 " \\ null');
   assert.equal(await provider.getItem(''), '');
   assert.equal(await provider.getItem('unicode'), '中文 👋 " \\ null');
+  await provider.setItem('lone-surrogate', 'test\ud83d');
+  assert.equal(await provider.getItem('lone-surrogate'), 'test\ufffd');
+  await provider.updateData('json-surrogate', () => ({ text: 'test\ud83d' }));
+  assert.deepEqual(JSON.parse(await provider.getItem('json-surrogate')), { text: 'test\ud83d' });
   await provider.setItem('counter', '1');
   const domainError = new Error('Domain validation failed');
   await assert.rejects(provider.updateData('counter', () => { throw domainError; }), error => error === domainError);
@@ -331,6 +335,7 @@ test('HistoryManager addIteration preserves root and chain consistency at 50-rec
   assert.equal(chain.versions.length, 50);
   assert.equal(chain.versions[0].version, 1);
   assert.deepEqual(await manager.getChain(created.chainId), chain);
+  assert.deepEqual(await manager.getIterationChain(chain.currentRecord.id), chain.versions);
   const allChains = await manager.getAllChains();
   assert.equal(allChains.length, 1);
   assert.equal(allChains[0].currentRecord.version, 51);

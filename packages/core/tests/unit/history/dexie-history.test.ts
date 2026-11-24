@@ -93,6 +93,7 @@ describe('HistoryManager with DexieStorageProvider', () => {
     expect(chain.versions).toHaveLength(50);
     expect(chain.versions[0].version).toBe(1);
     expect(await manager.getChain(created.chainId)).toEqual(chain);
+    expect(await manager.getIterationChain(chain.currentRecord.id)).toEqual(chain.versions);
 
     const next = await manager.addIteration({
       chainId: created.chainId,
@@ -104,6 +105,7 @@ describe('HistoryManager with DexieStorageProvider', () => {
     expect(next.currentRecord.version).toBe(52);
     expect(next.versions).toHaveLength(50);
     expect(await manager.getChain(created.chainId)).toEqual(next);
+    expect(await manager.getIterationChain(next.currentRecord.id)).toEqual(next.versions);
   });
 
   it('queues concurrent Dexie mutations so a rejected delete does not reject the next valid mutation', async () => {
@@ -220,5 +222,40 @@ describe('HistoryManager with DexieStorageProvider', () => {
     expect((await manager.getAllChains()).map(c => c.chainId).sort()).toEqual(
       [chainA.chainId, chainB.chainId, chainC.chainId].sort(),
     );
+  });
+
+  it('preserves chain root and ancestor links when importing a 51-version newest-first chain', async () => {
+    const provider = new DexieStorageProvider();
+    providers.push(provider);
+    const manager = new HistoryManager(provider, stubModelManager);
+
+    const chainId = 'chain-import-51';
+    const baseTime = 1_700_000_000_000;
+    const newestFirst51 = Array.from({ length: 51 }, (_, index) => {
+      const version = 51 - index;
+      return {
+        id: `imp-${version}`,
+        chainId,
+        originalPrompt: 'Original prompt',
+        optimizedPrompt: `Optimized v${version}`,
+        type: version === 1 ? ('optimize' as const) : ('iterate' as const),
+        version,
+        ...(version > 1 ? { previousId: `imp-${version - 1}` } : {}),
+        timestamp: baseTime + version,
+        modelKey: 'openai',
+        templateId: 'tpl-1',
+      };
+    });
+
+    await manager.importData(newestFirst51);
+
+    expect(await manager.getRecords()).toHaveLength(50);
+    const allChains = await manager.getAllChains();
+    expect(allChains).toHaveLength(1);
+    const loaded = await manager.getChain(chainId);
+    expect(loaded.rootRecord.version).toBe(1);
+    expect(loaded.currentRecord.version).toBe(51);
+    expect(loaded.versions).toHaveLength(50);
+    expect(await manager.getIterationChain(newestFirst51[0].id)).toEqual(loaded.versions);
   });
 });

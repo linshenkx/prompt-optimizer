@@ -75,6 +75,18 @@ export class HistoryManager implements IHistoryManager {
       if (evicted.version === 1) {
         rootCounts.set(evicted.chainId, (rootCounts.get(evicted.chainId) ?? 1) - 1);
       }
+      for (let j = 0; j < retained.length; j++) {
+        const record = retained[j];
+        if (record.chainId === evicted.chainId && record.previousId === evicted.id) {
+          if (evicted.previousId !== undefined) {
+            retained[j] = { ...record, previousId: evicted.previousId };
+          } else {
+            const next = { ...record };
+            delete next.previousId;
+            retained[j] = next;
+          }
+        }
+      }
     }
 
     return retained;
@@ -334,7 +346,7 @@ export class HistoryManager implements IHistoryManager {
       updatedChain = {
         chainId: params.chainId,
         rootRecord,
-        currentRecord: record,
+        currentRecord: retainedChainRecords[retainedChainRecords.length - 1],
         versions: retainedChainRecords
       };
 
@@ -482,7 +494,7 @@ export class HistoryManager implements IHistoryManager {
     // Prepare the complete replacement before its only write. A failed write
     // must not leave the old history cleared or publish only part of a chain.
     const records: PromptRecord[] = [];
-    for (const record of (data as PromptRecord[]).slice(0, this.maxRecords)) {
+    for (const record of this.trimRecordsPreservingRoots(data as PromptRecord[])) {
       records.push({
         ...record,
         ...(!record.modelName && record.modelKey

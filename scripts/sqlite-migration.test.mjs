@@ -122,6 +122,38 @@ test('real legacy JSON: every key/value migrates, restart is idempotent and clea
   assert.deepEqual(await (await f.open()).provider.getAllKeys(), []);
 });
 
+test('legacy JSON containing unpaired UTF-16 surrogates migrates safely and rejects colliding keys', async t => {
+  const f = await fixture(t, false);
+  const rawSurrogate = 'test\ud83d';
+  const jsonPayload = JSON.stringify({ text: rawSurrogate });
+  await writeFile(f.legacy, JSON.stringify({
+    'raw-emoji-cut': rawSurrogate,
+    'json-emoji-cut': jsonPayload,
+  }));
+  const original = await readFile(f.legacy, 'utf8');
+
+  const { provider, migration } = await f.open();
+  assert.equal(migration.itemCount, 2);
+  assert.equal(await provider.getItem('raw-emoji-cut'), 'test\ufffd');
+  assert.deepEqual(JSON.parse(await provider.getItem('json-emoji-cut')), { text: rawSurrogate });
+  assert.equal(await readFile(f.legacy, 'utf8'), original);
+  await provider.close();
+
+  const colliding = await fixture(t, false);
+  const collidingJson = JSON.stringify({
+    'k\ud83d': 'first',
+    'k\ufffd': 'second',
+  });
+  await writeFile(colliding.legacy, collidingJson);
+  await assert.rejects(colliding.open(), /collide/);
+  const db = new DatabaseSync(colliding.database, { readOnly: true });
+  try {
+    assert.equal(db.prepare('SELECT count(*) AS n FROM storage_kv').get().n, 0);
+    assert.equal(db.prepare('SELECT count(*) AS n FROM storage_metadata').get().n, 0);
+  } finally { db.close(); }
+  assert.equal(await readFile(colliding.legacy, 'utf8'), collidingJson);
+});
+
 test('once migrated, SQLite stays authoritative without re-reading or blocking on later legacy JSON changes', async t => {
   const f = await fixture(t);
   const { provider: desktop } = await f.open();
