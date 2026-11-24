@@ -24,7 +24,7 @@ interface Window {
           onContent?: (content: string) => void;
           onThinking?: (thinking: string) => void;
           onToolCall?: (toolCall: any) => void;
-          onFinish?: () => void;
+          onFinish?: (response?: import("../services/llm/types").LLMResponse) => void;
           onError?: (error: Error) => void;
         },
         selection?: import("../services/model/runtime-selection").RuntimeModelSelection
@@ -38,7 +38,7 @@ interface Window {
           onContent?: (content: string) => void;
           onThinking?: (thinking: string) => void;
           onToolCall?: (toolCall: any) => void;
-          onFinish?: () => void;
+          onFinish?: (response?: import("../services/llm/types").LLMResponse) => void;
           onError?: (error: Error) => void;
         }
       ) => Promise<void>;

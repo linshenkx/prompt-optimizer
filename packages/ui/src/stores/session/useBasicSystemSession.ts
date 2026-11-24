@@ -1,4 +1,4 @@
-import { restoredOutputStatus, type OutputPhase } from '../../utils/output-document'
+import { restoreTestVariantMetadata, type TestVariantResult } from '../../utils/output-document'
 /**
  * Basic-System Session Store
  *
@@ -64,13 +64,7 @@ export interface TestVariantConfig {
   modelKey: string
 }
 
-export interface TestVariantResult {
-  status?: OutputPhase
-  /** Resolved prompt sent for this answer, independent of later edits. */
-  requestPrompt?: string
-  result: string
-  reasoning: string
-}
+export type { TestVariantResult }
 
 export type TestVariantResults = Record<TestVariantId, TestVariantResult>
 
@@ -492,7 +486,7 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
   const sessionSnapshot = createSessionSnapshotWriter(() => sessionContent)
 
   const saveSession = (permit?: SessionWritePermit): Promise<boolean> =>
-    runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit)
+    runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit, 'basic-system')
 
   const persistSession = async (): Promise<boolean> => {
     const capturedContent = sessionSnapshot.capture()
@@ -668,10 +662,10 @@ export const useBasicSystemSession = defineStore('basicSystemSession', () => {
 
         const coerceVariantResult = (value: unknown): TestVariantResult | null => {
           if (!value || typeof value !== 'object') return null
-          const v = value as { result?: unknown; reasoning?: unknown; requestPrompt?: unknown }
+          const v = value as Record<string, unknown>
           if (typeof v.result !== 'string') return null
           if (typeof v.reasoning !== 'string') return null
-          return { result: v.result, reasoning: v.reasoning, ...restoredOutputStatus((v as { status?: unknown }).status), ...(typeof v.requestPrompt === 'string' ? { requestPrompt: v.requestPrompt } : {}) }
+          return { result: v.result, reasoning: v.reasoning, ...restoreTestVariantMetadata(v) }
         }
 
         const ids: TestVariantId[] = ['a', 'b', 'c', 'd']

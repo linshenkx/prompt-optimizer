@@ -1,3 +1,4 @@
+import type { LLMTokenUsage } from '../llm/types'
 import type { ImageRef } from '../image/types'
 import { v4 as uuidv4 } from 'uuid'
 import { cleanLocalParameterOverrides } from '../model/selection'
@@ -24,7 +25,7 @@ export interface ArenaResult {
   model: ArenaContestant
   effective?: ArenaEffectiveConfig
   status: 'running' | 'success' | 'error' | 'cancelled'
-  output: { result: string; reasoning: string; status?: 'streaming' | 'complete' | 'cancelled' | 'capacity' | 'failed' }
+  output: { result: string; reasoning: string; tokenUsage?: LLMTokenUsage; status?: 'streaming' | 'complete' | 'cancelled' | 'capacity' | 'failed' }
   images: ImageRef[]
   error?: string
   startedAt: number

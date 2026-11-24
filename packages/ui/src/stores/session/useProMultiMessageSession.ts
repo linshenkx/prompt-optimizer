@@ -1,4 +1,4 @@
-import { restoredOutputStatus, type OutputPhase } from '../../utils/output-document'
+import { restoreTestVariantMetadata, type TestVariantResult } from '../../utils/output-document'
 /**
  * Pro-MultiMessage Session Store (Pro-system，多消息模式)
  *
@@ -90,13 +90,7 @@ export interface TestVariantConfig {
   modelKey: string
 }
 
-export interface TestVariantResult {
-  status?: OutputPhase
-  /** Resolved prompt sent for this answer, independent of later edits. */
-  requestPrompt?: string
-  result: string
-  reasoning: string
-}
+export type { TestVariantResult }
 
 export type TestVariantResults = Record<TestVariantId, TestVariantResult>
 
@@ -481,7 +475,7 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
   const sessionSnapshot = createSessionSnapshotWriter(() => sessionContent)
 
   const saveSession = (permit?: SessionWritePermit): Promise<boolean> =>
-    runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit)
+    runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit, 'pro-multi')
 
   const persistSession = async (): Promise<boolean> => {
     const $services = getPiniaServices()
@@ -621,7 +615,7 @@ export const useProMultiMessageSession = defineStore('proMultiMessageSession', (
             const oneRecord = one as Record<string, unknown>
             const r = typeof oneRecord['result'] === 'string' ? (oneRecord['result'] as string) : ''
             const reasoning = typeof oneRecord['reasoning'] === 'string' ? (oneRecord['reasoning'] as string) : ''
-            return { result: r, reasoning, ...restoredOutputStatus(oneRecord['status']), ...(typeof oneRecord['requestPrompt'] === 'string' ? { requestPrompt: oneRecord['requestPrompt'] } : {}) }
+            return { result: r, reasoning, ...restoreTestVariantMetadata(oneRecord) }
           }
 
           testVariantResults.value = {

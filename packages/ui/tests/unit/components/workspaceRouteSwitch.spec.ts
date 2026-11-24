@@ -4,158 +4,76 @@ import type { SubModeKey } from '../../../src/stores/session/useSessionManager'
 import { createWorkspaceRouteSwitchController } from '../../../src/components/app-layout/workspaceRouteSwitch'
 
 const parseSubModeKey = (path: string): SubModeKey | null => {
-  const cleanPath = path.split('?')[0].split('#')[0]
-  const match = cleanPath.match(/^\/(basic|pro|image)\/([^/]+)$/)
-  if (!match) return null
-  return `${match[1]}-${match[2]}` as SubModeKey
+  const match = path.split(/[?#]/)[0].match(/^\/(basic|pro|image)\/([^/]+)$/)
+  return match ? (match[1] + '-' + match[2]) as SubModeKey : null
 }
 
-const flushSwitchQueue = async () => {
-  await Promise.resolve()
-  await Promise.resolve()
-  await Promise.resolve()
-}
-
-const createController = (activeKey: SubModeKey = 'basic-user') => {
-  const calls: string[] = []
-  const switchMode = vi.fn(async (fromKey: SubModeKey, toKey: SubModeKey) => {
-    calls.push(`switchMode:${fromKey}->${toKey}`)
-  })
-  const switchSubMode = vi.fn(async (fromKey: SubModeKey, toKey: SubModeKey) => {
-    calls.push(`switchSubMode:${fromKey}->${toKey}`)
-  })
-  const restoreSessionToUI = vi.fn(async () => {
-    calls.push('restore')
-  })
-  const onError = vi.fn()
-
+const setup = () => {
+  const flushWorkspace = vi.fn(async (_key: SubModeKey) => true)
+  const restoreSessionToUI = vi.fn(async () => {})
   const controller = createWorkspaceRouteSwitchController({
     hasRestoredInitialState: ref(true),
     parseSubModeKey,
-    getActiveSubModeKey: () => activeKey,
-    switchMode,
-    switchSubMode,
+    flushWorkspace,
     restoreSessionToUI,
-    onError,
   })
-
-  return {
-    calls,
-    controller,
-    onError,
-    restoreSessionToUI,
-    switchMode,
-    switchSubMode,
-  }
+  return { controller, flushWorkspace, restoreSessionToUI }
 }
 
 describe('createWorkspaceRouteSwitchController', () => {
-  it('lets route watchers skip while external data is loading', async () => {
-    const { controller, switchSubMode, restoreSessionToUI } = createController()
+  it('flushes the source when the active route already points at the destination', async () => {
+    const { controller, flushWorkspace, restoreSessionToUI } = setup()
+    await controller.handleRouteChange('/basic/system', '/basic/user')
+    expect(flushWorkspace).toHaveBeenCalledExactlyOnceWith('basic-user')
+    expect(restoreSessionToUI).toHaveBeenCalledOnce()
+  })
 
+  it('flushes before leaving for favorites and does not save an unrelated workspace on return', async () => {
+    const { controller, flushWorkspace, restoreSessionToUI } = setup()
+    await controller.handleRouteChange('/favorites?from=/basic/user', '/basic/user')
+    expect(flushWorkspace).toHaveBeenCalledExactlyOnceWith('basic-user')
+    expect(restoreSessionToUI).not.toHaveBeenCalled()
+    await controller.run('/basic/system', '/favorites?from=/basic/user')
+    expect(flushWorkspace).toHaveBeenCalledOnce()
+    expect(restoreSessionToUI).toHaveBeenCalledOnce()
+  })
+
+  it('lets explicit external-data navigation run the transaction skipped by the watcher', async () => {
+    const { controller, flushWorkspace } = setup()
     await controller.handleRouteChange('/basic/system', '/basic/user', {
       externalDataLoading: true,
     })
-
-    expect(switchSubMode).not.toHaveBeenCalled()
-    expect(restoreSessionToUI).not.toHaveBeenCalled()
+    expect(flushWorkspace).not.toHaveBeenCalled()
+    await controller.run('/basic/system', '/basic/user')
+    expect(flushWorkspace).toHaveBeenCalledExactlyOnceWith('basic-user')
   })
 
-  it('allows explicit external-data navigation to run the workspace transaction', async () => {
-    const { calls, controller, switchSubMode, restoreSessionToUI } = createController('basic-user')
-
-    await controller.run('/basic/system', '/favorites?from=/basic/user')
-
-    expect(switchSubMode).toHaveBeenCalledWith('basic-user', 'basic-system')
-    expect(restoreSessionToUI).toHaveBeenCalled()
-    expect(calls).toEqual([
-      'switchSubMode:basic-user->basic-system',
-      'restore',
-    ])
-  })
-
-  it('deduplicates the watcher and explicit navigation for the same route transaction', async () => {
-    let releaseSwitch!: () => void
-    const switchMode = vi.fn(
-      () =>
-        new Promise<void>((resolve) => {
-          releaseSwitch = resolve
-        }),
-    )
-    const restoreSessionToUI = vi.fn(async () => {})
-    const controller = createWorkspaceRouteSwitchController({
-      hasRestoredInitialState: ref(true),
-      parseSubModeKey,
-      getActiveSubModeKey: () => 'basic-system',
-      switchMode,
-      switchSubMode: vi.fn(async () => {}),
-      restoreSessionToUI,
-    })
-
-    const first = controller.run('/pro/variable', '/favorites?from=/basic/system')
-    const second = controller.run('/pro/variable', '/favorites?from=/basic/system')
-
-    await flushSwitchQueue()
-    releaseSwitch()
-    await Promise.all([first, second])
-
-    expect(switchMode).toHaveBeenCalledTimes(1)
-    expect(restoreSessionToUI).toHaveBeenCalledTimes(1)
-  })
-
-  it('serializes different route transactions and executes with the settled active key', async () => {
-    const calls: string[] = []
-    const releases: Array<() => void> = []
-    let activeKey: SubModeKey = 'basic-system'
-    const switchMode = vi.fn((fromKey: SubModeKey, toKey: SubModeKey) => {
-      calls.push(`switchMode:${fromKey}->${toKey}`)
-      return new Promise<void>((resolve) => {
-        releases.push(() => {
-          activeKey = toKey
-          resolve()
-        })
-      })
-    })
-    const restoreSessionToUI = vi.fn(async () => {
-      calls.push('restore')
-    })
-    const controller = createWorkspaceRouteSwitchController({
-      hasRestoredInitialState: ref(true),
-      parseSubModeKey,
-      getActiveSubModeKey: () => activeKey,
-      switchMode,
-      switchSubMode: vi.fn(async () => {}),
-      restoreSessionToUI,
-    })
-
-    const first = controller.run('/pro/variable', '/basic/system')
-    const second = controller.run('/image/text2image', '/basic/system')
-
-    await flushSwitchQueue()
-
-    expect(switchMode).toHaveBeenCalledTimes(1)
-    expect(calls).toEqual(['switchMode:basic-system->pro-variable'])
-
-    releases[0]()
+  it('shares the same pending route transaction between the watcher and explicit navigation', async () => {
+    const { controller, flushWorkspace, restoreSessionToUI } = setup()
+    const first = controller.run('/pro/variable', '/basic/user')
+    const second = controller.run('/pro/variable', '/basic/user')
+    expect(second).toBe(first)
     await first
-    await flushSwitchQueue()
+    expect(flushWorkspace).toHaveBeenCalledOnce()
+    expect(restoreSessionToUI).toHaveBeenCalledOnce()
+  })
 
-    expect(switchMode).toHaveBeenCalledTimes(2)
-    expect(calls).toEqual([
-      'switchMode:basic-system->pro-variable',
-      'restore',
-      'switchMode:pro-variable->image-text2image',
+  it('keeps rapid departures in order even if the first draft could not be saved', async () => {
+    const { controller, flushWorkspace, restoreSessionToUI } = setup()
+    let release!: (saved: boolean) => void
+    flushWorkspace.mockImplementationOnce(() => new Promise(resolve => { release = resolve }))
+    const first = controller.run('/pro/variable', '/basic/user')
+    await Promise.resolve()
+    expect(restoreSessionToUI).toHaveBeenCalledOnce()
+    const back = controller.run('/basic/user', '/pro/variable')
+    const again = controller.run('/pro/variable', '/basic/user')
+    const last = controller.run('/image/text2image', '/pro/variable')
+    expect(flushWorkspace.mock.calls).toEqual([['basic-user']])
+    release(false)
+    await Promise.all([first, back, again, last])
+    expect(flushWorkspace.mock.calls).toEqual([
+      ['basic-user'], ['pro-variable'], ['basic-user'], ['pro-variable'],
     ])
-
-    releases[1]()
-    await Promise.all([first, second])
-
-    expect(calls).toEqual([
-      'switchMode:basic-system->pro-variable',
-      'restore',
-      'switchMode:pro-variable->image-text2image',
-      'restore',
-    ])
-    expect(restoreSessionToUI).toHaveBeenCalledTimes(2)
+    expect(restoreSessionToUI).toHaveBeenCalledTimes(4)
   })
 })

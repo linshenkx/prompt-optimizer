@@ -55,7 +55,7 @@
             <NCard size="small" class="arena-result-card" content-style="padding: 0; height: 100%; max-height: 100%; overflow: hidden; display: flex; flex-direction: column;">
               <p v-if="session.state.results[c.id]?.error" role="alert" class="compact-test-error">{{ translateError(session.state.results[c.id].error!) }}</p>
               <AppPreviewImageGroup v-if="session.state.results[c.id]?.images.length"><div class="result-images"><ArenaImage v-for="(image, i) in session.state.results[c.id].images" :key="image.id + '-' + i" :asset-id="image.id" :label="c.modelId + ' ' + (i + 1)" :width="280" /></div></AppPreviewImageGroup>
-              <OutputDisplay v-if="!session.state.results[c.id]?.images.length || session.state.results[c.id]?.output.result || session.state.results[c.id]?.output.reasoning" :content="session.state.results[c.id]?.output.result || ''" :reasoning="session.state.results[c.id]?.output.reasoning" :output-record="session.state.results[c.id]?.output" :loading="session.busy(c.id)" :enable-stop="session.cancellable(c.id)" mode="readonly" reasoning-mode="auto" :enable-edit="false" :enable-favorite="false" :enable-diff="false" :streaming="session.state.results[c.id]?.status === 'running' && c.kind === 'text'" height="100%" />
+              <OutputDisplay v-if="!session.state.results[c.id]?.images.length || session.state.results[c.id]?.output.result || session.state.results[c.id]?.output.reasoning" :content="session.state.results[c.id]?.output.result || ''" :reasoning="session.state.results[c.id]?.output.reasoning" :output-record="session.state.results[c.id]?.output" :token-usage="session.state.results[c.id]?.output.tokenUsage" :loading="session.busy(c.id)" :enable-stop="session.cancellable(c.id)" mode="readonly" reasoning-mode="auto" :enable-edit="false" :enable-favorite="false" :enable-diff="false" :streaming="session.state.results[c.id]?.status === 'running' && c.kind === 'text'" height="100%" />
             </NCard>
           </div>
         </article>
@@ -165,7 +165,7 @@ const loadImages = async () => {
 }
 const refresh = () => { imageLoadVersion++; imageCatalog.value = {}; void perform(session.refreshConfigs) }
 onMounted(() => { refresh(); window.addEventListener('basic-workspace-refresh-text-models', refresh); window.addEventListener('image-workspace-refresh-image-models', refresh) })
-onUnmounted(() => { imageLoadVersion++; void session.saveSession(); window.removeEventListener('basic-workspace-refresh-text-models', refresh); window.removeEventListener('image-workspace-refresh-image-models', refresh) })
+onUnmounted(() => { imageLoadVersion++; window.removeEventListener('basic-workspace-refresh-text-models', refresh); window.removeEventListener('image-workspace-refresh-image-models', refresh) })
 
 defineExpose({ isUpdateBusy: () => session.running || uploading.value })
 </script>

@@ -284,7 +284,27 @@
           <NText  v-else class="ml-2">{{ placeholder || t('common.loading') }}</NText>
         </NFlex>
       </NFlex>
-  
+
+      <div
+        v-if="showTokenUsageFooter"
+        class="output-display-token-footer"
+        :data-testid="testId ? `${testId}-token-usage` : 'output-token-usage'"
+      >
+        <ThemedTooltip placement="top-end" :show-arrow="false" padding="8px 10px">
+          <span class="output-token-usage-pill" tabindex="0" :aria-label="tokenUsageAriaLabel">
+            {{ tokenUsageSummary }}
+          </span>
+          <template #content>
+            <div class="output-token-usage-tooltip">
+              <div v-for="item in tokenUsageDetailItems" :key="item.key" class="output-token-usage-row">
+                <span class="output-token-usage-label">{{ item.label }}</span>
+                <span class="output-token-usage-value">{{ item.value }}</span>
+              </div>
+            </div>
+          </template>
+        </ThemedTooltip>
+      </div>
+
     </NFlex>
   </NCard>
 </template>
@@ -300,6 +320,7 @@ import {
   NInput, NEmpty, NSpin, NScrollbar, NFlex, NText, NSpace, NDropdown,
   useThemeVars, type DropdownOption
 } from 'naive-ui'
+import ThemedTooltip from './common/ThemedTooltip.vue'
 import { useToast } from '../composables/ui/useToast'
 import { useClipboard } from '../composables/ui/useClipboard'
 import MarkdownRenderer from './MarkdownRenderer.vue'
@@ -308,7 +329,8 @@ import OutputSourceView from './OutputSourceView.vue'
 import { getOutputDocument, type OutputRecord, type OutputPhase } from '../utils/output-document'
 import { extractHtmlCandidate } from '../utils/html-preview'
 import TextDiffUI from './TextDiff.vue'
-import type { CompareResult, ICompareService } from '@prompt-optimizer/core'
+import type { CompareResult, ICompareService, LLMTokenUsage } from '@prompt-optimizer/core'
+import { resolveDisplayTotalTokens, sanitizeTokenUsage } from '../utils/token-usage'
 import { VariableAwareInput } from './variable-extraction'
 import { useTemporaryVariables } from '../composables/variable/useTemporaryVariables'
 import { useVariableAwareInputBridge } from '../composables/variable/useVariableAwareInputBridge'
@@ -372,6 +394,7 @@ interface Props {
   loading?: boolean
   enableStop?: boolean
   streaming?: boolean
+  tokenUsage?: LLMTokenUsage | null
   
   // 服务
   compareService?: ICompareService
@@ -388,7 +411,8 @@ const props = withDefaults(defineProps<Props>(), {
   reasoningMode: 'auto',
   enabledActions: () => ['fullscreen', 'diff', 'copy', 'edit', 'reasoning', 'favorite'],
   height: '100%',
-  placeholder: ''
+  placeholder: '',
+  tokenUsage: null
 })
 
 const testId = computed(() => props.testId || undefined)
@@ -503,6 +527,69 @@ const displayReasoning = computed(() => (props.reasoning || '').trim())
 const htmlCandidate = computed(() => extractHtmlCandidate(props.content || ''))
 const allowHtmlPreviews = computed(() => !isStreaming.value && !props.loading &&
   (!documentPhase.value || documentPhase.value === 'complete'))
+
+const normalizedTokenUsage = computed(() => sanitizeTokenUsage(props.tokenUsage))
+
+const tokenUsageDetailItems = computed(() => {
+  const usage = normalizedTokenUsage.value
+  if (!usage) return []
+
+  const items: Array<{ key: string; label: string; value: string }> = []
+  const formatCount = (value: number) => value.toLocaleString()
+
+  if (usage.inputTokens !== null) {
+    items.push({ key: 'input', label: t('test.tokenUsage.input'), value: formatCount(usage.inputTokens) })
+  }
+
+  const onlyCachedReported =
+    usage.inputTokens === null && usage.outputTokens === null && usage.totalTokens === null
+  if (usage.cachedInputTokens !== null && (usage.cachedInputTokens > 0 || onlyCachedReported)) {
+    items.push({ key: 'cached', label: t('test.tokenUsage.cached'), value: formatCount(usage.cachedInputTokens) })
+  }
+
+  if (usage.outputTokens !== null) {
+    items.push({ key: 'output', label: t('test.tokenUsage.output'), value: formatCount(usage.outputTokens) })
+  }
+
+  if (usage.totalTokens !== null) {
+    items.push({ key: 'total', label: t('test.tokenUsage.total'), value: formatCount(usage.totalTokens) })
+  }
+
+  return items
+})
+
+const tokenUsageSummary = computed(() => {
+  const usage = normalizedTokenUsage.value
+  if (!usage) return ''
+
+  const formatCount = (value: number) => value.toLocaleString()
+  const displayTotal = resolveDisplayTotalTokens(usage)
+  if (displayTotal !== null) {
+    return t('test.tokenUsage.summary', { count: formatCount(displayTotal) })
+  }
+
+  if (usage.inputTokens !== null) {
+    return `${t('test.tokenUsage.input')}: ${formatCount(usage.inputTokens)}`
+  }
+  if (usage.outputTokens !== null) {
+    return `${t('test.tokenUsage.output')}: ${formatCount(usage.outputTokens)}`
+  }
+  if (usage.cachedInputTokens !== null) {
+    return `${t('test.tokenUsage.cached')}: ${formatCount(usage.cachedInputTokens)}`
+  }
+  return ''
+})
+
+const showTokenUsageFooter = computed(() =>
+  !isStreaming.value &&
+  !props.loading &&
+  (!documentPhase.value || documentPhase.value === 'complete') &&
+  Boolean(tokenUsageSummary.value)
+)
+
+const tokenUsageAriaLabel = computed(() =>
+  tokenUsageDetailItems.value.map((item) => `${item.label}: ${item.value}`).join(', ') || tokenUsageSummary.value
+)
 const copyActionWorkspacePath = computed(() => routerInstance.currentRoute.value.path || '/')
 const activeCopyActionId = ref<CopyOpenActionId>(
   readCopyOpenActionFromSession(copyActionWorkspacePath.value),
@@ -926,5 +1013,54 @@ defineExpose({ resetReasoningState, forceRefreshContent, forceExitEditing, getVi
 
 .output-copy-split-button:not(.is-disabled) :deep(.n-button:hover) {
   background: color-mix(in srgb, currentColor 8%, transparent) !important;
+}
+
+.output-display-token-footer {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 2px 10px 4px;
+  line-height: 1.2;
+}
+
+.output-token-usage-pill {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--output-toolbar-text);
+  opacity: 0.72;
+  cursor: default;
+  user-select: none;
+  white-space: nowrap;
+  transition: opacity 0.15s ease;
+}
+
+.output-token-usage-pill:hover,
+.output-token-usage-pill:focus-visible {
+  opacity: 1;
+  outline: none;
+}
+
+.output-token-usage-tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 116px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.output-token-usage-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.output-token-usage-label {
+  opacity: 0.8;
+}
+
+.output-token-usage-value {
+  font-weight: 500;
 }
 </style>

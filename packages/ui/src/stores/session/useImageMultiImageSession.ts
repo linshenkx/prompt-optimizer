@@ -190,6 +190,7 @@ const saveInputImage = async (
   image: MultiImageSessionInputItem,
   storageService: IImageStorageService,
 ): Promise<string> => {
+  if (image.assetId && await storageService.getMetadata(image.assetId)) return image.assetId
   const normalizedMime = image.mimeType || 'image/png'
   const stableId = await computeStableImageId(image.b64, normalizedMime)
   const existing = await storageService.getMetadata(stableId)
@@ -570,7 +571,7 @@ export const useImageMultiImageSession = defineStore('imageMultiImageSession', (
   const sessionSnapshot = createSessionSnapshotWriter(() => sessionContent)
 
   const saveSession = (permit?: SessionWritePermit): Promise<boolean> =>
-    runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit)
+    runSessionWrite(getPiniaServices()?.preferenceService, persistSession, permit, 'image-multiimage')
 
   const persistSession = async () => {
     return await queueImageStorageMaintenance(async () => {
@@ -674,11 +675,11 @@ export const useImageMultiImageSession = defineStore('imageMultiImageSession', (
     const restoredImages = await Promise.all(
       rawImages.map(async (item) => {
         const record = (item || {}) as Record<string, unknown>
-        const assetId = typeof record.assetId === 'string' ? record.assetId : null
         let mimeType = typeof record.mimeType === 'string' ? record.mimeType : 'image/png'
         let b64 = typeof record.b64 === 'string' ? record.b64 : ''
+        const assetId = !b64 && typeof record.assetId === 'string' ? record.assetId : null
 
-        if (!b64 && assetId) {
+        if (assetId) {
           const fullImage = await imageStorageService.getImage(assetId)
           if (!fullImage?.data?.trim()) {
             throw createMissingInputAssetError(assetId)

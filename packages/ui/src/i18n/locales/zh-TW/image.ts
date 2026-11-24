@@ -235,7 +235,7 @@ const messages = {
     "params": {
       "outputFormat": {
         "label": "輸出格式",
-        "description": "預設生成 PNG 圖片，也可以選擇 GIF 動圖",
+        "description": "選擇輸出格式，留空則使用模型預設格式",
         "png": "PNG 圖片",
         "gif": "GIF 動圖"
       },

@@ -304,6 +304,14 @@ export interface PromptTestRun {
   metadata?: Record<string, unknown>;
 }
 
+/** Lightweight snapshot of the inputs and model used when a test column ran. */
+export interface PromptTestRunSnapshot {
+  prompt?: string;
+  modelKey?: string;
+  version?: number | 'workspace' | 'previous';
+  input?: PromptRunInput;
+}
+
 export interface PromptTestRunSet {
   id: string;
   title?: string;

@@ -470,6 +470,18 @@
       :compact="isCompact" :running="isAnyVariantRunning" :can-use-four-columns="canUseFourColumns"
       run-test-id="image-text2image-test-run-all"
       @run="runAllVariants">
+      <template #actions>
+        <SaveTestResultExamplesBatchButton
+          sub-mode-key="image-text2image"
+          :content="optimizedPrompt || originalPrompt"
+          :original-content="originalPrompt"
+          function-mode="image"
+          image-sub-mode="text2image"
+          :variant-ids="saveExampleReadyVariantIds"
+          :disabled="isAnyVariantRunning"
+          test-id="save-test-examples-batch-image-text2image"
+        />
+      </template>
 
       <template #evaluation>
         <template v-if="shouldShowCompareEvaluationAction">
@@ -821,7 +833,6 @@ import {
 import { useI18n } from "vue-i18n";
 import PromptPanelUI from "../PromptPanel.vue";
 import WorkspaceUtilityMenu from '../common/WorkspaceUtilityMenu.vue'
-import ThemedTooltip from '../common/ThemedTooltip.vue'
 import PromptGardenInspirationPopover from '../common/PromptGardenInspirationPopover.vue'
 import PromptGardenImportDialog from '../common/PromptGardenImportDialog.vue'
 import PromptPreviewPanel from "../PromptPreviewPanel.vue";
@@ -853,6 +864,7 @@ import TemporaryVariablesPanel from '../variable/TemporaryVariablesPanel.vue'
 import VariableValuePreviewDialog from '../variable/VariableValuePreviewDialog.vue'
 import AppPreviewImage from '../media/AppPreviewImage.vue'
 import SaveTestResultExampleButton from '../SaveTestResultExampleButton.vue'
+import SaveTestResultExamplesBatchButton from '../SaveTestResultExamplesBatchButton.vue'
 import { useTemporaryVariables } from '../../composables/variable/useTemporaryVariables'
 import { useVariableAwareInputBridge } from '../../composables/variable/useVariableAwareInputBridge'
 import { useTestVariableManager } from '../../composables/variable/useTestVariableManager'
@@ -866,6 +878,7 @@ import {
     buildPromptExecutionContext,
     hashString,
     hashVariables,
+    pickUsedVariables,
 } from '../../utils/prompt-variables'
 import {
     buildTestPanelVersionOptions,
@@ -1322,6 +1335,10 @@ const isAnyVariantRunning = computed(() =>
 )
 
 const getVariantLabel = (id: TestVariantId) => ({ a: 'A', b: 'B', c: 'C', d: 'D' }[id])
+// 可批量保存为示例的测试列：与单列保存按钮的可用条件保持一致
+const saveExampleReadyVariantIds = computed(() =>
+  activeVariantIds.value.filter((id) => hasVariantResult(id) && !variantRunning[id])
+)
 
 const handleVariantVersionChange = (id: TestVariantId, value: string | number) => {
     const selection = value as TestPanelVersionValue
@@ -1336,8 +1353,6 @@ const activateVariantSource = (id: TestVariantId) => {
     pulseSourceAreaForSelection(selection, resolved.resolvedVersion, 'change')
 }
 
-const getVariantResolvedVersion = (id: TestVariantId): number =>
-    resolvePromptForSelection(variantVersionModels[id].value).resolvedVersion
 
 const getVariantVersionTestId = (id: TestVariantId) => {
     if (id === 'a') return 'image-text2image-test-original-version-select'
@@ -1889,6 +1904,9 @@ const runVariant = async (
     const request = getVariantRequest(id)
     if (!request) return false
     const runFingerprint = getVariantFingerprint(id)
+    const runVersion = variantVersionModels[id].value
+    const resolvedPromptText = resolvePromptForSelection(runVersion).text
+    const usedParameters = pickUsedVariables([resolvedPromptText], mergedGenerationVariables.value)
 
     if (!opts?.skipClearEvaluation) {
         evaluationHandler.clearBeforeTest()
@@ -1911,6 +1929,14 @@ const runVariant = async (
     res.metadata = {
       providerId: usedModel?.providerId || '', modelId: usedModel?.modelId || '', configId: request.configId,
       ...res.metadata, prompt: request.prompt,
+      runSnapshot: {
+        prompt: resolvedPromptText,
+        modelKey: request.configId,
+        version: runVersion,
+        input: {
+          ...(usedParameters ? { parameters: usedParameters } : {}),
+        },
+      },
     }
         session.updateTestVariantResult(id, res)
         session.setTestVariantLastRunFingerprint(id, runFingerprint)

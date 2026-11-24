@@ -234,6 +234,18 @@
                       :compact="isCompact" :running="isAnyVariantRunning" :can-use-four-columns="canUseFourColumns"
                       run-test-id="basic-system-test-run-all"
                       @run="runAllVariants">
+                      <template #actions>
+                        <SaveTestResultExamplesBatchButton
+                          sub-mode-key="basic-system"
+                          :content="logic.optimizedPrompt.value || logic.prompt.value"
+                          :original-content="logic.prompt.value"
+                          function-mode="basic"
+                          optimization-mode="system"
+                          :variant-ids="saveExampleReadyVariantIds"
+                          :disabled="isAnyVariantRunning"
+                          test-id="save-test-examples-batch-basic-system"
+                        />
+                      </template>
                       <template #comparison>
                         <CompareRoleSummary :entries="compareRoleConfig.entries.value"
                           :warning="compareToolbarStatus?.label" :disabled="isAnyVariantRunning" @click="openCompareRoleConfig" />
@@ -371,6 +383,7 @@
                                     :output-record="getVariantResult(id)"
                                     :reasoning="getVariantResult(id).reasoning"
                                     :streaming="variantRunning[id]"
+                                    :token-usage="getVariantResult(id)?.tokenUsage"
                                     :enableCopy="true"
                                     :enableFullscreen="true"
                                     :enableEdit="false"
@@ -392,7 +405,7 @@
                                                 :original-content="logic.prompt.value"
                                                 function-mode="basic"
                                                 optimization-mode="system"
-                                                :disabled="variantRunning[id] || isVariantStale(id)"
+                                                :disabled="variantRunning[id] || variantFailed[id]"
                                                 :test-id="`save-test-example-basic-system-${id}`"
                                             />
                                             <EvaluationScoreBadge
@@ -531,13 +544,14 @@ import { NButton, NCard, NFlex, NIcon, NText } from 'naive-ui'
 import InputPanelUI from '../InputPanel.vue'
 import PromptPanelUI from '../PromptPanel.vue'
 import WorkspaceUtilityMenu from '../common/WorkspaceUtilityMenu.vue'
-import ThemedTooltip from '../common/ThemedTooltip.vue'
 import { resolveSourceAssetRef } from '../../utils/source-asset'
 import { beginOutputStream } from '../../utils/output-document'
+import { setOutputTokenUsage } from '../../utils/token-usage'
 import TestInputSection from '../TestInputSection.vue'
 import TestImageAttachmentControl from '../TestImageAttachmentControl.vue'
 import OutputDisplay from '../OutputDisplay.vue'
 import SaveTestResultExampleButton from '../SaveTestResultExampleButton.vue'
+import SaveTestResultExamplesBatchButton from '../SaveTestResultExamplesBatchButton.vue'
 import {
   AnalyzeActionIcon,
   CompareHelpButton,
@@ -845,6 +859,10 @@ const { sourceAreaFeedback, pulseSourceAreaForSelection } =
 const isAnyVariantRunning = computed(() => activeVariantIds.value.some((id) => !!variantRunning[id]))
 
 const getVariantLabel = (id: TestVariantId) => ({ a: 'A', b: 'B', c: 'C', d: 'D' }[id])
+// 可批量保存为示例的测试列：与单列保存按钮的可用条件保持一致
+const saveExampleReadyVariantIds = computed(() =>
+  activeVariantIds.value.filter((id) => hasVariantResult(id) && !variantRunning[id] && !variantFailed[id])
+)
 
 const handleVariantVersionChange = (id: TestVariantId, value: string | number) => {
   const selection = value as TestPanelVersionValue
@@ -957,8 +975,6 @@ const getVariantVersionLabel = (id: TestVariantId): string => {
   )
 }
 
-const getVariantResolvedVersion = (id: TestVariantId): number =>
-  resolveTestPrompt(variantVersionModels[id].value).resolvedVersion
 
 const compareReadyVariantIds = computed(() =>
   activeVariantIds.value.filter((id) => hasVariantResult(id) && !isVariantStale(id))
@@ -981,9 +997,6 @@ const compareRoleConfig = useCompareRoleConfig({
   persistedRoleSignatures: toRef(session, 'compareSnapshotRoleSignatures'),
   persistRoles: (roles, signatures) => session.updateCompareSnapshotRoles(roles, signatures),
 })
-const compareRoleEntryMap = computed(() =>
-  Object.fromEntries(compareRoleConfig.entries.value.map((entry) => [entry.id, entry]))
-)
 const compareToolbarStatus = computed(() =>
   activeVariantIds.value.length >= 2
     ? buildCompareToolbarStatus(
@@ -1102,20 +1115,37 @@ const runVariant = async (
     evaluationHandler.clearBeforeTest()
   }
 
-  variantResults.value[id] = { result: '', reasoning: '', requestPrompt: `[system]\n${input.systemPrompt}\n\n[user]\n${input.userPrompt}` }
+  const inputImages = opts?.inputImages ?? getTestInputImages()
+  const initialTestImageAssetId = inputImages.length > 0 ? session.testImageAssetId?.trim() || undefined : undefined
+  variantResults.value[id] = {
+    result: '',
+    reasoning: '',
+    requestPrompt: `[system]\n${input.systemPrompt}\n\n[user]\n${input.userPrompt}`,
+    runSnapshot: {
+      prompt: input.systemPrompt,
+      modelKey: input.modelKey,
+      version: variantVersionModels[id].value,
+      input: {
+        text: input.userPrompt,
+        ...(initialTestImageAssetId ? { images: [{ kind: 'asset', assetId: initialTestImageAssetId }] } : {}),
+      },
+    },
+  }
   variantRunning[id] = true
   variantFailed[id] = false
-  const inputImages = opts?.inputImages ?? getTestInputImages()
   const runFingerprint = opts?.runFingerprint ?? getVariantFingerprint(id)
 
   const stream = beginOutputStream(variantResults.value[id], session, `test:${id}`)
+  let capturedUsage: unknown
   try {
     const callbacks = {
       signal: stream.signal,
                 onToken: stream.onToken,
       onReasoningToken: stream.onReasoningToken,
-      onComplete: () => {
-        // 由 finally 统一收尾
+      onComplete: (response?: { metadata?: { usage?: unknown } }) => {
+        if (!stream.signal.aborted) {
+          capturedUsage = response?.metadata?.usage
+        }
       },
       onError: (error: Error) => {
         throw error
@@ -1140,9 +1170,6 @@ const runVariant = async (
       )
     }
 
-    if (!opts?.silentSuccess) {
-      toast.success(t('toast.success.testComplete'))
-    }
     return true
   } catch (error) {
     variantFailed[id] = true
@@ -1156,11 +1183,30 @@ const runVariant = async (
     return false
   } finally {
     stream.finish(variantFailed[id])
+    if (!variantFailed[id] && !stream.signal.aborted && stream.document.isCurrent && capturedUsage !== undefined) {
+      setOutputTokenUsage(stream.document.record, capturedUsage)
+    }
     if (stream.document.isCurrent) {
+      if (
+        inputImages.length > 0 &&
+        !variantResults.value[id]?.runSnapshot?.input?.images?.length &&
+        session.testImageAssetId &&
+        session.testImageB64 === inputImages[0]?.b64 &&
+        variantResults.value[id]?.runSnapshot?.input
+      ) {
+        variantResults.value[id].runSnapshot!.input!.images = [{ kind: 'asset', assetId: session.testImageAssetId }]
+      }
       variantRunning[id] = false
       variantLastRunFingerprint.value[id] = variantFailed[id] ? `failed:${runFingerprint}` : runFingerprint
       if (opts?.persist !== false) {
-        void session.saveSession()
+        const saved = await session.saveSession()
+        if (stream.document.isCurrent && !stream.signal.aborted) {
+          if (!saved) {
+            toast.warning(t('workspace.testResultSaveFailed'))
+          } else if (!variantFailed[id] && !opts?.silentSuccess) {
+            toast.success(t('toast.success.testComplete'))
+          }
+        }
       }
     }
   }
@@ -1194,11 +1240,13 @@ const runAllVariants = useWorkspaceTestBatch({
           runFingerprint: runFingerprints[id],
           onError: (error) => runErrors.push(error),
         }),
-      complete: (results) => {
-        void session.saveSession()
-
+      complete: async (results) => {
+        const saved = await session.saveSession()
+        if (!saved) {
+          toast.warning(t('workspace.testResultSaveFailed'))
+        }
         if (results.every(Boolean)) {
-          toast.success(t('toast.success.testComplete'))
+          if (saved) toast.success(t('toast.success.testComplete'))
         } else {
           const imageProviderMessage = sharedInputImages.length > 0
             ? getSafeImageProviderErrorMessage(runErrors[0], sharedInputImages)

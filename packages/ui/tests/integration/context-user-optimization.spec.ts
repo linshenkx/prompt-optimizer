@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { ref, type Ref } from 'vue'
+import { effectScope, nextTick, ref, type Ref } from 'vue'
 
 const toast = {
   success: vi.fn(),
@@ -24,10 +24,31 @@ vi.mock('../../src/composables/ui/useToast', () => ({
 }))
 
 import type { AppServices } from '../../src/types/services'
-import type { Template } from '@prompt-optimizer/core'
+import type { PromptChain, Template } from '@prompt-optimizer/core'
 import { useContextUserOptimization } from '../../src/composables/prompt/useContextUserOptimization'
 
 describe('ContextUser optimization (integration)', () => {
+  it('keeps the selected history when an older restored chain arrives late', async () => {
+    let resolveOld!: (chain: PromptChain) => void
+    const getChain = vi.fn(() => new Promise<PromptChain>(resolve => { resolveOld = resolve }))
+    const services = ref({ historyManager: { getChain } } as unknown as AppServices)
+    const scope = effectScope()
+    try {
+      const optimizer = scope.run(() => useContextUserOptimization(
+        services, ref(''), ref(null), ref(null), { currentChainId: ref('older'), currentVersionId: ref('older-v1') },
+      ))!
+      expect(getChain).toHaveBeenCalledExactlyOnceWith('older')
+      const record = { id: 'current-v1', optimizedPrompt: 'current prompt' } as PromptChain['versions'][number]
+      optimizer.loadFromHistory({ record, chain: { chainId: 'current', versions: [record], currentRecord: record } })
+      resolveOld({ chainId: 'older', versions: [], currentRecord: record })
+      await nextTick()
+      expect(optimizer.currentChainId).toBe('current')
+      expect(optimizer.currentVersions).toEqual([record])
+    } finally {
+      scope.stop()
+    }
+  })
+
   it('optimizes via stream and creates a new history chain', async () => {
     toast.success.mockReset()
     toast.error.mockReset()

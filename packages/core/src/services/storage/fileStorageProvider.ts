@@ -20,7 +20,8 @@ export class FileStorageProvider implements IStorageProvider {
   private backupPath: string;
   private data: Map<string, string> = new Map();
   private writeTimeout: NodeJS.Timeout | null = null;
-  private isDirty: boolean = false;
+  private revision = 0;
+  private savedRevision = 0;
   private writeLock: Promise<void> = Promise.resolve();
   private updateLock: Promise<void> = Promise.resolve();
   private initialized: boolean = false;
@@ -31,8 +32,6 @@ export class FileStorageProvider implements IStorageProvider {
   private readonly TEMP_FILE_SUFFIX = '.tmp';
   private readonly BACKUP_FILE_SUFFIX = '.backup';
   private readonly MAX_FLUSH_TIME = 3000; // 最大flush时间：3秒
-  private flushAttempts = 0; // flush尝试次数
-  private readonly MAX_FLUSH_ATTEMPTS = 3; // 最大flush尝试次数
   
   constructor(userDataPath: string) {
     if (!userDataPath) {
@@ -308,82 +307,45 @@ export class FileStorageProvider implements IStorageProvider {
    * 调度延迟写入
    */
   private scheduleWrite(): void {
-    this.isDirty = true;
-    
-    // 如果已有待写入任务，重置计时器
-    if (this.writeTimeout) {
-      clearTimeout(this.writeTimeout);
-    }
-    
-    this.writeTimeout = setTimeout(async () => {
-      if (this.isDirty) {
-        try {
-          await this.acquireWriteLock(async () => {
-            await this.saveToFile();
-            this.isDirty = false;
-          });
-        } catch (error) {
-          console.error('[FileStorage] Scheduled write failed:', error);
-          // 重置isDirty标志以避免无限重试
-          this.isDirty = false;
-        }
-      }
+    this.revision++;
+    if (this.writeTimeout) clearTimeout(this.writeTimeout);
+    this.writeTimeout = setTimeout(() => {
       this.writeTimeout = null;
+      void this.flush().catch(error => {
+        console.error('[FileStorage] Scheduled write failed:', error);
+      });
     }, this.WRITE_DELAY);
   }
-  
-  /**
-   * 立即写入（关键时刻使用）
-   * 带有超时保护和重试限制，确保不会无限循环
-   */
+
   async flush(): Promise<void> {
     if (this.writeTimeout) {
       clearTimeout(this.writeTimeout);
       this.writeTimeout = null;
     }
 
-    if (!this.isDirty) {
-      return; // 没有脏数据，直接返回
-    }
+    const requestedRevision = this.revision;
+    if (this.savedRevision === requestedRevision) return;
 
-    // 检查重试次数限制
-    if (this.flushAttempts >= this.MAX_FLUSH_ATTEMPTS) {
-      console.error('[FileStorage] Max flush attempts reached, forcing isDirty to false');
-      this.isDirty = false;
-      this.flushAttempts = 0;
-      throw new StorageError('Max flush attempts exceeded', 'write');
-    }
-
-    this.flushAttempts++;
-
+    let timeout: NodeJS.Timeout | undefined;
     try {
-      // 使用Promise.race实现超时保护
       await Promise.race([
         this.acquireWriteLock(async () => {
+          if (this.savedRevision >= requestedRevision) return;
+          // saveToFile serializes synchronously before its first await. A later
+          // mutation stays dirty even when this write completes successfully.
+          const writingRevision = this.revision;
           await this.saveToFile();
-          this.isDirty = false;
-          this.flushAttempts = 0; // 成功后重置计数器
-          console.log('[FileStorage] Data saved successfully');
+          this.savedRevision = writingRevision;
         }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new StorageError('Flush timeout', 'write')), this.MAX_FLUSH_TIME)
-        )
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new StorageError('Flush timeout', 'write')), this.MAX_FLUSH_TIME);
+        }),
       ]);
-    } catch (error) {
-      console.error('[FileStorage] Failed to save data during flush:', error);
-
-      // 如果达到最大重试次数或者是超时错误，强制重置状态
-      if (this.flushAttempts >= this.MAX_FLUSH_ATTEMPTS ||
-          (error instanceof StorageError && error.operation === 'write' && error.params?.details === 'Flush timeout')) {
-        console.warn('[FileStorage] Forcing isDirty to false to prevent infinite loop');
-        this.isDirty = false;
-        this.flushAttempts = 0;
-      }
-
-      throw error; // 重新抛出错误以便上层处理
+    } finally {
+      clearTimeout(timeout);
     }
   }
-  
+
   /**
    * 获取写入锁，确保写入操作串行执行
    */
@@ -413,6 +375,7 @@ export class FileStorageProvider implements IStorageProvider {
   
   async setItem(key: string, value: string): Promise<void> {
     await this.ensureInitialized();
+    if (this.data.get(key) === value && this.revision === this.savedRevision) return;
     this.data.set(key, value);
     this.scheduleWrite(); // 延迟写入
   }
@@ -426,10 +389,8 @@ export class FileStorageProvider implements IStorageProvider {
   async clearAll(): Promise<void> {
     await this.ensureInitialized();
     this.data.clear();
-    // 强制写入，即使没有脏数据
-    await this.acquireWriteLock(async () => {
-      await this.saveToFile();
-    });
+    this.revision++;
+    await this.flush();
   }
   
   /**
@@ -495,7 +456,7 @@ export class FileStorageProvider implements IStorageProvider {
    */
   private async getLatestData<T>(key: string): Promise<T | null> {
     // 如果有待写入的数据，先刷新到文件
-    if (this.isDirty) {
+    if (this.revision !== this.savedRevision) {
       console.log('[FileStorage] Flushing pending changes before read...');
       await this.flush();
     }
@@ -541,6 +502,7 @@ export class FileStorageProvider implements IStorageProvider {
         }
       }
       
+      if (operations.length) this.revision++;
       await this.flush(); // 批量操作后立即写入
       
     } catch (error) {

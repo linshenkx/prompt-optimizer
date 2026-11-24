@@ -39,6 +39,59 @@ export class HistoryManager implements IHistoryManager {
     }
   }
 
+  private trimRecordsPreservingRoots(records: PromptRecord[]): PromptRecord[] {
+    if (records.length <= this.maxRecords) {
+      return records;
+    }
+
+    const retained = [...records];
+    const chainCounts = new Map<string, number>();
+    const rootCounts = new Map<string, number>();
+    for (const r of retained) {
+      chainCounts.set(r.chainId, (chainCounts.get(r.chainId) ?? 0) + 1);
+      if (r.version === 1) {
+        rootCounts.set(r.chainId, (rootCounts.get(r.chainId) ?? 0) + 1);
+      }
+    }
+
+    while (retained.length > this.maxRecords) {
+      let evictIndex = -1;
+      for (let i = retained.length - 1; i >= 1; i--) {
+        const candidate = retained[i];
+        const count = chainCounts.get(candidate.chainId) ?? 0;
+        const roots = rootCounts.get(candidate.chainId) ?? 0;
+        // Never evict the sole root of a chain that still has other retained records;
+        // evicting a 1-record chain's root cleanly drops that entire chain.
+        if (candidate.version !== 1 || count <= 1 || roots > 1) {
+          evictIndex = i;
+          break;
+        }
+      }
+      if (evictIndex === -1) {
+        evictIndex = retained.length - 1;
+      }
+      const [evicted] = retained.splice(evictIndex, 1);
+      chainCounts.set(evicted.chainId, (chainCounts.get(evicted.chainId) ?? 1) - 1);
+      if (evicted.version === 1) {
+        rootCounts.set(evicted.chainId, (rootCounts.get(evicted.chainId) ?? 1) - 1);
+      }
+      for (let j = 0; j < retained.length; j++) {
+        const record = retained[j];
+        if (record.chainId === evicted.chainId && record.previousId === evicted.id) {
+          if (evicted.previousId !== undefined) {
+            retained[j] = { ...record, previousId: evicted.previousId };
+          } else {
+            const next = { ...record };
+            delete next.previousId;
+            retained[j] = next;
+          }
+        }
+      }
+    }
+
+    return retained;
+  }
+
   /**
    * Add a new record using atomic operation
    * @param record The record to add
@@ -70,8 +123,8 @@ export class HistoryManager implements IHistoryManager {
           // Add record to existing records (at the beginning)
           const updatedRecords = [record, ...records];
           
-          // Ensure we don't exceed maxRecords
-          return updatedRecords.slice(0, this.maxRecords);
+          // Ensure we don't exceed maxRecords without orphaning active chains
+          return this.trimRecordsPreservingRoots(updatedRecords);
         }
       );
     } catch (err: any) {
@@ -239,33 +292,68 @@ export class HistoryManager implements IHistoryManager {
     iterationNote?: string;
     metadata?: Record<string, any>;
   }): Promise<PromptRecordChain> {
-    // Get the chain to ensure it exists and get current version
-    const chain = await this.getChain(params.chainId);
-    
-    // Generate new record ID
-    const newId = uuidv4();
-    
-    // Create new record with chainId and incremented version
-    const record: PromptRecord = {
-      id: newId,
-      chainId: params.chainId,
-      originalPrompt: params.originalPrompt,
-      optimizedPrompt: params.optimizedPrompt,
-      type: 'iterate',
-      version: chain.currentRecord.version + 1,
-      previousId: chain.currentRecord.id,
-      timestamp: Date.now(),
-      modelKey: params.modelKey,
-      templateId: params.templateId,
-      iterationNote: params.iterationNote,
-      metadata: params.metadata
-    };
-    
-    // Add record
-    await this.addRecord(record);
-    
-    // Return the updated chain
-    return this.getChain(params.chainId);
+    const modelName = params.modelKey ? await this.getModelNameByKey(params.modelKey) : undefined;
+    let updatedChain: PromptRecordChain | undefined;
+
+    await this.storage.updateData<PromptRecord[]>(this.storageKey, existingRecords => {
+      const records = existingRecords ?? [];
+      const chainRecords = records.filter(r => r.chainId === params.chainId);
+      if (chainRecords.length === 0) {
+        throw new RecordNotFoundError(`Chain with ID ${params.chainId} not found`, params.chainId);
+      }
+
+      const sortedRecords = [...chainRecords].sort((a, b) => a.version - b.version);
+      const rootRecord = sortedRecords.find(r => r.version === 1);
+      if (!rootRecord) {
+        throw new HistoryError(
+          HISTORY_ERROR_CODES.CHAIN_ERROR,
+          { details: `Chain ${params.chainId} has no root record (version 1)` },
+          `Chain ${params.chainId} has no root record (version 1)`
+        );
+      }
+
+      const currentRecord = sortedRecords[sortedRecords.length - 1];
+      const record: PromptRecord = {
+        id: uuidv4(),
+        chainId: params.chainId,
+        originalPrompt: params.originalPrompt,
+        optimizedPrompt: params.optimizedPrompt,
+        type: 'iterate',
+        version: currentRecord.version + 1,
+        previousId: currentRecord.id,
+        timestamp: Date.now(),
+        modelKey: params.modelKey,
+        ...(modelName !== undefined ? { modelName } : {}),
+        templateId: params.templateId,
+        ...(params.iterationNote !== undefined ? { iterationNote: params.iterationNote } : {}),
+        ...(params.metadata !== undefined ? { metadata: params.metadata } : {})
+      };
+
+      this.validateRecord(record);
+      if (records.some(r => r.id === record.id)) {
+        throw new HistoryError(
+          HISTORY_ERROR_CODES.VALIDATION_ERROR,
+          { details: `Record with ID ${record.id} already exists` },
+          `Record with ID ${record.id} already exists`
+        );
+      }
+
+      const nextRecords = this.trimRecordsPreservingRoots([record, ...records]);
+      const retainedChainRecords = nextRecords
+        .filter(r => r.chainId === params.chainId)
+        .sort((a, b) => a.version - b.version);
+
+      updatedChain = {
+        chainId: params.chainId,
+        rootRecord,
+        currentRecord: retainedChainRecords[retainedChainRecords.length - 1],
+        versions: retainedChainRecords
+      };
+
+      return nextRecords;
+    });
+
+    return updatedChain!;
   }
 
   /**
@@ -406,7 +494,7 @@ export class HistoryManager implements IHistoryManager {
     // Prepare the complete replacement before its only write. A failed write
     // must not leave the old history cleared or publish only part of a chain.
     const records: PromptRecord[] = [];
-    for (const record of (data as PromptRecord[]).slice(0, this.maxRecords)) {
+    for (const record of this.trimRecordsPreservingRoots(data as PromptRecord[])) {
       records.push({
         ...record,
         ...(!record.modelName && record.modelKey

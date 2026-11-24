@@ -1,21 +1,6 @@
 import { useArenaSession } from './useArenaSession'
-/**
- * Session Manager - 会话管理协调器
- *
- * 职责：
- * - 监听模式和子模式切换
- * - 自动保存当前会话，恢复目标会话
- * - 协调6个子模式 Session Store
- * - 提供切换事务锁，避免竞态条件
- *
- * 设计原则（基于 Codex 审查）：
- * - 不另存 subModePreferences（避免双真源）
- * - 通过 injectSubModeReaders 消费现有状态
- * - 使用 isSwitching 锁防止切换期间的竞态
- */
-
-import { defineStore } from 'pinia'
-import { ref, onScopeDispose } from 'vue'
+import { defineStore, getActivePinia } from 'pinia'
+import { computed, onScopeDispose, ref, shallowReactive, watch } from 'vue'
 import { getOutputVersion } from '../../utils/output-document'
 import {
   hydratePromptSessionWithOptimizationChain,
@@ -23,6 +8,7 @@ import {
   type BasicSubMode,
   type ProSubMode,
   type ImageSubMode,
+  type IPreferenceService,
   type PromptSession,
 } from '@prompt-optimizer/core'
 import type { FunctionMode } from '../../composables/mode/useFunctionMode'
@@ -41,7 +27,7 @@ import {
   type PromptSessionProjectionStoreMap,
 } from './promptSessionProjection'
 import { pauseImageStorageGc, queueImageStorageMaintenance } from './imageStorageMaintenance'
-import { hasSessionConflict, pauseSessionWrites, withSessionRestoreCheckpoint, type SessionWritePermit } from './sessionPersistence'
+import { hasSessionConflict, observeSessionSaves, pauseSessionWrites, withSessionRestoreCheckpoint, type SessionWritePermit } from './sessionPersistence'
 import { acquireSessionRestoreLock, type SessionRestoreRelease } from './sessionConcurrency'
 import { SESSION_STORAGE_KEYS, SESSION_SUB_MODE_KEYS, type SubModeKey } from './sessionKeys'
 import type { SessionSaveResult } from './sessionSaveResult'
@@ -117,16 +103,7 @@ export interface SubModeReaders {
 }
 
 export const useSessionManager = defineStore('sessionManager', () => {
-  /**
-   * 切换事务锁（Codex 要求）
-   * 切换期间禁用自动保存，避免竞态条件
-   */
-  const isSwitching = ref(false)
-
-  /**
-   * 全局保存锁（Codex 建议）
-   * 防止所有保存入口（定时器、pagehide、visibilitychange、切换）并发写入
-   */
+  const pinia = getActivePinia()
   const saveInFlight = ref(false)
   const isRestoring = ref(false)
 
@@ -209,31 +186,55 @@ export const useSessionManager = defineStore('sessionManager', () => {
     return `${mode}-${subMode}` as SubModeKey
   }
 
-  const getProjectionStoreMap = (): PromptSessionProjectionStoreMap => ({
-    arena: useArenaSession(),
-    'basic-system': useBasicSystemSession(),
-    'basic-user': useBasicUserSession(),
-    'pro-multi': useProMultiMessageSession(),
-    'pro-variable': useProVariableSession(),
-    'image-text2image': useImageText2ImageSession(),
-    'image-image2image': useImageImage2ImageSession(),
-    'image-multiimage': useImageMultiImageSession(),
+  let projectionStores: PromptSessionProjectionStoreMap | undefined
+  const getProjectionStoreMap = () => (projectionStores ??= {
+    arena: useArenaSession(pinia),
+    'basic-system': useBasicSystemSession(pinia),
+    'basic-user': useBasicUserSession(pinia),
+    'pro-multi': useProMultiMessageSession(pinia),
+    'pro-variable': useProVariableSession(pinia),
+    'image-text2image': useImageText2ImageSession(pinia),
+    'image-image2image': useImageImage2ImageSession(pinia),
+    'image-multiimage': useImageMultiImageSession(pinia),
   })
 
-  const stateVersions = new Map<SubModeKey, number>()
-  const savedVersions = new Map<SubModeKey, string>()
+  const stateVersions = shallowReactive(new Map<SubModeKey, number>())
+  const savedVersions = shallowReactive(new Map<SubModeKey, string>())
+  const saveFailures = shallowReactive(new Map<SubModeKey, 'failed' | 'conflict'>())
   const dirtyStops: Array<() => void> = []
   onScopeDispose(() => dirtyStops.splice(0).forEach(stop => stop()))
-  let dirtyTracking = false
-  const trackDirtySessions = () => {
-    if (dirtyTracking) return
-    dirtyTracking = true
-    for (const [key, store] of Object.entries(getProjectionStoreMap())) {
-      const stop = store.$subscribe?.(() => stateVersions.set(key as SubModeKey, (stateVersions.get(key as SubModeKey) ?? 0) + 1), { detached: true, flush: 'sync' })
-      if (stop) dirtyStops.push(stop)
-    }
-  }
+
   const sessionRevision = (key: SubModeKey) => `${stateVersions.get(key) ?? 0}:${getOutputVersion(getProjectionStoreMap()[key])}`
+  const isSessionDirty = (key: SubModeKey) => savedVersions.get(key) !== sessionRevision(key)
+  const needsSessionSave = (key: SubModeKey) => saveFailures.has(key) || isSessionDirty(key)
+  const hasUnsavedSessions = computed(() => hasRestoredAllSessions.value &&
+    SESSION_SUB_MODE_KEYS.some(needsSessionSave))
+  const sessionHasConflict = (key: SubModeKey) =>
+    hasSessionConflict(getPiniaServices()?.preferenceService, SESSION_STORAGE_KEYS[key])
+
+  const trackSessionChanges = (onChange: (key: SubModeKey) => void, flush: 'post' | 'sync') => {
+    const stores = getProjectionStoreMap()
+    const stops = SESSION_SUB_MODE_KEYS.map(key => key === 'arena'
+      ? watch(() => stores.arena.state, () => onChange(key), { deep: true, flush })
+      : stores[key].$subscribe?.(() => onChange(key), { detached: true, flush }))
+    return () => stops.forEach(stop => stop?.())
+  }
+
+  const trackSessionSaves = (service: IPreferenceService) => {
+    for (const key of SESSION_SUB_MODE_KEYS) savedVersions.set(key, sessionRevision(key))
+    dirtyStops.push(trackSessionChanges(key => stateVersions.set(key, (stateVersions.get(key) ?? 0) + 1), 'sync'))
+    dirtyStops.push(observeSessionSaves(service, key => {
+      const revision = sessionRevision(key)
+      return saved => {
+        if (saved) {
+          savedVersions.set(key, revision)
+          saveFailures.delete(key)
+        } else {
+          saveFailures.set(key, hasSessionConflict(service, SESSION_STORAGE_KEYS[key]) ? 'conflict' : 'failed')
+        }
+      }
+    }))
+  }
 
   const getPromptSession = (key: SubModeKey = getActiveSubModeKey()) =>
     buildPromptSessionFromStores(key, getProjectionStoreMap())
@@ -272,59 +273,7 @@ export const useSessionManager = defineStore('sessionManager', () => {
       getActiveSubModeKey(),
     )
 
-  /**
-   * 切换功能模式（响应外部 functionMode 变化）
-   * @param fromKey 旧模式的 key（由 watch 传入）
-   * @param toKey 新模式的 key（由 watch 传入）
-   */
-  const switchMode = async (fromKey: SubModeKey, toKey: SubModeKey) => {
-    if (isSwitching.value || isRestoring.value) {
-      return
-    }
-
-    isSwitching.value = true
-    try {
-      // 1. 保存旧模式会话
-      await saveSubModeSession(fromKey)
-
-      // 2. 恢复新模式会话
-      await restoreSubModeSession(toKey)
-    } catch (error) {
-      console.error('[SessionManager] Failed to switch mode:', error)
-    } finally {
-      isSwitching.value = false
-    }
-  }
-
-  /**
-   * 切换子模式（响应外部 subMode 变化）
-   * @param fromKey 旧子模式的 key（由 watch 传入）
-   * @param toKey 新子模式的 key（由 watch 传入）
-   */
-  const switchSubMode = async (fromKey: SubModeKey, toKey: SubModeKey) => {
-    if (isSwitching.value || isRestoring.value) {
-      return
-    }
-
-    isSwitching.value = true
-    try {
-      // 1. 保存旧子模式会话
-      await saveSubModeSession(fromKey)
-
-      // 2. 恢复新子模式会话
-      await restoreSubModeSession(toKey)
-    } catch (error) {
-      console.error('[SessionManager] Failed to switch sub-mode:', error)
-    } finally {
-      isSwitching.value = false
-    }
-  }
-
-  /**
-   * 内部方法:保存指定子模式会话（不加锁）
-   * 仅供 saveSubModeSession 和 saveAllSessions 调用
-   */
-  const _saveSubModeSessionUnsafe = async (key: SubModeKey, permit?: SessionWritePermit) => {
+  const persistSession = async (key: SubModeKey, permit?: SessionWritePermit) => {
     try {
       // Text stores report handled failures; image stores reject on storage errors.
       return (await getProjectionStoreMap()[key].saveSession(permit)) !== false
@@ -334,38 +283,35 @@ export const useSessionManager = defineStore('sessionManager', () => {
     }
   }
 
-  /**
-   * 保存指定子模式会话（带全局锁保护）
-   * 🔧 加强防护：未恢复前不允许保存，避免覆盖持久化数据
-   */
-  const saveSubModeSession = async (key: SubModeKey) => {
-    if (isRestoring.value) return false
-    // ✅ 强制检查：必须先恢复才能保存
-    if (!hasRestoredAllSessions.value) {
-      console.warn(`[SessionManager] Attempted to save ${key} before global restore completed; skipping to avoid overwriting persisted data`)
-      return false
+  const withManagerSave = async (save: () => Promise<boolean>, wait = false) => {
+    const deadline = Date.now() + 5000
+    while (saveInFlight.value) {
+      if (!wait || isRestoring.value || Date.now() >= deadline) return false
+      await new Promise(resolve => setTimeout(resolve, 50))
     }
+    if (!hasRestoredAllSessions.value || isRestoring.value) return false
 
-    // ⚠️ 并发保护：如果上一次保存还在进行中，跳过本次
-    if (saveInFlight.value) {
-      console.warn(`[SessionManager] A save operation is already in progress; skipping ${key} session save`)
-      return false
-    }
-
+    saveInFlight.value = true
     try {
-      saveInFlight.value = true
-      return await _saveSubModeSessionUnsafe(key)
+      return await save()
     } finally {
       saveInFlight.value = false
     }
   }
 
-  /** Mobile scheduling needs to distinguish temporary contention from a refused write. */
+  const saveSubModeSession = (key: SubModeKey) => withManagerSave(() => persistSession(key))
+  const flushSession = (key: SubModeKey) => {
+    if (sessionHasConflict(key)) return Promise.resolve(false)
+    return needsSessionSave(key) ? persistSession(key) : Promise.resolve(true)
+  }
+  const flushSubModeSession = (key: SubModeKey) =>
+    withManagerSave(() => flushSession(key), true)
+
   const saveSubModeSessionWithStatus = async (key: SubModeKey): Promise<SessionSaveResult> => {
-    const isBlocked = () => isRestoring.value || !hasRestoredAllSessions.value ||
-      hasSessionConflict(getPiniaServices()?.preferenceService, SESSION_STORAGE_KEYS[key])
+    const isBlocked = () => isRestoring.value || !hasRestoredAllSessions.value || sessionHasConflict(key)
     if (isBlocked()) return 'blocked'
-    if (isSwitching.value || saveInFlight.value) return 'deferred'
+    if (!isSessionDirty(key)) return 'saved'
+    if (saveInFlight.value) return 'deferred'
     const saved = await saveSubModeSession(key)
     if (saved) return 'saved'
     return isBlocked() ? 'blocked' : 'failed'
@@ -447,10 +393,8 @@ export const useSessionManager = defineStore('sessionManager', () => {
       return
     }
 
-    const $services = getPiniaServices()
-    if (!$services?.preferenceService) {
-      return
-    }
+    const service = getPiniaServices()?.preferenceService
+    if (!service) return
 
     if (restoreAllInFlight.value) {
       await restoreAllInFlight.value
@@ -468,6 +412,7 @@ export const useSessionManager = defineStore('sessionManager', () => {
         // Yield to the event loop to keep the UI responsive and reduce long-task pressure.
         await new Promise(resolve => setTimeout(resolve, 0))
       }
+      trackSessionSaves(service)
       hasRestoredAllSessions.value = true
     })()
 
@@ -481,59 +426,19 @@ export const useSessionManager = defineStore('sessionManager', () => {
 
   const saveAllSessions = async () => {
     if (isRestoring.value) return false
-    // ⚠️ 等待当前保存完成（最多等待 5 秒）
-    const startTime = Date.now()
-    const MAX_WAIT = 5000 // 5 秒超时
-
     await restoreAllSessions()
-    if (!hasRestoredAllSessions.value || isRestoring.value) return false
-    trackDirtySessions()
-
-    while (saveInFlight.value) {
-      if (isRestoring.value) return false
-      if (Date.now() - startTime > MAX_WAIT) {
-        // ⚠️ 超时时直接返回，不要强制执行（避免误解锁）
-        console.warn('[SessionManager] Timed out while waiting for the current save to finish; aborting this save request')
-        return false
-      }
-      // 等待 50ms 后重试
-      await new Promise(resolve => setTimeout(resolve, 50))
-    }
-
-    if (isRestoring.value) return false
-
-    // ⚠️ 记录是否是我获得的锁（防御性编程）
-    let acquired = false
-
-    try {
-      saveInFlight.value = true
-      acquired = true // ✅ 标记：我获得了锁
-
-      // IMPORTANT:
-      // Save sequentially to reduce peak memory usage for very large sessions.
-      // (Parallel JSON.stringify across 6 stores can spike memory and crash the browser on pagehide/unmount.)
-      // Save the active workspace first: a mobile browser may suspend this page
-      // before the remaining background workspace snapshots finish.
+    return withManagerSave(async () => {
       const activeKey = readers ? getActiveSubModeKey() : SESSION_SUB_MODE_KEYS[0]
-      const orderedKeys = [activeKey, ...SESSION_SUB_MODE_KEYS.filter(key => key !== activeKey)]
+      const keys = [activeKey, ...SESSION_SUB_MODE_KEYS.filter(key => key !== activeKey)]
       let saved = true
-      for (const key of orderedKeys) {
-        const revision = sessionRevision(key)
-        if (savedVersions.get(key) === revision) continue
-        if (!await _saveSubModeSessionUnsafe(key)) saved = false
-        else if (revision === sessionRevision(key)) savedVersions.set(key, revision)
+      for (const key of keys) {
+        if (isRestoring.value) return false
+        if (!needsSessionSave(key)) continue
+        if (!await flushSession(key)) saved = false
         await new Promise(resolve => setTimeout(resolve, 0))
       }
       return saved
-    } catch (error) {
-      console.error('[SessionManager] Failed to save all sessions:', error)
-      return false
-    } finally {
-      // ✅ 只有我获得的锁，我才释放
-      if (acquired) {
-        saveInFlight.value = false
-      }
-    }
+    }, true)
   }
 
   /**
@@ -542,7 +447,6 @@ export const useSessionManager = defineStore('sessionManager', () => {
    */
   const beginSessionRestore = async (): Promise<SessionRestoreRelease> => {
     if (isRestoring.value) throw new Error('Session restore is already in progress')
-    if (isSwitching.value) throw new Error('Cannot restore sessions while switching workspaces')
     const service = getPiniaServices()?.preferenceService
     if (!service) throw new Error('Session storage is unavailable')
     // Freeze at the store boundary: model/template setters and result callbacks
@@ -585,7 +489,7 @@ export const useSessionManager = defineStore('sessionManager', () => {
           let saved = true
           for (const key of SESSION_SUB_MODE_KEYS) {
             if (cancelled) return
-            if (!await _saveSubModeSessionUnsafe(key, writes.permit)) saved = false
+            if (!await persistSession(key, writes.permit)) saved = false
           }
           if (!saved) throw new Error('Failed to save current workspaces before import')
         })(),
@@ -606,17 +510,18 @@ export const useSessionManager = defineStore('sessionManager', () => {
 
   /** Subscribe to mutations without copying or serializing the session state. */
   const subscribeToSessionChanges = (onChange: (key: SubModeKey) => void) => {
+    const stop = trackSessionChanges(onChange, 'post')
     const stores = getProjectionStoreMap()
-    const unsubscribe = SESSION_SUB_MODE_KEYS.map(key =>
-      stores[key].$subscribe(() => onChange(key), { detached: true, flush: 'post' }),
+    const outputStops = SESSION_SUB_MODE_KEYS.map(key =>
+      watch(() => getOutputVersion(stores[key]), () => onChange(key), { flush: 'post' }),
     )
-    return () => unsubscribe.forEach(stop => stop())
+    return () => { stop(); outputStops.forEach(stopOutput => stopOutput()) }
   }
-
 
   return {
     // 状态
-    isSwitching,
+    hasUnsavedSessions,
+    saveFailures,
     isRestoring,
     isSaving: saveInFlight,
 
@@ -628,8 +533,7 @@ export const useSessionManager = defineStore('sessionManager', () => {
     getHydratedPromptSession,
     getAllPromptSessions,
     getPromptSessionRegistry,
-    switchMode,
-    switchSubMode,
+    flushSubModeSession,
     saveSubModeSession,
     saveSubModeSessionWithStatus,
     restoreSubModeSession,

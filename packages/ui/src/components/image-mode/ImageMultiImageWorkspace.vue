@@ -331,6 +331,18 @@
       :compact="isCompact" :running="isAnyVariantRunning" :can-use-four-columns="canUseFourColumns"
       run-test-id="image-multiimage-test-run-all" column-test-id-prefix="image-multiimage-columns"
       @run="runAllVariants">
+      <template #actions>
+        <SaveTestResultExamplesBatchButton
+          sub-mode-key="image-multiimage"
+          :content="optimizedPrompt || originalPrompt"
+          :original-content="originalPrompt"
+          function-mode="image"
+          image-sub-mode="multiimage"
+          :variant-ids="saveExampleReadyVariantIds"
+          :disabled="isAnyVariantRunning"
+          test-id="save-test-examples-batch-image-multiimage"
+        />
+      </template>
     </TestWorkspaceToolbar></template>
     <template #variant-controls><NCard class="test-variant-controls" size="small" :style="{ flexShrink: 0 }" :content-style="isCompact ? undefined : { padding: '12px' }">
             <div class="variant-deck" :style="{ gridTemplateColumns: isCompact ? 'minmax(0, 1fr)' : testGridTemplateColumns }">
@@ -611,7 +623,7 @@ import { useWorkspaceTextModelSelection } from '../../composables/workspaces/use
 import { useWorkspaceTemplateSelection } from '../../composables/workspaces/useWorkspaceTemplateSelection'
 import { useElementSize } from '@vueuse/core'
 import { useLocalPromptPreviewPanel } from '../../composables/prompt/useLocalPromptPreviewPanel'
-import { buildPromptExecutionContext } from '../../utils/prompt-variables'
+import { buildPromptExecutionContext, pickUsedVariables } from '../../utils/prompt-variables'
 import { useWorkspaceTestBatch } from '../../composables/workspaces/useWorkspaceTestBatch'
 import { buildTestPanelVersionOptions, resolveTestPanelVersionSelection } from '../../utils/testPanelVersion'
 import { buildMultiImageVariantFingerprint } from '../../utils/multiimage-workspace'
@@ -632,11 +644,11 @@ import AppPreviewImage from '../media/AppPreviewImage.vue'
 import { VariableAwareInput } from '../variable-extraction'
 import TemporaryVariablesPanel from '../variable/TemporaryVariablesPanel.vue'
 import WorkspaceUtilityMenu from '../common/WorkspaceUtilityMenu.vue'
-import ThemedTooltip from '../common/ThemedTooltip.vue'
 import VariableValuePreviewDialog from '../variable/VariableValuePreviewDialog.vue'
 import TestPanelVersionSelect from '../TestPanelVersionSelect.vue'
 import ImageTokenUsage from './ImageTokenUsage.vue'
 import SaveTestResultExampleButton from '../SaveTestResultExampleButton.vue'
+import SaveTestResultExamplesBatchButton from '../SaveTestResultExamplesBatchButton.vue'
 import { EvaluationPanel } from '../evaluation'
 
 const { t } = useI18n()
@@ -997,6 +1009,10 @@ const testGridTemplateColumns = computed(() => `repeat(${testColumnCountModel.va
 const isAnyVariantRunning = computed(() => activeVariantIds.value.some((id) => variantRunning[id]))
 
 const getVariantLabel = (id: TestVariantId) => ({ a: 'A', b: 'B', c: 'C', d: 'D' }[id])
+// 可批量保存为示例的测试列：与单列保存按钮的可用条件保持一致
+const saveExampleReadyVariantIds = computed(() =>
+  activeVariantIds.value.filter((id) => hasVariantResult(id) && !variantRunning[id])
+)
 
 const handleVariantVersionChange = (id: TestVariantId, value: string | number) => {
   const selection = value as TestPanelVersionValue
@@ -1556,8 +1572,6 @@ const resolvePromptForSelection = (selection: TestPanelVersionValue) =>
     originalPrompt: session.originalPrompt || '',
   })
 
-const getVariantResolvedVersion = (id: TestVariantId): number =>
-  resolvePromptForSelection(variantVersionModels[id].value).resolvedVersion
 
 const getVariantRequest = (id: TestVariantId) => {
   const modelKey = (variantModelKeyModels[id].value || '').trim()
@@ -1632,6 +1646,13 @@ const runVariant = async (
   const request = getVariantRequest(id)
   if (!request) return false
     const runFingerprint = getVariantFingerprint(id)
+    const runVersion = variantVersionModels[id].value
+    const resolvedPromptText = resolvePromptForSelection(runVersion).text
+    const usedParameters = pickUsedVariables([resolvedPromptText], mergedGenerationVariables.value)
+    const runInputImageRefs = session.inputImages
+      .map((image) => image.assetId?.trim())
+      .filter((assetId): assetId is string => Boolean(assetId))
+      .map((assetId) => ({ kind: 'asset' as const, assetId }))
 
   variantRunning[id] = true
   try {
@@ -1650,6 +1671,15 @@ const runVariant = async (
     result.metadata = {
       providerId: usedModel?.providerId || '', modelId: usedModel?.modelId || '', configId: request.configId,
       ...result.metadata, prompt: request.prompt,
+      runSnapshot: {
+        prompt: resolvedPromptText,
+        modelKey: request.configId,
+        version: runVersion,
+        input: {
+          ...(usedParameters ? { parameters: usedParameters } : {}),
+          ...(runInputImageRefs.length > 0 ? { images: runInputImageRefs } : {}),
+        },
+      },
     }
     const inputImagesInfo = await createVariantInputImagesInfo(request.inputImages)
     session.updateTestVariantResult(id, withVariantInputImagesInfo(result, inputImagesInfo))

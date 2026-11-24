@@ -438,6 +438,12 @@ test.describe('Workspace clear content', () => {
       await expectDerivedCleared(page, c.workspaceMode)
       await c.expectDerivedCleared?.(page)
 
+      if (c.workspaceMode === 'pro-multi') {
+        await switchToWorkspace(page, 'pro', 'variable', 'pro-variable')
+        await switchToWorkspace(page, 'pro', 'multi', 'pro-multi')
+        await expect(page.locator('[data-testid^="pro-multi-message-card-"]')).toHaveCount(0)
+      }
+
       await page.reload({ waitUntil: 'domcontentloaded' })
       await expect(getWorkspace(page, c.workspaceMode)).toBeVisible({ timeout: 20000 })
       await c.expectCleared(page)

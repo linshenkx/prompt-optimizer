@@ -1,5 +1,4 @@
 import { DatabaseSync } from 'node:sqlite';
-import { createHash } from 'node:crypto';
 import { mkdirSync, statSync, type BigIntStats } from 'node:fs';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -17,8 +16,6 @@ export interface SQLiteStorageOptions {
 export interface LegacyStorageSnapshot {
   source: 'json' | 'backup' | 'empty';
   entries: Map<string, string>;
-  /** Optionally captures the historical fallback only when saving new provenance. */
-  readBackupEntries?: () => Map<string, string> | undefined;
 }
 
 export interface StorageMigrationResult {
@@ -32,17 +29,24 @@ export interface ExistingSQLiteStorage {
   migration: StorageMigrationResult;
 }
 
-export const DESKTOP_STORAGE_DIVERGENCE_REASON = 'DESKTOP_STORAGE_DIVERGED';
+export const DESKTOP_STORAGE_WAL_UNSUPPORTED_REASON = 'DESKTOP_STORAGE_WAL_UNSUPPORTED';
+// Filesystems without birth time (common on Linux) fall back to ctime, which changes on touch/chmod.
+const HAS_RELIABLE_BIRTHTIME = process.platform === 'win32' || process.platform === 'darwin';
 
 const BOOTSTRAP_KEY = 'legacy-json-migration';
 type Operation = StorageError['operation'];
 type BatchOperation = Parameters<IStorageProvider['batchUpdate']>[0][number];
-type LegacySourceLoader = (alreadyMigrated: boolean) => LegacyStorageSnapshot;
+type LegacySourceLoader = () => LegacyStorageSnapshot;
 type ExistingFileIdentity = Pick<BigIntStats, 'dev' | 'ino' | 'birthtimeNs'>;
 
-interface MigrationMarker extends StorageMigrationResult {
-  sourceFingerprint?: string;
-  backupFingerprint?: string;
+/** Normalizes unpaired UTF-16 surrogates to U+FFFD to match UTF-8 SQLite TEXT semantics. */
+function toWellFormedUtf8Text(value: string): string {
+  const native = (value as string & { toWellFormed?: () => string }).toWellFormed;
+  if (typeof native === 'function') return native.call(value);
+  return value.replace(
+    /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
+    '\uFFFD',
+  );
 }
 
 interface SQLiteWriteTransaction {
@@ -51,21 +55,7 @@ interface SQLiteWriteTransaction {
   removeItem(key: string): void;
 }
 
-function isFingerprint(value: unknown): value is string {
-  return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
-}
-
-function migrationResult(marker: MigrationMarker): StorageMigrationResult {
-  return { version: marker.version, source: marker.source, itemCount: marker.itemCount };
-}
-
-function fingerprintEntries(entries: Map<string, string>): string {
-  // Key order, indentation and trailing newlines in the JSON container are immaterial.
-  const sorted = [...entries.entries()].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
-  return createHash('sha256').update(JSON.stringify(sorted)).digest('hex');
-}
-
-function parseMigrationMarker(marker: unknown): MigrationMarker {
+function parseMigrationMarker(marker: unknown): StorageMigrationResult {
   let result: unknown;
   try {
     if (typeof marker !== 'string') throw new Error('Missing marker');
@@ -76,17 +66,16 @@ function parseMigrationMarker(marker: unknown): MigrationMarker {
   if (!result || typeof result !== 'object' || Array.isArray(result)) {
     throw new StorageError('Unsupported SQLite migration state', 'config');
   }
-  const value = result as Partial<MigrationMarker>;
+  const value = result as Partial<StorageMigrationResult>;
   if (value.version !== 1 || !['json', 'backup', 'empty'].includes(value.source ?? '') ||
       !Number.isSafeInteger(value.itemCount) || (value.itemCount as number) < 0 ||
-      (value.source === 'empty' && value.itemCount !== 0) ||
-      (value.sourceFingerprint !== undefined && !isFingerprint(value.sourceFingerprint)) ||
-      (value.backupFingerprint !== undefined && (!value.sourceFingerprint || !isFingerprint(value.backupFingerprint)))) {
+      (value.source === 'empty' && value.itemCount !== 0)) {
     throw new StorageError('Unsupported SQLite migration state', 'config');
   }
   return {
-    version: 1, source: value.source!, itemCount: value.itemCount!,
-    sourceFingerprint: value.sourceFingerprint, backupFingerprint: value.backupFingerprint,
+    version: 1,
+    source: value.source!,
+    itemCount: value.itemCount!,
   };
 }
 
@@ -106,7 +95,7 @@ export class SQLiteStorageProvider implements IStorageProvider {
   private closePromise?: Promise<void>;
   private readonly options: Required<SQLiteStorageOptions>;
   private existingOnly = false;
-  private existingWriter?: LegacySourceLoader;
+  private existingWriter = false;
   private existingFile?: ExistingFileIdentity;
   private existingMigration?: StorageMigrationResult;
 
@@ -114,25 +103,25 @@ export class SQLiteStorageProvider implements IStorageProvider {
 
   /** Never creates directories, tables, migration state or business defaults. */
   static openExistingReadOnly(databasePath: string, options?: SQLiteStorageOptions): Promise<ExistingSQLiteStorage> {
-    return this.openExisting(databasePath, options);
+    return this.openExisting(databasePath, false, options);
   }
 
-  /** Validates migration provenance on open and within every existing-only write transaction. */
+  /** Validates existing schema, migration state, and guards against external file replacement. */
   static openExistingWritable(
-    databasePath: string, loadLegacy: LegacySourceLoader, options?: SQLiteStorageOptions,
+    databasePath: string, options?: SQLiteStorageOptions,
   ): Promise<ExistingSQLiteStorage> {
-    return this.openExisting(databasePath, options, loadLegacy);
+    return this.openExisting(databasePath, true, options);
   }
 
   private static async openExisting(
-    databasePath: string, options?: SQLiteStorageOptions, loadLegacy?: LegacySourceLoader,
+    databasePath: string, writable: boolean, options?: SQLiteStorageOptions,
   ): Promise<ExistingSQLiteStorage> {
     if (typeof databasePath !== 'string' || !isAbsolute(databasePath)) {
       throw new StorageError('Existing SQLite storage requires an absolute database path', 'config');
     }
     const provider = new SQLiteStorageProvider(databasePath, options);
     provider.existingOnly = true;
-    provider.existingWriter = loadLegacy;
+    provider.existingWriter = writable;
     try {
       const migration = await provider.run('read', () => ({ ...provider.existingMigration! }));
       return { provider, migration };
@@ -177,8 +166,9 @@ export class SQLiteStorageProvider implements IStorageProvider {
         : 'Cannot access existing SQLite database', 'config');
     }
     if (!file.isFile()) throw new StorageError('Existing SQLite path must be a database file', 'config');
+    const birthChanged = HAS_RELIABLE_BIRTHTIME && file.birthtimeNs !== this.existingFile?.birthtimeNs;
     if (this.existingFile && (file.dev !== this.existingFile.dev ||
-        file.ino !== this.existingFile.ino || file.birthtimeNs !== this.existingFile.birthtimeNs)) {
+        file.ino !== this.existingFile.ino || birthChanged)) {
       throw new StorageError('Existing SQLite database changed; reconnect to the intended source', 'config');
     }
     return file;
@@ -222,12 +212,11 @@ export class SQLiteStorageProvider implements IStorageProvider {
       allowExtension: false,
     });
     try {
-      const loadLegacy = this.existingWriter;
-      if (loadLegacy) {
+      if (this.existingWriter) {
         db.exec('PRAGMA synchronous=FULL');
         await this.transaction(db, () => {
           this.validateExistingSchema(db);
-          this.existingMigration = migrationResult(this.verifyLegacySource(db, this.readMigrationMarker(db), loadLegacy));
+          this.existingMigration = this.readMigrationMarker(db);
         });
         this.db = db;
         return db;
@@ -238,7 +227,7 @@ export class SQLiteStorageProvider implements IStorageProvider {
         db.exec('BEGIN');
         try {
           this.validateExistingSchema(db);
-          this.existingMigration = migrationResult(this.readMigrationMarker(db));
+          this.existingMigration = this.readMigrationMarker(db);
           db.exec('COMMIT');
         } catch (error) {
           if (db.isTransaction) db.exec('ROLLBACK');
@@ -252,7 +241,11 @@ export class SQLiteStorageProvider implements IStorageProvider {
       if (!this.isUninitializedSchema(db)) this.validateExistingSchema(db);
       await this.waitForLock(() => { db.exec('PRAGMA journal_mode=WAL'); });
       const mode = db.prepare('PRAGMA journal_mode').get();
-      if (mode?.journal_mode !== 'wal') throw new StorageError('SQLite WAL mode is required', 'config');
+      if (mode?.journal_mode !== 'wal') {
+        throw new StorageError('SQLite WAL mode is required', 'config', {
+          reason: DESKTOP_STORAGE_WAL_UNSUPPORTED_REASON,
+        });
+      }
       db.exec('PRAGMA synchronous=FULL');
       await this.transaction(db, () => {
         if (this.isUninitializedSchema(db)) {
@@ -325,7 +318,6 @@ export class SQLiteStorageProvider implements IStorageProvider {
     try {
       if (this.existingWriter) {
         this.requireExistingFile();
-        if (this.db) this.verifyLegacySource(db, this.readMigrationMarker(db), this.existingWriter);
       }
       const result = action();
       db.exec('COMMIT');
@@ -352,7 +344,8 @@ export class SQLiteStorageProvider implements IStorageProvider {
     if (typeof key !== 'string' || typeof value !== 'string') {
       throw new StorageError('SQLite keys and values must be strings', 'write');
     }
-    db.prepare('INSERT INTO storage_kv(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, value);
+    db.prepare('INSERT INTO storage_kv(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
+      .run(toWellFormedUtf8Text(key), toWellFormedUtf8Text(value));
   }
 
   getItem(key: string): Promise<string | null> {
@@ -386,6 +379,7 @@ export class SQLiteStorageProvider implements IStorageProvider {
       const raw = this.read(db, key);
       const value = modifier(raw === null ? null : JSON.parse(raw) as T);
       if (value && typeof (value as { then?: unknown }).then === 'function') {
+        void Promise.resolve(value).catch(() => {});
         throw new StorageError('SQLite updateData modifiers must be synchronous', 'write');
       }
       const serialized = JSON.stringify(value);
@@ -421,6 +415,12 @@ export class SQLiteStorageProvider implements IStorageProvider {
       .all(prefix).map(row => [row.key as string, row.value as string]));
   }
 
+  deleteByPrefix(prefix: string): Promise<void> {
+    return this.run('delete', db => this.transaction(db, () => {
+      db.prepare('DELETE FROM storage_kv WHERE instr(key, ?) = 1').run(prefix);
+    }));
+  }
+
   /** Atomically reads and writes several keys without retaining a transaction across awaits. */
   withWriteTransaction<T>(modifier: (tx: SQLiteWriteTransaction) => T): Promise<T> {
     return this.run('write', db => this.transaction(db, () => {
@@ -445,43 +445,13 @@ export class SQLiteStorageProvider implements IStorageProvider {
     }));
   }
 
-  private readMigrationMarker(db: DatabaseSync): MigrationMarker {
+  private readMigrationMarker(db: DatabaseSync): StorageMigrationResult {
     return parseMigrationMarker(db.prepare('SELECT value FROM storage_metadata WHERE key = ?').get(BOOTSTRAP_KEY)?.value);
   }
 
   private matchesSnapshot(db: DatabaseSync, entries: Map<string, string>): boolean {
     const rows = db.prepare('SELECT key, value FROM storage_kv').all();
     return rows.length === entries.size && rows.every(row => entries.get(row.key as string) === row.value);
-  }
-
-  private recordSource(marker: StorageMigrationResult, legacy: LegacyStorageSnapshot, fingerprint: string): MigrationMarker {
-    const backupEntries = legacy.readBackupEntries?.();
-    return {
-      ...migrationResult(marker),
-      sourceFingerprint: fingerprint,
-      backupFingerprint: backupEntries && fingerprintEntries(backupEntries),
-    };
-  }
-
-  private verifyLegacySource(db: DatabaseSync, marker: MigrationMarker, loadLegacy: LegacySourceLoader): MigrationMarker {
-    const legacy = loadLegacy(true);
-    if (legacy.source === 'empty') return marker;
-    const fingerprint = fingerprintEntries(legacy.entries);
-    if (fingerprint === marker.sourceFingerprint ||
-        (legacy.source === 'backup' && fingerprint === marker.backupFingerprint)) return marker;
-
-    // A pre-fingerprint database and any newer JSON both require content evidence.
-    // Re-anchoring identical data changes only migration provenance, not business rows.
-    if (!this.matchesSnapshot(db, legacy.entries)) {
-      throw new StorageError(
-        'Legacy JSON and SQLite contain different data. Close older versions and reconcile the retained stores before writing to SQLite.',
-        'config',
-        { reason: DESKTOP_STORAGE_DIVERGENCE_REASON },
-      );
-    }
-    const verified = this.recordSource(marker, legacy, fingerprint);
-    db.prepare('UPDATE storage_metadata SET value = ? WHERE key = ?').run(JSON.stringify(verified), BOOTSTRAP_KEY);
-    return verified;
   }
 
   /** For desktop bootstrap only. Source loading, copy, verification and marker share one transaction. */
@@ -492,19 +462,27 @@ export class SQLiteStorageProvider implements IStorageProvider {
     return this.run('write', db => this.transaction(db, () => {
       const marker = db.prepare('SELECT value FROM storage_metadata WHERE key = ?').get(BOOTSTRAP_KEY)?.value;
       if (marker !== undefined) {
-        return migrationResult(this.verifyLegacySource(db, parseMigrationMarker(marker), load));
+        return parseMigrationMarker(marker);
       }
       if (db.prepare('SELECT 1 FROM storage_kv LIMIT 1').get()) {
         throw new StorageError('Unmarked SQLite data requires explicit reconciliation', 'config');
       }
-      const legacy = load(false);
-      for (const [key, value] of legacy.entries) this.write(db, key, value);
-      if (!this.matchesSnapshot(db, legacy.entries)) {
+      const legacy = load();
+      const normalized = new Map<string, string>();
+      for (const [rawKey, rawValue] of legacy.entries) {
+        const key = toWellFormedUtf8Text(rawKey);
+        const value = toWellFormedUtf8Text(rawValue);
+        if (normalized.has(key)) {
+          throw new StorageError('Legacy storage contains keys that collide after UTF-8 normalization', 'write');
+        }
+        normalized.set(key, value);
+        this.write(db, key, value);
+      }
+      if (!this.matchesSnapshot(db, normalized)) {
         throw new StorageError('SQLite migration verification failed', 'write');
       }
-      const result: StorageMigrationResult = { version: 1, source: legacy.source, itemCount: legacy.entries.size };
-      const completed = this.recordSource(result, legacy, fingerprintEntries(legacy.entries));
-      db.prepare('INSERT INTO storage_metadata(key, value) VALUES (?, ?)').run(BOOTSTRAP_KEY, JSON.stringify(completed));
+      const result: StorageMigrationResult = { version: 1, source: legacy.source, itemCount: normalized.size };
+      db.prepare('INSERT INTO storage_metadata(key, value) VALUES (?, ?)').run(BOOTSTRAP_KEY, JSON.stringify(result));
       return result;
     }));
   }

@@ -144,6 +144,7 @@ for (const viewport of [{ width: 360, height: 725 }, { width: 1440, height: 900 
       await other.goto('/#/basic/user')
       await expect.poll(() => readPrompt(other)).toBe('Keep this unsaved draft')
       // A deliberate reload after copying the draft must restore the winner.
+      other.once('dialog', dialog => void dialog.accept())
       await other.reload()
       await expect(input(other)).toBeVisible({ timeout: 20000 })
       await expect.poll(() => readPrompt(other), { timeout: 20000 }).toBe('Latest saved prompt')

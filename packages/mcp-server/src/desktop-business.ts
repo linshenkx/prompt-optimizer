@@ -4,7 +4,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema, type Tool } from '@modelcontextprotocol/sdk/types.js';
 import { openExistingDesktopStorageForWriting, type ExistingSQLiteStorage } from '@prompt-optimizer/core/node';
 import { createDesktopComparisonRouter, publicDesktopError, type DesktopProfile } from './desktop-router.js';
-import { openComparisonDesktop } from './desktop-storage.js';
+import { openComparisonDesktop, openReadonlyDesktop } from './desktop-storage.js';
 import { createDesktopToolDispatcher } from './desktop.js';
 import {
   DesktopBusinessError, assertJson, createProductBusiness, productBusinessCatalog, publicBusinessError, runKinds,
@@ -61,12 +61,30 @@ function runOwnerGone(ownerId: string) {
 
 type BusinessSource = { lease: ExistingSQLiteStorage; business: ReturnType<typeof createProductBusiness> };
 export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
-  const router = createDesktopComparisonRouter(profiles, openComparisonDesktop);
+  const revisionKey = globalThis.crypto.subtle.generateKey({ name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const owner = () => ({ id: process.pid + ':' + randomUUID(), isGone: runOwnerGone });
+  const router = createDesktopComparisonRouter(profiles, openComparisonDesktop, async (path, source) => {
+    const { createComparisonRepository, ComparisonRepositoryError } = await import('@prompt-optimizer/core/desktop-comparison');
+    const lease = await openReadonlyDesktop(path);
+    try {
+      const business = createProductBusiness(lease.provider, source.sourceId, { owner: owner(), revisionKey });
+      return {
+        ...lease,
+        product: {
+          comparisons: createComparisonRepository(lease.provider),
+          call: (name, args) => business.call(name, args, true),
+          errorCode: error => error instanceof ComparisonRepositoryError ? error.code : undefined,
+        },
+      };
+    } catch (error) {
+      await lease.provider.close();
+      throw error;
+    }
+  });
   const comparison = createDesktopToolDispatcher('compare', router);
   const isComparisonTool = (name: string) => name !== 'po_sources_list' && comparison.has(name);
   const tools = [...desktopBusinessTools, ...comparison.specs.filter(tool => isComparisonTool(tool.name))];
   const sourceLeases = new Map<string, Promise<BusinessSource>>();
-  const revisionKey = globalThis.crypto.subtle.generateKey({ name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const server = new Server({ name: 'prompt-optimizer-desktop', version: '0.2.0' }, { capabilities: { tools: {} } });
   let closing: Promise<void> | undefined;
   const open = async (sourceId: string) => {
@@ -78,7 +96,7 @@ export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
       opening = (async () => {
         const lease = await openExistingDesktopStorageForWriting(profile.userDataPath);
         const business = createProductBusiness(lease.provider, sourceId, {
-          owner: { id: process.pid + ':' + randomUUID(), isGone: runOwnerGone },
+          owner: owner(),
           revisionKey,
           beforeMutation: async domain => {
             if (!['workspaces', 'settings', 'variables', 'data'].includes(domain)) return;
@@ -101,7 +119,7 @@ export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
       throw new DesktopBusinessError('SOURCE_NOT_READY');
     }
   };
-  const callBusiness = async (name: string, args: Record<string, unknown>, readOnly: boolean): Promise<unknown> => {
+  const callBusiness = async (name: string, args: Record<string, unknown>, readonlyConnectionId?: string): Promise<unknown> => {
     const definition = desktopBusinessTools.find(item => item.name === name);
     if (!definition) throw new DesktopBusinessError('UNKNOWN_TOOL');
     assertJson(args);
@@ -118,13 +136,17 @@ export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
       return { sources: router.listSources().sources.map(({ sourceId, label }) => ({ sourceId, label, access: 'business' })) };
     }
     if (name === 'po_desktop_catalog') return productBusinessCatalog(args.domain);
+    if (readonlyConnectionId !== undefined) {
+      if (!definition.annotations?.readOnlyHint) throw new DesktopBusinessError('BUSINESS_ACCESS_REQUIRED');
+      return router.callReadonlyBusiness(readonlyConnectionId, name, args);
+    }
     const { lease, business } = await open(args.sourceId as string);
     if (name === 'po_resources') return requestDesktopResource(lease.provider, args);
     if (name === 'po_data_export_file') return writeCredentialExport(args, () => business.call(name, args));
-    return business.call(name, args, readOnly);
+    return business.call(name, args);
   };
-  const call = (name: string, args: Record<string, unknown>, readOnly = false) =>
-    isComparisonTool(name) ? comparison.call(name, args) : callBusiness(name, args, readOnly);
+  const call = (name: string, args: Record<string, unknown>, readonlyConnectionId?: string) =>
+    isComparisonTool(name) ? comparison.call(name, args) : callBusiness(name, args, readonlyConnectionId);
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
   server.setRequestHandler(CallToolRequestSchema, async request => {
     const { name, arguments: args } = request.params;
@@ -139,6 +161,7 @@ export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
   });
   return {
     server, call, tools,
+    openSource: (sourceId: string, access: 'read' | 'compare') => router.open(sourceId, access),
     close() {
       closing ??= (async () => {
         const results = await Promise.allSettled([

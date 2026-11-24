@@ -183,6 +183,18 @@
       :compact="isCompact" :running="isAnyVariantRunning" :can-use-four-columns="canUseFourColumns"
       run-test-id="pro-multi-test-run-all"
       @run="runAllVariants">
+      <template #actions>
+        <SaveTestResultExamplesBatchButton
+          sub-mode-key="pro-multi"
+          :content="displayAdapter.displayedOptimizedPrompt.value || conversationOptimization.optimizedPrompt.value || ''"
+          :original-content="conversationOptimization.selectedMessage.value?.originalContent || conversationOptimization.selectedMessage.value?.content || ''"
+          function-mode="context"
+          optimization-mode="system"
+          :variant-ids="saveExampleReadyVariantIds"
+          :disabled="isAnyVariantRunning"
+          test-id="save-test-examples-batch-pro-multi"
+        />
+      </template>
       <template #comparison>
         <CompareRoleSummary :entries="compareRoleConfig.entries.value"
           :warning="compareToolbarStatus?.label" :disabled="isAnyVariantRunning" @click="openCompareRoleConfig" />
@@ -303,6 +315,7 @@
                                     :output-record="getVariantResult(id)"
                                             :reasoning="getVariantResult(id).reasoning"
                                             :streaming="variantRunning[id]"
+                                            :token-usage="getVariantResult(id)?.tokenUsage"
                                             :enableCopy="true"
                                             :enableFullscreen="true"
                                             :enableEdit="false"
@@ -461,7 +474,6 @@ import {
 } from '../../stores/session/useProMultiMessageSession'
 import {
     NCard,
-    NFlex,
     NButton,
     NText,
     NEmpty,
@@ -472,7 +484,9 @@ import ConversationTestPanel from "./ConversationTestPanel.vue";
 import ConversationManager from "./ConversationManager.vue";
 import OutputDisplay from "../OutputDisplay.vue";
 import { beginOutputStream } from '../../utils/output-document'
+import { setOutputTokenUsage } from '../../utils/token-usage'
 import SaveTestResultExampleButton from '../SaveTestResultExampleButton.vue'
+import SaveTestResultExamplesBatchButton from '../SaveTestResultExamplesBatchButton.vue'
 import SelectWithConfig from "../SelectWithConfig.vue";
 import TextModelSelector from "../TextModelSelector.vue";
 import TestPanelVersionSelect from '../TestPanelVersionSelect.vue'
@@ -488,7 +502,6 @@ import {
 } from '../evaluation'
 import { buildCompareToolbarStatus } from '../evaluation/compare-ui'
 import WorkspaceUtilityMenu from '../common/WorkspaceUtilityMenu.vue'
-import ThemedTooltip from '../common/ThemedTooltip.vue'
 import { resolveSourceAssetRef } from '../../utils/source-asset'
 import { useConversationOptimization } from '../../composables/prompt/useConversationOptimization'
 import { usePromptDisplayAdapter } from '../../composables/prompt/usePromptDisplayAdapter'
@@ -511,6 +524,7 @@ import {
     buildConversationExecutionContext,
     hashString,
     hashVariables,
+    pickUsedVariables,
 } from '../../utils/prompt-variables'
 import {
     applyPatchOperationsToText,
@@ -1062,6 +1076,10 @@ const isAnyVariantRunning = computed(() =>
 )
 
 const getVariantLabel = (id: TestVariantId) => ({ a: 'A', b: 'B', c: 'C', d: 'D' }[id])
+// 可批量保存为示例的测试列：与单列保存按钮的可用条件保持一致
+const saveExampleReadyVariantIds = computed(() =>
+  activeVariantIds.value.filter((id) => hasVariantResult(id) && !variantRunning[id])
+)
 
 const handleVariantVersionChange = (id: TestVariantId, value: string | number) => {
     const selection = value as TestPanelVersionValue
@@ -1191,8 +1209,6 @@ const getVariantVersionLabel = (id: TestVariantId): string => {
     )
 }
 
-const getVariantResolvedVersion = (id: TestVariantId): number =>
-    resolveSelectedMessageContent(variantVersionModels[id].value).resolvedVersion
 
 const compareReadyVariantIds = computed(() =>
     activeVariantIds.value.filter((id) => hasVariantResult(id) && !isVariantStale(id))
@@ -1219,9 +1235,6 @@ const compareRoleConfig = useCompareRoleConfig({
     persistedRoleSignatures: toRef(proMultiSession, 'compareSnapshotRoleSignatures'),
     persistRoles: (roles, signatures) => proMultiSession.updateCompareSnapshotRoles(roles, signatures),
 })
-const compareRoleEntryMap = computed(() =>
-    Object.fromEntries(compareRoleConfig.entries.value.map((entry) => [entry.id, entry]))
-)
 const compareToolbarStatus = computed(() =>
     activeVariantIds.value.length >= 2
         ? buildCompareToolbarStatus(
@@ -1344,13 +1357,33 @@ const runVariant = async (
         evaluationHandler.clearBeforeTest()
     }
 
-    variantResults.value[id] = { result: '', reasoning: '', requestPrompt: formatConversationAsText(input.messages) }
+    const runVersion = variantVersionModels[id].value
+    const rawMessages = buildMessagesForSelection(runVersion)
+    const usedParameters = pickUsedVariables(
+        rawMessages.map((message) => message.content),
+        { ...(variableManager?.allVariables.value || {}), ...mergedTestVariables.value },
+    )
+    variantResults.value[id] = {
+        result: '',
+        reasoning: '',
+        requestPrompt: formatConversationAsText(input.messages),
+        runSnapshot: {
+            prompt: resolveSelectedMessageContent(runVersion).text,
+            modelKey: input.modelKey,
+            version: runVersion,
+            input: {
+                messages: rawMessages.map((message) => ({ ...message })),
+                ...(usedParameters ? { parameters: usedParameters } : {}),
+            },
+        },
+    }
     variantToolCalls[id] = []
     showTestResult(id, !!opts?.silentSuccess)
     variantRunning[id] = true
     const runFingerprint = getVariantFingerprint(id)
     let failed = false
     const stream = beginOutputStream(variantResults.value[id], proMultiSession, `test:${id}`)
+    let capturedUsage: unknown
 
     try {
         await promptService.testCustomConversationStream(
@@ -1372,8 +1405,10 @@ const runVariant = async (
                     }
                     variantToolCalls[id].push(toolCallResult)
                 },
-                onComplete: () => {
-                    // 由 finally 统一收尾
+                onComplete: (response) => {
+                    if (!stream.signal.aborted) {
+                        capturedUsage = response?.metadata?.usage
+                    }
                 },
                 onError: (error: Error) => {
                     throw error
@@ -1381,9 +1416,6 @@ const runVariant = async (
             },
         )
 
-        if (!opts?.silentSuccess) {
-            toast.success(t('toast.success.testComplete'))
-        }
         return true
     } catch (_error) {
         failed = true
@@ -1393,11 +1425,21 @@ const runVariant = async (
         return false
     } finally {
         stream.finish(failed)
+        if (!failed && !stream.signal.aborted && stream.document.isCurrent && capturedUsage !== undefined) {
+            setOutputTokenUsage(stream.document.record, capturedUsage)
+        }
         if (stream.document.isCurrent) {
             variantRunning[id] = false
             variantLastRunFingerprint.value[id] = failed ? `failed:${runFingerprint}` : runFingerprint
             if (opts?.persist !== false) {
-                void proMultiSession.saveSession()
+                const saved = await proMultiSession.saveSession()
+                if (stream.document.isCurrent && !stream.signal.aborted) {
+                    if (!saved) {
+                        toast.warning(t('workspace.testResultSaveFailed'))
+                    } else if (!failed && !opts?.silentSuccess) {
+                        toast.success(t('toast.success.testComplete'))
+                    }
+                }
             }
         }
     }
@@ -1419,11 +1461,13 @@ const runAllVariants = useWorkspaceTestBatch({
           allowParallel: true,
           persist: false,
         }),
-      complete: (results) => {
-        void proMultiSession.saveSession()
-
+      complete: async (results) => {
+        const saved = await proMultiSession.saveSession()
+        if (!saved) {
+          toast.warning(t('workspace.testResultSaveFailed'))
+        }
         if (results.every(Boolean)) {
-          toast.success(t('toast.success.testComplete'))
+          if (saved) toast.success(t('toast.success.testComplete'))
         } else {
           toast.error(t('toast.error.testFailed'))
         }

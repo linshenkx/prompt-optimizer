@@ -94,6 +94,13 @@ const messages = {
     "enableMarkdown": "啟用Markdown渲染",
     "disableMarkdown": "關閉Markdown渲染",
     "thinking": "思考過程",
+    "tokenUsage": {
+      "summary": "{count} tokens",
+      "input": "輸入",
+      "output": "輸出",
+      "cached": "快取命中",
+      "total": "總計"
+    },
     "variables": {
       "detected": "偵測到變數",
       "manageVariables": "管理變數",

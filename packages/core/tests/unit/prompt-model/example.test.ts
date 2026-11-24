@@ -154,6 +154,20 @@ describe('promptExampleFromTestRun', () => {
     })
   })
 
+  it('converts successful runs with empty separate input (e.g. basic-user or plain text2image)', () => {
+    const example = promptExampleFromTestRun(createRun({
+      input: {},
+      output: { text: 'Direct user prompt output' },
+    }), {
+      basedOnVersionId: 'version-1',
+    })
+
+    expect(example).toMatchObject({
+      input: {},
+      output: { text: 'Direct user prompt output' },
+    })
+  })
+
   it('does not create examples for failed or empty-output runs', () => {
     expect(promptExampleFromTestRun(createRun({
       status: 'error',

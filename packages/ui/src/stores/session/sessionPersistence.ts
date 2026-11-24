@@ -2,9 +2,11 @@ import type { IPreferenceService } from '@prompt-optimizer/core'
 import { unref } from 'vue'
 import { resolveOutputRecord, liveOutputValue, hasLiveOutput } from '../../utils/output-document'
 import { withSessionAccess } from './sessionConcurrency'
+import type { SubModeKey } from './sessionKeys'
 
 /** A restore checkpoint alone may write while ordinary session saves are frozen. */
 export type SessionWritePermit = symbol
+type SessionSaveObserver = (key: SubModeKey) => (saved: boolean) => void
 
 type PersistenceState = {
   pending: Set<Promise<unknown>>
@@ -14,6 +16,7 @@ type PersistenceState = {
   writes: Map<string, Promise<unknown>>
   conflicts: Set<string>
   restores: Map<string, RestoreCheckpoint>
+  saveObservers: Set<SessionSaveObserver>
 }
 
 type RestoreCheckpoint = {
@@ -26,7 +29,7 @@ const states = new WeakMap<IPreferenceService, PersistenceState>()
 const getState = (service: IPreferenceService) => {
   let state = states.get(service)
   if (!state) {
-    state = { pending: new Set(), permit: null, snapshots: new Map(), restoredContents: new Map(), writes: new Map(), conflicts: new Set(), restores: new Map() }
+    state = { pending: new Set(), permit: null, snapshots: new Map(), restoredContents: new Map(), writes: new Map(), conflicts: new Set(), restores: new Map(), saveObservers: new Set() }
     states.set(service, state)
   }
   return state
@@ -98,6 +101,24 @@ export const hasSessionConflicts = (service: IPreferenceService | undefined) =>
 
 export const hasSessionConflict = (service: IPreferenceService | undefined, key: string) =>
   service ? getState(service).conflicts.has(key) : false
+
+export function observeSessionSaves(service: IPreferenceService, observer: SessionSaveObserver) {
+  const { saveObservers } = getState(service)
+  saveObservers.add(observer)
+  return () => { saveObservers.delete(observer) }
+}
+
+/** Capture the revision at the start of a snapshot write while session access is held. */
+export async function trackSessionSave(service: IPreferenceService, key: SubModeKey, job: () => Promise<boolean | void>) {
+  const observers = Array.from(getState(service).saveObservers, observe => observe(key))
+  let saved = false
+  try {
+    saved = (await job()) !== false
+    return saved
+  } finally {
+    observers.forEach(complete => complete(saved))
+  }
+}
 
 /** Only an explicit store hydration establishes a new baseline; GC/export reads do not. */
 export async function readSessionSnapshot<T>(service: IPreferenceService, key: string, fallback: T): Promise<T> {
@@ -211,11 +232,15 @@ export async function runSessionWrite(
   service: IPreferenceService | undefined,
   job: () => Promise<boolean | void>,
   permit?: SessionWritePermit,
+  key?: SubModeKey,
 ): Promise<boolean> {
   if (!service) return (await job()) !== false
   const state = getState(service)
   if (state.permit && state.permit !== permit) return false
-  const run = async () => state.permit && state.permit !== permit ? false : (await job()) !== false
+  const run = async () => {
+    if (state.permit && state.permit !== permit) return false
+    return key ? trackSessionSave(service, key, job) : (await job()) !== false
+  }
   // A restore checkpoint already owns the exclusive browser lease.
   const task = state.permit === permit && permit ? run() : withSessionAccess(run)
   state.pending.add(task)

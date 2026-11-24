@@ -10,7 +10,7 @@ const { createBoundary, installFilesystemGuards } = require('./desktop-main-isol
 const { exerciseDesktopBusiness, seedDesktopComparisons } = require('./desktop-main-business.cjs');
 
 const [root, phase] = process.argv.slice(2);
-assert.ok(['first', 'restart', 'divergence', 'product', 'product-restart'].includes(phase));
+assert.ok(['first', 'restart', 'product', 'product-restart'].includes(phase));
 const productUi = phase.startsWith('product');
 assert.equal(path.dirname(__dirname), root);
 assert.equal(fs.realpathSync(root), root);
@@ -22,7 +22,7 @@ assert.equal(fs.realpathSync(path.join(root, 'app/packages/desktop/node_modules'
 
 const audit = {
   phase, mainSha256: manifest.mainSha256, mainLoaded: false,
-  readable: 0, writable: 0, violations: [], events: [], dotenv: [], windows: 0, errorDialogs: [],
+  readable: 0, writable: 0, violations: [], events: [], dotenv: [], windows: 0,
   ipcVerified: false, closeCompleted: false, flushCompleted: false, requests: 0,
 };
 function record(event) {
@@ -144,27 +144,11 @@ async function seedSavedComparisons(favoriteId) {
 }
 
 const load = Module._load;
-const isolatedDialog = new Proxy(electron.dialog, {
-  get(_, method) {
-    if (method !== 'showErrorBox') return forbidden('dialog.' + String(method));
-    return (title, message) => {
-      assert.equal(phase, 'divergence');
-      assert.equal(audit.errorDialogs.length, 0);
-      audit.errorDialogs.push({ title, message });
-      record('storage-divergence-error-dialog-requested');
-    };
-  },
-});
 const electronForApp = new Proxy(electron, {
-  get(target, name) {
-    if (name === 'BrowserWindow') return HiddenWindow;
-    if (name === 'dialog') return isolatedDialog;
-    return target[name];
-  },
+  get(target, name) { return name === 'BrowserWindow' ? HiddenWindow : target[name]; },
 });
 const HiddenWindow = new Proxy(electron.BrowserWindow, {
   construct(Target, [options]) {
-    assert.notEqual(phase, 'divergence', 'The failed startup must not construct an application window');
     boundary.readable(options.webPreferences.preload);
     const window = new Target({ ...options, show: false, webPreferences: { ...options.webPreferences, backgroundThrottling: false, ...(productUi ? { offscreen: true } : {}) } });
     audit.windows++;
@@ -234,14 +218,7 @@ Module._load = function (request, parent, ...args) {
   if (request === '@prompt-optimizer/core/node') {
     return { ...exported, async openDesktopStorage(directory, options) {
       assert.equal(boundary.writable(directory), paths.userData);
-      let result;
-      try {
-        result = await exported.openDesktopStorage(directory, options);
-      } catch (error) {
-        audit.storageErrorReason = error?.params?.reason;
-        record('actual-storage-open-refused');
-        throw error;
-      }
+      const result = await exported.openDesktopStorage(directory, options);
       openedProvider = result.provider;
       audit.migration = result.migration;
       audit.database = path.relative(root, result.provider.databasePath);
@@ -272,23 +249,11 @@ app.on('quit', (_event, code) => {
   try {
     assert.equal(code, 0);
     assert.equal(audit.mainLoaded, true);
-    if (phase === 'divergence') {
-      assert.equal(audit.windows, 0);
-      assert.equal(audit.ipcVerified, false);
-      assert.equal(audit.migration, undefined);
-      assert.equal(audit.storageErrorReason, 'DESKTOP_STORAGE_DIVERGED');
-      assert.equal(audit.errorDialogs.length, 1);
-      assert.ok(audit.errorDialogs[0].title.trim());
-      assert.match(audit.errorDialogs[0].message, /JSON/);
-      assert.match(audit.errorDialogs[0].message, /SQLite/);
-    } else {
-      assert.equal(audit.windows, 1);
-      assert.equal(audit.ipcVerified, true);
-      assert.equal(audit.closeCompleted, true);
-      assert.equal(audit.flushCompleted, true);
-      assert.equal(audit.errorDialogs.length, 0);
-      if (phase === 'first') assert.equal(audit.comparisonSeeded, true);
-    }
+    assert.equal(audit.windows, 1);
+    assert.equal(audit.ipcVerified, true);
+    assert.equal(audit.closeCompleted, true);
+    assert.equal(audit.flushCompleted, true);
+    if (phase === 'first') assert.equal(audit.comparisonSeeded, true);
     assert.equal(audit.requests, 0);
     assert.deepEqual(audit.violations, []);
     assert.equal(audit.dotenv.length, 2);

@@ -274,7 +274,7 @@ describe('workspace run-all parallel regression', () => {
     await flushPromises()
     await nextTick()
 
-    const saveSession = vi.spyOn(store, 'saveSession').mockResolvedValue(undefined)
+    const saveSession = vi.spyOn(store, 'saveSession').mockResolvedValue(true)
     const clearEvaluation = vi.spyOn((wrapper.vm as any).evaluationHandler, 'clearBeforeTest')
     const optimizedPrompt = store.optimizedPrompt
     store.optimizedPrompt = ''
@@ -357,7 +357,7 @@ describe('workspace run-all parallel regression', () => {
     await flushPromises()
     const workspace = wrapper.vm as any
     const fingerprints = { a: workspace.getVariantFingerprint('a'), b: workspace.getVariantFingerprint('b') }
-    const save = vi.spyOn(store, 'saveSession').mockResolvedValue(undefined)
+    const save = vi.spyOn(store, 'saveSession').mockResolvedValue(true)
     await wrapper.get('[data-testid="basic-system-test-run-all"]').trigger('click')
     await flushPromises()
     expect(testPromptStream).toHaveBeenCalledTimes(2)
@@ -428,7 +428,7 @@ describe('workspace run-all parallel regression', () => {
       },
     })
     await flushPromises()
-    const save = vi.spyOn(store, 'saveSession').mockResolvedValue(undefined)
+    const save = vi.spyOn(store, 'saveSession').mockResolvedValue(true)
     const clear = vi.spyOn((wrapper.vm as any).evaluationHandler, 'clearBeforeTest')
     await wrapper.get('[data-testid="image-' + mode + '-test-run-all"]').trigger('click')
     await flushPromises()

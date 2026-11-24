@@ -4,6 +4,7 @@ import {
   createModelManager,
   createTemplateManager,
   createHistoryManager,
+  createPreferenceService,
   PromptService,
   OptimizationRequest,
   OptimizationError,
@@ -33,7 +34,7 @@ describe('PromptService', () => {
 
     // Create all required services
     registry = new TextAdapterRegistry();
-    languageService = createTemplateLanguageService(storageProvider);
+    languageService = createTemplateLanguageService(createPreferenceService(storageProvider));
     templateManager = createTemplateManager(storageProvider, languageService);
     historyManager = createHistoryManager(storageProvider);
     modelManager = createModelManager(storageProvider);

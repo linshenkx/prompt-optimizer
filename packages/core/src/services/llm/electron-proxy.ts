@@ -50,7 +50,7 @@ const adaptedCallbacks = {
       onStart: handlers.onStart,
       onContent: handlers.onToken,  // 映射 onToken -> onContent
       onThinking: handlers.onReasoningToken || (() => {}),  // 映射推理流
-      onFinish: () => handlers.onComplete(),  // 映射完成回调
+      onFinish: (response?: LLMResponse) => handlers.onComplete(response),  // 映射完成回调
       onError: handlers.onError
     };
 
@@ -76,7 +76,7 @@ const adaptedCallbacks = {
       onContent: handlers.onToken,  // 映射 onToken -> onContent
       onThinking: handlers.onReasoningToken || (() => {}),  // 映射推理流
       onToolCall: handlers.onToolCall || (() => {}),  // 🆕 映射工具调用回调
-      onFinish: () => handlers.onComplete(),  // 映射完成回调
+      onFinish: (response?: LLMResponse) => handlers.onComplete(response),  // 映射完成回调
       onError: handlers.onError
     };
 

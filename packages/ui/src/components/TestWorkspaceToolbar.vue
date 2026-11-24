@@ -12,9 +12,9 @@
       </div></slot>
       <div v-if="!compact && $slots.comparison" class="test-comparison-entry"><slot name="comparison" /></div>
       <div v-if="!compact" class="test-global-actions">
-        <slot name="actions" />
         <NButton type="primary" size="small" :loading="running" :disabled="running || runDisabled"
           :data-testid="runTestId" @click="emit('run')">{{ runText || t('test.layout.runAll') }}</NButton>
+        <slot name="actions" />
         <slot name="evaluation" />
       </div>
     </div>

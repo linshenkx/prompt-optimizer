@@ -2,12 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fork, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import { access, mkdir, mkdtemp, readFile, writeFile, rm, readdir } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, writeFile, rm, readdir, copyFile, rename, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
-import { SQLiteStorageProvider, openDesktopStorage, openExistingDesktopStorage, openExistingDesktopStorageForWriting, exportDesktopStorageAsLegacyJSON, DESKTOP_STORAGE_DIVERGENCE_REASON, DESKTOP_DATABASE_FILENAME, LEGACY_STORAGE_FILENAME } from '../packages/core/dist/node.js';
+import { SQLiteStorageProvider, openDesktopStorage, openExistingDesktopStorage, openExistingDesktopStorageForWriting, exportDesktopStorageAsLegacyJSON, DESKTOP_DATABASE_FILENAME, LEGACY_STORAGE_FILENAME } from '../packages/core/dist/node.js';
 
 const sample = {
   models: JSON.stringify({ synthetic: { name: 'Synthetic model', apiKey: 'test-only-placeholder' } }),
@@ -122,94 +122,107 @@ test('real legacy JSON: every key/value migrates, restart is idempotent and clea
   assert.deepEqual(await (await f.open()).provider.getAllKeys(), []);
 });
 
-function isStorageDivergence(error) {
-  return error.name === 'StorageError' && error.params?.reason === DESKTOP_STORAGE_DIVERGENCE_REASON;
-}
+test('legacy JSON containing unpaired UTF-16 surrogates migrates safely and rejects colliding keys', async t => {
+  const f = await fixture(t, false);
+  const rawSurrogate = 'test\ud83d';
+  const jsonPayload = JSON.stringify({ text: rawSurrogate });
+  await writeFile(f.legacy, JSON.stringify({
+    'raw-emoji-cut': rawSurrogate,
+    'json-emoji-cut': jsonPayload,
+  }));
+  const original = await readFile(f.legacy, 'utf8');
 
-test('a later valid JSON write blocks desktop bootstrap and MCP writes while each store remains intact', async t => {
+  const { provider, migration } = await f.open();
+  assert.equal(migration.itemCount, 2);
+  assert.equal(await provider.getItem('raw-emoji-cut'), 'test\ufffd');
+  assert.deepEqual(JSON.parse(await provider.getItem('json-emoji-cut')), { text: rawSurrogate });
+  assert.equal(await readFile(f.legacy, 'utf8'), original);
+  await provider.close();
+
+  const colliding = await fixture(t, false);
+  const collidingJson = JSON.stringify({
+    'k\ud83d': 'first',
+    'k\ufffd': 'second',
+  });
+  await writeFile(colliding.legacy, collidingJson);
+  await assert.rejects(colliding.open(), /collide/);
+  const db = new DatabaseSync(colliding.database, { readOnly: true });
+  try {
+    assert.equal(db.prepare('SELECT count(*) AS n FROM storage_kv').get().n, 0);
+    assert.equal(db.prepare('SELECT count(*) AS n FROM storage_metadata').get().n, 0);
+  } finally { db.close(); }
+  assert.equal(await readFile(colliding.legacy, 'utf8'), collidingJson);
+});
+
+test('once migrated, SQLite stays authoritative without re-reading or blocking on later legacy JSON changes', async t => {
   const f = await fixture(t);
   const { provider: desktop } = await f.open();
   await desktop.setItem('sqlite-only', 'committed');
   await desktop.close();
-  const { provider: writer } = await f.writable();
-  const before = databaseContents(f.database);
+
   const latest = JSON.stringify({ ...sample, 'json-only': 'later-legacy-write' });
   await writeFile(f.legacy, latest);
 
-  await assert.rejects(f.open(), isStorageDivergence);
-  await assert.rejects(f.writable(), isStorageDivergence);
-  let ran = false;
-  await assert.rejects(writer.withWriteTransaction(tx => {
-    ran = true;
-    tx.setItem('forbidden', 'value');
-  }), isStorageDivergence);
-  assert.equal(ran, false);
-  assert.deepEqual(databaseContents(f.database), before);
+  const reopened = await f.open();
+  assert.equal(await reopened.provider.getItem('sqlite-only'), 'committed');
+  assert.equal(await reopened.provider.getItem('json-only'), null);
   assert.equal(await readFile(f.legacy, 'utf8'), latest);
 
-  const { provider: reader } = await f.existing();
-  assert.equal(await reader.getItem('sqlite-only'), 'committed');
-  assert.equal(await reader.getItem('json-only'), null);
-});
+  await assert.doesNotReject(() => reopened.provider.initializeFromLegacy(() => {
+    throw new Error('must not read legacy after migration');
+  }));
+  await reopened.provider.close();
 
-test('a migration fingerprint tolerates container formatting and the known historical fallback', async t => {
-  const f = await fixture(t);
-  const backup = f.legacy + '.backup';
-  const originalBackup = JSON.stringify({ previous: 'known older backup' });
-  await writeFile(backup, originalBackup);
-  const { provider } = await f.open();
-  await provider.setItem('new-sqlite-data', 'retained');
-  await provider.close();
-
-  await writeFile(f.legacy, JSON.stringify(Object.fromEntries(Object.entries(sample).reverse())) + '\n');
-  const reformatted = await f.open();
-  assert.equal(await reformatted.provider.getItem('new-sqlite-data'), 'retained');
-  await reformatted.provider.close();
+  const { provider: writer } = await f.writable();
+  await writer.withWriteTransaction(tx => {
+    tx.setItem('mcp-write', 'ok');
+  });
+  assert.equal(await writer.getItem('mcp-write'), 'ok');
+  assert.equal(await readFile(f.legacy, 'utf8'), latest);
+  await writer.close();
 
   await writeFile(f.legacy, '{corrupt');
-  const fromBackup = await f.writable();
-  assert.equal(await fromBackup.provider.getItem('new-sqlite-data'), 'retained');
-  await fromBackup.provider.close();
+  const afterCorrupt = await f.open();
+  assert.equal(await afterCorrupt.provider.getItem('mcp-write'), 'ok');
+  await afterCorrupt.provider.close();
 
-  const latestBackup = JSON.stringify({ previous: 'changed fallback' });
-  await writeFile(backup, latestBackup);
-  const before = databaseContents(f.database);
-  await assert.rejects(f.open(), isStorageDivergence);
-  await assert.rejects(f.writable(), isStorageDivergence);
-  assert.equal(await readFile(backup, 'utf8'), latestBackup);
-  assert.equal(await readFile(f.legacy, 'utf8'), '{corrupt');
-  assert.deepEqual(databaseContents(f.database), before);
+  await rm(f.legacy);
+  const afterDelete = await f.writable();
+  assert.equal(await afterDelete.provider.getItem('sqlite-only'), 'committed');
 });
 
-test('old version-1 markers only adopt readable legacy provenance on equal full snapshots', async t => {
-  for (const legacyCase of ['equal', 'diverged', 'missing']) {
-    const f = await fixture(t);
-    const { provider, migration } = await f.open();
-    if (legacyCase !== 'equal') await provider.setItem('sqlite-after-v1', 'preserved');
-    await provider.close();
-    const db = new DatabaseSync(f.database);
-    try {
-      db.prepare('UPDATE storage_metadata SET value = ? WHERE key = ?').run(JSON.stringify(migration), 'legacy-json-migration');
-    } finally { db.close(); }
-    const before = databaseContents(f.database);
-    if (legacyCase === 'diverged') {
-      assert.deepEqual((await f.existing()).migration, migration);
-      await assert.rejects(f.open(), isStorageDivergence);
-      await assert.rejects(f.writable(), isStorageDivergence);
-      assert.deepEqual(databaseContents(f.database), before);
-      continue;
-    }
-    if (legacyCase === 'missing') await rm(f.legacy);
-    const { provider: writer, migration: verified } = await f.writable();
-    assert.deepEqual(verified, migration);
-    await writer.setItem('additional', 'write');
-    await writer.close();
-    const reopened = await f.open();
-    assert.equal(await reopened.provider.getItem('additional'), 'write');
-    const marker = JSON.parse(databaseContents(f.database).storage_metadata[0].value);
-    if (legacyCase === 'equal') assert.match(marker.sourceFingerprint, /^[a-f0-9]{64}$/);
-    else assert.deepEqual(marker, migration);
-  }
+test('existing version-1 markers carrying legacy fingerprint fields remain readable without modification', async t => {
+  const f = await fixture(t);
+  const { provider } = await f.open();
+  await provider.setItem('sqlite-data', 'retained');
+  await provider.close();
+
+  const markerWithFingerprints = JSON.stringify({
+    version: 1,
+    source: 'json',
+    itemCount: Object.keys(sample).length,
+    sourceFingerprint: 'a'.repeat(64),
+    backupFingerprint: 'b'.repeat(64),
+  });
+  const db = new DatabaseSync(f.database);
+  try {
+    db.prepare('UPDATE storage_metadata SET value = ? WHERE key = ?').run(markerWithFingerprints, 'legacy-json-migration');
+  } finally { db.close(); }
+
+  const expected = { version: 1, source: 'json', itemCount: Object.keys(sample).length };
+  const reader = await f.existing();
+  assert.deepEqual(reader.migration, expected);
+  await reader.provider.close();
+
+  const desktop = await f.open();
+  assert.deepEqual(desktop.migration, expected);
+  assert.equal(await desktop.provider.getItem('sqlite-data'), 'retained');
+  await desktop.provider.close();
+
+  const writer = await f.writable();
+  assert.deepEqual(writer.migration, expected);
+  await writer.provider.setItem('additional', 'write');
+  assert.equal(await writer.provider.getItem('additional'), 'write');
 });
 
 test('existing-only write transactions atomically scope callbacks, snapshots and rollback', async t => {
@@ -396,6 +409,7 @@ test('existing read-only access refuses every mutation before callbacks and pres
   for (const mutate of [
     () => provider.setItem('forbidden', 'value'),
     () => provider.removeItem('after-migration'),
+    () => provider.deleteByPrefix('pref:'),
     () => provider.clearAll(),
     () => provider.compareAndSetItem('after-migration', 'new-current-value', 'forbidden'),
     () => provider.batchUpdate([{ key: 'forbidden', operation: 'set', value: 'value' }]),
@@ -475,9 +489,7 @@ test('existing-only access and desktop bootstrap reject incompatible schema with
 test('existing-only access rejects missing, corrupt and unknown migration states without changing them', async t => {
   for (const marker of [undefined, '{broken', 'null', '[]', '{}', '{"version":2}',
     '{"version":1,"source":"other","itemCount":0}', '{"version":1,"source":"json","itemCount":-1}',
-    '{"version":1,"source":"json","itemCount":"1"}', '{"version":1,"source":"empty","itemCount":3}',
-    '{"version":1,"source":"json","itemCount":1,"sourceFingerprint":"broken"}',
-    '{"version":1,"source":"json","itemCount":1,"backupFingerprint":"broken"}']) {
+    '{"version":1,"source":"json","itemCount":"1"}', '{"version":1,"source":"empty","itemCount":3}']) {
     const f = await fixture(t);
     await (await f.open()).provider.close();
     const db = new DatabaseSync(f.database);
@@ -568,5 +580,49 @@ test('legacy EACCES/EIO errors fail safely instead of importing a possibly stale
     assert.equal(await readFile(f.legacy, 'utf8'), source);
     assert.equal(await readFile(`${f.legacy}.backup`, 'utf8'), backup);
     assert.equal((await f.open()).migration.source, 'json');
+  }
+});
+
+test('existing-only writable storage tolerates metadata-only touch while still rejecting actual replacement', async t => {
+  const f = await fixture(t);
+  await (await f.open()).provider.close();
+  const { provider } = await f.writable();
+  try {
+    await provider.setItem('before-touch', '1');
+
+    // Touch mtime/atime without replacing the underlying database file.
+    const now = new Date();
+    await utimes(f.database, now, now);
+    await provider.setItem('after-touch', '2');
+    assert.equal(await provider.getItem('after-touch'), '2');
+  } finally {
+    await provider.close();
+  }
+
+  // Replacing the database file at the same path with a copy (different inode/file identity) must fail.
+  const replacement = await fixture(t);
+  await (await replacement.open()).provider.close();
+  const { provider: guarded } = await replacement.writable();
+  try {
+    await guarded.setItem('initial', '1');
+    if (process.platform === 'win32') {
+      // Windows refuses to unlink/rename an open SQLite WAL file while held by another handle,
+      // so simulate an external file-identity replacement on the active guard state directly.
+      guarded.existingFile = {
+        ...guarded.existingFile,
+        ino: guarded.existingFile.ino + 1n,
+      };
+    } else {
+      const backupCopy = `${replacement.database}.copy`;
+      await copyFile(replacement.database, backupCopy);
+      const wal = `${replacement.database}-wal`;
+      const shm = `${replacement.database}-shm`;
+      await rm(wal, { force: true });
+      await rm(shm, { force: true });
+      await rename(backupCopy, replacement.database);
+    }
+    await assert.rejects(guarded.setItem('after-replace', '2'), /changed|reconnect/);
+  } finally {
+    await guarded.close();
   }
 });

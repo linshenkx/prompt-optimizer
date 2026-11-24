@@ -178,6 +178,38 @@ test('built MCP stdio discovers and reads actual SQLite profiles without mutatio
   noPrivateOutput(JSON.stringify(mcp.transcript) + mcp.stderr(), paths);
 });
 
+test('unified desktop read access supports product queries while another process holds the SQLite writer lock', { timeout: 20000 }, async t => {
+  const context = isolated(t);
+  const profile = createProfile(context.root, 'product', 'Product fixture');
+  const before = snapshot(profile);
+  const product = fileURLToPath(new URL('../bin/prompt-optimizer-product-mcp.cjs', import.meta.url));
+  const mcp = await connect(t, [profile], { ...context, commandArgs: [product, `--desktop-profile=${profile}`] });
+  const listed = data(await mcp.call('po_sources_list'));
+  const writer = new DatabaseSync(join(profile, dbName));
+  writer.exec('BEGIN IMMEDIATE');
+  try {
+    const { connectionId, access } = data(await mcp.call('po_sources_open', { access: 'read' }));
+    assert.equal(access, 'read');
+    failure(await mcp.call('po_sources_open', { sourceId: listed.defaultSourceId, access: 'write' }), 'ACCESS_MISMATCH');
+    const models = data(await mcp.call('po_models_list', { connectionId })).items;
+    assert.equal(models[0].name, 'Product fixture');
+    assert.equal(models[0].executable, false);
+    const templates = data(await mcp.call('po_query', { connectionId, domain: 'templates', operation: 'listTemplates' }));
+    assert.ok(Array.isArray(templates.result));
+    assert.deepEqual(data(await mcp.call('po_runs_list', { connectionId })).runs, []);
+    assert.deepEqual(data(await mcp.call('po_comparisons_list', { connectionId })).items, []);
+    failure(await mcp.call('po_mutate', { connectionId, domain: 'favorites', operation: 'deleteFavorite',
+      arguments: ['favorite-shared'], expectedRevision: templates.revision, requestKey: 'readonly' }), 'BUSINESS_ACCESS_REQUIRED');
+    data(await mcp.call('po_sources_close', { connectionId }));
+    failure(await mcp.call('po_runs_list', { connectionId }), 'CONNECTION_CLOSED');
+  } finally {
+    writer.exec('ROLLBACK');
+    writer.close();
+  }
+  assert.deepEqual(snapshot(profile), before);
+  noPrivateOutput(JSON.stringify(mcp.transcript) + mcp.stderr(), [profile]);
+});
+
 test('actual stdio EOF closes the owner and exits normally with an open SQLite lease', { timeout: 15000 }, async t => {
   const context = isolated(t), profile = createProfile(context.root, 'eof', 'EOF');
   const before = snapshot(profile);

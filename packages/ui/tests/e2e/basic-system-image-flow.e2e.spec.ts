@@ -325,7 +325,7 @@ describe('BasicSystemWorkspace single-image test flow', () => {
     store.testImageAssetId = 'asset-first'
     await nextTick()
     expect(workspace.isVariantStale('a')).toBe(true)
-    expect((wrapper.get('[data-testid="save-test-example-basic-system-a"]').element as HTMLButtonElement).disabled).toBe(true)
+    expect((wrapper.get('[data-testid="save-test-example-basic-system-a"]').element as HTMLButtonElement).disabled).toBe(false)
 
     await wrapper.get('[data-testid="basic-system-test-run-a"]').trigger('click')
     await flushPromises()
@@ -336,7 +336,7 @@ describe('BasicSystemWorkspace single-image test flow', () => {
     store.testImageAssetId = 'asset-replacement'
     await nextTick()
     expect(workspace.isVariantStale('a')).toBe(true)
-    expect((wrapper.get('[data-testid="save-test-example-basic-system-a"]').element as HTMLButtonElement).disabled).toBe(true)
+    expect((wrapper.get('[data-testid="save-test-example-basic-system-a"]').element as HTMLButtonElement).disabled).toBe(false)
 
     await wrapper.get('[data-testid="basic-system-test-run-a"]').trigger('click')
     await flushPromises()

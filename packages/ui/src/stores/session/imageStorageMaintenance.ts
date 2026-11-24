@@ -96,6 +96,10 @@ function collectImageRefIds(value: unknown, out: Set<string>) {
     out.add(obj['id'] as string)
     return
   }
+  if (obj['kind'] === 'asset' && typeof obj['assetId'] === 'string' && obj['assetId'].trim()) {
+    out.add(obj['assetId'].trim())
+    return
+  }
 
   for (const key of Object.keys(obj)) {
     collectImageRefIds(obj[key], out)
@@ -190,6 +194,7 @@ async function collectReferencedImageIds(
 
   if (basicSystem) {
     collectBasicSystemTestImageAssetId(basicSystem, referenced)
+    collectImageRefIds(basicSystem, referenced)
   }
 
   if (text2Image) {

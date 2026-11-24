@@ -66,32 +66,16 @@ const userData = join(root, 'profile/userData');
 await mkdir(userData, { recursive: true });
 const legacy = join(userData, 'prompt-optimizer-data.json');
 const database = join(userData, 'prompt-optimizer-data.sqlite');
-const legacyFixture = { 'pref:storage-main-r2': JSON.stringify({ origin: 'synthetic-legacy-json' }) };
-const legacyBytes = JSON.stringify(legacyFixture, null, 2);
+const legacyBytes = JSON.stringify({ 'pref:storage-main-r2': JSON.stringify({ origin: 'synthetic-legacy-json' }) }, null, 2);
 await writeFile(legacy, legacyBytes);
-
-function readDatabaseSnapshot() {
-  const db = new DatabaseSync(database, { readOnly: true });
-  try {
-    db.exec('BEGIN');
-    return {
-      kv: db.prepare('SELECT key, value FROM storage_kv ORDER BY key').all(),
-      metadata: db.prepare('SELECT key, value FROM storage_metadata ORDER BY key').all(),
-      schema: db.prepare('SELECT type, name, sql FROM sqlite_schema ORDER BY name').all(),
-      userVersion: db.prepare('PRAGMA user_version').get(),
-    };
-  } finally {
-    db.close();
-  }
-}
+const retiredLegacyKey = 'pref:legacy-only-after-migration';
+let expectedLegacy = legacyBytes;
+let migrationMarker;
 
 const phases = [];
-for (const phase of ['first', 'restart', 'divergence']) {
-  let expectedLegacy = legacyBytes;
-  let beforeDivergence;
-  if (phase === 'divergence') {
-    beforeDivergence = readDatabaseSnapshot();
-    expectedLegacy = JSON.stringify({ ...legacyFixture, 'pref:legacy-only-after-migration': JSON.stringify('written-later-to-JSON') }, null, 2);
+for (const phase of ['first', 'restart']) {
+  if (phase === 'restart') {
+    expectedLegacy = JSON.stringify({ ...JSON.parse(legacyBytes), [retiredLegacyKey]: JSON.stringify(true) }, null, 2);
     await writeFile(legacy, expectedLegacy);
   }
   const stdout = createWriteStream(join(root, `${phase}-stdout.log`));
@@ -122,14 +106,6 @@ for (const phase of ['first', 'restart', 'divergence']) {
     closeCompleted: report.closeCompleted, ipcVerified: report.ipcVerified,
     requests: report.requests, runtime: report.runtime,
   };
-  if (phase === 'divergence') {
-    assert.equal(report.storageErrorReason, 'DESKTOP_STORAGE_DIVERGED');
-    assert.equal(report.errorDialogs.length, 1);
-    assert.equal(report.windows, 0);
-    assert.deepEqual(readDatabaseSnapshot(), beforeDivergence);
-    phases.push({ ...phaseResult, dialogIntercepted: true, windows: report.windows, storesPreserved: true });
-    continue;
-  }
   assert.equal(report.closeCompleted, true);
   assert.equal(report.business.ok, true);
   assert.equal(report.migration.source, 'json');
@@ -140,11 +116,15 @@ for (const phase of ['first', 'restart', 'divergence']) {
   try {
     assert.equal(db.prepare('PRAGMA quick_check').get().quick_check, 'ok');
     assert.equal(db.prepare('SELECT value FROM storage_kv WHERE key = ?').get('pref:storage-main-r2-written').value, JSON.stringify('persisted-through-real-ipc'));
-    assert.equal(JSON.parse(db.prepare('SELECT value FROM storage_metadata WHERE key = ?').get('legacy-json-migration').value).version, 1);
+    const marker = db.prepare('SELECT value FROM storage_metadata WHERE key = ?').get('legacy-json-migration').value;
+    assert.equal(JSON.parse(marker).version, 1);
+    if (phase === 'first') migrationMarker = marker;
+    else assert.equal(marker, migrationMarker);
+    assert.equal(db.prepare('SELECT value FROM storage_kv WHERE key = ?').get(retiredLegacyKey), undefined);
     db.exec('BEGIN IMMEDIATE');
     db.exec('ROLLBACK');
   } finally { db.close(); }
   phases.push({ ...phaseResult, business: report.business });
 }
-await writeFile(join(root, 'summary.json'), JSON.stringify({ ok: true, phases, scope: 'Actual desktop main + real preload business IPC, comparison restoration and interrupted startup in a hidden synthetic profile; no complete product UI/model/update acceptance' }, null, 2));
+await writeFile(join(root, 'summary.json'), JSON.stringify({ ok: true, phases, scope: 'Actual desktop main, preload business IPC, legacy JSON retention and comparison restoration in an isolated profile' }, null, 2));
 console.log(JSON.stringify({ ok: true, evidence: root, phases }, null, 2));

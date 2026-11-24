@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai'
 import { AbstractTextProviderAdapter } from './abstract-adapter'
+import { normalizeGeminiUsage } from '../usage'
 import type {
   TextProvider,
   TextModel,
@@ -7,6 +8,7 @@ import type {
   Message,
   ImageUnderstandingRequest,
   LLMResponse,
+  LLMTokenUsage,
   StreamHandlers,
   ParameterDefinition,
   ToolDefinition,
@@ -662,8 +664,10 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
 
       let accumulatedContent = ''
       let accumulatedReasoning = ''
+      let usage: LLMTokenUsage | undefined
 
       for await (const chunk of responseStream) {
+        usage = normalizeGeminiUsage(chunk?.usageMetadata) ?? usage
         let emittedContentToken = false
 
         if (chunk.candidates?.[0]?.content?.parts) {
@@ -695,7 +699,8 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
         content: accumulatedContent,
         reasoning: accumulatedReasoning || undefined,
         metadata: {
-          model: config.modelMeta.id
+          model: config.modelMeta.id,
+          ...(usage ? { usage } : {})
         }
       })
     } catch (error) {
@@ -708,6 +713,7 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
   private extractResponsePayload(response: any, modelId: string): LLMResponse {
     let textContent = ''
     let reasoning: string | undefined
+    const usage = normalizeGeminiUsage(response?.usageMetadata)
 
     // 优先使用新版 SDK 推荐的 response.text 属性
     if ((response as any).text) {
@@ -745,7 +751,8 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
       reasoning,
       metadata: {
         model: modelId,
-        finishReason: response.candidates?.[0]?.finishReason
+        finishReason: response.candidates?.[0]?.finishReason,
+        ...(usage ? { usage } : {})
       }
     }
   }
@@ -807,9 +814,11 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
 
       let accumulatedContent = ''
       let accumulatedReasoning = ''
+      let usage: LLMTokenUsage | undefined
 
       // 遍历流式响应
       for await (const chunk of responseStream) {
+        usage = normalizeGeminiUsage(chunk?.usageMetadata) ?? usage
         let emittedContentToken = false
 
         // 从 parts 中提取文本内容
@@ -848,7 +857,8 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
         content: accumulatedContent,
         reasoning: accumulatedReasoning || undefined,
         metadata: {
-          model: config.modelMeta.id
+          model: config.modelMeta.id,
+          ...(usage ? { usage } : {})
         }
       }
 
@@ -921,10 +931,12 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
 
       let accumulatedContent = ''
       let accumulatedReasoning = ''
+      let usage: LLMTokenUsage | undefined
       const toolCalls: ToolCall[] = []
 
       // 遍历流式响应
       for await (const chunk of responseStream) {
+        usage = normalizeGeminiUsage(chunk?.usageMetadata) ?? usage
         const text = chunk.text
         if (text) {
           accumulatedContent += text
@@ -968,7 +980,8 @@ export class GeminiAdapter extends AbstractTextProviderAdapter {
         reasoning: accumulatedReasoning || undefined,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         metadata: {
-          model: config.modelMeta.id
+          model: config.modelMeta.id,
+          ...(usage ? { usage } : {})
         }
       }
 

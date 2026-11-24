@@ -150,9 +150,13 @@ export function createProductServer(
         if (source.kind === 'browser' && source.availability === 'offline') throw new BrowserBridgeError('SOURCE_OFFLINE');
         const permission = (input.access ?? source.authorizedAccess) as Access;
         if (permission === 'write' && source.authorizedAccess !== 'write') throw new BrowserBridgeError('BUSINESS_ACCESS_REQUIRED');
-        const opened = (source.kind === 'desktop'
-          ? await desktop.call('po_sources_open', { sourceId, access: 'compare' })
-          : await browser.open(browserSources.get(source.sourceId)!.sourceId, (permission === 'write' ? 'business' : 'read') satisfies BrowserAccess)) as { connectionId: string };
+        let opened: { connectionId: string };
+        if (source.kind === 'desktop') {
+          opened = await desktop.openSource(source.sourceId, permission === 'read' ? 'read' : 'compare');
+        } else {
+          const access = (permission === 'write' ? 'business' : 'read') satisfies BrowserAccess;
+          opened = await browser.open(browserSources.get(source.sourceId)!.sourceId, access) as { connectionId: string };
+        }
         const current = connections.get(opened.connectionId);
         if (current && current.access !== permission) throw new BrowserBridgeError('ACCESS_MISMATCH');
         connections.set(opened.connectionId, { sourceId: source.sourceId, kind: source.kind, access: permission });
@@ -170,7 +174,9 @@ export function createProductServer(
     if (selected.access === 'read' && !readTools.has(name)) throw new BrowserBridgeError('BUSINESS_ACCESS_REQUIRED');
     const method = businessNames[name] ?? name;
     if (business.has(method)) {
-      if (selected.kind === 'desktop') return desktop.call(method, { ...fields, sourceId: selected.sourceId }, selected.access === 'read');
+      if (selected.kind === 'desktop') {
+        return desktop.call(method, { ...fields, sourceId: selected.sourceId }, selected.access === 'read' ? connectionId as string : undefined);
+      }
       const request = (args: Record<string, unknown>) => browser.call(connectionId as string, 'product', { name: method, args });
       if (method === 'po_resources') return transferResourceFile(fields, (operation, args) =>
         request({ operation, ...args, includeCredentials: fields.includeCredentials, requestKey: fields.requestKey }) as Promise<Record<string, unknown>>);

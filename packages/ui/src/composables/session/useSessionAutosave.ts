@@ -2,11 +2,10 @@ import { onScopeDispose, watch, type Ref } from 'vue'
 import type { SessionSaveResult } from '../../stores/session/sessionSaveResult'
 
 /**
- * Save mobile edits before the OS can discard a background page. Existing session
- * stores remain the single source of truth; subscriptions do not copy snapshots.
- * The app's pagehide/visibility handlers still provide the final best-effort flush.
+ * Coalesce edits to the same workspace. Session stores own the snapshots and
+ * acknowledge the revision that actually reached storage.
  */
-export function useCompactSessionAutosave<Key>(options: {
+export function useSessionAutosave<Key>(options: {
   enabled: Ref<boolean>
   busy: Ref<boolean>
   subscribe: (onChange: (key: Key) => void) => () => void
@@ -53,7 +52,7 @@ export function useCompactSessionAutosave<Key>(options: {
         try {
           result = await options.save(key)
         } catch (error) {
-          console.error('[CompactSessionAutosave] Failed to save mobile edits:', error)
+          console.error('[SessionAutosave] Failed to save workspace edits:', error)
           result = 'failed'
         }
         if (generation !== attemptGeneration || !options.enabled.value || disposed) break
@@ -63,7 +62,8 @@ export function useCompactSessionAutosave<Key>(options: {
           waitingForIdle = options.busy.value || idleRevision === attemptIdleRevision
           break
         }
-        if (result === 'blocked' || result === 'failed') pending.delete(key)
+        // A failed attempt is not retried automatically. Edits added back to
+        // pending during that attempt are newer work and get their own save.
       }
     } finally {
       saving = false

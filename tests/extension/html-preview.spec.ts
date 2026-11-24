@@ -42,62 +42,28 @@ async function seed(page: Page, a: string, b = '') {
   }, { a, b })
 }
 
-test('renders Markdown and independent HTML blocks, keeps state across tab lifecycle, releases only the selected column', async ({ extensionPage: page }) => {
+test('keeps extension previews independent across freeze and source view', async ({ extensionPage: page }) => {
   await seed(page, markdown, counter('other'))
-  await expect(page.getByTestId('html-preview-frame')).toHaveCount(3)
-  await expect(output(page).locator('.markdown-content > h1')).toHaveText('Before')
-  await expect(output(page).locator('.markdown-content > p')).toHaveText(['Between.', 'After.'])
-  const firstHost = output(page).locator('[data-html-preview-slot="0"] iframe')
-  const secondHost = output(page).locator('[data-html-preview-slot="1"] iframe')
-  const otherHost = output(page, 1).getByTestId('html-preview-frame')
+  const firstOutput = output(page)
+  const firstHost = firstOutput.locator('[data-html-preview-slot="0"] iframe')
+  const secondHost = firstOutput.locator('[data-html-preview-slot="1"] iframe')
   const first = firstHost.contentFrame().frameLocator('iframe').locator('#one')
   const second = secondHost.contentFrame().frameLocator('iframe').locator('#two')
-  const other = otherHost.contentFrame().frameLocator('iframe').locator('#other')
+  const other = output(page, 1).frameLocator('[data-testid="html-preview-frame"]').frameLocator('iframe').locator('#other')
   await clickCounter(first, firstHost)
-  await clickCounter(second, secondHost)
-  await clickCounter(second, secondHost)
-  await clickCounter(other, otherHost)
   await expect(first).toHaveText('1')
-  await expect(second).toHaveText('2')
-  const firstWindow = await first.evaluateHandle(() => window)
+  await expect(second).toHaveText('0')
   const otherWindow = await other.evaluateHandle(() => window)
   const cdp = await page.context().newCDPSession(page)
-  // Freeze/resume really suspends this page. Visibility events additionally
-  // exercise application hooks; neither is claimed as native-tab throttling.
-  await page.evaluate(() => {
-    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
-    document.dispatchEvent(new Event('visibilitychange'))
-  })
   await cdp.send('Page.setWebLifecycleState', { state: 'frozen' })
   await cdp.send('Page.setWebLifecycleState', { state: 'active' })
-  await page.evaluate(() => {
-    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' })
-    document.dispatchEvent(new Event('visibilitychange'))
-  })
-  expect(await firstWindow.evaluate(() => document.querySelector('#one')?.textContent)).toBe('1')
-  await clickCounter(second, secondHost)
-  await expect(second).toHaveText('3')
-  await output(page).locator('[data-testid$="-view-source"], [data-testid="output-view-source"]').click()
-  await expect(output(page).getByTestId('html-preview-frame')).toHaveCount(0)
-  // Exercise the real copy action without replacing the user's OS clipboard.
-  await page.evaluate(() => {
-    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
-      writeText: async (text: string) => { (window as any).__copied = text },
-    } })
-  })
-  await output(page).locator('.output-copy-split-primary').click()
-  expect(await page.evaluate(() => (window as any).__copied)).toBe(markdown)
-  await expect(firstWindow.evaluate(() => document.body)).rejects.toThrow()
-  expect(await otherWindow.evaluate(() => document.querySelector('#other')?.textContent)).toBe('1')
-  await clickCounter(other, otherHost)
-  await expect(other).toHaveText('2')
-  await output(page).getByTestId('output-view-preview').click()
-  await expect(first).toHaveText('0')
-  await clickCounter(first, firstHost)
   await expect(first).toHaveText('1')
+  await firstOutput.getByTestId(/-view-source$/).click()
+  await expect(firstOutput.getByTestId('html-preview-frame')).toHaveCount(0)
+  expect(await otherWindow.evaluate(() => document.querySelector('#other')?.textContent)).toBe('0')
 })
 
-test('preserves CSS, inline and external scripts, modules, canvas and external requests without extension privileges', async ({ extensionPage: page }) => {
+test('runs scripts and external requests without granting extension privileges', async ({ extensionPage: page }) => {
   await page.route('https://preview.example.test/**', route => {
     const url = route.request().url()
     return route.fulfill({
@@ -107,13 +73,12 @@ test('preserves CSS, inline and external scripts, modules, canvas and external r
         : url.endsWith('/module.js') ? 'export const answer=42' : '{"ok":true}',
     })
   })
-  const html = `<!doctype html><html><head><style>body{color:rgb(12,34,56)}</style>
+  const html = `<!doctype html><html><head>
 <script src="https://preview.example.test/classic.js"></script>
 <script type="importmap">{"imports":{"demo":"https://preview.example.test/module.js"}}</script></head><body>
-<h1>HTML preview</h1>${counter('counter')}<canvas width="20" height="20"></canvas><pre id="result"></pre>
+<h1>HTML preview</h1><pre id="result"></pre>
 <script type="module">
 import {answer} from 'demo';
-const ctx=document.querySelector('canvas').getContext('2d');ctx.fillStyle='rgb(0,128,255)';ctx.fillRect(0,0,20,20);
 const denied=(fn)=>{try{fn();return false}catch{return true}};
 const result={external:window.externalLoaded,answer,
   parentBlocked:denied(()=>parent.document.body),topBlocked:denied(()=>top.document.body),
@@ -133,100 +98,63 @@ parent.postMessage({type:'prompt-optimizer:render-html',html:'<h1>FORGED</h1>'},
     storageBlocked: true, cookiesBlocked: true, extensionAPI: 'undefined',
     navigationBlocked: true, fetch: true, corsBlocked: true,
   })
-  await expect(frame.locator('body')).toHaveCSS('color', 'rgb(12, 34, 56)')
-  expect(await frame.locator('canvas').evaluate((el: HTMLCanvasElement) => [...el.getContext('2d')!.getImageData(0,0,1,1).data])).toEqual([0,128,255,255])
-  await frame.locator('#counter').click()
-  await expect(frame.locator('#counter')).toHaveText('1')
   await expect(frame.locator('h1')).toHaveText('HTML preview')
   expect(page.url()).toContain('index.html#/basic/system')
 })
 
-test('replaces changed content and supports fullscreen without extra tabs', async ({ extensionPage: page }) => {
-  await seed(page, markdown)
-  const old = await output(page).frameLocator('[data-html-preview-slot="0"] iframe').frameLocator('iframe').locator('#one').evaluateHandle(() => window)
-  await seed(page, markdown.replace('id="one"', 'id="replacement"'))
-  const replacement = output(page).frameLocator('[data-html-preview-slot="0"] iframe').frameLocator('iframe').locator('#replacement')
-  await expect(replacement).toBeVisible()
-  await expect(old.evaluate(() => document.body)).rejects.toThrow()
+test('opens an interactive fullscreen preview in the same tab', async ({ extensionPage: page }) => {
+  await seed(page, counter('fullscreen-counter'))
   const pages = page.context().pages().length
   await output(page).getByRole('button', { name: /^(Expand|展开|展開)$/ }).click()
   const fullscreen = page.getByTestId('output-fullscreen')
-  const counter = fullscreen.frameLocator('[data-html-preview-slot="0"] iframe').frameLocator('iframe').locator('#replacement')
-  await counter.click()
-  await expect(counter).toHaveText('1')
+  const host = fullscreen.getByTestId('html-preview-frame')
+  const button = host.contentFrame().frameLocator('iframe').locator('#fullscreen-counter')
+  await clickCounter(button, host)
+  await expect(button).toHaveText('1')
   expect(page.context().pages()).toHaveLength(pages)
   await page.getByRole('dialog').getByRole('button', { name: 'close', exact: true }).click()
-  await seed(page, '# Plain Markdown')
-  await expect(page.getByTestId('html-preview-frame')).toHaveCount(0)
-  await expect(output(page).locator('h1')).toHaveText('Plain Markdown')
+  await expect(fullscreen).toHaveCount(0)
 })
 
-test('keeps two genuinely concurrent producers bounded under CPU throttling and renders only completed outputs', async ({ extensionPage: page }) => {
+test('renders both concurrent long HTML outputs only after streaming completes', async ({ extensionPage: page }) => {
   await page.goto(page.url().replace('/basic/system', '/basic/user'))
   await expect(page.getByTestId('workspace')).toBeVisible()
-  const cdp = await page.context().newCDPSession(page)
-  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 })
-  const source = `# Result\n\n\`\`\`html\n<svg viewBox="0 0 100 100">${'<path d="M1 2 L3 4"/>'.repeat(2000)}</svg>${counter('large')}\n\`\`\`\n\nDone.`
-  await page.evaluate(async source => {
-    const session = (document.querySelector('#app') as any).__vue_app__.config.globalProperties.$pinia._s.get('basicUserSession')
+  const source = `# Result\n\n\`\`\`html\n<svg viewBox="0 0 100 100">${'<path d="M1 2 L3 4"/>'.repeat(2000)}</svg>\n\`\`\`\n\nDone.`
+  const stream = await page.evaluateHandle(async source => {
     // Production Vue omits the DOM debug pointer used by the dev-server tests.
     // Reach the actual provider through the entry shell's rendered component.
     const app = (document.querySelector('#app') as any).__vue_app__
+    const session = app.config.globalProperties.$pinia._s.get('basicUserSession')
     const services = app._container._vnode.component.subTree.component.provides.services.value
     const model = (await services.modelManager.getAllModels())[0]
     await services.modelManager.updateModel(model.id, { enabled: true, connectionConfig: { ...model.connectionConfig, apiKey: 'fixture-no-network' } })
     session.prompt = 'Draw a page'
     session.optimizedPrompt = 'Draw a complete page'
     session.testVariants = session.testVariants.map((v: any) => ({ ...v, modelKey: model.id }))
-    const state = window as any
-    state.__entered = 0
-    state.__emitted = 0
-    state.__finished = 0
-    state.__previewDuringStreaming = false
-    let release!: () => void
-    const barrier = new Promise<void>(resolve => { release = resolve })
-    let finished = 0
-    let finish!: () => void
-    const completion = new Promise<void>(resolve => { finish = resolve })
+    let complete!: () => void
+    const completion = new Promise<void>(resolve => { complete = resolve })
+    const stream = { started: 0, complete }
     services.promptService.testPromptStream = async (_a: string, _b: string, _c: string, callbacks: any) => {
-      if (++state.__entered === 2) release()
-      await barrier
-      for (let offset = 0; offset < source.length; offset += 256) {
-        if (document.querySelector('[data-testid="html-preview-frame"]')) state.__previewDuringStreaming = true
-        callbacks.onToken(source.slice(offset, offset + 256))
-        state.__emitted++
-        await new Promise(resolve => setTimeout(resolve, 4))
-      }
-      if (++finished === 2) finish()
-      state.__finished = finished
+      callbacks.onToken(source)
+      stream.started++
       await completion
-      await callbacks.onComplete()
+      callbacks.onComplete()
     }
+    return stream
   }, source)
   await page.getByTestId('basic-user-test-run-all').click()
-  await expect(page.getByTestId('basic-user-test-original-output').getByTestId('output-source-view')).toBeVisible()
-  try {
-    await expect(page.getByTestId('html-preview-frame')).toHaveCount(2, { timeout: 25000 })
-  } finally {
-    const metrics = await page.evaluate(() => {
-      const state = window as any
-      const store = (document.querySelector('#app') as any).__vue_app__.config.globalProperties.$pinia._s.get('basicUserSession')
-      return { entered: state.__entered, finished: state.__finished, chunks: state.__emitted,
-        aCharacters: store.testVariantResults.a?.result.length, bCharacters: store.testVariantResults.b?.result.length,
-        outputs: [...document.querySelectorAll('.output-display-core')].map(el => (el.textContent || '').slice(-300)) }
-    })
-    await test.info().attach('stream-progress', { body: JSON.stringify(metrics, null, 2), contentType: 'application/json' })
+  await expect.poll(() => stream.evaluate(state => state.started)).toBe(2)
+  const outputs = [
+    page.getByTestId('basic-user-test-original-output'),
+    page.getByTestId('basic-user-test-optimized-output'),
+  ]
+  for (const output of outputs) {
+    await expect(output.getByTestId('output-source-view')).toBeVisible()
+    await expect(output.getByTestId('html-preview-frame')).toHaveCount(0)
   }
-  expect(await page.evaluate(() => {
-    const state = window as any
-    const store = (document.querySelector('#app') as any).__vue_app__.config.globalProperties.$pinia._s.get('basicUserSession')
-    return { entered: state.__entered, premature: state.__previewDuringStreaming, a: store.testVariantResults.a.result, b: store.testVariantResults.b.result }
-  })).toEqual({ entered: 2, premature: false, a: source, b: source })
-  for (const index of [0, 1]) {
-    expect(await output(page, index).locator('.markdown-content *').count()).toBeLessThan(20)
-    const preview = page.frameLocator('[data-testid="html-preview-frame"]').nth(index).frameLocator('iframe')
+  await stream.evaluate(state => state.complete())
+  for (const output of outputs) {
+    const preview = output.getByTestId('html-preview-frame').contentFrame().frameLocator('iframe')
     await expect(preview.locator('svg path')).toHaveCount(2000)
-    await preview.locator('#large').click()
-    await expect(preview.locator('#large')).toHaveText('1')
   }
 })

@@ -15,14 +15,6 @@ export interface PromptExampleFromTestRunOptions {
   source?: PromptSourceRef;
 }
 
-const hasRunInput = (input: PromptRunInput): boolean =>
-  Boolean(
-    input.text ||
-    (input.messages && input.messages.length > 0) ||
-    (input.parameters && Object.keys(input.parameters).length > 0) ||
-    (input.images && input.images.length > 0),
-  );
-
 const hasRunOutput = (output: PromptRunOutput | undefined): output is PromptRunOutput =>
   Boolean(
     output &&
@@ -115,10 +107,6 @@ export const promptExampleFromTestRun = (
       : {}),
     ...(run.input.metadata ? { metadata: { ...run.input.metadata } } : {}),
   };
-
-  if (!hasRunInput(input)) {
-    return null;
-  }
 
   const output: PromptRunOutput = {
     ...(run.output.text ? { text: run.output.text } : {}),

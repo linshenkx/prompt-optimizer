@@ -4,63 +4,38 @@ import type { SubModeKey } from '../../stores/session/useSessionManager'
 interface WorkspaceRouteSwitchOptions {
   hasRestoredInitialState: Ref<boolean>
   parseSubModeKey: (path: string) => SubModeKey | null
-  getActiveSubModeKey: () => SubModeKey | null
-  switchMode: (fromKey: SubModeKey, toKey: SubModeKey) => Promise<void>
-  switchSubMode: (fromKey: SubModeKey, toKey: SubModeKey) => Promise<void>
+  flushWorkspace: (key: SubModeKey) => Promise<boolean>
   restoreSessionToUI: () => Promise<void>
-  onError?: (error: unknown, fromKey: SubModeKey, toKey: SubModeKey) => void
+  onError?: (error: unknown, toPath: string, fromPath: string) => void
 }
 
 interface RouteChangeOptions {
   externalDataLoading?: boolean
 }
 
-const getModeFromSubModeKey = (key: SubModeKey) => key.split('-')[0]
-
 export const createWorkspaceRouteSwitchController = (options: WorkspaceRouteSwitchOptions) => {
-  const activeSwitches = new Map<string, Promise<void>>()
   let switchQueue: Promise<void> = Promise.resolve()
+  let latest: { toPath: string; fromPath: string; promise: Promise<void> } | undefined
+  let currentKey: SubModeKey | null | undefined
 
   const run = (toPath: string, fromPath: string): Promise<void> => {
     if (!options.hasRestoredInitialState.value) return Promise.resolve()
 
-    const fromKey = options.parseSubModeKey(fromPath) ?? options.getActiveSubModeKey()
+    if (latest?.toPath === toPath && latest.fromPath === fromPath) return latest.promise
+    // The router already points at the destination, so use its previous path on
+    // the first transition and record each source before queuing any work.
+    const fromKey = currentKey === undefined ? options.parseSubModeKey(fromPath) : currentKey
     const toKey = options.parseSubModeKey(toPath)
+    currentKey = toKey
+    if (fromKey === toKey) return latest?.promise ?? switchQueue
 
-    if (!fromKey || !toKey || fromKey === toKey) return Promise.resolve()
-
-    const switchKey = `${fromKey}->${toKey}`
-    const existingSwitch = activeSwitches.get(switchKey)
-    if (existingSwitch) {
-      return existingSwitch
-    }
-
-    const executeSwitch = async () => {
-      const actualFromKey = options.getActiveSubModeKey() ?? fromKey
-      if (!actualFromKey || actualFromKey === toKey) return
-
-      const fromMode = getModeFromSubModeKey(actualFromKey)
-      const toMode = getModeFromSubModeKey(toKey)
-
-      if (fromMode !== toMode) {
-        await options.switchMode(actualFromKey, toKey)
-      } else {
-        await options.switchSubMode(actualFromKey, toKey)
-      }
-
-      await options.restoreSessionToUI()
-    }
-
-    const promise = switchQueue.then(executeSwitch, executeSwitch)
-    activeSwitches.set(switchKey, promise)
-    switchQueue = promise.catch(() => {})
-
-    void promise.finally(() => {
-      if (activeSwitches.get(switchKey) === promise) {
-        activeSwitches.delete(switchKey)
-      }
-    })
-
+    const save = fromKey ? switchQueue.then(async () => { await options.flushWorkspace(fromKey) }) : switchQueue
+    switchQueue = save.catch(() => {})
+    // The displayed workspace can sync its already hydrated state while saving
+    // the source. Explicit navigation waits for both before applying external data.
+    const sync = toKey ? options.restoreSessionToUI() : undefined
+    const promise = Promise.all([save, sync]).then(() => {})
+    latest = { toPath, fromPath, promise }
     return promise
   }
 
@@ -74,11 +49,7 @@ export const createWorkspaceRouteSwitchController = (options: WorkspaceRouteSwit
     try {
       await run(toPath, fromPath)
     } catch (error) {
-      const fromKey = options.parseSubModeKey(fromPath) ?? options.getActiveSubModeKey()
-      const toKey = options.parseSubModeKey(toPath)
-      if (fromKey && toKey) {
-        options.onError?.(error, fromKey, toKey)
-      }
+      options.onError?.(error, toPath, fromPath)
     }
   }
 

@@ -1,13 +1,30 @@
+import type { LLMTokenUsage, PromptTestRunSnapshot } from '@prompt-optimizer/core'
+import { sanitizeTokenUsage } from './token-usage'
 import { Text } from '@codemirror/state'
 import { toRaw, shallowRef, unref, reactive, type Ref } from 'vue'
 
-export type OutputRecord = { result: string; reasoning: string; status?: OutputPhase }
+export type OutputRecord = { result: string; reasoning: string; status?: OutputPhase; tokenUsage?: LLMTokenUsage }
+export type TestVariantResult = OutputRecord & { requestPrompt?: string; runSnapshot?: PromptTestRunSnapshot }
 export type OutputField = 'result' | 'reasoning'
 export type OutputPhase = 'streaming' | 'complete' | 'cancelled' | 'capacity' | 'failed'
 export function restoredOutputStatus(value: unknown): { status?: OutputPhase } {
   const status = value === 'streaming' ? 'cancelled' : value
   return ['complete', 'cancelled', 'capacity', 'failed'].includes(status as string) ? { status: status as OutputPhase } : {}
 }
+export function restoreTestVariantMetadata(record: Record<string, unknown>) {
+  const tokenUsage = sanitizeTokenUsage(record.tokenUsage)
+  const runSnapshot =
+    record.runSnapshot && typeof record.runSnapshot === 'object' && !Array.isArray(record.runSnapshot)
+      ? (record.runSnapshot as PromptTestRunSnapshot)
+      : undefined
+  return {
+    ...restoredOutputStatus(record.status),
+    ...(typeof record.requestPrompt === 'string' ? { requestPrompt: record.requestPrompt } : {}),
+    ...(tokenUsage ? { tokenUsage } : {}),
+    ...(runSnapshot ? { runSnapshot } : {}),
+  }
+}
+
 export class OutputInterruptedError extends Error {
   constructor(public readonly reason: 'cancelled' | 'capacity') {
     super(`Output ${reason}`)
@@ -29,11 +46,18 @@ export function liveOutputValue(value: unknown): string | undefined {
     ? binding.document.read(binding.field) : undefined
 }
 type OutputOwner = { $state: object; $subscribe?: (listener: () => void, options: { detached: boolean; flush: 'sync' }) => () => void }
-type OutputGroup = { documents: Set<OutputDocument>; slots: Map<string, { id: symbol; document?: OutputDocument }>; baseBytes: number; version: number; dirty?: boolean; stop?: () => void; snapshot?: () => object }
+type OutputGroup = { documents: Set<OutputDocument>; slots: Map<string, { id: symbol; document?: OutputDocument }>; baseBytes: number; version: Ref<number>; dirty?: boolean; stop?: () => void; snapshot?: () => object }
 const owners = new WeakMap<object, OutputGroup>()
+const outputVersions = new WeakMap<object, Ref<number>>()
+const outputVersion = (owner: object) => {
+  const key = toRaw(owner)
+  let version = outputVersions.get(key)
+  if (!version) { version = shallowRef(0); outputVersions.set(key, version) }
+  return version
+}
 let globalLiveBytes = 0
 let liveDocumentCount = 0
-export const getOutputVersion = (owner: object) => owners.get(toRaw(owner))?.version ?? 0
+export const getOutputVersion = (owner: object) => outputVersion(owner).value
 const encoder = new TextEncoder()
 const jsonBytes = (text: string) => encoder.encode(JSON.stringify(text)).byteLength - 2
 
@@ -89,7 +113,7 @@ export class OutputDocument {
     // terminal fields through its canonical proxy, including after a remount.
     this.record = reactive(record)
     const key = owner ? toRaw(owner) : toRaw(record)
-    this.group = owners.get(key) ?? { documents: new Set(), slots: new Map(), baseBytes: 0, version: 0, snapshot: owner ? () => owner.$state : undefined }
+    this.group = owners.get(key) ?? { documents: new Set(), slots: new Map(), baseBytes: 0, version: outputVersion(key), snapshot: owner ? () => owner.$state : undefined }
     owners.set(key, this.group)
     if (slot) { this.group.slots.get(slot)?.document?.interrupt(); this.group.slots.set(slot, { id: this.identity, document: this }) }
     this.group.documents.add(this)
@@ -154,18 +178,19 @@ export class OutputDocument {
       throw new OutputInterruptedError('capacity')
     }
     this.usedBytes += bytes
-    this.group.version++
     globalLiveBytes += memory
     this.usedMemory += memory
     this.pending[field].push(token)
     this.pendingLength[field] += token.length
     if (this.pendingLength[field] >= 4096 || this.pending[field].length >= 256) this.flush(field)
     delete this.cache[field]
+    this.group.version.value++
     this.notify()
   }
   interrupt(reason: 'cancelled' | 'capacity' = 'cancelled') {
     if (this.phase !== 'streaming') return
     this.phase = reason
+    this.group.version.value++
     this.controller.abort(new OutputInterruptedError(reason))
     this.notify()
   }

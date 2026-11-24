@@ -1,7 +1,7 @@
 import { DesktopSourceError, type DesktopComparisonOpener, type DesktopReadonlyOpener } from './desktop-router.js';
 
 /** Imported only after desktop selection; SQLite itself loads only on sources.open. */
-export const openReadonlyDesktop: DesktopReadonlyOpener = async absoluteUserDataPath => {
+export const openReadonlyDesktop = (async absoluteUserDataPath => {
   try {
     const { openExistingDesktopStorage } = await import('@prompt-optimizer/core/node');
     const lease = await openExistingDesktopStorage(absoluteUserDataPath);
@@ -14,23 +14,13 @@ export const openReadonlyDesktop: DesktopReadonlyOpener = async absoluteUserData
     // Missing, unmigrated, incompatible and unreadable stores remain unopened.
     throw new DesktopSourceError('SOURCE_NOT_READY');
   }
-};
-
-function isSourceDiverged(error: unknown, expectedReason: string): boolean {
-  const reason = (error as { params?: { reason?: unknown } } | null)?.params?.reason;
-  return typeof reason === 'string' && reason === expectedReason;
-}
+}) satisfies DesktopReadonlyOpener;
 
 export const openComparisonDesktop: DesktopComparisonOpener = async (absoluteUserDataPath, executionSource) => {
   let lease: import('@prompt-optimizer/core/node').ExistingSQLiteStorage | undefined;
   try {
-    const node = await import('@prompt-optimizer/core/node');
-    try {
-      lease = await node.openExistingDesktopStorageForWriting(absoluteUserDataPath);
-    } catch (error) {
-      if (isSourceDiverged(error, node.DESKTOP_STORAGE_DIVERGENCE_REASON)) throw new DesktopSourceError('SOURCE_DATA_DIVERGED');
-      throw error;
-    }
+    const { openExistingDesktopStorageForWriting } = await import('@prompt-optimizer/core/node');
+    lease = await openExistingDesktopStorageForWriting(absoluteUserDataPath);
     if (lease.provider.readOnly) throw new DesktopSourceError('SOURCE_NOT_READY');
 
     // Leave the product service graph out of desktop-readonly and source discovery.
@@ -42,7 +32,6 @@ export const openComparisonDesktop: DesktopComparisonOpener = async (absoluteUse
         runner,
         repository: core.createComparisonRepository(lease.provider),
         errorCode(error) {
-          if (isSourceDiverged(error, node.DESKTOP_STORAGE_DIVERGENCE_REASON)) return 'SOURCE_DATA_DIVERGED';
           // Match the error class bundled with the comparison runner.
           return error instanceof core.TextComparisonError || error instanceof core.ComparisonRepositoryError ||
             error instanceof core.AssetReadError ? error.code : undefined;

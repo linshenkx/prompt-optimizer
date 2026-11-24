@@ -220,7 +220,8 @@ describe('MinimaxAdapter', () => {
       expect(response.content).toBe('Hello from MiniMax!');
       expect(response.metadata).toEqual({
         model: 'MiniMax-M3',
-        finishReason: 'stop'
+        finishReason: 'stop',
+        usage: { inputTokens: 10, outputTokens: 20, cachedInputTokens: null, totalTokens: 30 }
       });
     });
   });

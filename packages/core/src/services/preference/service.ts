@@ -340,9 +340,23 @@ export class PreferenceService implements IPreferenceService {
    */
   async clear(): Promise<void> {
     try {
-      const prefKeys = Array.from(this.keyCache);
-      for (const key of prefKeys) {
-        await this.delete(key);
+      if (typeof this.storageProvider.deleteByPrefix === "function") {
+        await this.storageProvider.deleteByPrefix(this.PREFIX);
+        this.keyCache.clear();
+        return;
+      }
+      const prefKeys = Array.from(new Set([...await this.keys(), ...this.keyCache]));
+      if (typeof this.storageProvider.batchUpdate === "function" && prefKeys.length > 0) {
+        await this.storageProvider.batchUpdate(
+          prefKeys.map((key) => ({
+            key: this.getPrefKey(key),
+            operation: "remove" as const,
+          })),
+        );
+      } else {
+        for (const key of prefKeys) {
+          await this.delete(key);
+        }
       }
       this.keyCache.clear();
     } catch (error) {

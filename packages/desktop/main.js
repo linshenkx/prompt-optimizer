@@ -39,6 +39,7 @@ console.info('[prompt-optimizer/runtime]', {
 
 const { app, BrowserWindow, ipcMain, shell, session, Menu, nativeImage, dialog, clipboard } = require('electron');
 const { autoUpdater } = require('electron-updater');
+const { createShutdownController, createWillQuitStorageCloser, requestWorkspaceSave } = require('./config/shutdown');
 const {
   buildReleaseUrl,
   resolveUpdateRepositoryConfig,
@@ -66,6 +67,7 @@ const {
   applyPageZoomAction,
   getPageZoomActionFromDirection,
 } = require('./config/page-zoom');
+const { showStorageStartupErrorDialog } = require('./config/storage-startup-error');
 const { setupRemoteStorageHandlers } = require('./remote-storage');
 const path = require('path');
 
@@ -113,7 +115,11 @@ const {
   SUFFIX_PATTERN,
   MAX_SUFFIX_LENGTH,
 } = require('@prompt-optimizer/core');
-const { openDesktopStorage, DESKTOP_DATABASE_FILENAME, DESKTOP_STORAGE_DIVERGENCE_REASON } = require('@prompt-optimizer/core/node');
+const {
+  openDesktopStorage,
+  DESKTOP_DATABASE_FILENAME,
+  DESKTOP_STORAGE_WAL_UNSUPPORTED_REASON,
+} = require('@prompt-optimizer/core/node');
 const { createElectronImageInputConverter } = require('./config/image-input-normalizer');
 const convertImageInputWithElectronNativeImage = createElectronImageInputConverter(nativeImage);
 
@@ -133,7 +139,7 @@ let modelNetwork;
 let networkRestarting = false;
 let modelManager, templateManager, historyManager, llmService, promptService, templateLanguageService, preferenceService, dataManager, contextRepo, favoriteManager;
 let imageModelManager, imageService, imageUnderstandingService;
-let savedComparisons;
+let savedComparisons, desktopRuns;
 let imageAdapterRegistry; // 全局引用以供 IPC 处理器使用
 let storageProvider; // 全局存储提供器引用，用于退出时保存数据
 
@@ -201,24 +207,47 @@ function getContextMenuLabels(locale) {
   const normalized = normalizeUiLocale(locale) || 'en-US';
   return CONTEXT_MENU_LABELS[normalized] || CONTEXT_MENU_LABELS['en-US'];
 }
-let isQuitting = false; // 防止重复保存数据的标志
-let isUpdaterQuitting = false; // 标识是否为更新安装退出，跳过数据保存
-let forceQuitTimer = null; // 强制退出定时器
-const MAX_SAVE_TIME = 5000; // 最大保存时间：5秒
-let emergencyExitTimer = null; // 应急退出定时器
-const EMERGENCY_EXIT_TIME = 10000; // 应急退出时间：10秒
+let isUpdaterQuitting = false;
 
-// 应急退出机制：无论如何都要在10秒内退出
-function setupEmergencyExit() {
-  if (emergencyExitTimer) {
-    clearTimeout(emergencyExitTimer);
+const UNSAVED_WORKSPACE_DIALOG = {
+  'en-US': {
+    message: 'Workspace or application data could not be saved.',
+    buttons: ['Keep open', 'Exit anyway'],
+  },
+  'zh-CN': {
+    message: '工作区或应用数据保存失败。',
+    buttons: ['保持打开', '仍然退出'],
+  },
+  'zh-TW': {
+    message: '工作區或應用程式資料儲存失敗。',
+    buttons: ['保持開啟', '仍然結束'],
+  },
+};
+
+async function saveBeforeExit(win) {
+  try {
+    await requestWorkspaceSave(ipcMain, win, 5000);
+  } finally {
+    await storageProvider?.flush();
   }
-
-  emergencyExitTimer = setTimeout(() => {
-    console.error('[DESKTOP] EMERGENCY EXIT: Force terminating process after 10 seconds');
-    process.exit(1); // 强制终止进程
-  }, EMERGENCY_EXIT_TIME);
 }
+
+const shutdown = createShutdownController({
+  app,
+  getWindow: () => mainWindow,
+  isInstallingUpdate: () => isUpdaterQuitting,
+  save: saveBeforeExit,
+  confirmDiscard: async (win) => {
+    const options = {
+      type: 'warning', defaultId: 0, cancelId: 0,
+      ...UNSAVED_WORKSPACE_DIALOG[getCurrentUiLocale()],
+    };
+    const result = win && !win.isDestroyed()
+      ? await dialog.showMessageBox(win, options)
+      : await dialog.showMessageBox(options);
+    return result.response === 1;
+  },
+});
 
 // === System Proxy → Undici Global Dispatcher (A1 方案) ===
 // 说明：在主进程中尽量早地设置 undici 全局代理分发器，使 Node/SDK 请求复用系统代理。
@@ -318,6 +347,7 @@ function setupPreferenceHandlers() {
   ipcMain.handle('preference-set', async (event, key, value) => {
     try {
       await preferenceService.set(key, value);
+      if (key.startsWith('session/')) await storageProvider.flush();
       return createSuccessResponse(null);
     } catch (error) {
       return createErrorResponse(error);
@@ -561,54 +591,11 @@ function createWindow() {
     }
   }
 
-  // 窗口关闭前保存数据
-  mainWindow.on('close', async (event) => {
-    // 如果是更新安装退出，直接关闭窗口，不保存数据
-    if (isUpdaterQuitting) {
-      console.log('[DESKTOP] Updater quit detected, skipping data save');
-      return;
-    }
-
-    if (!isQuitting && storageProvider && typeof storageProvider.flush === 'function') {
-      event.preventDefault(); // 阻止立即关闭
-      isQuitting = true; // 设置退出标志
-
-      // 启动应急退出机制
-      setupEmergencyExit();
-
-      // 设置强制退出定时器，确保程序不会卡住
-      forceQuitTimer = setTimeout(() => {
-        console.warn('[DESKTOP] Force closing window due to timeout');
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.destroy();
-        }
-      }, MAX_SAVE_TIME);
-
-      try {
-        console.log('[DESKTOP] Saving data before window close...');
-        await Promise.race([
-          storageProvider.flush(),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Save timeout')), MAX_SAVE_TIME - 1000)
-          )
-        ]);
-        console.log('[DESKTOP] Data saved successfully');
-      } catch (error) {
-        console.error('[DESKTOP] Failed to save data before close:', error);
-      } finally {
-        if (forceQuitTimer) {
-          clearTimeout(forceQuitTimer);
-          forceQuitTimer = null;
-        }
-        if (emergencyExitTimer) {
-          clearTimeout(emergencyExitTimer);
-          emergencyExitTimer = null;
-        }
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.destroy();
-        }
-      }
-    }
+  shutdown.resetApproval();
+  mainWindow.on('close', shutdown.onClose);
+  mainWindow.webContents.on('will-prevent-unload', () => {
+    shutdown.resetApproval();
+    isUpdaterQuitting = false;
   });
 
   // Emitted when the window is closed.
@@ -619,6 +606,7 @@ function createWindow() {
 }
 
 async function initializeServices() {
+  let startupStage = 'storage';
   try {
     console.log('[Main Process] Initializing core services...');
     
@@ -689,6 +677,7 @@ async function initializeServices() {
     // Do not expose services until the copy, verification and migration marker commit together.
     const openedStorage = await openDesktopStorage(userDataPath);
     storageProvider = openedStorage.provider;
+    startupStage = 'services';
     console.log('[DESKTOP] Storage ready:', openedStorage.migration);
     const startupRepairReport = await runStorageStartupSafetyCheck(storageProvider);
     await writeStartupRepairReport(storageProvider, startupRepairReport);
@@ -759,7 +748,8 @@ async function initializeServices() {
 
     console.log('[DESKTOP] Creating Data manager...');
     savedComparisons = createComparisonRepository(storageProvider);
-    dataManager = createDataManager(modelManager, templateManager, historyManager, preferenceService, contextRepo, imageModelManager, savedComparisons, createDesktopRunRepository(storageProvider));
+    desktopRuns = createDesktopRunRepository(storageProvider);
+    dataManager = createDataManager(modelManager, templateManager, historyManager, preferenceService, contextRepo, imageModelManager, savedComparisons, desktopRuns);
 
     console.log('[DESKTOP] Creating Favorite manager...');
     favoriteManager = new FavoriteManager(storageProvider);
@@ -770,13 +760,22 @@ async function initializeServices() {
   } catch (error) {
     console.error('[Main Process] Failed to initialize core services:', error);
     console.error('[Main Process] Error details:', error.stack);
-    if (error?.params?.reason === DESKTOP_STORAGE_DIVERGENCE_REASON) {
-      const copy = {
-        'zh-CN': ['请核对桌面数据', '发现旧版 JSON 和 SQLite 的数据可能已分开更新。升级已暂停，原数据仍保留。请保留 JSON、SQLite、WAL 和 SHM 文件，核对两份数据后再继续升级。'],
-        'zh-TW': ['請核對桌面資料', '發現舊版 JSON 和 SQLite 的資料可能已分開更新。升級已暫停，原資料仍保留。請保留 JSON、SQLite、WAL 和 SHM 檔案，核對兩份資料後再繼續升級。'],
-        'en-US': ['Review desktop data before upgrading', 'The legacy JSON and SQLite data may have changed independently. The upgrade was paused. Keep the JSON, SQLite, WAL and SHM files and review both copies before continuing.'],
-      }[getCurrentUiLocale()];
-      dialog.showErrorBox(copy[0], copy[1]);
+    try {
+      let userDataPath = '';
+      try {
+        userDataPath = app.getPath('userData');
+      } catch (_) {}
+      await showStorageStartupErrorDialog({
+        dialog,
+        shell,
+        error,
+        locale: getCurrentUiLocale(),
+        userDataPath,
+        stage: startupStage,
+        walUnsupportedReason: DESKTOP_STORAGE_WAL_UNSUPPORTED_REASON,
+      });
+    } catch (dialogError) {
+      console.error('[Main Process] Failed to display startup error dialog:', dialogError);
     }
     return false;
   }
@@ -1048,9 +1047,9 @@ function setupIPC() {
             event.sender.send(`stream-thinking-${streamId}`, thinking);
           }
         },
-        onComplete: () => {
+        onComplete: (response) => {
           if (!event.sender.isDestroyed()) {
-            event.sender.send(`stream-finish-${streamId}`);
+            event.sender.send(`stream-finish-${streamId}`, response !== undefined ? safeSerialize(response) : undefined);
           }
         },
         onError: (error) => {
@@ -1088,9 +1087,9 @@ function setupIPC() {
             event.sender.send(`stream-tool-call-${streamId}`, toolCall);
           }
         },
-        onComplete: () => {
+        onComplete: (response) => {
           if (!event.sender.isDestroyed()) {
-            event.sender.send(`stream-finish-${streamId}`);
+            event.sender.send(`stream-finish-${streamId}`, response !== undefined ? safeSerialize(response) : undefined);
           }
         },
         onError: (error) => {
@@ -1188,11 +1187,11 @@ function setupIPC() {
         sender.send(`stream-tool-call-${streamId}`, toolCall);
       }
     },
-    onComplete: () => {
+    onComplete: (response) => {
       lease.release();
       lease.signal.throwIfAborted();
       if (!sender.isDestroyed()) {
-        sender.send(`stream-finish-${streamId}`);
+        sender.send(`stream-finish-${streamId}`, response !== undefined ? safeSerialize(response) : undefined);
       }
     },
     onError: (error) => {
@@ -2266,8 +2265,6 @@ function setupIPC() {
   ipcMain.handle('comparison-list', comparisonRequest(options => savedComparisons.list(options)));
   ipcMain.handle('comparison-get', comparisonRequest(id => savedComparisons.get(id)));
   ipcMain.handle('comparison-delete', comparisonRequest((id, revision) => savedComparisons.delete(id, revision)));
-  const desktopRuns = createDesktopRunRepository(storageProvider);
-  require('./config/desktop-resources').installDesktopResources(ipcMain, storageProvider);
   const runRequest = action => async (_event, ...args) => {
     try { return createSuccessResponse(await action(...args)); }
     catch { return { success: false, error: { message: 'Saved desktop run request failed.' } }; }
@@ -2445,19 +2442,33 @@ function setupIPC() {
 }
 
 // This method is called when Electron has finished initialization.
+const willQuitStorageCloser = createWillQuitStorageCloser({
+  app,
+  getStorage: () => storageProvider,
+  onError: error => console.error('[DESKTOP] Failed to close storage:', error),
+});
+
 app.whenReady().then(async () => {
   const servicesInitialized = await initializeServices();
-  if (servicesInitialized) {
-    // 必须先设置IPC监听器，再创建窗口
-    // 以防止窗口中的代码在监听器准备好之前就发送IPC消息
-    setupIPC();
-    createWindow();
-  } else {
+  if (!servicesInitialized) {
     console.error('[Main Process] Failed to start application due to service initialization failure.');
-    // Optionally, show a dialog to the user
-    // dialog.showErrorBox('Application Error', 'Could not initialize critical services.');
-    app.quit();
+    willQuitStorageCloser.markClosed();
+    if (storageProvider && typeof storageProvider.close === 'function') {
+      try {
+        await storageProvider.close();
+      } catch (closeError) {
+        console.error('[DESKTOP] Failed to close storage after startup failure:', closeError);
+      }
+    }
+    app.exit(1);
+    return;
   }
+
+  // 必须先设置IPC监听器，再创建窗口
+  // 以防止窗口中的代码在监听器准备好之前就发送IPC消息
+  setupIPC();
+  require('./config/desktop-resources').installDesktopResources(ipcMain, storageProvider);
+  createWindow();
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
@@ -2481,52 +2492,7 @@ process.on('SIGTERM', () => {
 
 // 全局异常处理已在 console-logger 中设置
 
-// 应用退出前保存数据
-app.on('before-quit', async (event) => {
-  // 如果是更新安装退出，直接退出，不保存数据
-  if (isUpdaterQuitting) {
-    console.log('[DESKTOP] Updater quit detected, allowing immediate quit');
-    return;
-  }
-
-  if (!isQuitting && storageProvider && typeof storageProvider.flush === 'function') {
-    event.preventDefault(); // 阻止立即退出
-    isQuitting = true; // 设置退出标志
-
-    // 启动应急退出机制
-    setupEmergencyExit();
-
-    // 设置强制退出定时器，确保应用不会卡住
-    const forceAppQuitTimer = setTimeout(() => {
-      console.warn('[DESKTOP] Force quitting app due to timeout');
-      process.exit(0); // 强制退出进程
-    }, MAX_SAVE_TIME);
-
-    try {
-      console.log('[DESKTOP] Saving data before quit...');
-      await Promise.race([
-        storageProvider.flush(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Save timeout')), MAX_SAVE_TIME - 1000)
-        )
-      ]);
-      console.log('[DESKTOP] Data saved successfully');
-    } catch (error) {
-      console.error('[DESKTOP] Failed to save data before quit:', error);
-    } finally {
-      clearTimeout(forceAppQuitTimer);
-      if (emergencyExitTimer) {
-        clearTimeout(emergencyExitTimer);
-        emergencyExitTimer = null;
-      }
-      // 使用setImmediate确保在下一个事件循环中退出
-      setImmediate(() => {
-        // 保留退出标志，让第二次 before-quit 放行，避免重复保存并循环退出。
-        app.quit(); // 手动退出
-      });
-    }
-  }
-});
+app.on('before-quit', shutdown.onQuit);
 
 // Quit when all windows are closed, except on macOS.
 app.on('window-all-closed', function () {
@@ -2536,18 +2502,7 @@ app.on('window-all-closed', function () {
 });
 
 // Also runs for updater quits and macOS quits after the last window was closed.
-let storageClosedForQuit = false;
-app.on('will-quit', (event) => {
-  if (!storageClosedForQuit && storageProvider && typeof storageProvider.close === 'function') {
-    event.preventDefault();
-    storageClosedForQuit = true;
-    storageProvider.close()
-      .catch(error => console.error('[DESKTOP] Failed to close storage:', error))
-      // Let Electron finish canceling will-quit before starting another quit cycle.
-      // Re-entering from the promise microtask can leave the app running without windows.
-      .finally(() => setImmediate(() => app.quit()));
-  }
-});
+app.on('will-quit', willQuitStorageCloser.onWillQuit);
 
 // 忽略版本管理辅助函数（全局作用域）
 const getIgnoredVersions = async () => {
@@ -2731,6 +2686,9 @@ async function setupUpdateHandlers() {
 
   autoUpdater.on('error', (error) => {
     console.error('[Updater] Update error:', error);
+    if (isUpdaterQuitting) {
+      isUpdaterQuitting = false;
+    }
 
     // 如果是 403 错误，提供基本的调试信息
     if (error.code === 'HTTP_ERROR_403' || (error.message && error.message.includes('403'))) {
@@ -3167,7 +3125,8 @@ async function setupUpdateHandlers() {
       console.log('[Updater] If the application does not restart automatically, please launch it manually');
       console.log('[Updater] ==========================================');
       
-      // 设置更新安装退出标志，跳过数据保存逻辑
+      await saveBeforeExit(mainWindow);
+      // The updater closes windows before before-quit. The checkpoint is complete.
       isUpdaterQuitting = true;
       console.log('[Updater] Set updater quit flag to skip data save');
       
@@ -3183,6 +3142,7 @@ async function setupUpdateHandlers() {
         message: 'Installation started, application will restart'
       });
     } catch (error) {
+      isUpdaterQuitting = false;
       console.error('[Updater] Install failed:', error);
       console.error('[Updater] ===== INSTALLATION ERROR =====');
       console.error('[Updater] Error details:', error.message);

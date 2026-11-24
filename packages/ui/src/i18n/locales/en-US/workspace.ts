@@ -26,6 +26,8 @@ export default {
     "testActions": "More test actions",
     "unsavedForm": "You have unsaved changes. Discard them and go back?",
     "sessionConflict": "Another window updated this workspace. Your local draft is still here but was not saved. Copy it before reloading to continue.",
+    "sessionSaveFailed": "A workspace could not be saved. Retry, or copy anything you need before reloading.",
+    "testResultSaveFailed": "The workspace could not be saved. Copy any results you need before reloading.",
     "testFailed": "Test failed. Run this group again; any partial answer is for reference only.",
     "failed": "Failed",
     "sourceText": "Text",

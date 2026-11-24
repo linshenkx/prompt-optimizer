@@ -114,7 +114,9 @@ export function createBrowserTransport({ ticketMs = 120_000, requestMs = 15_000,
           client.on('pong', () => { if (source) source.alive = true; });
           client.on('message', (bytes, binary) => {
             try {
-              if (binary || (source?.access !== 'business' && bytes.length > BROWSER_BRIDGE_MAX_BYTES)) throw new BrowserBridgeError('INVALID_MESSAGE');
+              if (binary || !Buffer.isBuffer(bytes) || (source?.access !== 'business' && bytes.byteLength > BROWSER_BRIDGE_MAX_BYTES)) {
+                throw new BrowserBridgeError('INVALID_MESSAGE');
+              }
               const message = JSON.parse(bytes.toString()) as Record<string, unknown>;
               if (!source) {
                 const ticket = typeof message.ticket === 'string' ? tickets.get(message.ticket) : undefined;

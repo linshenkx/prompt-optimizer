@@ -7,7 +7,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { SQLiteStorageProvider } from '../packages/core/dist/node.js';
-import { StorageFactory, CORE_SERVICE_KEYS } from '../packages/core/dist/index.js';
+import {
+  StorageFactory,
+  CORE_SERVICE_KEYS,
+  HistoryManager,
+  PreferenceService,
+  RecordNotFoundError,
+} from '../packages/core/dist/index.js';
 
 const workerUrl = new URL('./helpers/sqlite-storage-worker.mjs', import.meta.url);
 const cleanups = new WeakMap();
@@ -79,6 +85,10 @@ test('SQLite strings, lifecycle and rollback preserve existing data', async t =>
   await provider.setItem('unicode', '中文 👋 " \\ null');
   assert.equal(await provider.getItem(''), '');
   assert.equal(await provider.getItem('unicode'), '中文 👋 " \\ null');
+  await provider.setItem('lone-surrogate', 'test\ud83d');
+  assert.equal(await provider.getItem('lone-surrogate'), 'test\ufffd');
+  await provider.updateData('json-surrogate', () => ({ text: 'test\ud83d' }));
+  assert.deepEqual(JSON.parse(await provider.getItem('json-surrogate')), { text: 'test\ud83d' });
   await provider.setItem('counter', '1');
   const domainError = new Error('Domain validation failed');
   await assert.rejects(provider.updateData('counter', () => { throw domainError; }), error => error === domainError);
@@ -198,4 +208,223 @@ test('real template and history managers preserve concurrent additions and delet
   assert.equal(JSON.parse(await provider.getItem(CORE_SERVICE_KEYS.PROMPT_HISTORY)).length, 20);
   await Promise.all([a.call('delete-chain', { key: 'a' }), b.call('history', { prefix: 'c', count: 5 })]);
   assert.equal(JSON.parse(await provider.getItem(CORE_SERVICE_KEYS.PROMPT_HISTORY)).length, 15);
+});
+
+test('SQLiteStorageProvider updateData consumes rejected async modifier without unhandledRejection', async t => {
+  const { provider } = await fixture(t);
+  await provider.setItem('async-guard', '1');
+  let unhandled = 0;
+  const onUnhandled = () => { unhandled++; };
+  process.on('unhandledRejection', onUnhandled);
+  t.after(() => process.off('unhandledRejection', onUnhandled));
+
+  await assert.rejects(
+    provider.updateData('async-guard', async () => {
+      throw new Error('async-boom');
+    }),
+    /synchronous/,
+  );
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(unhandled, 0);
+  assert.equal(await provider.getItem('async-guard'), '1');
+});
+
+test('HistoryManager addIteration serializes concurrent iterations and detects deleted chains', async t => {
+  const { file, provider } = await fixture(t);
+  const peer = new SQLiteStorageProvider(file);
+  try {
+    const stubModelManager = { getModel: async () => undefined };
+    const managerA = new HistoryManager(provider, stubModelManager);
+    const managerB = new HistoryManager(peer, stubModelManager);
+
+    const created = await managerA.createNewChain({
+      id: 'root-1',
+      originalPrompt: 'Original',
+      optimizedPrompt: 'Optimized v1',
+      type: 'optimize',
+      modelKey: 'openai',
+      templateId: 'tpl-1',
+    });
+
+    const [resA, resB] = await Promise.all([
+      managerA.addIteration({
+        chainId: created.chainId,
+        originalPrompt: 'Original',
+        optimizedPrompt: 'Optimized iter A',
+        modelKey: 'openai',
+        templateId: 'tpl-1',
+      }),
+      managerB.addIteration({
+        chainId: created.chainId,
+        originalPrompt: 'Original',
+        optimizedPrompt: 'Optimized iter B',
+        modelKey: 'openai',
+        templateId: 'tpl-1',
+      }),
+    ]);
+
+    const finalChain = await managerA.getChain(created.chainId);
+    assert.deepEqual(finalChain.versions.map(v => v.version), [1, 2, 3]);
+    assert.equal(finalChain.versions[1].previousId, 'root-1');
+    assert.equal(finalChain.versions[2].previousId, finalChain.versions[1].id);
+    assert.notEqual(resA.currentRecord.version, resB.currentRecord.version);
+
+    // Deleting the chain mid-flight prevents adding an orphaned iteration.
+    await managerA.deleteChain(created.chainId);
+    await assert.rejects(
+      managerB.addIteration({
+        chainId: created.chainId,
+        originalPrompt: 'Original',
+        optimizedPrompt: 'Should fail',
+        modelKey: 'openai',
+        templateId: 'tpl-1',
+      }),
+      error => error instanceof RecordNotFoundError,
+    );
+  } finally {
+    await peer.close();
+  }
+});
+
+test('PreferenceService clear removes persisted untouched and cross-connection keys', async t => {
+  const { file, provider } = await fixture(t);
+  const peer = new SQLiteStorageProvider(file);
+  try {
+    await provider.setItem('pref:untouched', JSON.stringify('preexisting'));
+    const peerPref = new PreferenceService(peer);
+    await peerPref.set('other-conn', 'from-peer');
+
+    const freshPref = new PreferenceService(provider);
+    await freshPref.set('touched', 'local');
+    await freshPref.clear();
+
+    assert.deepEqual(await freshPref.keys(), []);
+    assert.equal(await provider.getItem('pref:untouched'), null);
+    assert.equal(await provider.getItem('pref:other-conn'), null);
+    assert.equal(await provider.getItem('pref:touched'), null);
+  } finally {
+    await peer.close();
+  }
+});
+
+test('HistoryManager addIteration preserves root and chain consistency at 50-record retention limit on SQLite', async t => {
+  const { provider } = await fixture(t);
+  const manager = new HistoryManager(provider, { getModel: async () => undefined });
+  const created = await manager.createNewChain({
+    id: 'root-limit-1',
+    originalPrompt: 'Original',
+    optimizedPrompt: 'v1',
+    type: 'optimize',
+    modelKey: 'openai',
+    templateId: 'tpl-1',
+  });
+
+  let chain = created;
+  for (let version = 2; version <= 51; version++) {
+    chain = await manager.addIteration({
+      chainId: created.chainId,
+      originalPrompt: 'Original',
+      optimizedPrompt: `v${version}`,
+      modelKey: 'openai',
+      templateId: 'tpl-1',
+    });
+  }
+
+  assert.equal(chain.rootRecord.version, 1);
+  assert.equal(chain.currentRecord.version, 51);
+  assert.equal(chain.versions.length, 50);
+  assert.equal(chain.versions[0].version, 1);
+  assert.deepEqual(await manager.getChain(created.chainId), chain);
+  assert.deepEqual(await manager.getIterationChain(chain.currentRecord.id), chain.versions);
+  const allChains = await manager.getAllChains();
+  assert.equal(allChains.length, 1);
+  assert.equal(allChains[0].currentRecord.version, 51);
+});
+
+test('PreferenceService clear is atomic against concurrent SQLite peer batch updates', async t => {
+  const { file, provider } = await fixture(t);
+  const peer = new SQLiteStorageProvider(file);
+  try {
+    await provider.setItem('models', '["keep-me"]');
+    const prefA = new PreferenceService(provider);
+
+    for (let round = 0; round < 40; round++) {
+      await provider.setItem('pref:a', JSON.stringify(`seed-${round}`));
+      await provider.removeItem('pref:b');
+
+      await Promise.all([
+        prefA.clear(),
+        peer.batchUpdate([
+          { operation: 'set', key: 'pref:a', value: '"2"' },
+          { operation: 'set', key: 'pref:b', value: '"2"' },
+        ]),
+      ]);
+
+      const state = [await provider.getItem('pref:a'), await provider.getItem('pref:b')];
+      const bothSurvived = state[0] === '"2"' && state[1] === '"2"';
+      const bothCleared = state[0] === null && state[1] === null;
+      assert.ok(bothSurvived || bothCleared, `Torn clear state at round ${round}: ${JSON.stringify(state)}`);
+    }
+
+    assert.equal(await provider.getItem('models'), '["keep-me"]');
+  } finally {
+    await peer.close();
+  }
+});
+
+test('HistoryManager preserves roots of both active chains across 48 alternating iterations and record 51 on SQLite', async t => {
+  const { provider } = await fixture(t);
+  const manager = new HistoryManager(provider, { getModel: async () => undefined });
+  const chainA = await manager.createNewChain({
+    id: 'root-alt-a',
+    originalPrompt: 'Original A',
+    optimizedPrompt: 'A v1',
+    type: 'optimize',
+    modelKey: 'openai',
+    templateId: 'tpl-1',
+  });
+  const chainB = await manager.createNewChain({
+    id: 'root-alt-b',
+    originalPrompt: 'Original B',
+    optimizedPrompt: 'B v1',
+    type: 'optimize',
+    modelKey: 'openai',
+    templateId: 'tpl-1',
+  });
+
+  for (let i = 0; i < 24; i++) {
+    await manager.addIteration({
+      chainId: chainA.chainId,
+      originalPrompt: 'Original A',
+      optimizedPrompt: `A v${i + 2}`,
+      modelKey: 'openai',
+      templateId: 'tpl-1',
+    });
+    await manager.addIteration({
+      chainId: chainB.chainId,
+      originalPrompt: 'Original B',
+      optimizedPrompt: `B v${i + 2}`,
+      modelKey: 'openai',
+      templateId: 'tpl-1',
+    });
+  }
+
+  assert.equal((await manager.getRecords()).length, 50);
+  await manager.addIteration({
+    chainId: chainA.chainId,
+    originalPrompt: 'Original A',
+    optimizedPrompt: 'A v26',
+    modelKey: 'openai',
+    templateId: 'tpl-1',
+  });
+
+  assert.equal((await manager.getRecords()).length, 50);
+  const readA = await manager.getChain(chainA.chainId);
+  const readB = await manager.getChain(chainB.chainId);
+  assert.equal(readA.rootRecord.version, 1);
+  assert.equal(readA.currentRecord.version, 26);
+  assert.equal(readB.rootRecord.version, 1);
+  assert.equal(readB.currentRecord.version, 25);
+  const allChains = await manager.getAllChains();
+  assert.deepEqual(allChains.map(c => c.chainId).sort(), [chainA.chainId, chainB.chainId].sort());
 });

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, ref } from 'vue'
-import { useCompactSessionAutosave } from '../../../src/composables/session/useCompactSessionAutosave'
+import { useSessionAutosave } from '../../../src/composables/session/useSessionAutosave'
 import type { SessionSaveResult } from '../../../src/stores/session/sessionSaveResult'
 
 let scope: ReturnType<typeof effectScope>
@@ -13,12 +13,12 @@ const setup = (initiallyEnabled = true) => {
   const unsubscribe = vi.fn()
   const subscribe = vi.fn((callback: (key: string) => void) => { change = callback; return unsubscribe })
   const save = vi.fn(async (_key: string): Promise<SessionSaveResult> => 'saved')
-  const controls = scope.run(() => useCompactSessionAutosave({ enabled, busy, subscribe, save }))!
+  const controls = scope.run(() => useSessionAutosave({ enabled, busy, subscribe, save }))!
   return { enabled, busy, subscribe, unsubscribe, save, change: (key = 'basic-user') => change(key), ...controls }
 }
 
-describe('compact session autosave', () => {
-  it('leaves desktop and initialization without extra subscriptions or writes', async () => {
+describe('workspace session autosave', () => {
+  it('leaves initialization without extra subscriptions or writes', async () => {
     const state = setup(false)
     await vi.advanceTimersByTimeAsync(6000)
     expect(state.subscribe).not.toHaveBeenCalled()
@@ -48,7 +48,7 @@ describe('compact session autosave', () => {
     expect(state.save).toHaveBeenCalledOnce()
   })
 
-  it('lets the existing pagehide flush cancel a duplicate pending write', async () => {
+  it('lets the import checkpoint cancel a duplicate pending write', async () => {
     const state = setup()
     state.change()
     state.cancelPending()
@@ -126,8 +126,6 @@ describe('compact session autosave', () => {
     state.save.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
     state.change()
     await vi.advanceTimersByTimeAsync(750)
-    state.change()
-    await vi.advanceTimersByTimeAsync(1000)
     finish(result)
     await nextTick()
     state.busy.value = true
@@ -135,6 +133,19 @@ describe('compact session autosave', () => {
     await vi.advanceTimersByTimeAsync(60_000)
     expect(state.save).toHaveBeenCalledOnce()
     expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('keeps a newer edit queued when the older write fails', async () => {
+    const state = setup()
+    let finish!: (value: SessionSaveResult) => void
+    state.save.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    state.change()
+    await vi.advanceTimersByTimeAsync(750)
+    state.change()
+    await vi.advanceTimersByTimeAsync(750)
+    finish('failed')
+    await nextTick()
+    expect(state.save).toHaveBeenCalledTimes(2)
   })
 
   it.each(['cancel', 'disable', 'dispose'] as const)('invalidates an in-flight trailing request on %s', async action => {
@@ -177,7 +188,7 @@ describe('compact session autosave', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
-  it('cancels timers and subscriptions when leaving compact layout or unmounting', async () => {
+  it('cancels timers and subscriptions when disabling the app or unmounting', async () => {
     const state = setup()
     state.change()
     state.enabled.value = false

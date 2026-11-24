@@ -33,7 +33,6 @@ export async function openExistingDesktopStorageForWriting(
   validateExistingUserDataPath(userDataPath);
   return SQLiteStorageProvider.openExistingWritable(
     join(userDataPath, DESKTOP_DATABASE_FILENAME),
-    alreadyMigrated => loadLegacy(userDataPath, alreadyMigrated),
     options,
   );
 }
@@ -75,7 +74,7 @@ function readLegacyFile(filename: string): LegacyFile {
 }
 
 /** Read the legacy format without instantiating FileStorageProvider (which writes backups). */
-function loadLegacy(userDataPath: string, alreadyMigrated: boolean): LegacyStorageSnapshot {
+function loadLegacy(userDataPath: string): LegacyStorageSnapshot {
   const filename = join(userDataPath, LEGACY_STORAGE_FILENAME);
   const backupFilename = filename + '.backup';
   const main = readLegacyFile(filename);
@@ -83,31 +82,20 @@ function loadLegacy(userDataPath: string, alreadyMigrated: boolean): LegacyStora
     return {
       source: 'json',
       entries: main.entries,
-      readBackupEntries: () => {
-        try {
-          const backup = readLegacyFile(backupFilename);
-          return backup.status === 'valid' ? backup.entries : undefined;
-        } catch (error) {
-          // An unreadable, unused historical backup is not a reason to reject a valid primary.
-          // If the backup becomes the active fallback later, it will be checked then.
-          if (error instanceof StorageError) return undefined;
-          throw error;
-        }
-      },
     };
   }
 
   const backup = readLegacyFile(backupFilename);
   if (backup.status === 'valid') return { source: 'backup', entries: backup.entries };
-  if (!alreadyMigrated && (main.status === 'invalid' || backup.status === 'invalid')) {
+  if (main.status === 'invalid' || backup.status === 'invalid') {
     throw new StorageError('Legacy storage is invalid; source has been retained', 'read');
   }
   return { source: 'empty', entries: new Map() };
 }
 
 /**
- * The only desktop bootstrap entry. The migration marker records the transferred source,
- * and any later divergence is rejected before business services use the database.
+ * The only desktop bootstrap entry. Once the migration marker is committed,
+ * SQLite is authoritative and historical JSON is retained untouched without ongoing re-reads.
  */
 export async function openDesktopStorage(
   userDataPath: string,
@@ -116,7 +104,7 @@ export async function openDesktopStorage(
   if (!userDataPath) throw new StorageError('Desktop storage requires a user data directory', 'config');
   const provider = new SQLiteStorageProvider(join(userDataPath, DESKTOP_DATABASE_FILENAME), options);
   try {
-    const migration = await provider.initializeFromLegacy(alreadyMigrated => loadLegacy(userDataPath, alreadyMigrated));
+    const migration = await provider.initializeFromLegacy(() => loadLegacy(userDataPath));
     return { provider, migration };
   } catch (error) {
     await provider.close();

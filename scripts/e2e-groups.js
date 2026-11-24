@@ -11,6 +11,7 @@ const groups = {
     'tests/e2e/regression/html-preview.spec.ts',
     'tests/e2e/session-persistence/workspace-source-preview.spec.ts',
     'tests/e2e/session-persistence/workspace-split-bindings.spec.ts',
+    'tests/e2e/session-persistence/workspace-autosave.spec.ts',
     'tests/e2e/session-persistence/cross-window-conflict.spec.ts',
   ],
   gate: [

@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { computed, effectScope, nextTick, ref } from 'vue'
 import type { IImageStorageService, IPreferenceService } from '@prompt-optimizer/core'
-import { useCompactSessionAutosave } from '../../../src/composables/session/useCompactSessionAutosave'
+import { useSessionAutosave } from '../../../src/composables/session/useSessionAutosave'
 import { useSessionManager } from '../../../src/stores/session/useSessionManager'
+import { useArenaSession } from '../../../src/stores/session/useArenaSession'
 import { useBasicUserSession } from '../../../src/stores/session/useBasicUserSession'
 import { useBasicSystemSession } from '../../../src/stores/session/useBasicSystemSession'
 import { useProMultiMessageSession } from '../../../src/stores/session/useProMultiMessageSession'
@@ -10,6 +11,7 @@ import { useProVariableSession } from '../../../src/stores/session/useProVariabl
 import { useImageText2ImageSession } from '../../../src/stores/session/useImageText2ImageSession'
 import { useImageImage2ImageSession } from '../../../src/stores/session/useImageImage2ImageSession'
 import { useImageMultiImageSession } from '../../../src/stores/session/useImageMultiImageSession'
+import { beginOutputStream } from '../../../src/utils/output-document'
 import { createPreferenceServiceStub, createTestPinia } from '../../utils/pinia-test-helpers'
 
 let scope: ReturnType<typeof effectScope> | undefined
@@ -38,9 +40,9 @@ const setup = async (overrides: Partial<IPreferenceService> = {}) => {
   const enabled = ref(true)
   const attach = () => {
     scope = effectScope()
-    return scope.run(() => useCompactSessionAutosave({
+    return scope.run(() => useSessionAutosave({
       enabled,
-      busy: computed(() => manager.isSwitching || manager.isSaving),
+      busy: computed(() => manager.isSaving || manager.isRestoring),
       subscribe: manager.subscribeToSessionChanges,
       save: manager.saveSubModeSessionWithStatus,
     }))!
@@ -48,24 +50,67 @@ const setup = async (overrides: Partial<IPreferenceService> = {}) => {
   return { pinia, manager, snapshots, set, enabled, attach }
 }
 
-describe('compact autosave with the session manager', () => {
+describe('workspace autosave with the session manager', () => {
+  it('detects and saves output appended after a partial stream checkpoint', async () => {
+    const state = await setup()
+    state.attach()
+    vi.useFakeTimers()
+    const user = useBasicUserSession(state.pinia)
+    const stream = beginOutputStream(user.testVariantResults.a, user, 'test-a')
+    try {
+      stream.onToken('first part')
+      await nextTick()
+      await vi.advanceTimersByTimeAsync(750)
+      expect(state.manager.hasUnsavedSessions).toBe(false)
+      stream.onToken(' and the rest')
+      expect(state.manager.hasUnsavedSessions).toBe(true)
+      await nextTick()
+      await vi.advanceTimersByTimeAsync(750)
+      expect(state.snapshots.get('session/v1/basic-user')).toMatchObject({
+        testVariantResults: { a: { result: 'first part and the rest' } },
+      })
+      expect(state.manager.hasUnsavedSessions).toBe(false)
+    } finally {
+      stream.finish()
+    }
+  })
+
+  it('publishes the direct Arena input checkpoint without a redundant autosave', async () => {
+    const state = await setup()
+    state.attach()
+    vi.useFakeTimers()
+    expect(await useArenaSession(state.pinia).replaceInput('direct arena draft')).toBe(true)
+    expect(state.manager.hasUnsavedSessions).toBe(false)
+    await vi.advanceTimersByTimeAsync(750)
+    expect(state.set).toHaveBeenCalledOnce()
+  })
+
+  it('reports a failed edit over a malformed Arena snapshot without replacing it', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const state = await setup({
+      get: async <T,>(key: string, fallback: T) => (key === 'session/v1/arena' ? { malformed: true } : fallback) as T,
+    })
+    const arena = useArenaSession(state.pinia)
+    arena.state.prompt = 'draft retained in memory'
+    expect(await arena.saveSession()).toBe(false)
+    expect(state.manager.saveFailures.get('arena')).toBe('failed')
+    expect(state.manager.hasUnsavedSessions).toBe(true)
+    expect(arena.state.prompt).toBe('draft retained in memory')
+    expect(state.set).not.toHaveBeenCalled()
+  })
+
   it('distinguishes temporary manager contention without changing the boolean save API', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     let release!: () => void
     const pending = new Promise<void>(resolve => { release = resolve })
-    const { manager } = await setup({ set: async () => pending })
+    const { manager, pinia } = await setup({ set: async () => pending })
+    useBasicSystemSession(pinia).prompt = 'Queued while another workspace saves'
     const first = manager.saveSubModeSession('basic-user')
     expect(manager.isSaving).toBe(true)
     expect(await manager.saveSubModeSessionWithStatus('basic-system')).toBe('deferred')
     expect(await manager.saveSubModeSession('basic-system')).toBe(false)
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('already in progress'))
     release()
     expect(await first).toBe(true)
     expect(manager.isSaving).toBe(false)
-    manager.isSwitching = true
-    expect(await manager.saveSubModeSessionWithStatus('basic-user')).toBe('deferred')
-    expect(await manager.saveSubModeSession('basic-user')).toBe(true)
-    manager.isSwitching = false
     expect(await manager.saveSubModeSessionWithStatus('basic-user')).toBe('saved')
   })
 
@@ -109,7 +154,8 @@ describe('compact autosave with the session manager', () => {
     })
     state.attach()
     vi.useFakeTimers()
-    state.manager.isSwitching = true
+    const resume = await state.manager.beginSessionRestore()
+    state.set.mockClear()
     useBasicUserSession(state.pinia).prompt = 'old route final draft'
     await nextTick()
     active = 'system'
@@ -117,26 +163,27 @@ describe('compact autosave with the session manager', () => {
     await nextTick()
     await vi.advanceTimersByTimeAsync(750)
     expect(state.set).not.toHaveBeenCalled()
-    state.manager.isSwitching = false
+    resume()
     await vi.advanceTimersByTimeAsync(0)
     expect(state.snapshots.get('session/v1/basic-user')).toMatchObject({ prompt: 'old route final draft' })
     expect(state.snapshots.get('session/v1/basic-system')).toMatchObject({ prompt: 'new route draft' })
     expect(state.set).toHaveBeenCalledTimes(2)
   })
 
-  it('saves all seven changed stores once without an idle save creating a new dirty cycle', async () => {
+  it('saves all eight changed stores once without an idle save creating a new dirty cycle', async () => {
     const state = await setup()
     state.attach()
     vi.useFakeTimers()
     const stores = [useBasicUserSession, useBasicSystemSession, useProMultiMessageSession,
       useProVariableSession, useImageText2ImageSession, useImageImage2ImageSession, useImageMultiImageSession]
     for (const useStore of stores) useStore(state.pinia).optimizedPrompt = 'latest workspace draft'
+    useArenaSession(state.pinia).state.prompt = 'latest arena draft'
     await nextTick()
     await vi.advanceTimersByTimeAsync(750)
-    expect(state.set).toHaveBeenCalledTimes(7)
-    expect(new Set(state.set.mock.calls.map(([key]) => key)).size).toBe(7)
+    expect(state.set).toHaveBeenCalledTimes(8)
+    expect(new Set(state.set.mock.calls.map(([key]) => key)).size).toBe(8)
     await vi.advanceTimersByTimeAsync(60_000)
-    expect(state.set).toHaveBeenCalledTimes(7)
+    expect(state.set).toHaveBeenCalledTimes(8)
     expect(vi.getTimerCount()).toBe(0)
   })
 
@@ -152,12 +199,10 @@ describe('compact autosave with the session manager', () => {
     await nextTick()
     await vi.advanceTimersByTimeAsync(750)
     expect(await state.manager.saveSubModeSessionWithStatus('basic-user')).toBe('blocked')
-    resume()
-    state.manager.isSwitching = true
-    state.manager.isSwitching = false
     await vi.advanceTimersByTimeAsync(60_000)
     expect(state.set).not.toHaveBeenCalled()
-    expect(vi.getTimerCount()).toBe(0)
+    scope?.stop()
+    resume()
   })
 
   it('retains a conflicting local draft without retrying the winning remote snapshot', async () => {
@@ -179,8 +224,6 @@ describe('compact autosave with the session manager', () => {
     await vi.advanceTimersByTimeAsync(750)
     expect(compareAndSet).toHaveBeenCalledOnce()
     expect(await state.manager.saveSubModeSessionWithStatus('basic-user')).toBe('blocked')
-    state.manager.isSwitching = true
-    state.manager.isSwitching = false
     await vi.advanceTimersByTimeAsync(60_000)
     expect(compareAndSet).toHaveBeenCalledOnce()
     expect(user.prompt).toBe('my unsaved local draft')
@@ -191,23 +234,23 @@ describe('compact autosave with the session manager', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const write = vi.fn(async (): Promise<void> => { throw new Error('quota exceeded') })
     const state = await setup({ set: write })
-    expect(await state.manager.saveSubModeSessionWithStatus('basic-user')).toBe('failed')
-    write.mockClear()
     state.attach()
     vi.useFakeTimers()
     const user = useBasicUserSession(state.pinia)
     user.prompt = 'retained draft'
     await nextTick()
     await vi.advanceTimersByTimeAsync(750)
-    state.manager.isSwitching = true
-    state.manager.isSwitching = false
     await vi.advanceTimersByTimeAsync(60_000)
     expect(write).toHaveBeenCalledOnce()
+    expect(state.manager.saveFailures.get('basic-user')).toBe('failed')
+    expect(state.manager.hasUnsavedSessions).toBe(true)
     expect(user.prompt).toBe('retained draft')
     write.mockResolvedValue(undefined)
     user.prompt = 'later deliberate edit'
     await nextTick()
     await vi.advanceTimersByTimeAsync(750)
     expect(write).toHaveBeenCalledTimes(2)
+    expect(state.manager.saveFailures.size).toBe(0)
+    expect(state.manager.hasUnsavedSessions).toBe(false)
   })
 })

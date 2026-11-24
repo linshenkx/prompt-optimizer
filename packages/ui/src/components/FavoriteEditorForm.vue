@@ -407,6 +407,7 @@ import { useToast } from '../composables/ui/useToast'
 import { useTagSuggestions } from '../composables/ui/useTagSuggestions'
 import type { AppServices } from '../types/services'
 import { getI18nErrorMessage } from '../utils/error'
+import { persistFavoriteExampleImages } from '../utils/favorite-example-images'
 import { buildFavoriteMediaMetadata, parseFavoriteMediaMetadata } from '../utils/favorite-media'
 import { normalizeFavoriteFunctionMode } from '../utils/favorite-mode'
 import {
@@ -928,78 +929,14 @@ const buildMediaMetadataForSave = async () => {
   })
 }
 
-const persistSourcesForFavoriteAssets = async (sources: string[]) => {
-  const normalizedSources = dedupeStrings(
-    sources.map((item) => String(item || '').trim()).filter(Boolean),
-  )
-  const preferredStorage = getPreferredStorageService()
-  const assetIds: string[] = []
-  const fallbackSources: string[] = []
-
-  for (const source of normalizedSources) {
-    if (!preferredStorage) {
-      fallbackSources.push(source)
-      continue
-    }
-
-    try {
-      const assetId = await persistImageSourceAsAssetId({
-        source,
-        storageService: preferredStorage,
-        sourceType: 'uploaded',
-      })
-
-      if (assetId) {
-        assetIds.push(assetId)
-      } else {
-        fallbackSources.push(source)
-      }
-    } catch (error) {
-      console.warn('[FavoriteEditorForm] Failed to persist example image source:', error)
-      fallbackSources.push(source)
-    }
-  }
-
-  return {
-    assetIds: dedupeStrings(assetIds),
-    fallbackSources: dedupeStrings(fallbackSources),
-  }
-}
-
-const buildReproducibilityDraftForSave = async () => {
-  const examples: FavoriteReproducibilityExample[] = []
-
-  for (const example of toRaw(reproducibilityExamples.value)) {
-    const exampleImages = await persistSourcesForFavoriteAssets(example.images || [])
-    const inputImages = await persistSourcesForFavoriteAssets(example.inputImages || [])
-
-    examples.push({
-      ...example,
-      messages: example.messages?.map((message) => ({ ...message })) || [],
-      parameters: { ...example.parameters },
-      outputText: example.outputText,
-      images: exampleImages.fallbackSources,
-      imageAssetIds: dedupeStrings([
-        ...(example.imageAssetIds || []),
-        ...exampleImages.assetIds,
-      ]),
-      inputImages: inputImages.fallbackSources,
-      inputImageAssetIds: dedupeStrings([
-        ...(example.inputImageAssetIds || []),
-        ...inputImages.assetIds,
-      ]),
-      metadata: example.metadata ? { ...example.metadata } : undefined,
-    })
-  }
-
-  return {
-    variables: toRaw(reproducibilityVariables.value).map((variable) => ({
-      ...variable,
-      options: [...variable.options],
-    })),
-    examples,
-  }
-}
+const buildReproducibilityDraftForSave = () => persistFavoriteExampleImages(
+  {
+    examples: toRaw(reproducibilityExamples.value),
+    variables: toRaw(reproducibilityVariables.value),
+  },
+  services?.value?.favoriteImageStorageService,
+  services?.value?.imageStorageService,
+)
 
 const handleBeforeImageUpload = async (options: { file: UploadFileInfo }) => {
   const raw = (options.file as unknown as { file?: Blob | null }).file

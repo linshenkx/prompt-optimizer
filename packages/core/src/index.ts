@@ -44,6 +44,7 @@ export type {
   Message,
   StreamHandlers,
   LLMResponse,
+  LLMTokenUsage,
   ModelInfo,
   ModelOption,
   ITextAdapterRegistry,

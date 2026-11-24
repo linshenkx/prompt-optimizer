@@ -8,10 +8,11 @@ import {
   type TextModelConfig, type ImageModelConfig,
 } from '@prompt-optimizer/core'
 import { getPiniaServices } from '../../plugins/pinia'
-import { createSessionSnapshotWriter, readSessionSnapshot, runSessionWrite, type SessionWritePermit } from './sessionPersistence'
+import { createSessionSnapshotWriter, readSessionSnapshot, runSessionWrite, trackSessionSave, type SessionWritePermit } from './sessionPersistence'
 import { pauseImageStorageGc, queueImageStorageMaintenance } from './imageStorageMaintenance'
 import { persistGeneratedImage, persistImagePayloadAsAssetId } from '../../utils/image-asset-storage'
 import { beginOutputStream, getOutputDocument, restoredOutputStatus } from '../../utils/output-document'
+import { setOutputTokenUsage } from '../../utils/token-usage'
 
 const KEY = 'session/v1/arena'
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value))
@@ -49,17 +50,20 @@ export const useArenaSession = defineStore('arena-session', () => {
   // Call only with session access already held (lock order: access, then image queue).
   const persistSnapshot = async () => {
     const service = getPiniaServices()?.preferenceService
-    if (!service || invalidSnapshot) return false
-    const releasable = [...pendingGcResumes]
-    try {
-      await writer.write(service, KEY, state.value)
-      saveError.value = ''
-      for (const release of releasable) { pendingGcResumes.delete(release); release() }
-      return true
-    } catch (error) {
-      saveError.value = String(error)
-      return false
-    }
+    if (!service) return false
+    return trackSessionSave(service, 'arena', async () => {
+      if (invalidSnapshot) return false
+      const releasable = [...pendingGcResumes]
+      try {
+        await writer.write(service, KEY, state.value)
+        saveError.value = ''
+        for (const release of releasable) { pendingGcResumes.delete(release); release() }
+        return true
+      } catch (error) {
+        saveError.value = String(error)
+        return false
+      }
+    })
   }
   const saveSession = (permit?: SessionWritePermit) => runSessionWrite(getPiniaServices()?.preferenceService, persistSnapshot, permit)
 
@@ -82,6 +86,7 @@ export const useArenaSession = defineStore('arena-session', () => {
     hydrating = true
     state.value = value ? normalizeArenaState(copy(value as ReturnType<typeof createArenaState>)) : createArenaState()
     for (const result of Object.values(state.value.results)) {
+      setOutputTokenUsage(result.output, result.output.tokenUsage)
       result.output.status = restoredOutputStatus(result.output.status).status
     }
     writer.restored(service, KEY)
@@ -186,6 +191,7 @@ export const useArenaSession = defineStore('arena-session', () => {
         stream.signal.addEventListener('abort', () => {
           if (current() && stream.document.phase === 'cancelled') { live.status = 'cancelled'; controller.abort() }
         }, { once: true })
+        let capturedUsage: unknown
         try {
           if (model.kind === 'image') {
             if (!services.imageService) throw new Error('arena.unavailable')
@@ -211,6 +217,7 @@ export const useArenaSession = defineStore('arena-session', () => {
               onReasoningToken: token => { if (accepts()) stream.onReasoningToken(token) },
               onComplete: response => {
                 if (!accepts() || !response) return
+                if (response.metadata?.usage !== undefined) capturedUsage = response.metadata.usage
                 if (!stream.document.length && response.content) stream.onToken(response.content)
                 if (!stream.document.size('reasoning') && response.reasoning) stream.onReasoningToken(response.reasoning)
               },
@@ -230,7 +237,12 @@ export const useArenaSession = defineStore('arena-session', () => {
           }
         } catch (error) {
           if (current()) { live.status = 'error'; live.error = stream.document.phase === 'capacity' ? 'arena.capacity' : error instanceof Error ? error.message : String(error) }
-        } finally { stream.finish(live.status === 'error') }
+        } finally {
+          stream.finish(live.status === 'error')
+          if (current() && live.status === 'success' && capturedUsage !== undefined) {
+            setOutputTokenUsage(live.output, capturedUsage)
+          }
+        }
       })()
     } catch (error) {
       if (current()) { live.status = 'error'; live.error = error instanceof Error ? error.message : String(error) }
@@ -257,13 +269,9 @@ export const useArenaSession = defineStore('arena-session', () => {
     state.value.contestants = state.value.contestants.filter(c => c.id !== id)
     delete state.value.results[id]
   }
-  // Persist draft edits even when no workspace component is mounted.
-  let timer: ReturnType<typeof setTimeout> | undefined
   watch(() => [state.value.prompt, state.value.images, state.value.contestants], () => {
     if (hydrating) return
     state.value.lastActiveAt = Date.now()
-    clearTimeout(timer)
-    timer = setTimeout(() => { void saveSession() }, 500)
   }, { deep: true, flush: 'sync' })
   return { state, configurations, refreshConfigs, resolveConfig, running, lastActiveAt, saveError, saveSession, restoreSession,
     isStale, resolveImages, addImages, replaceInput, busy, cancellable, run, runAll, stop, addContestant, removeContestant }

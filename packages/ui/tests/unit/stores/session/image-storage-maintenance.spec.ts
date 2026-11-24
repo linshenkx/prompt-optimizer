@@ -271,4 +271,52 @@ describe('imageStorageMaintenance GC', () => {
     expect(imageStorageService.deleteImages).toHaveBeenCalledTimes(1)
     expect(imageStorageService.deleteImages).toHaveBeenCalledWith(['img-orphan-basic'])
   })
+
+  it('retains runSnapshot input asset refs in basic-system and image session snapshots', async () => {
+    const preferenceService = {
+      get: vi.fn(async (key: string, defaultValue: unknown) => {
+        if (key === BASIC_SYSTEM_SESSION_KEY) {
+          return {
+            testVariantResults: {
+              a: {
+                runSnapshot: {
+                  input: {
+                    images: [{ kind: 'asset', assetId: 'img-snap-basic' }],
+                  },
+                },
+              },
+            },
+          }
+        }
+        if (key === IMAGE_IMAGE2IMAGE_SESSION_KEY) {
+          return {
+            testVariantResults: {
+              b: {
+                runSnapshot: {
+                  input: {
+                    images: [{ kind: 'asset', assetId: 'img-snap-i2i' }],
+                  },
+                },
+              },
+            },
+          }
+        }
+        return defaultValue
+      }),
+    }
+    const imageStorageService = {
+      listAllMetadata: vi.fn(async () => [
+        { id: 'img-snap-basic' },
+        { id: 'img-snap-i2i' },
+        { id: 'img-snap-orphan' },
+      ]),
+      deleteImages: vi.fn(async (_ids: string[]) => {}),
+    }
+
+    scheduleImageStorageGc(preferenceService as any, imageStorageService as any, { delayMs: 0, getFavoritesPayload: null })
+    await flushScheduledGc()
+
+    expect(imageStorageService.deleteImages).toHaveBeenCalledTimes(1)
+    expect(imageStorageService.deleteImages).toHaveBeenCalledWith(['img-snap-orphan'])
+  })
 })

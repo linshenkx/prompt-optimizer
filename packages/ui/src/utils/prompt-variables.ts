@@ -5,6 +5,7 @@ export {
   findMissingVariables,
   hashString,
   hashVariables,
+  pickUsedVariables,
   replaceVariablesInContent,
   scanVariableNames,
   stableStringifyVars,

@@ -59,7 +59,7 @@ describe('Real Components Integration Tests', () => {
     historyManager = createHistoryManager(storage, modelManager)
     const preferenceService = createPreferenceService(storage)
 
-    const languageService = createTemplateLanguageService(storage, preferenceService)
+    const languageService = createTemplateLanguageService(preferenceService)
     templateManager = createTemplateManager(storage, languageService)
 
     // 创建 mockContextRepo

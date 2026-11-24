@@ -15,6 +15,7 @@
     :loading="loading"
     :streaming="streaming"
     :enable-stop="enableStop"
+    :token-usage="tokenUsage"
     :preview-suspended="isShowingFullscreen"
     :compareService="compareService"
     :test-id="testId"
@@ -58,6 +59,7 @@ import { computed, ref, inject, type Ref } from 'vue'
 
 import OutputDisplayCore from './OutputDisplayCore.vue';
 import OutputDisplayFullscreen from './OutputDisplayFullscreen.vue';
+import type { LLMTokenUsage } from '@prompt-optimizer/core';
 import type { AppServices } from '../types/services';
 import type { OutputRecord } from '../utils/output-document'
 
@@ -87,6 +89,7 @@ interface Props {
   loading?: boolean
   enableStop?: boolean
   streaming?: boolean
+  tokenUsage?: LLMTokenUsage | null
 
   /** 透传给 OutputDisplayCore 的 data-testid（挂在根节点） */
   testId?: string
@@ -99,6 +102,7 @@ const props = withDefaults(defineProps<Props>(), {
     enableEdit: true,
     enableDiff: true,
     enableFavorite: true,
+    tokenUsage: null,
     testId: undefined,
 });
 

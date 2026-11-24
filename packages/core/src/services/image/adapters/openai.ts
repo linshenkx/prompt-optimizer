@@ -172,17 +172,19 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
         allowedValues: [...GPT_IMAGE_BACKGROUND_VALUES]
       }
     ]
+    if (/(?:^|\/)gpt-image-/i.test(modelId)) {
+      definitions.push({
+        name: 'output_format',
+        labelKey: 'image.params.outputFormat.label',
+        descriptionKey: 'image.params.outputFormat.description',
+        type: 'string',
+        defaultValue: 'png',
+        allowedValues: supportsGif ? ['png', 'gif', 'jpeg', 'webp'] : ['png', 'jpeg', 'webp'],
+        allowedValueLabelKeys: supportsGif ? ['image.params.outputFormat.png', 'image.params.outputFormat.gif'] : ['image.params.outputFormat.png']
+      })
+    }
     if (supportsGif) {
       definitions.push(
-        {
-          name: 'output_format',
-          labelKey: 'image.params.outputFormat.label',
-          descriptionKey: 'image.params.outputFormat.description',
-          type: 'string',
-          defaultValue: 'png',
-          allowedValues: ['png', 'gif'],
-          allowedValueLabelKeys: ['image.params.outputFormat.png', 'image.params.outputFormat.gif']
-        },
         {
           name: 'frame_count',
           labelKey: 'image.params.frameCount.label',
@@ -208,13 +210,9 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
     return definitions
   }
 
-  protected getDefaultParameterValues(modelId: string): Record<string, unknown> {
-    return {
-      size: this.supportsGif(modelId) ? 'auto' : '1024x1024',
-      quality: 'auto',
-      background: 'auto',
-      ...(this.supportsGif(modelId) ? { output_format: 'png' } : {})
-    }
+  protected getDefaultParameterValues(_modelId: string): Record<string, unknown> {
+    // Parameter definitions suggest values when users add settings. Unset fields use the API defaults.
+    return {}
   }
 
   private toDynamicModel(model: any): ImageModel | null {
@@ -266,8 +264,6 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
     const merged: Record<string, any> = {
       model: config.modelId,
       prompt: request.prompt,
-      output_format: 'png',
-      stream: false,
       // 合并参数覆盖（先合并，后强制覆盖）
       ...this.getOpenAIParamOverrides(request, config)
     }
@@ -300,7 +296,7 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
     formData.append('prompt', request.prompt)
 
     // 添加参数覆盖（隐藏结果数量与 UI 内部参数）
-    const allParams = { output_format: 'png', ...this.getOpenAIParamOverrides(request, config) }
+    const allParams = this.getOpenAIParamOverrides(request, config)
     for (const [key, value] of Object.entries(allParams)) {
       if (value !== undefined && value !== null) {
         formData.append(key, String(value))
@@ -347,7 +343,7 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
     }
     if (params.output_format === 'gif') {
       // GIF responses contain the complete animation; partial/streaming output is unsupported.
-      params.stream = false
+      delete params.stream
       for (const key of ['partial_images', 'output_compression', 'prompt_rewriter', 'mask', 'input_image_mask']) {
         delete params[key]
       }
@@ -365,7 +361,7 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
     return 'png'
   }
 
-  private getOutputMimeType(b64: string | undefined, format: string): string {
+  private getOutputMimeType(b64: string | undefined, format = 'png'): string {
     // Prefer the actual bytes when a compatible gateway omits or misreports its format.
     if (b64) {
       try {
@@ -381,7 +377,7 @@ export class OpenAIImageAdapter extends AbstractImageProviderAdapter {
     return ({ png: 'image/png', gif: 'image/gif', jpeg: 'image/jpeg', webp: 'image/webp' } as Record<string, string>)[format] || 'image/png'
   }
 
-  private parseImageResponse(response: any, config: ImageModelConfig, requestedFormat: string): ImageResult {
+  private parseImageResponse(response: any, config: ImageModelConfig, requestedFormat?: string): ImageResult {
     if (!response.data || !Array.isArray(response.data)) {
       throw new ImageError(IMAGE_ERROR_CODES.INVALID_RESPONSE_FORMAT)
     }
