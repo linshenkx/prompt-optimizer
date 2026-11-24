@@ -1,7 +1,7 @@
 {
   "name": "@prompt-optimizer/mcp-server",
-  "version": "0.2.0-beta.1",
-  "description": "MCP (Model Context Protocol) server for prompt-optimizer",
+  "version": "0.2.0-beta.2",
+  "description": "Optimize, test, and compare prompts with models from your Prompt Optimizer desktop or browser workspace via MCP.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
