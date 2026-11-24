@@ -2,9 +2,9 @@
 
 Full release narratives now live in versioned files under `releases/`. This file stays as the index and summary entry point.
 
-## [2.17.0-beta.1] - 2026-11-24
-- EN: Preview desktop shared SQLite storage with automatic first-run migration from legacy JSON, safer quit and startup error handling, and atomic concurrency fixes for history, templates, preferences, and IndexedDB updates. See [Release Notes (EN)](releases/v2.17.0-beta.1.en.md).
-- 中文：本预览版将桌面端结构化存储切换为本地 SQLite（WAL 模式），首次启动自动从旧版 JSON 原子迁移并保留历史文件，同时强化退出保存、启动异常提示及历史/模板/偏好/IndexedDB 并发一致性。参见 [版本说明（中文）](releases/v2.17.0-beta.1.zh-CN.md)。
+## [2.17.0-beta.2] - 2026-11-24
+- EN: Preview desktop shared SQLite storage with automatic first-run migration from legacy JSON, safer quit and startup error handling, and atomic concurrency fixes for history, templates, preferences, and IndexedDB updates. See [Release Notes (EN)](releases/v2.17.0-beta.2.en.md).
+- 中文：本预览版将桌面端结构化存储切换为本地 SQLite（WAL 模式），首次启动自动从旧版 JSON 原子迁移并保留历史文件，同时强化退出保存、启动异常提示及历史/模板/偏好/IndexedDB 并发一致性。参见 [版本说明（中文）](releases/v2.17.0-beta.2.zh-CN.md)。
 
 ## [2.16.2] - 2026-11-23
 - EN: Improve compatibility with OpenAI-compatible image APIs by using provider defaults for optional settings. See [Release Notes (EN)](releases/v2.16.2.en.md).
