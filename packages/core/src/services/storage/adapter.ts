@@ -9,10 +9,18 @@ export class StorageAdapter implements IStorageProvider {
   private locks: Map<string, Promise<void>> = new Map();
 
   readonly compareAndSetItem?: IStorageProvider['compareAndSetItem'];
+  readonly getEntriesByPrefix?: IStorageProvider['getEntriesByPrefix'];
+  readonly deleteByPrefix?: IStorageProvider['deleteByPrefix'];
 
   constructor(private readonly baseProvider: IStorageProvider) {
     if (baseProvider.compareAndSetItem) {
       this.compareAndSetItem = baseProvider.compareAndSetItem.bind(baseProvider);
+    }
+    if (baseProvider.getEntriesByPrefix) {
+      this.getEntriesByPrefix = baseProvider.getEntriesByPrefix.bind(baseProvider);
+    }
+    if (baseProvider.deleteByPrefix) {
+      this.deleteByPrefix = baseProvider.deleteByPrefix.bind(baseProvider);
     }
   }
 

@@ -4,6 +4,7 @@ export interface IStorageProvider {
   removeItem(key: string): Promise<void>;
   clearAll(): Promise<void>;
   getEntriesByPrefix?(prefix: string): Promise<Array<[string, string]>>;
+  deleteByPrefix?(prefix: string): Promise<void>;
 
   /** Atomic across every connection to the same backing store. Never emulate with get/set. */
   compareAndSetItem?(key: string, expected: string | null, value: string | null): Promise<boolean>;

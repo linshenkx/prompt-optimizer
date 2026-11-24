@@ -404,6 +404,12 @@ export class SQLiteStorageProvider implements IStorageProvider {
       .all(prefix).map(row => [row.key as string, row.value as string]));
   }
 
+  deleteByPrefix(prefix: string): Promise<void> {
+    return this.run('delete', db => this.transaction(db, () => {
+      db.prepare('DELETE FROM storage_kv WHERE instr(key, ?) = 1').run(prefix);
+    }));
+  }
+
   /** Atomically reads and writes several keys without retaining a transaction across awaits. */
   withWriteTransaction<T>(modifier: (tx: SQLiteWriteTransaction) => T): Promise<T> {
     return this.run('write', db => this.transaction(db, () => {

@@ -377,6 +377,7 @@ test('existing read-only access refuses every mutation before callbacks and pres
   for (const mutate of [
     () => provider.setItem('forbidden', 'value'),
     () => provider.removeItem('after-migration'),
+    () => provider.deleteByPrefix('pref:'),
     () => provider.clearAll(),
     () => provider.compareAndSetItem('after-migration', 'new-current-value', 'forbidden'),
     () => provider.batchUpdate([{ key: 'forbidden', operation: 'set', value: 'value' }]),

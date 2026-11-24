@@ -302,3 +302,67 @@ test('PreferenceService clear removes persisted untouched and cross-connection k
     await peer.close();
   }
 });
+
+test('HistoryManager addIteration preserves root and chain consistency at 50-record retention limit on SQLite', async t => {
+  const { provider } = await fixture(t);
+  const manager = new HistoryManager(provider, { getModel: async () => undefined });
+  const created = await manager.createNewChain({
+    id: 'root-limit-1',
+    originalPrompt: 'Original',
+    optimizedPrompt: 'v1',
+    type: 'optimize',
+    modelKey: 'openai',
+    templateId: 'tpl-1',
+  });
+
+  let chain = created;
+  for (let version = 2; version <= 51; version++) {
+    chain = await manager.addIteration({
+      chainId: created.chainId,
+      originalPrompt: 'Original',
+      optimizedPrompt: `v${version}`,
+      modelKey: 'openai',
+      templateId: 'tpl-1',
+    });
+  }
+
+  assert.equal(chain.rootRecord.version, 1);
+  assert.equal(chain.currentRecord.version, 51);
+  assert.equal(chain.versions.length, 50);
+  assert.equal(chain.versions[0].version, 1);
+  assert.deepEqual(await manager.getChain(created.chainId), chain);
+  const allChains = await manager.getAllChains();
+  assert.equal(allChains.length, 1);
+  assert.equal(allChains[0].currentRecord.version, 51);
+});
+
+test('PreferenceService clear is atomic against concurrent SQLite peer batch updates', async t => {
+  const { file, provider } = await fixture(t);
+  const peer = new SQLiteStorageProvider(file);
+  try {
+    await provider.setItem('models', '["keep-me"]');
+    const prefA = new PreferenceService(provider);
+
+    for (let round = 0; round < 40; round++) {
+      await provider.setItem('pref:a', JSON.stringify(`seed-${round}`));
+      await provider.removeItem('pref:b');
+
+      await Promise.all([
+        prefA.clear(),
+        peer.batchUpdate([
+          { operation: 'set', key: 'pref:a', value: '"2"' },
+          { operation: 'set', key: 'pref:b', value: '"2"' },
+        ]),
+      ]);
+
+      const state = [await provider.getItem('pref:a'), await provider.getItem('pref:b')];
+      const bothSurvived = state[0] === '"2"' && state[1] === '"2"';
+      const bothCleared = state[0] === null && state[1] === null;
+      assert.ok(bothSurvived || bothCleared, `Torn clear state at round ${round}: ${JSON.stringify(state)}`);
+    }
+
+    assert.equal(await provider.getItem('models'), '["keep-me"]');
+  } finally {
+    await peer.close();
+  }
+});

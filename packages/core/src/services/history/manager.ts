@@ -272,8 +272,8 @@ export class HistoryManager implements IHistoryManager {
         modelKey: params.modelKey,
         ...(modelName !== undefined ? { modelName } : {}),
         templateId: params.templateId,
-        iterationNote: params.iterationNote,
-        metadata: params.metadata
+        ...(params.iterationNote !== undefined ? { iterationNote: params.iterationNote } : {}),
+        ...(params.metadata !== undefined ? { metadata: params.metadata } : {})
       };
 
       this.validateRecord(record);
@@ -285,14 +285,27 @@ export class HistoryManager implements IHistoryManager {
         );
       }
 
+      let nextRecords = [record, ...records];
+      if (nextRecords.length > this.maxRecords) {
+        nextRecords = nextRecords.slice(0, this.maxRecords);
+        if (!nextRecords.some(r => r.id === rootRecord.id)) {
+          // Preserve the chain root so this chain remains readable under the retention limit.
+          nextRecords = [...nextRecords.slice(0, this.maxRecords - 1), rootRecord];
+        }
+      }
+
+      const retainedChainRecords = nextRecords
+        .filter(r => r.chainId === params.chainId)
+        .sort((a, b) => a.version - b.version);
+
       updatedChain = {
         chainId: params.chainId,
         rootRecord,
         currentRecord: record,
-        versions: [...sortedRecords, record]
+        versions: retainedChainRecords
       };
 
-      return [record, ...records].slice(0, this.maxRecords);
+      return nextRecords;
     });
 
     return updatedChain!;

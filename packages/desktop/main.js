@@ -2401,13 +2401,13 @@ function setupIPC() {
   console.log('[Main Process] High-level service IPC handlers ready.');
 }
 
+// This method is called when Electron has finished initialization.
 const willQuitStorageCloser = createWillQuitStorageCloser({
   app,
   getStorage: () => storageProvider,
   onError: error => console.error('[DESKTOP] Failed to close storage:', error),
 });
 
-// This method is called when Electron has finished initialization.
 app.whenReady().then(async () => {
   const servicesInitialized = await initializeServices();
   if (!servicesInitialized) {
