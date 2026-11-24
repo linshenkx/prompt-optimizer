@@ -9,7 +9,7 @@ export function productBusinessCatalog(domain?: unknown) {
     operations: businessOperations.filter(item => !domain || item.domain === domain),
     assets: { domain: 'assets', operations: ['listAssets(options?)', 'listAssetVersions(selection, options?)', 'getAssetVersion(selection)'] },
     runKinds,
-    runInput: 'request uses the existing product service request. source optionally selects favoriteId/assetId/versionId/expectedRevision. test: systemPrompt,userPrompt,modelKey,inputImages?; optimize: targetPrompt,optimizationMode,modelKey,templateId?; iterate: originalPrompt,lastOptimizedPrompt,iterateInput,modelKey,templateId; evaluate: EvaluationRequest; test-batch: candidates of 2-4 test requests.',
+    runInput: 'request uses the existing product service request. source optionally selects favoriteId/assetId/versionId/expectedRevision. test: systemPrompt,userPrompt,modelKey,inputImages?; optimize: targetPrompt,optimizationMode,modelKey,templateId?; iterate: originalPrompt,lastOptimizedPrompt,iterateInput,modelKey,templateId; evaluate: EvaluationRequest; test-batch: request.candidates contains 2-4 test requests. Each has modelKey, systemPrompt/userPrompt, optional variables, source and promptField. For a saved version pass its asset revision in candidate.source.expectedRevision, independently of the query revision for po_runs_start.',
   };
 }
 
@@ -35,9 +35,9 @@ export function createProductBusiness(storage: BusinessStorage, sourceId: string
     }
     if (name === 'po_runs_delete') {
       if (!Number.isSafeInteger(args.expectedUpdatedAt) || (args.expectedUpdatedAt as number) < 0) throw new DesktopBusinessError('INVALID_INPUT');
-      await runs.repository.delete(args.runId as string, args.expectedUpdatedAt as number); return { deleted: true };
+      await runs.archive.delete(args.runId as string, args.expectedUpdatedAt as number); return { deleted: true };
     }
-    if (name === 'po_runs_list') return { runs: (await runs.repository.list()).filter(run => !run.deleted && (!args.savedOnly || run.saved))
+    if (name === 'po_runs_list') return { runs: (await runs.archive.list()).filter(run => !run.deleted && (!args.savedOnly || run.saved))
       .map(({ id, kind, status, createdAt, updatedAt, saved }) => ({ id, kind, status, createdAt, updatedAt, saved })) };
     const snapshot = new Map(await storage.getAllEntries());
     const revision = snapshotRevision(snapshot, sourceId);
@@ -51,6 +51,14 @@ export function createProductBusiness(storage: BusinessStorage, sourceId: string
         if (!['listAssets', 'listAssetVersions', 'getAssetVersion'].includes(args.operation as string)) throw new DesktopBusinessError('UNKNOWN_OPERATION');
         result = await (reader[args.operation as keyof typeof reader] as (...values: unknown[]) => unknown)(...parameters);
       } else result = await stage.invoke(args.domain as string, args.operation as string, parameters, 'read');
+      if (args.domain === 'models') {
+        // Imported configurations can carry arbitrary private fields outside TextModelConfig.
+        const fields = ['id', 'name', 'enabled', 'activationState', 'providerId', 'modelId', 'providerMeta', 'modelMeta',
+          'connectionConfig', 'paramOverrides', 'customParamOverrides'];
+        const publicModel = (value: unknown) => value && typeof value === 'object'
+          ? Object.fromEntries(Object.entries(value).filter(([key]) => fields.includes(key))) : value;
+        result = Array.isArray(result) ? result.map(publicModel) : publicModel(result);
+      }
       if (args.domain === 'settings' && args.operation === 'get' && typeof parameters[0] === 'string') {
         result = (redactConfiguration({ [parameters[0]]: result }) as Record<string, unknown>)[parameters[0]];
       }

@@ -1,16 +1,15 @@
 import { v4 as randomUUID } from 'uuid'
 import type { IStorageProvider } from '../storage/types'
 import type { IFavoriteManager } from '../favorite/types'
-import type { ILLMService, ITextAdapterRegistry } from '../llm/types'
 import type { IPromptService } from '../prompt/types'
 import { decodeTextModelSelection } from '../model/selection'
 import { CORE_SERVICE_KEYS } from '../../constants/storage-keys'
 import { createBrowserTextRuns } from './text-runs'
 import type { AssetVersionSelection } from '../asset-reader/types'
 import type { PromptModeKey } from '../prompt-model/types'
-import type { ComparisonExecutionSource, PrepareTextComparison } from '../text-comparison/types'
-import { createComparisonRepository, type ComparisonStorage } from '../text-comparison/repository'
-import { createTextComparisonService } from '../text-comparison/runner'
+import type { ComparisonExecutionSource } from '../text-comparison/types'
+import { type ComparisonStorage } from '../text-comparison/repository'
+import { createReadonlyAssetReader } from '../asset-reader/reader'
 import { canonical } from '../text-comparison/validation'
 import { hashText, signText } from '../../utils/portable-crypto'
 import { assertBridgeJson, BrowserBridgeError, browserFavoriteOperations, type BrowserAccess } from './protocol'
@@ -48,17 +47,12 @@ function browserStorage(storage: IStorageProvider): BrowserStorage {
   return storage as BrowserStorage
 }
 
-export function createBrowserBridgeHost({ storage: inputStorage, favoriteManager, registry, llmService, promptService }: {
+export function createBrowserBridgeHost({ storage: inputStorage, favoriteManager, promptService }: {
   storage: IStorageProvider
   favoriteManager: IFavoriteManager
-  registry: ITextAdapterRegistry
-  llmService: ILLMService
   promptService: Pick<IPromptService, 'optimizePromptStream' | 'testPromptStream'>
 }): BrowserBridgeHost {
   const storage = browserStorage(inputStorage)
-  const describe = llmService.describeStreamRequest
-  if (!describe) throw new BrowserBridgeError('SOURCE_NOT_READY')
-  const llm = { sendMessageStream: llmService.sendMessageStream.bind(llmService), describeStreamRequest: describe.bind(llmService) }
   const key = globalThis.crypto.getRandomValues(new Uint8Array(32))
   const snapshot = async () => (await storage.getAllEntries()).filter(([entry]) => !entry.startsWith('mcp:'))
     .sort(([left], [right]) => left.localeCompare(right))
@@ -77,8 +71,7 @@ export function createBrowserBridgeHost({ storage: inputStorage, favoriteManager
       return identity
     },
     open(source, access, contextId) {
-      const runner = createTextComparisonService({ storage, executionSource: source, registry, llm })
-      const repository = createComparisonRepository(storage)
+      const reader = createReadonlyAssetReader(storage, source)
       let disposed = false
       const assertActive = () => { if (disposed) throw new BrowserBridgeError('CONNECTION_CLOSED') }
       const business = createProductBusiness(storage, source.sourceId, {
@@ -193,30 +186,16 @@ export function createBrowserBridgeHost({ storage: inputStorage, favoriteManager
               }
               break
             }
-            case 'po_models_list': result = access !== 'read' ? await runner.listModels(pagination) : await runner.reader.listModels(pagination); break
-            case 'po_assets_list': result = await runner.reader.listAssets({ ...pagination, modeKey: input.modeKey as PromptModeKey | undefined, query: input.query as string | undefined }); break
+            case 'po_assets_list': result = await reader.listAssets({ ...pagination, modeKey: input.modeKey as PromptModeKey | undefined, query: input.query as string | undefined }); break
             case 'po_assets_list_versions':
-              result = await runner.reader.listAssetVersions({
+              result = await reader.listAssetVersions({
                 favoriteId: input.favoriteId as string, assetId: input.assetId as string, expectedRevision: input.expectedRevision as string,
               }, pagination)
               break
             case 'po_runs_start': write(); result = await textRuns.start(input); break
             case 'po_runs_get': write(); result = textRuns.get(input.runId as string); break
             case 'po_runs_cancel': write(); result = textRuns.cancel(input.runId as string); break
-            case 'po_assets_get_version': result = await runner.reader.getAssetVersion(input as unknown as AssetVersionSelection); break
-            case 'po_tests_prepare': write(); result = await runner.prepare(input as unknown as PrepareTextComparison); break
-            case 'po_tests_execute': write(); result = await runner.execute(input.preparedId as string, input.previewRevision as string); break
-            case 'po_tests_get': write(); result = runner.get(input.preparedId as string); break
-            case 'po_tests_cancel': write(); result = runner.cancel(input.preparedId as string, input.runId as string | undefined); break
-            case 'po_comparisons_save': {
-              write()
-              const saved = await repository.save(runner.completed(input.preparedId as string), input.saveKey as string)
-              result = { ...saved, comparisonId: saved.comparison.id, viewTarget: { sourceId: source.sourceId, comparisonId: saved.comparison.id, workspace: 'pro-variable', visibility: 'reload-required' } }
-              break
-            }
-            case 'po_comparisons_list': result = await repository.list({ ...pagination, favoriteId: input.favoriteId as string | undefined }); break
-            case 'po_comparisons_get': result = await repository.get(input.comparisonId as string); break
-            case 'po_comparisons_delete': write(); result = await repository.delete(input.comparisonId as string, input.expectedRevision as string); break
+            case 'po_assets_get_version': result = await reader.getAssetVersion(input as unknown as AssetVersionSelection); break
             case 'po_desktop_query':
             case 'po_desktop_mutate': result = await favoriteCall(name, input); break
             default: throw new BrowserBridgeError('UNKNOWN_TOOL')
@@ -224,7 +203,7 @@ export function createBrowserBridgeHost({ storage: inputStorage, favoriteManager
           assertActive()
           return result
         },
-        dispose() { disposed = true; runner.dispose(); textRuns.dispose(); void business.close().catch(() => {}) },
+        dispose() { disposed = true; textRuns.dispose(); void business.close().catch(() => {}) },
       }
     },
   }

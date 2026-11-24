@@ -87,13 +87,13 @@ HTTPS 部署需要包含网页授权组件，并允许网页连接本机 MCP 的
 
 `inputRunId` 可以将成功优化的文本直接交给 test，或将成功测试的原输入/输出快照交给 result 评估。先 `po_runs_start`，再轮询 `po_runs_get`；成功启动不代表执行成功。批次顶层 succeeded 代表编排结束，还须检查每个候选的 status。取消会保留已收到的文本，但不能保证服务商停止已提交的工作/计费。失败不伪装成成功结果。
 
-`po_runs_save` 默认只归档，不修改当前草稿、收藏正文或采纳答案。重新打开产品后，从顶部 **「MCP 运行成果」** 按 runId 或列表重开；原变量工作区 **「已保存比较」** 仍是独立入口。删除须带最新 `expectedUpdatedAt`，保留最小防重标记，旧重试或备份不能复活已删除运行。记录最多 200 条非删除项、总载荷 32 MiB；到限显式拒绝，不自动清理用户成果。
+`po_runs_save` 默认只归档，不修改当前草稿、收藏正文或采纳答案。重新打开产品后，从顶部 **「MCP 运行成果」** 按 runId 或列表重开。旧版已保存比较也可以用原 ID 在这里打开。删除须带最新 `expectedUpdatedAt`，保留最小防重标记，旧重试或备份不能复活已删除运行。记录最多 200 条非删除项、总载荷 32 MiB；到限显式拒绝，不自动清理用户成果。
 
 ## 文本对照与 Skill
 
-在同一新入口中，用 `po_sources_list` 返回的 `sourceId` 调用 `po_sources_open`，指定 `access: "write"`。其返回的 `connectionId` 用于 `po_models_list`、`po_assets_*`、`po_tests_*` 和 `po_comparisons_*`。这些工具支持预览实际模型参数、对照同一收藏的两个模型或同一模型的两版提示词，以及保存和回读完整原始结果。
+使用 `po_query` 查看已启用模型（`models.getEnabledModels`）和收藏版本（`assets.listAssets/listAssetVersions/getAssetVersion`）。使用 `po_runs_start` 的 `test-batch` 运行 2–4 个候选。每个候选都调用产品的普通文本测试，可以共享提示词比较模型，也可以共享模型比较提示词。用 `po_runs_get` 查看每一项的输入、模型、输出和状态，再用 `po_runs_save` 保存。桌面和浏览器都从顶部「MCP 运行成果」回看。
 
-配置新命令后，在包含仓库 Skill 的 Codex 项目里可调用 `$prompt-optimizer-compare`。可在同一收藏版本上对照两个已存模型，或用同一个已存模型对照两版提示词。提供来源、收藏、确切版本、模型和共用变量，并说明是否执行与保存。Codex 请求确认模型调用时，可核对预览后确认本次执行。保存后在桌面或原网页变量工作区的 **「已保存比较」** 中输入返回的 `comparisonId` 即可重开。[Skill](../../.agents/skills/prompt-optimizer-compare/SKILL.md)
+在带仓库 Skill 的 Codex 项目里，可以直接请求 `$prompt-optimizer-compare` 完成上述对照。[Skill 与参数示例](../../.agents/skills/prompt-optimizer-compare/SKILL.md)
 
 ## 图片资源与完整备份
 

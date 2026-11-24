@@ -228,246 +228,46 @@ async function eventually(read, predicate, message) {
   assert.fail(message);
 }
 
-async function open(mcp, access = 'compare') {
-  const { sources: [source] } = data(await mcp.call('po_sources_list'));
-  return data(await mcp.call('po_sources_open', { sourceId: source.sourceId, access }));
-}
-
-test('independent desktop MCP shares the source across business and comparison tools and reopens durable results', { timeout: 45000 }, async t => {
+test('desktop aliases use the same product batch for model and prompt comparisons', { timeout: 60000 }, async t => {
   const fixture = isolated(t);
   const recording = await recordModelRequests(fixture);
   const { directory, source, original } = await createProfile(fixture.root, recording.origin);
-  const before = snapshot(directory);
-  const mcp = await connect(fixture, directory, recording.networkGuard, 'desktop');
-  const { tools } = await mcp.client.listTools({}, { timeout: 8000 });
-  const names = tools.map(tool => tool.name);
-  assert.equal(new Set(names).size, names.length);
-  assert.ok(['po_desktop_query', 'po_runs_start', 'po_tests_execute', 'po_comparisons_save'].every(name => names.includes(name)));
-
-  const { sources: [sourceEntry] } = data(await mcp.call('po_sources_list'));
-  const readBusinessFavorite = async () => data(await mcp.call('po_desktop_query', {
-    sourceId: sourceEntry.sourceId, domain: 'favorites', operation: 'searchFavorites', arguments: ['Variable comparison'],
-  })).result[0].id;
-  assert.equal(await readBusinessFavorite(), 'favorite-fixture');
-  const opened = await open(mcp);
-  const { connectionId } = opened;
-  assert.equal(opened.source.sourceId, sourceEntry.sourceId);
-  assert.deepEqual(opened.capabilities, { read: true, execute: true, save: true });
-
-  const { items: models } = data(await mcp.call('po_models_list', { connectionId }));
-  assert.deepEqual(models.map(model => [model.name, model.executable]), [['Chat setting', true], ['Responses setting', true]]);
-  const { items: [asset] } = data(await mcp.call('po_assets_list', { connectionId, modeKey: 'pro-variable' }));
-  assert.equal(asset.currentVersionId, 'version-current');
-  const assetSelection = { favoriteId: asset.favoriteId, assetId: asset.assetId };
-  const savedVersions = data(await mcp.call('po_assets_list_versions', { connectionId, ...assetSelection, expectedRevision: asset.revision }));
-  const selectedVersion = savedVersions.items.find(item => item.version === 1);
-  assert.equal(selectedVersion?.versionId, 'version-selected');
-  const selection = {
-    connectionId,
-    source: { ...assetSelection, versionId: selectedVersion.versionId, expectedRevision: savedVersions.revision },
-    variables: { topic: 'literal {{style}}' },
-    candidates: models.map((model, index) => ({ id: index === 0 ? 'a' : 'b', configKey: model.configKey, expectedRevision: model.revision })),
-  };
-  const prepare = async () => data(await mcp.call('po_tests_prepare', selection));
-  const execute = async prepared => data(await mcp.call('po_tests_execute', {
-    connectionId, preparedId: prepared.preparedId, previewRevision: prepared.previewRevision,
-  }));
-  const status = async prepared => data(await mcp.call('po_tests_get', { connectionId, preparedId: prepared.preparedId }));
-  const save = async (prepared, saveKey) => data(await mcp.call('po_comparisons_save', { connectionId, preparedId: prepared.preparedId, saveKey }));
-
-  const preview = await prepare();
-  assert.equal(preview.source.versionId, 'version-selected');
-  assert.deepEqual(preview.request, {
-    rawPrompt, messages: [{ role: 'user', content: renderedPrompt }],
-    variables: { style: 'saved-style', topic: 'literal {{style}}' },
-  });
-  assert.deepEqual(preview.runs.map(run => run.effective.preview), [
-    { modelId: 'fixture-model', api: 'chat-completions', parameters: { temperature: 0.2 }, omittedParameterNames: ['other'] },
-    { modelId: 'fixture-model', api: 'responses', parameters: { max_output_tokens: 49, 'reasoning.effort': 'high', temperature: 0.7 }, omittedParameterNames: [] },
-  ]);
-  failure(await mcp.call('po_comparisons_save', { connectionId, preparedId: preview.preparedId, saveKey: 'early' }), 'COMPARISON_NOT_COMPLETE');
-  failure(await mcp.call('po_tests_execute', { connectionId, preparedId: preview.preparedId, previewRevision: 'wrong-revision' }), 'REVISION_CONFLICT');
-  assert.equal(recording.calls.length, 0);
-  assert.deepEqual(snapshot(directory), before);
-
-  await execute(preview);
-  const completed = await eventually(() => status(preview),
-    view => view.runs.every(run => run.completedAt !== undefined), 'Both fixture model requests must finish');
-  assert.deepEqual(completed.runs.map(run => [run.status, run.output, run.reasoning]), [
-    ['success', 'Chat answer', 'Chat reasoning'], ['success', 'Responses answer', 'Responses reasoning'],
-  ]);
-  assert.deepEqual(completed.runs.map(run => run.effective.request), preview.runs.map(run => run.effective.preview));
-  assert.ok(completed.runs.every(run => run.effective.requestEvidence === 'captured'));
-  assert.equal(recording.calls.length, 2);
-  const chat = recording.calls.find(call => call.path === '/v1/chat/completions');
-  const responses = recording.calls.find(call => call.path === '/v1/responses');
-  assert.ok(chat?.authorized && responses?.authorized);
-  assert.deepEqual(chat.body.messages, preview.request.messages);
-  assert.deepEqual(responses.body.input, preview.request.messages);
-  assert.equal(chat.body.model, responses.body.model);
-  assert.equal(chat.body.temperature, 0.2);
-  assert.equal(chat.body.vendor_note, privateText);
-  assert.equal(responses.body.temperature, 0.7);
-  assert.equal(responses.body.max_output_tokens, 49);
-  assert.deepEqual(responses.body.reasoning, { effort: 'high' });
-  assert.equal(Object.hasOwn(responses.body, 'max_completion_tokens'), false);
-
-  const saved = await save(preview, 'fixture-save');
-  const [retried, sameGroup] = await Promise.all([save(preview, 'fixture-save'), save(preview, 'fixture-another-save-key')]);
-  assert.deepEqual(retried, saved);
-  assert.deepEqual(sameGroup, saved);
-  assert.equal(saved.comparisonId, preview.comparisonId);
-  assert.equal(saved.viewTarget.comparisonId, preview.comparisonId);
-  const savedRead = data(await mcp.call('po_comparisons_get', { connectionId, comparisonId: saved.comparisonId }));
-  assert.equal(savedRead.revision, saved.revision);
-  assert.equal(savedRead.comparison.schemaVersion, 'saved-comparison/v1');
-  assert.deepEqual(savedRead.comparison.request, preview.request);
-  assert.deepEqual(savedRead.comparison.runs, completed.runs);
-  assert.equal(recording.calls.length, 2);
-
-  recording.holdNextResponsesRequest();
-  const second = await prepare();
-  await execute(second);
-  await eventually(() => status(second), view => view.runs[0].status === 'success' &&
-    view.runs[1].status === 'running' && view.runs[1].output === 'Responses partial', 'Both streams must reach the cancellation fixture');
-  const cancelled = data(await mcp.call('po_tests_cancel', { connectionId, preparedId: second.preparedId, runId: second.runs[1].runId }));
-  assert.deepEqual(cancelled.runs.map(run => [run.status, run.output]), [
-    ['success', 'Chat answer'], ['cancelled', 'Responses partial'],
-  ]);
-  await eventually(() => recording.calls.slice(2).some(call => call.path === '/v1/responses' && call.cancelled), Boolean,
-    'Cancelling a run must close the held SDK connection');
-  const secondSaved = await save(second, 'fixture-partial-save');
-  assert.equal(recording.calls.length, 4);
-
-  recording.rejectChatRequests();
-  const failed = await prepare();
-  await execute(failed);
-  const failureStatus = await eventually(() => status(failed), view => view.runs.every(run => run.completedAt !== undefined),
-    'One provider failure must still allow the other result to finish');
-  assert.deepEqual(failureStatus.runs.map(run => run.status), ['error', 'success']);
-  assert.equal(failureStatus.runs[0].errorCode, 'MODEL_REQUEST_FAILED');
-  assert.equal(recording.calls.length, 6, 'one explicit execution sends at most one request per candidate');
-  data(await mcp.call('po_sources_close', { connectionId }));
-  failure(await mcp.call('po_comparisons_get', { connectionId, comparisonId: saved.comparisonId }), 'CONNECTION_CLOSED');
-  assert.equal(await readBusinessFavorite(), asset.favoriteId);
-  await mcp.close();
-
-  const restarted = await connect(fixture, directory, recording.networkGuard, 'desktop');
-  const reopened = await open(restarted);
-  assert.notEqual(reopened.connectionId, connectionId);
-  const list = data(await restarted.call('po_comparisons_list', { connectionId: reopened.connectionId, favoriteId: asset.favoriteId }));
-  assert.deepEqual(new Map(list.items.map(item => [item.id, item.statuses])), new Map([
-    [saved.comparisonId, ['success', 'success']], [secondSaved.comparisonId, ['success', 'cancelled']],
-  ]));
-  assert.deepEqual(data(await restarted.call('po_comparisons_get', {
-    connectionId: reopened.connectionId, comparisonId: saved.comparisonId,
-  })), savedRead);
-  const reopenedPartial = data(await restarted.call('po_comparisons_get', {
-    connectionId: reopened.connectionId, comparisonId: secondSaved.comparisonId,
-  }));
-  assert.equal(reopenedPartial.comparison.runs[1].output, 'Responses partial');
-  await restarted.close();
-
-  const readOnly = await connect(fixture, directory, recording.networkGuard, 'desktop-readonly');
-  const listTools = await readOnly.client.listTools({}, { timeout: 8000 });
-  assert.ok(!listTools.tools.some(tool => tool.name.startsWith('po_tests_') || tool.name.startsWith('po_comparisons_')));
-  const { sources: [readOnlySource] } = data(await readOnly.call('po_sources_list'));
-  failure(await readOnly.call('po_sources_open', { access: 'compare', sourceId: readOnlySource.sourceId }), 'INVALID_INPUT');
-  const readOnlyOpened = await open(readOnly, 'read');
-  assert.deepEqual(readOnlyOpened.capabilities, { read: true, execute: false, save: false });
-  await readOnly.close();
-  assert.equal(recording.calls.length, 6);
-
-  const after = snapshot(directory);
-  const comparisonKeys = after.kv.filter(row => row.key.startsWith('comparison/v1/'));
-  assert.equal(comparisonKeys.filter(row => row.key.startsWith('comparison/v1/records/')).length, 2);
-  assert.deepEqual({ ...after, kv: after.kv.filter(row => !row.key.startsWith('comparison/v1/')) }, before);
+  const initial = snapshot(directory);
+  let savedId;
+  for (const mode of ['desktop', 'desktop-comparison']) {
+    const mcp = await connect(fixture, directory, recording.networkGuard, mode);
+    const names = (await mcp.client.listTools()).tools.map(tool => tool.name);
+    assert.equal(names.length, 15);
+    assert(!names.some(name => /^po_(assets|models|tests|comparisons)_/.test(name)));
+    const { connectionId } = data(await mcp.call('po_sources_open', { access: 'write' }));
+    const call = async (name, fields = {}) => data(await mcp.call(name, { connectionId, ...fields }));
+    failure(await mcp.call('po_tests_prepare', { connectionId }), 'UNKNOWN_TOOL');
+    const { revision, result } = await call('po_query', { domain: 'assets', operation: 'listAssets' });
+    const asset = result.items[0];
+    const selection = { favoriteId: asset.favoriteId, assetId: asset.assetId, versionId: 'version-selected', expectedRevision: asset.revision };
+    const first = { modelKey: 'chat', source: selection, promptField: 'userPrompt', variables: { topic: 'orbits' } };
+    const second = mode === 'desktop' ? { ...first, modelKey: 'responses' } :
+      { modelKey: 'chat', userPrompt: 'Short answer about {{topic}}', variables: first.variables };
+    if (savedId) assert.equal((await call('po_runs_get', { runId: savedId })).saved, true);
+    const start = { requestKey: mode, expectedRevision: revision, input: { kind: 'test-batch', request: { candidates: [first, second] } } };
+    const run = await call('po_runs_start', start);
+    assert.equal((await call('po_runs_start', start)).id, run.id);
+    const done = await eventually(() => call('po_runs_get', { runId: run.id }), value => value.status !== 'running', 'batch did not finish');
+    assert.deepEqual(done.output.map(item => item.status), ['succeeded', 'succeeded']);
+    assert.deepEqual(done.output.map(item => item.output), ['Chat answer', mode === 'desktop' ? 'Responses answer' : 'Chat answer']);
+    assert.equal(done.input.request.candidates[0].userPrompt, 'Use saved-style for orbits');
+    assert.equal(done.input.request.candidates[0].rawUserPrompt, rawPrompt);
+    assert.deepEqual(done.input.request.candidates[0].variables, { style: 'saved-style', topic: 'orbits' });
+    assert.equal(done.output[0].reasoning, 'Chat reasoning');
+    savedId = (await call('po_runs_save', { runId: run.id })).id;
+    assert((await call('po_runs_list', { savedOnly: true })).runs.some(item => item.id === savedId));
+    assert(!mcp.publicOutput().includes(credential));
+    await call('po_sources_close');
+    await mcp.close();
+  }
+  const final = snapshot(directory);
+  assert.deepEqual(final.kv.filter(row => row.key !== 'mcp:runs:v1'), initial.kv);
+  assert.deepEqual(final.metadata, initial.metadata);
+  assert.deepEqual(final.schema, initial.schema);
   assert.equal(readFileSync(source, 'utf8'), original);
-  for (const session of [mcp, restarted, readOnly]) {
-    for (const secret of [credential, privateText, directory, JSON.stringify(directory).slice(1, -1), recording.origin]) {
-      assert.ok(!session.publicOutput().includes(secret), 'MCP output must omit private fixture values');
-    }
-    assert.deepEqual(session.errors, []);
-  }
-});
-
-test('built comparison MCP compares a draft or another favorite version under the same saved model', { timeout: 45000 }, async t => {
-  const fixture = isolated(t);
-  const recording = await recordModelRequests(fixture);
-  const { directory, source, original } = await createProfile(fixture.root, recording.origin);
-  const before = snapshot(directory);
-  const mcp = await connect(fixture, directory, recording.networkGuard);
-  const { connectionId } = await open(mcp);
-  const { items: [model] } = data(await mcp.call('po_models_list', { connectionId }));
-  const { items: [asset] } = data(await mcp.call('po_assets_list', { connectionId, modeKey: 'pro-variable' }));
-  const versions = data(await mcp.call('po_assets_list_versions', {
-    connectionId, favoriteId: asset.favoriteId, assetId: asset.assetId, expectedRevision: asset.revision,
-  }));
-  const base = versions.items.find(version => version.version === 1);
-  const alternate = versions.items.find(version => version.version === 2);
-  assert.ok(base && alternate);
-
-  const selectedModel = { configKey: model.configKey, expectedRevision: model.revision };
-  const input = {
-    connectionId,
-    source: { favoriteId: asset.favoriteId, assetId: asset.assetId, versionId: base.versionId, expectedRevision: versions.revision },
-    variables: { topic: 'literal {{style}}' },
-    candidates: [{ id: 'a', ...selectedModel }, { id: 'b', ...selectedModel }],
-  };
-  const saved = [];
-  for (const [candidatePrompt, expected] of [
-    [{ kind: 'draft', text: 'Summarize {{topic}} as {{style}}' }, 'Summarize literal {{style}} as saved-style'],
-    [{ kind: 'saved-version', versionId: alternate.versionId }, 'Current version'],
-  ]) {
-    const callCount = recording.calls.length;
-    const preview = data(await mcp.call('po_tests_prepare', { ...input, candidatePrompt }));
-    assert.equal(recording.calls.length, callCount);
-    assert.equal(preview.request.messages[0].content, renderedPrompt);
-    assert.equal(preview.candidatePrompt.kind, candidatePrompt.kind);
-    assert.equal(preview.candidatePrompt.request.messages[0].content, expected);
-    assert.deepEqual(preview.runs[0].effective.preview, preview.runs[1].effective.preview);
-
-    data(await mcp.call('po_tests_execute', { connectionId, preparedId: preview.preparedId, previewRevision: preview.previewRevision }));
-    const completed = await eventually(
-      async () => data(await mcp.call('po_tests_get', { connectionId, preparedId: preview.preparedId })),
-      view => view.runs.every(run => run.completedAt !== undefined),
-      'Both requests for the saved model must finish',
-    );
-    assert.deepEqual(completed.runs.map(run => run.status), ['success', 'success']);
-    const calls = recording.calls.slice(callCount);
-    assert.equal(calls.length, 2);
-    assert.ok(calls.every(call => call.authorized && call.path === '/v1/chat/completions'));
-    const baselineCall = calls.find(call => call.body.messages[0].content === renderedPrompt);
-    const candidateCall = calls.find(call => call.body.messages[0].content === expected);
-    assert.ok(baselineCall && candidateCall);
-    assert.deepEqual(candidateCall.body, { ...baselineCall.body, messages: preview.candidatePrompt.request.messages });
-
-    const saveInput = { connectionId, preparedId: preview.preparedId, saveKey: 'same-model-' + candidatePrompt.kind };
-    const result = data(await mcp.call('po_comparisons_save', saveInput));
-    assert.deepEqual(data(await mcp.call('po_comparisons_save', saveInput)), result);
-    saved.push({ result, preview, runs: completed.runs });
-  }
-
-  await mcp.close();
-  const restarted = await connect(fixture, directory, recording.networkGuard);
-  const second = await open(restarted);
-  for (const { result, preview, runs } of saved) {
-    const reloaded = data(await restarted.call('po_comparisons_get', {
-      connectionId: second.connectionId, comparisonId: result.comparisonId,
-    }));
-    assert.equal(reloaded.comparison.schemaVersion, 'saved-comparison/v2');
-    assert.deepEqual(reloaded.comparison.candidatePrompt, preview.candidatePrompt);
-    assert.deepEqual(reloaded.comparison.request, preview.request);
-    assert.deepEqual(reloaded.comparison.runs, runs);
-  }
-  assert.equal(recording.calls.length, 4);
-  const after = snapshot(directory);
-  assert.deepEqual({ ...after, kv: after.kv.filter(row => !row.key.startsWith('comparison/v1/')) }, before);
-  assert.equal(readFileSync(source, 'utf8'), original);
-  for (const session of [mcp, restarted]) {
-    for (const secret of [credential, privateText, directory, JSON.stringify(directory).slice(1, -1), recording.origin]) {
-      assert.ok(!session.publicOutput().includes(secret), 'MCP output must omit private fixture values');
-    }
-    assert.deepEqual(session.errors, []);
-  }
 });

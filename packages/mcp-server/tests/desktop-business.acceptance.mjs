@@ -77,8 +77,8 @@ test('independent desktop stdio: favorite → optimization → test → evaluati
     transport = new StdioClientTransport({ command: process.execPath, args: ['--require', guard, cli, `--desktop-profile=${root}`], env, stderr: 'pipe' });
     transport.stderr?.on('data', bytes => { diagnostics += bytes.toString(); });
     await client.connect(transport);
-    assert.equal(client.getServerVersion().name, 'prompt-optimizer-desktop');
-    return (await call('po_sources_list')).sources[0].sourceId;
+    assert.equal(client.getServerVersion().name, 'prompt-optimizer');
+    return (await call('po_sources_open', { access: 'write' })).connectionId;
   };
   const call = async (name, args = {}) => {
     const result = await client.callTool({ name, arguments: args });
@@ -95,13 +95,13 @@ test('independent desktop stdio: favorite → optimization → test → evaluati
     assert.ok(basename(target).startsWith('po-mcp-business-stdio-'));
     await rm(target, { force: true, recursive: true });
   });
-  let sourceId = await connect();
+  let connectionId = await connect();
   const tools = (await client.listTools()).tools.map(tool => tool.name);
-  assert.ok(tools.includes('po_desktop_mutate')); assert.ok(tools.includes('po_runs_start'));
-  const query = (domain, operation, args = []) => call('po_desktop_query', { sourceId, domain, operation, arguments: args });
+  assert.ok(tools.includes('po_mutate')); assert.ok(tools.includes('po_runs_start'));
+  const query = (domain, operation, args = []) => call('po_query', { connectionId, domain, operation, arguments: args });
   const mutate = async (domain, operation, args, key) => {
     const { revision } = await query('favorites', 'getFavorites');
-    const result = await call('po_desktop_mutate', { sourceId, domain, operation, arguments: args, expectedRevision: revision, requestKey: key });
+    const result = await call('po_mutate', { connectionId, domain, operation, arguments: args, expectedRevision: revision, requestKey: key });
     assert.equal(result.failed, undefined, JSON.stringify(result)); return result;
   };
   const created = await mutate('favorites', 'addFavorite', [{ title: 'Codex created favorite', content: 'Summarize the supplied text',
@@ -117,13 +117,13 @@ test('independent desktop stdio: favorite → optimization → test → evaluati
   assert.equal(models.result.connectionConfig, '[REDACTED]');
   const start = async (input, requestKey) => {
     const { revision } = await query('favorites', 'getFavorites');
-    const run = await call('po_runs_start', { sourceId, input, requestKey, expectedRevision: revision });
+    const run = await call('po_runs_start', { connectionId, input, requestKey, expectedRevision: revision });
     assert.equal(run.failed, undefined, JSON.stringify(run)); return run;
   };
   const finish = async id => {
     const deadline = Date.now() + 20000;
     while (Date.now() < deadline) {
-      const run = await call('po_runs_get', { sourceId, runId: id });
+      const run = await call('po_runs_get', { connectionId, runId: id });
       if (run.status !== 'running') return run;
       await delay(30);
     }
@@ -135,9 +135,9 @@ test('independent desktop stdio: favorite → optimization → test → evaluati
   const optimizedResult = await finish(optimized.id);
   assert.equal(optimizedResult.status, 'succeeded', JSON.stringify(optimizedResult));
   assert.equal(optimizedResult.output, 'Synthetic optimized prompt');
-  const savedHistory = await call('po_runs_save', { sourceId, runId: optimized.id, target: 'history' });
+  const savedHistory = await call('po_runs_save', { connectionId, runId: optimized.id, target: 'history' });
   assert.ok(savedHistory.historyChainId);
-  assert.equal((await call('po_runs_save', { sourceId, runId: optimized.id, target: 'history' })).historyChainId, savedHistory.historyChainId);
+  assert.equal((await call('po_runs_save', { connectionId, runId: optimized.id, target: 'history' })).historyChainId, savedHistory.historyChainId);
   assert.equal((await query('history', 'getChain', [savedHistory.historyChainId])).result.currentRecord.optimizedPrompt, optimizedResult.output);
   assert.ok(JSON.stringify(requests[0]).includes('Summarize the supplied text'));
   const tested = await start({ kind: 'test', inputRunId: optimized.id, request: { modelKey: 'fixture', userPrompt: 'A short test input' } }, 'test-once');
@@ -180,15 +180,15 @@ test('independent desktop stdio: favorite → optimization → test → evaluati
   assert.equal(connected.status, 'succeeded'); assert.equal(connected.output.connected, true);
   const discovered = await finish((await start({ kind: 'model-list', request: { modelKey: 'fixture' } }, 'model-list-once')).id);
   assert.equal(discovered.status, 'succeeded', JSON.stringify(discovered));
-  for (const runId of [optimized.id, tested.id, evaluated.id]) assert.equal((await call('po_runs_save', { sourceId, runId })).saved, true);
-  await client.close(); await transport.close(); sourceId = await connect();
-  assert.equal((await call('po_runs_list', { sourceId, savedOnly: true })).runs.length, 3);
-  assert.equal((await call('po_runs_get', { sourceId, runId: evaluated.id })).output.score.overall, 88);
+  for (const runId of [optimized.id, tested.id, evaluated.id]) assert.equal((await call('po_runs_save', { connectionId, runId })).saved, true);
+  await client.close(); await transport.close(); connectionId = await connect();
+  assert.equal((await call('po_runs_list', { connectionId, savedOnly: true })).runs.length, 3);
+  assert.equal((await call('po_runs_get', { connectionId, runId: evaluated.id })).output.score.overall, 88);
   hold = true;
   const cancelled = await start({ kind: 'test', request: { systemPrompt: 'Hold', userPrompt: 'Partial', modelKey: 'fixture' } }, 'cancel-once');
   const partialDeadline = Date.now() + 10000;
-  while (!(await call('po_runs_get', { sourceId, runId: cancelled.id })).partial && Date.now() < partialDeadline) await delay(30);
-  await call('po_runs_cancel', { sourceId, runId: cancelled.id });
+  while (!(await call('po_runs_get', { connectionId, runId: cancelled.id })).partial && Date.now() < partialDeadline) await delay(30);
+  await call('po_runs_cancel', { connectionId, runId: cancelled.id });
   const cancelledResult = await finish(cancelled.id);
   assert.equal(cancelledResult.status, 'cancelled'); assert.equal(cancelledResult.partial, 'partial retained');
   hold = false; fail = true;

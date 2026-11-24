@@ -1,14 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { version } from '../package.json';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ListToolsRequestSchema, type Tool } from '@modelcontextprotocol/sdk/types.js';
+import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { openExistingDesktopStorageForWriting, type ExistingSQLiteStorage } from '@prompt-optimizer/core/node';
-import { createDesktopComparisonRouter, publicDesktopError, type DesktopProfile } from './desktop-router.js';
-import { openComparisonDesktop, openReadonlyDesktop } from './desktop-storage.js';
-import { createDesktopToolDispatcher } from './desktop.js';
+import { createDesktopProductRouter, DesktopSourceError, type DesktopProfile } from './desktop-router.js';
+import { openReadonlyDesktop } from './desktop-storage.js';
 import {
-  DesktopBusinessError, assertJson, createProductBusiness, productBusinessCatalog, publicBusinessError, runKinds,
+  DesktopBusinessError, assertJson, createProductBusiness, productBusinessCatalog, runKinds,
 } from '@prompt-optimizer/core/bridge-protocol';
 import { requestDesktopResource, resourceOperations, writeCredentialExport } from './desktop-business-resources.js';
 
@@ -64,29 +60,27 @@ type BusinessSource = { lease: ExistingSQLiteStorage; business: ReturnType<typeo
 export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
   const revisionKey = globalThis.crypto.subtle.generateKey({ name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const owner = () => ({ id: process.pid + ':' + randomUUID(), isGone: runOwnerGone });
-  const router = createDesktopComparisonRouter(profiles, openComparisonDesktop, async (path, source) => {
-    const { createComparisonRepository, ComparisonRepositoryError } = await import('@prompt-optimizer/core/desktop-comparison');
+  const openRead: NonNullable<Parameters<typeof createDesktopProductRouter>[2]> = async (path, source) => {
     const lease = await openReadonlyDesktop(path);
     try {
       const business = createProductBusiness(lease.provider, source.sourceId, { owner: owner(), revisionKey });
       return {
         ...lease,
         product: {
-          comparisons: createComparisonRepository(lease.provider),
           call: (name, args) => business.call(name, args, true),
-          errorCode: error => error instanceof ComparisonRepositoryError ? error.code : undefined,
         },
       };
     } catch (error) {
       await lease.provider.close();
       throw error;
     }
-  });
-  const comparison = createDesktopToolDispatcher('compare', router);
-  const isComparisonTool = (name: string) => name !== 'po_sources_list' && comparison.has(name);
-  const tools = [...desktopBusinessTools, ...comparison.specs.filter(tool => isComparisonTool(tool.name))];
+  };
+  const router = createDesktopProductRouter(profiles, async (_path, source) => {
+    // The business session owns this store until shutdown so running jobs survive a reconnect.
+    const { lease } = await open(source.sourceId);
+    return { migration: lease.migration, provider: { getItem: key => lease.provider.getItem(key), close: async () => {} } };
+  }, openRead);
   const sourceLeases = new Map<string, Promise<BusinessSource>>();
-  const server = new Server({ name: 'prompt-optimizer-desktop', version }, { capabilities: { tools: {} } });
   let closing: Promise<void> | undefined;
   const open = async (sourceId: string) => {
     if (closing) throw new DesktopBusinessError('SOURCE_CLOSING');
@@ -117,7 +111,7 @@ export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
     try { return await opening; }
     catch {
       if (sourceLeases.get(sourceId) === opening) sourceLeases.delete(sourceId);
-      throw new DesktopBusinessError('SOURCE_NOT_READY');
+      throw new DesktopSourceError('SOURCE_NOT_READY');
     }
   };
   const callBusiness = async (name: string, args: Record<string, unknown>, readonlyConnectionId?: string): Promise<unknown> => {
@@ -146,23 +140,10 @@ export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
     if (name === 'po_data_export_file') return writeCredentialExport(args, () => business.call(name, args));
     return business.call(name, args);
   };
-  const call = (name: string, args: Record<string, unknown>, readonlyConnectionId?: string) =>
-    isComparisonTool(name) ? comparison.call(name, args) : callBusiness(name, args, readonlyConnectionId);
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
-  server.setRequestHandler(CallToolRequestSchema, async request => {
-    const { name, arguments: args } = request.params;
-    try {
-      const result = await call(name, args ?? {});
-      const payload = result as Record<string, unknown>;
-      return { structuredContent: payload, content: [{ type: 'text', text: JSON.stringify(result) }] };
-    } catch (error) {
-      const payload = { error: isComparisonTool(name) ? publicDesktopError(error, 'compare') : publicBusinessError(error) };
-      return { isError: true, structuredContent: payload, content: [{ type: 'text', text: JSON.stringify(payload) }] };
-    }
-  });
   return {
-    server, call, tools,
-    openSource: (sourceId: string, access: 'read' | 'compare') => router.open(sourceId, access),
+    call: callBusiness,
+    openSource: (sourceId: string, access: 'read' | 'write') => router.open(sourceId, access),
+    closeSource: (connectionId: string) => router.close(connectionId),
     close() {
       closing ??= (async () => {
         const results = await Promise.allSettled([
@@ -181,23 +162,4 @@ export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
       return closing;
     },
   };
-}
-
-export async function startDesktopBusinessStdio(profiles: DesktopProfile[]) {
-  const host = createDesktopBusinessServer(profiles);
-  let shutdown: Promise<void> | undefined;
-  const close = () => {
-    shutdown ??= (async () => {
-      try { await host.close(); } finally {
-        await host.server.close(); process.stdin.pause(); process.stdin.destroy();
-      }
-    })();
-    return shutdown;
-  };
-  const onClose = () => { void close().catch(() => { process.exitCode = 1; }); };
-  process.stdin.once('end', onClose); process.stdin.once('close', onClose);
-  process.once('SIGINT', onClose); process.once('SIGTERM', onClose);
-  host.server.onclose = onClose;
-  await host.server.connect(new StdioServerTransport());
-  return { ...host, close };
 }

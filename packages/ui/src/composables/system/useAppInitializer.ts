@@ -4,7 +4,7 @@ import {
   StorageFactory,
   DexieStorageProvider,
   createComparisonRepository,
-  createDesktopRunRepository,
+  createDesktopRunRepository, createRunArchive,
   createBrowserBridgeHost,
   STARTUP_REPAIR_REPORT_PREFERENCE_KEY,
   createModelManager,
@@ -450,6 +450,7 @@ export function useAppInitializer(): {
         if (!(storageProvider instanceof DexieStorageProvider)) throw new Error('Web storage is unavailable');
         const savedComparisons = createComparisonRepository(storageProvider);
         const productRuns = createDesktopRunRepository(storageProvider);
+        const archive = createRunArchive(productRuns, savedComparisons);
 
         // 创建 DataManager（需要contextRepo）
         dataManager = createDataManager(
@@ -509,7 +510,7 @@ export function useAppInitializer(): {
         }
 
         const browserBridge = ['http:', 'https:'].includes(window.location.protocol)
-          ? createBrowserBridgeHost({ storage: storageProvider, favoriteManager, registry: textAdapterRegistryInstance, llmService, promptService }) : undefined;
+          ? createBrowserBridgeHost({ storage: storageProvider, favoriteManager, promptService }) : undefined;
 
         // 将所有服务实例赋值给 services.value
         services.value = {
@@ -520,9 +521,9 @@ export function useAppInitializer(): {
           savedComparisons,
           browserBridge,
           browserRuns: browserBridge ? {
-            list: async () => (await productRuns.list()).filter(run => run.saved && !run.deleted),
-            get: productRuns.get,
-            delete: productRuns.delete,
+            list: async () => (await archive.list()).filter(run => run.saved && !run.deleted),
+            get: archive.get,
+            delete: archive.delete,
           } : undefined,
           llmService,
           promptService,

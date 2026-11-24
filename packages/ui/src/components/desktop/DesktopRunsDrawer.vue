@@ -1,5 +1,5 @@
 <template>
-  <NDrawer :show="show" :width="720" @update:show="emit('update:show', $event)">
+  <NDrawer :show="show" width="min(720px, 100vw)" @update:show="emit('update:show', $event)">
     <NDrawerContent :title="t('nav.desktopRuns')" closable>
       <NSpace vertical>
         <NSpace>
@@ -15,8 +15,11 @@
         <NCard v-if="detail" :title="t(`desktopRuns.kinds.${detail.kind}`)" data-testid="desktop-run-detail">
           <NSpace vertical>
             <NText>{{ detail.id }} · {{ detail.status }}</NText>
-            <NText strong>{{ t('desktopRuns.output') }}</NText>
-            <pre class="desktop-run-output">{{ outputText }}</pre>
+            <BatchRunResults v-if="detail.kind === 'test-batch'" :run="detail" />
+            <template v-else>
+              <NText strong>{{ t('desktopRuns.output') }}</NText>
+              <pre class="desktop-run-output">{{ outputText }}</pre>
+            </template>
             <NAlert v-if="detail.error" type="warning">{{ detail.error.code }}</NAlert>
             <NCollapse>
               <NCollapseItem :title="t('desktopRuns.input')" name="input">
@@ -38,6 +41,7 @@
 import { computed, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NAlert, NButton, NCard, NCollapse, NCollapseItem, NDrawer, NDrawerContent, NEmpty, NInput, NPopconfirm, NSpace, NText } from 'naive-ui'
+import BatchRunResults from './BatchRunResults.vue'
 import type { DesktopRun } from '@prompt-optimizer/core'
 
 const props = defineProps<{ show: boolean; viewer: NonNullable<NonNullable<Window['electronAPI']>['desktopRuns']> }>()

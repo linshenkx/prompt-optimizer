@@ -2,8 +2,6 @@ import 'fake-indexeddb/auto'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DexieStorageProvider } from '../../../src/services/storage/dexieStorageProvider'
 import { FavoriteManager } from '../../../src/services/favorite/manager'
-import { TextAdapterRegistry } from '../../../src/services/llm/adapters/registry'
-import { LLMService } from '../../../src/services/llm/service'
 import type { IPromptService } from '../../../src/services/prompt/types'
 import { createBrowserBridgeHost, type BrowserSourceSession } from '../../../src/services/browser-bridge/session'
 
@@ -17,8 +15,6 @@ async function fixture(access: 'read' | 'compare' = 'compare') {
   providers.push(storage)
   const favoriteManager = new FavoriteManager(storage)
   await favoriteManager.getFavorites()
-  const registry = new TextAdapterRegistry()
-  const llmService = new LLMService({ async getModel() { throw new Error('No implicit model lookup') } }, registry)
   const promptService = {
     optimizePromptStream: vi.fn<IPromptService['optimizePromptStream']>(async (request, callbacks) => {
       callbacks.onToken('Improved: ' + request.targetPrompt)
@@ -29,7 +25,7 @@ async function fixture(access: 'read' | 'compare' = 'compare') {
       await callbacks.onComplete()
     }),
   }
-  const host = createBrowserBridgeHost({ storage, favoriteManager, registry, llmService, promptService })
+  const host = createBrowserBridgeHost({ storage, favoriteManager, promptService })
   const contextId = await host.contextId()
   const source = { kind: 'browser' as const, sourceId: crypto.randomUUID(), sourceEpoch: crypto.randomUUID(), connectionGeneration: crypto.randomUUID(), label: 'Isolated browser' }
   const session = host.open(source, access, contextId)

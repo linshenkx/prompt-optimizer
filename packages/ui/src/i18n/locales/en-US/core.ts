@@ -1,5 +1,6 @@
 const messages = {
   desktopRuns: {
+    systemPrompt: 'System prompt', userPrompt: 'User prompt', reasoning: 'Reasoning',
     runId: 'Run ID', refresh: 'Refresh', empty: 'No saved MCP results', error: 'Could not load results. Refresh to retry.',
     output: 'Result', input: 'Frozen input', deleteConfirm: 'Permanently delete this result? Favorites and workspace drafts are not affected.',
     kinds: { optimize: 'Prompt optimization', 'optimize-message': 'Message optimization', iterate: 'Prompt iteration', test: 'Single test',

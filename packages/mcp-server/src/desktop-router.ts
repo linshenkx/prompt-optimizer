@@ -3,11 +3,9 @@ import { isAbsolute, normalize } from 'node:path';
 import {
   AssetReadError, createReadonlyAssetReader, type AssetReadPagination, type AssetReadStorage, type IReadonlyAssetReader,
 } from '@prompt-optimizer/core/asset-reader';
-import type {
-  ComparisonExecutionSource, ComparisonListOptions, createComparisonRepository, createTextComparisonService, PrepareTextComparison,
-} from '@prompt-optimizer/core/desktop-comparison';
+import type { ComparisonExecutionSource } from '@prompt-optimizer/core/desktop-comparison';
 
-export type DesktopAccess = 'read' | 'compare';
+export type DesktopAccess = 'read' | 'write';
 export type DesktopSourceErrorCode = 'INVALID_INPUT' | 'SOURCE_NOT_FOUND' | 'SOURCE_NOT_READY' |
   'SCHEMA_UNSUPPORTED' | 'SOURCE_OPEN_FAILED' | 'SOURCE_CLOSE_FAILED' |
   'CONNECTION_CLOSED' | 'OWNER_CLOSED' | 'DESKTOP_OPENER_UNAVAILABLE' | 'UNKNOWN_TOOL' |
@@ -20,22 +18,12 @@ export class DesktopSourceError extends Error {
   }
 }
 
-class DesktopComparisonRequestError extends Error {
-  constructor(readonly code: string) {
-    super(`Desktop comparison request failed (${code}).`);
-    this.name = 'DesktopComparisonRequestError';
-  }
-}
-
 export interface DesktopProfile { label: string; userDataPath: string }
-type ComparisonReader = Pick<ReturnType<typeof createComparisonRepository>, 'list' | 'get'>;
 export interface DesktopReadonlyLease {
   provider: AssetReadStorage & { close(): Promise<void> };
   migration: { version: number };
   product?: {
-    comparisons: ComparisonReader;
     call(name: string, args: Record<string, unknown>): Promise<unknown>;
-    errorCode(error: unknown): string | undefined;
   };
 }
 
@@ -43,24 +31,7 @@ export interface DesktopReadonlyLease {
 export type DesktopReadonlyOpener = (absoluteUserDataPath: string) => Promise<DesktopReadonlyLease>;
 
 type Result<T> = T | Promise<T>;
-type BeginWrite = () => void;
-interface DesktopComparisonSession {
-  runner: ReturnType<typeof createTextComparisonService>;
-  repository: Pick<ReturnType<typeof createComparisonRepository>, 'save' | 'list' | 'get' | 'delete'>;
-  errorCode(error: unknown): string | undefined;
-}
-
-export interface DesktopComparisonLease extends DesktopReadonlyLease {
-  comparison: DesktopComparisonSession;
-}
-
-/** Trusted adapter only. Open an existing migrated store and attach its scoped business services. */
-export type DesktopComparisonOpener = (
-  absoluteUserDataPath: string,
-  executionSource: ComparisonExecutionSource,
-) => Promise<DesktopComparisonLease>;
-
-type DesktopLease = DesktopReadonlyLease & { comparison?: DesktopComparisonSession };
+type DesktopLease = DesktopReadonlyLease;
 type DesktopOpener = (
   absoluteUserDataPath: string,
   executionSource: ComparisonExecutionSource,
@@ -134,13 +105,8 @@ function createDesktopRouter(
     return connection;
   }
   async function releaseLease(lease: DesktopLease, pending: ReadonlySet<Promise<unknown>> = new Set()) {
-    try {
-      // Active model work belongs to the runner. Abort it before draining storage requests.
-      await lease.comparison?.runner.dispose();
-    } finally {
-      await Promise.allSettled([...pending]);
-      await lease.provider.close();
-    }
+    await Promise.allSettled([...pending]);
+    await lease.provider.close();
   }
   function closeConnection(connection: Connection): Promise<void> {
     if (connection.closePromise) return connection.closePromise;
@@ -175,7 +141,6 @@ function createDesktopRouter(
         ? await readonlyOpener(source.profile.userDataPath, executionSource)
         : await opener(source.profile.userDataPath, executionSource);
       if (lease.migration.version !== 1) throw new DesktopSourceError('SCHEMA_UNSUPPORTED');
-      if ((access === 'compare') !== Boolean(lease.comparison)) throw new DesktopSourceError('SOURCE_NOT_READY');
       assertOwner();
       const connection: Connection = {
         id: randomUUID(),
@@ -184,7 +149,7 @@ function createDesktopRouter(
         active: true,
         lease,
         pending: new Set(),
-        reader: lease.comparison?.runner.reader ?? createReadonlyAssetReader(lease.provider, executionSource),
+        reader: createReadonlyAssetReader(lease.provider, executionSource),
       };
       source.connection = connection;
       source.failure = undefined;
@@ -201,16 +166,11 @@ function createDesktopRouter(
       throw safe;
     }
   }
-  async function useConnection<T>(id: string, action: (connection: Connection, beginWrite: BeginWrite) => Result<T>): Promise<T> {
+  async function useConnection<T>(id: string, action: (connection: Connection) => Result<T>): Promise<T> {
     const connection = requireConnection(id);
-    let writeStarted = false;
-    const beginWrite = () => {
-      assertActive(connection);
-      writeStarted = true;
-    };
     const work = Promise.resolve().then(() => {
       assertActive(connection);
-      return action(connection, beginWrite);
+      return action(connection);
     });
     connection.pending.add(work);
     try {
@@ -218,34 +178,12 @@ function createDesktopRouter(
       assertActive(connection);
       return result;
     } catch (error) {
-      if (!connection.active || disposed) {
-        // A repository operation may have committed while this lease was closing.
-        throw new DesktopSourceError(writeStarted ? 'WRITE_OUTCOME_UNKNOWN' : 'CONNECTION_CLOSED');
-      }
-      const errorSource = connection.lease.comparison ?? connection.lease.product;
-      const code = errorSource?.errorCode(error);
-      if (code && /^[A-Z][A-Z0-9_]{0,63}$/.test(code)) throw new DesktopComparisonRequestError(code);
+      if (!connection.active || disposed) throw new DesktopSourceError('CONNECTION_CLOSED');
       throw error;
     } finally {
       connection.pending.delete(work);
     }
   }
-  function withComparison<T>(
-    id: string,
-    action: (session: DesktopComparisonSession, connection: Connection, beginWrite: BeginWrite) => Result<T>,
-  ): Promise<T> {
-    return useConnection(id, (connection, beginWrite) => {
-      const session = connection.lease.comparison;
-      if (!session) throw new DesktopSourceError('COMPARISON_ACCESS_REQUIRED');
-      return action(session, connection, beginWrite);
-    });
-  }
-  function comparisonReader(lease: DesktopLease): ComparisonReader {
-    const reader = lease.comparison?.repository ?? lease.product?.comparisons;
-    if (!reader) throw new DesktopSourceError('COMPARISON_ACCESS_REQUIRED');
-    return reader;
-  }
-
   return {
     getSourceProfile(sourceId: string) {
       assertOwner();
@@ -272,7 +210,7 @@ function createDesktopRouter(
       if (connection.access !== access) throw new DesktopSourceError('ACCESS_MISMATCH');
       return {
         connectionId: connection.id, source: sourceDescription(source), schemaVersion: 'prompt-model/v1', identity,
-        capabilities: { read: true, execute: access === 'compare', save: access === 'compare' },
+        capabilities: { read: true, execute: access !== 'read', save: access !== 'read' },
       };
     },
     async close(connectionId: string) {
@@ -280,9 +218,7 @@ function createDesktopRouter(
       return { closed: true };
     },
     listModels(id: string, options: AssetReadPagination) {
-      return useConnection(id, async ({ reader, lease }) => lease.comparison
-        ? lease.comparison.runner.listModels(options)
-        : reader.listModels(options));
+      return useConnection(id, ({ reader }) => reader.listModels(options));
     },
     listAssets(id: string, options: Parameters<IReadonlyAssetReader['listAssets']>[0]) {
       return useConnection(id, ({ reader }) => reader.listAssets(options));
@@ -293,47 +229,10 @@ function createDesktopRouter(
     getAssetVersion(id: string, selection: Parameters<IReadonlyAssetReader['getAssetVersion']>[0]) {
       return useConnection(id, ({ reader }) => reader.getAssetVersion(selection));
     },
-    prepare(id: string, input: PrepareTextComparison) {
-      return withComparison(id, ({ runner }) => runner.prepare(input));
-    },
-    execute(id: string, preparedId: string, previewRevision: string) {
-      return withComparison(id, ({ runner }) => runner.execute(preparedId, previewRevision));
-    },
-    getTest(id: string, preparedId: string) {
-      return withComparison(id, ({ runner }) => runner.get(preparedId));
-    },
-    cancel(id: string, preparedId: string, runId?: string) {
-      return withComparison(id, ({ runner }) => runner.cancel(preparedId, runId));
-    },
-    saveComparison(id: string, preparedId: string, saveKey: string) {
-      return withComparison(id, async ({ runner, repository }, connection, beginWrite) => {
-        const comparison = await runner.completed(preparedId);
-        beginWrite();
-        const saved = await repository.save(comparison, saveKey);
-        const comparisonId = saved.comparison.id;
-        return {
-          saved: true, comparisonId, revision: saved.revision,
-          viewTarget: { kind: 'saved-comparison', sourceId: connection.executionSource.sourceId, comparisonId },
-          visibility: 'reload-required',
-        };
-      });
-    },
-    listComparisons(id: string, options: ComparisonListOptions) {
-      return useConnection(id, ({ lease }) => comparisonReader(lease).list(options));
-    },
-    getComparison(id: string, comparisonId: string) {
-      return useConnection(id, ({ lease }) => comparisonReader(lease).get(comparisonId));
-    },
     callReadonlyBusiness(id: string, name: string, args: Record<string, unknown>) {
       return useConnection(id, ({ lease }) => {
         if (!lease.product) throw new DesktopSourceError('INVALID_INPUT');
         return lease.product.call(name, args);
-      });
-    },
-    deleteComparison(id: string, comparisonId: string, expectedRevision: string) {
-      return withComparison(id, ({ repository }, _connection, beginWrite) => {
-        beginWrite();
-        return repository.delete(comparisonId, expectedRevision);
       });
     },
     dispose(): Promise<void> {
@@ -355,16 +254,11 @@ export function createDesktopReadonlyRouter(profiles: DesktopProfile[], opener: 
   return createDesktopRouter(profiles, 'read', path => opener(path));
 }
 
-export function createDesktopComparisonRouter(
-  profiles: DesktopProfile[], opener: DesktopComparisonOpener, readonlyOpener?: DesktopOpener,
-) {
-  return createDesktopRouter(profiles, 'compare', opener, readonlyOpener);
+export function createDesktopProductRouter(profiles: DesktopProfile[], opener: DesktopOpener, readonlyOpener: DesktopOpener) {
+  return createDesktopRouter(profiles, 'write', opener, readonlyOpener);
 }
 
-export function publicDesktopError(error: unknown, access: DesktopAccess = 'read') {
-  const code = error instanceof DesktopSourceError || error instanceof AssetReadError || error instanceof DesktopComparisonRequestError
-    ? error.code
-    : access === 'compare' ? 'COMPARISON_REQUEST_FAILED' : 'SOURCE_READ_FAILED';
-  const scope = access === 'compare' ? 'comparison' : 'readonly';
-  return { code, message: `Desktop ${scope} request failed (${code}).` };
+export function publicDesktopError(error: unknown) {
+  const code = error instanceof DesktopSourceError || error instanceof AssetReadError ? error.code : 'SOURCE_READ_FAILED';
+  return { code, message: `Desktop readonly request failed (${code}).` };
 }

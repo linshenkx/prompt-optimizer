@@ -1,14 +1,14 @@
 import { isAbsolute } from 'node:path';
 import { DesktopSourceError, type DesktopProfile } from './desktop-router.js';
 
-export type LaunchSelection = { mode: 'product'; profiles: DesktopProfile[]; productUrl?: string } | { mode: 'legacy' } | { mode: 'browser' } | { mode: 'desktop-readonly' | 'desktop-comparison' | 'desktop'; profiles: DesktopProfile[] };
+export type LaunchSelection = { mode: 'product'; profiles: DesktopProfile[]; productUrl?: string } | { mode: 'legacy' } | { mode: 'desktop-readonly'; profiles: DesktopProfile[] };
 export function selectLaunchMode(args: string[]): LaunchSelection {
   if (args.includes('--mode')) throw new DesktopSourceError('INVALID_INPUT');
   const modes = args.filter(arg => arg.startsWith('--mode='));
   if (modes.length > 1) throw new DesktopSourceError('INVALID_INPUT');
   const mode = modes[0]?.slice('--mode='.length) ?? 'legacy';
   const paths = args.filter(arg => arg.startsWith('--desktop-profile='));
-  if (mode === 'product') {
+  if (['product', 'desktop', 'desktop-comparison', 'browser'].includes(mode)) {
     const urls = args.filter(arg => arg.startsWith('--product-url='));
     if (paths.length > 8 || urls.length > 1 || args.filter(arg => arg.startsWith('--transport=')).length > 1 ||
       args.some(arg => !paths.includes(arg) && !urls.includes(arg) && arg !== modes[0] && arg !== '--transport=stdio')) {
@@ -24,17 +24,14 @@ export function selectLaunchMode(args: string[]): LaunchSelection {
       }
       productUrl = url.href;
     }
-    return { mode, profiles: parseProfiles(paths), productUrl };
-  }
-  if (mode === 'browser') {
-    if (args.some(arg => arg !== '--mode=browser' && arg !== '--transport=stdio') || args.filter(arg => arg.startsWith('--transport=')).length > 1) throw new DesktopSourceError('INVALID_INPUT');
-    return { mode };
+    if (mode === 'browser' && !productUrl) throw new DesktopSourceError('INVALID_INPUT');
+    return { mode: 'product', profiles: parseProfiles(paths), productUrl };
   }
   if (mode === 'legacy') {
     if (args.some(arg => arg.startsWith('--desktop-'))) throw new DesktopSourceError('INVALID_INPUT');
     return { mode };
   }
-  if (mode !== 'desktop-readonly' && mode !== 'desktop-comparison' && mode !== 'desktop') throw new DesktopSourceError('INVALID_INPUT');
+  if (mode !== 'desktop-readonly') throw new DesktopSourceError('INVALID_INPUT');
   if (args.some(arg => !arg.startsWith('--desktop-profile=') && arg !== modes[0] && arg !== '--transport=stdio')) {
     throw new DesktopSourceError('INVALID_INPUT');
   }

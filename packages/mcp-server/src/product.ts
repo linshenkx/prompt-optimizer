@@ -9,8 +9,7 @@ import {
 } from '@prompt-optimizer/core/bridge-protocol';
 import { createBrowserTransport } from './browser-transport.js';
 import { browserSourceId, createBrowserRegistry } from './browser-source-registry.js';
-import { createDesktopBusinessServer } from './desktop-business.js';
-import { matches, toolSpecs } from './desktop.js';
+import { createDesktopBusinessServer, desktopBusinessTools } from './desktop-business.js';
 import type { DesktopProfile } from './desktop-router.js';
 import { transferResourceFile, writeCredentialExport } from './desktop-business-resources.js';
 
@@ -22,11 +21,7 @@ const access = { type: 'string', enum: ['read', 'write'] };
 const businessNames: Record<string, string> = {
   po_query: 'po_desktop_query', po_mutate: 'po_desktop_mutate',
 };
-const comparisonSpecs = new Map(toolSpecs('compare').map(tool => [tool.name, tool.inputSchema]));
-const readTools = new Set([
-  'po_query', 'po_models_list', 'po_assets_list', 'po_assets_list_versions', 'po_assets_get_version',
-  'po_runs_get', 'po_runs_list', 'po_comparisons_list', 'po_comparisons_get',
-]);
+const readTools = new Set(['po_query', 'po_runs_get', 'po_runs_list']);
 
 export function defaultDesktopProfile(): DesktopProfile {
   const home = homedir();
@@ -48,8 +43,7 @@ export function createProductServer(
   const browser = createBrowserTransport({ rememberSource: registry.remember });
   const desktop = createDesktopBusinessServer(profiles);
   const connections = new Map<string, Connection>();
-  const businessTools = desktop.tools.filter(spec => 'sourceId' in (spec.inputSchema.properties ?? {}) && spec.name !== 'po_sources_open');
-  const business = new Set(businessTools.map(spec => spec.name));
+  const businessTools = desktopBusinessTools.filter(spec => 'sourceId' in (spec.inputSchema.properties ?? {}));
   const tools = [
     tool('po_sources_list', 'List configured desktop sources and previously authorized browser sources, including offline ones. For a new browser source, ask for the product URL and use po_sources_authorize.', {}),
     tool('po_sources_authorize', 'Create a one-use link. Use sourceId to reconnect a remembered browser profile, or productUrl to add a profile. With neither, use the configured web default. If several profiles match, select one by sourceId. Open the link in that profile and approve.', { sourceId: text, productUrl: text, access }),
@@ -66,9 +60,6 @@ export function createProductServer(
       return { ...spec, name, description, inputSchema: { ...spec.inputSchema, properties: { ...fields, connectionId: text },
         required: [...(spec.inputSchema.required ?? []).filter(key => key !== 'sourceId'), 'connectionId'] } };
     }),
-    ...desktop.tools.filter(spec => !business.has(spec.name) && !spec.name.startsWith('po_sources_') && spec.name !== 'po_desktop_catalog')
-      .map(spec => ({ ...spec, description: spec.description?.replaceAll('desktop', 'product')
-        .replace('MCP Node runtime network settings', 'connected source network settings') })),
   ];
   const byName = new Map(tools.map(spec => [spec.name, spec]));
 
@@ -153,7 +144,7 @@ export function createProductServer(
         if (permission === 'write' && source.authorizedAccess !== 'write') throw new BrowserBridgeError('BUSINESS_ACCESS_REQUIRED');
         let opened: { connectionId: string };
         if (source.kind === 'desktop') {
-          opened = await desktop.openSource(source.sourceId, permission === 'read' ? 'read' : 'compare');
+          opened = await desktop.openSource(source.sourceId, permission);
         } else {
           const access = (permission === 'write' ? 'business' : 'read') satisfies BrowserAccess;
           opened = await browser.open(browserSources.get(source.sourceId)!.sourceId, access) as { connectionId: string };
@@ -167,30 +158,21 @@ export function createProductServer(
         const selected = connection(connectionId);
         connections.delete(connectionId as string);
         if (selected.kind === 'browser') await browser.close(connectionId as string);
-        else await desktop.call(name, { connectionId });
+        else await desktop.closeSource(connectionId as string);
         return { closed: true };
       }
     }
     const selected = connection(connectionId);
     if (selected.access === 'read' && !readTools.has(name)) throw new BrowserBridgeError('BUSINESS_ACCESS_REQUIRED');
     const method = businessNames[name] ?? name;
-    if (business.has(method)) {
-      if (selected.kind === 'desktop') {
-        return desktop.call(method, { ...fields, sourceId: selected.sourceId }, selected.access === 'read' ? connectionId as string : undefined);
-      }
-      const request = (args: Record<string, unknown>) => browser.call(connectionId as string, 'product', { name: method, args });
-      if (method === 'po_resources') return transferResourceFile(fields, (operation, args) =>
-        request({ operation, ...args, includeCredentials: fields.includeCredentials, requestKey: fields.requestKey }) as Promise<Record<string, unknown>>);
-      if (method === 'po_data_export_file') return writeCredentialExport(fields, () => request({ includeCredentials: true }));
-      return request(fields);
+    if (selected.kind === 'desktop') {
+      return desktop.call(method, { ...fields, sourceId: selected.sourceId }, selected.access === 'read' ? connectionId as string : undefined);
     }
-    const schema = comparisonSpecs.get(name);
-    if (!schema || !matches(schema, input)) throw new BrowserBridgeError('INVALID_INPUT');
-    if (selected.kind === 'browser') return browser.call(connectionId as string, name, fields);
-    const result = await desktop.call(name, input);
-    if (name !== 'po_models_list' || selected.access !== 'read') return result;
-    const models = result as { items: Array<Record<string, unknown>> };
-    return { ...models, items: models.items.map(model => ({ ...model, executable: false })) };
+    const request = (args: Record<string, unknown>) => browser.call(connectionId as string, 'product', { name: method, args });
+    if (method === 'po_resources') return transferResourceFile(fields, (operation, args) =>
+      request({ operation, ...args, includeCredentials: fields.includeCredentials, requestKey: fields.requestKey }) as Promise<Record<string, unknown>>);
+    if (method === 'po_data_export_file') return writeCredentialExport(fields, () => request({ includeCredentials: true }));
+    return request(fields);
   }
 
   const server = new Server({ name: 'prompt-optimizer', version }, { capabilities: { tools: {} } });

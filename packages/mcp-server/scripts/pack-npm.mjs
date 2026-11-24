@@ -9,7 +9,7 @@ import { build } from 'esbuild';
 
 const packageDir = fileURLToPath(new URL('../', import.meta.url));
 const repoDir = resolve(packageDir, '../..');
-const entries = ['index', 'start', 'desktop', 'desktop-business', 'browser', 'product', 'legacy'];
+const entries = ['index', 'start', 'desktop', 'product', 'legacy'];
 const { values } = parseArgs({ options: { 'out-dir': { type: 'string' } } });
 const destination = values['out-dir']
   ? resolve(process.env.INIT_CWD || process.cwd(), values['out-dir'])

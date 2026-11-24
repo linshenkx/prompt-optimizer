@@ -1,5 +1,6 @@
 const messages = {
   desktopRuns: {
+    systemPrompt: '系统提示词', userPrompt: '用户提示词', reasoning: '推理过程',
     runId: '运行标识', refresh: '刷新', empty: '暂无已保存的 MCP 运行成果', error: '读取失败，请刷新后重试',
     output: '运行结果', input: '冻结的输入', deleteConfirm: '永久删除这条成果？不会删除收藏和工作区草稿。',
     kinds: { optimize: '提示词优化', 'optimize-message': '消息优化', iterate: '提示词迭代', test: '单次测试',

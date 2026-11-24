@@ -1,9 +1,4 @@
-import type { ILLMService, TextRequestEvidence } from '../llm/types'
-import type { TextModelConfig } from '../model/types'
-
-export type TextComparisonLLM = Pick<ILLMService, 'sendMessageStream'> & {
-  describeStreamRequest(config: TextModelConfig): TextRequestEvidence | undefined
-}
+import type { TextRequestEvidence } from '../llm/types'
 
 export interface TextComparisonSource {
   favoriteId: string
@@ -19,23 +14,6 @@ export interface ComparisonExecutionSource {
   sourceEpoch: string
   connectionGeneration: string
   label: string
-}
-
-export interface TextComparisonCandidateSelection {
-  id: 'a' | 'b'
-  configKey: string
-  expectedRevision: string
-}
-
-export type TextComparisonPromptSelection =
-  | { kind: 'draft'; text: string }
-  | { kind: 'saved-version'; versionId: string }
-
-export interface PrepareTextComparison {
-  source: Omit<TextComparisonSource, 'title'>
-  variables: Record<string, string>
-  candidates: [TextComparisonCandidateSelection, TextComparisonCandidateSelection]
-  candidatePrompt?: TextComparisonPromptSelection
 }
 
 export interface TextComparisonRequest {
@@ -66,18 +44,6 @@ export interface TextComparisonRun {
   errorCode?: string
   startedAt?: number
   completedAt?: number
-}
-
-export interface PreparedTextComparison {
-  preparedId: string
-  comparisonId: string
-  previewRevision: string
-  expiresAt: number
-  executionSource: ComparisonExecutionSource
-  source: TextComparisonSource
-  request: TextComparisonRequest
-  candidatePrompt?: TextComparisonPromptSnapshot
-  runs: [TextComparisonRun, TextComparisonRun]
 }
 
 export type ComparisonTerminalStatus = 'success' | 'error' | 'cancelled'

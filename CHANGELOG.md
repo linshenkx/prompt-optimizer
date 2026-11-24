@@ -2,6 +2,10 @@
 
 Full release narratives now live in versioned files under `releases/`. This file stays as the index and summary entry point.
 
+## [2.17.0-beta.4] - 2026-11-24
+- EN: Compare configured models or prompt versions in a single MCP run. [Release Notes (EN)](releases/v2.17.0-beta.4.en.md)
+- 中文：MCP 对照统一使用产品批量测试，可在顶部运行成果中并排回看新旧结果。[版本说明（中文）](releases/v2.17.0-beta.4.zh-CN.md)
+
 ## [2.17.0-beta.3] - 2026-11-24
 - EN: Connect an MCP client to desktop SQLite or an authorized browser profile to optimize prompts, test models and reopen saved results. See [Release Notes (EN)](releases/v2.17.0-beta.3.en.md).
 - 中文：MCP 默认连接桌面 SQLite，也支持按浏览器资料授权连接网页，使用已有模型优化、测试提示词并重开已保存结果。参见 [版本说明（中文）](releases/v2.17.0-beta.3.zh-CN.md)。

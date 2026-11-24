@@ -103,7 +103,7 @@ const {
   createTemplateLanguageService,
   createDataManager,
   createComparisonRepository,
-  createDesktopRunRepository,
+  createDesktopRunRepository, createRunArchive,
   ComparisonRepositoryError,
   createContextRepo,
   FavoriteManager,
@@ -139,7 +139,7 @@ let modelNetwork;
 let networkRestarting = false;
 let modelManager, templateManager, historyManager, llmService, promptService, templateLanguageService, preferenceService, dataManager, contextRepo, favoriteManager;
 let imageModelManager, imageService, imageUnderstandingService;
-let savedComparisons, desktopRuns;
+let savedComparisons, desktopRuns, runArchive;
 let imageAdapterRegistry; // 全局引用以供 IPC 处理器使用
 let storageProvider; // 全局存储提供器引用，用于退出时保存数据
 
@@ -749,6 +749,7 @@ async function initializeServices() {
     console.log('[DESKTOP] Creating Data manager...');
     savedComparisons = createComparisonRepository(storageProvider);
     desktopRuns = createDesktopRunRepository(storageProvider);
+    runArchive = createRunArchive(desktopRuns, savedComparisons);
     dataManager = createDataManager(modelManager, templateManager, historyManager, preferenceService, contextRepo, imageModelManager, savedComparisons, desktopRuns);
 
     console.log('[DESKTOP] Creating Favorite manager...');
@@ -2269,9 +2270,9 @@ function setupIPC() {
     try { return createSuccessResponse(await action(...args)); }
     catch { return { success: false, error: { message: 'Saved desktop run request failed.' } }; }
   };
-  ipcMain.handle('desktop-runs-list', runRequest(async () => (await desktopRuns.list()).filter(run => run.saved)));
-  ipcMain.handle('desktop-runs-get', runRequest(id => desktopRuns.get(id)));
-  ipcMain.handle('desktop-runs-delete', runRequest((id, updatedAt) => desktopRuns.delete(id, updatedAt)));
+  ipcMain.handle('desktop-runs-list', runRequest(async () => (await runArchive.list()).filter(run => run.saved)));
+  ipcMain.handle('desktop-runs-get', runRequest(id => runArchive.get(id)));
+  ipcMain.handle('desktop-runs-delete', runRequest((id, updatedAt) => runArchive.delete(id, updatedAt)));
 
   // Data Manager handlers
   ipcMain.handle('data-exportAllData', async (event) => {

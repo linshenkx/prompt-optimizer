@@ -191,13 +191,12 @@ test('unified desktop read access supports product queries while another process
     const { connectionId, access } = data(await mcp.call('po_sources_open', { access: 'read' }));
     assert.equal(access, 'read');
     failure(await mcp.call('po_sources_open', { sourceId: listed.defaultSourceId, access: 'write' }), 'ACCESS_MISMATCH');
-    const models = data(await mcp.call('po_models_list', { connectionId })).items;
-    assert.equal(models[0].name, 'Product fixture');
-    assert.equal(models[0].executable, false);
+    const models = data(await mcp.call('po_query', { connectionId, domain: 'models', operation: 'getAllModels' })).result;
+    assert.ok(models.some(model => model.name === 'Product fixture'));
     const templates = data(await mcp.call('po_query', { connectionId, domain: 'templates', operation: 'listTemplates' }));
     assert.ok(Array.isArray(templates.result));
     assert.deepEqual(data(await mcp.call('po_runs_list', { connectionId })).runs, []);
-    assert.deepEqual(data(await mcp.call('po_comparisons_list', { connectionId })).items, []);
+    failure(await mcp.call('po_comparisons_list', { connectionId }), 'UNKNOWN_TOOL');
     failure(await mcp.call('po_mutate', { connectionId, domain: 'favorites', operation: 'deleteFavorite',
       arguments: ['favorite-shared'], expectedRevision: templates.revision, requestKey: 'readonly' }), 'BUSINESS_ACCESS_REQUIRED');
     data(await mcp.call('po_sources_close', { connectionId }));

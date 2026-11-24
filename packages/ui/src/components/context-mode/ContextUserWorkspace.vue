@@ -258,10 +258,6 @@
           :disabled="isAnyVariantRunning"
           test-id="save-test-examples-batch-pro-variable"
         />
-        <NButton v-if="servicesRef?.savedComparisons" size="small" data-testid="open-saved-comparisons"
-          @click="showSavedComparisons = true">
-          {{ t('contextMode.savedComparisons.title') }}
-        </NButton>
       </template>
       <template #comparison>
         <CompareRoleSummary :entries="compareRoleConfig.entries.value"
@@ -306,10 +302,6 @@
         <CompareHelpButton v-if="!isCompact && (activeVariantIds.length >= 2)" />
       </template>
     </TestWorkspaceToolbar>
-      <NButton v-if="isCompact && servicesRef?.savedComparisons" size="small" data-testid="open-saved-comparisons"
-        @click="showSavedComparisons = true">
-        {{ t('contextMode.savedComparisons.title') }}
-      </NButton>
     </template>
     <template #variant-controls><NCard class="test-variant-controls" size="small" :style="{ flexShrink: 0 }" :content-style="isCompact ? undefined : { padding: '12px' }">
                         <div class="variant-deck" :style="{ gridTemplateColumns: isCompact ? 'minmax(0, 1fr)' : testGridTemplateColumns }">
@@ -447,11 +439,6 @@
       :editable="mobileSourceEditable" @edit="editMobileSource" />
 
 
-        <SavedComparisonsDrawer
-            v-if="servicesRef?.savedComparisons"
-            v-model:show="showSavedComparisons"
-            :viewer="servicesRef.savedComparisons"
-        />
 
         <EvaluationPanel
             v-model:show="evaluation.isPanelVisible.value"
@@ -562,7 +549,6 @@ import InputPanelUI from "../InputPanel.vue";
 import PromptPanelUI from "../PromptPanel.vue";
 import PromptPreviewPanel from "../PromptPreviewPanel.vue";
 import ContextUserTestPanel from "./ContextUserTestPanel.vue";
-import SavedComparisonsDrawer from './SavedComparisonsDrawer.vue'
 import OutputDisplay from "../OutputDisplay.vue";
 import { beginOutputStream } from '../../utils/output-document'
 import { setOutputTokenUsage } from '../../utils/token-usage'
@@ -737,7 +723,6 @@ const optimizationMode: OptimizationMode = 'user';
 // ========================
 const injectedServices = inject<Ref<AppServices | null>>('services');
 const servicesRef = injectedServices ?? ref<AppServices | null>(null)
-const showSavedComparisons = ref(false)
 const variableManager = inject<VariableManagerHooks | null>('variableManager', null);
 
 // 注入 App 层统一的 open* 接口（与 Basic/Image 工作区保持一致）

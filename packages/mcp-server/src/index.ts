@@ -1,36 +1,24 @@
 // Select before importing legacy: its modules load dotenv and default models.
 import { selectLaunchMode } from './cli.js';
-import type { DesktopComparisonOpener, DesktopProfile, DesktopReadonlyOpener } from './desktop-router.js';
+import type { DesktopProfile, DesktopReadonlyOpener } from './desktop-router.js';
 
 export interface LaunchDependencies {
   openDesktop?: DesktopReadonlyOpener;
-  openDesktopComparison?: DesktopComparisonOpener;
-  desktopComparisonMain?: (profiles: DesktopProfile[], opener: DesktopComparisonOpener) => Promise<unknown>;
   legacyMain?: () => Promise<void>;
   desktopMain?: (profiles: DesktopProfile[], opener?: DesktopReadonlyOpener) => Promise<unknown>;
 }
 export async function main(args = process.argv.slice(2), dependencies: LaunchDependencies = {}) {
   const selection = selectLaunchMode(args);
   if (selection.mode === 'product') {
-    // Only JSON-RPC belongs on stdout. Product dependencies may log during import.
-    console.log = console.info = console.debug = console.error.bind(console);
+    // Product service diagnostics can include provider error bodies or configuration.
+    // The stdio host reports sanitized operation errors through its protocol.
+    console.log = console.info = console.debug = console.warn = console.error = () => {};
     const { startProductStdio } = await import('./product.js');
     return startProductStdio(selection.profiles, selection.productUrl);
   }
-  if (selection.mode === 'desktop') {
-    console.log = console.info = console.debug = console.warn = console.error = () => {};
-    const { startDesktopBusinessStdio } = await import('./desktop-business.js');
-    return startDesktopBusinessStdio(selection.profiles);
-  }
-  if (selection.mode === 'browser') return (await import('./browser.js')).startBrowserStdio();
   if (selection.mode === 'desktop-readonly') {
     const start = dependencies.desktopMain ?? (await import('./desktop.js')).startDesktopReadonlyStdio;
     const opener = dependencies.openDesktop ?? (await import('./desktop-storage.js')).openReadonlyDesktop;
-    return start(selection.profiles, opener);
-  }
-  if (selection.mode === 'desktop-comparison') {
-    const start = dependencies.desktopComparisonMain ?? (await import('./desktop.js')).startDesktopComparisonStdio;
-    const opener = dependencies.openDesktopComparison ?? (await import('./desktop-storage.js')).openComparisonDesktop;
     return start(selection.profiles, opener);
   }
   if (dependencies.legacyMain) return dependencies.legacyMain();

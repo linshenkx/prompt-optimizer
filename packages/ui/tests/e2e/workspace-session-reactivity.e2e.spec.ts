@@ -2,7 +2,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, nextTick, ref } from 'vue'
 import { setActivePinia } from 'pinia'
-import type { ComparisonViewer, SavedComparisonResult } from '@prompt-optimizer/core'
+import DesktopRunsDrawer from '../../src/components/desktop/DesktopRunsDrawer.vue'
+import { createRunArchive, createDesktopRunRepository, MemoryStorageProvider, type ComparisonViewer, type SavedComparisonResult } from '@prompt-optimizer/core'
 import type { AppServices } from '../../src/types/services'
 
 import BasicUserWorkspace from '../../src/components/basic-mode/BasicUserWorkspace.vue'
@@ -12,17 +13,6 @@ import { useBasicUserSession } from '../../src/stores/session/useBasicUserSessio
 import { useProVariableSession } from '../../src/stores/session/useProVariableSession'
 import { useSessionManager } from '../../src/stores/session/useSessionManager'
 import { createPreferenceServiceStub, createTestPinia } from '../utils/pinia-test-helpers'
-
-const confirmComparisonDeletion = vi.hoisted(() => vi.fn())
-const copyCandidateText = vi.hoisted(() => vi.fn(async (_text: string) => {}))
-
-vi.mock('../../src/composables/ui/useClipboard', () => ({
-  useClipboard: () => ({ isSupported: true, copyText: copyCandidateText }),
-}))
-
-vi.mock('../../src/composables/ui/useConfirmDialog', () => ({
-  useConfirmDialog: () => ({ warning: confirmComparisonDeletion }),
-}))
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -472,51 +462,24 @@ describe('workspace session reactivity regression', () => {
     })
 
     await flushPromises()
-    await wrapper.get('[data-testid="open-saved-comparisons"]').trigger('click')
+    expect(wrapper.find('[data-testid="open-saved-comparisons"]').exists()).toBe(false)
+    const archive = createRunArchive(createDesktopRunRepository(new MemoryStorageProvider()), viewer)
+    const drawer = mount(DesktopRunsDrawer, { props: { show: true, viewer: archive } })
     await flushPromises()
-    expect(viewer.list).toHaveBeenCalledTimes(1)
-    await wrapper.get('[data-testid="saved-comparison-list-item"]').trigger('click')
+    await drawer.get('[data-testid="desktop-run-item"]').trigger('click')
     await flushPromises()
-
     expect(viewer.get).toHaveBeenCalledWith(comparisonId)
-    expect(wrapper.get('[data-testid="saved-comparison-detail"]').text()).toContain('Explain {{topic}}')
-    expect(wrapper.get('[data-testid="saved-comparison-input"]').text()).toBe('Explain the moon')
-    if (kind === 'prompts') {
-      expect(wrapper.get('[data-testid="saved-comparison-candidate-input"]').text()).toBe('Explain the moon in three bullets')
-      await wrapper.get('[data-testid="copy-saved-comparison-candidate"]').trigger('click')
-      expect(copyCandidateText).toHaveBeenLastCalledWith('Explain {{topic}} in three bullets')
-    } else {
-      expect(wrapper.find('[data-testid="saved-comparison-candidate-input"]').exists()).toBe(false)
-    }
-    const runA = wrapper.get('[data-testid="saved-comparison-run-a"]')
-    expect(runA.text()).toContain('Reasoning A')
-    expect(runA.text()).toContain('chat-completions')
-    expect(runA.text()).toContain('temperature')
-    const runB = wrapper.get('[data-testid="saved-comparison-run-b"]')
-    expect(runB.text()).toContain('Partial answer B')
-    expect(runB.text()).toContain('contextMode.savedComparisons.status.cancelled')
-
-    await wrapper.get('[data-testid="saved-comparisons-drawer"] .n-drawer-header__close').trigger('click')
-    await wrapper.get('[data-testid="open-saved-comparisons"]').trigger('click')
-    await flushPromises()
-    const lookup = wrapper.get('[data-testid="saved-comparison-id"] input')
-    await lookup.setValue(comparisonId)
-    await wrapper.get('[data-testid="saved-comparisons-drawer"] form').trigger('submit')
-    await flushPromises()
-    expect(viewer.list).toHaveBeenCalledTimes(2)
-    expect(viewer.get).toHaveBeenCalledTimes(2)
-    expect(wrapper.get('[data-testid="saved-comparison-detail"]').text()).toContain(comparisonId)
-
-    expect(viewer.delete).not.toHaveBeenCalled()
-    confirmComparisonDeletion.mockResolvedValueOnce(false).mockResolvedValueOnce(true)
-    await wrapper.get('[data-testid="saved-comparison-delete"]').trigger('click')
-    await flushPromises()
-    expect(viewer.delete).not.toHaveBeenCalled()
-    await wrapper.get('[data-testid="saved-comparison-delete"]').trigger('click')
-    await flushPromises()
+    const cards = drawer.findAll('[data-testid="batch-candidate"]')
+    expect(cards).toHaveLength(2)
+    expect(cards[0].text()).toContain('Explain the moon')
+    expect(cards[0].text()).toContain('Reasoning A')
+    expect(cards[1].text()).toContain('Partial answer B')
+    expect(cards[1].text()).toContain('cancelled')
+    if (kind === 'prompts') expect(cards[1].text()).toContain('Explain the moon in three bullets')
+    await expect(archive.delete(comparisonId, 999)).rejects.toThrow('REVISION_CONFLICT')
+    await archive.delete(comparisonId, 1000)
     expect(viewer.delete).toHaveBeenCalledExactlyOnceWith(comparisonId, fixture.revision)
-    expect(wrapper.find('[data-testid="saved-comparison-detail"]').exists()).toBe(false)
-
+    drawer.unmount()
     expect(store.prompt).toBe(draft.prompt)
     expect(store.optimizedPrompt).toBe(draft.optimizedPrompt)
     expect(store.temporaryVariables).toEqual(draft.temporaryVariables)

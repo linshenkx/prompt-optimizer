@@ -66,6 +66,9 @@ async function connectMcp(args = ['--product-url=' + defaultOrigin]) {
 }
 let client = await connectMcp(['--desktop-profile=' + desktopProfile]);
 const tools = (await client.listTools()).tools.map(tool => tool.name);
+assert.deepEqual([...tools].sort(), ['po_sources_list', 'po_sources_open', 'po_sources_authorize', 'po_sources_close', 'po_catalog',
+  'po_query', 'po_mutate', 'po_runs_start', 'po_runs_get', 'po_runs_list', 'po_runs_cancel', 'po_runs_save', 'po_runs_delete',
+  'po_resources', 'po_data_export_file'].sort());
 async function call(name, args = {}, allowedError) {
   const response = await client.callTool({ name, arguments: args }, undefined, { timeout: 20_000 });
   const result = response.structuredContent ?? JSON.parse(response.content[0].text);
@@ -186,14 +189,17 @@ async function workflow(browser, origin, name) {
       arguments: [{ title: `MCP ${name}`, content: 'Summarize {{subject}}.', tags: ['browser-acceptance'], functionMode: 'context', optimizationMode: 'user',
         metadata: { reproducibility: { variables: [{ name: 'subject', required: true }] } } }], expectedRevision: query.revision, requestKey: `create-${name}` });
     record.operations.push('po_query', 'po_desktop_mutate:addFavorite');
-    const assets = await call('po_assets_list', { connectionId: connection.connectionId });
+    const queryProduct = async (domain, operation, args = []) => (await call('po_query', {
+      connectionId: connection.connectionId, domain, operation, arguments: args,
+    })).result;
+    const assets = await queryProduct('assets', 'listAssets');
     const asset = assets.items.find(asset => asset.favoriteId === created.result);
-    assert(asset, 'MCP-written favorite must be readable via shared asset contract');
-    const version = await call('po_assets_get_version', { connectionId: connection.connectionId, favoriteId: asset.favoriteId, assetId: asset.assetId,
-      versionId: asset.currentVersionId, expectedRevision: asset.revision });
+    assert(asset);
+    const selection = { favoriteId: asset.favoriteId, assetId: asset.assetId, versionId: asset.currentVersionId, expectedRevision: asset.revision };
+    const version = await queryProduct('assets', 'getAssetVersion', [selection]);
     assert.equal(version.content.text, 'Summarize {{subject}}.');
-    record.operations.push('po_assets_list', 'po_assets_get_version');
-    const listedModels = await call('po_models_list', { connectionId: connection.connectionId });
+    record.operations.push('assets.listAssets', 'assets.getAssetVersion');
+    const listedModels = await queryProduct('models', 'getEnabledModels');
     assert(!JSON.stringify(listedModels).includes('LOCAL_ONLY_SYNTHETIC_KEY'));
     const { revision: runRevision } = await call('po_query', { connectionId: connection.connectionId, domain: 'favorites', operation: 'getFavorites' });
     async function textRun(requestKey, input) {
@@ -256,32 +262,28 @@ async function workflow(browser, origin, name) {
       assert.equal((await readFile(file)).subarray(0, 2).toString(), 'PK');
     }
     record.operations.push('po_runs_start:optimize', 'po_runs_get', 'po_runs_start:test', 'po_runs_get');
-    const candidates = ['a', 'b'].map(id => { const model = listedModels.items.find(item => item.configKey === `local-${id}`); assert(model?.executable); return { id, configKey: model.configKey, expectedRevision: model.revision }; });
-    const prepared = await call('po_tests_prepare', { connectionId: connection.connectionId,
-      source: { favoriteId: asset.favoriteId, assetId: asset.assetId, versionId: asset.currentVersionId, expectedRevision: asset.revision }, variables: { subject: name }, candidates });
-    await call('po_tests_execute', { connectionId: connection.connectionId, preparedId: prepared.preparedId, previewRevision: prepared.previewRevision });
-    let tested;
-    for (let attempt = 0; attempt < 30; attempt++) {
-      tested = await call('po_tests_get', { connectionId: connection.connectionId, preparedId: prepared.preparedId });
-      if (tested.runs.every(run => !['prepared', 'running'].includes(run.status))) break;
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    assert.deepEqual(tested.runs.map(run => run.status), ['success', 'success']);
-    assert(tested.runs.every(run => run.output.includes(`LOCAL_RESULT Summarize ${name}.`)));
-    const saved = await call('po_comparisons_save', { connectionId: connection.connectionId, preparedId: prepared.preparedId, saveKey: `save-${name}` });
-    assert.equal((await call('po_comparisons_save', { connectionId: connection.connectionId, preparedId: prepared.preparedId, saveKey: `save-${name}` })).comparisonId, saved.comparisonId);
+    const candidates = ['local-a', 'local-b'].map(modelKey => {
+      assert(listedModels.some(model => model.id === modelKey));
+      return { modelKey, source: selection, promptField: 'userPrompt', variables: { subject: name } };
+    });
+    const tested = await textRun('compare-' + name, { kind: 'test-batch', request: { candidates } });
+    assert.deepEqual(tested.output.map(run => run.status), ['succeeded', 'succeeded']);
+    assert(tested.output.every(run => run.output.includes(`LOCAL_RESULT Summarize ${name}.`)));
+    const save = () => call('po_runs_save', { connectionId: connection.connectionId, runId: tested.id });
+    const saved = await save();
+    assert.deepEqual(await save(), saved);
     record.saveRetryDeduplicated = true;
-    const reread = await call('po_comparisons_get', { connectionId: connection.connectionId, comparisonId: saved.comparisonId });
-    assert.equal(reread.comparison.executionSource.kind, 'browser');
-    record.operations.push('po_models_list', 'po_tests_prepare', 'po_tests_execute', 'po_tests_get', 'po_comparisons_save', 'po_comparisons_get');
+    const reread = await call('po_runs_get', { connectionId: connection.connectionId, runId: saved.id });
+    assert.deepEqual(reread.output, tested.output);
+    record.operations.push('models.getEnabledModels', 'po_runs_start:test-batch', 'po_runs_save', 'po_runs_get');
     await page.keyboard.press('Escape');
     await page.getByTestId('header-favorites-page-action').click();
     await page.getByText(`MCP ${name}`, { exact: true }).first().waitFor();
     record.favoriteVisibleInOriginalPage = true;
     await page.evaluate(() => { window.location.hash = '/pro/variable'; });
-    await page.getByTestId('open-saved-comparisons').first().click();
-    await page.getByTestId('saved-comparison-id').locator('input').fill(saved.comparisonId);
-    await page.getByTestId('saved-comparison-open').click();
+    await page.getByTestId('header-desktop-runs').click();
+    await page.getByTestId('desktop-run-id').locator('input').fill(saved.id);
+    await page.getByTestId('desktop-run-search').click();
     await page.getByText(`LOCAL_RESULT Summarize ${name}. temperature=0.2`, { exact: true }).first().waitFor();
     await page.getByText(`LOCAL_RESULT Summarize ${name}. temperature=0.8`, { exact: true }).first().waitFor();
     record.comparisonReopenedInOriginalPage = true;
@@ -289,7 +291,7 @@ async function workflow(browser, origin, name) {
     record.status = 'passed';
     record.source = { sourceId: source.sourceId, contextId: source.browserContextId, pageId: source.pageId };
     record.favoriteId = asset.favoriteId;
-    record.comparisonId = saved.comparisonId;
+    record.comparisonId = saved.id;
     openPages.push({ page, context, source, connection, asset, record });
   } catch (error) {
     record.status = 'failed'; record.failure = error.message;
@@ -320,7 +322,7 @@ try {
     assert.equal((await call('po_sources_authorize', {}, 'SOURCE_AMBIGUOUS')).error.code, 'SOURCE_AMBIGUOUS');
     assert.equal(new Set(sameOrigin.map(item => item.source.browserContextId)).size, sameOrigin.length);
     for (const item of sameOrigin) {
-      const assets = await call('po_assets_list', { connectionId: item.connection.connectionId });
+      const assets = (await call('po_query', { domain: 'assets', operation: 'listAssets', connectionId: item.connection.connectionId })).result;
       assert.deepEqual(assets.items.map(asset => asset.favoriteId), [item.asset.favoriteId]);
       item.record.sameOriginStorageIsolation = true;
     }
@@ -329,7 +331,7 @@ try {
     await item.page.keyboard.press('Escape');
     await item.page.getByTestId('browser-bridge-revoke').click();
     await new Promise(resolve => setTimeout(resolve, 100));
-    assert.equal((await call('po_assets_list', { connectionId: item.connection.connectionId }, 'CONNECTION_CLOSED')).error.code, 'CONNECTION_CLOSED');
+    assert.equal((await call('po_query', { domain: 'assets', operation: 'listAssets', connectionId: item.connection.connectionId }, 'CONNECTION_CLOSED')).error.code, 'CONNECTION_CLOSED');
     const offline = (await call('po_sources_list')).sources.find(source => source.sourceId === item.source.sourceId);
     assert.equal(offline?.availability, 'offline');
     assert.equal(offline.authorizedAccess, undefined);
@@ -351,13 +353,13 @@ try {
     assert.equal((await call('po_sources_open', { sourceId: source.sourceId, access: 'write' }, 'BUSINESS_ACCESS_REQUIRED')).error.code, 'BUSINESS_ACCESS_REQUIRED');
     assert.equal((await call('po_mutate', { connectionId: reopened.connectionId, domain: 'favorites', operation: 'deleteFavorite', arguments: [item.record.favoriteId],
       expectedRevision: 'denied', requestKey: `denied-${item.record.name}` }, 'BUSINESS_ACCESS_REQUIRED')).error.code, 'BUSINESS_ACCESS_REQUIRED');
-    assert.equal((await call('po_comparisons_get', { connectionId: reopened.connectionId, comparisonId: item.record.comparisonId })).comparison.id, item.record.comparisonId);
+    assert.equal((await call('po_runs_get', { connectionId: reopened.connectionId, runId: item.record.comparisonId })).id, item.record.comparisonId);
     assert.equal((await call('po_runs_get', { connectionId: reopened.connectionId, runId: item.record.textRuns.testId })).saved, true);
     item.record.persistedAfterPageReload = true;
     item.record.readonlyWriteDenied = true;
     await item.context.close();
     await new Promise(resolve => setTimeout(resolve, 100));
-    assert.equal((await call('po_assets_list', { connectionId: reopened.connectionId }, 'CONNECTION_CLOSED')).error.code, 'CONNECTION_CLOSED');
+    assert.equal((await call('po_query', { domain: 'assets', operation: 'listAssets', connectionId: reopened.connectionId }, 'CONNECTION_CLOSED')).error.code, 'CONNECTION_CLOSED');
     item.record.closedPageConnectionInvalid = true;
   }
   for (const browser of browsers.splice(0)) await browser.close();

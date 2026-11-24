@@ -1,5 +1,6 @@
 const messages = {
   desktopRuns: {
+    systemPrompt: '系統提示詞', userPrompt: '使用者提示詞', reasoning: '推理過程',
     runId: '執行標識', refresh: '重新整理', empty: '尚無已儲存的 MCP 執行成果', error: '讀取失敗，請重新整理後重試',
     output: '執行結果', input: '凍結的輸入', deleteConfirm: '永久刪除此成果？不會刪除收藏和工作區草稿。',
     kinds: { optimize: '提示詞最佳化', 'optimize-message': '訊息最佳化', iterate: '提示詞迭代', test: '單次測試',

@@ -96,18 +96,18 @@ try {
     assert.equal(JSON.stringify(value).includes(credential), false);
     return value;
   };
-  const sourceId = (await call('po_sources_list')).sources[0].sourceId;
-  const query = (domain, operation, args = []) => call('po_desktop_query', { sourceId, domain, operation, arguments: args });
-  const mutate = async (operation, args, requestKey) => call('po_desktop_mutate', { sourceId, domain: 'favorites', operation, arguments: args, requestKey,
+  const { connectionId } = await call('po_sources_open', { access: 'write' });
+  const query = (domain, operation, args = []) => call('po_query', { connectionId, domain, operation, arguments: args });
+  const mutate = async (operation, args, requestKey) => call('po_mutate', { connectionId, domain: 'favorites', operation, arguments: args, requestKey,
     expectedRevision: (await query('favorites', 'getFavorites')).revision });
   const start = async (kind, request, inputRunId) => {
     const revision = (await query('models', 'getAllModels')).revision;
     const input = { kind, request }; if (inputRunId) input.inputRunId = inputRunId;
-    const started = await call('po_runs_start', { sourceId, requestKey: `ui-${kind}`, expectedRevision: revision, input });
+    const started = await call('po_runs_start', { connectionId, requestKey: `ui-${kind}`, expectedRevision: revision, input });
     const deadline = Date.now() + 20000;
     while (Date.now() < deadline) {
-      const run = await call('po_runs_get', { sourceId, runId: started.id });
-      if (run.status !== 'running') { assert.equal(run.status, 'succeeded', JSON.stringify(run)); await call('po_runs_save', { sourceId, runId: run.id }); return run; }
+      const run = await call('po_runs_get', { connectionId, runId: started.id });
+      if (run.status !== 'running') { assert.equal(run.status, 'succeeded', JSON.stringify(run)); await call('po_runs_save', { connectionId, runId: run.id }); return run; }
       await delay(50);
     }
     throw new Error('Model fixture timed out');
@@ -134,7 +134,7 @@ try {
           if (child.exitCode !== null || Date.now() > deadline) throw new Error(`Product UI not ready; evidence: ${root}`);
           await delay(100);
         }
-        const resource = (operation, values = {}) => call('po_resources', { sourceId, requestKey: `${phase}-${operation}`, operation, ...values });
+        const resource = (operation, values = {}) => call('po_resources', { connectionId, requestKey: `${phase}-${operation}`, operation, ...values });
         const image = join(root, 'pixel.png');
         if (phase === 'product') {
           await writeFile(image, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/ZwAAAABJRU5ErkJggg==', 'base64'));
