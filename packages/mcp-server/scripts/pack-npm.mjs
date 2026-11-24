@@ -42,7 +42,8 @@ async function collectNotices(builds) {
   return [...new Set(notices)].sort().join('\n\n' + '-'.repeat(72) + '\n\n') + '\n';
 }
 
-const repoBlobBase = 'https://github.com/linshenkx/prompt-optimizer/blob/master/';
+const productVersion = JSON.parse(await readFile(join(repoDir, 'package.json'), 'utf8')).version;
+const repoBlobBase = `https://github.com/linshenkx/prompt-optimizer/blob/v${productVersion}/`;
 
 function rewriteReadmeLinks(markdown) {
   return markdown.replace(/\]\(\.\.\/\.\.\/([^)\s]+)\)/g, (_, target) => `](${repoBlobBase}${target})`);

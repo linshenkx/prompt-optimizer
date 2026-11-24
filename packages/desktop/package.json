@@ -1,6 +1,6 @@
 {
   "name": "@prompt-optimizer/desktop",
-  "version": "2.17.0-beta.2",
+  "version": "2.17.0-beta.3",
   "description": "Desktop application for Prompt Optimizer",
   "main": "main.js",
   "repository": {
@@ -62,7 +62,9 @@
         {
           "from": "../../.agents/skills/prompt-optimizer-compare",
           "to": "skills/prompt-optimizer-compare",
-          "filter": ["SKILL.md"]
+          "filter": [
+            "SKILL.md"
+          ]
         }
       ],
       "target": [

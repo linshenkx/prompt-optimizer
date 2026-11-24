@@ -1,6 +1,7 @@
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { version } from '../package.json';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, type Tool } from '@modelcontextprotocol/sdk/types.js';
 import {
@@ -192,7 +193,7 @@ export function createProductServer(
     return { ...models, items: models.items.map(model => ({ ...model, executable: false })) };
   }
 
-  const server = new Server({ name: 'prompt-optimizer', version: '0.1.1' }, { capabilities: { tools: {} } });
+  const server = new Server({ name: 'prompt-optimizer', version }, { capabilities: { tools: {} } });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
   server.setRequestHandler(CallToolRequestSchema, async request => {
     try {

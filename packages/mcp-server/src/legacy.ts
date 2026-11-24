@@ -31,6 +31,7 @@
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { version } from '../package.json';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { ListToolsRequestSchema, CallToolRequestSchema, isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
@@ -48,7 +49,7 @@ async function createServerInstance(config: MCPServerConfig) {
   // 创建 MCP Server 实例 - 使用正确的 API
   const server = new Server({
     name: 'prompt-optimizer-mcp-server',
-    version: '0.1.1'
+    version
   }, {
     capabilities: {
       tools: {}

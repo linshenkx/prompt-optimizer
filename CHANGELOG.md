@@ -2,6 +2,10 @@
 
 Full release narratives now live in versioned files under `releases/`. This file stays as the index and summary entry point.
 
+## [2.17.0-beta.3] - 2026-11-24
+- EN: Connect an MCP client to desktop SQLite or an authorized browser profile to optimize prompts, test models and reopen saved results. See [Release Notes (EN)](releases/v2.17.0-beta.3.en.md).
+- 中文：MCP 默认连接桌面 SQLite，也支持按浏览器资料授权连接网页，使用已有模型优化、测试提示词并重开已保存结果。参见 [版本说明（中文）](releases/v2.17.0-beta.3.zh-CN.md)。
+
 ## [2.17.0-beta.2] - 2026-11-24
 - EN: Preview desktop shared SQLite storage with automatic first-run migration from legacy JSON, safer quit and startup error handling, and atomic concurrency fixes for history, templates, preferences, and IndexedDB updates. See [Release Notes (EN)](releases/v2.17.0-beta.2.en.md).
 - 中文：本预览版将桌面端结构化存储切换为本地 SQLite（WAL 模式），首次启动自动从旧版 JSON 原子迁移并保留历史文件，同时强化退出保存、启动异常提示及历史/模板/偏好/IndexedDB 并发一致性。参见 [版本说明（中文）](releases/v2.17.0-beta.2.zh-CN.md)。

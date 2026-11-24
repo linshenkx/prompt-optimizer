@@ -1,4 +1,5 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { version } from '../package.json';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, type Tool } from '@modelcontextprotocol/sdk/types.js';
 import {
@@ -44,7 +45,7 @@ export function createBrowserServer(transport = createBrowserTransport()) {
     ...(tool.name === 'po_sources_open' ? { inputSchema: { ...tool.inputSchema,
       properties: { sourceId: text, access: { type: 'string', enum: ['read', 'compare'] } } } } : {}),
   })), ...extraSpecs];
-  const server = new Server({ name: 'prompt-optimizer-browser', version: '0.1.1' }, { capabilities: { tools: {} } });
+  const server = new Server({ name: 'prompt-optimizer-browser', version }, { capabilities: { tools: {} } });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
 
   async function callTool(name: string, input: Record<string, unknown> = {}) {

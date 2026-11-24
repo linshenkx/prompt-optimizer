@@ -1,4 +1,5 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { version } from '../package.json';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, type Tool } from '@modelcontextprotocol/sdk/types.js';
 import type { AssetVersionSelection } from '@prompt-optimizer/core/asset-reader';
@@ -181,7 +182,7 @@ function createDesktopServer(access: DesktopAccess, router: DesktopRouter) {
   const dispatcher = createDesktopToolDispatcher(access, router);
   const server = new Server({
     name: access === 'compare' ? 'prompt-optimizer-desktop-comparison' : 'prompt-optimizer-desktop-readonly',
-    version: '0.1.1',
+    version,
   }, { capabilities: { tools: {} } });
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: dispatcher.specs }));

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { version } from '../package.json';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, type Tool } from '@modelcontextprotocol/sdk/types.js';
 import { openExistingDesktopStorageForWriting, type ExistingSQLiteStorage } from '@prompt-optimizer/core/node';
@@ -85,7 +86,7 @@ export function createDesktopBusinessServer(profiles: DesktopProfile[]) {
   const isComparisonTool = (name: string) => name !== 'po_sources_list' && comparison.has(name);
   const tools = [...desktopBusinessTools, ...comparison.specs.filter(tool => isComparisonTool(tool.name))];
   const sourceLeases = new Map<string, Promise<BusinessSource>>();
-  const server = new Server({ name: 'prompt-optimizer-desktop', version: '0.2.0' }, { capabilities: { tools: {} } });
+  const server = new Server({ name: 'prompt-optimizer-desktop', version }, { capabilities: { tools: {} } });
   let closing: Promise<void> | undefined;
   const open = async (sourceId: string) => {
     if (closing) throw new DesktopBusinessError('SOURCE_CLOSING');

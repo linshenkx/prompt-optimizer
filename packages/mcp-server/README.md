@@ -2,7 +2,7 @@
 
 ## 新版 MCP
 
-运行 `prompt-optimizer-product-mcp`，默认连接当前用户已有的桌面资料。桌面安装包可通过帮助菜单复制 Codex MCP 配置；源码构建可运行：
+运行 `prompt-optimizer-product-mcp`，默认连接当前用户已有的桌面资料。Windows 安装包的帮助菜单可复制 Codex MCP 配置。使用 npm beta 包时，在 MCP 客户端指定 Node 24.22.1 的 `npx`（Windows 使用 `npx.cmd`），参数为 `--yes --package=@prompt-optimizer/mcp-server@beta prompt-optimizer-product-mcp`。源码构建可运行：
 
 ```powershell
 node packages/mcp-server/bin/prompt-optimizer-product-mcp.cjs
