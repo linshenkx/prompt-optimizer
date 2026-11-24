@@ -107,7 +107,6 @@ const {
 const {
   openDesktopStorage,
   DESKTOP_DATABASE_FILENAME,
-  DESKTOP_STORAGE_DIVERGENCE_REASON,
   DESKTOP_STORAGE_WAL_UNSUPPORTED_REASON,
 } = require('@prompt-optimizer/core/node');
 const { createElectronImageInputConverter } = require('./config/image-input-normalizer');
@@ -752,7 +751,6 @@ async function initializeServices() {
         locale: getCurrentUiLocale(),
         userDataPath,
         stage: startupStage,
-        divergenceReason: DESKTOP_STORAGE_DIVERGENCE_REASON,
         walUnsupportedReason: DESKTOP_STORAGE_WAL_UNSUPPORTED_REASON,
       });
     } catch (dialogError) {

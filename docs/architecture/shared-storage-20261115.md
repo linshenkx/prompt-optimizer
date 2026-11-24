@@ -6,7 +6,7 @@
 
 - 使用运行时内置 `node:sqlite`，无新增数据库服务、第三方原生驱动或安装依赖。仓库 Node 要求 `^24.22.1`，锁定 Electron `44.9.3`；实际 Windows x64 Electron 内嵌 Node `24.22.0`、SQLite `3.53.4`。终端默认 Node 26，验证另用隔离下载的 Node `24.22.1`，未切换全机版本。
 - Node 专用入口 `@prompt-optimizer/core/node` 导出 `SQLiteStorageProvider`、`openDesktopStorage` 和文件名常量。通用入口不引用 SQLite；工厂识别 `sqlite` 类型但要求从专用入口显式创建，避免缓存错误的数据路径。构建必须保留 `node:` 前缀，tsup 默认会删除它。
-- 业务仍为字符串 KV，表 `storage_kv(key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT`；不改变模型、模板、历史等 JSON 内容。迁移状态在独立 `storage_metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT` 表，不占业务键；标记键为 `legacy-json-migration`，值包含 `{version:1,source:'json'|'backup'|'empty',itemCount:n}`。v2.16.0 集成线又加入内容指纹，详见下方分叉检查。
+- 业务仍为字符串 KV，表 `storage_kv(key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT`；不改变模型、模板、历史等 JSON 内容。迁移状态在独立 `storage_metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT` 表，不占业务键；标记键为 `legacy-json-migration`，值包含 `{version:1,source:'json'|'backup'|'empty',itemCount:n}`。
 - WAL、`synchronous=FULL`；`set/remove/clear/updateData/CAS/batch` 使用短写事务。先 `BEGIN IMMEDIATE` 再读数据。默认一次 native 锁等待 50ms，最多重试 12 次、间隔 25ms，仅重试获取事务，不重放已执行的业务回调。实际墙钟等待受运行时调度影响，不是实时保证。
 - `updateData` 回调必须同步、无网络或其他 I/O。解析失败、不可序列化、回调异常或 SQL 异常均不提交；业务异常透传。批量中任何操作失败则整体回滚。失败后连接可继续使用；若回滚本身失败则禁用连接。`close()` 幂等、等待已排队操作，拒绝新增请求；`flush()` 无整文件写入或强制 checkpoint。
 
@@ -20,7 +20,7 @@
 | 主 JSON 缺失/格式无效、已有 `.json.backup` 有效 | 从已有副本导入；两份旧文件都不修改 |
 | 两份旧源均不存在 | 初始化空库并标记，防止以后误导入陈旧文件 |
 | 存在但无有效旧源，或读权限/I/O 错误 | 拒绝迁移，保持源不变，不创建成功标记 |
-| 有版本 1 的有效完成标记 | 继续以 SQLite 为准。桌面启动及显式可写接入先检查本地旧源是否分叉，判断见下方 |
+| 有版本 1 的有效完成标记 | 直接以 SQLite 为准，不再重新读取或比对旧 JSON；原 JSON 保留为升级前历史快照 |
 | 无标记但业务表非空、未知标记版本、新库损坏 | 停止启动，要求明确处理，不合并、不覆盖、不自动退回 JSON |
 | 现存库缺表、结构不兼容、未知 user_version、非 WAL 或零字节文件 | 拒绝启动，不补空表、不修复、不重导旧 JSON；零字节文件仅有界等待并发冷启动写入头部 |
 
@@ -142,30 +142,19 @@
 
 测试已改为只允许已安装的开发 Electron 解释器；可选参数只能是 `.asar` 文件，EXE 参数在启动进程前即拒绝。对应回归检查覆盖单个 EXE 参数与 EXE + ASAR 两种误用，均已通过。helper 先断言目录属于本轮临时目录，再设置 `app.setPath('userData', directory)` / `sessionData` 并核对 userData；之后才在 `whenReady` 回调里加载存储模块、读取测试源并调用 `openDesktopStorage`，所以应用存储初始化在隔离路径设置后发生。后续打包模块检查采用此路径并已通过。脚本及验证入口分别为 `scripts/sqlite-electron-smoke.mjs`、`scripts/helpers/sqlite-electron-smoke.cjs` 和 `scripts/sqlite-migration.test.mjs`，无需为文档收尾重跑已通过检查。
 
-## v2.16.0 集成中的迁移分叉检查
+## 迁移后单源写入约定
 
-SQLite 的迁移标记保留版本 1 和原始迁移来源与数量。新标记追加按键排序的实际迁移 KV 的 SHA-256 指纹。迁移来源是主 JSON 时，同时尽力记录已存在、可读备份的指纹，供主文件缺失或损坏时识别历史备份。表和业务值沿用旧结构，标记的公开读取结果仍只有版本、来源和迁移数量。
+SQLite 的迁移标记保留版本 1 和原始迁移来源与数量，并在读取时兼容历史上已写入过 `sourceFingerprint` / `backupFingerprint` 字段的旧版标记。一旦版本 1 完成标记提交，后续桌面启动和 `openExistingDesktopStorageForWriting` 均以 SQLite 为唯一权威数据源，不再反复读取、解析或比对历史 `prompt-optimizer-data.json`；原 `prompt-optimizer-data.json` 与已有 `.backup` 会继续原样保留在目录中，作为升级前的静态历史快照供必要时回退查看。
 
-| 迁移后旧源状态 | 决策 |
-| --- | --- |
-| 可读主 JSON 与已迁移指纹相同 | 启动或接入已有 SQLite，保留其中的新增数据。JSON 外层顺序、缩进和换行可以变化 |
-| 主 JSON 缺失或损坏，现有备份匹配原迁移源或当时已记录的备份 | 启动或接入已有 SQLite |
-| 主 JSON 和备份均缺失或格式无效 | 沿用 SQLite 的已提交数据 |
-| 现有可读旧源与 SQLite 的全部业务 KV 相同，包括旧标记缺少指纹的情况 | 在事务内更新来源指纹，保留原业务 KV |
-| 有可读旧源，无法通过指纹确认其历史来源，且与当前 SQLite 的业务 KV 不同 | 报出 `StorageError.params.reason = 'DESKTOP_STORAGE_DIVERGED'`，两个存储均保留，供明确核对 |
-| 当前需要读取的旧文件出现权限或 I/O 错误 | 拒绝继续。读取有效主文件后的历史备份指纹采集失败时，仍可使用已确认的主文件 |
-
-`openExistingDesktopStorageForWriting(absoluteUserDataPath, options?)` 只允许打开已有、通过校验的桌面 SQLite。原生 SQLite 的 `mode=rw` 会在文件消失时拒绝打开。连接在打开和获取写锁后检查文件标识，并在写事务内核对旧 JSON 分叉。旧会话持有的文件被替换时应重开来源。文件标识用于本机连接期间的替换检查。旧版 JSON 进程不会协调 SQLite 的事务，因此使用同一目录前仍须退出旧版。若需要核对现场，可使用现有只读入口导出 SQLite 的当前 KV，原 JSON 和原有备份仍提供另一份来源。
+`openExistingDesktopStorageForWriting(absoluteUserDataPath, options?)` 只允许打开已有、通过校验的桌面 SQLite。原生 SQLite 的 `mode=rw` 会在文件消失时拒绝打开。连接在打开和获取写锁后检查文件标识与迁移标记，旧会话持有的文件被替换时应重开来源。文件标识用于本机连接期间的替换检查。旧版 JSON 进程不会协调 SQLite 的事务，因此使用同一目录前仍须退出旧版。若需要核对现场，可使用现有只读入口导出 SQLite 的当前 KV，原 JSON 和原有备份仍提供升级前快照。
 
 `withWriteTransaction` 提供在单个同步回调内读写多条 KV 的接口。回调抛错或返回异步结果会回滚，回调返回后该事务对象失效。该接口用于把一份比较记录与其索引一起提交。 `getEntriesByPrefix` 从同一个 SQL 读快照获取匹配前缀的业务 KV，按实际字符串匹配。
-
-用隔离的合成目录验证了 27 项迁移与既有库用例。覆盖新版指纹、历史备份、旧标记兼容、分叉后两个存储保留、已经打开的可写连接拒绝后续分叉，以及同步事务的回滚与只读约束。
 
 ## 下一阶段约束
 
 调用约定：`new SQLiteStorageProvider(databasePath, options?)` 是底层可写 KV 接口，可创建新库，不检查桌面迁移状态；`await openDesktopStorage(userDataPath, options?)` 返回 `{ provider, migration }`，会建目录、建 schema、必要时导入旧源。第 3 轮新增的 `openExistingDesktopStorage(absoluteUserDataPath, options?)` 也返回 `{ provider, migration }`，但固定使用原生只读连接，只接受已存在、已迁移且结构兼容的库。连接均通过 `await provider.close()` 关闭；不能把底层构造器当作 existing-only 入口。
 
-第 3 步 MCP 复用同一 SQLite provider、业务数据格式和用户明确选择的桌面 userData，但默认接入不能调用会创建和迁移数据的 `openDesktopStorage` bootstrap。默认只读访问可使用第 3 轮新增的 existing-only 入口，或使用受控桌面桥接；缺库、未迁移或状态异常时明确报错，不静默建库、建 schema、迁移或创建默认业务数据。集成版本将显式可写入口用于比较记录。可写入口检查已完成的迁移和分叉，普通业务仍由产品和各自服务控制。缓存刷新和业务并发按对应服务的边界处理。不得在数据库事务里运行模型请求，也不能把 SQLite 文件放在网络共享目录上。
+第 3 步 MCP 复用同一 SQLite provider、业务数据格式和用户明确选择的桌面 userData，但默认接入不能调用会创建和迁移数据的 `openDesktopStorage` bootstrap。默认只读访问可使用第 3 轮新增的 existing-only 入口，或使用受控桌面桥接；缺库、未迁移或状态异常时明确报错，不静默建库、建 schema、迁移或创建默认业务数据。集成版本将显式可写入口用于比较记录。可写入口检查已完成的迁移和文件标识，普通业务仍由产品和各自服务控制。缓存刷新和业务并发按对应服务的边界处理。不得在数据库事务里运行模型请求，也不能把 SQLite 文件放在网络共享目录上。
 
 第 4 步浏览器仍是 Dexie/IndexedDB，需要另行研究经过授权的 Chrome 数据桥接。桌面的 `PromptOptimizerImageDB` 和 `PromptOptimizerFavoriteImageDB` 也仍在 renderer IndexedDB，本次没有迁移图片。第 5 步已提前与第 3 步并行设计，按工具已有的多模型测试、比较、评估能力梳理 MCP；设计并行不表示共享数据接入或业务写入已经验收。第 6 步最后考虑 Skill，不引入项目管理服务。
 

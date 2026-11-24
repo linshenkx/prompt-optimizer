@@ -4,11 +4,6 @@ const DIALOG_COPY = {
     directoryLabel: '数据目录',
     openDirectoryFailedTitle: '无法打开数据目录',
     openDirectoryFailedMessage: '请手动打开以下数据目录排查：',
-    diverged: {
-      title: '请核对桌面数据',
-      message: '发现旧版 JSON 和 SQLite 的数据可能已分开更新，升级已暂停。',
-      detail: '原 prompt-optimizer-data.json、prompt-optimizer-data.sqlite 及可能存在的辅助文件均已保留。请点击“打开数据目录”核对两份数据后再继续启动。',
-    },
     wal: {
       title: '当前目录不支持桌面存储',
       message: '当前数据目录所在磁盘或文件系统不支持 SQLite WAL 模式，应用已暂停启动。',
@@ -30,11 +25,6 @@ const DIALOG_COPY = {
     directoryLabel: '資料目錄',
     openDirectoryFailedTitle: '無法開啟資料目錄',
     openDirectoryFailedMessage: '請手動開啟以下資料目錄排查：',
-    diverged: {
-      title: '請核對桌面資料',
-      message: '發現舊版 JSON 和 SQLite 的資料可能已分開更新，升級已暫停。',
-      detail: '原 prompt-optimizer-data.json、prompt-optimizer-data.sqlite 及可能存在的輔助檔案均已保留。請點擊「開啟資料目錄」核對兩份資料後再繼續啟動。',
-    },
     wal: {
       title: '目前目錄不支援桌面儲存',
       message: '目前資料目錄所在磁碟或檔案系統不支援 SQLite WAL 模式，應用程式已暫停啟動。',
@@ -56,11 +46,6 @@ const DIALOG_COPY = {
     directoryLabel: 'Data directory',
     openDirectoryFailedTitle: 'Could not open data directory',
     openDirectoryFailedMessage: 'Open this data directory manually:',
-    diverged: {
-      title: 'Review desktop data before upgrading',
-      message: 'The legacy JSON and SQLite data may have changed independently, so startup was paused.',
-      detail: 'Your prompt-optimizer-data.json, prompt-optimizer-data.sqlite, and any existing companion files were kept intact. Open the data directory to inspect both copies before restarting.',
-    },
     wal: {
       title: 'Desktop storage unsupported in this directory',
       message: 'The filesystem for your data directory does not support SQLite WAL mode, so startup was paused.',
@@ -88,18 +73,15 @@ function buildStorageStartupErrorDialog({
   locale = 'en-US',
   userDataPath = '',
   stage = 'storage',
-  divergenceReason = 'DESKTOP_STORAGE_DIVERGED',
   walUnsupportedReason = 'DESKTOP_STORAGE_WAL_UNSUPPORTED',
 } = {}) {
   const copy = DIALOG_COPY[resolveLocale(locale)];
   const reason = error?.params?.reason;
   const category = stage === 'services'
     ? 'services'
-    : reason === divergenceReason
-      ? 'diverged'
-      : reason === walUnsupportedReason
-        ? 'wal'
-        : 'storage';
+    : reason === walUnsupportedReason
+      ? 'wal'
+      : 'storage';
   const entry = copy[category];
   const detailParts = [entry.detail];
   if (typeof userDataPath === 'string' && userDataPath.trim()) {
@@ -126,7 +108,6 @@ async function showStorageStartupErrorDialog({
   locale = 'en-US',
   userDataPath = '',
   stage = 'storage',
-  divergenceReason = 'DESKTOP_STORAGE_DIVERGED',
   walUnsupportedReason = 'DESKTOP_STORAGE_WAL_UNSUPPORTED',
 } = {}) {
   const config = buildStorageStartupErrorDialog({
@@ -134,7 +115,6 @@ async function showStorageStartupErrorDialog({
     locale,
     userDataPath,
     stage,
-    divergenceReason,
     walUnsupportedReason,
   });
   const result = await dialog.showMessageBox({
