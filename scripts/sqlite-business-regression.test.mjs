@@ -100,6 +100,7 @@ async function seed(app) {
   });
   await app.favorites.addTag('尚未使用的标签');
   await app.preferences.set('app:settings:ui:theme-id', 'dark');
+  await app.templates.changeBuiltinTemplateLanguage('zh-CN');
   await app.preferences.set('global-settings/v1', { selectedThemeId: 'dark', builtinTemplateLanguage: 'zh-CN' });
   await app.preferences.set('variableManager.storage', {
     customVariables: { tone: '简明', text: '变量值\n末行' }, advancedModeEnabled: true,
