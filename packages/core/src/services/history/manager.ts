@@ -126,15 +126,13 @@ export class HistoryManager implements IHistoryManager {
    */
   async deleteRecord(id: string): Promise<void> {
     try {
-      const records = await this.getRecords();
-      const recordIndex = records.findIndex(r => r.id === id);
-      
-      if (recordIndex === -1) {
-        throw new RecordNotFoundError(`Record with ID ${id} not found`, id);
-      }
-      
-      records.splice(recordIndex, 1);
-      await this.saveToStorage(records);
+      await this.storage.updateData<PromptRecord[]>(this.storageKey, current => {
+        const records = current ?? [];
+        if (!records.some(r => r.id === id)) {
+          throw new RecordNotFoundError(`Record with ID ${id} not found`, id);
+        }
+        return records.filter(r => r.id !== id);
+      });
     } catch (err) {
       if (err instanceof RecordNotFoundError) {
         throw err;
@@ -241,33 +239,63 @@ export class HistoryManager implements IHistoryManager {
     iterationNote?: string;
     metadata?: Record<string, any>;
   }): Promise<PromptRecordChain> {
-    // Get the chain to ensure it exists and get current version
-    const chain = await this.getChain(params.chainId);
-    
-    // Generate new record ID
-    const newId = uuidv4();
-    
-    // Create new record with chainId and incremented version
-    const record: PromptRecord = {
-      id: newId,
-      chainId: params.chainId,
-      originalPrompt: params.originalPrompt,
-      optimizedPrompt: params.optimizedPrompt,
-      type: 'iterate',
-      version: chain.currentRecord.version + 1,
-      previousId: chain.currentRecord.id,
-      timestamp: Date.now(),
-      modelKey: params.modelKey,
-      templateId: params.templateId,
-      iterationNote: params.iterationNote,
-      metadata: params.metadata
-    };
-    
-    // Add record
-    await this.addRecord(record);
-    
-    // Return the updated chain
-    return this.getChain(params.chainId);
+    const modelName = params.modelKey ? await this.getModelNameByKey(params.modelKey) : undefined;
+    let updatedChain: PromptRecordChain | undefined;
+
+    await this.storage.updateData<PromptRecord[]>(this.storageKey, existingRecords => {
+      const records = existingRecords ?? [];
+      const chainRecords = records.filter(r => r.chainId === params.chainId);
+      if (chainRecords.length === 0) {
+        throw new RecordNotFoundError(`Chain with ID ${params.chainId} not found`, params.chainId);
+      }
+
+      const sortedRecords = [...chainRecords].sort((a, b) => a.version - b.version);
+      const rootRecord = sortedRecords.find(r => r.version === 1);
+      if (!rootRecord) {
+        throw new HistoryError(
+          HISTORY_ERROR_CODES.CHAIN_ERROR,
+          { details: `Chain ${params.chainId} has no root record (version 1)` },
+          `Chain ${params.chainId} has no root record (version 1)`
+        );
+      }
+
+      const currentRecord = sortedRecords[sortedRecords.length - 1];
+      const record: PromptRecord = {
+        id: uuidv4(),
+        chainId: params.chainId,
+        originalPrompt: params.originalPrompt,
+        optimizedPrompt: params.optimizedPrompt,
+        type: 'iterate',
+        version: currentRecord.version + 1,
+        previousId: currentRecord.id,
+        timestamp: Date.now(),
+        modelKey: params.modelKey,
+        ...(modelName !== undefined ? { modelName } : {}),
+        templateId: params.templateId,
+        iterationNote: params.iterationNote,
+        metadata: params.metadata
+      };
+
+      this.validateRecord(record);
+      if (records.some(r => r.id === record.id)) {
+        throw new HistoryError(
+          HISTORY_ERROR_CODES.VALIDATION_ERROR,
+          { details: `Record with ID ${record.id} already exists` },
+          `Record with ID ${record.id} already exists`
+        );
+      }
+
+      updatedChain = {
+        chainId: params.chainId,
+        rootRecord,
+        currentRecord: record,
+        versions: [...sortedRecords, record]
+      };
+
+      return [record, ...records].slice(0, this.maxRecords);
+    });
+
+    return updatedChain!;
   }
 
   /**
@@ -366,14 +394,14 @@ export class HistoryManager implements IHistoryManager {
    * @param chainId The ID of the chain to delete
    */
   async deleteChain(chainId: string): Promise<void> {
-    const allRecords = await this.getRecords();
-    const recordsToKeep = allRecords.filter(record => record.chainId !== chainId);
-
-    if (recordsToKeep.length === allRecords.length) {
-      throw new RecordNotFoundError(`Chain with ID ${chainId} not found`, chainId);
-    }
-
-    await this.saveToStorage(recordsToKeep);
+    await this.storage.updateData<PromptRecord[]>(this.storageKey, current => {
+      const records = current ?? [];
+      const recordsToKeep = records.filter(record => record.chainId !== chainId);
+      if (recordsToKeep.length === records.length) {
+        throw new RecordNotFoundError(`Chain with ID ${chainId} not found`, chainId);
+      }
+      return recordsToKeep;
+    });
   }
 
   // 实现 IImportExportable 接口

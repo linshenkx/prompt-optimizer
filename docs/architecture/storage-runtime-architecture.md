@@ -44,16 +44,18 @@
 
 ### 2. Desktop 结构化主存储
 
-- 介质：主进程 JSON 文件
-- 实现：`FileStorageProvider`
-- 主文件：`<userData>/prompt-optimizer-data.json`
-- 备份文件：`<userData>/prompt-optimizer-data.json.backup`
-- 写入方式：内存镜像 + 延迟写盘 + 原子替换 + 备份恢复
-- `.backup` 只覆盖这个结构化主文件，不包含两个图片 IndexedDB 或远程连接的 localStorage，不能单独用作完整设备迁移包。
+- 介质：主进程 SQLite 文件
+- 实现：`SQLiteStorageProvider`（`@prompt-optimizer/core/node`）
+- 主文件：`<userData>/prompt-optimizer-data.sqlite`，附带 SQLite 管理的 `-wal` / `-shm`
+- 写入方式：WAL + 短事务；写入 Promise 成功即已提交，无整文件内存镜像或延迟写入
+- 首次启动通过 `openDesktopStorage` 导入原 `prompt-optimizer-data.json`，复制、校验及完成标记同事务提交；保留旧源，不新增备份。主源损坏或缺失时可读取已有 `.json.backup`。
+- 完成后以 SQLite 为准，不再写入旧 JSON 或自动回退；异常状态停止启动，旧源保持可读。详见 [共享存储实施与验证](shared-storage-20261115.md)。
+- 本次只迁移结构化键值，不包含两个图片 IndexedDB 或远程连接的 localStorage，不能单独用作完整设备迁移包。
 
 相关文件：
 
-- `packages/core/src/services/storage/fileStorageProvider.ts`
+- `packages/core/src/services/storage/sqliteStorageProvider.ts`
+- `packages/core/src/services/storage/desktopStorage.ts`
 - `packages/desktop/main.js`
 
 ### 3. Session 图片资产库
@@ -107,7 +109,7 @@
 
 ## 🗂️ 二、结构化主存储里的逻辑分区
 
-虽然 Web 物理上只有 `PromptOptimizerDB.storage` 一张表，Desktop 物理上只有一个 JSON 文件，但逻辑上可以拆成以下几块。
+虽然 Web 物理上只有 `PromptOptimizerDB.storage` 一张表，Desktop 的业务键值也在同一 SQLite 表中，但逻辑上可以拆成以下几块。
 
 ### 1. `pref:*` 命名空间
 
@@ -399,19 +401,20 @@ Prompt Garden 导入链路已经改成严格模式：
 
 - `packages/core/src/services/history/manager.ts`
 
-### 5. Desktop 文件存储运行特性
+### 5. Desktop SQLite 运行特性
 
-Desktop 主存储没有应用层固定大小上限，但有运行时写盘策略：
+Desktop 主存储没有应用层固定大小上限；每个连接使用：
 
-- 延迟写入：`500ms`
-- 最大 flush 超时：`3s`
-- 自动备份恢复：主文件失败时尝试 backup
+- WAL 与 `synchronous=FULL`，短 `BEGIN IMMEDIATE` 写事务
+- 每次锁等待默认 `50ms`，获取写事务前最多重试 `12` 次，间隔 `25ms`；修改回调开始后不重放
+- 同一实例排队，独立进程通过 SQLite 锁协调；`flush` 只等待已提交操作，不强制 checkpoint
+- 旧 JSON 只在未完成首次迁移时读取；已有有效 `.backup` 可作为首次迁移源，不是新库运行时恢复策略
 
 这意味着 Desktop 不是“无限安全”，只是没有像 session 那样的显式 size cap。
 
 相关文件：
 
-- `packages/core/src/services/storage/fileStorageProvider.ts`
+- `packages/core/src/services/storage/sqliteStorageProvider.ts`
 
 ### 6. LocalStorage provider 能力上限
 
@@ -457,7 +460,7 @@ Desktop 主存储没有应用层固定大小上限，但有运行时写盘策略
 
 ### 3. Desktop 主文件副本与失败边界
 
-`prompt-optimizer-data.json.backup` 是主进程结构化 KV 文件的恢复副本，包含该文件内的收藏和 session 等键，但不包含渲染进程的两个图片库。它与上述 ZIP/远程快照的范围不同。
+旧 `prompt-optimizer-data.json.backup` 是迁移前结构化 KV 的历史副本。迁移后保留但不刷新，不代表当前 SQLite 状态；也不包含渲染进程的两个图片库。它与上述 ZIP/远程快照的范围不同。运行中的 SQLite 可能同时依赖主文件和 WAL，不能只复制主文件作为当前完整副本。
 
 恢复预检和工作区局部回滚不等于全局事务：图片、收藏、模型、历史、设置等跨存储没有统一提交/回滚。预检通过后若发生运行时存储错误，仍可能留下部分写入；恢复会报错，不能承诺整个目标回到导入前。Desktop 完整应用导入成功响应前会执行文件 flush，但这也不把多个存储变成同一事务。
 
@@ -499,7 +502,7 @@ Desktop 主存储没有应用层固定大小上限，但有运行时写盘策略
 无论在 Web 还是 Desktop，本质上都还是单一主存储容器：
 
 - Web 是一张 Dexie 表
-- Desktop 是一个 JSON 文件
+- Desktop 是一张 SQLite 业务 KV 表
 
 这意味着只要某条链路把大对象写错位置，影响范围就不是单个业务模块，而是整个主存储。
 

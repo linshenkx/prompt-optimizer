@@ -72,4 +72,39 @@ function createShutdownController({ app, getWindow, save, confirmDiscard, isInst
   };
 }
 
-module.exports = { createShutdownController, requestWorkspaceSave };
+function createWillQuitStorageCloser({ app, getStorage, onError } = {}) {
+  let closePromise;
+  let closed = false;
+
+  return {
+    onWillQuit(event) {
+      if (closed) return;
+      const storage = typeof getStorage === 'function' ? getStorage() : undefined;
+      if (!storage || typeof storage.close !== 'function') return;
+
+      event.preventDefault();
+      if (!closePromise) {
+        let closing;
+        try {
+          closing = Promise.resolve(storage.close());
+        } catch (error) {
+          closing = Promise.reject(error);
+        }
+        closePromise = closing
+          .catch((error) => {
+            if (typeof onError === 'function') onError(error);
+          })
+          .finally(() => {
+            closed = true;
+            setImmediate(() => app.quit());
+          });
+      }
+      return closePromise;
+    },
+    markClosed() {
+      closed = true;
+    },
+  };
+}
+
+module.exports = { createShutdownController, createWillQuitStorageCloser, requestWorkspaceSave };

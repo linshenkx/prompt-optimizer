@@ -3,11 +3,13 @@ export interface IStorageProvider {
   setItem(key: string, value: string): Promise<void>;
   removeItem(key: string): Promise<void>;
   clearAll(): Promise<void>;
+  getEntriesByPrefix?(prefix: string): Promise<Array<[string, string]>>;
 
   /** Atomic across every connection to the same backing store. Never emulate with get/set. */
   compareAndSetItem?(key: string, expected: string | null, value: string | null): Promise<boolean>;
   
   // 隐藏式高级方法 - 内部自动选择最优实现
+  /** Modifier must be synchronous and perform no I/O; atomicity depends on the provider. */
   updateData<T>(key: string, modifier: (currentValue: T | null) => T): Promise<void>;
   batchUpdate(operations: Array<{
     key: string;

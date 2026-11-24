@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
-const { createShutdownController, requestWorkspaceSave } = require('./shutdown');
+const { createShutdownController, createWillQuitStorageCloser, requestWorkspaceSave } = require('./shutdown');
 
 function harness({ save = async () => {}, discard = false, updating = false } = {}) {
   let saves = 0;
@@ -124,4 +124,65 @@ test('a renderer refusal or an unresponsive renderer rejects the checkpoint', as
   await assert.rejects(pending, /could not be saved/);
   await assert.rejects(desktop.request(5), /Timed out/);
   assert.equal(desktop.ipcMain.listenerCount('workspace-save-reply'), 0);
+});
+
+test('will-quit prevents secondary quits while storage close is still pending', async () => {
+  let finishClose;
+  let closeCalls = 0;
+  let quitCalls = 0;
+  const event = () => ({ prevented: false, preventDefault() { this.prevented = true; } });
+  const app = { quit() { quitCalls++; } };
+  const closer = createWillQuitStorageCloser({
+    app,
+    getStorage: () => ({
+      close() {
+        closeCalls++;
+        return new Promise(resolve => { finishClose = resolve; });
+      },
+    }),
+  });
+
+  const first = event();
+  const second = event();
+  const pendingFirst = closer.onWillQuit(first);
+  const pendingSecond = closer.onWillQuit(second);
+  assert.equal(first.prevented, true);
+  assert.equal(second.prevented, true);
+  assert.equal(closeCalls, 1);
+  assert.equal(pendingFirst, pendingSecond);
+
+  finishClose();
+  await pendingFirst;
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(quitCalls, 1);
+
+  const finalQuit = event();
+  closer.onWillQuit(finalQuit);
+  assert.equal(finalQuit.prevented, false);
+});
+
+test('clearing an updater quit flag after failure restores ordinary workspace saving', async () => {
+  let updating = true;
+  let saves = 0;
+  let quitCalls = 0;
+  const event = () => ({ prevented: false, preventDefault() { this.prevented = true; } });
+  const win = { isDestroyed: () => true };
+  const controller = createShutdownController({
+    app: { quit() { quitCalls++; } },
+    getWindow: () => win,
+    save: async () => { saves++; },
+    confirmDiscard: async () => false,
+    isInstallingUpdate: () => updating,
+  });
+
+  const skipped = event();
+  controller.onQuit(skipped);
+  assert.equal(skipped.prevented, false);
+  assert.equal(saves, 0);
+
+  // Mirrors autoUpdater error clearing isUpdaterQuitting after failed install start.
+  updating = false;
+  await controller.onQuit(event());
+  assert.equal(saves, 1);
+  assert.equal(quitCalls, 1);
 });
