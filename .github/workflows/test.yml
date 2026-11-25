@@ -55,6 +55,20 @@ jobs:
           pnpm --filter @prompt-optimizer/mcp-server test:desktop-business
           pnpm --filter @prompt-optimizer/mcp-server test:browser
 
+      - name: Test the packed MCP server on Node 24, 25 and 26
+        run: |
+          dir="$RUNNER_TEMP/mcp-runtime"
+          pnpm --filter @prompt-optimizer/mcp-server pack:npm --out-dir "$dir"
+          cd "$dir"
+          tar -xzf prompt-optimizer-mcp-server-*.tgz
+          mkdir package/tests
+          cp "$GITHUB_WORKSPACE"/packages/mcp-server/tests/desktop*.acceptance.mjs package/tests/
+          ln -s "$GITHUB_WORKSPACE/packages/mcp-server/node_modules" package/node_modules
+          for version in 24.0.0 25.0.0 26.0.0; do
+            npm exec --yes --package="node@$version" -- npm install --dry-run --engine-strict --no-audit --no-fund ./prompt-optimizer-mcp-server-*.tgz
+            npm exec --yes --package="node@$version" -- node --test --test-concurrency=1 package/tests/*.mjs
+          done
+
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 

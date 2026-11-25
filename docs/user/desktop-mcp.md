@@ -10,7 +10,7 @@
 node packages/mcp-server/bin/prompt-optimizer-product-mcp.cjs
 ```
 
-使用本地构建的 npm 包时，可在 MCP 客户端把命令设为 Node 24.22.1 所在安装目录下的 `npx`（Windows 上为 `npx.cmd`），参数设为 `--yes --package=<本地 tgz 绝对路径> prompt-optimizer-product-mcp`，并在后面追加所需的资料参数。用 `pnpm --filter @prompt-optimizer/mcp-server pack:npm` 生成 `dist/npm/` 下的安装包。
+用 `pnpm --filter @prompt-optimizer/mcp-server pack:npm` 在 `dist/npm/` 下生成安装包。运行这个包支持 Node.js 24.x、25.x 和 26.x。在 MCP 客户端中，命令填 `npx`（Windows 上为 `npx.cmd`），参数填 `--yes --package=<本地 tgz 绝对路径> prompt-optimizer-product-mcp`，后面可追加资料参数。
 
 无参数时使用当前用户的默认桌面资料。用 `--desktop-profile=<绝对 userData 目录>` 指定已迁移的桌面资料，可传多个。也可用 `--product-url=<产品网页 URL>` 将网页设为默认来源，在实际网页打开一次性链接授权。MCP 只访问已存在的桌面 SQLite，网页通过明确授权的产品页面读写本地存储。
 

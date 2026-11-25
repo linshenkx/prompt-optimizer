@@ -4,7 +4,7 @@
 
 ## 接入 MCP 客户端
 
-安装 Node.js 24.22.1 或更高的 24.x 版本，在客户端添加一个 stdio 服务，启动命令如下。Windows 使用 `npx.cmd`。
+支持 Node.js 24.x、25.x 和 26.x。新安装建议选择仍受维护的 LTS 版本。在客户端添加一个 stdio 服务，启动命令如下。Windows 使用 `npx.cmd`。
 
 ```sh
 npx --yes --package=@prompt-optimizer/mcp-server@beta prompt-optimizer-product-mcp
