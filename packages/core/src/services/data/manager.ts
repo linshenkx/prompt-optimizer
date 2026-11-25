@@ -128,15 +128,15 @@ export class DataManager implements IDataManager {
       dataToImport = exportData.data;
     }
     // Old format: direct data object { history: [...], models: [...], ... }
-    else if (exportData.history || exportData.models || exportData.imageModels || exportData.userTemplates || exportData.userSettings || exportData.contexts || exportData.workspaceSessions || exportData.savedComparisons || exportData.desktopRuns) {
+    else {
       dataToImport = exportData;
     }
-    else {
-      throw new DataInvalidFormatError('Unrecognized data structure')
-    }
 
-    // Tolerate and ignore legacy v2.17.0-beta MCP sections so older backups still restore cleanly.
-    const supported = new Set(['history', 'models', 'imageModels', 'userTemplates', 'userSettings', 'contexts', 'workspaceSessions', 'savedComparisons', 'desktopRuns']);
+    const productSections = ['history', 'models', 'imageModels', 'userTemplates', 'userSettings', 'contexts', 'workspaceSessions'];
+    if (!productSections.some(key => Object.prototype.hasOwnProperty.call(dataToImport, key))) {
+      throw new DataInvalidFormatError('Backup does not contain any restorable product data')
+    }
+    const supported = new Set([...productSections, 'savedComparisons', 'desktopRuns']);
     if (Object.keys(dataToImport).some(key => !supported.has(key))) {
       throw new DataInvalidFormatError('Unsupported app backup section')
     }

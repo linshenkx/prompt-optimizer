@@ -303,25 +303,36 @@ describe('DataManager Import/Export Integration', () => {
       expect(exported.data.savedComparisons).toBeUndefined();
       expect(exported.data.desktopRuns).toBeUndefined();
 
-      const importHistory = vi.spyOn(historyManager, 'importData');
+      const settings = { 'theme-id': 'mixed-restored-theme' };
       const backup = JSON.stringify({
         version: 1,
         data: {
-          history: await historyManager.exportData(),
+          userSettings: settings,
           savedComparisons: { version: 1, records: [], intents: [] },
           desktopRuns: { version: 1, runs: [] },
         },
       });
       await expect(dataManager.validateImportData(backup)).resolves.toBeUndefined();
       await expect(dataManager.importAllData(backup)).resolves.toBeUndefined();
-      expect(importHistory).toHaveBeenCalledTimes(1);
+      expect(await preferenceService.get('app:settings:ui:theme-id', null)).toBe('mixed-restored-theme');
 
       const unknownBackup = JSON.stringify({
         version: 1,
-        data: { unknownSection: {} },
+        data: { history: [], unknownSection: {} },
       });
       await expect(dataManager.validateImportData(unknownBackup)).rejects.toThrow('Unsupported app backup section');
     });
+
+    it.each([{}, { unknownSection: {} }, { savedComparisons: {} }, { desktopRuns: {} }, { savedComparisons: {}, desktopRuns: {} }])(
+      'rejects backups without product sections before writing %#', async data => {
+        await preferenceService.set('app:settings:ui:theme-id', 'keep-me');
+        const before = await dataManager.exportAllData();
+        const backup = JSON.stringify({ version: 1, data });
+        for (const method of ['validateImportData', 'importAllData'] as const) {
+          await expect(dataManager[method](backup)).rejects.toThrow('Backup does not contain any restorable product data');
+          expect(await dataManager.exportAllData()).toBe(before);
+        }
+      });
 
     it('rejects a malformed section before any valid section changes stored data', async () => {
       // 准备部分有效、部分无效的数据

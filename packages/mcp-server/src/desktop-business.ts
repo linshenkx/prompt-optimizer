@@ -40,7 +40,7 @@ export const desktopBusinessTools = [
     { ...sourceFields, savedOnly: { type: 'boolean' } }, ['sourceId']),
   spec('po_runs_cancel', 'Request cancellation of a running operation, including another client connected to the same source. Partial text is retained. Providers may continue processing a request already submitted.',
     { ...sourceFields, runId: text }, ['sourceId', 'runId'], { ...write, destructiveHint: false }),
-  spec('po_runs_save', 'Save a terminal optimization, test, evaluation, or image run for desktop reopening without overwriting the current workspace.',
+  spec('po_runs_save', 'Save a terminal optimization, test, evaluation, or image run for retrieval through MCP without overwriting the current workspace.',
     { ...sourceFields, runId: text, target: { type: 'string', enum: ['archive', 'history'] } }, ['sourceId', 'runId'], { ...write, destructiveHint: false }),
   spec('po_runs_delete', 'Delete one terminal run with an optimistic timestamp guard.',
     { ...sourceFields, runId: text, expectedUpdatedAt: { type: 'integer', minimum: 0 } }, ['sourceId', 'runId', 'expectedUpdatedAt'], write),

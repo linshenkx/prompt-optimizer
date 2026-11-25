@@ -121,7 +121,7 @@ node scripts/desktop-main-isolated.mjs
 node scripts/desktop-business-ui.acceptance.mjs
 ```
 
-完整 UI 验收脚本只运行开发依赖中的 Electron，创建独立合成 profile，以空 env 构建真实产品 UI，拒绝访问真实 env、写出隔离目录、服务商网络、更新器及外部导航。通过独立 MCP 入口和本机回环模型夹具执行优化→测试→评估→显式保存；随后真实界面查看并退出重开；资源桥使用真实 IndexedDB。证据留在脚本打印的 `.codex-run/po-desktop-main-r2-product-*`，含运行摘要、阶段报告和截图。
+完整 UI 验收脚本只运行开发依赖中的 Electron，创建独立合成 profile，以空 env 构建真实产品 UI，拒绝访问真实 env、写出隔离目录、服务商网络、更新器及外部导航。通过独立 MCP 入口和本机回环模型夹具执行优化→测试→评估→显式保存；随后在真实产品首启和重启时检查顶部入口，并通过历史记录接口核对保存的优化结果；资源桥使用真实 IndexedDB。证据留在脚本打印的 `.codex-run/po-desktop-main-r2-product-*`，含运行摘要、阶段报告和截图。
 
 **回环夹具不是真实远端 LLM**，88 分仅验证结构/保存与展示，不证明优化质量。该验收没有调用付费服务商，也没有安装或发布桌面包、注册系统 MCP 配置、修改真实 profile、提交或推送代码。远端模型质量/费用、Windows 安装器、跨平台资源桥和 Chrome 真实数据接入不在这份通过声明内。
 
@@ -135,15 +135,15 @@ node scripts/desktop-business-ui.acceptance.mjs
 | 模板 | `templates`；运行的 `templateId` | 从实际内置模板目录选择并完成优化；自定义模板的每种编辑交互未逐项界面验收 |
 | 文本模型与提供商 | `models/providers`；`model-list/model-test` | 两份独立已存配置、配置脱敏、动态列表及连接测试通过回环协议验收；未请求真实服务商 |
 | 图像模型与提供商 | `imageModels/imageProviders`；`image-model-list/image-model-test` | 已接现有配置与适配器目录；未做远端图像模型发现、连接或生成验收 |
-| 优化、迭代、多消息优化 | `optimize/iterate/optimize-message` | 优化经过真实 Core、SQLite、stdio 和桌面保存重开；迭代及多消息优化的远端行为未单独验收 |
+| 优化、迭代、多消息优化 | `optimize/iterate/optimize-message` | 优化通过 stdio 调用真实 Core，结果存入 SQLite 后可从桌面历史记录读回；迭代及多消息优化的远端行为未单独验收 |
 | 单次、多消息与多版本/多模型测试 | `test/test-conversation/test-batch` | 单测、同模型双提示词、两个准确版本与两份模型配置、变量替换、部分输出和取消已验证；完整多消息测试与所有模型组合未穷举 |
-| 提示词/结果评估 | `evaluate` | result 类型完成独立 runId、取回、归档和实际桌面重开；88 分为合成响应，不是质量评测。其他评估类型复用现有服务，但未逐个远端验收 |
-| 历史与保存成果 | `history`；`po_runs_save/get/list/delete` | 优化进入原历史链、重复保存幂等；优化/测试/评估三份成果在真实 UI 首启和重启分别按 ID 重开；归档导入、防复活标记经过真实仓库测试 |
+| 提示词/结果评估 | `evaluate` | result 类型生成独立 runId，可通过 MCP 取回和归档；88 分为合成响应，不是质量评测。其他评估类型复用现有服务，但未逐个远端验收 |
+| 历史与保存成果 | `history`；`po_runs_save/get/list/delete` | 优化进入原历史链、重复保存幂等；桌面首启和重启后均能从产品历史记录读回优化结果，测试与评估归档通过 MCP 按 ID 查询；归档导入、防复活标记经过真实仓库测试 |
 | 多消息上下文 | `contexts`、`workspaces` | 现有服务方法解析及工作区导入校验通过；没有承诺每个消息编辑控件都做过界面回归 |
 | 全局变量 | `variables`；变量提取/生成运行 | 与 UI 共用名字校验、保留其他状态；变量化批测通过。提取/生成的远端输出未单独验收 |
 | 工作区、设置与并发编辑 | `workspaces/settings` | 外部偏好更新重读、旧 revision 拒绝、原子提交与幂等、损坏数据拒绝已测；活动桌面拒绝直接替换状态，未实现所有页面实时无刷新同步 |
 | 图片与理解/生成 | `po_resources images.*`；`image/image-understand` | 实际 renderer/IndexedDB 保存、读取、列出和删除通过；带收藏引用的图片随完整 ZIP 恢复并在进程重启后逐字节一致。引用保护由真实服务加合成 IndexedDB 单元验证；远端图像生成/理解与原生格式转换未验收 |
 | 数据导入导出 | `data`、`po_data_export_file`、`po_resources package.*` | 真实 Core 数据/工作区回归、凭据查询脱敏、归档导入与完整资源 ZIP 导出/导入通过；大于资源桥限额的资料继续使用桌面 UI |
-| 原比较和旧客户端 | 已有客户端配置 | 两种冻结比较及保存重开、只读无写入、EOF 退出、原 stdio、HTTP `/mcp` 初始化/会话/三工具发现均通过；没有改变旧客户端配置 |
+| 原比较和旧客户端 | 已有客户端配置 | 两种冻结比较及通过 MCP 读回保存的结果、只读无写入、EOF 退出、原 stdio、HTTP `/mcp` 初始化/会话/三工具发现均通过；没有改变旧客户端配置 |
 
 验收分层：Core 定向回归 **123** 项、MCP 业务单元 **10** 项、新入口实际 stdio **1** 项、只读单元 **14** 项、旧/比较实际协议 **7** 项、UI 单元 **2** 项、IPC 静态合同 **20** 项；另有实际 Electron main/preload 三阶段和完整产品 UI 两阶段。原生进程验收的网络审计为零外部请求；完整 UI 验收的三次模型请求仅发往隔离脚本创建的本机端点。

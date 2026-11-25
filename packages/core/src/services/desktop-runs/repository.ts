@@ -76,6 +76,16 @@ export function createDesktopRunRepository(storage: IStorageProvider) {
       runs.push(run)
       return run
     }),
+    interrupt: (id: string, ownerId: string, error: NonNullable<DesktopRun['error']>) => change(runs => {
+      const run = runs.find(item => item.id === id)
+      if (!run || run.deleted) throw new DesktopRunRepositoryError('RUN_NOT_FOUND')
+      if (run.status === 'running' && run.ownerId === ownerId) {
+        run.status = 'interrupted'
+        run.error = error
+        run.updatedAt++
+      }
+      return run
+    }),
     update: (id: string, updates: Partial<DesktopRun>) => change(runs => {
       const run = runs.find(item => item.id === id)
       if (!run) throw new DesktopRunRepositoryError('RUN_NOT_FOUND')

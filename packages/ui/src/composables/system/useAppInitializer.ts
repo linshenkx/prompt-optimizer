@@ -501,7 +501,7 @@ export function useAppInitializer(): {
         }
 
         const browserBridge = ['http:', 'https:'].includes(window.location.protocol) && storageProvider instanceof DexieStorageProvider
-          ? createBrowserBridgeHost({ storage: storageProvider, favoriteManager, promptService }) : undefined;
+          ? createBrowserBridgeHost({ storage: storageProvider }) : undefined;
 
         // 将所有服务实例赋值给 services.value
         services.value = {

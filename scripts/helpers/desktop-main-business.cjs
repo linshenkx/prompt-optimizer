@@ -73,16 +73,25 @@ async function exerciseDesktopBusiness(phase) {
   await api.data.validateImportData(exported);
   await api.data.importAllData(exported);
 
-  const legacyBetaBackup = JSON.stringify({
-    version: 1,
-    data: {
-      savedComparisons: { version: 1, records: [], intents: [] },
-      desktopRuns: { version: 1, runs: [] },
-    },
-  });
-  await api.data.validateImportData(legacyBetaBackup);
-  await api.data.importAllData(legacyBetaBackup);
-  check(JSON.stringify(await api.preference.get(sessionKey, null)) === JSON.stringify(draft), 'legacy mcp backup import keeps workspace draft and A/B results');
+  const legacySections = {
+    savedComparisons: { version: 1, records: [], intents: [] },
+    desktopRuns: { version: 1, runs: [] },
+  };
+  const mixed = JSON.stringify({ version: 1, data: { workspaceSessions: parsed.data.workspaceSessions, ...legacySections } });
+  await api.preference.set(sessionKey, { ...draft, optimizedPrompt: 'before mixed restore' });
+  await api.data.validateImportData(mixed);
+  await api.data.importAllData(mixed);
+  check(JSON.stringify(await api.preference.get(sessionKey, null)) === JSON.stringify(draft), 'mixed backup restores workspace draft and A/B results');
+  const before = await api.data.exportAllData();
+  const legacyOnly = JSON.stringify({ version: 1, data: legacySections });
+  for (const method of ['validateImportData', 'importAllData']) {
+    let refused = false;
+    try { await api.data[method](legacyOnly); } catch (error) {
+      refused = error.code === 'error.data.invalid_format' && error.params?.details === 'Backup does not contain any restorable product data';
+    }
+    check(refused, method + ' rejects a legacy-only backup');
+    check(await api.data.exportAllData() === before, method + ' preserves existing product data');
+  }
   const favoriteExport = await api.favoriteManager.exportFavorites();
   await api.favoriteManager.validateImportData(favoriteExport, { matchBy: 'id', mergeStrategy: 'overwrite' });
   const restored = await api.favoriteManager.importFavorites(favoriteExport, { matchBy: 'id', mergeStrategy: 'overwrite' });

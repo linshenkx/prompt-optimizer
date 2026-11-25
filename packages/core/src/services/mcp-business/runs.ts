@@ -24,12 +24,12 @@ type ActiveRun = { controller: AbortController; task: Promise<void>; state: Desk
 
 export class ProductRuns {
   readonly repository;
-  readonly archive;
+  private readonly archive;
   private readonly active = new Map<string, ActiveRun>();
   private closing = false;
 
   constructor(private readonly provider: BusinessStorage, private readonly sourceId: string,
-    private readonly owner: { id: string; isGone(id: string): boolean }, private readonly revisionKeys: AssetReaderRevisionKeys) {
+    private readonly owner: { id: string; isGone(id: string): boolean | Promise<boolean> }, private readonly revisionKeys: AssetReaderRevisionKeys) {
     this.repository = createDesktopRunRepository(provider);
     this.archive = createRunArchive(this.repository, createComparisonRepository(provider));
   }
@@ -51,7 +51,8 @@ export class ProductRuns {
       throw new DesktopBusinessError('INVALID_TIMEOUT');
     }
     const requestHash = hashText(JSON.stringify(input));
-    const previous = (await this.repository.list()).find(run => run.requestKey === requestKey);
+    const runs = await this.repository.list();
+    const previous = runs.find(run => run.requestKey === requestKey);
     if (previous) {
       if (previous.deleted) throw new DesktopBusinessError('RUN_DELETED');
       if (previous.requestHash !== requestHash) throw new DesktopBusinessError('REQUEST_KEY_REUSED');
@@ -147,6 +148,8 @@ export class ProductRuns {
       status: 'running', createdAt: Date.now(), updatedAt: Date.now(), saved: false,
       input: redactConfiguration({ ...input, request, executionModels, sourceRevision: input.source?.expectedRevision }), partial: '', reasoning: '',
     };
+    if (this.closing) throw new DesktopBusinessError('SOURCE_CLOSING');
+    for (const run of runs) await this.reconcile(run, true);
     if (this.closing) throw new DesktopBusinessError('SOURCE_CLOSING');
     const persisted = await this.repository.create(state);
     if (persisted.id !== state.id) return this.get(persisted.id);
@@ -295,15 +298,31 @@ export class ProductRuns {
     return undefined;
   }
 
-  async get(id: string, recover = true): Promise<DesktopRun> {
-    const active = this.active.get(id);
-    const state = active?.state ?? await this.archive.get(id);
-    if (state.status === 'running' && state.ownerId !== this.owner.id && this.owner.isGone(state.ownerId)) {
-      const interrupted = {
-        status: 'interrupted' as const, error: publicBusinessError(new DesktopBusinessError('RUN_INTERRUPTED')),
-      };
-      return recover ? this.repository.update(id, interrupted) : { ...state, ...interrupted };
+  private async reconcile(state: DesktopRun, persist: boolean): Promise<DesktopRun> {
+    if (state.status !== 'running' || state.ownerId === this.owner.id || !await this.owner.isGone(state.ownerId)) return state;
+    const error = publicBusinessError(new DesktopBusinessError('RUN_INTERRUPTED'));
+    if (!persist) return { ...state, status: 'interrupted', error, updatedAt: state.updatedAt + 1 };
+    return this.repository.interrupt(state.id, state.ownerId, error);
+  }
+
+  async list(persist: boolean): Promise<DesktopRun[]> {
+    const runs = await this.archive.list();
+    return Promise.all(runs.map(run => this.reconcile(run, persist)));
+  }
+
+  async delete(id: string, expectedUpdatedAt: number): Promise<void> {
+    const state = (await this.repository.list()).find(run => run.id === id);
+    if (state?.status === 'running') {
+      const current = await this.reconcile(state, true);
+      if (current.status === 'interrupted' && expectedUpdatedAt === state.updatedAt && current.updatedAt === state.updatedAt + 1) {
+        expectedUpdatedAt = current.updatedAt;
+      }
     }
+    await this.archive.delete(id, expectedUpdatedAt);
+  }
+
+  async get(id: string, recover = true): Promise<DesktopRun> {
+    const state = await this.reconcile(this.active.get(id)?.state ?? await this.archive.get(id), recover);
     const output = structuredClone(state);
     if (output.status === 'succeeded' && output.output === undefined) output.output = output.partial;
     return output;

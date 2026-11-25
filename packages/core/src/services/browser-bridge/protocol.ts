@@ -10,7 +10,6 @@ export function isBrowserAccess(access: unknown): access is BrowserAccess {
 export function allowsBrowserAccess(granted: BrowserAccess, requested: BrowserAccess): boolean {
   return requested === 'read' || granted === requested || granted === 'business'
 }
-export const browserTextRunKinds = ['optimize', 'test'] as const
 
 export interface BrowserSourceIdentity {
   contextId: string
@@ -31,18 +30,6 @@ export class BrowserBridgeError extends Error {
     this.name = 'BrowserBridgeError'
   }
 }
-
-export const browserFavoriteOperations = [
-  { operation: 'getFavorites', access: 'read', arguments: ['options?'], minimum: 0 },
-  { operation: 'getFavorite', access: 'read', arguments: ['id'], minimum: 1 },
-  { operation: 'getCategories', access: 'read', arguments: [], minimum: 0 },
-  { operation: 'getAllTags', access: 'read', arguments: [], minimum: 0 },
-  { operation: 'addFavorite', access: 'write', arguments: ['favorite'], minimum: 1 },
-  { operation: 'updateFavorite', access: 'write', arguments: ['id', 'updates'], minimum: 2 },
-  { operation: 'setFavoritePromptAssetCurrentVersion', access: 'write', arguments: ['id', 'versionId'], minimum: 2 },
-  { operation: 'deleteFavoritePromptAssetVersion', access: 'write', arguments: ['id', 'versionId'], minimum: 2 },
-  { operation: 'deleteFavorite', access: 'write', arguments: ['id'], minimum: 1 },
-] as const
 
 export function assertBridgeJson(value: unknown, depth = 0, budget = { remaining: 100_000 }): void {
   if (depth > 32 || --budget.remaining < 0) throw new BrowserBridgeError('INVALID_INPUT')

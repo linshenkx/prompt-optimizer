@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { openDesktopStorage } from '@prompt-optimizer/core/node';
@@ -90,9 +91,11 @@ describe('desktop business services against isolated real SQLite', () => {
     expect((await query('settings', 'get', ['custom.apiKey', null])).result).toBe('[REDACTED]');
   });
   it('refuses uncoordinated state replacement while a desktop renderer is active', async () => {
-    await peer.provider.setItem('mcp:renderer:resources', JSON.stringify({ pid: process.pid }));
+    await peer.provider.setItem('mcp:renderer:resources', JSON.stringify({ pid: process.pid, instanceId: crypto.randomUUID() }));
     await expect(mutate('variables', 'set', ['audience', 'must not replace live state'])).rejects.toMatchObject({ code: 'DESKTOP_STATE_IN_USE' });
     expect(await peer.provider.getItem('pref:variableManager.storage')).toBe(null);
+    await expect(host.call('po_resources', { sourceId, operation: 'images.list', requestKey: 'list' }))
+      .rejects.toMatchObject({ code: 'DESKTOP_RENDERER_REQUIRED' });
   });
   it('persists typed global variables and validated multi-message workspace snapshots', async () => {
     await mutate('variables', 'set', ['audience', 'A synthetic reader']);
@@ -103,6 +106,19 @@ describe('desktop business services against isolated real SQLite', () => {
     expect((await query('workspaces', 'exportData')).result).toMatchObject(data);
     await mutate('variables', 'delete', ['audience']);
     expect((await query('variables', 'get', ['audience'])).result).toBe(null);
+  });
+  it('recovers runs from an exited process and preserves runs from a live PID', async () => {
+    const repository = createDesktopRunRepository(peer.provider);
+    const child = spawnSync(process.execPath, ['-e', ''], { windowsHide: true });
+    expect(child.status).toBe(0);
+    const run = { id: crypto.randomUUID(), requestKey: 'alive', requestHash: 'hash', ownerId: process.pid + ':peer',
+      kind: 'test', status: 'running' as const, createdAt: 10, updatedAt: 10, saved: false, input: {} };
+    const gone = { ...run, id: crypto.randomUUID(), requestKey: 'gone', ownerId: child.pid + ':old' };
+    await repository.create(run);
+    await repository.create(gone);
+    await host.call('po_runs_list', { sourceId });
+    expect(await repository.get(run.id)).toEqual(run);
+    expect(await repository.get(gone.id)).toMatchObject({ status: 'interrupted', error: { code: 'RUN_INTERRUPTED' } });
   });
   it('archives survive export/import, refuses stale deletion and never revives a tombstone', async () => {
     const repository = createDesktopRunRepository(peer.provider);

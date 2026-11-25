@@ -14,7 +14,7 @@ export function productBusinessCatalog(domain?: unknown) {
 }
 
 export function createProductBusiness(storage: BusinessStorage, sourceId: string, options: {
-  owner: { id: string; isGone(id: string): boolean };
+  owner: { id: string; isGone(id: string): boolean | Promise<boolean> };
   revisionKey?: Promise<CryptoKey>;
   beforeMutation?: (domain: string) => Promise<void>;
   assertActive?: () => void;
@@ -35,9 +35,9 @@ export function createProductBusiness(storage: BusinessStorage, sourceId: string
     }
     if (name === 'po_runs_delete') {
       if (!Number.isSafeInteger(args.expectedUpdatedAt) || (args.expectedUpdatedAt as number) < 0) throw new DesktopBusinessError('INVALID_INPUT');
-      await runs.archive.delete(args.runId as string, args.expectedUpdatedAt as number); return { deleted: true };
+      await runs.delete(args.runId as string, args.expectedUpdatedAt as number); return { deleted: true };
     }
-    if (name === 'po_runs_list') return { runs: (await runs.archive.list()).filter(run => !run.deleted && (!args.savedOnly || run.saved))
+    if (name === 'po_runs_list') return { runs: (await runs.list(!readOnly)).filter(run => !run.deleted && (!args.savedOnly || run.saved))
       .map(({ id, kind, status, createdAt, updatedAt, saved }) => ({ id, kind, status, createdAt, updatedAt, saved })) };
     const snapshot = new Map(await storage.getAllEntries());
     const revision = snapshotRevision(snapshot, sourceId);

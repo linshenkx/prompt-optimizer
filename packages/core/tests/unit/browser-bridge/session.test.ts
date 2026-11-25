@@ -2,36 +2,28 @@ import 'fake-indexeddb/auto'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DexieStorageProvider } from '../../../src/services/storage/dexieStorageProvider'
 import { FavoriteManager } from '../../../src/services/favorite/manager'
-import type { IPromptService } from '../../../src/services/prompt/types'
+import { DESKTOP_RUNS_KEY } from '../../../src/services/desktop-runs/repository'
+import { BusinessStage } from '../../../src/services/mcp-business/services'
 import { createBrowserBridgeHost, type BrowserSourceSession } from '../../../src/services/browser-bridge/session'
 
 const providers: DexieStorageProvider[] = []
 const sessions: BrowserSourceSession[] = []
 const favorite = { title: 'Browser favorite', content: 'Summarize {{subject}}', tags: [], functionMode: 'context' as const, optimizationMode: 'user' as const }
 
-async function fixture(access: 'read' | 'compare' = 'compare') {
+async function fixture(access: 'read' | 'business' = 'business') {
   vi.stubGlobal('window', { __TEST_DB_NAME__: `bridge-${crypto.randomUUID()}` })
   const storage = new DexieStorageProvider()
   providers.push(storage)
   const favoriteManager = new FavoriteManager(storage)
   await favoriteManager.getFavorites()
-  const promptService = {
-    optimizePromptStream: vi.fn<IPromptService['optimizePromptStream']>(async (request, callbacks) => {
-      callbacks.onToken('Improved: ' + request.targetPrompt)
-      await callbacks.onComplete()
-    }),
-    testPromptStream: vi.fn<IPromptService['testPromptStream']>(async (systemPrompt, userPrompt, _modelKey, callbacks) => {
-      callbacks.onToken(systemPrompt + ' | ' + userPrompt)
-      await callbacks.onComplete()
-    }),
-  }
-  const host = createBrowserBridgeHost({ storage, favoriteManager, promptService })
+  const host = createBrowserBridgeHost({ storage })
   const contextId = await host.contextId()
   const source = { kind: 'browser' as const, sourceId: crypto.randomUUID(), sourceEpoch: crypto.randomUUID(), connectionGeneration: crypto.randomUUID(), label: 'Isolated browser' }
   const session = host.open(source, access, contextId)
   sessions.push(session)
-  const query = () => session.call('po_desktop_query', { domain: 'favorites', operation: 'getFavorites' }) as Promise<{ result: unknown[]; revision: string }>
-  return { storage, favoriteManager, session, query, host, contextId, promptService }
+  const call = (name: string, args: Record<string, unknown>) => session.call('product', { name, args })
+  const query = () => call('po_desktop_query', { domain: 'favorites', operation: 'getFavorites' }) as Promise<{ result: unknown[]; revision: string }>
+  return { storage, favoriteManager, session, call, query, host, contextId, source }
 }
 
 afterEach(() => {
@@ -41,85 +33,113 @@ afterEach(() => {
 })
 
 describe('real page service session', () => {
-  it('binds the initialized manager, writes atomically, and deduplicates an exact retry', async () => {
-    const { session, query, favoriteManager } = await fixture()
-    const spy = vi.spyOn(favoriteManager, 'addFavorite')
+  it('commits a mutation with its retry receipt and rejects a stale edit', async () => {
+    const { call, query, favoriteManager } = await fixture()
     const before = await query()
     const input = { domain: 'favorites', operation: 'addFavorite', arguments: [favorite], expectedRevision: before.revision, requestKey: 'create-1' }
-    const created = await session.call('po_desktop_mutate', input) as { result: string }
-    expect(await session.call('po_desktop_mutate', input)).toEqual(created)
-    expect(spy).toHaveBeenCalledTimes(1)
+    const created = await call('po_desktop_mutate', input) as { result: string }
+    expect(await call('po_desktop_mutate', input)).toEqual(created)
     expect(await favoriteManager.getFavorite(created.result)).toMatchObject(favorite)
     expect((await query()).result).toHaveLength(1)
-    await expect(session.call('po_desktop_mutate', { ...input, arguments: [{ ...favorite, title: 'Changed' }] })).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' })
+    await expect(call('po_desktop_mutate', { ...input, arguments: [{ ...favorite, title: 'Changed' }] }))
+      .rejects.toMatchObject({ code: 'REQUEST_KEY_REUSED' })
+    await expect(call('po_desktop_mutate', { ...input, requestKey: 'new' })).rejects.toMatchObject({ code: 'REVISION_CONFLICT' })
   })
 
-  it('refuses stale revisions after an original page edit', async () => {
-    const { session, query, favoriteManager } = await fixture()
-    const before = await query()
-    await favoriteManager.addFavorite({ ...favorite, title: 'Original page edit' })
-    await expect(session.call('po_desktop_mutate', { domain: 'favorites', operation: 'addFavorite', arguments: [favorite],
-      expectedRevision: before.revision, requestKey: 'stale' })).rejects.toMatchObject({ code: 'REVISION_CONFLICT' })
-    expect((await query()).result).toHaveLength(1)
-  })
-
-  it('does not initialize or migrate anything while listing real saved assets', async () => {
-    const { session, storage, favoriteManager } = await fixture()
+  it('reads an exact saved asset version through the product catalog without changing storage', async () => {
+    const { call, storage, favoriteManager } = await fixture('read')
     await favoriteManager.addFavorite(favorite)
     const before = await storage.getAllEntries()
-    const assets = await session.call('po_assets_list', {}) as { items: Array<{ favoriteId: string; assetId: string; currentVersionId: string; revision: string }> }
-    const asset = assets.items[0]
-    const version = await session.call('po_assets_get_version', { ...asset, versionId: asset.currentVersionId, expectedRevision: asset.revision })
-    expect(version).toMatchObject({ content: { text: favorite.content } })
+    const { result } = await call('po_desktop_query', { domain: 'assets', operation: 'listAssets' }) as {
+      result: { items: Array<{ favoriteId: string; assetId: string; currentVersionId: string; revision: string }> }
+    }
+    const asset = result.items[0]
+    const version = await call('po_desktop_query', { domain: 'assets', operation: 'getAssetVersion', arguments: [{
+      favoriteId: asset.favoriteId, assetId: asset.assetId, versionId: asset.currentVersionId, expectedRevision: asset.revision,
+    }] })
+    expect(version).toMatchObject({ result: { content: { text: favorite.content } } })
     expect(await storage.getAllEntries()).toEqual(before)
   })
 
-  it('enforces read-only authorization and rejects arbitrary service dispatch', async () => {
-    const { session, query } = await fixture('read')
-    const before = await query()
-    await expect(session.call('po_desktop_mutate', { domain: 'favorites', operation: 'addFavorite', arguments: [favorite],
-      expectedRevision: before.revision, requestKey: 'blocked' })).rejects.toMatchObject({ code: 'COMPARISON_ACCESS_REQUIRED' })
-    await expect(session.call('po_desktop_query', { domain: 'models', operation: 'getModel', arguments: ['secret'] })).rejects.toMatchObject({ code: 'INVALID_INPUT' })
-    await expect(session.call('po_desktop_query', { domain: 'favorites', operation: 'constructor' })).rejects.toMatchObject({ code: 'INVALID_INPUT' })
-  })
-
-  it('starts an actual page text service once per request and tests the optimized prompt', async () => {
-    const { storage, session, query, promptService } = await fixture()
-    await storage.setItem('models', JSON.stringify({ selected: { enabled: true } }))
-    const { revision } = await query()
-    const start = {
-      expectedRevision: revision, requestKey: 'optimize-1',
-      input: { kind: 'optimize', request: { targetPrompt: 'Summarize', optimizationMode: 'system', modelKey: 'selected' } },
+  it('allows queries and refuses writes and unlisted operations on read-only connections', async () => {
+    const { session, call, query } = await fixture('read')
+    await query()
+    for (const name of ['po_desktop_mutate', 'po_runs_start', 'po_runs_cancel', 'po_resources']) {
+      await expect(call(name, {})).rejects.toMatchObject({ code: 'BUSINESS_ACCESS_REQUIRED' })
     }
-    const [first, retry] = await Promise.all([session.call('po_runs_start', start), session.call('po_runs_start', start)]) as Array<{ id: string }>
-    expect(first.id).toEqual(retry.id)
-    expect(promptService.optimizePromptStream).toHaveBeenCalledTimes(1)
-    expect(await session.call('po_runs_get', { runId: first.id })).toMatchObject({ status: 'succeeded', output: 'Improved: Summarize' })
-
-    const tested = await session.call('po_runs_start', {
-      expectedRevision: revision, requestKey: 'test-1',
-      input: { kind: 'test', inputRunId: first.id, request: { userPrompt: 'This article', modelKey: 'selected' } },
-    }) as { id: string }
-    expect(await session.call('po_runs_get', { runId: tested.id })).toMatchObject({ status: 'succeeded', output: 'Improved: Summarize | This article' })
-    await expect(session.call('po_runs_start', {
-      ...start, input: { ...start.input, request: { ...start.input.request, targetPrompt: 'Changed' } },
-    })).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' })
+    await expect(call('po_desktop_query', { domain: 'favorites', operation: 'constructor' })).rejects.toMatchObject({ code: 'UNKNOWN_OPERATION' })
+    await expect(session.call('po_desktop_query', {})).rejects.toMatchObject({ code: 'UNKNOWN_TOOL' })
   })
 
-  it('rejects model runs from a read-only source', async () => {
-    const { session } = await fixture('read')
-    await expect(session.call('po_runs_start', {})).rejects.toMatchObject({ code: 'COMPARISON_ACCESS_REQUIRED' })
-  })
-
-  it('invalidates the disposed session and changed data context without closing page storage', async () => {
-    const { session, storage, host, contextId } = await fixture()
+  it('invalidates disposed sessions and changed data contexts', async () => {
+    const { session, query, storage, host, contextId } = await fixture()
     await storage.setItem('mcp:browser-context/v1', crypto.randomUUID())
-    await expect(session.call('po_assets_list', {})).rejects.toMatchObject({ code: 'SOURCE_CONTEXT_CHANGED' })
+    await expect(query()).rejects.toMatchObject({ code: 'SOURCE_CONTEXT_CHANGED' })
     expect(await host.contextId()).not.toBe(contextId)
     session.dispose()
-    await expect(session.call('po_assets_list', {})).rejects.toMatchObject({ code: 'CONNECTION_CLOSED' })
-    await storage.setItem('page-remains-open', 'yes')
-    expect(await storage.getItem('page-remains-open')).toBe('yes')
+    await expect(query()).rejects.toMatchObject({ code: 'CONNECTION_CLOSED' })
+  })
+
+  it.each(['start', 'list', 'delete', 'cancel'])('recovers interrupted owners on %s after reload', async operation => {
+    const { storage, call, query, source, contextId } = await fixture()
+    const other = createBrowserBridgeHost({ storage })
+    const liveOwner = crypto.randomUUID()
+    const live = other.open({ ...source, connectionGeneration: liveOwner }, 'business', contextId)
+    sessions.push(live)
+    await live.call('product', { name: 'po_runs_list', args: {} })
+    const crashedGeneration = crypto.randomUUID()
+    const records = Array.from({ length: 4 }, (_, index) => ({
+      id: crypto.randomUUID(), ownerId: index === 0 ? liveOwner : crashedGeneration, requestKey: 'old-' + index,
+      requestHash: 'old', kind: 'test', input: {}, status: 'running', saved: false, createdAt: 10, updatedAt: 10,
+    }))
+    const orphan = records[1]
+    await storage.setItem(DESKTOP_RUNS_KEY, JSON.stringify(records))
+    if (operation === 'list') {
+      const read = other.open({ ...source, connectionGeneration: crypto.randomUUID() }, 'read', contextId)
+      sessions.push(read)
+      const projected = await read.call('product', { name: 'po_runs_list', args: {} })
+      expect(projected).toMatchObject({ runs: expect.arrayContaining([expect.objectContaining({ id: orphan.id, status: 'interrupted' })]) })
+      expect(await storage.getItem(DESKTOP_RUNS_KEY)).toBe(JSON.stringify(records))
+      await call('po_runs_list', {})
+    } else if (operation === 'start') {
+      // Four records from the previous page occupy all slots.
+      records[0].ownerId = crashedGeneration
+      await storage.setItem(DESKTOP_RUNS_KEY, JSON.stringify(records))
+      await storage.setItem('models', JSON.stringify({ fixture: {} }))
+      const { revision } = await query()
+      const service = vi.spyOn(BusinessStage.prototype, 'service').mockResolvedValue({
+        getModel: async () => ({ name: 'fixture' }), testPromptStream: async () => {},
+      })
+      try {
+        const run = await call('po_runs_start', { requestKey: 'new', expectedRevision: revision,
+          input: { kind: 'test', request: { modelKey: 'fixture', userPrompt: 'test' } } }) as { id: string }
+        await vi.waitFor(async () => expect(await call('po_runs_get', { runId: run.id })).toMatchObject({ status: 'succeeded' }))
+      } finally { service.mockRestore() }
+    } else if (operation === 'cancel') {
+      expect(await call('po_runs_cancel', { runId: orphan.id })).toMatchObject({ status: 'interrupted', error: { code: 'RUN_INTERRUPTED' } })
+    } else {
+      expect(await call('po_runs_delete', { runId: orphan.id, expectedUpdatedAt: orphan.updatedAt })).toEqual({ deleted: true })
+    }
+    const stored = JSON.parse((await storage.getItem(DESKTOP_RUNS_KEY))!)
+    expect(stored[1]).toMatchObject({ status: 'interrupted', ...(operation === 'delete' ? { deleted: true } : { error: { code: 'RUN_INTERRUPTED' } }) })
+    if (operation === 'start') expect(stored.slice(0, 4).every((run: { status: string }) => run.status === 'interrupted')).toBe(true)
+    else expect(stored[0]).toMatchObject({ ownerId: liveOwner, status: 'running' })
+  })
+
+  it('preserves another HTTP page owner until its connection closes without Web Locks', async () => {
+    vi.stubGlobal('navigator', {})
+    const { storage, call, contextId, source } = await fixture()
+    const generation = crypto.randomUUID()
+    const other = createBrowserBridgeHost({ storage }).open({ ...source, connectionGeneration: generation }, 'business', contextId)
+    sessions.push(other)
+    await other.call('product', { name: 'po_runs_list', args: {} })
+    const run = { id: crypto.randomUUID(), kind: 'test', ownerId: generation, requestKey: 'other', requestHash: 'hash',
+      createdAt: 10, updatedAt: 10, status: 'running', saved: false, input: {} }
+    await storage.setItem(DESKTOP_RUNS_KEY, JSON.stringify([run]))
+    expect(await call('po_runs_get', { runId: run.id })).toMatchObject({ status: 'running' })
+    other.dispose()
+    await vi.waitFor(async () => expect(await call('po_runs_get', { runId: run.id }))
+      .toMatchObject({ status: 'interrupted', error: { code: 'RUN_INTERRUPTED' } }))
   })
 
   it('rolls back synchronous comparison transactions across multiple keys', async () => {
