@@ -1,11 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resolve } from 'node:path';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { main } from '../src/index.js';
-import { selectLaunchMode } from '../src/cli.js';
+import { parseProductOptions } from '../src/cli.js';
 import { createDesktopReadonlyRouter, DesktopSourceError, publicDesktopError } from '../src/desktop-router.js';
-import { createDesktopReadonlyServer } from '../src/desktop.js';
 import type { DesktopReadonlyLease } from '../src/desktop-router.js';
 
 vi.mock('../src/legacy.js', () => { throw new Error('Legacy must not load in desktop mode'); });
@@ -34,23 +30,18 @@ function lease(label: string): DesktopReadonlyLease & { close: ReturnType<typeof
 afterEach(() => vi.restoreAllMocks());
 
 describe('desktop launch and source routing', () => {
-  it('chooses desktop before legacy/env initialization and preserves a lazy legacy branch', async () => {
-    const legacyMain = vi.fn(async () => {});
-    const desktopMain = vi.fn(async () => {});
-    const openDesktop = vi.fn(async () => lease('A'));
-    await main([`--mode=desktop-readonly`, `--desktop-profile=${pathA}`], { legacyMain, desktopMain, openDesktop });
-    expect(legacyMain).not.toHaveBeenCalled();
-    expect(desktopMain).toHaveBeenCalledWith([{ label: 'Desktop profile 1', userDataPath: pathA }], openDesktop);
-    expect(openDesktop).not.toHaveBeenCalled();
-    await main([], { legacyMain });
-    expect(legacyMain).toHaveBeenCalledOnce();
+  it('starts with the default desktop or selects desktop profiles and a browser URL directly', () => {
+    expect(parseProductOptions([])).toEqual({ profiles: [], productUrl: undefined });
+    expect(parseProductOptions([`--desktop-profile=${pathA}`, `--desktop-profile=${pathB}`, '--product-url=https://example.test/app'])).toEqual({
+      profiles: [{ label: 'Desktop profile 1', userDataPath: pathA }, { label: 'Desktop profile 2', userDataPath: pathB }],
+      productUrl: 'https://example.test/app',
+    });
   });
-  it('rejects HTTP, relative/missing profiles, ambiguous modes and paths without explicit desktop mode', () => {
+  it('rejects mode switches, HTTP transport and invalid source arguments', () => {
     for (const args of [
-      ['--mode=desktop-readonly', `--desktop-profile=${pathA}`, '--transport=http'],
-      ['--mode=desktop-readonly', '--desktop-profile=relative'], ['--mode=desktop-readonly'],
-      [`--desktop-profile=${pathA}`], ['--mode'], ['--mode=typo'], ['--mode=legacy', '--mode=desktop-readonly'],
-    ]) expect(() => selectLaunchMode(args)).toThrow(DesktopSourceError);
+      ['--transport=http'], ['--desktop-profile=relative'], ['--mode=legacy'], ['--mode=desktop-readonly'],
+      ['--product-url=file:///tmp/example'], ['--product-url=https://a.test', '--product-url=https://b.test'],
+    ]) expect(() => parseProductOptions(args)).toThrow(DesktopSourceError);
   });
   it('lists without opening, isolates profiles, deduplicates opens and invalidates old handles', async () => {
     const a = lease('A'), b = lease('B');
@@ -118,36 +109,5 @@ describe('desktop launch and source routing', () => {
     const disposed = expect(closing).rejects.toMatchObject({ code: 'SOURCE_CLOSE_FAILED' });
     pending.resolve(a); await checked; await disposed;
     expect(a.close).toHaveBeenCalledOnce();
-  });
-  it('discovers seven real MCP tools and rejects write access and path injection', async () => {
-    const a = lease('A'); const opener = vi.fn(async () => a);
-    const { server, router } = createDesktopReadonlyServer([profiles[0]], opener);
-    const client = new Client({ name: 'test', version: '1' });
-    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-    await server.connect(serverTransport); await client.connect(clientTransport);
-    try {
-      const tools = (await client.listTools()).tools;
-      expect(tools).toHaveLength(7); expect(tools.every(tool => tool.annotations?.readOnlyHint)).toBe(true);
-      const sources = (await client.callTool({ name: 'po_sources_list', arguments: {} })).structuredContent as { sources: Array<{ sourceId: string }> };
-      expect(opener).not.toHaveBeenCalled();
-      for (const args of [{ sourceId: sources.sources[0].sourceId, access: 'save' }, { sourceId: sources.sources[0].sourceId, access: 'read', userDataPath: pathB }]) {
-        expect((await client.callTool({ name: 'po_sources_open', arguments: args })).isError).toBe(true);
-      }
-      expect(opener).not.toHaveBeenCalled();
-      const opened = (await client.callTool({ name: 'po_sources_open', arguments: { sourceId: sources.sources[0].sourceId, access: 'read' } })).structuredContent as { connectionId: string };
-      const models = await client.callTool({ name: 'po_models_list', arguments: { connectionId: opened.connectionId } });
-      expect(JSON.stringify(models)).not.toContain(secret);
-    } finally { await client.close(); await server.close(); await router.dispose(); }
-    expect(a.close).toHaveBeenCalledOnce(); expect(a.writes).toEqual([]);
-  });
-});
-
-describe('desktop command aliases', () => {
-  it('routes historical writable desktop launch names to the product tools', () => {
-    for (const mode of ['desktop', 'desktop-comparison', 'product']) {
-      expect(selectLaunchMode(['--mode=' + mode, '--desktop-profile=' + pathA])).toMatchObject({
-        mode: 'product', profiles: [{ label: 'Desktop profile 1', userDataPath: pathA }],
-      });
-    }
   });
 });

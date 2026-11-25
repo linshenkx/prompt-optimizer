@@ -1,22 +1,19 @@
 {
   "name": "@prompt-optimizer/mcp-server",
-  "version": "0.2.0-beta.3",
+  "version": "0.2.0-beta.4",
   "description": "Optimize, test, and compare prompts with models from your Prompt Optimizer desktop or browser workspace via MCP.",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/product/index.js",
+  "types": "./dist/product/index.d.ts",
   "bin": {
-    "prompt-optimizer-mcp": "./bin/prompt-optimizer-mcp.cjs",
-    "prompt-optimizer-product-mcp": "./bin/prompt-optimizer-product-mcp.cjs",
-    "prompt-optimizer-desktop-mcp": "./bin/prompt-optimizer-desktop-mcp.cjs"
+    "prompt-optimizer-product-mcp": "./bin/prompt-optimizer-product-mcp.cjs"
   },
   "scripts": {
-    "build": "tsup src/index.ts src/start.ts src/desktop.ts src/desktop-business.ts src/product.ts src/legacy.ts --format cjs,esm --dts --clean",
+    "build": "tsup src/index.ts --format esm --dts --out-dir dist/product --clean",
+    "build:docker": "tsup src/start.ts --format cjs --out-dir dist/docker --clean",
     "pack:npm": "node scripts/pack-npm.mjs",
-    "dev": "node dist/start.js --mode=legacy --transport=http",
-    "start": "node dist/start.cjs --mode=legacy --transport=http",
-    "start:desktop-readonly": "node dist/start.cjs --mode=desktop-readonly",
-    "start:desktop": "node bin/prompt-optimizer-desktop-mcp.cjs",
+    "dev": "node bin/prompt-optimizer-product-mcp.cjs",
+    "start": "node bin/prompt-optimizer-product-mcp.cjs",
     "test:browser": "vitest run --config vitest.browser.config.ts",
     "test:browser-product": "node tests/browser-product.acceptance.mjs",
     "test:desktop-readonly": "vitest run --config vitest.desktop-readonly.config.ts",
@@ -72,8 +69,7 @@
   },
   "files": [
     "bin",
-    "dist",
-    "preload-env.cjs",
+    "dist/product",
     "README.md"
   ]
 }

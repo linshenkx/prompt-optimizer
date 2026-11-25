@@ -1,48 +1,26 @@
 import { isAbsolute } from 'node:path';
 import { DesktopSourceError, type DesktopProfile } from './desktop-router.js';
 
-export type LaunchSelection = { mode: 'product'; profiles: DesktopProfile[]; productUrl?: string } | { mode: 'legacy' } | { mode: 'desktop-readonly'; profiles: DesktopProfile[] };
-export function selectLaunchMode(args: string[]): LaunchSelection {
-  if (args.includes('--mode')) throw new DesktopSourceError('INVALID_INPUT');
-  const modes = args.filter(arg => arg.startsWith('--mode='));
-  if (modes.length > 1) throw new DesktopSourceError('INVALID_INPUT');
-  const mode = modes[0]?.slice('--mode='.length) ?? 'legacy';
-  const paths = args.filter(arg => arg.startsWith('--desktop-profile='));
-  if (['product', 'desktop', 'desktop-comparison', 'browser'].includes(mode)) {
-    const urls = args.filter(arg => arg.startsWith('--product-url='));
-    if (paths.length > 8 || urls.length > 1 || args.filter(arg => arg.startsWith('--transport=')).length > 1 ||
-      args.some(arg => !paths.includes(arg) && !urls.includes(arg) && arg !== modes[0] && arg !== '--transport=stdio')) {
-      throw new DesktopSourceError('INVALID_INPUT');
-    }
-    let productUrl: string | undefined;
-    if (urls.length) {
-      let url: URL;
-      try { url = new URL(urls[0].slice('--product-url='.length)); }
-      catch { throw new DesktopSourceError('INVALID_INPUT'); }
-      if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
+export function parseProductOptions(args: string[]) {
+  const profiles: DesktopProfile[] = [];
+  let productUrl: string | undefined;
+  let explicitStdio = false;
+  for (const arg of args) {
+    if (arg.startsWith('--desktop-profile=')) {
+      const userDataPath = arg.slice('--desktop-profile='.length);
+      if (!isAbsolute(userDataPath) || profiles.length >= 8) throw new DesktopSourceError('INVALID_INPUT');
+      profiles.push({ label: 'Desktop profile ' + (profiles.length + 1), userDataPath });
+    } else if (arg.startsWith('--product-url=') && productUrl === undefined) {
+      const url = URL.parse(arg.slice('--product-url='.length));
+      if (!url || !['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
         throw new DesktopSourceError('INVALID_INPUT');
       }
       productUrl = url.href;
+    } else if (arg === '--transport=stdio' && !explicitStdio) {
+      explicitStdio = true;
+    } else {
+      throw new DesktopSourceError('INVALID_INPUT');
     }
-    if (mode === 'browser' && !productUrl) throw new DesktopSourceError('INVALID_INPUT');
-    return { mode: 'product', profiles: parseProfiles(paths), productUrl };
   }
-  if (mode === 'legacy') {
-    if (args.some(arg => arg.startsWith('--desktop-'))) throw new DesktopSourceError('INVALID_INPUT');
-    return { mode };
-  }
-  if (mode !== 'desktop-readonly') throw new DesktopSourceError('INVALID_INPUT');
-  if (args.some(arg => !arg.startsWith('--desktop-profile=') && arg !== modes[0] && arg !== '--transport=stdio')) {
-    throw new DesktopSourceError('INVALID_INPUT');
-  }
-  if (paths.length < 1 || paths.length > 8 || args.filter(arg => arg.startsWith('--transport=')).length > 1) throw new DesktopSourceError('INVALID_INPUT');
-  return { mode, profiles: parseProfiles(paths) };
-}
-
-function parseProfiles(paths: string[]): DesktopProfile[] {
-  return paths.map((arg, index) => {
-    const userDataPath = arg.slice('--desktop-profile='.length);
-    if (!isAbsolute(userDataPath)) throw new DesktopSourceError('INVALID_INPUT');
-    return { label: 'Desktop profile ' + (index + 1), userDataPath };
-  });
+  return { profiles, productUrl };
 }

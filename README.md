@@ -208,7 +208,7 @@ docker run -d -p 8081:80 \
 
 The MCP Server will then be accessible at `http://localhost:8081/mcp`.
 
-Use that URL with a client that supports Streamable HTTP. For a local connection in Claude Desktop, see the [stdio setup](docs/user/mcp-server_en.md#claude-desktop-integration).
+Use that URL with a client that supports Streamable HTTP.
 
 #### Available Tools
 

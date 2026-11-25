@@ -8,17 +8,14 @@
 
 ## 它和 Docker、MCP 是什么关系
 
-这三者很容易混淆，可以先按下面理解：
-
 | 方式 | 你会得到什么 | 适合什么 |
 | --- | --- | --- |
 | Web 版 | 一个可访问的前端页面 | 在线使用、静态托管 |
 | Docker | Web 页面 + 容器内 `/mcp` 服务 | 自托管、局域网部署 |
-| 独立 MCP | 只有 MCP 服务，不带 Web 页面 | 接入 MCP 客户端 |
 
 如果你想一次起 Web 和 MCP，优先看 [Docker 基础部署](docker-basic.md)。
 
-如果你只关心 MCP 接入方式，直接看 [MCP 服务器](../user/mcp-server.md)。
+要让 AI 客户端连接容器的 `/mcp`，请看 [MCP 服务器](../user/mcp-server.md)。
 
 ## 什么时候适合用 Web 版
 
@@ -185,7 +182,6 @@ packages/web/dist
 - 连接 Ollama / LM Studio：优先 [桌面应用](desktop.md)
 - 连接局域网 HTTP 接口：优先 [桌面应用](desktop.md)
 - 想同时提供 Web 和 MCP：优先 [Docker 基础部署](docker-basic.md)
-- 只想对外提供 MCP：看 [MCP 服务器](../user/mcp-server.md)
 
 ## 相关页面
 

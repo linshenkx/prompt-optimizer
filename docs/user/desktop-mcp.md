@@ -1,16 +1,16 @@
 # 新版 MCP 使用说明
 
-新版 MCP 连接已有的桌面或网页资料，使用一套工具完成查询、编辑、模型运行、对照和保存。Legacy 环境变量入口继续兼容旧客户端。
+MCP 连接已有的桌面或网页资料，使用同一套工具查询和编辑资料、运行模型、对照提示词并保存结果。
 
 ## 安装和选择资料
 
-在 MCP 客户端中可通过 npm 安装包运行（支持 Node.js 24.x、25.x 和 26.x）：命令填 `npx`（Windows 上为 `npx.cmd`），参数填 `--yes --package=@prompt-optimizer/mcp-server@beta prompt-optimizer-product-mcp`，后面可追加资料参数。从源码构建时，使用 Node 24.22.1 构建 Core 和 MCP 后运行：
+从 0.2.0-beta.4 起，使用 Node.js 24、25 或 26，在 MCP 客户端将启动命令设为 `npx -y @prompt-optimizer/mcp-server@beta`。若需分别填写，命令为 `npx`（Windows 可用 `npx.cmd`），参数依次为 `-y` 和包名（含 `@beta`）。也可以追加下文的资料参数。
+
+在发布前试用本地构建时，在仓库根目录运行 `pnpm mcp:pack`，再用 `npx -y file:./dist/npm/prompt-optimizer-mcp-server-0.2.0-beta.4.tgz` 启动该包。从源码构建 Core 和 MCP 后，也可以直接运行下列命令。
 
 ```powershell
 node packages/mcp-server/bin/prompt-optimizer-product-mcp.cjs
 ```
-
-用 `pnpm --filter @prompt-optimizer/mcp-server pack:npm` 在 `dist/npm/` 下生成安装包。运行这个包支持 Node.js 24.x、25.x 和 26.x。在 MCP 客户端中，命令填 `npx`（Windows 上为 `npx.cmd`），参数填 `--yes --package=<本地 tgz 绝对路径> prompt-optimizer-product-mcp`，后面可追加资料参数。
 
 无参数时使用当前用户的默认桌面资料。用 `--desktop-profile=<绝对 userData 目录>` 指定已迁移的桌面资料，可传多个。也可用 `--product-url=<产品网页 URL>` 将网页设为默认来源，在实际网页打开一次性链接授权。MCP 只访问已存在的桌面 SQLite，网页通过明确授权的产品页面读写本地存储。
 

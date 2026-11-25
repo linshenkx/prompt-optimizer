@@ -1,8 +1,6 @@
-# MCP 服务器用户指南
+# Docker MCP 使用指南
 
-连接桌面或网页资料，请参阅[新版 MCP 使用说明](./desktop-mcp.md)。本文介绍 Legacy 环境变量入口。
-
-Prompt Optimizer 支持 Model Context Protocol (MCP) 协议，可以与 Claude Desktop 等支持 MCP 的 AI 应用集成。
+Prompt Optimizer 的 Docker 镜像提供 `/mcp` 服务。客户端通过 Streamable HTTP 连接，模型由容器环境变量配置。
 
 ## 🎯 功能特性
 
@@ -12,9 +10,9 @@ Prompt Optimizer 支持 Model Context Protocol (MCP) 协议，可以与 Claude D
 
 ## 🚀 快速开始
 
-### Docker 部署（推荐）
+### 启动容器
 
-Docker 是最简单的部署方式，Web 界面和 MCP 服务器会同时启动：
+以下命令同时启动 Web 界面和 MCP 服务。
 
 ```bash
 # 基本部署
@@ -28,27 +26,6 @@ docker run -d -p 8081:80 \
 # Web 界面：http://localhost:8081
 # MCP 服务器：http://localhost:8081/mcp
 ```
-
-### 开发者本地部署
-
-> **注意**：此方式仅适用于开发者进行开发和调试，普通用户建议使用 Docker 部署。
-
-```bash
-# 1. 克隆项目
-git clone https://github.com/your-repo/prompt-optimizer.git
-cd prompt-optimizer
-
-# 2. 安装依赖
-pnpm install
-
-# 3. 配置环境变量（复制并编辑 .env.local）
-cp env.local.example .env.local
-
-# 4. 启动 MCP 服务器
-pnpm mcp:dev
-```
-
-服务器将在 `http://localhost:3000/mcp` 启动。开发者可以查看 [开发者文档](../../packages/mcp-server/README.md) 获取更多开发相关信息。
 
 ## ⚙️ 环境变量配置
 
@@ -92,44 +69,7 @@ MCP_DEFAULT_LANGUAGE=zh
 
 ## 🔗 客户端连接
 
-### Claude Desktop 集成
-
-从仓库根目录运行以下命令，构建供 Claude Desktop 启动的本地服务。
-
-```bash
-pnpm install
-pnpm build:core
-pnpm mcp:build
-```
-
-在 `claude_desktop_config.json` 的 `mcpServers` 中添加以下配置。Windows 的配置文件位于 `%APPDATA%\Claude`，macOS 位于 `~/Library/Application Support/Claude`。
-
-```json
-{
-  "mcpServers": {
-    "prompt-optimizer": {
-      "command": "node",
-      "args": ["/absolute/path/to/prompt-optimizer/packages/mcp-server/bin/prompt-optimizer-mcp.cjs", "--transport=stdio"],
-      "env": {
-        "VITE_OPENAI_API_KEY": "your-openai-key",
-        "MCP_DEFAULT_MODEL_PROVIDER": "openai"
-      }
-    }
-  }
-}
-```
-
-将脚本路径和 API 密钥换成自己的值，然后退出并重新打开 Claude Desktop。如果应用找不到 `node`，请在 `command` 中填写 Node.js 可执行文件的绝对路径。接入远程 HTTP 服务时，请参阅 [Claude 自定义连接器说明](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)。
-
-### 其他 MCP 客户端
-
-MCP 服务器支持标准的 MCP 协议，可以被任何兼容的客户端使用：
-
-- **连接地址**：
-  - Docker 部署：`http://localhost:8081/mcp`
-  - 本地部署：`http://localhost:3000/mcp`
-- **协议**：HTTP Streamable
-- **传输方式**：HTTP 或 stdio
+在支持 Streamable HTTP 的客户端添加服务地址。按上例在本机部署时，填 `http://localhost:8081/mcp`。远程部署时，填写客户端可访问的 HTTPS 地址并保留 `/mcp` 路径。使用 Claude 远程连接器可参阅[官方配置说明](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)。
 
 ## 🧪 测试与验证
 
@@ -138,16 +78,12 @@ MCP 服务器支持标准的 MCP 协议，可以被任何兼容的客户端使�
 MCP Inspector 是官方提供的测试工具：
 
 ```bash
-# 1. 启动 MCP 服务器
-pnpm mcp:dev
-
-# 2. 在另一个终端启动 Inspector
 npx @modelcontextprotocol/inspector
 ```
 
 在 Inspector Web UI 中：
 1. 选择传输方式：`Streamable HTTP`
-2. 服务器 URL：`http://localhost:3000/mcp`
+2. 服务器 URL：`http://localhost:8081/mcp`
 3. 点击 "Connect" 连接服务器
 4. 测试可用的工具
 
@@ -158,15 +94,7 @@ npx @modelcontextprotocol/inspector
 #### 1. 服务器启动失败
 
 **错误**: `Error: listen EADDRINUSE: address already in use`
-**解决**: 端口被占用，更改端口或停止占用进程
-
-```bash
-# 查看端口占用
-netstat -ano | findstr :3000
-
-# 更改端口
-MCP_HTTP_PORT=3001 pnpm mcp:dev
-```
+如果宿主机的 8081 端口已被占用，使用其他端口映射，例如 `-p 8082:80`，并把客户端地址改为 `http://localhost:8082/mcp`。
 
 #### 2. API 密钥无效
 
@@ -206,26 +134,14 @@ MCP_DEFAULT_MODEL_PROVIDER=openai  # 不是 OpenAI
 - 新版本在 `docker/nginx.conf` 中为 `/mcp` 路由添加了 `auth_basic off;`
 - Web 应用访问仍然受密码保护
 
-#### 5. Claude Desktop 连接失败
-
-本地接入时，确认已构建 MCP 服务，检查 `command` 和脚本路径，然后查看 Claude Desktop 启动日志。使用远程连接器时，检查服务地址和网络可达性。
-
 ### 日志调试
 
-启用详细日志：
-
-```bash
-# 开发环境
-MCP_LOG_LEVEL=debug pnpm mcp:dev
-
-# Docker 环境
-docker run -e MCP_LOG_LEVEL=debug ...
-```
+使用 `docker logs prompt-optimizer` 查看容器启动日志。
 
 ## 📚 更多资源
 
 - [MCP 官方文档](https://modelcontextprotocol.io)
-- [开发者文档](../../packages/mcp-server/README.md)
+- [Docker MCP 部署说明](../deployment/docker-mcp-integration.md)
 - [项目主页](../../README.md)
 
 ## 🆘 获取帮助

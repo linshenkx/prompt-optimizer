@@ -9,7 +9,7 @@ COPY . /app
 WORKDIR /app
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 RUN pnpm run build
-RUN pnpm mcp:build
+RUN pnpm --filter @prompt-optimizer/mcp-server build:docker
 
 FROM node:${NODE_VERSION}-alpine
 # 安装htpasswd工具、dos2unix和supervisor
@@ -25,9 +25,7 @@ COPY docker/nginx.conf /etc/nginx/http.d/default.conf
 COPY --from=build /app/packages/web/dist /usr/share/nginx/html
 
 # 复制MCP服务器
-COPY --from=build /app/packages/mcp-server/dist /app/mcp-server/dist
-COPY --from=build /app/packages/mcp-server/package.json /app/mcp-server/
-COPY --from=build /app/packages/mcp-server/preload-env.js /app/mcp-server/
+COPY --from=build /app/packages/mcp-server/dist/docker /app/mcp-server/dist
 COPY --from=build /app/packages/mcp-server/preload-env.cjs /app/mcp-server/
 
 # 复制构建后的包到正确位置（MCP服务器依赖）

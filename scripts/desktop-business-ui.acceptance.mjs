@@ -82,7 +82,7 @@ await storage.provider.setItem('models', JSON.stringify({ fixture: { id: 'fixtur
 await storage.provider.setItem('pref:ui.theme', JSON.stringify('dark'));
 const guard = join(root, 'mcp-loopback.cjs');
 await writeFile(guard, `const original = global.fetch; global.fetch = (input, options) => { const url = new URL(input instanceof Request ? input.url : input); if (url.origin !== ${JSON.stringify(origin)}) throw new Error('Only synthetic loopback allowed'); return original(input, { ...options, redirect: 'error' }); };`);
-const transport = new StdioClientTransport({ command: process.execPath, args: ['--require', guard, join(sourceRoot, 'packages/mcp-server/bin/prompt-optimizer-desktop-mcp.cjs'), `--desktop-profile=${profile}`], env, stderr: 'pipe' });
+const transport = new StdioClientTransport({ command: process.execPath, args: ['--require', guard, join(sourceRoot, 'packages/mcp-server/bin/prompt-optimizer-product-mcp.cjs'), `--desktop-profile=${profile}`], env, stderr: 'pipe' });
 let diagnostics = '';
 transport.stderr?.on('data', bytes => { diagnostics += bytes.toString(); });
 const client = new Client({ name: 'Isolated desktop product UI acceptance', version: '1' });

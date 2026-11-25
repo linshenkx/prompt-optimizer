@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { copyFile, cp, mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { isBuiltin } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
@@ -9,24 +9,21 @@ import { build } from 'esbuild';
 
 const packageDir = fileURLToPath(new URL('../', import.meta.url));
 const repoDir = resolve(packageDir, '../..');
-const entries = ['index', 'start', 'desktop', 'product', 'legacy'];
 const { values } = parseArgs({ options: { 'out-dir': { type: 'string' } } });
 const destination = values['out-dir']
   ? resolve(process.env.INIT_CWD || process.cwd(), values['out-dir'])
   : join(repoDir, 'dist', 'npm');
 
-async function collectNotices(builds) {
+async function collectNotices(metafile) {
   const packageRoots = new Set();
   const nodeModules = sep + 'node_modules' + sep;
-  for (const { metafile } of builds) {
-    for (const entry of Object.keys(metafile.inputs)) {
-      const input = resolve(packageDir, entry);
-      const index = input.lastIndexOf(nodeModules);
-      if (index < 0) continue;
-      const moduleRoot = input.slice(0, index + nodeModules.length);
-      const [name, scopedName] = input.slice(moduleRoot.length).split(sep);
-      packageRoots.add(name.startsWith('@') ? join(moduleRoot, name, scopedName) : join(moduleRoot, name));
-    }
+  for (const entry of Object.keys(metafile.inputs)) {
+    const input = resolve(packageDir, entry);
+    const index = input.lastIndexOf(nodeModules);
+    if (index < 0) continue;
+    const moduleRoot = input.slice(0, index + nodeModules.length);
+    const [name, scopedName] = input.slice(moduleRoot.length).split(sep);
+    packageRoots.add(name.startsWith('@') ? join(moduleRoot, name, scopedName) : join(moduleRoot, name));
   }
 
   const notices = [];
@@ -42,67 +39,45 @@ async function collectNotices(builds) {
   return [...new Set(notices)].sort().join('\n\n' + '-'.repeat(72) + '\n\n') + '\n';
 }
 
-const productVersion = JSON.parse(await readFile(join(repoDir, 'package.json'), 'utf8')).version;
-const repoBlobBase = `https://github.com/linshenkx/prompt-optimizer/blob/v${productVersion}/`;
-
-function rewriteReadmeLinks(markdown) {
-  return markdown.replace(/\]\(\.\.\/\.\.\/([^)\s]+)\)/g, (_, target) => `](${repoBlobBase}${target})`);
-}
-
 const tempRoot = await realpath(tmpdir());
 const staging = await mkdtemp(join(tempRoot, 'prompt-optimizer-mcp-npm-'));
 try {
-  const dist = join(staging, 'dist');
   const skill = join('skills', 'prompt-optimizer-compare', 'SKILL.md');
   await mkdir(join(staging, 'skills', 'prompt-optimizer-compare'), { recursive: true });
+  await mkdir(join(staging, 'bin'));
 
-  const bundleOptions = {
+  const { metafile } = await build({
     absWorkingDir: packageDir,
+    entryPoints: ['src/index.ts'],
+    outdir: join(staging, 'dist', 'product'),
     bundle: true,
     minify: true,
     platform: 'node',
     target: 'node24',
     metafile: true,
-  };
-  const builds = await Promise.all([
-    build({
-      ...bundleOptions,
-      entryPoints: entries.map(entry => 'src/' + entry + '.ts'),
-      outdir: dist,
-      format: 'esm',
-      splitting: true,
-      // Some bundled CommonJS libraries still require Node built-ins at runtime.
-      banner: { js: 'import { createRequire as __mcpCreateRequire } from "node:module";\nconst require = __mcpCreateRequire(import.meta.url);' },
-    }),
-    build({
-      ...bundleOptions,
-      entryPoints: ['preload-env.cjs'],
-      outfile: join(staging, 'preload-env.cjs'),
-      format: 'cjs',
-    }),
-  ]);
+    format: 'esm',
+    splitting: true,
+    // Some bundled CommonJS libraries still require Node built-ins at runtime.
+    banner: { js: 'import { createRequire as __mcpCreateRequire } from "node:module";\nconst require = __mcpCreateRequire(import.meta.url);' },
+  });
   // These optional accelerators and color support already have a JS fallback.
   const optionalImports = new Set(['bufferutil', 'utf-8-validate', 'supports-color']);
-  for (const { metafile } of builds) {
-    for (const { imports } of Object.values(metafile.outputs)) {
-      const missing = imports.find(item => item.external && !isBuiltin(item.path) && !optionalImports.has(item.path));
-      if (missing) throw new Error('Unbundled npm runtime dependency: ' + missing.path);
-    }
+  for (const { imports } of Object.values(metafile.outputs)) {
+    const missing = imports.find(item => item.external && !isBuiltin(item.path) && !optionalImports.has(item.path));
+    if (missing) throw new Error('Unbundled npm runtime dependency: ' + missing.path);
   }
 
   const { dependencies, devDependencies, scripts, files, types, ...manifest } =
     JSON.parse(await readFile(join(packageDir, 'package.json'), 'utf8'));
-  manifest.files = ['bin', 'dist', 'preload-env.cjs', 'skills', 'THIRD_PARTY_NOTICES.txt'];
+  manifest.files = [...files, 'skills', 'THIRD_PARTY_NOTICES.txt'];
 
   await Promise.all([
-    cp(join(packageDir, 'bin'), join(staging, 'bin'), { recursive: true }),
-    readFile(join(packageDir, 'README.md'), 'utf8')
-      .then(content => writeFile(join(staging, 'README.md'), rewriteReadmeLinks(content))),
+    ...Object.values(manifest.bin).map(file => copyFile(join(packageDir, file), join(staging, file))),
+    copyFile(join(packageDir, 'README.md'), join(staging, 'README.md')),
     copyFile(join(repoDir, 'LICENSE'), join(staging, 'LICENSE')),
     copyFile(join(repoDir, '.agents', skill), join(staging, skill)),
     writeFile(join(staging, 'package.json'), JSON.stringify(manifest, null, 2) + '\n'),
-    writeFile(join(staging, 'THIRD_PARTY_NOTICES.txt'), await collectNotices(builds)),
-    ...entries.map(entry => writeFile(join(dist, entry + '.cjs'), 'module.exports = require("./' + entry + '.js");\n')),
+    writeFile(join(staging, 'THIRD_PARTY_NOTICES.txt'), await collectNotices(metafile)),
   ]);
 
   await mkdir(destination, { recursive: true });

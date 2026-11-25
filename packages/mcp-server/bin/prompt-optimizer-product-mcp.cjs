@@ -2,5 +2,7 @@
 
 'use strict';
 
-process.argv.splice(2, 0, '--mode=product');
-require('./prompt-optimizer-mcp.cjs');
+import('../dist/product/index.js').then(({ main }) => main()).catch(() => {
+  process.stderr.write('MCP startup failed (INVALID_CONFIGURATION_OR_SOURCE).\n');
+  process.exitCode = 1;
+});

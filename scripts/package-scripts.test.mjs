@@ -149,12 +149,11 @@ test('web dev loads root env while extension build stays isolated from root env'
   assert.doesNotMatch(extensionViteConfig, /'process\.env'/)
 })
 
-test('mcp-server bin points to a file that exists before build output is generated', () => {
+test('npx can resolve the single product MCP command before the workspace build', () => {
   const mcpPackagePath = path.join('packages', 'mcp-server', 'package.json')
   const mcpPackage = readJson(mcpPackagePath)
-  const binEntry = mcpPackage.bin?.['prompt-optimizer-mcp']
-
-  assert.equal(typeof binEntry, 'string')
+  assert.deepEqual(Object.keys(mcpPackage.bin), ['prompt-optimizer-product-mcp'])
+  const binEntry = mcpPackage.bin['prompt-optimizer-product-mcp']
 
   const binTargetPath = path.join(path.dirname(mcpPackagePath), binEntry)
   assert.equal(

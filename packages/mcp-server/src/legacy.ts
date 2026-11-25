@@ -31,7 +31,7 @@
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { version } from '../package.json';
+import { version } from '../../../package.json';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { ListToolsRequestSchema, CallToolRequestSchema, isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';

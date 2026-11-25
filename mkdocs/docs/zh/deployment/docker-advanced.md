@@ -136,5 +136,5 @@ docker run -d -p 8081:80 --name prompt-optimizer-local prompt-optimizer:local
 
 - 还没跑起来：看 [Docker 基础部署](docker-basic.md)
 - 只是想用前端页面：看 [Web 版部署](web.md)
-- 只是想独立使用 MCP：看 [MCP 服务器](../user/mcp-server.md)
+- 给 AI 客户端配置容器的 `/mcp` 连接可参阅 [MCP 服务器](../user/mcp-server.md)
 - 容器启动但访问异常：看 [Docker 故障排除](docker-troubleshooting.md)

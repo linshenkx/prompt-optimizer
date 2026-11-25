@@ -11,7 +11,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport, DEFAULT_INHERITED_ENV_VARS } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { openDesktopStorage } from '@prompt-optimizer/core/node';
 
-const cli = fileURLToPath(new URL('../bin/prompt-optimizer-desktop-mcp.cjs', import.meta.url));
+const cli = fileURLToPath(new URL('../bin/prompt-optimizer-product-mcp.cjs', import.meta.url));
 const credential = 'SYNTHETIC_BUSINESS_SECRET_NEVER_RETURN';
 const evaluation = { score: { overall: 88, dimensions: [{ name: 'Clarity', score: 88 }] }, improvements: ['State the expected output'], summary: 'Clear synthetic test', patchPlan: [] };
 

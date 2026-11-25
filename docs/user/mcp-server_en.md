@@ -1,6 +1,6 @@
-# MCP Server User Guide
+# Docker MCP Server Guide
 
-Prompt Optimizer supports the Model Context Protocol (MCP), enabling integration with AI applications that support MCP such as Claude Desktop.
+The Prompt Optimizer Docker image serves MCP at `/mcp`. Clients connect using Streamable HTTP. Set the model credentials in the container environment.
 
 ## 🎯 Features
 
@@ -10,9 +10,9 @@ Prompt Optimizer supports the Model Context Protocol (MCP), enabling integration
 
 ## 🚀 Quick Start
 
-### Docker Deployment (Recommended)
+### Start the container
 
-Docker is the simplest deployment method, with both Web interface and MCP server starting together:
+This command starts the web interface and the MCP service.
 
 ```bash
 # Basic deployment
@@ -26,27 +26,6 @@ docker run -d -p 8081:80 \
 # Web Interface: http://localhost:8081
 # MCP Server: http://localhost:8081/mcp
 ```
-
-### Developer Local Deployment
-
-> **Note**: This method is only for developers for development and debugging. Regular users should use Docker deployment.
-
-```bash
-# 1. Clone the project
-git clone https://github.com/your-repo/prompt-optimizer.git
-cd prompt-optimizer
-
-# 2. Install dependencies
-pnpm install
-
-# 3. Configure environment variables (copy and edit .env.local)
-cp env.local.example .env.local
-
-# 4. Start MCP server
-pnpm mcp:dev
-```
-
-The server will start at `http://localhost:3000/mcp`. Developers can refer to the [Developer Documentation](../../packages/mcp-server/README.md) for more development-related information.
 
 ## ⚙️ Environment Variable Configuration
 
@@ -90,44 +69,7 @@ MCP_DEFAULT_LANGUAGE=zh
 
 ## 🔗 Client Connections
 
-### Claude Desktop Integration
-
-Build the local server from the repository root.
-
-```bash
-pnpm install
-pnpm build:core
-pnpm mcp:build
-```
-
-Add this entry under `mcpServers` in `claude_desktop_config.json`. The configuration file is in `%APPDATA%\Claude` on Windows and `~/Library/Application Support/Claude` on macOS.
-
-```json
-{
-  "mcpServers": {
-    "prompt-optimizer": {
-      "command": "node",
-      "args": ["/absolute/path/to/prompt-optimizer/packages/mcp-server/bin/prompt-optimizer-mcp.cjs", "--transport=stdio"],
-      "env": {
-        "VITE_OPENAI_API_KEY": "your-openai-key",
-        "MCP_DEFAULT_MODEL_PROVIDER": "openai"
-      }
-    }
-  }
-}
-```
-
-Replace the script path and API key, then quit and reopen Claude Desktop. If the app cannot find `node`, set `command` to the absolute path to the Node.js executable. For a remote HTTP server, follow the [Claude custom connectors guide](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
-
-### Other MCP Clients
-
-The MCP server supports the standard MCP protocol and can be used by any compatible client:
-
-- **Connection URLs**:
-  - Docker deployment: `http://localhost:8081/mcp`
-  - Local deployment: `http://localhost:3000/mcp`
-- **Protocol**: HTTP Streamable
-- **Transport**: HTTP or stdio
+In a client that supports Streamable HTTP, enter `http://localhost:8081/mcp` for the local deployment above. For a remote deployment, use its reachable HTTPS URL with the same `/mcp` path. To connect from Claude, see the [remote connector guide](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
 
 ## 🧪 Testing and Validation
 
@@ -136,16 +78,12 @@ The MCP server supports the standard MCP protocol and can be used by any compati
 MCP Inspector is the official testing tool:
 
 ```bash
-# 1. Start MCP server
-pnpm mcp:dev
-
-# 2. Start Inspector in another terminal
 npx @modelcontextprotocol/inspector
 ```
 
 In the Inspector Web UI:
 1. Select transport method: `Streamable HTTP`
-2. Server URL: `http://localhost:3000/mcp`
+2. Server URL: `http://localhost:8081/mcp`
 3. Click "Connect" to connect to the server
 4. Test available tools
 
@@ -156,15 +94,7 @@ In the Inspector Web UI:
 #### 1. Server Startup Failure
 
 **Error**: `Error: listen EADDRINUSE: address already in use`
-**Solution**: Port is occupied, change port or stop the occupying process
-
-```bash
-# Check port usage
-netstat -ano | findstr :3000
-
-# Change port
-MCP_HTTP_PORT=3001 pnpm mcp:dev
-```
+If host port 8081 is busy, use another mapping such as `-p 8082:80` and set the client URL to `http://localhost:8082/mcp`.
 
 #### 2. Invalid API Key
 
@@ -204,26 +134,14 @@ MCP_DEFAULT_MODEL_PROVIDER=openai  # not OpenAI
 - The new version adds `auth_basic off;` for the `/mcp` route in `docker/nginx.conf`
 - Web application access remains password-protected
 
-#### 5. Claude Desktop Connection Failure
+### Logs
 
-For a local connection, confirm the MCP server has been built, check the `command` and script paths, and review the Claude Desktop logs. For a remote connector, check the server URL and its network reachability.
-
-### Debug Logging
-
-Enable verbose logging:
-
-```bash
-# Development environment
-MCP_LOG_LEVEL=debug pnpm mcp:dev
-
-# Docker environment
-docker run -e MCP_LOG_LEVEL=debug ...
-```
+Run `docker logs prompt-optimizer` to read the container startup log.
 
 ## 📚 More Resources
 
 - [MCP Official Documentation](https://modelcontextprotocol.io)
-- [Developer Documentation](../../packages/mcp-server/README.md)
+- [Docker MCP deployment](../deployment/docker-mcp-integration.md)
 - [Project Homepage](../../README.md)
 
 ## 🆘 Getting Help

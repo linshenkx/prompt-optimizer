@@ -1,33 +1,6 @@
-# MCP 服务器
+# Docker MCP 服务
 
-这页只讲 MCP 本身，不再把它和 Web 页面混在一起。
-
-先记住一句话：
-
-**MCP 是给客户端接入 Prompt Optimizer 核心能力的接口层，不是 Web 前端页面。**
-
-## 它和 Web、Docker 是什么关系
-
-最容易混淆的其实是这三个词：
-
-| 方式 | 包含什么 | 典型入口 |
-| --- | --- | --- |
-| Web 版 | 只有前端页面 | `/` |
-| Docker 版 | Web 页面 + MCP 服务 | `/` 和 `/mcp` |
-| 独立 MCP | 只有 MCP 服务 | `http://host:port/mcp` 或 `stdio` |
-
-如果你只是想在浏览器里使用产品，去看 [Web 版部署](../deployment/web.md)。
-
-如果你想一次起 Web 和 MCP，去看 [Docker 基础部署](../deployment/docker-basic.md)。
-
-## 当前支持哪两种传输方式
-
-当前实现里支持：
-
-- `Streamable HTTP`
-- `stdio`
-
-不过对大多数用户来说，最常用的仍然是 HTTP 方式，因为它更适合 Docker、自托管和远程客户端接入。
+Docker 镜像同时提供 Web 页面和 `/mcp` 服务。客户端通过 Streamable HTTP 连接容器中的模型服务。[Docker 基础部署](../deployment/docker-basic.md)
 
 ## 当前提供的工具
 
@@ -69,11 +42,7 @@
 - `requirements`
 - 可选 `template`
 
-## 最常见的 3 种启动方式
-
-### 1. 通过 Docker 使用 `/mcp`
-
-如果你已经在看 Docker 文档，这是最省事的方式，因为 Web 页面和 MCP 服务会一起起来。
+## 启动 Docker 容器
 
 ```bash
 docker run -d -p 8081:80 \
@@ -87,36 +56,6 @@ docker run -d -p 8081:80 \
 
 - Web：`http://localhost:8081`
 - MCP：`http://localhost:8081/mcp`
-
-### 2. 本地独立跑 HTTP 模式
-
-开发模式：
-
-```bash
-pnpm install
-pnpm mcp:dev
-```
-
-生产模式：
-
-```bash
-pnpm mcp:build
-pnpm mcp:start
-```
-
-当前根目录快捷命令默认启动的是 HTTP 模式。
-
-默认地址：
-
-```text
-http://localhost:3000/mcp
-```
-
-### 3. 直接使用 stdio
-
-如果你要接入只支持 `stdio` 的 MCP 客户端，需要直接以 `stdio` 方式启动 `mcp-server` 可执行入口，而不是使用默认的 `pnpm mcp:dev` / `pnpm mcp:start`。
-
-这也是为什么当前公开文档优先围绕 HTTP 方式来写。
 
 ## MCP 默认模型是怎么选的
 
@@ -170,14 +109,13 @@ MCP_DEFAULT_LANGUAGE=zh
 推荐直接用 MCP Inspector：
 
 ```bash
-pnpm mcp:dev
 npx @modelcontextprotocol/inspector
 ```
 
 在 Inspector 中：
 
 1. 选择 `Streamable HTTP`
-2. 填入 `http://localhost:3000/mcp`
+2. 填入 `http://localhost:8081/mcp`
 3. 连接后查看工具列表
 
 ### `curl /mcp` 能说明什么
@@ -225,9 +163,7 @@ npx @modelcontextprotocol/inspector
 
 ### 端口被占用
 
-```bash
-MCP_HTTP_PORT=3001 pnpm mcp:dev
-```
+将 Docker 宿主机端口改为可用端口，例如 `-p 8082:80`，并将客户端地址改为 `http://localhost:8082/mcp`。
 
 ## 相关页面
 

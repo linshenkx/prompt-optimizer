@@ -12,8 +12,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { DEFAULT_INHERITED_ENV_VARS, StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { DESKTOP_DATABASE_FILENAME, LEGACY_STORAGE_FILENAME, openDesktopStorage } from '@prompt-optimizer/core/node';
 
-const cli = fileURLToPath(new URL('../bin/prompt-optimizer-mcp.cjs', import.meta.url));
-const desktopCli = fileURLToPath(new URL('../bin/prompt-optimizer-desktop-mcp.cjs', import.meta.url));
+const cli = fileURLToPath(new URL('../bin/prompt-optimizer-product-mcp.cjs', import.meta.url));
 const credential = 'SYNTHETIC_COMPARISON_MCP_CREDENTIAL';
 const privateText = 'SYNTHETIC_COMPARISON_PRIVATE_SETTING';
 const rawPrompt = 'Use {{style}} for {{topic}}';
@@ -179,11 +178,10 @@ function snapshot(profile) {
   }
 }
 
-async function connect(context, profile, networkGuard, mode = 'desktop-comparison') {
-  const entry = mode === 'desktop' ? [desktopCli] : [cli, '--mode=' + mode];
+async function connect(context, profile, networkGuard) {
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: ['--require', networkGuard, ...entry, '--desktop-profile=' + profile],
+    args: ['--require', networkGuard, cli, '--desktop-profile=' + profile],
     cwd: context.root, env: context.env, stderr: 'pipe',
   });
   const client = new Client({ name: 'isolated-comparison-acceptance', version: '1' });
@@ -228,14 +226,14 @@ async function eventually(read, predicate, message) {
   assert.fail(message);
 }
 
-test('desktop aliases use the same product batch for model and prompt comparisons', { timeout: 60000 }, async t => {
+test('product stdio compares models and prompts and reopens saved batches', { timeout: 60000 }, async t => {
   const fixture = isolated(t);
   const recording = await recordModelRequests(fixture);
   const { directory, source, original } = await createProfile(fixture.root, recording.origin);
   const initial = snapshot(directory);
   let savedId;
-  for (const mode of ['desktop', 'desktop-comparison']) {
-    const mcp = await connect(fixture, directory, recording.networkGuard, mode);
+  for (const comparison of ['models', 'prompts']) {
+    const mcp = await connect(fixture, directory, recording.networkGuard);
     const names = (await mcp.client.listTools()).tools.map(tool => tool.name);
     assert.equal(names.length, 15);
     assert(!names.some(name => /^po_(assets|models|tests|comparisons)_/.test(name)));
@@ -246,15 +244,15 @@ test('desktop aliases use the same product batch for model and prompt comparison
     const asset = result.items[0];
     const selection = { favoriteId: asset.favoriteId, assetId: asset.assetId, versionId: 'version-selected', expectedRevision: asset.revision };
     const first = { modelKey: 'chat', source: selection, promptField: 'userPrompt', variables: { topic: 'orbits' } };
-    const second = mode === 'desktop' ? { ...first, modelKey: 'responses' } :
+    const second = comparison === 'models' ? { ...first, modelKey: 'responses' } :
       { modelKey: 'chat', userPrompt: 'Short answer about {{topic}}', variables: first.variables };
     if (savedId) assert.equal((await call('po_runs_get', { runId: savedId })).saved, true);
-    const start = { requestKey: mode, expectedRevision: revision, input: { kind: 'test-batch', request: { candidates: [first, second] } } };
+    const start = { requestKey: comparison, expectedRevision: revision, input: { kind: 'test-batch', request: { candidates: [first, second] } } };
     const run = await call('po_runs_start', start);
     assert.equal((await call('po_runs_start', start)).id, run.id);
     const done = await eventually(() => call('po_runs_get', { runId: run.id }), value => value.status !== 'running', 'batch did not finish');
     assert.deepEqual(done.output.map(item => item.status), ['succeeded', 'succeeded']);
-    assert.deepEqual(done.output.map(item => item.output), ['Chat answer', mode === 'desktop' ? 'Responses answer' : 'Chat answer']);
+    assert.deepEqual(done.output.map(item => item.output), ['Chat answer', comparison === 'models' ? 'Responses answer' : 'Chat answer']);
     assert.equal(done.input.request.candidates[0].userPrompt, 'Use saved-style for orbits');
     assert.equal(done.input.request.candidates[0].rawUserPrompt, rawPrompt);
     assert.deepEqual(done.input.request.candidates[0].variables, { style: 'saved-style', topic: 'orbits' });

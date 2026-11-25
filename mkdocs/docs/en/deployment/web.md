@@ -6,17 +6,14 @@ Whether you use the official online site or deploy your own static site, model r
 
 ## How it relates to Docker and MCP
 
-These options are easy to confuse:
-
 | Method | What you get | Best for |
 | --- | --- | --- |
 | Web | A reachable frontend page | Online use, static hosting |
 | Docker | Web page + `/mcp` service inside the container | Self-hosting and LAN deployments |
-| Standalone MCP | MCP service only, without the Web page | MCP clients |
 
 If you want Web and MCP together, start with [Docker Basics](docker-basic.md).
 
-If you only care about MCP integration, see [MCP Server](../user/mcp-server.md).
+To connect an AI client to the container’s `/mcp` endpoint, see [MCP Server](../user/mcp-server.md).
 
 ## When the Web version is a good fit
 
@@ -183,7 +180,6 @@ Choose another option for these needs:
 - Connect to Ollama / LM Studio: use the [desktop app](desktop.md)
 - Connect to LAN HTTP APIs: use the [desktop app](desktop.md)
 - Provide Web and MCP together: use [Docker Basics](docker-basic.md)
-- Provide MCP only: see [MCP Server](../user/mcp-server.md)
 
 ## Related pages
 
