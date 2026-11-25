@@ -1,11 +1,3 @@
-const { buildCodexMcpConfig, isDesktopMcpInvocation } = require('./config/desktop-mcp');
-if (isDesktopMcpInvocation(process.argv[1], process.resourcesPath)) {
-  // A client missing the MCP environment option must not start the desktop app.
-  process.stderr.write('Desktop MCP requires ELECTRON_RUN_AS_NODE=1.\n');
-  require('electron').app.exit(1);
-  return;
-}
-
 const { createStreamRegistry } = require('./stream-runtime');
 const streamRegistry = createStreamRegistry();
 /*
@@ -37,7 +29,7 @@ console.info('[prompt-optimizer/runtime]', {
   electron: process.versions.electron,
 });
 
-const { app, BrowserWindow, ipcMain, shell, session, Menu, nativeImage, dialog, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, session, Menu, nativeImage, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { createShutdownController, createWillQuitStorageCloser, requestWorkspaceSave } = require('./config/shutdown');
 const {
@@ -102,9 +94,6 @@ const {
   createImageService,
   createTemplateLanguageService,
   createDataManager,
-  createComparisonRepository,
-  createDesktopRunRepository, createRunArchive,
-  ComparisonRepositoryError,
   createContextRepo,
   FavoriteManager,
   safeSerializeForIPC,
@@ -139,7 +128,6 @@ let modelNetwork;
 let networkRestarting = false;
 let modelManager, templateManager, historyManager, llmService, promptService, templateLanguageService, preferenceService, dataManager, contextRepo, favoriteManager;
 let imageModelManager, imageService, imageUnderstandingService;
-let savedComparisons, desktopRuns, runArchive;
 let imageAdapterRegistry; // 全局引用以供 IPC 处理器使用
 let storageProvider; // 全局存储提供器引用，用于退出时保存数据
 
@@ -503,13 +491,6 @@ function createWindow() {
       buildAppMenuTemplate({
         isMac: process.platform === 'darwin',
         onPageZoomAction: handlePageZoomAction,
-        onCopyCodexMcpConfig: app.isPackaged && process.platform === 'win32'
-          ? () => clipboard.writeText(buildCodexMcpConfig({
-            executable: process.execPath,
-            resourcesPath: process.resourcesPath,
-            userDataPath: app.getPath('userData'),
-          }))
-          : undefined,
       })
     )
   );
@@ -747,10 +728,7 @@ async function initializeServices() {
     contextRepo = createContextRepo(storageProvider);
 
     console.log('[DESKTOP] Creating Data manager...');
-    savedComparisons = createComparisonRepository(storageProvider);
-    desktopRuns = createDesktopRunRepository(storageProvider);
-    runArchive = createRunArchive(desktopRuns, savedComparisons);
-    dataManager = createDataManager(modelManager, templateManager, historyManager, preferenceService, contextRepo, imageModelManager, savedComparisons, desktopRuns);
+    dataManager = createDataManager(modelManager, templateManager, historyManager, preferenceService, contextRepo, imageModelManager);
 
     console.log('[DESKTOP] Creating Favorite manager...');
     favoriteManager = new FavoriteManager(storageProvider);
@@ -2254,25 +2232,6 @@ function setupIPC() {
       return createFavoriteErrorResponse(error);
     }
   });
-
-  const comparisonRequest = (action) => async (_event, ...args) => {
-    try {
-      return createSuccessResponse(await action(...args));
-    } catch (error) {
-      const code = error instanceof ComparisonRepositoryError ? error.code : 'COMPARISON_STORAGE_FAILED';
-      return { success: false, error: { code, message: `Saved comparison request failed (${code}).` } };
-    }
-  };
-  ipcMain.handle('comparison-list', comparisonRequest(options => savedComparisons.list(options)));
-  ipcMain.handle('comparison-get', comparisonRequest(id => savedComparisons.get(id)));
-  ipcMain.handle('comparison-delete', comparisonRequest((id, revision) => savedComparisons.delete(id, revision)));
-  const runRequest = action => async (_event, ...args) => {
-    try { return createSuccessResponse(await action(...args)); }
-    catch { return { success: false, error: { message: 'Saved desktop run request failed.' } }; }
-  };
-  ipcMain.handle('desktop-runs-list', runRequest(async () => (await runArchive.list()).filter(run => run.saved)));
-  ipcMain.handle('desktop-runs-get', runRequest(id => runArchive.get(id)));
-  ipcMain.handle('desktop-runs-delete', runRequest((id, updatedAt) => runArchive.delete(id, updatedAt)));
 
   // Data Manager handlers
   ipcMain.handle('data-exportAllData', async (event) => {

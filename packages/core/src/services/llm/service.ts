@@ -7,8 +7,7 @@ import type {
   ModelOption,
   ToolDefinition,
   TextModel,
-  ITextAdapterRegistry,
-  TextRequestEvidence
+  ITextAdapterRegistry
 } from './types';
 import type { TextModelConfig, ModelConfig } from '../model/types';
 import type { ModelManager } from '../model/manager';
@@ -122,13 +121,6 @@ export class LLMService implements ILLMService {
     return response.content;
   }
 
-  /** Preview the public SDK request fields without invoking the adapter's network path. */
-  describeStreamRequest(config: TextModelConfig): TextRequestEvidence | undefined {
-    this.validateModelConfig(config);
-    const adapter = this.registry.getAdapter(config.providerMeta.id);
-    return adapter.describeStreamRequest?.(this.prepareRuntimeConfig(config));
-  }
-
   /**
    * 发送消息（流式,支持结构化和传统格式）
    */
@@ -154,14 +146,10 @@ export class LLMService implements ILLMService {
       const runtimeConfig = this.prepareRuntimeConfig(selection?.modelId ? resolveRuntimeTextModel(modelConfig, selection, this.registry) : modelConfig);
 
       // 使用 Adapter 发送流式消息
-      if (callbacks.onRequest && !adapter.describeStreamRequest?.(runtimeConfig)) {
-        throw new RequestConfigError('This adapter cannot capture text request evidence');
-      }
       await adapter.sendMessageStream(messages, runtimeConfig, callbacks);
 
     } catch (error) {
-      // A comparison records a public status code. SDK errors may contain the request.
-      if (!callbacks.onRequest) console.error('Stream request failed:', error);
+      console.error('Stream request failed:', error);
       callbacks.onError(error instanceof Error ? error : new Error(String(error)));
       throw error;
     }

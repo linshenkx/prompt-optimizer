@@ -181,8 +181,6 @@ export interface StreamHandlers {
   signal?: AbortSignal;
   /** Desktop transport handshake. Not serialized as part of a model request. */
   onStart?: (streamId: string) => void;
-  /** Called synchronously before a supported adapter sends its request. A throw stops the call. */
-  onRequest?: (evidence: TextRequestEvidence) => void;
   // 主要内容流（必需，向后兼容）
   onToken: (token: string) => void;
   
@@ -233,9 +231,6 @@ export interface ILLMService {
    * @throws {APIError} 当请求失败时
    */
   sendMessageStructured(messages: Message[], provider: string): Promise<LLMResponse>;
-  describeStreamRequest?(config: TextModelConfig): TextRequestEvidence | undefined;
-
-
 
   /**
    * 发送流式消息（支持结构化和传统格式）
@@ -317,9 +312,6 @@ export interface ITextProviderAdapter {
    * @throws SDK原始错误（保留完整堆栈）
    */
   sendMessage(messages: Message[], config: TextModelConfig): Promise<LLMResponse>
-
-  /** Describe the plain text streaming request using the same body builder as execution. */
-  describeStreamRequest?(config: TextModelConfig): TextRequestEvidence | undefined
 
   /**
    * 发送流式消息

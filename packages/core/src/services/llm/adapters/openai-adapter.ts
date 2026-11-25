@@ -1,7 +1,6 @@
 import OpenAI from 'openai'
 import { AbstractTextProviderAdapter } from './abstract-adapter'
-import { APIError, RequestConfigError } from '../errors'
-import { projectTextRequestEvidence } from '../request-evidence'
+import { APIError } from '../errors'
 import { normalizeChatCompletionUsage, normalizeResponsesUsage } from '../usage'
 import { normalizeCustomRequestHeaders } from '../../../utils/custom-request-headers'
 import type {
@@ -13,7 +12,6 @@ import type {
   LLMResponse,
   LLMTokenUsage,
   StreamHandlers,
-  TextRequestEvidence,
   ToolDefinition,
   ParameterDefinition
 } from '../types'
@@ -398,32 +396,6 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
     }
   }
 
-  private supportsStreamRequestEvidence(): boolean {
-    const { id } = this.getProvider()
-    return id === 'openai' || id === 'openai-compatible'
-  }
-
-  public describeStreamRequest(config: TextModelConfig): TextRequestEvidence | undefined {
-    if (!this.supportsStreamRequestEvidence()) return undefined
-    return this.getRequestStyle(config) === 'responses'
-      ? projectTextRequestEvidence('responses', this.buildResponsesStreamRequest([], config))
-      : projectTextRequestEvidence('chat-completions', this.buildChatStreamRequest([], config))
-  }
-
-  private captureStreamRequest(
-    api: TextRequestEvidence['api'],
-    request: { model: string },
-    callbacks: StreamHandlers
-  ): void {
-    if (!callbacks.onRequest) return
-    if (!this.supportsStreamRequestEvidence()) {
-      throw new RequestConfigError('This adapter cannot capture text request evidence')
-    }
-    callbacks.signal?.throwIfAborted()
-    callbacks.onRequest(projectTextRequestEvidence(api, request))
-    callbacks.signal?.throwIfAborted()
-  }
-
   private buildChatStreamRequest(messages: Message[], config: TextModelConfig) {
     const { timeout: _timeout, model: _model, messages: _messages, stream: _stream, ...parameters } = config.paramOverrides ?? {}
     return {
@@ -583,7 +555,6 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       ...this.buildResponsesStreamRequest(messages, config, inputOverride, paramOverrides),
       ...(tools?.length ? { tools } : {})
     } as unknown as OpenAI.Responses.ResponseCreateParamsStreaming & { model: string }
-    this.captureStreamRequest('responses', responsesConfig, callbacks)
 
     const stream = callbacks.signal
         ? await openai.responses.create(responsesConfig, { signal: callbacks.signal })
@@ -929,7 +900,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
    */
   // NOTE: protected so OpenAI-compatible providers (e.g. Ollama) can tweak auth/baseURL
   // without re-implementing the whole chat/stream/tool plumbing.
-  protected createOpenAIInstance(config: TextModelConfig, isStream: boolean = false, captureRequest = false): OpenAI {
+  protected createOpenAIInstance(config: TextModelConfig, isStream: boolean = false): OpenAI {
     const apiKey = config.connectionConfig.apiKey || ''
     const hasApiKey = typeof apiKey === 'string' && apiKey.trim().length > 0
 
@@ -953,8 +924,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       apiKey: hasApiKey || this.getProvider().requiresApiKey ? apiKey : 'not-required',
       baseURL: processedBaseURL,
       timeout: timeout,
-      maxRetries: isStream ? 2 : 3,
-      ...(captureRequest ? { logLevel: 'off', maxRetries: 0 } : {})
+      maxRetries: isStream ? 2 : 3
     }
 
     const customDefaultHeaders = this.getCustomDefaultHeaders(config)
@@ -1463,14 +1433,13 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
   ): Promise<void> {
     try {
       // 获取流式OpenAI实例
-      const openai = this.createOpenAIInstance(config, true, Boolean(callbacks.onRequest))
+      const openai = this.createOpenAIInstance(config, true)
       if (this.getRequestStyle(config) === 'responses') {
         await this.sendResponsesMessageStream(openai, messages, config, callbacks)
         return
       }
 
       const completionConfig = this.buildChatStreamRequest(messages, config) as OpenAI.Chat.ChatCompletionCreateParamsStreaming
-      this.captureStreamRequest('chat-completions', completionConfig, callbacks)
 
       // 直接使用流式响应
       const stream = callbacks.signal
@@ -1520,7 +1489,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
 
       await callbacks.onComplete(response)
     } catch (error) {
-      if (!callbacks.onRequest) console.error('[OpenAIAdapter] Stream error:', error)
+      console.error('[OpenAIAdapter] Stream error:', error)
       callbacks.onError(error instanceof Error ? error : new Error(String(error)))
       throw error // 保留原始错误堆栈
     }

@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { OpenAIAdapter } from '../../../src/services/llm/adapters/openai-adapter';
 import { OpenAICompatibleAdapter } from '../../../src/services/llm/adapters/openai-compatible-adapter';
-import type { TextModelConfig, Message, TextRequestEvidence } from '../../../src/services/llm/types';
+import type { TextModelConfig, Message } from '../../../src/services/llm/types';
 import { LLMService } from '../../../src/services/llm/service';
-import { isPublicTextRequestOmissions, isPublicTextRequestParameters } from '../../../src/services/llm/request-evidence';
 
 // 创建 mock OpenAI 实例
 let mockOpenAIInstance: any;
@@ -614,147 +613,6 @@ describe('OpenAIAdapter', () => {
       });
 
       expect(mockOpenAIConfig?.defaultHeaders).toBeUndefined();
-    });
-  });
-
-  describe('public comparison request evidence', () => {
-    it.each([
-      { provider: 'openai', api: 'chat-completions' },
-      { provider: 'openai', api: 'responses' },
-      { provider: 'openai-compatible', api: 'chat-completions' },
-      { provider: 'openai-compatible', api: 'responses' },
-    ] as const)('matches the $provider $api SDK request without exposing custom fields', async ({ provider, api }) => {
-      const selected = provider === 'openai' ? adapter : openAICompatibleAdapter;
-      const config: TextModelConfig = {
-        ...mockConfig,
-        providerMeta: selected.getProvider(),
-        modelMeta: selected.buildDefaultModel('fixture/model'),
-        connectionConfig: {
-          apiKey: 'fixture-credential',
-          baseURL: 'https://fixture.invalid/v1?token=private-value',
-          requestStyle: api,
-        },
-        paramOverrides: {
-          temperature: 0.35,
-          max_completion_tokens: 42,
-          reasoning_effort: 'high',
-          arbitrary_private_name: 'private-value',
-          model: 'attempted-override',
-          messages: [{ role: 'user', content: 'attempted-override' }],
-          stream: false,
-        },
-      };
-      const getModel = vi.fn().mockRejectedValue(new Error('A frozen comparison must not reread the model'));
-      const service = new LLMService({ getModel });
-      const preview = service.describeStreamRequest(config);
-      const isResponses = api === 'responses';
-      expect(preview).toEqual({
-        modelId: 'fixture/model',
-        api,
-        parameters: isResponses
-          ? { max_output_tokens: 42, 'reasoning.effort': 'high', temperature: 0.35 }
-          : { max_completion_tokens: 42, reasoning_effort: 'high', temperature: 0.35 },
-        omittedParameterNames: ['other'],
-      });
-      expect(isPublicTextRequestParameters(preview?.parameters)).toBe(true);
-      expect(isPublicTextRequestOmissions(preview?.omittedParameterNames)).toBe(true);
-      expect(mockOpenAIConfig).toBeUndefined();
-
-      const create = isResponses ? mockOpenAIInstance.responses.create : mockOpenAIInstance.chat.completions.create;
-      create.mockResolvedValue({
-        async *[Symbol.asyncIterator]() {
-          yield isResponses
-            ? { type: 'response.output_text.delta', delta: 'Synthetic', output_index: 0, content_index: 0 }
-            : { choices: [{ delta: { content: 'Synthetic' } }] };
-        },
-      });
-      const controller = new AbortController();
-      const onRequest = vi.fn((evidence: TextRequestEvidence) => {
-        expect(evidence).toEqual(preview);
-        expect(create).not.toHaveBeenCalled();
-      });
-      const onToken = vi.fn(), onError = vi.fn();
-      await service.sendMessageStream(mockMessages, config.id, {
-        signal: controller.signal, onRequest, onToken, onComplete: vi.fn(), onError,
-      }, { configSnapshot: config });
-      expect(getModel).not.toHaveBeenCalled();
-      expect(onRequest).toHaveBeenCalledTimes(1);
-      expect(create).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
-        model: 'fixture/model',
-        [isResponses ? 'input' : 'messages']: mockMessages,
-        stream: true,
-        temperature: 0.35,
-        arbitrary_private_name: 'private-value',
-        ...(isResponses
-          ? { max_output_tokens: 42, reasoning: { effort: 'high' } }
-          : { max_completion_tokens: 42, reasoning_effort: 'high' }),
-      }), { signal: controller.signal });
-      expect(mockOpenAIConfig.logLevel).toBe('off');
-      expect(onToken).toHaveBeenCalledWith('Synthetic');
-      expect(onError).not.toHaveBeenCalled();
-    });
-
-    it('keeps secret-like strings and arbitrary names out of persisted evidence', () => {
-      const config = {
-        ...mockConfig,
-        paramOverrides: {
-          reasoning_effort: 'fixture-credential',
-          service_tier: 'private-account-tier',
-          private_field_name: 'private-value',
-        },
-      };
-      expect(adapter.describeStreamRequest(config)).toMatchObject({
-        parameters: {},
-        omittedParameterNames: ['other', 'reasoning_effort', 'service_tier'],
-      });
-      expect(isPublicTextRequestParameters({ reasoning_effort: 'fixture-credential' })).toBe(false);
-      expect(isPublicTextRequestParameters({ private_field_name: 1 })).toBe(false);
-      expect(isPublicTextRequestOmissions(['private_field_name'])).toBe(false);
-    });
-
-    it('stops before an unapproved SDK call and keeps provider errors out of logs', async () => {
-      const service = new LLMService({ getModel: async () => mockConfig });
-      const onError = vi.fn();
-      const blocked = new Error('fixture-request-mismatch');
-      const callbacks = { onToken: vi.fn(), onComplete: vi.fn(), onError };
-      const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-      try {
-        await expect(service.sendMessageStream(mockMessages, mockConfig.id, {
-          ...callbacks, onRequest: () => { throw blocked; },
-        })).rejects.toBe(blocked);
-        const controller = new AbortController();
-        await expect(service.sendMessageStream(mockMessages, mockConfig.id, {
-          ...callbacks, signal: controller.signal, onRequest: () => { controller.abort(); },
-        })).rejects.toHaveProperty('name', 'AbortError');
-        const create = mockOpenAIInstance.chat.completions.create;
-        expect(create).not.toHaveBeenCalled();
-
-        const providerError = new Error('Fixture provider error with private request data');
-        create.mockRejectedValue(providerError);
-        await expect(service.sendMessageStream(mockMessages, mockConfig.id, {
-          ...callbacks, onRequest: vi.fn(),
-        })).rejects.toBe(providerError);
-        expect(create).toHaveBeenCalledTimes(1);
-        expect(log).not.toHaveBeenCalled();
-      } finally {
-        log.mockRestore();
-      }
-    });
-
-    it('rejects hidden conversation context and tool definitions during the dry preview', () => {
-      const config = {
-        ...mockConfig,
-        connectionConfig: { ...mockConfig.connectionConfig, requestStyle: 'responses' },
-        paramOverrides: {
-          previous_response_id: 'private-context-id',
-          tools: [{ type: 'web_search_preview' }],
-        },
-      };
-      expect(() => adapter.describeStreamRequest(config)).toThrow('Text comparisons require foreground requests');
-      expect(() => adapter.describeStreamRequest({
-        ...config, paramOverrides: { background: true },
-      })).toThrow('Text comparisons require foreground requests');
-      expect(mockOpenAIConfig).toBeUndefined();
     });
   });
 

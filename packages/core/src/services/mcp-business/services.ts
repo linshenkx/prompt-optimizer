@@ -167,7 +167,7 @@ export class BusinessStage implements core.IStorageProvider {
       case 'data': return core.createDataManager(await typed<core.IModelManager>('models'),
         await typed<core.ITemplateManager>('templates'), await typed<core.IHistoryManager>('history'),
         await typed<core.IPreferenceService>('settings'), await typed<core.ContextRepo>('contexts'),
-        await typed<core.IImageModelManager>('imageModels'), core.createComparisonRepository(this), core.createDesktopRunRepository(this));
+        await typed<core.IImageModelManager>('imageModels'));
       default: throw new DesktopBusinessError('UNKNOWN_DOMAIN');
     }
   }

@@ -15,8 +15,6 @@ import { Template } from '../../../src/services/template/types';
 import { PromptRecord } from '../../../src/services/history/types';
 import { ContextRepo } from '../../../src/services/context/types';
 import { DATA_ERROR_CODES } from '../../../src/constants/error-codes';
-import { createComparisonRepository } from '../../../src/services/text-comparison/repository';
-import { ComparisonRepositoryError } from '../../../src/services/text-comparison/validation';
 
 describe('DataManager Import/Export Integration', () => {
   let dataManager: DataManager;
@@ -300,22 +298,29 @@ describe('DataManager Import/Export Integration', () => {
       expect(language).toBe('en-US');
     });
 
-    it('handles a comparison write conflict before replacing existing history', async () => {
-      const comparisons = createComparisonRepository({
-        async getItem() { return null; },
-        async getEntriesByPrefix() { return []; },
-        async withWriteTransaction() { throw new ComparisonRepositoryError('IDEMPOTENCY_CONFLICT'); },
-      });
-      const manager = new DataManager(modelManager, templateManager, historyManager, preferenceService,
-        mockContextRepo, imageModelManager, comparisons);
+    it('ignores legacy beta savedComparisons and desktopRuns sections while preserving main data', async () => {
+      const exported = JSON.parse(await dataManager.exportAllData());
+      expect(exported.data.savedComparisons).toBeUndefined();
+      expect(exported.data.desktopRuns).toBeUndefined();
+
       const importHistory = vi.spyOn(historyManager, 'importData');
-      const backup = JSON.stringify({ version: 1, data: {
-        history: await historyManager.exportData(),
-        savedComparisons: { version: 1, records: [], intents: [] },
-      } });
-      await expect(manager.validateImportData(backup)).resolves.toBeUndefined();
-      await expect(manager.importAllData(backup)).rejects.toThrow('Failed to import savedComparisons');
-      expect(importHistory).not.toHaveBeenCalled();
+      const backup = JSON.stringify({
+        version: 1,
+        data: {
+          history: await historyManager.exportData(),
+          savedComparisons: { version: 1, records: [], intents: [] },
+          desktopRuns: { version: 1, runs: [] },
+        },
+      });
+      await expect(dataManager.validateImportData(backup)).resolves.toBeUndefined();
+      await expect(dataManager.importAllData(backup)).resolves.toBeUndefined();
+      expect(importHistory).toHaveBeenCalledTimes(1);
+
+      const unknownBackup = JSON.stringify({
+        version: 1,
+        data: { unknownSection: {} },
+      });
+      await expect(dataManager.validateImportData(unknownBackup)).rejects.toThrow('Unsupported app backup section');
     });
 
     it('rejects a malformed section before any valid section changes stored data', async () => {

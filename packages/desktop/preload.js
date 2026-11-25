@@ -110,16 +110,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return () => ipcRenderer.removeListener('desktop-resource-request', listener);
     },
   },
-  desktopRuns: {
-    list: () => invokeFavorite('desktop-runs-list'),
-    get: id => invokeFavorite('desktop-runs-get', id),
-    delete: (id, updatedAt) => invokeFavorite('desktop-runs-delete', id, updatedAt),
-  },
-  savedComparisons: {
-    list: (options) => invokeFavorite('comparison-list', options),
-    get: (id) => invokeFavorite('comparison-get', id),
-    delete: (id, expectedRevision) => invokeFavorite('comparison-delete', id, expectedRevision),
-  },
   localServices: {
     fetchModels: async (input) => {
       const result = await ipcRenderer.invoke('local-services-fetch-models', input);

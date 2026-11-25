@@ -1,7 +1,5 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { join } = require('node:path');
-const { buildCodexMcpConfig, isDesktopMcpInvocation } = require('./desktop-mcp');
 
 const {
   buildAppMenuTemplate,
@@ -41,29 +39,9 @@ test('desktop app menu keeps the macOS app menu while using explicit zoom items'
   );
 });
 
-test('desktop Help menu exposes the Codex configuration action when provided', () => {
-  assert.equal(buildAppMenuTemplate().some(item => item.role === 'help'), false);
-  let copies = 0;
-  const template = buildAppMenuTemplate({ onCopyCodexMcpConfig: () => copies++ });
-  const action = template.find(item => item.role === 'help').submenu[0];
-  assert.equal(action.id, 'copy-codex-mcp-config');
-  action.click();
-  assert.equal(copies, 1);
-});
-
-test('installed Codex configuration preserves absolute paths with spaces', () => {
-  const executable = join(__dirname, 'Installed App', 'PromptOptimizer.exe');
-  const resourcesPath = join(__dirname, 'Installed App', 'resources');
-  const userDataPath = join(__dirname, 'Desktop data');
-  const [section, command, args, env] = buildCodexMcpConfig({ executable, resourcesPath, userDataPath }).split('\n');
-  assert.equal(section, '[mcp_servers.prompt_optimizer_product]');
-  assert.equal(JSON.parse(command.slice('command = '.length)), executable);
-  const [entry, profile] = JSON.parse(args.slice('args = '.length));
-  assert.equal(profile, '--desktop-profile=' + userDataPath);
-  assert.equal(env, 'env = { ELECTRON_RUN_AS_NODE = "1" }');
-  assert.equal(isDesktopMcpInvocation(entry, resourcesPath), true);
-  assert.equal(isDesktopMcpInvocation('prompt-optimizer-desktop-mcp.cjs', resourcesPath), false);
-  assert.equal(isDesktopMcpInvocation(executable, resourcesPath), false);
+test('desktop app menu does not include a Help menu', () => {
+  const template = buildAppMenuTemplate({ isMac: false });
+  assert.equal(template.some((item) => item.role === 'help'), false);
 });
 
 test('desktop page zoom menu items expose the expected accelerators and actions', () => {

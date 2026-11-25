@@ -11,9 +11,8 @@
     "build": "pnpm run build:web && pnpm run package",
     "build:ci": "pnpm run build:web && pnpm run package:ci",
     "build:web": "cd ../web && cross-env ELECTRON_BUILD=true vite build --base=./ && node -e \"const fs=require('fs'),path=require('path'); const src='dist',dest='../desktop/web-dist'; if(fs.existsSync(dest)) fs.rmSync(dest,{recursive:true}); fs.cpSync(src,dest,{recursive:true}); console.log('Web files copied to desktop/web-dist');\"",
-    "build:mcp": "pnpm --filter @prompt-optimizer/mcp-server build",
-    "package": "pnpm run build:mcp && electron-builder",
-    "package:ci": "pnpm run build:mcp && electron-builder --publish never",
+    "package": "electron-builder",
+    "package:ci": "electron-builder --publish never",
     "dev": "cross-env NODE_ENV=development electron .",
     "test": "node --test config/*.test.js",
     "logs:view": "node -e \"const path=require('path');const os=require('os');const {execSync}=require('child_process');const logDir=path.join(os.homedir(),'AppData','Roaming','PromptOptimizer','logs');console.log('日志目录:',logDir);try{execSync('explorer '+logDir);}catch(e){console.log('请手动打开:',logDir);}\"",
@@ -27,7 +26,6 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1129.0",
     "@prompt-optimizer/core": "workspace:*",
-    "@prompt-optimizer/mcp-server": "workspace:*",
     "dotenv": "^17.3.1",
     "electron-log": "^5.4.3",
     "electron-updater": "6.8.9",
@@ -58,15 +56,6 @@
       "private": false
     },
     "win": {
-      "extraResources": [
-        {
-          "from": "../../.agents/skills/prompt-optimizer-compare",
-          "to": "skills/prompt-optimizer-compare",
-          "filter": [
-            "SKILL.md"
-          ]
-        }
-      ],
       "target": [
         "nsis",
         "zip"

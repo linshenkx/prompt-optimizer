@@ -114,7 +114,8 @@ describe('desktop business services against isolated real SQLite', () => {
     await repository.importData(backup);
     expect((await repository.list()).length).toBe(1);
     const data = JSON.parse((await query('data', 'exportAllData')).result as string);
-    expect(data.data.desktopRuns.runs[0].id).toBe(run.id);
+    expect(data.data.desktopRuns).toBeUndefined();
+    expect(data.data.savedComparisons).toBeUndefined();
     await expect(repository.delete(run.id, 0)).rejects.toMatchObject({ code: 'REVISION_CONFLICT' });
     await repository.delete(run.id, run.updatedAt);
     expect(await repository.validateData(backup)).toBe(false);

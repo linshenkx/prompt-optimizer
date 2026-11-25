@@ -21,7 +21,6 @@ import type {
   IVariableExtractionService,
   IVariableValueGenerationService,
   IImageStorageService,
-  ComparisonViewer,
   BrowserBridgeHost,
 } from '@prompt-optimizer/core'
 
@@ -33,9 +32,7 @@ export interface AppServices {
   templateManager: ITemplateManager;
   historyManager: IHistoryManager;
   dataManager: IDataManager;
-  savedComparisons?: ComparisonViewer;
   browserBridge?: BrowserBridgeHost;
-  browserRuns?: NonNullable<NonNullable<Window['electronAPI']>['desktopRuns']>
   llmService: ILLMService;
   promptService: IPromptService;
   templateLanguageService: ITemplateLanguageService;

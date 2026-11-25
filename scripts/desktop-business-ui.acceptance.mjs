@@ -107,7 +107,7 @@ try {
     const deadline = Date.now() + 20000;
     while (Date.now() < deadline) {
       const run = await call('po_runs_get', { connectionId, runId: started.id });
-      if (run.status !== 'running') { assert.equal(run.status, 'succeeded', JSON.stringify(run)); await call('po_runs_save', { connectionId, runId: run.id }); return run; }
+      if (run.status !== 'running') { assert.equal(run.status, 'succeeded', JSON.stringify(run)); await call('po_runs_save', { connectionId, runId: run.id, ...(kind === 'optimize' ? { target: 'history' } : {}) }); return run; }
       await delay(50);
     }
     throw new Error('Model fixture timed out');

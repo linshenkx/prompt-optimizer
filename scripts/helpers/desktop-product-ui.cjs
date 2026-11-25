@@ -14,25 +14,14 @@ async function exerciseProductUi(window, root, phase) {
     }
     throw new Error('Product UI condition timed out');
   };
-  await wait(`Boolean(document.querySelector('[data-testid="header-desktop-runs"]'))`);
-  await window.webContents.executeJavaScript(`document.querySelector('[data-testid="header-desktop-runs"]').click()`);
-  await wait(`document.querySelectorAll('[data-testid="desktop-run-item"]').length >= 3`);
-  const visible = [];
-  for (const run of fixture.runs) {
-    await window.webContents.executeJavaScript(`(() => {
-      const wrapper = document.querySelector('[data-testid="desktop-run-id"]');
-      const input = wrapper.matches('input') ? wrapper : wrapper.querySelector('input');
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-      setter.call(input, ${JSON.stringify(run.id)}); input.dispatchEvent(new Event('input', { bubbles: true }));
-    })()`);
-    await window.webContents.executeJavaScript(`document.querySelector('[data-testid="desktop-run-search"]').click()`);
-    const detail = await wait(`(() => {
-      const card = document.querySelector('[data-testid="desktop-run-detail"]');
-      return card?.textContent.includes(${JSON.stringify(run.id)}) && card.textContent;
-    })()`);
-    assert.ok(detail.includes(run.contains), 'Actual product UI must show the persisted model result');
-    visible.push({ id: run.id, kind: run.kind, outputVisible: true });
-  }
+  await wait(`Boolean(document.querySelector('[data-testid="header-favorites-page-action"]'))`);
+  const hasDesktopRunsButton = await window.webContents.executeJavaScript(`Boolean(document.querySelector('[data-testid="header-desktop-runs"]'))`);
+  assert.equal(hasDesktopRunsButton, false, 'Main product top bar must not expose MCP runs button');
+  const history = await window.webContents.executeJavaScript(`window.electronAPI.history.getHistory()`);
+  const optimizedRun = fixture.runs.find(run => run.kind === 'optimize');
+  assert.ok(optimizedRun && history.some(item => typeof item.optimizedPrompt === 'string' && item.optimizedPrompt.includes(optimizedRun.contains)),
+    'Actual product UI history must contain the persisted MCP optimization result');
+  const visible = [{ id: optimizedRun.id, kind: optimizedRun.kind, outputVisible: true }];
   await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   await new Promise(resolve => setTimeout(resolve, 500));
   fs.writeFileSync(path.join(root, `${phase}.png`), (await window.webContents.capturePage(undefined, { stayHidden: true, stayAwake: true })).toPNG());
@@ -45,7 +34,7 @@ async function exerciseProductUi(window, root, phase) {
     }
     assert.equal(JSON.parse(fs.readFileSync(path.join(root, `${phase}-resources-complete.json`), 'utf8')).ok, true);
   }
-  return { ok: true, completeProductUi: true, visible, checked: ['header entry', 'optimization result', 'test result', 'evaluation score', 'restart persistence'] };
+  return { ok: true, completeProductUi: true, visible, checked: ['clean header entry', 'optimization saved in history', 'restart persistence'] };
 }
 
 module.exports = { exerciseProductUi };

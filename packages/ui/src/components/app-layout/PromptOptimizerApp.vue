@@ -59,8 +59,6 @@
                         @open-model-manager="modelManager.showConfig = true"
                         @open-favorites="openFavoritesPage"
                         @open-data-manager="showDataManager = true"
-                        @open-desktop-runs="showDesktopRuns = true"
-                        :desktop-runs-available="!!desktopRunsViewer"
                         @open-variables="handleOpenVariableManager()"
                         :favorites-active="isFavoritesRoute"
                         :backup-reminder-due="dataBackupReminderDue"
@@ -134,11 +132,6 @@
                 :prepare-restore="prepareSessionRestore"
                 @import-code-consumed="incomingBackupImportCode = ''"
                 @imported="handleDataImported"
-            />
-            <DesktopRunsDrawer
-                v-if="desktopRunsViewer"
-                v-model:show="showDesktopRuns"
-                :viewer="desktopRunsViewer"
             />
 
             <!-- 收藏管理对话框 -->
@@ -314,10 +307,6 @@ import ContextEditor from '../context-mode/ContextEditor.vue'
 import PromptPreviewPanel from '../PromptPreviewPanel.vue'
 import AppHeaderActions from './AppHeaderActions.vue'
 import BrowserBridgePanel from './BrowserBridgePanel.vue'
-import DesktopRunsDrawer from '../desktop/DesktopRunsDrawer.vue'
-const desktopRunsViewer = computed(() => services.value?.browserRuns ??
-  (typeof window === 'undefined' ? undefined : window.electronAPI?.desktopRuns))
-const showDesktopRuns = ref(false)
 import AppCoreNav from './AppCoreNav.vue'
 import { createWorkspaceRouteSwitchController } from './workspaceRouteSwitch'
 import { favoritesPageActionsKey } from '../favorites/favorites-page-context'

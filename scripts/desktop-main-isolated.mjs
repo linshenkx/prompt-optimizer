@@ -110,8 +110,7 @@ for (const phase of ['first', 'restart']) {
   assert.equal(report.business.ok, true);
   assert.equal(report.migration.source, 'json');
   assert.equal(report.migration.itemCount, 1);
-  if (phase === 'first') assert.equal(report.comparisonSeeded, true);
-  if (phase === 'restart') assert.ok(report.business.checked.includes('saved comparison IPC after restart'));
+  if (phase === 'restart') assert.ok(report.business.checked.includes('legacy mcp backup sections ignored'));
   const db = new DatabaseSync(database);
   try {
     assert.equal(db.prepare('PRAGMA quick_check').get().quick_check, 'ok');
@@ -126,5 +125,5 @@ for (const phase of ['first', 'restart']) {
   } finally { db.close(); }
   phases.push({ ...phaseResult, business: report.business });
 }
-await writeFile(join(root, 'summary.json'), JSON.stringify({ ok: true, phases, scope: 'Actual desktop main, preload business IPC, legacy JSON retention and comparison restoration in an isolated profile' }, null, 2));
+await writeFile(join(root, 'summary.json'), JSON.stringify({ ok: true, phases, scope: 'Actual desktop main, preload business IPC, and legacy JSON retention in an isolated profile' }, null, 2));
 console.log(JSON.stringify({ ok: true, evidence: root, phases }, null, 2));

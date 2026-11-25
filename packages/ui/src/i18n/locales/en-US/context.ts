@@ -1,36 +1,5 @@
 const messages = {
   "contextMode": {
-    "savedComparisons": {
-      "title": "Saved comparisons",
-      "version": "Favorite version",
-      "id": "Comparison ID",
-      "open": "Open",
-      "refresh": "Refresh",
-      "loadMore": "Load more",
-      "empty": "No saved comparisons",
-      "listError": "Couldn't load saved comparisons. Refresh to try again.",
-      "detailError": "Couldn't open this comparison. Check its ID or refresh the list.",
-      "input": "Rendered model input",
-      "baselineInput": "A · Baseline input",
-      "candidateDraftInput": "B · Draft input",
-      "candidateVersionInput": "B · Version {version} input",
-      "copyCandidate": "Copy candidate prompt",
-      "variables": "Variables",
-      "parameters": "Model parameters",
-      "declaredParameters": "Configured parameters",
-      "requestParameters": "Adapter request parameters",
-      "requestUnavailable": "Request parameters unavailable",
-      "omittedParameters": "Some parameter values are hidden.",
-      "noOutput": "No output recorded",
-      "status": {
-        "success": "Completed",
-        "error": "Failed",
-        "cancelled": "Cancelled"
-      },
-      "deleteTitle": "Delete comparison",
-      "deleteConfirm": "Delete “{title}” from saved comparisons?",
-      "deleteError": "Couldn't delete this comparison. Open it again and retry."
-    },
     "optimizationMode": {
       "message": "Multi-Message",
       "variable": "Variable"

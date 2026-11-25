@@ -22,4 +22,4 @@ description: 用提示词优化器 MCP 在桌面或浏览器的已配置模型�
 ```
 
 4. 用 `po_runs_get(connectionId, runId)` 读取返回的 `id`，直到运行结束。按候选顺序核对 `input.executionModels`、冻结的输入和每一项 `output[].status/output/reasoning/error`。保留原始回答，解释单项失败或取消。选用本机或自定义提供商时走相同流程。
-5. 用户要求保存时调用 `po_runs_save`，再按同一个 ID 回读。已保存结果可以用 `po_runs_list(savedOnly=true)` 查找，也可以从顶部「MCP 运行成果」按 ID 打开。以前保存的比较同样使用原 ID。最后关闭本次连接。
+5. 用户要求保存时调用 `po_runs_save`，再按同一个 ID 回读。已保存结果可通过 `po_runs_list(savedOnly=true)` 和 `po_runs_get` 找回，需要写入产品长期记录的提示词可通过 `po_mutate` 存入「收藏夹」或以 `target: "history"` 将优化结果存入「历史记录」。最后关闭本次连接。

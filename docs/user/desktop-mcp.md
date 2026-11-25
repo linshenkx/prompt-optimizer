@@ -4,7 +4,7 @@
 
 ## 安装和选择资料
 
-在 Windows 桌面应用中使用 **Help → Copy Codex MCP Configuration**，将生成的配置段粘贴到 Codex 的 `config.toml`。从源码构建时，使用 Node 24.22.1 构建 Core 和 MCP 后运行：
+在 MCP 客户端中可通过 npm 安装包运行（支持 Node.js 24.x、25.x 和 26.x）：命令填 `npx`（Windows 上为 `npx.cmd`），参数填 `--yes --package=@prompt-optimizer/mcp-server@beta prompt-optimizer-product-mcp`，后面可追加资料参数。从源码构建时，使用 Node 24.22.1 构建 Core 和 MCP 后运行：
 
 ```powershell
 node packages/mcp-server/bin/prompt-optimizer-product-mcp.cjs
@@ -87,11 +87,11 @@ HTTPS 部署需要包含网页授权组件，并允许网页连接本机 MCP 的
 
 `inputRunId` 可以将成功优化的文本直接交给 test，或将成功测试的原输入/输出快照交给 result 评估。先 `po_runs_start`，再轮询 `po_runs_get`；成功启动不代表执行成功。批次顶层 succeeded 代表编排结束，还须检查每个候选的 status。取消会保留已收到的文本，但不能保证服务商停止已提交的工作/计费。失败不伪装成成功结果。
 
-`po_runs_save` 默认只归档，不修改当前草稿、收藏正文或采纳答案。重新打开产品后，从顶部 **「MCP 运行成果」** 按 runId 或列表重开。旧版已保存比较也可以用原 ID 在这里打开。删除须带最新 `expectedUpdatedAt`，保留最小防重标记，旧重试或备份不能复活已删除运行。记录最多 200 条非删除项、总载荷 32 MiB；到限显式拒绝，不自动清理用户成果。
+`po_runs_save` 默认只归档（可用 `po_runs_list(savedOnly=true)` 与 `po_runs_get` 重新查询），不修改当前草稿、收藏正文或采纳答案。优化或迭代结果可传入 `target: "history"` 直接写入产品原有「历史记录」，可复用提示词可通过 `po_mutate` 写入「收藏夹」。删除须带最新 `expectedUpdatedAt`，保留最小防重标记，旧重试或备份不能复活已删除运行。记录最多 200 条非删除项、总载荷 32 MiB；到限显式拒绝，不自动清理用户成果。
 
 ## 文本对照与 Skill
 
-使用 `po_query` 查看已启用模型（`models.getEnabledModels`）和收藏版本（`assets.listAssets/listAssetVersions/getAssetVersion`）。使用 `po_runs_start` 的 `test-batch` 运行 2–4 个候选。每个候选都调用产品的普通文本测试，可以共享提示词比较模型，也可以共享模型比较提示词。用 `po_runs_get` 查看每一项的输入、模型、输出和状态，再用 `po_runs_save` 保存。桌面和浏览器都从顶部「MCP 运行成果」回看。
+使用 `po_query` 查看已启用模型（`models.getEnabledModels`）和收藏版本（`assets.listAssets/listAssetVersions/getAssetVersion`）。使用 `po_runs_start` 的 `test-batch` 运行 2–4 个候选。每个候选都调用产品的普通文本测试，可以共享提示词比较模型，也可以共享模型比较提示词。用 `po_runs_get` 查看每一项的输入、模型、输出和状态，需要长期保存时用 `po_runs_save` 归档并通过 `po_runs_list(savedOnly=true)` / `po_runs_get` 回看，或将定稿提示词写入「收藏夹」。
 
 在带仓库 Skill 的 Codex 项目里，可以直接请求 `$prompt-optimizer-compare` 完成上述对照。[Skill 与参数示例](../../.agents/skills/prompt-optimizer-compare/SKILL.md)
 

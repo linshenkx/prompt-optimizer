@@ -7,7 +7,7 @@ const { createHash } = require('node:crypto');
 const Module = require('node:module');
 const electron = require('electron');
 const { createBoundary, installFilesystemGuards } = require('./desktop-main-isolation.cjs');
-const { exerciseDesktopBusiness, seedDesktopComparisons } = require('./desktop-main-business.cjs');
+const { exerciseDesktopBusiness } = require('./desktop-main-business.cjs');
 
 const [root, phase] = process.argv.slice(2);
 assert.ok(['first', 'restart', 'product', 'product-restart'].includes(phase));
@@ -117,32 +117,6 @@ sqlite.DatabaseSync = new Proxy(sqlite.DatabaseSync, {
   },
 });
 
-let openedProvider;
-const comparisonFixturePath = path.join(root, 'comparison-fixture.json');
-async function seedSavedComparisons(favoriteId) {
-  assert.ok(openedProvider);
-  assert.ok(favoriteId);
-  const requireFromMain = Module.createRequire(mainPath);
-  const { createComparisonRepository, createDesktopRunRepository } = requireFromMain('@prompt-optimizer/core');
-  const { SQLiteStorageProvider } = requireFromMain('@prompt-optimizer/core/node');
-  const backupStorage = new SQLiteStorageProvider(path.join(root, 'comparison-backup-fixture.sqlite'));
-  try {
-    const fixtures = await seedDesktopComparisons(
-      createComparisonRepository(openedProvider), createComparisonRepository(backupStorage), favoriteId,
-    );
-    fixtures.desktopRun = await createDesktopRunRepository(openedProvider).create({
-      id: require('node:crypto').randomUUID(), requestKey: 'isolated-desktop-saved-run', requestHash: 'synthetic',
-      ownerId: '0:completed-fixture', kind: 'evaluate', status: 'succeeded', createdAt: Date.now(), updatedAt: Date.now(),
-      saved: true, input: { request: { userPrompt: 'Synthetic desktop input' } }, output: { score: { overall: 88 } },
-    });
-    fs.writeFileSync(comparisonFixturePath, JSON.stringify(fixtures), { flag: 'wx' });
-    audit.comparisonSeeded = true;
-    record('comparison-fixtures-seeded-before-restart');
-  } finally {
-    await backupStorage.close();
-  }
-}
-
 const load = Module._load;
 const electronForApp = new Proxy(electron, {
   get(target, name) { return name === 'BrowserWindow' ? HiddenWindow : target[name]; },
@@ -184,12 +158,10 @@ const HiddenWindow = new Proxy(electron.BrowserWindow, {
         assert.equal(result.persisted, phase === 'first' ? null : 'persisted-through-real-ipc');
         assert.equal(result.info.userDataPath, paths.userData);
         assert.equal(result.info.mainFilePath, path.join(paths.userData, 'prompt-optimizer-data.sqlite'));
-        const comparisons = phase === 'restart' ? JSON.parse(fs.readFileSync(comparisonFixturePath, 'utf8')) : null;
-        audit.business = await window.webContents.executeJavaScript(`(${exerciseDesktopBusiness.toString()})(${JSON.stringify(phase)}, ${JSON.stringify(comparisons)})`);
+        audit.business = await window.webContents.executeJavaScript(`(${exerciseDesktopBusiness.toString()})(${JSON.stringify(phase)})`);
         assert.equal(audit.business.ok, true);
         audit.ipcVerified = true;
         record('real-preload-ipc-verified');
-        if (phase === 'first') await seedSavedComparisons(audit.business.favoriteId);
         app.quit(); // Actual main before-quit/window-close/will-quit handlers run normally.
       } catch (error) { fail(error); }
     });
@@ -219,7 +191,6 @@ Module._load = function (request, parent, ...args) {
     return { ...exported, async openDesktopStorage(directory, options) {
       assert.equal(boundary.writable(directory), paths.userData);
       const result = await exported.openDesktopStorage(directory, options);
-      openedProvider = result.provider;
       audit.migration = result.migration;
       audit.database = path.relative(root, result.provider.databasePath);
       record('actual-storage-opened');
@@ -253,7 +224,6 @@ app.on('quit', (_event, code) => {
     assert.equal(audit.ipcVerified, true);
     assert.equal(audit.closeCompleted, true);
     assert.equal(audit.flushCompleted, true);
-    if (phase === 'first') assert.equal(audit.comparisonSeeded, true);
     assert.equal(audit.requests, 0);
     assert.deepEqual(audit.violations, []);
     assert.equal(audit.dotenv.length, 2);

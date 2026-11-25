@@ -280,13 +280,9 @@ async function workflow(browser, origin, name) {
     await page.getByTestId('header-favorites-page-action').click();
     await page.getByText(`MCP ${name}`, { exact: true }).first().waitFor();
     record.favoriteVisibleInOriginalPage = true;
-    await page.evaluate(() => { window.location.hash = '/pro/variable'; });
-    await page.getByTestId('header-desktop-runs').click();
-    await page.getByTestId('desktop-run-id').locator('input').fill(saved.id);
-    await page.getByTestId('desktop-run-search').click();
-    await page.getByText(`LOCAL_RESULT Summarize ${name}. temperature=0.2`, { exact: true }).first().waitFor();
-    await page.getByText(`LOCAL_RESULT Summarize ${name}. temperature=0.8`, { exact: true }).first().waitFor();
-    record.comparisonReopenedInOriginalPage = true;
+    assert.equal(await page.getByTestId('header-desktop-runs').count(), 0);
+    assert((await call('po_runs_list', { connectionId: connection.connectionId, savedOnly: true })).runs.some(run => run.id === saved.id));
+    record.operations.push('po_runs_list:savedOnly');
     await page.screenshot({ path: resolve(output, `${name}.png`), fullPage: false });
     record.status = 'passed';
     record.source = { sourceId: source.sourceId, contextId: source.browserContextId, pageId: source.pageId };
