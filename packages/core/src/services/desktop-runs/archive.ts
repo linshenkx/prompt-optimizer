@@ -25,7 +25,7 @@ function asRun(comparison: SavedComparison): DesktopRun {
   }
 }
 
-/** Read both generations in place. Backups continue to use their original repositories. */
+/** Read current runs and previously saved comparisons from their original repositories. */
 export function createRunArchive(runs: DesktopRunRepository, comparisons: ComparisonViewer) {
   async function oldRecord(id: string) {
     if (uuid(id)) {
