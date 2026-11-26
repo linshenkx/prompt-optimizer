@@ -32,6 +32,21 @@ describe('image multiimage input UI guards', () => {
     expect(source).not.toMatch(/:download-filename=/)
   })
 
+  it('accepts external image drops across the image area without replacing card reordering', () => {
+    const source = readWorkspaceSource()
+
+    expect(source).toMatch(/class="image-card-list"/)
+    expect(source).toMatch(/@dragenter="handleFileDragEnter"/)
+    expect(source).toMatch(/@dragover="handleFileDragOver"/)
+    expect(source).toMatch(/@dragleave="handleFileDragLeave"/)
+    expect(source).toMatch(/@drop="handleFileDrop"/)
+    expect(source).toMatch(/image-card-list__drop-overlay/)
+    expect(source).toMatch(/releaseToAddImages/)
+    expect(source).toMatch(/Array\.from\(event\.dataTransfer\?\.files \|\| \[\]\)/)
+    expect(source).toMatch(/handleImageDragStart/)
+    expect(source).toMatch(/handleImageDrop/)
+  })
+
   it('removes file metadata and arrow controls in favor of direct drag reordering', () => {
     const source = readWorkspaceSource()
 
