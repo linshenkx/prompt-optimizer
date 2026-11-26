@@ -2,7 +2,6 @@
   <div
     class="reference-image-picker"
     :class="{
-      'reference-image-picker--file-drag': externalDragOver,
       'reference-image-picker--disabled': disabled,
       'reference-image-picker--with-extra': hasCardExtra,
     }"
@@ -27,10 +26,6 @@
 
     <div
       class="reference-image-picker__surface"
-      :class="{
-        'reference-image-picker__surface--empty': items.length === 0,
-        'reference-image-picker__surface--file-drag': externalDragOver,
-      }"
       @dragenter="handleSurfaceDragEnter"
       @dragover="handleSurfaceDragOver"
       @dragleave="handleSurfaceDragLeave"
@@ -136,7 +131,7 @@
           class="image-upload-card"
           :class="{
             'image-upload-card--empty': items.length === 0,
-            'image-upload-card--drop-target': dragOverUploadCard || externalDragOver,
+            'image-upload-card--drop-target': dragOverUploadCard,
           }"
           :disabled="disabled || loading"
           :data-testid="uploadCardTestId"
@@ -148,9 +143,14 @@
           <NSpin v-if="loading" size="small" />
           <UiImagePlus v-else class="image-upload-card__icon" :size="22" aria-hidden="true" />
           <span class="image-upload-card__text">
-            {{ externalDragOver ? t('imageWorkspace.upload.dropToUpload') : (uploadText || t('imageWorkspace.upload.dragText')) }}
+            {{ uploadText || t('imageWorkspace.upload.dragText') }}
           </span>
         </button>
+      </div>
+
+      <div v-if="externalDragOver" class="reference-image-picker__drop-overlay" role="status">
+        <UiImagePlus :size="24" aria-hidden="true" />
+        <span>{{ t('imageWorkspace.upload.dropToUpload') }}</span>
       </div>
     </div>
 
@@ -234,7 +234,9 @@ const fileDragDepth = ref(0)
 const hasCardExtra = computed(() => Boolean(slots['card-extra']))
 const canAddMore = computed(() => props.max === undefined || props.items.length < props.max)
 const canDragReorder = computed(() => props.reorderable && !props.compact && !props.disabled && !props.loading && props.items.length > 1)
-const externalDragOver = computed(() => fileDragDepth.value > 0 && draggingImageIndex.value === null)
+const externalDragOver = computed(() =>
+  fileDragDepth.value > 0 && draggingImageIndex.value === null && !props.disabled && !props.loading,
+)
 
 const triggerUpload = () => {
   if (props.disabled || props.loading) return
@@ -392,18 +394,24 @@ defineExpose({ triggerUpload })
   display: none;
 }
 .reference-image-picker__surface {
+  position: relative;
   border-radius: 14px;
-  transition: background-color 0.18s ease, box-shadow 0.18s ease;
 }
-.reference-image-picker__surface--file-drag {
-  background: color-mix(in srgb, var(--n-primary-color, #18a058) 7%, transparent);
-  box-shadow: inset 0 0 0 1.5px var(--n-primary-color, #18a058);
-  padding: 6px;
-}
-.reference-image-picker__surface--empty.reference-image-picker__surface--file-drag {
-  padding: 0;
-  box-shadow: none;
-  background: transparent;
+.reference-image-picker__drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 2px dashed var(--n-primary-color);
+  border-radius: inherit;
+  background: var(--n-color);
+  color: var(--n-primary-color);
+  font-size: 14px;
+  font-weight: 500;
+  pointer-events: none;
 }
 .image-card-list {
   display: flex;

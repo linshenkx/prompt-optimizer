@@ -54,7 +54,7 @@ describe('ReferenceImagePicker', () => {
     expect(wrapper.emitted('select-files')).toEqual([[[file]]])
   })
 
-  it('highlights on external OS file drag and emits select-files on drop', async () => {
+  it('shows the release prompt for external file drops and keeps the supplied order', async () => {
     const wrapper = mount(ReferenceImagePicker, {
       props: {
         items: sampleItems,
@@ -71,12 +71,18 @@ describe('ReferenceImagePicker', () => {
 
     surface.element.dispatchEvent(createDragEvent('dragenter', { types: ['Files'] }))
     await wrapper.vm.$nextTick()
-    expect(surface.classes()).toContain('reference-image-picker__surface--file-drag')
+    expect(surface.get('[role="status"]').text()).toBe('imageWorkspace.upload.dropToUpload')
+
+    surface.element.dispatchEvent(createDragEvent('dragleave', { types: ['Files'] }))
+    await wrapper.vm.$nextTick()
+    expect(surface.find('[role="status"]').exists()).toBe(false)
+
+    surface.element.dispatchEvent(createDragEvent('dragenter', { types: ['Files'] }))
 
     surface.element.dispatchEvent(createDragEvent('drop', { files: [fileA, fileB], types: ['Files'] }))
     await wrapper.vm.$nextTick()
 
-    expect(surface.classes()).not.toContain('reference-image-picker__surface--file-drag')
+    expect(surface.find('[role="status"]').exists()).toBe(false)
     expect(wrapper.emitted('select-files')).toEqual([[[fileA, fileB]]])
     expect(wrapper.emitted('reorder')).toBeUndefined()
   })
@@ -120,6 +126,9 @@ describe('ReferenceImagePicker', () => {
 
     firstFooter.element.dispatchEvent(createDragEvent('dragstart'))
     secondCard.element.dispatchEvent(createDragEvent('dragover'))
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.reference-image-picker__drop-overlay').exists()).toBe(false)
+
     secondCard.element.dispatchEvent(createDragEvent('drop'))
     await wrapper.vm.$nextTick()
 
