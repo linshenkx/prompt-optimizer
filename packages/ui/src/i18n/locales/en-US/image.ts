@@ -35,6 +35,8 @@ const messages = {
       "multiImageMinHint": "Add one more image to start multi-image generation",
       "multiImageReadyHint": "Upload at least two images before starting multi-image generation",
       "selectImage": "Select",
+      "dropOrSelectImages": "Drag or click to add images",
+      "releaseToAddImages": "Release to add images",
       "optimizeTemplate": "Optimization Template",
       "templatePlaceholder": "Please select template",
       "textModel": "Text Model",

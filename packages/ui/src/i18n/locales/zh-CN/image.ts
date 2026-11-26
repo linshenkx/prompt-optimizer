@@ -35,6 +35,8 @@ const messages = {
       "multiImageMinHint": "再添加一张图片后即可开始多图生图",
       "multiImageReadyHint": "请至少上传两张图片，再开始多图生图",
       "selectImage": "选择",
+      "dropOrSelectImages": "拖入或点击添加图片",
+      "releaseToAddImages": "松开以添加图片",
       "optimizeTemplate": "优化模板",
       "templatePlaceholder": "请选择模板",
       "textModel": "文本模型",
