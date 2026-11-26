@@ -291,7 +291,7 @@ const messages = {
     "sourceGlobal": "Global variable",
     "sourceTemporary": "Temporary variable",
     "sourcePredefined": "Predefined variable",
-    "autoCompleteHint": "Type {{ to see available variables",
+    "autoCompleteHint": "Type {'{{'} to see available variables",
     "emptyValue": "(empty)",
     "valuePreview": "Value: {value}"
   },
@@ -312,8 +312,8 @@ const messages = {
     "replaceAll": "Replace all ({count} occurrences)",
     "replaceAllRecommended": "(Recommended)",
     "extractButton": "Extract as Variable",
-    "extractSuccess": "Successfully extracted variable {{variableName}}",
-    "extractSuccessAll": "Successfully extracted variable {{variableName}} ({count} replacements)",
+    "extractSuccess": "Successfully extracted variable {'{{'}{variableName}{'}}'}",
+    "extractSuccessAll": "Successfully extracted variable {'{{'}{variableName}{'}}'} ({count} replacements)",
     "savedToGlobal": "Variable {name} saved to global",
     "savedToTemporary": "Variable {name} saved to temporary",
     "managerNotReady": "Variable manager not initialized yet, please try again later",
@@ -325,7 +325,7 @@ const messages = {
       "tooLong": "Variable name is too long (max {max} characters)",
       "forbiddenPrefix": "Variable name cannot start with # / ^ ! > &",
       "noNumberStart": "Variable name cannot start with a number",
-      "invalidCharacters": "Variable name cannot contain whitespace or braces ({})",
+      "invalidCharacters": "Variable name cannot contain whitespace or braces ({'{}'})",
       "reservedName": "Variable name is reserved and cannot be used",
       "predefinedVariable": "Cannot use predefined variable name",
       "duplicateVariable": "Variable name already exists, will reference existing variable"

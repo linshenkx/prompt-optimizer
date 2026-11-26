@@ -76,7 +76,7 @@ const messages = {
           "gardenTitle": "Import from Prompt Garden",
           "gardenHint": "Browse Prompt Garden for text-to-image prompts, then paste an import code or importCode link to save it as a favorite.",
           "gardenDiscover": "Discover Garden",
-          "gardenPlaceholder": "Enter an import code, e.g. ZH-NB-001@ex-001",
+          "gardenPlaceholder": "Enter an import code, e.g. ZH-NB-001{'@'}ex-001",
           "gardenCodeRequired": "Paste a Prompt Garden import code first",
           "mergeStrategy": "Merge Strategy",
         "skipDuplicate": "Skip Duplicates",

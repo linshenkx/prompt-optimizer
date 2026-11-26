@@ -76,7 +76,7 @@ const messages = {
           "gardenTitle": "从 Prompt Garden 导入收藏",
           "gardenHint": "可以先去 Garden 发现文生图提示词，再粘贴导入码或包含 importCode 的链接保存到收藏。",
           "gardenDiscover": "去 Garden 发现",
-          "gardenPlaceholder": "输入导入码，例如 ZH-NB-001@ex-001",
+          "gardenPlaceholder": "输入导入码，例如 ZH-NB-001{'@'}ex-001",
           "gardenCodeRequired": "请先粘贴 Prompt Garden 导入码",
           "mergeStrategy": "合并策略",
         "skipDuplicate": "跳过重复",

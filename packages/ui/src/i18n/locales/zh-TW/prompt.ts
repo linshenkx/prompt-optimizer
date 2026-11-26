@@ -291,7 +291,7 @@ const messages = {
     "sourceGlobal": "全域變數",
     "sourceTemporary": "臨時變數",
     "sourcePredefined": "預定義變數",
-    "autoCompleteHint": "輸入 {{ 查看可用變數",
+    "autoCompleteHint": "輸入 {'{{'} 查看可用變數",
     "emptyValue": "(空)",
     "valuePreview": "值: {value}"
   },
@@ -312,8 +312,8 @@ const messages = {
     "replaceAll": "全部取代（共 {count} 處）",
     "replaceAllRecommended": "（推薦）",
     "extractButton": "提取為變數",
-    "extractSuccess": "成功提取變數 {{variableName}}",
-    "extractSuccessAll": "成功提取變數 {{variableName}}（取代了 {count} 處）",
+    "extractSuccess": "成功提取變數 {'{{'}{variableName}{'}}'}",
+    "extractSuccessAll": "成功提取變數 {'{{'}{variableName}{'}}'}（取代了 {count} 處）",
     "savedToGlobal": "變數 {name} 已儲存到全域",
     "savedToTemporary": "變數 {name} 已儲存到臨時變數",
     "managerNotReady": "變數管理器尚未初始化，請稍後再試",
@@ -325,7 +325,7 @@ const messages = {
       "tooLong": "變數名稱過長（最多 {max} 個字元）",
       "forbiddenPrefix": "變數名稱不能以 # / ^ ! > & 開頭",
       "noNumberStart": "變數名稱不能以數字開頭",
-      "invalidCharacters": "變數名稱不能包含空白字元或花括號（{}）",
+      "invalidCharacters": "變數名稱不能包含空白字元或花括號（{'{}'}）",
       "reservedName": "變數名稱為保留字，不能使用",
       "predefinedVariable": "不能使用系統預定義變數名稱",
       "duplicateVariable": "該變數名稱已存在，將參照現有變數"
