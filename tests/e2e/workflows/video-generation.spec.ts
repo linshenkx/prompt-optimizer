@@ -23,7 +23,7 @@ test('author, edit and test a video prompt, then resume the paid task after a re
   await page.route('**/chat/completions*', route => {
     const messages = route.request().postDataJSON().messages
     prompts.push(messages)
-    const reply = /one shot on each line|每个镜头一行/.test(messages[0].content) ? multiShot : natural
+    const reply = /Shot-by-Shot Lines|逐镜结构/.test(messages[0].content) ? multiShot : natural
     return route.fulfill({ json: { id: 'chat-1', object: 'chat.completion', choices: [
       { index: 0, finish_reason: 'stop', message: { role: 'assistant', content: reply } },
     ] } })
@@ -50,15 +50,15 @@ test('author, edit and test a video prompt, then resume the paid task after a re
     await page.locator('.n-base-select-option .swc-primary').filter({ hasText: name }).click()
   }
   await brief.fill('A red sailboat crossing a bay at dawn')
-  await expect(template).toContainText(/Single-shot refinement|单镜头优化/i)
-  await chooseTemplate(/^(Multi-shot storyboard|多镜头分镜)$/i)
+  await expect(template).toContainText(/Cinematic single shot|电影感单镜头/i)
+  await chooseTemplate(/^(Multi-shot storyboard|多镜头分镜脚本)$/i)
   await page.getByTestId('video-optimize-button').click()
   await showGeneratedSource(page)
   await expect(editor).toHaveValue(multiShot)
   const sourceA = page.getByTestId('video-source-a')
   await sourceA.click()
   await page.locator('.n-base-select-menu:visible .n-base-select-option').getByText('v1', { exact: true }).click()
-  await chooseTemplate(/^(Single-shot refinement|单镜头优化)$/i)
+  await chooseTemplate(/^(Cinematic single shot|电影感单镜头)$/i)
   await expect(editor).toHaveValue(multiShot)
   await page.locator('.parameters .n-select').nth(1).click()
   await page.locator('.n-base-select-option').filter({ hasText: /^9:16$/ }).click()
@@ -71,10 +71,10 @@ test('author, edit and test a video prompt, then resume the paid task after a re
   await expect(editor).toHaveValue(natural)
   expect(prompts).toHaveLength(2)
   expect(prompts[1][0].content).not.toContain('[ACTION]')
-  expect(prompts[1][1].content).not.toContain('9:16')
+  expect(prompts[1][1].content).toContain('9:16')
   expect(posts).toHaveLength(0)
   await editor.fill('A low tracking shot of the red sailboat passing a buoy.')
-  await chooseTemplate(/^(Multi-shot storyboard|多镜头分镜)$/i)
+  await chooseTemplate(/^(Multi-shot storyboard|多镜头分镜脚本)$/i)
   await expect(editor).toHaveValue('A low tracking shot of the red sailboat passing a buoy.')
   expect(prompts).toHaveLength(2)
   await expect(sourceA).toContainText(/历史版本|歷史版本|history version/i)
@@ -368,10 +368,10 @@ test('views, copies and selects a video template and uses its actual messages af
   await page.getByTestId('header-modal-actions').getByRole('button', { name: /功能提示词|功能提示詞|Templates/i }).click()
 
   const manager = page.getByRole('dialog').first()
-  const natural = manager.locator('.n-card').filter({ has: page.getByText(/^(Single-shot refinement|单镜头优化)$/i) }).last()
+  const natural = manager.locator('.n-card').filter({ has: page.getByText(/^(Cinematic single shot|电影感单镜头)$/i) }).last()
   await natural.getByRole('button', { name: /^(View|查看|檢視)$/i }).click()
   const detail = page.getByRole('dialog').last()
-  await expect(detail.locator('textarea').first()).toHaveValue(/连贯的观察视角|one coherent viewpoint/is)
+  await expect(detail.locator('textarea').first()).toHaveValue(/运镜轨迹|camera trajectory/is)
   await detail.locator('.n-card__action').getByRole('button', { name: /^(Close|关闭|關閉)$/i }).click()
   await natural.getByRole('button', { name: /^(Copy|复制|複製)$/i }).click()
   const form = page.getByRole('dialog').last()

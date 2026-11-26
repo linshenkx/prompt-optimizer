@@ -22,21 +22,30 @@ describe('video authoring and Ark generation', () => {
     expect(session.runs).toEqual([old])
     expect(readVideoSession(session)).toEqual(session)
   })
-  it.each(['zh', 'en'])('lists both managed video prompts and renders their supplied inputs (%s)', language => {
+  it.each(['zh', 'en'])('lists all managed video prompts and renders their supplied inputs (%s)', language => {
     const templates = Object.values(new StaticLoader().getTemplatesByType('videoOptimize', language))
     const suffix = language === 'en' ? '-en' : ''
-    expect(templates.map(template => template.id)).toEqual(['video-natural' + suffix, 'video-structured' + suffix])
+    expect(templates.map(template => template.id)).toEqual([
+      'video-natural' + suffix,
+      'video-structured' + suffix,
+      'video-i2v-motion' + suffix,
+      'video-seedance' + suffix,
+      'video-wan' + suffix,
+    ])
     for (const template of templates) {
       const messages = TemplateProcessor.processTemplate(template, {
         originalPrompt: 'A boat named {{boat}} passes a buoy.', duration: '8', ratio: '9:16',
         resolution: '720p', referenceRoles: '1. character\n2. style',
       })
       expect(messages.map(message => message.role)).toEqual(['system', 'user'])
-      for (const value of ['{{boat}}', '8', '1. character\n2. style']) {
+      for (const value of ['{{boat}}', '8', '9:16', '1. character\n2. style']) {
         expect(messages[1].content).toContain(value)
       }
-      expect(messages[0].content).not.toMatch(/Seedance|@ImageN|@图片N/)
+      expect(messages[0].content).not.toMatch(/@ImageN|@图片N/)
       expect(messages[0].content).not.toMatch(/\[(SUBJECT|ACTION|CAMERA)\]/)
+      if (['video-natural', 'video-structured', 'video-i2v-motion'].some(id => template.id.startsWith(id))) {
+        expect(messages[0].content).not.toMatch(/\b(Seedance|Wan)\b/i)
+      }
     }
   })
   it.each(['zh', 'en'])('renders the managed revision with the edited draft, feedback and references (%s)', language => {

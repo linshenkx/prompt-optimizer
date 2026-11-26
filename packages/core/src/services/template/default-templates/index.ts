@@ -52,8 +52,14 @@ import { template as image_general_optimize_en } from './image-optimize/text2ima
 import { template as video_structured } from './video-optimize/structured';
 import { template as video_structured_en } from './video-optimize/structured_en';
 import { template as video_natural } from './video-optimize/natural';
-import { template as video_feedback } from './video-iterate/feedback';
 import { template as video_natural_en } from './video-optimize/natural_en';
+import { template as video_i2v_motion } from './video-optimize/i2v-motion';
+import { template as video_i2v_motion_en } from './video-optimize/i2v-motion_en';
+import { template as video_seedance } from './video-optimize/seedance';
+import { template as video_seedance_en } from './video-optimize/seedance_en';
+import { template as video_wan } from './video-optimize/wan';
+import { template as video_wan_en } from './video-optimize/wan_en';
+import { template as video_feedback } from './video-iterate/feedback';
 import { template as video_feedback_en } from './video-iterate/feedback_en';
 
 import { template as image_chinese_optimize } from './image-optimize/text2image/chinese-model-optimize';
@@ -204,6 +210,12 @@ export const ALL_TEMPLATES = {
   video_natural_en,
   video_structured,
   video_structured_en,
+  video_i2v_motion,
+  video_i2v_motion_en,
+  video_seedance,
+  video_seedance_en,
+  video_wan,
+  video_wan_en,
   video_feedback,
   video_feedback_en,
   image_chinese_optimize,
