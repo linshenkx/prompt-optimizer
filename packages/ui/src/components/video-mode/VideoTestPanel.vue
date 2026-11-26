@@ -4,27 +4,27 @@
     data-testid="video-test" @scroll="emit('scroll', $event)">
     <template v-if="!extension" #config-actions>
       <NButton type="primary" size="small" :disabled="allDisabled" :loading="session.submitting"
-        data-testid="video-run-all" @click="confirmRuns(visibleIds)">{{ t('test.layout.runAll') }}</NButton>
+        data-testid="video-run-all" @click="confirmRuns(visibleIds)">{{ t('video.generateAll') }}</NButton>
     </template>
     <template #input>
       <NAlert v-if="extension" type="info" :show-icon="false">{{ t('video.extension') }}</NAlert>
       <NCard v-else size="small">
         <div class="parameter-heading">
-          <div>
-            <NText strong>{{ t('video.test') }}</NText>
-            <NText v-if="models.length === 1" class="parameter-model" depth="2">{{ models[0].name }}</NText>
-          </div>
+          <NText strong>{{ t('video.test') }}</NText>
           <NButton text size="small" data-testid="video-manage-models" @click="openModels('video')">
             <template #icon><Settings2 /></template>{{ t('video.configure') }}
           </NButton>
         </div>
         <div class="parameters">
           <div><NText depth="2">{{ t('video.duration') }}</NText>
-            <NSelect v-model:value="state.params.duration" :aria-label="t('video.duration')" :options="durations" size="small" /></div>
+            <NSelect :value="state.params.duration" :aria-label="t('video.duration')" :options="durations" size="small"
+              @update:value="duration => session.updateParams({ duration })" /></div>
           <div><NText depth="2">{{ t('video.ratio') }}</NText>
-            <NSelect v-model:value="state.params.ratio" :aria-label="t('video.ratio')" :options="ratios" size="small" /></div>
+            <NSelect :value="state.params.ratio" :aria-label="t('video.ratio')" :options="ratios" size="small"
+              @update:value="ratio => session.updateParams({ ratio })" /></div>
           <div><NText depth="2">{{ t('video.resolution') }}</NText>
-            <NSelect v-model:value="state.params.resolution" :aria-label="t('video.resolution')" :options="resolutions" size="small" /></div>
+            <NSelect :value="state.params.resolution" :aria-label="t('video.resolution')" :options="resolutions" size="small"
+              @update:value="resolution => session.updateParams({ resolution })" /></div>
         </div>
         <NText v-if="!notice && models.length && !visibleIds.some(modelUnavailable)" depth="3" class="notice">{{ allPublicRates
           ? t('video.estimate', { price: estimateVideoCost(state.params).toFixed(2) }) : t('video.customEstimate') }}</NText>
@@ -33,39 +33,46 @@
     </template>
     <template v-if="!extension" #global-controls>
       <TestWorkspaceToolbar :count="visibleIds.length" :compact="compact" :embedded="compact" :can-use-four-columns="canUseFour"
-        run-test-id="video-run-all" column-test-id-prefix="video-columns" :running="session.submitting" :run-disabled="allDisabled"
+        run-test-id="video-run-all" column-test-id-prefix="video-columns" :run-text="t('video.generateAll')" :running="session.submitting" :run-disabled="allDisabled"
         @update:count="setCount" @run="confirmRuns(visibleIds)" />
     </template>
-    <template v-if="!extension" #variant-controls>
-      <NCard size="small" content-style="padding: 12px;">
-        <div ref="deck" class="variant-grid" :style="{ gridTemplateColumns: compact ? 'minmax(0, 1fr)' : grid }">
-          <TestVariantConfig v-for="id in visibleIds" :key="id" :label="id.toUpperCase()" :version="versionValue(state.columns[id].source)"
-            :version-options="optionsFor(id)" :model-key="modelFor(id)?.id || ''" :disabled="confirming"
-            :run-disabled="disabled(id)" :running="isRunning(id)" :hide-run="compact"
-            :hide-model="!models.length || (models.length === 1 && !modelUnavailable(id))"
-            :preview-source="() => readSource(id)" :version-test-id="'video-source-' + id"
-            :model-test-id="'video-model-' + id" :run-test-id="'video-run-' + id"
-            @preview="previewSource(id)" @update:version="setSource(id, $event)" @run="confirmRuns([id])">
-            <template #model>
-              <ModelSelector :data-testid="'video-model-' + id" :model-value="modelFor(id)?.id" :selected-label="modelFor(id)?.name"
-                :aria-label="id.toUpperCase() + ' ' + t('video.models')" :groups="modelGroups" :placeholder="t('modelManager.selectModel')"
-                size="small" show-config-action :disabled="saving.has(id) || confirming" @update:model-value="setModel(id, $event)"
-                @focus="refreshModels" @config="configId => openModels('video', configId)" />
-              <NText v-if="modelUnavailable(id)" depth="2" class="notice">{{ t('video.selectedModelUnavailable') }}</NText>
-            </template>
-          </TestVariantConfig>
-        </div>
-      </NCard>
-    </template>
-    <template v-if="!extension" #config-summary>{{ specs(state) }} · {{ visibleIds.map(id => id.toUpperCase()).join(' / ') }}</template>
+    <template v-if="!extension" #config-summary>{{ describe(state.params) }}</template>
     <template #results>
-      <div class="result-grid" :class="{ 'result-grid--compact': compact }" :style="{ gridTemplateColumns: compact ? 'minmax(0, 1fr)' : grid }">
-        <VideoResultCard v-for="{id, run} in results" :key="id" :group="id" :run="run" :options="runOptions" :compact="compact"
-          :extension="extension" :running="isRunning(id)" :run-disabled="disabled(id)"
+      <div ref="deck" class="result-grid" :class="{ 'result-grid--compact': compact }" :style="{ gridTemplateColumns: compact ? 'minmax(0, 1fr)' : grid }">
+        <VideoResultCard v-for="{ id, run, origin, headerModelName } in results" :key="id" :group="id" :run="run" :options="runOptions" :origin="origin"
+          :header-model-name="!extension && (!compact || configExpanded) ? headerModelName : undefined"
+          :extension="extension"
           :status="run ? session.displayStatus(run) : ''" :now="now" :querying="!!run && session.isQuerying(run)"
           :poll-error="run && pollErrors[videoRunKey(run)]" :source-label="sourceLabel(run ? run.source || 'workspace' : state.columns[id].source, run?.sourceVersion)"
-          :planned-prompt="promptFor(id)" :specs="specs(run || state)" @select="setResult(id, $event)" @run="confirmRuns([id])"
-          @refresh="check" @cancel="cancel" @acknowledge="acknowledge" />
+          :specs="describe(run?.params ?? state.params)" @select="setResult(id, $event)"
+          @refresh="check" @cancel="cancel" @acknowledge="acknowledge">
+          <template #header>
+            <div v-if="extension">{{ id.toUpperCase() }} · {{ sourceLabel(state.columns[id].source) }}</div>
+            <div v-else class="column-controls">
+              <TestVariantConfig v-if="!compact || configExpanded" :label="id.toUpperCase()" :version="versionValue(state.columns[id].source)"
+                :version-options="optionsFor(id)" :model-key="modelFor(id)?.id || ''" :disabled="confirming" hide-run
+                :hide-model="!models.length" :preview-source="() => readSource(id)" :version-test-id="'video-source-' + id"
+                :model-test-id="'video-model-' + id" :run-test-id="'video-run-' + id"
+                @preview="previewSource(id)" @update:version="setSource(id, $event)">
+                <template #model>
+                  <NText v-if="models.length === 1 && !modelUnavailable(id)" class="column-model" depth="2"
+                    :data-testid="'video-model-' + id">{{ models[0].name }}</NText>
+                  <ModelSelector v-else :data-testid="'video-model-' + id" :model-value="modelFor(id)?.id" :selected-label="modelFor(id)?.name"
+                    :aria-label="id.toUpperCase() + ' ' + t('video.models')" :groups="modelGroups" :placeholder="t('modelManager.selectModel')"
+                    size="small" show-config-action :disabled="saving.has(id) || confirming" @update:model-value="setModel(id, $event)"
+                    @focus="refreshModels" @config="configId => openModels('video', configId)" />
+                  <NText v-if="modelUnavailable(id)" depth="2" class="notice">{{ t('video.selectedModelUnavailable') }}</NText>
+                </template>
+              </TestVariantConfig>
+              <NButton v-else text class="folded-source" :aria-label="id.toUpperCase() + ' · ' + t('workspace.viewPrompt')" @click="previewSource(id)">
+                {{ id.toUpperCase() }} · {{ sourceLabel(state.columns[id].source) }}
+              </NButton>
+              <NButton size="small" secondary :loading="isRunning(id)" :disabled="disabled(id)"
+                :data-testid="(compact ? 'mobile-result-run-' : 'video-run-') + id"
+                :aria-label="id.toUpperCase() + ' · ' + t('video.generate')" @click="confirmRuns([id])">{{ t('video.generate') }}</NButton>
+            </div>
+          </template>
+        </VideoResultCard>
       </div>
     </template>
   </TestWorkspaceLayout>
@@ -80,7 +87,7 @@ import { useElementSize } from '@vueuse/core'
 import { NAlert, NButton, NCard, NSelect, NText } from 'naive-ui'
 import { Settings2 } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
-import { estimateVideoCost, VIDEO_RATIOS, VIDEO_RESOLUTIONS, VIDEO_VARIANT_IDS, videoReferenceError,
+import { buildPromptExecutionContext, estimateVideoCost, VIDEO_RATIOS, VIDEO_RESOLUTIONS, VIDEO_VARIANT_IDS, videoReferenceError,
   videoRunKey, videoRunVariant, videoTokenRate, type VideoModelSummary, type VideoRun, type VideoVariantId } from '@prompt-optimizer/core'
 import { useVideoCreateSession, getVideoService, isVideoExtension } from '../../stores/session/useVideoCreateSession'
 import { useSessionManager } from '../../stores/session/useSessionManager'
@@ -98,6 +105,9 @@ import TestVariantConfig from '../TestVariantConfig.vue'
 import TestWorkspaceLayout from '../common/TestWorkspaceLayout.vue'
 import TestSourcePreview from '../common/TestSourcePreview.vue'
 import VideoResultCard from './VideoResultCard.vue'
+import { sameVideoSettings, useVideoSettings } from './useVideoSettings'
+import { useTemporaryVariables } from '../../composables/variable/useTemporaryVariables'
+import type { VariableManagerHooks } from '../../composables/prompt/useVariableManager'
 
 const props = defineProps<{ compact: boolean; editSource: (view: 'original' | 'workspace') => Promise<void> }>()
 const emit = defineEmits<{ scroll: [event: Event] }>()
@@ -111,6 +121,9 @@ const session = useVideoCreateSession()
 const sessionManager = useSessionManager()
 const state = computed(() => session.state)
 const { t, locale } = useI18n()
+const variableManager = inject<VariableManagerHooks>('variableManager')
+const { temporaryVariables } = useTemporaryVariables()
+const { describe, changeNotice } = useVideoSettings()
 const dialog = useConfirmDialog()
 const toast = useToast()
 const extension = isVideoExtension()
@@ -161,7 +174,6 @@ const refreshModels = async () => {
 const durations = computed(() => Array.from({ length: 12 }, (_, i) => ({ value: i + 4, label: t('video.seconds', { n: i + 4 }) })))
 const ratios = VIDEO_RATIOS.map(value => ({ value, label: value }))
 const resolutions = VIDEO_RESOLUTIONS.map(value => ({ value, label: value }))
-const specs = ({ params }: Pick<VideoRun, 'params'>) => [t('video.seconds', { n: params.duration }), params.ratio, params.resolution].join(' · ')
 const date = (time: number) => new Date(time).toLocaleString(locale.value)
 const roleError = computed(() => videoReferenceError(state.value.images.map(i => i.role)))
 const notice = computed(() => roleError.value ? t('video.error.' + roleError.value)
@@ -212,6 +224,14 @@ const setSource = (id: VideoVariantId, value: string | number) => {
   if (source) { state.value.columns[id].source = source; void persist() }
 }
 const promptFor = (id: VideoVariantId) => resolveSource(state.value.columns[id].source).text
+const renderPrompt = (text: string) => buildPromptExecutionContext(text, {
+  ...variableManager?.customVariables.value,
+  ...temporaryVariables.value,
+  originalPrompt: state.value.originalPrompt.trim(),
+  lastOptimizedPrompt: state.value.optimizedPrompt.trim(),
+  currentPrompt: text.trim(),
+  userQuestion: text.trim(),
+})
 const { show: showPreview, content: previewContent, editable: previewEditable, read: readSource, preview: previewSource, edit: editPreview } =
   useTestSourcePreview({
     mode: 'snapshot',
@@ -222,13 +242,30 @@ const { show: showPreview, content: previewContent, editable: previewEditable, r
     },
     onEdit: props.editSource,
   })
+const matchesInputs = (id: VideoVariantId, run: VideoRun) => {
+  const column = state.value.columns[id]
+  if (run.variantId !== id || run.source !== column.source || !sameVideoSettings(run.params, state.value.params)) return false
+  const images = state.value.images
+  const sameImages = run.images.length === images.length && run.images.every((img, i) => img.id === images[i].id && img.role === images[i].role)
+  const source = resolveSource(column.source)
+  if (!sameImages || (run.sourceVersion != null && run.sourceVersion !== source.resolvedVersion)) return false
+  const execution = renderPrompt(source.text)
+  return !execution.missingVariables.length && !execution.forbiddenTemplateSyntax.length && run.prompt === execution.renderedContent
+}
+const resultOrigin = (run: VideoRun) => {
+  const origin = run.variantId ? t('video.resultFromColumn', { column: run.variantId.toUpperCase() }) : t('video.singleColumnResult')
+  return [origin, sourceLabel(run.source ?? 'workspace', run.sourceVersion), date(run.submittedAt)].join(' · ')
+}
 const results = computed(() => visibleIds.value.map(id => {
   const { runs, columns } = state.value
   const chosen = columns[id].selectedRunKey
   const run = runs.find(item => chosen && videoRunKey(item) === chosen)
     ?? runs.find(item => videoRunVariant(item) === id)
     ?? (id === 'a' ? runs.filter(item => !item.variantId)[1] : undefined)
-  return { id, run }
+  const model = modelFor(id)
+  const sameModel = !!model && !!run && model.id === run.configId && model.model === run.model && model.baseURL === run.baseURL
+  const origin = run && (chosen === videoRunKey(run) || !sameModel || !matchesInputs(id, run)) ? resultOrigin(run) : ''
+  return { id, run, origin, headerModelName: sameModel ? model.name : undefined }
 }))
 const runOptions = computed(() => state.value.runs.map(run => {
   const status = session.displayStatus(run)
@@ -255,17 +292,31 @@ const confirmRuns = async (ids: readonly VideoVariantId[]) => {
       const model = modelFor(id)!
       const source = state.value.columns[id].source
       const { text, resolvedVersion } = resolveSource(source)
-      const run = session.prepareRun(model.model, model.id, model.baseURL, id, text, model.name)
+      const execution = renderPrompt(text)
+      if (execution.forbiddenTemplateSyntax.length) {
+        throw new Error(id.toUpperCase() + ' · ' + t('imageWorkspace.generation.forbiddenTemplateSyntax'))
+      }
+      if (execution.missingVariables.length) {
+        throw new Error(id.toUpperCase() + ' · ' + t('imageWorkspace.generation.missingVariables', { vars: execution.missingVariables.join(', ') }))
+      }
+      const run = session.prepareRun(model.model, model.id, model.baseURL, id, execution.renderedContent, model.name)
       return { ...run, ...(source !== 'original' && resolvedVersion >= 0 && { sourceVersion: resolvedVersion }) }
     })
     const priced = drafts.every(run => run.cnyPerMillionTokens != null)
     const total = drafts.reduce((sum, run) => sum + (run.cnyPerMillionTokens == null ? 0 : estimateVideoCost(run.params, run.cnyPerMillionTokens)), 0)
+    const summaries = drafts.map(run => {
+      const basis = run.source === 'workspace' ? session.draftParams
+        : (run.source === 'previous' ? versions.value.find(version => version.version === run.sourceVersion) : historyById.value.get(run.source ?? ''))?.metadata?.videoParams
+      const summary = [run.variantId!.toUpperCase(), sourceLabel(run.source, run.sourceVersion), run.modelName, run.model,
+        describe(run.params), t('video.refCount', { n: run.images.length })].join(' · ')
+      const warning = changeNotice(basis, run.params)
+      return h('div', [summary, warning && h('p', warning)])
+    })
     const accepted = await dialog.warning({
       title: t('video.confirmTitle'),
       content: () => h('div', [
         h('p', t(priced ? 'video.confirmBatchCost' : 'video.confirmBatchCustom', { count: drafts.length, price: total.toFixed(2) })),
-        ...drafts.map(run => h('div', [run.variantId!.toUpperCase(), sourceLabel(run.source, run.sourceVersion), run.modelName, run.model,
-          specs(run), t('video.refCount', { n: run.images.length })].join(' · '))),
+        ...summaries,
       ]),
       positiveText: t('video.confirmPay'), negativeText: t('common.cancel'),
     })
@@ -311,13 +362,14 @@ const acknowledge = async (run: VideoRun) => {
 
 <style scoped>
 .parameter-heading { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
-.parameter-model { margin-inline-start: 8px; font-size: 12px; }
 .parameters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
 .parameters > div { display: grid; gap: 4px; min-width: 0; }
 .parameters .n-text, .notice { font-size: 12px; }
 .notice { display: block; margin-top: 6px; }
-.variant-grid, .result-grid { display: grid; min-width: 0; gap: 12px; }
-.variant-grid .text-model-selector { width: 100%; }
-.result-grid { flex: 1; min-height: 0; }
+.column-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: start; }
+.column-controls .text-model-selector { width: 100%; }
+.column-model, .folded-source { font-size: 13px; }
+.folded-source { min-height: 32px; justify-content: start; }
+.result-grid { display: grid; flex: 1; min-width: 0; min-height: 0; gap: 12px; }
 .result-grid--compact { gap: 8px; }
 </style>

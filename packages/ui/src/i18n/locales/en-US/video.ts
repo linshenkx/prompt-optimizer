@@ -5,7 +5,6 @@ export default {
     "placeholder": "Describe the subject, action and camera movement you want.",
     "editor": "Video prompt",
     "editorHint": "Generate a prompt from the brief, or paste one to test.",
-    "textModel": "Prompt model",
     "models": "Video Models",
     "provider": "Volcengine Ark",
     "addModel": "Add video model",
@@ -33,10 +32,8 @@ export default {
     "templatePreviewDraft": "The camera tracks the red sailboat past the buoy at water level.",
     "templatePreviewFeedback": "Change only the camera to a fixed position.",
     "templatePreviewBrief": "A red sailboat crosses a bay at dawn",
-    "shortOptimize": "Generate",
-    "optimize": "Generate prompt",
     "replace": "Replace the edited prompt?",
-    "replaceHint": "Generating again will replace your edits in the prompt editor.",
+    "replaceHint": "Optimizing again will replace your edits in the prompt editor.",
     "role": "Image role",
     "removeRef": "Remove {name}",
     "addRefs": "Add reference images ({count}/4)",
@@ -46,8 +43,9 @@ export default {
     "evaluate": "Evaluate prompt",
     "viewEvaluation": "Prompt evaluation result",
     "historyOnly": "Your edited draft was preserved. The generated prompt is in History.",
-    "test": "Video generation test",
+    "test": "Generation settings for all columns",
     "generate": "Generate video",
+    "generateAll": "Generate all videos",
     "duration": "Duration",
     "ratio": "Aspect ratio",
     "resolution": "Resolution",
@@ -57,6 +55,8 @@ export default {
     "missingSource": "Saved prompt unavailable",
     "refreshUsage": "Check usage",
     "chooseResult": "Switch result",
+    "resultFromColumn": "Historical result from column {column}",
+    "singleColumnResult": "Historical single-column result",
     "savedPrompt": "Saved prompt",
     "pinnedVersion": "Selected history version (v{n})",
     "outputTokens": "Output tokens {n}",
@@ -111,7 +111,7 @@ export default {
       "frames": "Use character/style references together, or use one first frame with an optional last frame. These input modes cannot be mixed.",
       "missingImage": "A reference image could not be loaded. Attach it again.",
       "key": "Configure an Ark API key to generate a video.",
-      "textModel": "Select an available prompt model.",
+      "textModel": "Select an available optimization model.",
       "prompt": "A usable video prompt is required.",
       "save": "The session could not be saved. Check storage and other open windows.",
       "unavailable": "Video generation is unavailable here.",
@@ -120,7 +120,8 @@ export default {
       "result": "Ark did not return a playable video URL."
     },
     "warning": {
-      "rolesOnly": "Your prompt model only used the reference roles. Video testing will still include the images."
+      "rolesOnly": "The optimization model used only the image roles. Video generation will include the images.",
+      "settingsChanged": "The settings changed from {before} to {after}. Check that the storyboard still fits."
     }
   }
 } as const

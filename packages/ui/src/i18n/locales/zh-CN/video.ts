@@ -5,7 +5,6 @@ export default {
     "placeholder": "描述主体、动作和镜头如何变化。",
     "editor": "视频提示词",
     "editorHint": "可从创作要求生成，也可以直接粘贴提示词进行测试。",
-    "textModel": "提示词模型",
     "models": "视频模型",
     "provider": "火山方舟",
     "addModel": "添加视频模型",
@@ -33,10 +32,8 @@ export default {
     "templatePreviewDraft": "镜头贴近水面，跟随红帆船驶过浮标。",
     "templatePreviewFeedback": "只把运镜改为固定机位。",
     "templatePreviewBrief": "一艘红帆船在清晨驶过海湾",
-    "shortOptimize": "生成",
-    "optimize": "生成提示词",
     "replace": "替换已编辑的提示词？",
-    "replaceHint": "重新生成会替换编辑框中手动修改的提示词。",
+    "replaceHint": "重新优化会替换编辑框中手动修改的提示词。",
     "role": "参考图用途",
     "removeRef": "移除 {name}",
     "addRefs": "添加参考图（{count}/4）",
@@ -46,8 +43,9 @@ export default {
     "evaluate": "评估提示词",
     "viewEvaluation": "提示词评估结果",
     "historyOnly": "已保留新编辑的草稿。生成的提示词已存入历史记录。",
-    "test": "视频生成测试",
+    "test": "视频生成设置（各列共用）",
     "generate": "生成视频",
+    "generateAll": "生成全部视频",
     "duration": "时长",
     "ratio": "画幅",
     "resolution": "分辨率",
@@ -57,6 +55,8 @@ export default {
     "missingSource": "历史提示词不可用",
     "refreshUsage": "查询用量",
     "chooseResult": "切换生成结果",
+    "resultFromColumn": "历史结果 · 来自 {column} 列",
+    "singleColumnResult": "历史单列结果",
     "savedPrompt": "历史提示词",
     "pinnedVersion": "已选历史版本 (v{n})",
     "outputTokens": "输出 token {n}",
@@ -111,7 +111,7 @@ export default {
       "frames": "可以搭配角色和风格参考图，或使用一张首帧和可选的一张末帧。两种输入方式须分开使用。",
       "missingImage": "有参考图无法读取，请重新添加。",
       "key": "请先配置方舟 API Key，再生成视频。",
-      "textModel": "请选择可用的提示词模型。",
+      "textModel": "请选择可用的优化模型。",
       "prompt": "需要可直接使用的视频提示词。",
       "save": "无法保存会话，请检查存储及其他已打开的窗口。",
       "unavailable": "当前环境无法生成视频。",
@@ -120,7 +120,8 @@ export default {
       "result": "方舟未返回可以播放的视频链接。"
     },
     "warning": {
-      "rolesOnly": "当前提示词模型仅使用了参考图的用途说明。生成视频时仍会发送这些图片。"
+      "rolesOnly": "当前优化模型仅使用了参考图的用途说明。生成视频时仍会发送这些图片。",
+      "settingsChanged": "生成设置已从 {before} 改为 {after}，请核对分镜。"
     }
   }
 } as const

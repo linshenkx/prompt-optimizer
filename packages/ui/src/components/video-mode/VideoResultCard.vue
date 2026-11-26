@@ -1,20 +1,16 @@
 <template>
   <NCard size="small" class="video-result-card" :data-testid="'video-result-' + group"
-    content-style="padding: 12px; overflow: auto;">
-    <MobileTestResultHeader v-if="compact && !extension" :variant="{ id: group, sourceLabel, promptContent: run ? submittedPrompt : plannedPrompt,
-      hasPromptSnapshot: !!run, running, disabled: runDisabled }" :busy="false" @run="emit('run')" />
-    <div v-else class="result-heading">
-      <NText strong>{{ group.toUpperCase() }}</NText>
-      <NText depth="2">{{ sourceLabel }}</NText>
-    </div>
+    header-style="padding: 12px 12px 4px;" content-style="padding: 8px 12px 12px; overflow: auto;">
+    <template #header><slot name="header" /></template>
     <NEmpty v-if="!run" class="result-empty" :description="t('imageWorkspace.results.noGenerationResult')" />
     <template v-else>
       <div class="result-meta">
         <NText :data-testid="'video-status-' + group" role="status">{{ t('video.status.' + status) }}</NText>
-        <span>{{ specs }} · {{ modelName }}</span>
+        <span>{{ specs }}<template v-if="modelName && modelName !== headerModelName"> · {{ modelName }}</template></span>
       </div>
       <video v-if="run.videoUrl && !expired" :key="videoRunKey(run)" controls playsinline preload="metadata"
-        :aria-label="group.toUpperCase() + ' · ' + sourceLabel" :src="run.videoUrl" />
+        :aria-label="origin || group.toUpperCase() + ' · ' + sourceLabel" :src="run.videoUrl" />
+      <p v-if="origin" class="result-origin" :data-testid="'video-origin-' + group">{{ origin }}</p>
       <p v-if="expired">{{ t('video.linkExpired') }}</p>
       <p v-if="status === 'unknown'">{{ t('video.unknownHint') }}</p>
       <p v-if="run.error">{{ run.error.startsWith('video.error.') ? t(run.error) : run.error }}</p>
@@ -44,9 +40,9 @@
     </NFlex>
     <details v-if="run">
       <summary>{{ t('video.submission') }}</summary>
-      <p>{{ run.model }} · {{ date(run.submittedAt) }}<template v-if="run.id"> · {{ run.id }}</template></p>
+      <p><template v-if="modelName && modelName !== run.model">{{ modelName }} · </template>{{ run.model }} · {{ date(run.submittedAt) }}<template v-if="run.id"> · {{ run.id }}</template></p>
       <p v-if="run.images.length">{{ run.images.map(i => t('video.roles.' + i.role) + ' · ' + i.name).join(', ') }}</p>
-      <p v-if="!compact || extension" class="snapshot">{{ submittedPrompt }}</p>
+      <p class="snapshot">{{ submittedPrompt }}</p>
       <p v-if="run.expiresAt && !expired">{{ t('video.expires', { time: date(run.expiresAt) }) }}</p>
     </details>
   </NCard>
@@ -58,16 +54,15 @@ import { NButton, NCard, NDropdown, NEmpty, NFlex, NText, useThemeVars } from 'n
 import { useI18n } from 'vue-i18n'
 import { ARK_VIDEO_BASE_URL, defaultVideoConfig, seedancePromptText, videoRunKey, videoTokenRate, videoUsageCost,
   type VideoRun, type VideoVariantId } from '@prompt-optimizer/core'
-import MobileTestResultHeader from '../common/MobileTestResultHeader.vue'
 import { useToast } from '../../composables/ui/useToast'
 
 const props = defineProps<{
   group: VideoVariantId; run?: VideoRun; options: { key: string; label: string }[]
-  compact: boolean; extension: boolean; running: boolean; runDisabled: boolean; querying: boolean
-  sourceLabel: string; plannedPrompt: string; specs: string; status: string; now: number; pollError?: string
+  extension: boolean; querying: boolean; origin: string; headerModelName?: string
+  sourceLabel: string; specs: string; status: string; now: number; pollError?: string
 }>()
 const emit = defineEmits<{
-  run: []; select: [key: string]; refresh: [run: VideoRun]; cancel: [run: VideoRun]; acknowledge: [run: VideoRun]
+  select: [key: string]; refresh: [run: VideoRun]; cancel: [run: VideoRun]; acknowledge: [run: VideoRun]
 }>()
 const { t, locale } = useI18n()
 const submittedPrompt = computed(() => {
@@ -119,7 +114,8 @@ const download = async () => {
 
 <style scoped>
 .video-result-card { min-width: 0; min-height: 0; height: 100%; }
-.result-heading, .usage { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.usage { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.result-origin { color: v-bind('theme.textColor2'); }
 .result-meta, .usage, .result-actions, details, p { margin-block: 8px; font-size: 12px; overflow-wrap: anywhere; }
 .result-meta { display: flex; flex-wrap: wrap; gap: 2px 8px; color: v-bind('theme.textColor3'); }
 .result-empty { padding: 28px 0; }

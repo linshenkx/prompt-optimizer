@@ -121,6 +121,26 @@ describe('video-create session', () => {
     })
   })
 
+  it('keeps the original settings of an older draft through multiple changes and a reload', async () => {
+    const storage = new MemoryStorageProvider()
+    const ctx = createWindow(storage)
+    const params = { duration: 4, ratio: '16:9', resolution: '480p' }
+    await ctx.preferences.set(VIDEO_CREATE_SESSION_KEY, { originalPrompt: 'A harbor', optimizedPrompt: 'A four-second pan', params })
+    const session = useVideoCreateSession(ctx.pinia)
+    await session.restoreSession()
+    session.updateParams({ duration: 8 })
+    session.updateParams({ resolution: '720p' })
+    expect(await session.saveSession()).toBe(true)
+
+    const restored = useVideoCreateSession(createWindow(storage).pinia)
+    await restored.restoreSession()
+    expect(restored.draftParams).toEqual(params)
+    expect(restored.state.params).toEqual({ ...params, duration: 8, resolution: '720p' })
+    expect(restored.state.optimizedPrompt).toBe('A four-second pan')
+    restored.applyPrompt('Another harbor', '')
+    expect(restored.draftParams).toBeUndefined()
+  })
+
   it('restores the persisted draft in another window', async () => {
     const storage = new MemoryStorageProvider()
     const first = createWindow(storage)

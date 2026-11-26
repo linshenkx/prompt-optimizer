@@ -38,6 +38,7 @@ const snapshot = z.object({
   currentChainId: z.string().nullable().default(null), lastActiveAt: z.number().default(0),
   mainSplitLeftPct: z.number().min(25).max(50).default(50),
   params: params.default(DEFAULT_VIDEO_PARAMS),
+  draftParams: params.optional(),
   lastGeneratedPrompt: z.string().optional(), currentVersionId: z.string().nullable().optional(),
   // Older drafts stored the selected format and compiler output separately.
   style: z.enum(['auto','structured','compact']).optional(),

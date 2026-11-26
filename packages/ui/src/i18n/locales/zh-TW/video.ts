@@ -5,7 +5,6 @@ export default {
     "placeholder": "描述主體、動作和鏡頭如何變化。",
     "editor": "影片提示詞",
     "editorHint": "可從創作要求產生，也可以直接貼上提示詞進行測試。",
-    "textModel": "提示詞模型",
     "models": "影片模型",
     "provider": "火山方舟",
     "addModel": "新增影片模型",
@@ -33,10 +32,8 @@ export default {
     "templatePreviewDraft": "鏡頭貼近水面，跟隨紅帆船駛過浮標。",
     "templatePreviewFeedback": "只把運鏡改成固定機位。",
     "templatePreviewBrief": "一艘紅帆船在清晨駛過海灣",
-    "shortOptimize": "產生",
-    "optimize": "產生提示詞",
     "replace": "取代已編輯的提示詞？",
-    "replaceHint": "重新產生會取代編輯框中手動修改的提示詞。",
+    "replaceHint": "重新優化會取代編輯框中手動修改的提示詞。",
     "role": "參考圖用途",
     "removeRef": "移除 {name}",
     "addRefs": "新增參考圖（{count}/4）",
@@ -46,8 +43,9 @@ export default {
     "evaluate": "評估提示詞",
     "viewEvaluation": "提示詞評估結果",
     "historyOnly": "已保留新編輯的草稿。產生的提示詞已存入歷史紀錄。",
-    "test": "影片生成測試",
+    "test": "影片產生設定（各欄共用）",
     "generate": "產生影片",
+    "generateAll": "產生全部影片",
     "duration": "長度",
     "ratio": "畫幅",
     "resolution": "解析度",
@@ -57,6 +55,8 @@ export default {
     "missingSource": "歷史提示詞無法使用",
     "refreshUsage": "查詢用量",
     "chooseResult": "切換生成結果",
+    "resultFromColumn": "歷史結果 · 來自 {column} 欄",
+    "singleColumnResult": "歷史單欄結果",
     "savedPrompt": "歷史提示詞",
     "pinnedVersion": "已選歷史版本 (v{n})",
     "outputTokens": "輸出 token {n}",
@@ -111,7 +111,7 @@ export default {
       "frames": "可搭配角色和風格參考圖，或使用一張首幀和可選的一張末幀。兩種輸入方式須分開使用。",
       "missingImage": "有參考圖無法讀取，請重新新增。",
       "key": "請先設定方舟 API Key，再產生影片。",
-      "textModel": "請選擇可用的提示詞模型。",
+      "textModel": "請選擇可用的優化模型。",
       "prompt": "需要可直接使用的影片提示詞。",
       "save": "無法儲存工作階段，請檢查儲存空間及其他已開啟的視窗。",
       "unavailable": "目前環境無法產生影片。",
@@ -120,7 +120,8 @@ export default {
       "result": "方舟未傳回可播放的影片連結。"
     },
     "warning": {
-      "rolesOnly": "目前提示詞模型僅使用了參考圖的用途說明。產生影片時仍會傳送這些圖片。"
+      "rolesOnly": "目前優化模型僅使用了參考圖的用途說明。產生影片時仍會傳送這些圖片。",
+      "settingsChanged": "產生設定已從 {before} 改為 {after}，請核對分鏡。"
     }
   }
 } as const

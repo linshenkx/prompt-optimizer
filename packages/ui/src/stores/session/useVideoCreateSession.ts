@@ -4,7 +4,7 @@ import { v4 as uuid } from 'uuid'
 import {
   createDefaultVideoCreateState, createSeedanceService, isVideoParams, readVideoSession, videoReferenceError, VIDEO_CREATE_SESSION_KEY,
   ARK_VIDEO_BASE_URL, seedancePromptText, videoRunKey, videoRunVariant, videoTokenRate,
-  type PromptRecord, type ImageInputRef, type VideoImageRef, type VideoRun, type VideoService, type VideoVariantId,
+  type PromptRecord, type ImageInputRef, type VideoImageRef, type VideoParams, type VideoRun, type VideoService, type VideoVariantId,
 } from '@prompt-optimizer/core'
 import { getPiniaServices } from '../../plugins/pinia'
 import { persistImagePayloadAsAssetId } from '../../utils/image-asset-storage'
@@ -55,6 +55,16 @@ export const useVideoCreateSession = defineStore('video-create-session', () => {
     const chainId = currentVersion.value?.chainId ?? state.value.currentChainId
     return chainId ? history.value.filter(record => record.chainId === chainId).sort((a, b) => a.version - b.version) : []
   })
+  const draftParams = computed(() => {
+    const recorded = currentVersion.value?.metadata?.videoParams
+    return state.value.draftParams ?? (isVideoParams(recorded) ? recorded : undefined)
+  })
+  const updateParams = (change: Partial<VideoParams>) => {
+    const draft = state.value
+    // Older pasted drafts have no recorded settings. Remember the settings the user is changing.
+    if (draft.optimizedPrompt.trim() && !draftParams.value) draft.draftParams = { ...draft.params }
+    Object.assign(draft.params, change)
+  }
   const submittingKey = ref<string>()
   const submitting = computed(() => !!submittingKey.value)
   const queryingKeys = ref(new Set<string>())
@@ -195,9 +205,10 @@ export const useVideoCreateSession = defineStore('video-create-session', () => {
   const updateIterateTemplate = (id: string | null) => { state.value.selectedIterateTemplateId = id }
   const applyPrompt = (brief: string, prompt: string, params?: unknown, currentVersionId: string | null = null, currentChainId: string | null = null) => {
     Object.assign(state.value, { originalPrompt: brief, optimizedPrompt: prompt, currentVersionId, currentChainId, lastGeneratedPrompt: currentVersionId ? prompt : '',
-      evaluation: null, images: [], ...(isVideoParams(params) ? { params: copy(params) } : {}) })
+      evaluation: null, images: [], draftParams: isVideoParams(params) && prompt.trim() ? { ...params } : undefined,
+      ...(isVideoParams(params) ? { params: copy(params) } : {}) })
   }
-  return { state, versions, currentVersion, historyById, historyReady, refreshHistory, reset, updateTemplate, updateIterateTemplate, applyPrompt, saveSession, restoreSession, addImages, resolveImages, prepareRun, submit, refresh, cancel,
+  return { state, versions, currentVersion, historyById, historyReady, draftParams, updateParams, refreshHistory, reset, updateTemplate, updateIterateTemplate, applyPrompt, saveSession, restoreSession, addImages, resolveImages, prepareRun, submit, refresh, cancel,
     activeRun, activeRuns, activeFor, displayStatus, isQuerying, busy, optimizing, iterating, querying, submitting }
 })
 export type VideoCreateSessionApi = ReturnType<typeof useVideoCreateSession>

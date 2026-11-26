@@ -24,8 +24,8 @@
               <div v-show="!inputCollapsed" class="workspace-input-panel">
                 <InputPanel v-model="state.originalPrompt" test-id-prefix="video" :compact="isCompact"
                   :label="t('video.promptLabel')" :placeholder="t('video.placeholder')"
-                  :selected-model="selectedTextModelKey" :model-label="t('video.textModel')" :template-label="t('promptOptimizer.templateLabel')"
-                  :button-text="t('video.optimize')" :compact-button-text="t('video.shortOptimize')" :loading-text="t('common.loading')" :loading="session.optimizing"
+                  :selected-model="selectedTextModelKey" :model-label="t('promptOptimizer.optimizeModel')" :template-label="t('imageWorkspace.input.optimizeTemplate')"
+                  :button-text="t('imageWorkspace.input.optimizePrompt')" :compact-button-text="t('common.optimize')" :loading-text="t('common.loading')" :loading="session.optimizing"
                   :disabled="!selectedTextModelKey || !selectedTemplateId || !templateOptions.length || uploading || session.iterating" @submit="writePrompt()">
                   <template #header-extra>
                     <NButton type="tertiary" size="small" ghost round :aria-label="t('common.collapse')" @click="inputCollapsed = true">
@@ -66,13 +66,13 @@
                   </template>
                   <template #model-select>
                     <TextModelSelector v-model="selectedTextModelKey" :options="textModelOptions" parameters
-                      :aria-label="t('video.textModel')" :disabled="session.optimizing || session.iterating" size="medium"
+                      :aria-label="t('promptOptimizer.optimizeModel')" :disabled="session.optimizing || session.iterating" size="medium"
                       @focus="refreshTextModels" @config="id => openModels('text', id)" />
                   </template>
                   <template #template-select>
                     <SelectWithConfig data-testid="video-template-select" :model-value="selectedTemplateId" :options="templateOptions"
                       :get-primary="OptionAccessors.getPrimary" :get-secondary="OptionAccessors.getSecondary" :get-value="OptionAccessors.getValue"
-                      :aria-label="t('promptOptimizer.templateLabel')" :placeholder="t('template.select')" :config-text="t('template.configure')"
+                      :aria-label="t('imageWorkspace.input.optimizeTemplate')" :placeholder="t('template.select')" :config-text="t('template.configure')"
                       :disabled="session.optimizing || session.iterating" size="medium" filterable show-config-action show-empty-config-c-t-a
                       @update:model-value="id => session.updateTemplate(typeof id === 'string' ? id : null)"
                       @focus="refreshTemplates" @config="openTemplates('videoOptimize')" />
@@ -86,7 +86,8 @@
             <TestSourceLinkedCard class="compact-result-card video-editor-card"
               content-style="height: 100%; max-height: 100%; overflow: hidden;">
               <div class="video-editor">
-                <PromptPanel ref="panel" v-model:optimized-prompt="state.optimizedPrompt"
+                <NText v-if="settingsNotice" depth="2" class="video-note" data-testid="video-draft-settings-notice" role="status">{{ settingsNotice }}</NText>
+                <PromptPanel ref="panel" v-model:optimized-prompt="editablePrompt"
                   test-id="video" initial-view-mode="source" :mobile-layout="isCompact" :enable-evaluation="false"
                   :original-prompt="state.originalPrompt" :versions="session.versions" :current-version-id="state.currentVersionId || ''"
                   :is-optimizing="session.optimizing" :is-iterating="session.iterating" optimization-mode="user"
@@ -120,7 +121,7 @@ import { NButton, NFlex, NSelect, NText } from 'naive-ui'
 import { ChevronDown, ChevronUp } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import { v4 as uuid } from 'uuid'
-import { VIDEO_ROLES, type ImageInputRef, type PromptRecord, type TemplateType, type VideoImageRef } from '@prompt-optimizer/core'
+import { isVideoParams, VIDEO_ROLES, type ImageInputRef, type PromptRecord, type TemplateType, type VideoImageRef } from '@prompt-optimizer/core'
 import { OptionAccessors } from '../../utils/data-transformer'
 import { useWorkspaceTemplatePicker } from '../../composables/workspaces/useWorkspaceTemplateSelection'
 import SelectWithConfig from '../SelectWithConfig.vue'
@@ -144,8 +145,19 @@ import TestSourcePreview from '../common/TestSourcePreview.vue'
 import TextModelSelector from '../TextModelSelector.vue'
 import VideoTestPanel from './VideoTestPanel.vue'
 import ReferenceImagePicker, { type ReferenceImageItem } from '../media/ReferenceImagePicker.vue'
+import { useVideoSettings } from './useVideoSettings'
 const session = useVideoCreateSession()
 const state = computed(() => session.state)
+const { changeNotice } = useVideoSettings()
+const editablePrompt = computed({
+  get: () => state.value.optimizedPrompt,
+  set: (text: string) => {
+    if (text === state.value.optimizedPrompt) return
+    state.value.optimizedPrompt = text
+    state.value.draftParams = text.trim() ? { ...state.value.params } : undefined
+  },
+})
+const settingsNotice = computed(() => state.value.optimizedPrompt.trim() && changeNotice(session.draftParams, state.value.params))
 const toast = useToast()
 const dialog = useConfirmDialog()
 const { t } = useI18n()
@@ -292,12 +304,15 @@ const selectVersion = (record: PromptRecord) => {
   state.value.currentChainId = record.chainId
   state.value.currentVersionId = record.id
   state.value.optimizedPrompt = state.value.lastGeneratedPrompt = record.optimizedPrompt
+  const params = record.metadata?.videoParams
+  state.value.draftParams = isVideoParams(params) ? { ...params } : undefined
   rolesOnly.value = false
 }
 const selectOriginal = (root: PromptRecord) => {
   state.value.currentChainId = root.chainId
   state.value.currentVersionId = null
   state.value.optimizedPrompt = state.value.lastGeneratedPrompt = root.originalPrompt
+  state.value.draftParams = undefined
   rolesOnly.value = false
 }
 
@@ -315,7 +330,7 @@ const writePrompt = async (revision?: Revision) => {
   if (!modelKey) { report(new Error('video.error.textModel')); return }
   if (!templateId || (revision ? !base.trim() || !revision.iterateInput.trim() : !brief)) return
   if (!revision && previous && previous !== s.lastGeneratedPrompt && !await dialog.warning({
-    title: t('video.replace'), content: t('video.replaceHint'), positiveText: t('video.optimize'), negativeText: t('common.cancel'),
+    title: t('video.replace'), content: t('video.replaceHint'), positiveText: t('imageWorkspace.input.optimizePrompt'), negativeText: t('common.cancel'),
   })) return
   if (session.optimizing || session.iterating) return
   if (revision) session.iterating = true
@@ -330,6 +345,7 @@ const writePrompt = async (revision?: Revision) => {
     const rootTemplateId = s.selectedTemplateId ?? ''
     const refs = s.images.map(image => ({ ...image }))
     const params = { ...s.params }
+    const baseParams = session.draftParams ?? params
     const variables = {
       duration: String(params.duration), ratio: params.ratio, resolution: params.resolution,
       referenceRoles: refs.map((image, index) => `${index + 1}. ${t('video.roles.' + image.role)}`).join('\n'),
@@ -353,15 +369,15 @@ const writePrompt = async (revision?: Revision) => {
     }
 
     const metadata = { videoParams: params }
-    const createRoot = (text: string) => services.historyManager.createNewChain({
+    const createRoot = (text: string, authoredParams = params) => services.historyManager.createNewChain({
       id: uuid(), type: 'videoOptimize', originalPrompt: brief || base, optimizedPrompt: text,
       modelKey: revision ? '' : modelKey, modelName: revision ? undefined : model.name,
-      templateId: revision ? '' : rootTemplateId, timestamp: Date.now(), metadata,
+      templateId: revision ? '' : rootTemplateId, timestamp: Date.now(), metadata: { videoParams: authoredParams },
     })
     let record: PromptRecord
     if (revision) {
       // A pasted draft needs a saved starting version so it can be compared with its first revision.
-      const parent = selectedVersion ?? (!chainId ? (await createRoot(base)).rootRecord : undefined)
+      const parent = selectedVersion ?? (!chainId ? (await createRoot(base, baseParams)).rootRecord : undefined)
       const targetChainId = parent?.chainId ?? chainId
       if (!targetChainId) throw new Error('video.error.save')
       const fromOriginal = !parent
@@ -400,7 +416,7 @@ const saveLocalEdit = async ({ note }: { note?: string }) => {
   try {
     const chain = await history.addIteration({ chainId: s.currentChainId, previousId: versionId ?? undefined,
       originalPrompt: s.originalPrompt.trim() || text, optimizedPrompt: text, templateId: '', modelKey: '', iterationNote: note,
-      metadata: { videoParams: { ...s.params } } })
+      metadata: { videoParams: { ...(session.draftParams ?? s.params) } } })
     window.dispatchEvent(new Event('prompt-optimizer:history-refresh'))
     if (s === state.value && s.optimizedPrompt === text && s.currentVersionId === versionId) {
       selectVersion(chain.currentRecord)
@@ -409,7 +425,7 @@ const saveLocalEdit = async ({ note }: { note?: string }) => {
   } catch (error) { report(error) } finally { session.iterating = false }
 }
 const favorite = () => saveFavorite?.({ content: state.value.optimizedPrompt, originalContent: state.value.originalPrompt,
-  prefill: { functionMode: 'video', metadata: { videoParams: { ...state.value.params } } } })
+  prefill: { functionMode: 'video', metadata: { videoParams: { ...(session.draftParams ?? state.value.params) } } } })
 const evaluate = async () => {
   const service = getPiniaServices()?.evaluationService
   if (!service || evaluating.value) return
