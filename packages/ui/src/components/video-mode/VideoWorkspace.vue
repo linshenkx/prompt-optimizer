@@ -28,26 +28,41 @@
                   :button-text="t('video.optimize')" :compact-button-text="t('video.shortOptimize')" :loading-text="t('common.loading')" :loading="session.optimizing"
                   :disabled="!selectedTextModelKey || !selectedTemplateId || !templateOptions.length || uploading || session.iterating" @submit="writePrompt()">
                   <template #header-extra>
-                    <NButton type="tertiary" size="small" ghost round :disabled="state.images.length >= 4" :loading="uploading"
-                      :aria-label="t('video.addRefs', { count: state.images.length })" :title="t('video.addRefs', { count: state.images.length })"
-                      @click="fileInput?.click()">
-                      <template #icon><ImagePlus /></template>
-                      <span v-if="!isCompact" class="reference-button-text">{{ t('video.addRefs', { count: state.images.length }) }}</span>
-                    </NButton>
                     <NButton type="tertiary" size="small" ghost round :aria-label="t('common.collapse')" @click="inputCollapsed = true">
                       <template #icon><ChevronUp /></template>
                     </NButton>
                   </template>
-                  <template v-if="state.images.length" #input-extra>
-                    <div class="reference-list">
-                      <div v-for="(img, index) in state.images" :key="index + ':' + img.id" class="reference-row">
-                        <div class="reference-thumbnail"><img v-if="thumbnails[img.id]" :src="thumbnails[img.id]" alt="" /></div>
-                        <span :title="img.name">{{ img.name }}</span>
-                        <NSelect v-model:value="img.role" :aria-label="t('video.role')" :options="roles" size="small" />
-                        <NButton quaternary circle size="small" :aria-label="t('video.removeRef', { name: img.name })"
-                          @click="state.images.splice(index, 1)"><template #icon><X /></template></NButton>
-                      </div>
-                    </div>
+                  <template #input-extra>
+                    <ReferenceImagePicker
+                      :items="referenceItems"
+                      :label="t('video.refsLabel', { count: state.images.length })"
+                      :hint="state.images.length > 0 ? t('video.refsHint') : ''"
+                      accept="image/png,image/jpeg,image/webp"
+                      :max="4"
+                      :multiple="true"
+                      :reorderable="true"
+                      :compact="isCompact"
+                      :disabled="session.optimizing || session.iterating"
+                      :loading="uploading"
+                      upload-test-id="video-reference-upload"
+                      list-test-id="video-reference-list"
+                      card-test-id-prefix="video-reference-card"
+                      upload-card-test-id="video-reference-upload-card"
+                      @select-files="uploadFiles"
+                      @remove="removeReference"
+                      @reorder="reorderReferences"
+                    >
+                      <template #card-extra="{ index }">
+                        <NSelect
+                          :value="state.images[index]?.role"
+                          :aria-label="t('video.role')"
+                          :options="roles"
+                          :consistent-menu-width="false"
+                          size="tiny"
+                          @update:value="role => updateReferenceRole(index, role)"
+                        />
+                      </template>
+                    </ReferenceImagePicker>
                   </template>
                   <template #model-select>
                     <TextModelSelector v-model="selectedTextModelKey" :options="textModelOptions" parameters
@@ -64,7 +79,6 @@
                   </template>
                 </InputPanel>
               </div>
-              <input ref="fileInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden @change="upload" />
             </TestSourceLinkedCard>
           </template>
 
@@ -103,10 +117,10 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, onUnmounted, ref, watch, type Ref } from 'vue'
 import { NButton, NFlex, NSelect, NText } from 'naive-ui'
-import { ChevronDown, ChevronUp, ImagePlus, X } from '@lucide/vue'
+import { ChevronDown, ChevronUp } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import { v4 as uuid } from 'uuid'
-import { VIDEO_ROLES, type ImageInputRef, type PromptRecord, type TemplateType } from '@prompt-optimizer/core'
+import { VIDEO_ROLES, type ImageInputRef, type PromptRecord, type TemplateType, type VideoImageRef } from '@prompt-optimizer/core'
 import { OptionAccessors } from '../../utils/data-transformer'
 import { useWorkspaceTemplatePicker } from '../../composables/workspaces/useWorkspaceTemplateSelection'
 import SelectWithConfig from '../SelectWithConfig.vue'
@@ -129,6 +143,7 @@ import OptimizeWorkspaceLayout from '../common/OptimizeWorkspaceLayout.vue'
 import TestSourcePreview from '../common/TestSourcePreview.vue'
 import TextModelSelector from '../TextModelSelector.vue'
 import VideoTestPanel from './VideoTestPanel.vue'
+import ReferenceImagePicker, { type ReferenceImageItem } from '../media/ReferenceImagePicker.vue'
 const session = useVideoCreateSession()
 const state = computed(() => session.state)
 const toast = useToast()
@@ -176,7 +191,6 @@ const refreshAllTemplates = async () => {
 const refreshHistory = () => session.refreshHistory().catch(report)
 
 const roles = computed(() => VIDEO_ROLES.map(value => ({ value, label: t('video.roles.' + value) })))
-const fileInput = ref<HTMLInputElement>()
 const rolesOnly = ref(false)
 const evaluating = ref(false)
 const showEvaluation = ref(false)
@@ -230,10 +244,24 @@ watch(() => state.value.images.map(i => i.id), async () => {
     if (revision === thumbnailRevision) thumbnails.value = Object.fromEntries(entries)
   } catch (e) { report(e) }
 }, { immediate: true })
-const upload = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const files = Array.from(input.files ?? [])
-  input.value = ''
+const referenceItems = computed<ReferenceImageItem[]>(() =>
+  state.value.images.map((img, index) => ({
+    id: img.id,
+    key: `${index}:${img.id}`,
+    src: thumbnails.value[img.id] || '',
+    label: t('imageWorkspace.input.imageLabel', { index: index + 1 }),
+    alt: img.name,
+    title: img.name,
+    downloadFilename: img.name,
+    removeAriaLabel: t('video.removeRef', { name: img.name }),
+  })),
+)
+const persistReferences = async () => {
+  try {
+    if (!await session.saveSession()) throw new Error('video.error.save')
+  } catch (e) { report(e) }
+}
+const uploadFiles = async (files: File[]) => {
   if (!files.length) return
   if (files.length + state.value.images.length > 4) { report(new Error('video.error.references')); return }
   uploading.value = true
@@ -241,6 +269,24 @@ const upload = async (event: Event) => {
     const inputs = await prepareInputRefs(files)
     if (inputs) await session.addImages(inputs.map((payload, i) => ({ payload, name: files[i].name })))
   } catch (e) { report(e) } finally { uploading.value = false }
+}
+const removeReference = async (index: number) => {
+  if (index < 0 || index >= state.value.images.length) return
+  state.value.images.splice(index, 1)
+  await persistReferences()
+}
+const reorderReferences = async (fromIndex: number, toIndex: number) => {
+  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return
+  if (fromIndex >= state.value.images.length || toIndex >= state.value.images.length) return
+  const [moved] = state.value.images.splice(fromIndex, 1)
+  state.value.images.splice(toIndex, 0, moved)
+  await persistReferences()
+}
+const updateReferenceRole = async (index: number, role: VideoImageRef['role']) => {
+  const item = state.value.images[index]
+  if (!item || item.role === role) return
+  item.role = role
+  await persistReferences()
 }
 const selectVersion = (record: PromptRecord) => {
   state.value.currentChainId = record.chainId
@@ -390,18 +436,11 @@ defineExpose({ isUpdateBusy: () => workspaceBusy.value })
   transition: background 120ms ease;
 }
 .split-divider:hover, .split-divider:focus-visible { background: var(--n-primary-color, rgba(59, 130, 246, 0.5)); }
-.video-original { flex-shrink: 0; container-type: inline-size; }
-.source-summary-group, .reference-row { min-width: 0; }
+.video-original { flex-shrink: 0; }
+.source-summary-group { min-width: 0; }
 .source-summary-title { flex: none; font-size: 18px; font-weight: 500; }
-.source-summary-text, .reference-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source-summary-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .source-summary-text, .video-note { font-size: 12px; }
-.reference-list { display: grid; gap: 6px; }
-.reference-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) minmax(6rem, 8rem) auto; align-items: center; gap: 8px; }
-.reference-thumbnail, .reference-thumbnail img { width: 36px; height: 36px; }
-.reference-thumbnail img { border-radius: 4px; object-fit: cover; }
 .video-editor-card { flex: 1; min-height: 200px; overflow: hidden; }
 .video-editor { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-@container (max-width: 27rem) {
-  .reference-button-text { display: none; }
-}
 </style>

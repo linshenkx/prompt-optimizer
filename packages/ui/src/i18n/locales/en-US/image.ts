@@ -35,6 +35,8 @@ const messages = {
       "multiImageMinHint": "Add one more image to start multi-image generation",
       "multiImageReadyHint": "Upload at least two images before starting multi-image generation",
       "selectImage": "Select",
+      "replaceImage": "Replace",
+      "replaceImageAriaLabel": "Replace image",
       "optimizeTemplate": "Optimization Template",
       "templatePlaceholder": "Please select template",
       "textModel": "Text Model",
@@ -98,6 +100,7 @@ const messages = {
     "upload": {
       "title": "Upload Reference Image",
       "dragText": "Click or drag to upload image",
+      "dropToUpload": "Drop to upload",
       "fileRequirements": "Supports PNG/JPEG up to 50MB; large images are prepared automatically",
       "uploadFailed": "Upload failed",
       "uploadSuccess": "Upload success",

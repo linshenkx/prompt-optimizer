@@ -25,7 +25,7 @@ describe('image multiimage workspace guards', () => {
     expect(source).toMatch(/runVariant/)
     expect(source).toMatch(/getVariantLabel/)
     expect(source).toMatch(/variant-cell__controls--stacked/)
-    expect(source).toMatch(/circle/)
+    expect(source).toMatch(/<TestVariantConfig[\s>]/)
     expect(source).not.toMatch(/Variant \$\{id\.toUpperCase\(\)\}/)
   })
 

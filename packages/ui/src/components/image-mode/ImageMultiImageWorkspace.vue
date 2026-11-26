@@ -119,98 +119,23 @@
                 @update:value="handleOriginalPromptInput"
               />
 
-              <NSpace vertical :size="8">
-                <NText :depth="2" style="font-size: 14px; font-weight: 500;">
-                  {{ t('imageWorkspace.input.image') }}
-                </NText>
-
-                <input
-                  ref="fileInputRef"
-                  type="file"
-                  accept="image/png,image/jpeg"
-                  multiple
-                  class="hidden-input"
-                  @change="handleFilesSelected"
-                />
-
-                <div class="image-card-list" data-testid="image-multiimage-card-list">
-                  <div
-                    v-for="(item, index) in session.inputImages"
-                    :key="item.id"
-                    :data-image-id="item.id"
-                    class="image-card"
-                    :class="{
-                      'image-card--dragging': draggingImageIndex === index,
-                      'image-card--drop-target': dragOverImageIndex === index,
-                    }"
-                    :data-testid="`image-multiimage-card-${index + 1}`"
-                    @dragover.prevent="handleImageDragOver(index)"
-                    @dragleave="handleImageDragLeave(index)"
-                    @drop.prevent="handleImageDrop(index)"
-                  >
-                    <div class="image-card__preview-wrap">
-                      <NButton
-                        class="image-card__remove"
-                        quaternary
-                        circle
-                        size="small"
-                        type="error"
-                        :aria-label="t('imageWorkspace.input.removeImageAriaLabel', { index: index + 1 })"
-                        :title="t('imageWorkspace.input.removeImageAriaLabel', { index: index + 1 })"
-                        @mousedown.stop
-                        @click.stop="removeImage(item.id)"
-                      >
-                        <template #icon>
-                          <NIcon class="image-card__remove-icon" :size="16">
-                            <UiX />
-                          </NIcon>
-                        </template>
-                      </NButton>
-                      <AppPreviewImage
-                        class="image-card__preview"
-                        :src="toDataUrl(item)"
-                        :alt="t('imageWorkspace.input.imageAlt', { index: index + 1 })"
-                        object-fit="cover"
-                      />
-                    </div>
-                    <div
-                      class="image-card__footer"
-                      :draggable="!isCompact"
-                      :title="isCompact ? undefined : t('imageWorkspace.input.reorderImageAriaLabel', { index: index + 1 })"
-                      :aria-label="isCompact ? undefined : t('imageWorkspace.input.reorderImageAriaLabel', { index: index + 1 })"
-                      @click.stop
-                      @mousedown.stop
-                      @dragstart="handleImageDragStart(index, $event)"
-                      @dragend="handleImageDragEnd"
-                    >
-                      <NText strong class="image-card__label">{{ t('imageWorkspace.input.imageLabel', { index: index + 1 }) }}</NText>
-                      <span v-if="!isCompact" class="image-card__drag-handle" aria-hidden="true">⋮⋮</span>
-                      <div v-else class="image-card__reorder">
-                        <NButton quaternary :disabled="index === 0" :aria-label="t('workspace.moveImageEarlier', { index: index + 1 })"
-                          @click.stop="reorderImages(index, index - 1)">‹</NButton>
-                        <NButton quaternary :disabled="index === session.inputImages.length - 1" :aria-label="t('workspace.moveImageLater', { index: index + 1 })"
-                          @click.stop="reorderImages(index, index + 1)">›</NButton>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    class="image-upload-card"
-                    :class="{ 'image-upload-card--drop-target': dragOverUploadCard }"
-                    data-testid="image-multiimage-upload-card"
-                    @click="triggerUpload"
-                    @dragover.prevent="handleUploadCardDragOver"
-                    @dragleave="handleUploadCardDragLeave"
-                    @drop.prevent="handleUploadCardDrop"
-                  >
-                    <UiImagePlus class="image-upload-card__icon" :size="24" aria-hidden="true" />
-                    <span class="image-upload-card__text">{{ t("imageWorkspace.input.selectImage") }}</span>
-                  </button>
-                </div>
-
-                <NText depth="3">{{ imageInputHint }}</NText>
-              </NSpace>
+              <ReferenceImagePicker
+                :items="referenceItems"
+                :label="t('imageWorkspace.input.image')"
+                :hint="imageInputHint"
+                accept="image/png,image/jpeg"
+                :multiple="true"
+                :reorderable="true"
+                :compact="isCompact"
+                :disabled="optimizing || isIterating"
+                upload-test-id="image-multiimage-upload"
+                list-test-id="image-multiimage-card-list"
+                card-test-id-prefix="image-multiimage-card"
+                upload-card-test-id="image-multiimage-upload-card"
+                @select-files="handleFilesSelected"
+                @remove="(_, item) => removeImage(item.id)"
+                @reorder="reorderImages"
+              />
 
               <OptimizationControls :compact="isCompact">
                 <template #model><TextModelSelector parameters
@@ -574,7 +499,7 @@ import OptimizationControls from '../OptimizationControls.vue'
 import TestWorkspaceToolbar from '../TestWorkspaceToolbar.vue'
 import TestVariantConfig from '../TestVariantConfig.vue'
 import ImageModelSelector from '../ImageModelSelector.vue'
-import { ImagePlus as UiImagePlus, ChevronDown as UiChevronDown, Maximize2 as UiMaximize2, ChevronUp as UiChevronUp, X as UiX, Download as UiDownload, Copy as UiCopy } from '@lucide/vue'
+import { ChevronDown as UiChevronDown, Maximize2 as UiMaximize2, ChevronUp as UiChevronUp, Download as UiDownload, Copy as UiCopy } from '@lucide/vue'
 import OptimizeWorkspaceLayout from '../common/OptimizeWorkspaceLayout.vue'
 import VariantTestWorkspaceLayout from '../common/VariantTestWorkspaceLayout.vue'
 import MobileTestResultHeader from '../common/MobileTestResultHeader.vue'
@@ -641,6 +566,7 @@ import TextModelSelector from '../TextModelSelector.vue'
 import TestSourceLinkedCard from '../TestSourceLinkedCard.vue'
 import FullscreenDialog from '../FullscreenDialog.vue'
 import AppPreviewImage from '../media/AppPreviewImage.vue'
+import ReferenceImagePicker, { type ReferenceImageItem } from '../media/ReferenceImagePicker.vue'
 import { VariableAwareInput } from '../variable-extraction'
 import TemporaryVariablesPanel from '../variable/TemporaryVariablesPanel.vue'
 import WorkspaceUtilityMenu from '../common/WorkspaceUtilityMenu.vue'
@@ -682,7 +608,6 @@ const {
   logPrefix: 'ImageMultiImageWorkspace',
 })
 
-const fileInputRef = ref<HTMLInputElement | null>(null)
 const optimizing = ref(false)
 const isAnalyzing = ref(false)
 const isIterating = ref(false)
@@ -1224,32 +1149,25 @@ const { mainSplitLeftPct, onSplitPointerDown, onSplitKeydown } = useWorkspaceSpl
 })
 
 const toDataUrl = (item: Pick<ImageInputRef, 'b64' | 'mimeType'>) => `data:${item.mimeType || 'image/png'};base64,${item.b64}`
-const draggingImageIndex = ref<number | null>(null)
-const dragOverImageIndex = ref<number | null>(null)
-const dragOverUploadCard = ref(false)
 
-const triggerUpload = () => fileInputRef.value?.click()
+const referenceItems = computed<ReferenceImageItem[]>(() =>
+  session.inputImages.map((item, index) => ({
+    id: item.id,
+    src: toDataUrl(item),
+    label: t('imageWorkspace.input.imageLabel', { index: index + 1 }),
+    alt: t('imageWorkspace.input.imageAlt', { index: index + 1 }),
+    removeAriaLabel: t('imageWorkspace.input.removeImageAriaLabel', { index: index + 1 }),
+  })),
+)
 
-const handleFilesSelected = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const files = Array.from(input.files || [])
+const handleFilesSelected = async (files: File[]) => {
   if (files.length === 0) return
-  try {
-    const payloads = await prepareImageInputRefs(files)
-    if (!payloads) return
-    for (const payload of payloads) {
-      await session.addInputImage(payload)
-    }
-    await session.saveSession()
-  } finally {
-    input.value = ''
+  const payloads = await prepareImageInputRefs(files)
+  if (!payloads) return
+  for (const payload of payloads) {
+    await session.addInputImage(payload)
   }
-}
-
-const resetDragState = () => {
-  draggingImageIndex.value = null
-  dragOverImageIndex.value = null
-  dragOverUploadCard.value = false
+  await session.saveSession()
 }
 
 const removeImage = async (id: string) => {
@@ -1263,57 +1181,6 @@ const reorderImages = async (fromIndex: number, toIndex: number) => {
   if (fromIndex >= session.inputImages.length || toIndex >= session.inputImages.length) return
   session.reorderInputImages(fromIndex, toIndex)
   await session.saveSession()
-}
-
-const handleImageDragStart = (index: number, event: DragEvent) => {
-  draggingImageIndex.value = index
-  dragOverImageIndex.value = index
-  dragOverUploadCard.value = false
-  event.dataTransfer?.setData('text/plain', String(index))
-  if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = 'move'
-  }
-}
-
-const handleImageDragEnd = () => {
-  resetDragState()
-}
-
-const handleImageDragOver = (index: number) => {
-  if (draggingImageIndex.value === null) return
-  dragOverImageIndex.value = index
-  dragOverUploadCard.value = false
-}
-
-const handleImageDragLeave = (index: number) => {
-  if (dragOverImageIndex.value === index) {
-    dragOverImageIndex.value = null
-  }
-}
-
-const handleImageDrop = async (index: number) => {
-  const fromIndex = draggingImageIndex.value
-  resetDragState()
-  if (fromIndex === null) return
-  await reorderImages(fromIndex, index)
-}
-
-const handleUploadCardDragOver = () => {
-  if (draggingImageIndex.value === null) return
-  dragOverImageIndex.value = null
-  dragOverUploadCard.value = true
-}
-
-const handleUploadCardDragLeave = () => {
-  dragOverUploadCard.value = false
-}
-
-const handleUploadCardDrop = async () => {
-  const fromIndex = draggingImageIndex.value
-  const lastIndex = session.inputImages.length - 1
-  resetDragState()
-  if (fromIndex === null || lastIndex < 0) return
-  await reorderImages(fromIndex, lastIndex)
 }
 
 const handleOriginalPromptInput = (value: string) => {
@@ -1950,76 +1817,6 @@ defineExpose({
 .workspace-page-tools { display: contents; }
 .image-multiimage-split { display: grid; gap: 12px; height: 100%; min-height: 0; overflow: hidden; }
 .split-pane { min-height: 0; min-width: 0; overflow: hidden; }
-.hidden-input { display: none; }
-.image-card-list { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; overscroll-behavior-x: contain; overscroll-behavior-y: contain; touch-action: pan-y; }
-.image-card { display: flex; flex-direction: column; gap: 8px; width: 116px; padding: 8px; border: 1px solid var(--n-border-color); border-radius: 14px; background: var(--n-color); transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, opacity 0.18s ease; }
-.image-card:hover { border-color: var(--n-border-color-hover); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06); }
-.image-card--dragging { opacity: 0.68; transform: scale(0.98); }
-.image-card--drop-target { border-color: var(--n-primary-color); box-shadow: 0 0 0 2px var(--n-primary-color-suppl); }
-.image-card__preview-wrap { position: relative; width: 100%; aspect-ratio: 1 / 1; border-radius: 12px; overflow: hidden; background: var(--n-color-embedded); }
-.image-card__preview { width: 100%; height: 100%; display: block; }
-.image-card__preview :deep(img) { -webkit-user-drag: none; user-select: none; }
-.image-card__remove {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 1;
-  width: 30px;
-  min-width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  color: #fff;
-  background: rgba(17, 24, 39, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.34);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.28);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-}
-.image-card__remove:hover,
-.image-card__remove:focus-visible {
-  color: #fff;
-  background: rgba(220, 38, 38, 0.92);
-  border-color: rgba(255, 255, 255, 0.5);
-  box-shadow: 0 10px 22px rgba(127, 29, 29, 0.36);
-  transform: scale(1.05);
-}
-.image-card__remove-icon {
-  width: 15px;
-  height: 15px;
-}
-.image-card__footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 32px;
-  padding: 0 2px;
-  cursor: grab;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.image-card__footer:active {
-  cursor: grabbing;
-}
-.image-card__drag-handle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 22px;
-  height: 24px;
-  color: var(--n-text-color-2);
-  line-height: 1;
-  font-size: 14px;
-  letter-spacing: -1px;
-}
-.image-card__label { flex: 1; min-width: 0; text-align: left; }
-.image-upload-card { width: 116px; min-height: 140px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; padding: 8px; border: 1px dashed var(--n-border-color); border-radius: 14px; background: var(--n-color-embedded); color: var(--n-text-color-2); cursor: pointer; appearance: none; font: inherit; text-align: center; transition: border-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease, transform 0.18s ease; }
-.image-upload-card:hover { border-color: var(--n-border-color-hover); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05); transform: translateY(-1px); }
-.image-upload-card:focus-visible { outline: none; border-color: var(--n-primary-color); box-shadow: 0 0 0 2px var(--n-primary-color-suppl); }
-.image-upload-card--drop-target { border-color: var(--n-primary-color); box-shadow: 0 0 0 2px var(--n-primary-color-suppl); color: var(--n-primary-color); }
-.image-upload-card__icon { font-size: 28px; line-height: 1; font-weight: 300; }
-.image-upload-card__text { font-size: 13px; line-height: 1.4; }
 .split-divider {
   cursor: col-resize;
   background: var(--n-divider-color, rgba(0, 0, 0, 0.08));
@@ -2099,8 +1896,5 @@ defineExpose({
 @media (max-width: 900px) {
   .image-multiimage-split { grid-template-columns: minmax(0, 1fr) !important; }
   .split-divider { display: none; }
-  .image-card-list { gap: 10px; }
-  .image-card,
-  .image-upload-card { width: calc(50% - 5px); min-width: 132px; }
 }
 </style>

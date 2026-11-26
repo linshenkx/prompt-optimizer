@@ -27,7 +27,6 @@ test.describe('Image Image2Image - Session Persistence', () => {
 
     await gotoMode(page, '/#/image/image2image')
 
-    await page.getByTestId('image-image2image-open-upload').click()
     const upload = page.getByTestId('image-image2image-upload')
     await upload.locator('input[type="file"]').setInputFiles(seedPath)
 

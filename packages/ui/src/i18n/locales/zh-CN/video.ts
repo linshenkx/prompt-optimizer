@@ -40,6 +40,8 @@ export default {
     "role": "参考图用途",
     "removeRef": "移除 {name}",
     "addRefs": "添加参考图（{count}/4）",
+    "refsLabel": "参考图（{count}/4）",
+    "refsHint": "支持点击或拖拽上传，最多 4 张；拖动卡片可调整图1 / 图2 顺序",
     "favorite": "收藏提示词",
     "evaluate": "评估提示词",
     "viewEvaluation": "提示词评估结果",

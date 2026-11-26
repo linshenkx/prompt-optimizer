@@ -40,6 +40,8 @@ export default {
     "role": "Image role",
     "removeRef": "Remove {name}",
     "addRefs": "Add reference images ({count}/4)",
+    "refsLabel": "Reference images ({count}/4)",
+    "refsHint": "Click or drag up to 4 images; drag cards to reorder Image 1 / Image 2",
     "favorite": "Save to favorites",
     "evaluate": "Evaluate prompt",
     "viewEvaluation": "Prompt evaluation result",

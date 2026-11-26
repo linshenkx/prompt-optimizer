@@ -151,64 +151,27 @@
                     />
 
                     <!-- 图片上传区域 - Image2Image 模式始终显示 -->
-                    <NSpace
+                    <ReferenceImagePicker
                         class="image-reference-row"
-                        vertical
-                        :size="8"
-                    >
-                        <NText
-                            :depth="2"
-                            style="font-size: 14px; font-weight: 500"
-                            >{{ t("imageWorkspace.input.image") }}</NText
-                        >
-                        <NFlex
-                            align="center"
-                            size="small"
-                            :style="{ flex: 1, gap: '8px' }"
-                        >
-                            <NButton
-                                data-testid="image-image2image-open-upload"
-                                :disabled="isOptimizing"
-                                @click="openUploadModal"
-                                size="medium"
-                            >
-                                <template #icon><UiFolderOpen /></template>
-                                {{ t("imageWorkspace.input.selectImage") }}
-                            </NButton>
-
-                            <!-- 缩略图显示区域 -->
-                            <div
-                                v-if="previewImageUrl"
-                                class="thumbnail-container"
-                            >
-                                <AppPreviewImage
-                                    data-testid="image-image2image-input-preview"
-                                    :src="previewImageUrl"
-                                    :style="{
-                                        width: '60px',
-                                        height: '60px',
-                                        borderRadius: '6px',
-                                        cursor: 'pointer',
-                                        objectFit: 'cover',
-                                        border: '1px solid #e0e0e6',
-                                    }"
-                                />
-                            </div>
-
-                            <!-- 删除按钮 -->
-                            <NButton
-                                v-if="previewImageUrl"
-                                @click="clearUploadedImage"
-                                :aria-label="t('common.delete')"
-                                :disabled="isOptimizing"
-                                size="medium"
-                                type="error"
-                                secondary
-                            >
-                                <UiX :size="14" />
-                            </NButton>
-                        </NFlex>
-                    </NSpace>
+                        :items="referenceItems"
+                        :label="t('imageWorkspace.input.image')"
+                        :hint="t('imageWorkspace.upload.fileRequirements')"
+                        accept="image/png,image/jpeg"
+                        :multiple="false"
+                        :max="1"
+                        :replaceable="true"
+                        :compact="isCompact"
+                        :disabled="isOptimizing"
+                        :loading="isUploadingImage"
+                        upload-test-id="image-image2image-upload"
+                        list-test-id="image-image2image-card-list"
+                        card-test-id-prefix="image-image2image-card"
+                        upload-card-test-id="image-image2image-upload-card"
+                        preview-test-id="image-image2image-input-preview"
+                        replace-test-id="image-image2image-replace-image"
+                        @select-files="handleReferenceFilesSelected"
+                        @remove="clearUploadedImage"
+                    />
 
                     <!-- 控制面板 - 使用网格布局 -->
                     <OptimizationControls :compact="isCompact">
@@ -629,62 +592,6 @@
             @confirm="confirmBatchApply"
         />
 
-        <!-- 图片上传弹窗 -->
-        <AdaptiveModal
-            data-testid="image-image2image-upload-modal"
-            v-model:show="showUploadModal"
-            preset="card"
-            :title="t('imageWorkspace.upload.title')"
-            style="width: min(500px, 90vw); max-width: 500px"
-        >
-            <div style="padding: 16px">
-                <n-upload
-                    data-testid="image-image2image-upload"
-                    :max="1"
-                    accept="image/png,image/jpeg"
-                    :show-file-list="true"
-                    @change="handleModalUploadChange"
-                    :disabled="isOptimizing"
-                >
-                    <n-upload-dragger>
-                        <div style="padding: 24px; text-align: center">
-                            <div style="font-size: 32px; margin-bottom: 12px">
-                                <UiFolderOpen :size="36" />
-                            </div>
-                            <n-text style="font-size: 14px">{{
-                                t("imageWorkspace.upload.dragText")
-                            }}</n-text>
-                            <n-p depth="3" style="margin-top: 8px; font-size: 12px">
-                                {{ t("imageWorkspace.upload.fileRequirements") }}
-                            </n-p>
-                        </div>
-                    </n-upload-dragger>
-                </n-upload>
-
-                <!-- 上传状态指示 -->
-                <div v-if="uploadStatus !== 'idle'" style="margin-top: 16px">
-                    <n-progress
-                        v-if="uploadStatus === 'uploading'"
-                        :percentage="uploadProgress"
-                        :show-indicator="true"
-                        status="info"
-                    />
-                    <n-alert
-                        v-else-if="uploadStatus === 'error'"
-                        :title="t('imageWorkspace.upload.uploadFailed')"
-                        type="error"
-                        size="small"
-                    />
-                    <n-alert
-                        v-else-if="uploadStatus === 'success'"
-                        :title="t('imageWorkspace.upload.uploadSuccess')"
-                        type="success"
-                        size="small"
-                    />
-                </div>
-            </div>
-        </AdaptiveModal>
-
         <!-- 子模式本地预览面板：不再依赖 PromptOptimizerApp 的全局预览状态 -->
         <PromptPreviewPanel
             v-model:show="showPromptPreview"
@@ -710,7 +617,7 @@ import OptimizationControls from '../OptimizationControls.vue'
 import TestWorkspaceToolbar from '../TestWorkspaceToolbar.vue'
 import TestVariantConfig from '../TestVariantConfig.vue'
 import ImageModelSelector from '../ImageModelSelector.vue'
-import { X as UiX, FolderOpen as UiFolderOpen, ChevronDown as UiChevronDown, Maximize2 as UiMaximize2, ChevronUp as UiChevronUp, Download as UiDownload, Copy as UiCopy } from '@lucide/vue'
+import { ChevronDown as UiChevronDown, Maximize2 as UiMaximize2, ChevronUp as UiChevronUp, Download as UiDownload, Copy as UiCopy } from '@lucide/vue'
 import AdaptiveModal from '../common/AdaptiveModal.vue'
 import OptimizeWorkspaceLayout from '../common/OptimizeWorkspaceLayout.vue'
 import VariantTestWorkspaceLayout from '../common/VariantTestWorkspaceLayout.vue'
@@ -732,16 +639,9 @@ import {
     NInput,
     NEmpty,
     NSpace,
-    NUpload,
-    NUploadDragger,
     NText,
     NFlex,
-    NP,
-    NProgress,
-    NAlert,
-
     NIcon,
-    type UploadFileInfo,
 } from "naive-ui";
 import { useI18n } from "vue-i18n";
 import PromptPanelUI from "../PromptPanel.vue";
@@ -772,6 +672,7 @@ import { VariableAwareInput } from '../variable-extraction'
 import TemporaryVariablesPanel from '../variable/TemporaryVariablesPanel.vue'
 import VariableValuePreviewDialog from '../variable/VariableValuePreviewDialog.vue'
 import AppPreviewImage from '../media/AppPreviewImage.vue'
+import ReferenceImagePicker, { type ReferenceImageItem } from '../media/ReferenceImagePicker.vue'
 import SaveTestResultExampleButton from '../SaveTestResultExampleButton.vue'
 import SaveTestResultExamplesBatchButton from '../SaveTestResultExamplesBatchButton.vue'
 import { useTemporaryVariables } from '../../composables/variable/useTemporaryVariables'
@@ -925,8 +826,7 @@ const promptService = computed(() => services.value?.promptService)
 const isOptimizing = ref(false)
 const isAnalyzing = ref(false)
 const isIterating = ref(false)
-const uploadStatus = ref<'idle' | 'uploading' | 'success' | 'error'>('idle')
-const uploadProgress = ref(0)
+const isUploadingImage = ref(false)
 
 // 历史管理专用 ref（不写入 session store）
 const currentChainId = ref('')
@@ -1732,89 +1632,53 @@ const selectedTemplateIdForSelect = computed<string>({
     },
 });
 
-// 弹窗状态
-const showUploadModal = ref(false);
+const referenceItems = computed<ReferenceImageItem[]>(() =>
+    previewImageUrl.value
+        ? [{
+            id: 'input-image',
+            src: previewImageUrl.value,
+            label: t('imageWorkspace.input.imageLabel', { index: 1 }),
+            alt: t('imageWorkspace.input.imageAlt', { index: 1 }),
+            removeAriaLabel: t('imageWorkspace.input.removeImageAriaLabel', { index: 1 }),
+        }]
+        : [],
+);
 
-// 弹窗相关方法
-const openUploadModal = () => {
-    showUploadModal.value = true;
-};
+const handleReferenceFilesSelected = async (files: File[]) => {
+    const file = files[0];
+    if (!file) return;
 
-// 文件上传处理
-interface ImageUploadChangePayload {
-    file: UploadFileInfo | null | undefined
-    fileList: UploadFileInfo[]
-    event?: Event
-}
-
-const handleUploadChange = async (data: ImageUploadChangePayload) => {
-    const fileEntry = data.file ?? null
-    const file = fileEntry?.file ?? null
-
-    if (!file) {
-        session.updateInputImage(null, '')
-        uploadStatus.value = 'idle'
-        uploadProgress.value = 0
-        await queueSessionSave()
-        return
-    }
-
-    // 验证文件类型
     if (!/image\/(png|jpeg)/.test(file.type)) {
-        toast.error(t('imageWorkspace.upload.fileTypeNotSupported'))
-        uploadStatus.value = 'error'
-        return
+        toast.error(t('imageWorkspace.upload.fileTypeNotSupported'));
+        return;
     }
 
-    uploadStatus.value = 'uploading'
-    uploadProgress.value = 10
-
-    const prepared = await prepareImageFiles([file])
-    if (!prepared) {
-        uploadStatus.value = 'idle'
-        uploadProgress.value = 0
-        return
-    }
-
-    const preparedFile = prepared[0].file
-    uploadProgress.value = 60
-
+    isUploadingImage.value = true;
     try {
+        const prepared = await prepareImageFiles([file]);
+        if (!prepared) return;
+
+        const preparedFile = prepared[0].file;
         const dataUrl = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader()
-            reader.onload = () => resolve(String(reader.result || ''))
-            reader.onerror = () => reject(reader.error || new Error('Failed to read image'))
-            reader.readAsDataURL(preparedFile)
-        })
-        const base64 = dataUrl.split(',')[1]
-        session.updateInputImage(base64, preparedFile.type)
-        await queueSessionSave()
-        uploadStatus.value = 'success'
-        uploadProgress.value = 100
-
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ''));
+            reader.onerror = () => reject(reader.error || new Error('Failed to read image'));
+            reader.readAsDataURL(preparedFile);
+        });
+        const base64 = dataUrl.split(',')[1];
+        session.updateInputImage(base64, preparedFile.type);
+        await queueSessionSave();
     } catch (error) {
-        console.error('[ImageImage2ImageWorkspace] Failed to read uploaded image:', error)
-        toast.error(t('imageWorkspace.upload.readFailed'))
-        uploadStatus.value = 'error'
-    }
-}
-
-// 弹窗中的上传处理
-const handleModalUploadChange = async (data: ImageUploadChangePayload) => {
-    // 复用原有的上传逻辑
-    await handleUploadChange(data);
-    // 上传成功后关闭弹窗
-    if (uploadStatus.value === 'success') {
-        setTimeout(() => {
-            showUploadModal.value = false;
-        }, 1000);
+        console.error('[ImageImage2ImageWorkspace] Failed to read uploaded image:', error);
+        toast.error(t('imageWorkspace.upload.readFailed'));
+    } finally {
+        isUploadingImage.value = false;
     }
 };
 
-// 清除上传的图片 - 通过重新触发上传变更来清除
-const clearUploadedImage = () => {
-    // 调用上传变更处理器，传入空数据来清除图片
-    handleUploadChange({ file: null, fileList: [] });
+const clearUploadedImage = async () => {
+    session.updateInputImage(null, '');
+    await queueSessionSave();
 };
 
 const handleClearContent = () => {

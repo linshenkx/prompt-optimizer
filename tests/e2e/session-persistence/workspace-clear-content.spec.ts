@@ -291,11 +291,8 @@ async function fillPromptWithoutWaitingForActions(page: Page, mode: ClearableWor
 }
 
 async function seedImageImage2Image(page: Page) {
-  await page.getByTestId('image-image2image-open-upload').click()
   await page.getByTestId('image-image2image-upload').locator('input[type="file"]').setInputFiles(IMAGE_FIXTURE)
   await expect(page.getByTestId('image-image2image-input-preview')).toBeVisible({ timeout: 30000 })
-  await page.keyboard.press('Escape')
-  await expect(page.getByTestId('image-image2image-upload-modal')).toBeHidden({ timeout: 20000 })
   await fillPromptWithoutWaitingForActions(page, 'image-image2image', 'E2E clear image2image prompt')
 }
 

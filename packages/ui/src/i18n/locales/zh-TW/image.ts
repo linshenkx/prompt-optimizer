@@ -35,6 +35,8 @@ const messages = {
       "multiImageMinHint": "再新增一張圖片後即可開始多圖生圖",
       "multiImageReadyHint": "請至少上傳兩張圖片，再開始多圖生圖",
       "selectImage": "選擇",
+      "replaceImage": "替換",
+      "replaceImageAriaLabel": "替換圖片",
       "optimizeTemplate": "優化範本",
       "templatePlaceholder": "請選擇範本",
       "textModel": "文字模型",
@@ -98,6 +100,7 @@ const messages = {
     "upload": {
       "title": "上傳參考圖片",
       "dragText": "點選或拖拽上傳圖片",
+      "dropToUpload": "放開即可上傳",
       "fileRequirements": "支援最大 50MB 的 PNG/JPEG，大圖會自動預處理",
       "uploadFailed": "上傳失敗",
       "uploadSuccess": "上傳成功",

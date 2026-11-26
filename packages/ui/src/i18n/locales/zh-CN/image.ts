@@ -35,6 +35,8 @@ const messages = {
       "multiImageMinHint": "再添加一张图片后即可开始多图生图",
       "multiImageReadyHint": "请至少上传两张图片，再开始多图生图",
       "selectImage": "选择",
+      "replaceImage": "替换",
+      "replaceImageAriaLabel": "替换图片",
       "optimizeTemplate": "优化模板",
       "templatePlaceholder": "请选择模板",
       "textModel": "文本模型",
@@ -98,6 +100,7 @@ const messages = {
     "upload": {
       "title": "上传参考图片",
       "dragText": "点击或拖拽上传图片",
+      "dropToUpload": "松开即可上传",
       "fileRequirements": "支持最大 50MB 的 PNG/JPEG，大图会自动预处理",
       "uploadFailed": "上传失败",
       "uploadSuccess": "上传成功",

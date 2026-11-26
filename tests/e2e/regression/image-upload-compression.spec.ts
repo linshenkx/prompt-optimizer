@@ -7,7 +7,6 @@ test.describe('image upload compression', () => {
     await page.goto('/#/image/image2image')
     await expect(page.locator('.loading-container')).toHaveCount(0, { timeout: 15_000 })
 
-    await page.getByTestId('image-image2image-open-upload').click()
     await expect(page.getByText(/Supports PNG\/JPEG up to 50MB/)).toBeVisible()
 
     const fixture = readFileSync(resolve(
@@ -30,7 +29,6 @@ test.describe('image upload compression', () => {
 
     await expect(page.getByText(/Image prepared for model compatibility:/)).toBeVisible({ timeout: 30_000 })
     await expect(page.getByTestId('image-image2image-input-preview')).toBeVisible({ timeout: 30_000 })
-    await expect(page.getByTestId('image-image2image-upload-modal')).toBeHidden({ timeout: 30_000 })
 
     const storedImage = await page.evaluate(() => {
       const app = (document.querySelector('#app') as any)?.__vue_app__
@@ -50,7 +48,6 @@ test.describe('image upload compression', () => {
     await page.goto('/#/image/image2image')
     await expect(page.locator('.loading-container')).toHaveCount(0, { timeout: 15_000 })
 
-    await page.getByTestId('image-image2image-open-upload').click()
     const highResolutionPng = await page.evaluate(() => {
       const canvas = document.createElement('canvas')
       canvas.width = 6000
@@ -86,7 +83,6 @@ test.describe('image upload compression', () => {
     await page.goto('/#/image/image2image')
     await expect(page.locator('.loading-container')).toHaveCount(0, { timeout: 15_000 })
 
-    await page.getByTestId('image-image2image-open-upload').click()
     const highResolutionPng = await page.evaluate(() => {
       const canvas = document.createElement('canvas')
       canvas.width = 6000

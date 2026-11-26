@@ -91,9 +91,7 @@ test.describe('Image Image2Image - 生成（SiliconFlow）', () => {
 
     await navigateToMode(page, 'image', 'image2image')
 
-    // 1) 打开上传弹窗并上传输入图
-    await page.getByTestId('image-image2image-open-upload').click()
-
+    // 1) 上传输入图
     const upload = page.getByTestId('image-image2image-upload')
     const fileInput = upload.locator('input[type="file"]')
 
@@ -102,12 +100,6 @@ test.describe('Image Image2Image - 生成（SiliconFlow）', () => {
 
     // 等待缩略图出现，说明 session 已注入 inputImage
     await expect(page.getByTestId('image-image2image-input-preview')).toBeVisible({ timeout: 30000 })
-
-    // 关闭 modal：不强依赖具体 DOM 结构，尽量退回到主界面继续
-    await page.keyboard.press('Escape').catch(() => {})
-
-    // 等待上传弹窗彻底关闭，避免残留遮罩层/动画拦截后续点击
-    await expect(page.getByTestId('image-image2image-upload-modal')).toBeHidden({ timeout: 20000 })
 
     // 2) 选择文本模型（用于优化）
     const textModelSelect = page.getByTestId('image-image2image-text-model-select')
