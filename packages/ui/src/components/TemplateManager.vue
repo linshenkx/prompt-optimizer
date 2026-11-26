@@ -107,6 +107,18 @@
           {{ t('templateManager.imageIterateTemplates') }}
         </NButton>
       </NGridItem>
+      <NGridItem>
+        <NButton block :type="currentCategory==='video-optimize' ? 'primary' : 'default'" @click="currentCategory='video-optimize'">
+          <template #icon><CategoryVideo /></template>
+          {{ t('templateManager.videoOptimizeTemplates') }}
+        </NButton>
+      </NGridItem>
+      <NGridItem>
+        <NButton block :type="currentCategory==='video-iterate' ? 'primary' : 'default'" @click="currentCategory='video-iterate'">
+          <template #icon><CategoryRefreshCw /></template>
+          {{ t('templateManager.videoIterateTemplates') }}
+        </NButton>
+      </NGridItem>
     </NGrid>
 
     <!-- 模板列表 -->
@@ -648,7 +660,7 @@
 </template>
 
 <script setup lang="ts">
-import { Target as CategoryTarget, User as CategoryUser, RefreshCw as CategoryRefreshCw, Image as CategoryImage, Camera as CategoryCamera, CircleHelp as UiCircleHelp, FilePlus2 as UiFilePlus2, Eye as UiEye, SquarePen as UiSquarePen, Copy as UiCopy, ArrowLeftRight as UiArrowLeftRight, Trash2 as UiTrash2, Maximize2 as UiMaximize2, Plus as UiPlus, ChevronUp as UiChevronUp, ChevronDown as UiChevronDown, X as UiX } from '@lucide/vue'
+import { Target as CategoryTarget, User as CategoryUser, RefreshCw as CategoryRefreshCw, Image as CategoryImage, Camera as CategoryCamera, Video as CategoryVideo, CircleHelp as UiCircleHelp, FilePlus2 as UiFilePlus2, Eye as UiEye, SquarePen as UiSquarePen, Copy as UiCopy, ArrowLeftRight as UiArrowLeftRight, Trash2 as UiTrash2, Maximize2 as UiMaximize2, Plus as UiPlus, ChevronUp as UiChevronUp, ChevronDown as UiChevronDown, X as UiX } from '@lucide/vue'
 import NModal from "./common/AdaptiveModal.vue"
 import MobileTemplateList from './templates/MobileTemplateList.vue'
 import MobileTemplateEditor from './templates/MobileTemplateEditor.vue'
@@ -678,6 +690,8 @@ import { useProVariableSession } from '../stores/session/useProVariableSession'
 import { useImageText2ImageSession } from '../stores/session/useImageText2ImageSession'
 import { useImageImage2ImageSession } from '../stores/session/useImageImage2ImageSession'
 import { useImageMultiImageSession } from '../stores/session/useImageMultiImageSession'
+import { useVideoCreateSession } from '../stores/session/useVideoCreateSession'
+import type { TemplateManagerTemplateType } from '../composables/prompt/useTemplateManager'
 
 const { t } = useI18n()
 const confirmDialog = useConfirmDialog()
@@ -697,17 +711,7 @@ const getTemplateManager = computed(() => services.value!.templateManager)
 // const getTemplateLanguageService = computed(() => services.value!.templateLanguageService)  // 保留用于未来扩展
 
 const props = defineProps<{
-  templateType:
-    | 'optimize'
-    | 'userOptimize'
-    | 'iterate'
-    | 'text2imageOptimize'
-    | 'image2imageOptimize'
-    | 'multiimageOptimize'
-    | 'imageIterate'
-    | 'conversationMessageOptimize'
-    | 'contextUserOptimize'
-   | 'contextIterate',
+  templateType: TemplateManagerTemplateType
   show: boolean
   basicSubMode?: 'system' | 'user'
   proSubMode?: 'multi' | 'variable'
@@ -725,6 +729,7 @@ const proVariableSession = useProVariableSession()
 const imageText2ImageSession = useImageText2ImageSession()
 const imageImage2ImageSession = useImageImage2ImageSession()
 const imageMultiImageSession = useImageMultiImageSession()
+const videoSession = useVideoCreateSession()
 
 const templates = ref<Template[]>([])
 const currentCategory = ref(getCategoryFromProps())
@@ -794,6 +799,10 @@ function getCategoryFromProps() {
       return 'image-image2image-optimize'
     case 'multiimageOptimize':
       return 'image-multiimage-optimize'
+    case 'videoOptimize':
+      return 'video-optimize'
+    case 'videoIterate':
+      return 'video-iterate'
     case 'imageIterate':
       return 'image-iterate'
     case 'conversationMessageOptimize':
@@ -808,7 +817,7 @@ function getCategoryFromProps() {
 }
 
 // 获取当前模板类型 - 根据当前分类而不是props
-function getCurrentTemplateType(): 'optimize' | 'userOptimize' | 'iterate' | 'text2imageOptimize' | 'image2imageOptimize' | 'multiimageOptimize' | 'imageIterate' | 'conversationMessageOptimize' | 'contextUserOptimize' | 'contextIterate' {
+function getCurrentTemplateType(): TemplateManagerTemplateType {
   switch (currentCategory.value) {
     case 'system-optimize':
       return 'optimize'
@@ -823,6 +832,10 @@ function getCurrentTemplateType(): 'optimize' | 'userOptimize' | 'iterate' | 'te
       return 'image2imageOptimize'
     case 'image-multiimage-optimize':
       return 'multiimageOptimize'
+    case 'video-optimize':
+      return 'videoOptimize'
+    case 'video-iterate':
+      return 'videoIterate'
     case 'image-iterate':
       return 'imageIterate'
     case 'context-system-optimize':
@@ -861,6 +874,10 @@ function getSelectedTemplateIdForCategory(category: string): string | undefined 
       return imageImage2ImageSession.selectedTemplateId || undefined
     case 'image-multiimage-optimize':
       return imageMultiImageSession.selectedTemplateId || undefined
+    case 'video-optimize':
+      return videoSession.state.selectedTemplateId || undefined
+    case 'video-iterate':
+      return videoSession.state.selectedIterateTemplateId || undefined
     case 'image-iterate':
       return props.imageSubMode === 'image2image'
         ? (imageImage2ImageSession.selectedIterateTemplateId || undefined)
@@ -893,6 +910,10 @@ function getCurrentCategoryLabel() {
       return t('templateManager.imageImage2ImageTemplates')
     case 'image-multiimage-optimize':
       return t('imageMode.multiimage')
+    case 'video-optimize':
+      return t('templateManager.videoOptimizeTemplates')
+    case 'video-iterate':
+      return t('templateManager.videoIterateTemplates')
     case 'image-iterate':
       return t('templateManager.imageIterateTemplates')
     case 'context-system-optimize':
@@ -915,11 +936,11 @@ const isStringTemplate = (template: Template) => {
 const processedPreview = computed(() => {
   if (!form.value.isAdvanced || !form.value.messages.length) return []
 
-  const sampleContext = {
-    prompt: 'Write a creative story about space exploration',
-    originalPrompt: 'Write a story',
-    iterateInput: 'Make it more creative and add space exploration theme'
-  }
+  const sampleContext = ['videoOptimize', 'videoIterate'].includes(currentType.value)
+    ? { lastOptimizedPrompt: t('video.templatePreviewDraft'), iterateInput: t('video.templatePreviewFeedback'), originalPrompt: t('video.templatePreviewBrief'), duration: '4', ratio: '16:9', resolution: '480p',
+        referenceRoles: `1. ${t('video.roles.character')}` }
+    : { prompt: 'Write a creative story about space exploration', originalPrompt: 'Write a story',
+        iterateInput: 'Make it more creative and add space exploration theme' }
 
   try {
     const tempTemplate: Template = {
@@ -1371,6 +1392,10 @@ const filteredTemplates = computed(() => {
         return templateType === 'image2imageOptimize'
       case 'image-multiimage-optimize':
         return templateType === 'multiimageOptimize'
+      case 'video-optimize':
+        return templateType === 'videoOptimize'
+      case 'video-iterate':
+        return templateType === 'videoIterate'
       case 'image-iterate':
         return templateType === 'imageIterate'
 
@@ -1487,6 +1512,8 @@ const mobileCategoryOptions = computed(() => [
   { value: 'image-image2image-optimize', label: t('templateManager.imageImage2ImageTemplates') },
   { value: 'image-multiimage-optimize', label: t('imageMode.multiimage') },
   { value: 'image-iterate', label: t('templateManager.imageIterateTemplates') },
+  { value: 'video-optimize', label: t('templateManager.videoOptimizeTemplates') },
+  { value: 'video-iterate', label: t('templateManager.videoIterateTemplates') },
 ])
 const mobileFilteredTemplates = computed(() => {
   const query = mobileSearch.value.trim().toLocaleLowerCase()

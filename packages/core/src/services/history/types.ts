@@ -10,6 +10,7 @@ export type PromptRecordType =
   | 'test'
   | 'contextUserOptimize'
   | 'contextIterate'
+  | 'videoOptimize'
   | 'imageOptimize'
   | 'contextImageOptimize'
   | 'imageIterate'
@@ -104,6 +105,7 @@ export interface IHistoryManager extends IImportExportable {
   /** 向现有链中添加一次迭代 */
   addIteration(params: {
     chainId: string;
+    previousId?: string;
     originalPrompt: string;
     optimizedPrompt: string;
     modelKey: string;

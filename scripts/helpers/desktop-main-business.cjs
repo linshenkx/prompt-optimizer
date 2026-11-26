@@ -5,6 +5,23 @@ async function exerciseDesktopBusiness(phase) {
   const check = (condition, label) => {
     if (!condition) throw new Error(`Business IPC regression: ${label}`);
   };
+  // Check the video bridge and persisted model selection without issuing an Ark request.
+  if (phase === 'first') {
+    const initial = await api.video.model();
+    check(initial.model === 'doubao-seedance-2-0-fast-260128' && !initial.configured, 'fresh video model');
+    await api.preference.set('video-model/seedance', { model: 'ep-synthetic-fast', apiKey: 'fixture-only' });
+  }
+  const managedVideoId = 'video-ipc-studio';
+  if (phase === 'first') {
+    const legacyConfig = await api.video.getConfig('seedance');
+    await api.video.saveConfig({ ...legacyConfig, id: managedVideoId, name: 'IPC studio' }, null);
+    await api.video.setEnabled(managedVideoId, false);
+  }
+  const videoConfigs = await api.video.listModels();
+  check(videoConfigs.some(item => item.id === managedVideoId && !item.enabled && item.keySource === 'saved' && !('apiKey' in item)),
+    'persisted video configuration list over preload IPC');
+  const video = await api.video.model();
+  check(video.model === 'ep-synthetic-fast' && video.configured && !('apiKey' in video), 'video model over preload IPC');
   const key = 'storage-main-r3-identities';
   const modelId = 'storage-ipc-model';
   const templateId = 'storage-ipc-template';
@@ -66,6 +83,7 @@ async function exerciseDesktopBusiness(phase) {
   const exported = await api.data.exportAllData();
   const parsed = JSON.parse(exported);
   check(parsed.data.models.some(item => item.id === modelId), 'app export includes saved model');
+  check(parsed.data.videoModels.some(item => item.id === managedVideoId && !item.enabled), 'app export includes video configurations');
   check(parsed.data.history.some(item => item.id === historyId), 'app export includes saved history');
   check(parsed.data.workspaceSessions.sessions['pro-variable'].optimizedPrompt === draft.optimizedPrompt, 'app export includes current workspace');
   check(parsed.data.desktopRuns === undefined, 'app backup excludes MCP desktop runs');
@@ -112,7 +130,7 @@ async function exerciseDesktopBusiness(phase) {
   await api.favoriteManager.deleteFavorite(disposable);
   check((await api.favoriteManager.getFavorites()).length === 1, 'single deletion retains unrelated favorite');
   check((await api.model.getAllModels()).some(item => item.id === modelId), 'single deletion retains model');
-  const checked = ['model edit', 'template', 'history', 'context', 'favorite/category/tag', 'workspace A/B draft', 'app export/import', 'legacy mcp backup sections ignored', 'favorite export/import', 'invalid import retains data', 'single deletion'];
+  const checked = ['video model IPC', 'model edit', 'template', 'history', 'context', 'favorite/category/tag', 'workspace A/B draft', 'app export/import', 'legacy mcp backup sections ignored', 'favorite export/import', 'invalid import retains data', 'single deletion'];
   if (phase === 'restart') {
     const nextContent = '显式更新版本：{{text}}';
     const original = await api.favoriteManager.getFavorite(ids.favoriteId);

@@ -229,6 +229,7 @@ interface ElectronAPI {
   updater: UpdaterAPI
   shell: ShellAPI
   llm: LlmAPI
+  video: import('@prompt-optimizer/core').VideoService
   imageUnderstanding: ImageUnderstandingAPI
   image: ImageAPI
   imageModel: ImageModelAPI

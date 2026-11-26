@@ -121,6 +121,20 @@ describe('HistoryManager', () => {
   });
 
   describe('createNewChain and getChain', () => {
+    it('keeps a selected older base when appending a new version', async () => {
+      (uuidv4 as any).mockReturnValueOnce('chain').mockReturnValueOnce('v2').mockReturnValueOnce('v3');
+      const root = mockPromptRecord('v1', 'chain', 1);
+      await historyManager.createNewChain(root);
+      const change = { chainId: 'chain', originalPrompt: root.originalPrompt, optimizedPrompt: 'Revision',
+        modelKey: root.modelKey, templateId: root.templateId };
+      await historyManager.addIteration(change);
+      await expect(historyManager.addIteration({ ...change, previousId: 'missing' })).rejects.toThrow();
+      const chain = await historyManager.addIteration({ ...change, previousId: 'v1' });
+      expect(chain.versions.map(record => [record.version, record.previousId])).toEqual([
+        [1, undefined], [2, 'v1'], [3, 'v1'],
+      ]);
+    });
+
     it('should create a new chain and get it', async () => {
       (uuidv4 as any).mockReturnValue('new-chain-id');
       const chainRecord = mockPromptRecord('id1', 'new-chain-id', 1);

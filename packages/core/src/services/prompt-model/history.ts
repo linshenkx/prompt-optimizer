@@ -41,6 +41,8 @@ const inferModeKeyFromRecord = (record: PromptRecord): PromptModeKey => {
       return 'image-text2image';
     case 'image2imageOptimize':
       return 'image-image2image';
+    case 'videoOptimize':
+      return 'video-create';
     case 'multiimageOptimize':
       return 'image-multiimage';
     case 'optimize':

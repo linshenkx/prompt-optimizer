@@ -12,6 +12,8 @@ const messages = {
     "userOptimizeTemplates": "使用者提示詞優化範本",
     "userOptimizeTemplatesContext": "使用者提示詞優化範本（情境）",
     "userOptimizeTemplateList": "使用者提示詞優化範本清單",
+    "videoIterateTemplates": "影片 · 按回饋迭代",
+    "videoOptimizeTemplates": "影片 · 提示詞生成",
     "imageText2ImageTemplates": "圖像 · 文生圖範本",
     "imageImage2ImageTemplates": "圖像 · 圖生圖範本",
     "imageIterateTemplates": "圖像 · 迭代範本",

@@ -36,7 +36,7 @@ export const beforeRouteSwitch: NavigationGuard = (to) => {
   const subModeKey = parseSubModeKey(to.path)
 
   if (subModeKey === null && to.path !== '/') {
-    const match = to.path.match(/^\/(basic|pro|image)(\/|$)/)
+    const match = to.path.match(/^\/(basic|pro|image|video)(\/|$)/)
     if (match) {
       const mode = match[1] as WorkspaceMode
 

@@ -20,7 +20,7 @@ export type EvaluationType =
 /**
  * 所有子模式的联合类型（用于评估模式配置）
  */
-export type EvaluationSubMode = BasicSubMode | ProSubMode | ImageSubMode;
+export type EvaluationSubMode = BasicSubMode | ProSubMode | ImageSubMode | 'create';
 
 /**
  * 评估模式配置
@@ -28,7 +28,7 @@ export type EvaluationSubMode = BasicSubMode | ProSubMode | ImageSubMode;
  */
 export interface EvaluationModeConfig {
   /** 功能模式 */
-  functionMode: 'basic' | 'pro' | 'image';
+  functionMode: 'basic' | 'pro' | 'image' | 'video';
   /** 子模式 */
   subMode: EvaluationSubMode;
 }

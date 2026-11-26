@@ -302,6 +302,7 @@ type FavoriteModeFilterKey =
   | 'image-text2image'
   | 'image-image2image'
   | 'image-multiimage'
+  | 'video-create'
 
 interface FavoriteModeFilterDefinition {
   value: Exclude<FavoriteModeFilterKey, 'all'>
@@ -318,6 +319,7 @@ const favoriteModeFilterDefinitions: FavoriteModeFilterDefinition[] = [
   { value: 'image-text2image', functionMode: 'image', imageSubMode: 'text2image' },
   { value: 'image-image2image', functionMode: 'image', imageSubMode: 'image2image' },
   { value: 'image-multiimage', functionMode: 'image', imageSubMode: 'multiimage' },
+  { value: 'video-create', functionMode: 'video' },
 ]
 
 const favoriteModeFilterKeys = new Set<FavoriteModeFilterKey>([
@@ -396,6 +398,7 @@ const pageSize = computed(() => {
 })
 
 const getModeFilterLabel = (definition: FavoriteModeFilterDefinition) => {
+  if (definition.functionMode === 'video') return t('nav.videoMode')
   if (definition.functionMode === 'basic') {
     return `${t('favorites.manager.card.functionMode.basic')}-${t(`favorites.manager.card.optimizationMode.${definition.optimizationMode}`)}`
   }

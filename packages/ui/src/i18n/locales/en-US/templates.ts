@@ -12,6 +12,8 @@ const messages = {
     "userOptimizeTemplates": "User Prompt Optimization Templates",
     "userOptimizeTemplatesContext": "User Prompt Optimization Templates (Context)",
     "userOptimizeTemplateList": "User Prompt Optimization Template List",
+    "videoIterateTemplates": "Video · Revision",
+    "videoOptimizeTemplates": "Video · Prompt generation",
     "imageText2ImageTemplates": "Image · Text-to-Image Templates",
     "imageImage2ImageTemplates": "Image · Image-to-Image Templates",
     "imageIterateTemplates": "Image · Iterate Templates",

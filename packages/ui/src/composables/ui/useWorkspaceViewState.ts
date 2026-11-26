@@ -18,6 +18,7 @@ const views = {
   'image-text2image': reactive(defaults()),
   'image-image2image': reactive(defaults()),
   'image-multiimage': reactive(defaults()),
+  'video-create': reactive(defaults()),
 }
 
 export type WorkspaceViewMode = keyof typeof views

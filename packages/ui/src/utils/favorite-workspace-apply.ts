@@ -22,10 +22,11 @@ export type FavoriteWorkspaceTargetKey =
   | 'image-text2image'
   | 'image-image2image'
   | 'image-multiimage'
+  | 'video-create'
 
 export type FavoriteWorkspaceApplySource = {
   content: string
-  functionMode?: 'basic' | 'pro' | 'image' | 'context'
+  functionMode?: 'basic' | 'pro' | 'image' | 'context' | 'video'
   optimizationMode?: 'system' | 'user'
   imageSubMode?: 'text2image' | 'image2image' | 'multiimage'
   metadata?: Record<string, unknown>
@@ -54,6 +55,7 @@ export const promptModeKeyToWorkspaceTargetKey = (
   modeKey: PromptModeKey,
 ): FavoriteWorkspaceTargetKey => {
   switch (modeKey) {
+    case 'video-create': return 'video-create'
     case 'basic-user':
       return 'basic-user'
     case 'pro-variable':
@@ -75,6 +77,7 @@ export const promptModeKeyToWorkspaceTargetKey = (
 const favoriteModeToWorkspaceTargetKey = (
   mode: FavoriteModeCompat,
 ): FavoriteWorkspaceTargetKey => {
+  if (mode.functionMode === 'video') return 'video-create'
   if (mode.functionMode === 'image') {
     return `image-${mode.imageSubMode || 'text2image'}`
   }
@@ -89,6 +92,7 @@ const favoriteModeToWorkspaceTargetKey = (
 const legacyFavoriteModeFromSource = (
   favorite: FavoriteWorkspaceApplySource,
 ): FavoriteModeCompat | null => {
+  if (favorite.functionMode === 'video') return { functionMode: 'video' }
   if (favorite.functionMode === 'image') {
     return {
       functionMode: 'image',

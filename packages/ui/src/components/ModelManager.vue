@@ -38,6 +38,10 @@
           </template>
           {{ isCompact ? t('common.add') : t('modelManager.addImageModel') }}
         </NButton>
+        <NButton v-else-if="activeTab === 'video'" type="primary" ghost data-testid="add-video-model" @click="videoListRef?.openAdd()">
+          <template #icon><UiFilePlus2 /></template>
+          {{ isCompact ? t('common.add') : t('video.addModel') }}
+        </NButton>
       </template>
 
       <div class="model-manager-content" data-testid="model-manager-dialog">
@@ -49,9 +53,13 @@
           animated
           class="model-manager-tabs"
         >
-          <NTabPane name="text" :tab="t('modelManager.textModels')" />
-          <NTabPane name="image" :tab="t('modelManager.imageModels')" />
-          <NTabPane name="function" :tab="t('modelManager.functionModels')" />
+          <NTabPane
+            v-for="tab in modelTabs"
+            :key="tab.name"
+            :name="tab.name"
+            :tab="t(isCompact ? tab.compactLabel : tab.label)"
+            :tab-props="{ 'aria-label': t(tab.label) }"
+          />
         </NTabs>
 
         <div class="model-manager-panel">
@@ -76,6 +84,7 @@
                 @clone="handleCloneImageModel"
                 @add="handleAddImageModel"
               />
+              <VideoModelPanel v-if="activeTab === 'video'" ref="videoListRef" />
               <FunctionModelManager
                 v-show="activeTab === 'function'"
                 ref="functionManagerRef"
@@ -107,6 +116,8 @@ import { useI18n } from 'vue-i18n'
 import { NButton, NCard,  NTabs, NTabPane } from 'naive-ui'
 import type { ImageModelConfig } from '@prompt-optimizer/core'
 import ImageModelEditModal from './ImageModelEditModal.vue'
+import VideoModelPanel from './video-mode/VideoModelPanel.vue'
+import { isVideoExtension } from '../stores/session/useVideoCreateSession'
 import ImageModelManager from './ImageModelManager.vue'
 import TextModelManager from './TextModelManager.vue'
 import FunctionModelManager from './FunctionModelManager.vue'
@@ -128,9 +139,16 @@ const emit = defineEmits(['modelsUpdated', 'close', 'select', 'update:show'])
 const { t } = useI18n()
 const { isCompact } = useWorkspaceLayout()
 
-const activeTab = ref<'text' | 'image' | 'function'>('text')
+const extension = isVideoExtension()
+const modelTabs = [
+  { name: 'text', label: 'modelManager.textModels', compactLabel: 'common.text' },
+  { name: 'image', label: 'modelManager.imageModels', compactLabel: 'nav.imageMode' },
+  { name: 'video', label: 'video.models', compactLabel: 'nav.videoMode' },
+  { name: 'function', label: 'modelManager.functionModels', compactLabel: 'modelManager.functions' },
+].filter(tab => tab.name !== 'video' || !extension)
+const activeTab = ref<'text' | 'image' | 'video' | 'function'>('text')
 const scrollAreaRef = ref<HTMLElement | null>(null)
-const compactScrollTop = { text: 0, image: 0, function: 0 }
+const compactScrollTop = { text: 0, image: 0, video: 0, function: 0 }
 watch(activeTab, async (tab, previous) => {
   if (!isCompact.value) return
   compactScrollTop[previous] = scrollAreaRef.value?.scrollTop ?? 0
@@ -152,7 +170,13 @@ const openImageModel = async (id: string) => {
   await nextTick()
   handleEditImageModel(id)
 }
-defineExpose({ openTextModel, openImageModel })
+const videoListRef = ref<InstanceType<typeof VideoModelPanel> | null>(null)
+const openVideoModel = async (id: string) => {
+  activeTab.value = 'video'
+  await nextTick()
+  await videoListRef.value?.openEdit(id)
+}
+defineExpose({ openTextModel, openImageModel, openVideoModel })
 const imageListRef = ref<InstanceType<typeof ImageModelManager> | null>(null)
 const functionManagerRef = ref<InstanceType<typeof FunctionModelManager> | null>(null)
 const showImageModelEdit = ref(false)
@@ -231,7 +255,7 @@ if (typeof window !== 'undefined') {
   const tabHandler = (e: Event) => {
     try {
       const tab = (e as CustomEvent).detail
-      if (tab === 'text' || tab === 'image' || tab === 'function') activeTab.value = tab
+      if (tab === 'text' || tab === 'image' || (tab === 'video' && !extension) || tab === 'function') activeTab.value = tab
     } catch {
       // 静默处理错误
     }

@@ -277,6 +277,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   },
 
+  video: Object.fromEntries(['model', 'listModels', 'getConfig', 'saveConfig', 'setEnabled', 'removeConfig', 'testConnection', 'create', 'query', 'cancel'].map(method => [method, async (...args) => {
+    const result = await ipcRenderer.invoke('video-' + method, ...args);
+    if (!result.success) throw createIpcError(result.error);
+    return result.data;
+  }])),
+
   imageUnderstanding: {
     understand: async (request) => {
       const result = await ipcRenderer.invoke('image-understanding-understand', request);

@@ -167,7 +167,8 @@ const messages = {
     "about": "关于",
     "basicMode": "基础",
     "contextMode": "上下文",
-    "imageMode": "图像"
+    "imageMode": "图像",
+    "videoMode": "视频"
   },
   "about": {
     "title": "提示词优化器",

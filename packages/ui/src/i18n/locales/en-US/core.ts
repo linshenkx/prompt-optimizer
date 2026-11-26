@@ -167,7 +167,8 @@ const messages = {
     "about": "About",
     "basicMode": "Basic",
     "contextMode": "Context",
-    "imageMode": "Image"
+    "imageMode": "Image",
+    "videoMode": "Video"
   },
   "about": {
     "title": "Prompt Optimizer",

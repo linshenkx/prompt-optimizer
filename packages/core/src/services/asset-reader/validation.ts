@@ -115,7 +115,7 @@ export function parseFavorites(value: unknown): Array<{ raw: Record<string, unkn
     requireData(text(raw.id) && text(raw.title) && typeof raw.content === 'string' && strings(raw.tags) && time(raw.createdAt) && time(raw.updatedAt) && !ids.has(raw.id))
     requireData(raw.metadata === undefined || record(raw.metadata))
     requireData(raw.functionMode === undefined || typeof raw.functionMode === 'string')
-    if (raw.functionMode !== undefined && !['basic', 'context', 'image'].includes(raw.functionMode)) throw new AssetReadError('SCHEMA_UNSUPPORTED')
+    if (raw.functionMode !== undefined && !['basic', 'context', 'image', 'video'].includes(raw.functionMode)) throw new AssetReadError('SCHEMA_UNSUPPORTED')
     requireData(raw.optimizationMode === undefined || (typeof raw.optimizationMode === 'string' && ['system', 'user'].includes(raw.optimizationMode)))
     requireData(raw.imageSubMode === undefined || (typeof raw.imageSubMode === 'string' && ['text2image', 'image2image', 'multiimage'].includes(raw.imageSubMode)))
     // An invalid/future embedded asset must never fall through to legacy projection.

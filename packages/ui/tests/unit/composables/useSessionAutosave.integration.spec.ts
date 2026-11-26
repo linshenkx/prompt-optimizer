@@ -3,6 +3,7 @@ import { computed, effectScope, nextTick, ref } from 'vue'
 import type { IImageStorageService, IPreferenceService } from '@prompt-optimizer/core'
 import { useSessionAutosave } from '../../../src/composables/session/useSessionAutosave'
 import { useSessionManager } from '../../../src/stores/session/useSessionManager'
+import { useVideoCreateSession } from '../../../src/stores/session/useVideoCreateSession'
 import { useArenaSession } from '../../../src/stores/session/useArenaSession'
 import { useBasicUserSession } from '../../../src/stores/session/useBasicUserSession'
 import { useBasicSystemSession } from '../../../src/stores/session/useBasicSystemSession'
@@ -170,7 +171,7 @@ describe('workspace autosave with the session manager', () => {
     expect(state.set).toHaveBeenCalledTimes(2)
   })
 
-  it('saves all eight changed stores once without an idle save creating a new dirty cycle', async () => {
+  it('saves all changed stores once without an idle save creating a new dirty cycle', async () => {
     const state = await setup()
     state.attach()
     vi.useFakeTimers()
@@ -178,12 +179,13 @@ describe('workspace autosave with the session manager', () => {
       useProVariableSession, useImageText2ImageSession, useImageImage2ImageSession, useImageMultiImageSession]
     for (const useStore of stores) useStore(state.pinia).optimizedPrompt = 'latest workspace draft'
     useArenaSession(state.pinia).state.prompt = 'latest arena draft'
+    useVideoCreateSession(state.pinia).state.optimizedPrompt = 'latest video draft'
     await nextTick()
     await vi.advanceTimersByTimeAsync(750)
-    expect(state.set).toHaveBeenCalledTimes(8)
-    expect(new Set(state.set.mock.calls.map(([key]) => key)).size).toBe(8)
+    expect(state.set).toHaveBeenCalledTimes(9)
+    expect(new Set(state.set.mock.calls.map(([key]) => key)).size).toBe(9)
     await vi.advanceTimersByTimeAsync(60_000)
-    expect(state.set).toHaveBeenCalledTimes(8)
+    expect(state.set).toHaveBeenCalledTimes(9)
     expect(vi.getTimerCount()).toBe(0)
   })
 

@@ -13,9 +13,10 @@ export type PromptModeKey =
   | 'pro-conversation'
   | 'image-text2image'
   | 'image-image2image'
-  | 'image-multiimage';
+  | 'image-multiimage'
+  | 'video-create';
 
-export type PromptModeFamily = 'basic' | 'pro' | 'image' | 'arena';
+export type PromptModeFamily = 'basic' | 'pro' | 'image' | 'video' | 'arena';
 
 export type PromptVariableType = 'string' | 'number' | 'boolean' | 'enum';
 
@@ -77,8 +78,14 @@ export interface ImagePromptContract extends PromptContractBase {
   modeKey: 'image-text2image' | 'image-image2image' | 'image-multiimage';
 }
 
+export interface VideoPromptContract extends PromptContractBase {
+  family: 'video';
+  subMode: 'create';
+  modeKey: 'video-create';
+}
+
 export interface ArenaPromptContract extends PromptContractBase { family: 'arena'; modeKey: 'arena' }
-export type PromptContract = BasicPromptContract | ProPromptContract | ImagePromptContract | ArenaPromptContract;
+export type PromptContract = BasicPromptContract | ProPromptContract | ImagePromptContract | VideoPromptContract | ArenaPromptContract;
 
 export type PromptContent =
   | {

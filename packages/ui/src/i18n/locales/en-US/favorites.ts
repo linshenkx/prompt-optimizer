@@ -222,6 +222,7 @@ const messages = {
         "cancel": "Cancel",
         "deleteConfirm": "Delete \"{title}\"?",
         "functionMode": {
+          "video": "Video",
           "basic": "Basic",
           "context": "Context",
           "image": "Image"

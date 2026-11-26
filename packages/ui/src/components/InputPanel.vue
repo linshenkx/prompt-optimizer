@@ -126,6 +126,8 @@
             :data-testid="`${testIdPrefix}-input`"
         />
 
+        <slot v-if="$slots['input-extra']" name="input-extra" />
+
         <!-- 控制面板 -->
         <OptimizationControls :compact="compact" :model-label="modelLabel" :template-label="templateLabel">
           <template #model><slot name="model-select" /></template>
@@ -156,7 +158,7 @@
                         :loading="loading"
                         :disabled="analyzeLoading || loading || disabled || !modelValue.trim()"
                     >
-                        {{ compact ? buttonText : loading ? loadingText : buttonText }}
+                        {{ compact ? (compactButtonText || buttonText) : loading ? loadingText : buttonText }}
                     </NButton>
                 </template>
         </OptimizationControls>
@@ -222,6 +224,7 @@ interface Props {
     templateLabel?: string;
     /** 提交按钮文本 */
     buttonText: string;
+    compactButtonText?: string;
     /** 加载中文本 */
     loadingText: string;
     /** 是否正在加载 */

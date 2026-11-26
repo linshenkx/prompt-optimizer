@@ -222,6 +222,7 @@ const messages = {
         "cancel": "取消",
         "deleteConfirm": "确定删除\"{title}\"吗？",
         "functionMode": {
+          "video": "视频",
           "basic": "基础",
           "context": "上下文",
           "image": "图像"

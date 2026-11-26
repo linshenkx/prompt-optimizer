@@ -93,6 +93,7 @@ const functionMode = computed<FunctionMode>(() => {
     if (path.startsWith('/basic')) return 'basic'
     if (path.startsWith('/pro')) return 'pro'
     if (path.startsWith('/image')) return 'image'
+    if (path.startsWith('/video')) return 'video'
     return 'basic' // 默认
 })
 
@@ -140,7 +141,8 @@ const imageSubMode = computed<ImageSubMode>(() => {
 const DEFAULT_SUB_MODES = {
     basic: 'system',
     pro: 'variable',
-    image: 'text2image'
+    image: 'text2image',
+    video: 'create'
 } as const
 
 const navigateToWorkspacePath = (path: string) => {

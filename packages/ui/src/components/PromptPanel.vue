@@ -207,6 +207,7 @@
             ]" />
         </div>
         <OutputDisplay
+            :initial-view-mode="initialViewMode"
             :fit-content="mobileLayout"
             :test-id="testId ? testId + '-output' : undefined"
             ref="outputDisplayRef"
@@ -344,6 +345,7 @@ interface IteratePayload {
 const props = defineProps({
     outputRecord: { type: Object as PropType<OutputRecord>, default: undefined },
     mobileLayout: { type: Boolean, default: false },
+    initialViewMode: String as PropType<'render' | 'source'>,
     enableEvaluation: { type: Boolean, default: true },
     /** E2E/测试定位用的 testId（用于 OutputDisplay 根节点 data-testid） */
     testId: {
@@ -404,7 +406,7 @@ const props = defineProps({
     },
     // 🆕 允许外部指定迭代模板类型（基础/上下文/图像），默认保持原行为
     iterateTemplateType: {
-        type: String as () => "iterate" | "contextIterate" | "imageIterate",
+        type: String as () => "iterate" | "contextIterate" | "imageIterate" | "videoIterate",
         default: undefined,
     },
     // 是否显示预览按钮
@@ -575,6 +577,7 @@ const emit = defineEmits<{
             | "userOptimize"
             | "iterate"
             | "imageIterate"
+            | "videoIterate"
             | "contextIterate",
     ];
     "update:selectedIterateTemplate": [template: Template | null];
@@ -594,16 +597,8 @@ const emit = defineEmits<{
 
 const showIterateInput = ref(false);
 const iterateInput = ref("");
-const templateType = computed<"iterate" | "contextIterate" | "imageIterate">(
-    () => {
-        return (
-            (props.iterateTemplateType as
-                | "iterate"
-                | "contextIterate"
-                | "imageIterate") ||
-            (props.advancedModeEnabled ? "contextIterate" : "iterate")
-        );
-    },
+const templateType = computed(() =>
+    props.iterateTemplateType ?? (props.advancedModeEnabled ? "contextIterate" : "iterate"),
 );
 
 const outputDisplayRef = ref<InstanceType<typeof OutputDisplay> | null>(null);
@@ -782,6 +777,11 @@ const previousVersionText = computed(() => {
         (v) => v.id === props.currentVersionId,
     );
 
+    const selected = props.versions[currentIndex];
+    const editedBase = selected?.metadata?.iterationBasePrompt;
+    if (typeof editedBase === "string") return editedBase;
+    const parent = selected?.previousId && props.versions.find(version => version.id === selected.previousId);
+    if (parent) return parent.optimizedPrompt;
     if (currentIndex > 0) {
         // 当前版本有上一版本
         return props.versions[currentIndex - 1].optimizedPrompt;

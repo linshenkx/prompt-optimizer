@@ -176,16 +176,18 @@ async function collectReferencedImageIds(
 ): Promise<Set<string>> {
   const referenced = new Set<string>()
 
-  const [rawBasicSystem, rawText2Image, rawImage2Image, rawMultiImage, rawFavorites, rawArena] = await Promise.all([
+  const [rawBasicSystem, rawText2Image, rawImage2Image, rawMultiImage, rawFavorites, rawArena, rawVideo] = await Promise.all([
     preferenceService.get<unknown>(BASIC_SYSTEM_SESSION_KEY, null),
     preferenceService.get<unknown>(IMAGE_TEXT2IMAGE_SESSION_KEY, null),
     preferenceService.get<unknown>(IMAGE_IMAGE2IMAGE_SESSION_KEY, null),
     preferenceService.get<unknown>(IMAGE_MULTIIMAGE_SESSION_KEY, null),
     preferenceService.get<unknown>(FAVORITES_STORAGE_KEY, null),
     preferenceService.get<unknown>('session/v1/arena', null),
+    preferenceService.get<unknown>('session/v1/video-create', null),
   ])
 
   collectImageRefIds(parseSnapshot(rawArena), referenced)
+  collectImageRefIds(parseSnapshot(rawVideo), referenced)
   const basicSystem = parseSnapshot(rawBasicSystem)
   const text2Image = parseSnapshot(rawText2Image)
   const image2Image = parseSnapshot(rawImage2Image)

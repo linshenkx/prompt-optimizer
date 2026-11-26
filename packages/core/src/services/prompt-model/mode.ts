@@ -7,6 +7,7 @@ import type {
   PromptModeKey,
   PromptOutputSpec,
   PromptVariable,
+  VideoPromptContract,
 } from './types';
 
 export const PROMPT_MODE_KEYS = [
@@ -18,20 +19,22 @@ export const PROMPT_MODE_KEYS = [
   'image-text2image',
   'image-image2image',
   'image-multiimage',
+  'video-create',
 ] as const satisfies readonly PromptModeKey[];
 
 export type FavoriteModeCompat = {
-  functionMode: 'basic' | 'context' | 'image';
+  functionMode: 'basic' | 'context' | 'image' | 'video';
   optimizationMode?: 'system' | 'user';
   imageSubMode?: 'text2image' | 'image2image' | 'multiimage';
+  videoSubMode?: 'create';
 };
 
 export type LegacyPromptModeInput = {
-  functionMode?: 'basic' | 'context' | 'pro' | 'image' | string;
+  functionMode?: 'basic' | 'context' | 'pro' | 'image' | 'video' | string;
   optimizationMode?: 'system' | 'user' | string;
   imageSubMode?: 'text2image' | 'image2image' | 'multiimage' | string;
   proSubMode?: 'multi' | 'variable' | 'conversation' | string;
-  subMode?: 'system' | 'user' | 'multi' | 'variable' | 'conversation' | string;
+  subMode?: 'system' | 'user' | 'multi' | 'variable' | 'conversation' | 'create' | string;
 };
 
 export type CreatePromptContractOptions = {
@@ -61,6 +64,7 @@ export const resolvePromptModeKey = (input: LegacyPromptModeInput): PromptModeKe
   const proSubMode = normalizeString(input.proSubMode ?? input.subMode);
 
   if (functionMode === 'arena') return 'arena';
+  if (functionMode === 'video') return 'video-create';
   if (functionMode === 'image') {
     return `image-${normalizeImageSubMode(input.imageSubMode)}` as PromptModeKey;
   }
@@ -90,6 +94,8 @@ export const promptModeKeyToFavoriteMode = (modeKey: PromptModeKey): FavoriteMod
       return { functionMode: 'image', imageSubMode: 'image2image' };
     case 'image-multiimage':
       return { functionMode: 'image', imageSubMode: 'multiimage' };
+    case 'video-create':
+      return { functionMode: 'video', videoSubMode: 'create' };
     case 'basic-system':
     default:
       return { functionMode: 'basic', optimizationMode: 'system' };
@@ -152,6 +158,13 @@ export const createPromptContract = (
         subMode: 'multiimage',
         modeKey,
       } satisfies ImagePromptContract;
+    case 'video-create':
+      return {
+        ...base,
+        family: 'video',
+        subMode: 'create',
+        modeKey,
+      } satisfies VideoPromptContract;
     case 'basic-system':
     default:
       return {

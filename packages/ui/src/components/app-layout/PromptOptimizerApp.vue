@@ -56,7 +56,7 @@
                     <AppHeaderActions
                         @open-templates="openTemplateManager"
                         @open-history="historyManager.showHistory = true"
-                        @open-model-manager="modelManager.showConfig = true"
+                        @open-model-manager="openNavModelManager"
                         @open-favorites="openFavoritesPage"
                         @open-data-manager="showDataManager = true"
                         @open-variables="handleOpenVariableManager()"
@@ -232,6 +232,7 @@
 </template>
 
 <script setup lang="ts">
+import { isVideoExtension, useVideoCreateSession } from '../../stores/session/useVideoCreateSession';
 import { useArenaSession } from '../../stores/session/useArenaSession';
 /**
  * PromptOptimizerApp - 主应用组件
@@ -505,6 +506,7 @@ const getWorkspacePathFromGlobalSettings = () => {
   const globalSettings = useGlobalSettings()
   const { functionMode, basicSubMode, proSubMode, imageSubMode } = globalSettings.state
   if (functionMode === 'arena') return '/arena'
+  if (functionMode === 'video') return '/video/create'
   if (functionMode === 'image') return normalizeWorkspacePath(`/image/${imageSubMode}`)
   if (functionMode === 'pro') return normalizeWorkspacePath(`/pro/${proSubMode}`)
   return normalizeWorkspacePath(`/basic/${basicSubMode}`)
@@ -561,6 +563,8 @@ const parseRouteInfo = (path = activeWorkspaceContextPath.value) => {
       (functionMode === 'pro' ? subMode : 'variable') as 'multi' | 'variable',
     imageSubMode:
       (functionMode === 'image' ? subMode : 'text2image') as 'text2image' | 'image2image' | 'multiimage',
+    videoSubMode:
+      (functionMode === 'video' ? subMode : 'create') as 'create',
     isValid: true,
     canonicalPath: workspaceRoute.path,
   }
@@ -571,6 +575,7 @@ const routeFunctionMode = computed<FunctionMode>(() => parseRouteInfo().function
 const routeBasicSubMode = computed<BasicSubMode>(() => parseRouteInfo().basicSubMode)
 const routeProSubMode = computed<ProSubMode>(() => parseRouteInfo().proSubMode)
 const routeImageSubMode = computed<ImageSubMode>(() => parseRouteInfo().imageSubMode)
+const routeVideoSubMode = computed<'create'>(() => parseRouteInfo().videoSubMode)
 
 // ========== GlobalSettings 初始化 Gate（避免 restore 前渲染/纠错） ==========
 // 目的：确保 PreferenceService 注入后先 restoreGlobalSettings，再允许 UI 渲染/执行部分 watch
@@ -630,6 +635,7 @@ sessionManager.injectSubModeReaders({
   getBasicSubMode: () => routeBasicSubMode.value,
   getProSubMode: () => routeProSubMode.value,
   getImageSubMode: () => routeImageSubMode.value,
+  getVideoSubMode: () => routeVideoSubMode.value,
 });
 
 // 5. Initialize i18n with storage when services are ready
@@ -792,7 +798,7 @@ const handleMobileAction = (action: string) => {
     if (action === 'favorites') openFavoritesPage();
     else if (action === 'history') historyManager.showHistory = true;
     else if (action === 'templates') openTemplateManager();
-    else if (action === 'models') openModelManager();
+    else if (action === 'models') openNavModelManager(true);
     else if (action === 'variables') handleOpenVariableManager();
     else if (action === 'data') showDataManager.value = true;
     else if (action === 'docs') openDocumentationSite();
@@ -1149,7 +1155,7 @@ provide("optimizationContextTools", optimizationContextTools);
 
 // 🔧 Step E: 使用 route-computed 代替旧 state
 const getCurrentSession = () => {
-    if (routeFunctionMode.value === 'arena') return null;
+    if (routeFunctionMode.value === 'arena' || routeFunctionMode.value === 'video') return null;
     if (routeFunctionMode.value === 'basic') {
         return routeBasicSubMode.value === 'system' ? basicSystemSession : basicUserSession;
     } else if (routeFunctionMode.value === 'pro') {
@@ -1714,6 +1720,9 @@ const handleTemplateSelected = (
                 return imageImage2ImageSession;
             case "image-multiimage-optimize":
                 return imageMultiImageSession;
+            case "video-optimize":
+            case "video-iterate":
+                return videoSession;
             case "image-iterate":
                 return routeImageSubMode.value === "image2image"
                     ? imageImage2ImageSession
@@ -1737,16 +1746,19 @@ const handleTemplateSelected = (
     const isIterate =
         templateType === "iterate" ||
         templateType === "contextIterate" ||
-        templateType === "imageIterate";
+        templateType === "imageIterate" ||
+        templateType === "videoIterate";
 
     const templateId = template?.id || null;
 
     if (isIterate && typeof templateSession.updateIterateTemplate === "function") {
         templateSession.updateIterateTemplate(templateId);
-        return;
-    }
-    if (typeof templateSession.updateTemplate === "function") {
+    } else if (typeof templateSession.updateTemplate === "function") {
         templateSession.updateTemplate(templateId);
+    }
+
+    if (type === "videoOptimize" || type === "videoIterate") {
+        void sessionManager.flushSubModeSession("video-create");
     }
 };
 const textModelOptions = ref<ModelSelectOption[]>([]);
@@ -1897,6 +1909,7 @@ const normalizeTemplateTypeForManager = (
     templateType: TemplateType | undefined,
 ): TemplateManagerTemplateType => {
     if (!templateType) {
+        if (routeFunctionMode.value === "video") return "videoOptimize";
         return selectedOptimizationMode.value === "system"
             ? "optimize"
             : "userOptimize";
@@ -1914,6 +1927,8 @@ const normalizeTemplateTypeForManager = (
         "text2imageOptimize",
         "image2imageOptimize",
         "multiimageOptimize",
+        "videoOptimize",
+        "videoIterate",
         "imageIterate",
         "conversationMessageOptimize",
         "contextUserOptimize",
@@ -1956,6 +1971,7 @@ const handleTemplateLanguageChanged = (_newLanguage: string) => {
         window.dispatchEvent(new Event("basic-workspace-refresh-iterate-select"));
         window.dispatchEvent(new Event("pro-workspace-refresh-templates"));
         window.dispatchEvent(new Event("image-workspace-refresh-templates"));
+        window.dispatchEvent(new Event("video-workspace-refresh-templates"));
         window.dispatchEvent(new Event("image-workspace-refresh-iterate-select"));
     }
 };
@@ -1974,12 +1990,13 @@ const handleTemplateManagerClosed = () => {
         window.dispatchEvent(new Event("basic-workspace-refresh-templates"));
         window.dispatchEvent(new Event("pro-workspace-refresh-templates"));
         window.dispatchEvent(new Event("image-workspace-refresh-templates"));
+        window.dispatchEvent(new Event("video-workspace-refresh-templates"));
     }
 };
 
 // 提供 openModelManager 接口
 const modelManagerDialogRef = ref<InstanceType<typeof ModelManagerUI> | null>(null);
-const openModelManager = async (tab: "text" | "image" | "function" = "text", configId?: string) => {
+const openModelManager = async (tab: "text" | "image" | "video" | "function" = "text", configId?: string) => {
     modelManager.showConfig = true;
     await nextTick();
     if (typeof window !== "undefined") {
@@ -1991,7 +2008,15 @@ const openModelManager = async (tab: "text" | "image" | "function" = "text", con
         await modelManagerDialogRef.value?.openTextModel(configId);
     } else if (tab === "image" && configId) {
         await modelManagerDialogRef.value?.openImageModel(configId);
+    } else if (tab === "video" && configId) {
+        await modelManagerDialogRef.value?.openVideoModel(configId);
     }
+};
+// From the video workspace both navigation surfaces open the video tab directly.
+const openNavModelManager = (compact = false) => {
+    if (routeFunctionMode.value === 'video' && !isVideoExtension()) return openModelManager('video');
+    if (compact) return openModelManager();
+    modelManager.showConfig = true;
 };
 provide("openModelManager", openModelManager);
 
@@ -2039,6 +2064,7 @@ const dispatchTextModelRefreshEvents = () => {
         return;
     }
 
+    window.dispatchEvent(new Event("video-workspace-refresh-models"));
     window.dispatchEvent(new Event("basic-workspace-refresh-text-models"));
     window.dispatchEvent(new Event("pro-workspace-refresh-text-models"));
     window.dispatchEvent(new Event("image-workspace-refresh-text-models"));
@@ -2153,7 +2179,8 @@ watch(() => sessionManager.hasUnsavedSessions, unsaved => {
 
 // Optional Web/PWA host API. No service worker or browser update state enters UI stores.
 const arenaSession = useArenaSession();
-const isWorkspaceBusy = () => !isReady.value || arenaSession.running ||
+const videoSession = useVideoCreateSession();
+const isWorkspaceBusy = () => !isReady.value || arenaSession.running || videoSession.busy || videoSession.querying ||
   hasSessionConflicts(services.value?.preferenceService) ||
   !!activeWorkspaceRef.value?.isUpdateBusy?.();
 const prepareSessionRestore = async (): Promise<(() => void) | null> => {

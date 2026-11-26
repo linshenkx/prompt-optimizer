@@ -61,6 +61,7 @@ export class ElectronHistoryManagerProxy implements IHistoryManager {
 
   async addIteration(params: {
     chainId: string;
+    previousId?: string;
     originalPrompt: string;
     optimizedPrompt: string;
     iterationNote?: string;

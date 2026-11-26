@@ -8,6 +8,7 @@
     :originalContent="originalContent"
     :reasoning="reasoning"
     :mode="mode"
+    :initial-view-mode="initialViewMode"
     :reasoningMode="reasoningMode"
     :enabledActions="enabledActions"
     :height="height"
@@ -78,6 +79,7 @@ interface Props {
   reasoning?: string
   title?: string // title is used by fullscreen wrapper, but keep it here for compatibility
   mode: 'readonly' | 'editable'
+  initialViewMode?: 'render' | 'source'
   reasoningMode?: 'show' | 'hide' | 'auto'
   enableCopy?: boolean // Mapped to enabledActions
   enableFullscreen?: boolean // Mapped to enabledActions

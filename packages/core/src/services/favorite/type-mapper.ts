@@ -6,7 +6,7 @@ import type { PromptRecordType } from '../history/types';
  */
 export interface FunctionModeMapping {
   /** 功能模式 (一级分类) */
-  functionMode: 'basic' | 'context' | 'image';
+  functionMode: 'basic' | 'context' | 'image' | 'video';
   /** 优化模式 (二级分类,仅用于 basic/context 模式) */
   optimizationMode?: 'system' | 'user';
   /** 图像子模式 (二级分类,仅用于 image 模式) */
@@ -24,6 +24,7 @@ export class TypeMapper {
    * @returns 功能模式映射
    */
   static mapFromRecordType(recordType: PromptRecordType): FunctionModeMapping {
+    if (recordType === 'videoOptimize') return { functionMode: 'video' };
     // 图像模式映射
     if (recordType === 'imageOptimize' || recordType === 'contextImageOptimize' || recordType === 'imageIterate') {
       return {
@@ -111,9 +112,11 @@ export class TypeMapper {
     }
 
     // 检查功能模式值合法性
-    if (!['basic', 'context', 'image'].includes(mapping.functionMode)) {
+    if (!['basic', 'context', 'image', 'video'].includes(mapping.functionMode)) {
       return false;
     }
+
+    if (mapping.functionMode === 'video') return !mapping.optimizationMode && !mapping.imageSubMode;
 
     // 基础模式和上下文模式必须有优化模式
     if (mapping.functionMode === 'basic' || mapping.functionMode === 'context') {
@@ -154,6 +157,7 @@ export class TypeMapper {
    */
   static inferRecordTypes(mapping: FunctionModeMapping): PromptRecordType[] {
     const { functionMode, optimizationMode, imageSubMode } = mapping;
+    if (functionMode === 'video') return ['videoOptimize'];
 
     // 基础模式
     if (functionMode === 'basic') {

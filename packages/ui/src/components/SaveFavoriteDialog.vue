@@ -89,14 +89,14 @@ interface Props {
   mode?: 'create' | 'save' | 'edit'
   content?: string
   originalContent?: string
-  currentFunctionMode?: 'basic' | 'context' | 'pro' | 'image' | 'arena'
+  currentFunctionMode?: 'basic' | 'context' | 'pro' | 'image' | 'video' | 'arena'
   currentOptimizationMode?: 'system' | 'user'
   prefill?: {
     title?: string
     description?: string
     category?: string
     tags?: string[]
-    functionMode?: 'basic' | 'context' | 'image'
+    functionMode?: 'basic' | 'context' | 'image' | 'video'
     optimizationMode?: 'system' | 'user'
     imageSubMode?: 'text2image' | 'image2image' | 'multiimage'
     metadata?: Record<string, unknown>

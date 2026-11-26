@@ -15,7 +15,7 @@
         <slot />
       </div>
       <NButton size="small" secondary :loading="testing" :disabled="testing || testDisabled"
-        :aria-label="t('modelManager.testConnectionAriaLabel', { name: title })" @click="emit('test')">
+        :title="testHint" :aria-label="t('modelManager.testConnectionAriaLabel', { name: title })" @click="emit('test')">
         {{ testLabel || t('common.test') }}
       </NButton>
     </div>
@@ -34,6 +34,7 @@ defineProps<{
   testing?: boolean
   testDisabled?: boolean
   testLabel?: string
+  testHint?: string
   menuOptions: DropdownOption[]
 }>()
 const emit = defineEmits<{ edit: []; test: []; action: [key: string] }>()

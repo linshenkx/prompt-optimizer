@@ -1690,14 +1690,7 @@ const promptSummary = computed(() => {
 });
 
 // 注入 App 层统一的 openTemplateManager / openModelManager / handleSaveFavorite 接口
-type TemplateEntryType =
-    | "optimize"
-    | "userOptimize"
-    | "iterate"
-    | "contextIterate"
-    | "text2imageOptimize"
-    | "image2imageOptimize"
-    | "imageIterate";
+type TemplateEntryType = Template['metadata']['templateType']
 
 const appOpenTemplateManager = inject<
     ((type?: TemplateEntryType) => void) | null

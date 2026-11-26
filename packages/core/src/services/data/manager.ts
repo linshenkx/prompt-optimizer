@@ -11,6 +11,7 @@ import {
   DataInvalidJsonError,
 } from './errors';
 import { stripErrorCodeMarkers, toErrorWithCode } from '../../utils/error';
+import { VideoModelManager } from '../video-model/manager';
 import { WorkspaceSessionTransfer } from './workspace-session-transfer';
 import type { IImportExportable } from '../../interfaces/import-export';
 
@@ -52,6 +53,7 @@ export class DataManager implements IDataManager {
   private historyManager: IHistoryManager;
   private preferenceService: IPreferenceService;
   private contextRepo: ContextRepo;
+  private videoModelManager: VideoModelManager;
   private workspaceSessions: WorkspaceSessionTransfer;
 
   constructor(
@@ -68,6 +70,7 @@ export class DataManager implements IDataManager {
     this.historyManager = historyManager;
     this.preferenceService = preferenceService;
     this.contextRepo = contextRepo;
+    this.videoModelManager = new VideoModelManager(preferenceService);
     this.workspaceSessions = new WorkspaceSessionTransfer(preferenceService);
   }
 
@@ -81,6 +84,8 @@ export class DataManager implements IDataManager {
       if (this.imageModelManager) {
         data['imageModels'] = await this.imageModelManager.exportData();
       }
+      const videoModels = await this.videoModelManager.exportData();
+      if (videoModels !== null) data['videoModels'] = videoModels;
       data['userTemplates'] = await this.templateManager.exportData();
       data['userSettings'] = await this.preferenceService.exportData();
       data['contexts'] = await this.contextRepo.exportData();
@@ -132,7 +137,7 @@ export class DataManager implements IDataManager {
       dataToImport = exportData;
     }
 
-    const productSections = ['history', 'models', 'imageModels', 'userTemplates', 'userSettings', 'contexts', 'workspaceSessions'];
+    const productSections = ['history', 'models', 'imageModels', 'videoModels', 'userTemplates', 'userSettings', 'contexts', 'workspaceSessions'];
     if (!productSections.some(key => Object.prototype.hasOwnProperty.call(dataToImport, key))) {
       throw new DataInvalidFormatError('Backup does not contain any restorable product data')
     }
@@ -148,6 +153,7 @@ export class DataManager implements IDataManager {
       { service: this.historyManager, dataKey: 'history' },
       { service: this.modelManager, dataKey: 'models' },
       ...(this.imageModelManager ? [{ service: this.imageModelManager, dataKey: 'imageModels' }] : []),
+      { service: this.videoModelManager, dataKey: 'videoModels' },
       { service: this.templateManager, dataKey: 'userTemplates' },
       { service: this.preferenceService, dataKey: 'userSettings' },
       { service: this.contextRepo, dataKey: 'contexts' },

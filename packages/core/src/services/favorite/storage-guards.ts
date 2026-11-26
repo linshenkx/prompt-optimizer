@@ -17,7 +17,7 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 const isFunctionMode = (
   value: unknown,
 ): value is FavoritePrompt['functionMode'] =>
-  value === 'basic' || value === 'context' || value === 'image'
+  value === 'basic' || value === 'context' || value === 'image' || value === 'video'
 
 const isOptimizationMode = (
   value: unknown,

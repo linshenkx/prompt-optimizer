@@ -49,6 +49,13 @@ import { user_prompt_planning_en } from './user-optimize/user-prompt-planning_en
 // 文生图
 import { template as image_general_optimize } from './image-optimize/text2image/general-image-optimize';
 import { template as image_general_optimize_en } from './image-optimize/text2image/general-image-optimize_en';
+import { template as video_structured } from './video-optimize/structured';
+import { template as video_structured_en } from './video-optimize/structured_en';
+import { template as video_natural } from './video-optimize/natural';
+import { template as video_feedback } from './video-iterate/feedback';
+import { template as video_natural_en } from './video-optimize/natural_en';
+import { template as video_feedback_en } from './video-iterate/feedback_en';
+
 import { template as image_chinese_optimize } from './image-optimize/text2image/chinese-model-optimize';
 import { template as image_chinese_optimize_en } from './image-optimize/text2image/chinese-model-optimize_en';
 import { template as image_photography_optimize } from './image-optimize/text2image/photography-optimize';
@@ -96,6 +103,8 @@ import { template as evaluation_basic_system_prompt_only } from './evaluation/ba
 import { template as evaluation_basic_system_prompt_only_en } from './evaluation/basic/system/evaluation-prompt-only_en';
 import { template as evaluation_basic_system_prompt_iterate } from './evaluation/basic/system/evaluation-prompt-iterate';
 import { template as evaluation_basic_system_prompt_iterate_en } from './evaluation/basic/system/evaluation-prompt-iterate_en';
+import { template as evaluation_video_prompt_only } from './evaluation/video/create/evaluation-prompt-only';
+import { template as evaluation_video_prompt_only_en } from './evaluation/video/create/evaluation-prompt-only_en';
 import { template as evaluation_basic_user_prompt_only } from './evaluation/basic/user/evaluation-prompt-only';
 import { template as evaluation_basic_user_prompt_only_en } from './evaluation/basic/user/evaluation-prompt-only_en';
 import { template as evaluation_basic_user_prompt_iterate } from './evaluation/basic/user/evaluation-prompt-iterate';
@@ -191,6 +200,12 @@ export const ALL_TEMPLATES = {
   // 图像优化模板
   image_general_optimize,
   image_general_optimize_en,
+  video_natural,
+  video_natural_en,
+  video_structured,
+  video_structured_en,
+  video_feedback,
+  video_feedback_en,
   image_chinese_optimize,
   image_chinese_optimize_en,
   image_photography_optimize,
@@ -236,6 +251,8 @@ export const ALL_TEMPLATES = {
   evaluation_basic_system_prompt_only_en,
   evaluation_basic_system_prompt_iterate,
   evaluation_basic_system_prompt_iterate_en,
+  evaluation_video_prompt_only,
+  evaluation_video_prompt_only_en,
   evaluation_basic_user_prompt_only,
   evaluation_basic_user_prompt_only_en,
   evaluation_basic_user_prompt_iterate,

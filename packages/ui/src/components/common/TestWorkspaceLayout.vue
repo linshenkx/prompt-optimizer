@@ -10,7 +10,7 @@
             {{ t(configExpanded ? 'workspace.collapseContent' : 'workspace.testSettings') }}
             <span aria-hidden="true">{{ configExpanded ? '⌃' : '⌄' }}</span>
           </button>
-          <details class="test-plan-options">
+          <details v-if="$slots['global-controls']" class="test-plan-options">
             <summary :aria-label="t('workspace.moreSettings')">{{ t('workspace.moreOptions') }}</summary>
             <div class="test-plan-options-content"><slot name="global-controls" /></div>
           </details>

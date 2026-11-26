@@ -174,6 +174,7 @@ describe('ModelManager', () => {
     expect(tabs.map(tab => tab.text())).toEqual([
       'modelManager.textModels',
       'modelManager.imageModels',
+      'video.models',
       'modelManager.functionModels'
     ])
 

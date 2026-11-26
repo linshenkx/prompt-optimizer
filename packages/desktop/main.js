@@ -84,6 +84,7 @@ require('dotenv').config({ path: envPath });
 const {
   PreferenceService,
   createModelManager,
+  createSeedanceService,
   createTemplateManager,
   createHistoryManager,
   createLLMService,
@@ -1395,6 +1396,19 @@ function setupIPC() {
     try { const safe = safeSerialize(data); const r = await imageModelManager.validateData(safe); return createSuccessResponse(r) }
     catch (error) { return createErrorResponse(error) }
   })
+
+  const videoService = createSeedanceService(preferenceService);
+  for (const method of ['model', 'listModels', 'getConfig', 'saveConfig', 'setEnabled', 'removeConfig', 'testConnection', 'create', 'query', 'cancel']) {
+    const handle = async (_event, ...args) => {
+      try {
+        return createSuccessResponse(await videoService[method](...args));
+      } catch (error) {
+        return createStructuredErrorResponse(error);
+      }
+    };
+    const usesNetwork = ['testConnection', 'create', 'query', 'cancel'].includes(method);
+    ipcMain.handle('video-' + method, usesNetwork ? withModelNetwork(handle, method === 'testConnection') : handle);
+  }
 
   // ===== Image Service handlers =====
   ipcMain.handle('image-generate', withModelNetwork(async (e, request) => {

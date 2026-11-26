@@ -17,6 +17,7 @@ import type { ProVariableSessionApi } from './useProVariableSession'
 import type { ImageText2ImageSessionApi } from './useImageText2ImageSession'
 import type { ImageImage2ImageSessionApi } from './useImageImage2ImageSession'
 import type { ImageMultiImageSessionApi } from './useImageMultiImageSession'
+import type { VideoCreateSessionApi } from './useVideoCreateSession'
 
 export type PromptSessionProjectionStoreMap = {
   arena: ReturnType<typeof useArenaSession>
@@ -27,6 +28,7 @@ export type PromptSessionProjectionStoreMap = {
   'image-text2image': ImageText2ImageSessionApi
   'image-image2image': ImageImage2ImageSessionApi
   'image-multiimage': ImageMultiImageSessionApi
+  'video-create': VideoCreateSessionApi
 }
 
 const toTrimmedString = (value: unknown): string | undefined => {
@@ -262,6 +264,16 @@ export const buildLegacyPromptSessionSnapshot = (
       return buildImageImageSnapshot(stores[subModeKey])
     case 'image-multiimage':
       return buildImageMultiSnapshot(stores[subModeKey])
+    case 'video-create':
+      return {
+        subModeKey,
+        prompt: stores[subModeKey].state.originalPrompt,
+        optimizedPrompt: stores[subModeKey].state.optimizedPrompt,
+        selectedOptimizeModelKey: stores[subModeKey].state.selectedTextModelKey,
+        selectedTemplateId: stores[subModeKey].state.selectedTemplateId ?? undefined,
+        lastActiveAt: stores[subModeKey].state.lastActiveAt,
+        metadata: { video: { ...stores[subModeKey].state } },
+      }
     case 'basic-system':
     default:
       return buildTextSnapshot('basic-system', stores['basic-system'])

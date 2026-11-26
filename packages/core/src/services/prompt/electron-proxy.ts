@@ -49,6 +49,7 @@ export class ElectronPromptServiceProxy implements IPromptService {
     modelKey: string,
     templateId?: string,
     contextData?: {
+      inputImages?: ImageInputRef[];
       messages?: any[];
       selectedMessageId?: string;
       variables?: Record<string, string>;

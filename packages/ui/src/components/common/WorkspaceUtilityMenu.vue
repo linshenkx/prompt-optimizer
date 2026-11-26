@@ -124,6 +124,7 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   testId?: string
   source?: SourceAssetRef | null
+  actions?: DropdownOption[]
 }>(), {
   compact: false,
   disabled: false,
@@ -133,6 +134,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   clear: []
+  action: [key: string]
 }>()
 
 const { t } = useI18n()
@@ -194,6 +196,7 @@ const menuOptions = computed<DropdownOption[]>(() => [
   ...(props.compact && isPromptGardenEnabled.value
     ? [...gardenMenuOptions.value, { type: 'divider' as const, key: 'garden-divider' }]
     : []),
+  ...(props.actions ?? []),
   {
     key: 'clear-content',
     label: t('common.clearContent'),
@@ -239,6 +242,8 @@ const promptGardenImportDialogHint = computed(() =>
 const handleSelect = (key: string) => {
   if (key === 'clear-content') {
     showClearConfirm.value = true
+  } else if (props.actions?.some(action => action.key === key)) {
+    emit('action', key)
   } else if (props.compact) {
     handleGardenSelect(key)
   }

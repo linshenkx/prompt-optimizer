@@ -4,7 +4,7 @@ import type { AppServices } from '../../types/services'
 import { usePreferences } from '../storage/usePreferenceManager'
 import { UI_SETTINGS_KEYS } from '@prompt-optimizer/core'
 
-export type FunctionMode = 'basic' | 'pro' | 'image' | 'arena'
+export type FunctionMode = 'basic' | 'pro' | 'image' | 'video' | 'arena'
 
 interface UseFunctionModeApi {
   functionMode: Ref<FunctionMode>
@@ -43,9 +43,10 @@ export function useFunctionMode(services: Ref<AppServices | null>): UseFunctionM
       try {
         // 读取 function-mode；若不存在，返回默认 'basic'
         const saved = await getPreference<FunctionMode>(UI_SETTINGS_KEYS.FUNCTION_MODE, 'basic')
-        singleton!.mode.value = (saved === 'pro' || saved === 'image') ? saved : 'basic'
+        const valid = ['basic', 'pro', 'image', 'video', 'arena'].includes(saved)
+        singleton!.mode.value = valid ? saved : 'basic'
         // 将默认值持久化（若未设置过）
-        if (saved !== 'pro' && saved !== 'basic' && saved !== 'image') {
+        if (!valid) {
           await setPreference(UI_SETTINGS_KEYS.FUNCTION_MODE, 'basic')
         }
         // ✅ 只在成功时标记为已初始化

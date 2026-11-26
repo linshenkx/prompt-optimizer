@@ -16,6 +16,8 @@ export type TemplateType =
   | 'text2imageOptimize'
   | 'image2imageOptimize'
   | 'multiimageOptimize'
+  | 'videoOptimize'
+  | 'videoIterate'
   | 'imageIterate'
   | 'iterate'
   | 'conversation-message-optimize'
@@ -78,6 +80,8 @@ export class StaticLoader {
         'text2imageOptimize': { zh: {}, en: {} },
         'image2imageOptimize': { zh: {}, en: {} },
         'multiimageOptimize': { zh: {}, en: {} },
+        'videoOptimize': { zh: {}, en: {} },
+        'videoIterate': { zh: {}, en: {} },
         'imageIterate': { zh: {}, en: {} },
         'iterate': { zh: {}, en: {} },
         'conversation-message-optimize': { zh: {}, en: {} },
@@ -115,6 +119,12 @@ export class StaticLoader {
             break;
           case 'multiimageOptimize':
             normalizedType = 'multiimageOptimize';
+            break;
+          case 'videoOptimize':
+            normalizedType = 'videoOptimize';
+            break;
+          case 'videoIterate':
+            normalizedType = 'videoIterate';
             break;
           case 'imageIterate':
             normalizedType = 'imageIterate';
@@ -166,6 +176,8 @@ export class StaticLoader {
         text2imageOptimize: Object.keys(byType.text2imageOptimize.zh).length + Object.keys(byType.text2imageOptimize.en).length,
         image2imageOptimize: Object.keys(byType.image2imageOptimize.zh).length + Object.keys(byType.image2imageOptimize.en).length,
         multiimageOptimize: Object.keys(byType.multiimageOptimize.zh).length + Object.keys(byType.multiimageOptimize.en).length,
+        videoOptimize: Object.keys(byType.videoOptimize.zh).length + Object.keys(byType.videoOptimize.en).length,
+        videoIterate: Object.keys(byType.videoIterate.zh).length + Object.keys(byType.videoIterate.en).length,
         imageIterate: Object.keys(byType.imageIterate.zh).length + Object.keys(byType.imageIterate.en).length,
         iterate: Object.keys(byType.iterate.zh).length + Object.keys(byType.iterate.en).length,
         'conversation-message-optimize': Object.keys(byType['conversation-message-optimize'].zh).length + Object.keys(byType['conversation-message-optimize'].en).length,

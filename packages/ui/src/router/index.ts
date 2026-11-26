@@ -62,6 +62,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../components/image-mode/ImageMultiImageWorkspace.vue')
   },
   {
+    path: '/video/create',
+    name: 'video-create',
+    component: () => import('../components/video-mode/VideoWorkspace.vue')
+  },
+  {
     path: '/favorites',
     name: 'favorites',
     component: () => import('../components/favorites/FavoritesPage.vue')

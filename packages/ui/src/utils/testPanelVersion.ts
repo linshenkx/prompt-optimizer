@@ -8,6 +8,7 @@ export interface TestPanelVersionEntryLike {
   version?: number | null
   optimizedPrompt?: string | null
   originalPrompt?: string | null
+  metadata?: { iterationBaseVersion?: number; [key: string]: unknown }
   previousId?: string | null
 }
 
@@ -112,7 +113,7 @@ const findPreviousSavedEntry = (
   currentEntry: TestPanelVersionEntryLike | null,
   versions: TestPanelVersionEntryLike[] | null | undefined,
 ): TestPanelVersionEntryLike | null => {
-  if (!currentEntry) return null
+  if (!currentEntry || currentEntry.metadata?.iterationBaseVersion === 0) return null
 
   const currentVersion = typeof currentEntry.version === 'number'
     ? currentEntry.version

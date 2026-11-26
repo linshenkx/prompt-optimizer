@@ -76,6 +76,7 @@ const messages = {
     "textModels": "文本模型",
     "imageModels": "图像模型",
     "functionModels": "功能模型",
+    "functions": "功能",
     "modelList": "模型列表",
     "testConnection": "测试连接",
     "editModel": "编辑",

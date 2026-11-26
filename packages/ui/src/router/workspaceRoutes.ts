@@ -11,12 +11,14 @@ export const WORKSPACE_SUB_MODE_KEYS: ReadonlyArray<SubModeKey> = [
   'image-text2image',
   'image-image2image',
   'image-multiimage',
+  'video-create',
 ]
 
 const WORKSPACE_SUB_MODES = {
   basic: ['system', 'user'],
   pro: ['multi', 'variable'],
   image: ['text2image', 'image2image', 'multiimage'],
+  video: ['create'],
 } as const
 
 export type WorkspaceMode = keyof typeof WORKSPACE_SUB_MODES | 'arena'
@@ -31,7 +33,7 @@ export interface WorkspaceRouteInfo {
 export const parseWorkspaceRoutePath = (path: string): WorkspaceRouteInfo | null => {
   const cleanPath = path.split('?')[0].split('#')[0]
   if (cleanPath === '/arena') return { mode: 'arena', subMode: '', subModeKey: 'arena', path: '/arena' }
-  const match = cleanPath.match(/^\/(basic|pro|image)\/([^/]+)$/)
+  const match = cleanPath.match(/^\/(basic|pro|image|video)\/([^/]+)$/)
   if (!match) return null
 
   const [, mode, subMode] = match as [string, keyof typeof WORKSPACE_SUB_MODES, string]
@@ -70,6 +72,7 @@ export const resolveWorkspacePathFallback = (...candidates: unknown[]): string =
 
 export const getDefaultSubModeForWorkspaceMode = (mode: WorkspaceMode): string => {
   if (mode === 'image') return 'text2image'
+  if (mode === 'video') return 'create'
   if (mode === 'pro') return 'variable'
   return 'system'
 }

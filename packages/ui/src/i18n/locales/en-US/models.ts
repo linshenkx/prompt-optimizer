@@ -75,6 +75,7 @@ const messages = {
     "textModels": "Text Models",
     "imageModels": "Image Models",
     "functionModels": "Function Models",
+    "functions": "Functions",
     "modelList": "Model List",
     "testConnection": "Test Connection",
     "editModel": "Edit",

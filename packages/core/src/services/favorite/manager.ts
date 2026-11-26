@@ -1398,7 +1398,7 @@ export class FavoriteManager implements IFavoriteManager {
       const id = existing && (mergeStrategy === 'overwrite' || matchBy === 'id') ? existing.id :
         sourceId && !favoriteIds.has(sourceId) ? sourceId : newId('fav', favoriteIds);
       const functionMode = raw.functionMode || 'basic';
-      const optimizationMode = raw.optimizationMode || (functionMode !== 'image' ? 'system' : undefined);
+      const optimizationMode = raw.optimizationMode || (functionMode === 'basic' || functionMode === 'context' ? 'system' : undefined);
       const imageSubMode = raw.imageSubMode || (functionMode === 'image' ? 'text2image' : undefined);
       if (!TypeMapper.validateMapping({ functionMode, optimizationMode, imageSubMode })) {
         throw new FavoriteValidationError(`Invalid function mode at favorite index ${index}`);

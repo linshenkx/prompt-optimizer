@@ -1,3 +1,4 @@
+import { useVideoCreateSession } from '../../stores/session/useVideoCreateSession'
 /**
  * App 级别收藏管理 Composable
  *
@@ -61,7 +62,7 @@ export interface SaveFavoriteData {
         description?: string
         category?: string
         tags?: string[]
-        functionMode?: 'basic' | 'context' | 'image'
+        functionMode?: 'basic' | 'context' | 'image' | 'video'
         optimizationMode?: OptimizationMode
         imageSubMode?: 'text2image' | 'image2image' | 'multiimage'
         metadata?: Record<string, unknown>
@@ -77,7 +78,7 @@ export interface FavoriteItem {
     id?: string
     title?: string
     content: string
-    functionMode?: 'basic' | 'pro' | 'image' | 'context'
+    functionMode?: 'basic' | 'pro' | 'image' | 'context' | 'video'
     optimizationMode?: OptimizationMode
     imageSubMode?: 'text2image' | 'image2image' | 'multiimage'
     metadata?: Record<string, unknown>
@@ -155,7 +156,7 @@ export interface AppFavoriteOptions {
     optimizerCurrentVersions?: Ref<PromptRecordChain['versions']>
     getFavoriteImageStorageService?: () => IImageStorageService | null
     getFavoriteManager?: () => IFavoriteManager | null
-    getCurrentFunctionMode?: () => 'basic' | 'pro' | 'context' | 'image' | 'arena'
+    getCurrentFunctionMode?: () => 'basic' | 'pro' | 'context' | 'image' | 'video' | 'arena'
     getCurrentOptimizationMode?: () => OptimizationMode
     getCurrentImageSubMode?: () => 'text2image' | 'image2image' | 'multiimage'
 }
@@ -342,11 +343,11 @@ export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
      * 处理保存收藏请求
      */
     const getSessionForCurrentMode = (
-        functionMode: 'basic' | 'pro' | 'context' | 'image' | 'arena',
+        functionMode: 'basic' | 'pro' | 'context' | 'image' | 'video' | 'arena',
         optimizationMode: OptimizationMode,
         imageSubMode?: 'text2image' | 'image2image' | 'multiimage',
     ): TemporaryVariablesSessionApi | null => {
-        if (functionMode === 'arena') return null
+        if (functionMode === 'arena' || functionMode === 'video') return null
         if (functionMode === 'pro' || functionMode === 'context') {
             return optimizationMode === 'system' ? proMultiMessageSession || null : proVariableSession || null
         }
@@ -361,11 +362,11 @@ export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
     }
 
     const getAssetBindingSessionForMode = (
-        functionMode: 'basic' | 'pro' | 'context' | 'image' | 'arena',
+        functionMode: 'basic' | 'pro' | 'context' | 'image' | 'video' | 'arena',
         optimizationMode: OptimizationMode,
         imageSubMode?: 'text2image' | 'image2image' | 'multiimage',
     ): AssetBindingSessionApi | null => {
-        if (functionMode === 'arena') return null
+        if (functionMode === 'arena' || functionMode === 'video') return null
         if (functionMode === 'basic') {
             return optimizationMode === 'system'
                 ? basicSystemSession || null
@@ -379,8 +380,8 @@ export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
         const currentFunctionMode = getCurrentFunctionMode?.() || 'basic'
         const currentOptimizationMode = getCurrentOptimizationMode?.() || 'system'
         const currentImageSubMode = getCurrentImageSubMode?.() || 'text2image'
-        const favoriteFunctionMode = data.prefill?.functionMode || (currentFunctionMode === 'image' ? 'image' : currentFunctionMode === 'pro' || currentFunctionMode === 'context' ? 'context' : 'basic')
-        const favoriteOptimizationMode = favoriteFunctionMode === 'image'
+        const favoriteFunctionMode = data.prefill?.functionMode || (currentFunctionMode === 'image' || currentFunctionMode === 'video' ? currentFunctionMode : currentFunctionMode === 'pro' || currentFunctionMode === 'context' ? 'context' : 'basic')
+        const favoriteOptimizationMode = favoriteFunctionMode === 'image' || favoriteFunctionMode === 'video'
             ? undefined
             : data.prefill?.optimizationMode || currentOptimizationMode
         const favoriteImageSubMode = favoriteFunctionMode === 'image'
@@ -700,6 +701,14 @@ export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
         const draft = createFavoriteWorkspaceApplyDraft(favorite, useOptions)
         const favoriteMode = draft.favoriteMode
         const targetKey = draft.targetKey
+        if (targetKey === 'video-create') {
+            if (beforeApplyToWorkspace && !(await beforeApplyToWorkspace(targetKey))) return false
+            if (await navigateToSubModeKey(targetKey) === false) return false
+            const store = useVideoCreateSession()
+            const brief = typeof favorite.metadata?.originalContent === 'string' ? favorite.metadata.originalContent : ''
+            store.applyPrompt(brief, draft.content, favorite.metadata?.videoParams)
+            return store.saveSession()
+        }
 
         // 🔧 Step D: 使用 navigateToSubModeKey 一次性导航到目标路由
         // 不再分两步（先切 functionMode 再切 subMode）

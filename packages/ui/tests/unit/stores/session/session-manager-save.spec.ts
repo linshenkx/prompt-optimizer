@@ -102,7 +102,7 @@ describe('session checkpoint persistence', () => {
     await manager.restoreAllSessions()
     useBasicUserSession(pinia).prompt = 'old in-memory workspace'
     const resume = await manager.beginSessionRestore()
-    expect(set).toHaveBeenCalledTimes(8)
+    expect(set).toHaveBeenCalledTimes(9)
     set.mockClear()
     expect(manager.isRestoring).toBe(true)
     expect(await manager.saveAllSessions()).toBe(false)
@@ -136,7 +136,7 @@ describe('session checkpoint persistence', () => {
     expect(await first).toBe(true)
     expect(await queued).toBe(false)
     const resume = await begin
-    expect(set).toHaveBeenCalledTimes(9) // drained writer + full pre-import checkpoint
+    expect(set).toHaveBeenCalledTimes(10) // drained writer + full pre-import checkpoint
     expect(await manager.saveAllSessions()).toBe(false)
     resume()
   })

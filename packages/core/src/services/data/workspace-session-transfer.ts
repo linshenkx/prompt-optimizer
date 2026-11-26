@@ -1,3 +1,4 @@
+import { isVideoSession } from '../video/session'
 import { isArenaState } from '../arena/types'
 import type { IImportExportable } from '../../interfaces/import-export'
 import type { IPreferenceService } from '../preference/types'
@@ -71,6 +72,10 @@ function assertSnapshot(mode: LegacySessionSubModeKey, value: unknown): asserts 
   const snapshot = value as Record<string, unknown>
   if (new TextEncoder().encode(JSON.stringify(snapshot)).byteLength > MAX_SESSION_SNAPSHOT_BYTES) {
     invalid(`${mode} exceeds the session storage limit`)
+  }
+  if (mode === 'video-create') {
+    if (!isVideoSession(snapshot)) invalid('Invalid video session')
+    return
   }
   if (mode === 'arena') {
     if (!isArenaState(snapshot)) invalid('Invalid arena session')

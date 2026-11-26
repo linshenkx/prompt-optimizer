@@ -17,6 +17,8 @@ export interface TemplateMetadata {
     | 'text2imageOptimize'
     | 'image2imageOptimize'
     | 'multiimageOptimize'
+    | 'videoOptimize'
+    | 'videoIterate'
     | 'imageIterate'
     | 'iterate'
     | 'conversationMessageOptimize'
@@ -147,6 +149,8 @@ export const templateSchema = z.object({
       'text2imageOptimize',
       'image2imageOptimize',
       'multiimageOptimize',
+      'videoOptimize',
+      'videoIterate',
       'imageIterate',
       'iterate',
       'conversationMessageOptimize',

@@ -346,11 +346,13 @@ const mobileModeOptions = computed(() => [
   { value: 'text2image', label: t('image.capability.text2image') },
   { value: 'image2image', label: t('image.capability.image2image') },
   { value: 'multiimage', label: t('imageMode.multiimage') },
+  { value: 'video', label: t('nav.videoMode') },
 ])
 
 // Match the existing restore destination, including old image records' metadata.
 const getMobileMode = (chain: PromptRecordChain, record = chain.currentRecord): string => {
   const type = chain.rootRecord.type as string
+  if (type === 'videoOptimize') return 'video'
   if (type === 'userOptimize') return 'user'
   if (type === 'conversationMessageOptimize') return 'multi'
   if (type === 'contextUserOptimize') return 'variable'
@@ -480,6 +482,7 @@ const getFunctionModeTagType = (recordType: string) => {
 
 // 获取功能模式标签文本
 const getFunctionModeLabel = (recordType: string) => {
+  if (recordType === 'videoOptimize') return t('nav.videoMode')
   // 图像模式类型
   const imageTypes = ['imageOptimize', 'contextImageOptimize', 'imageIterate', 'text2imageOptimize', 'image2imageOptimize', 'multiimageOptimize']
   // 上下文模式类型（包含新旧类型名以支持向后兼容）

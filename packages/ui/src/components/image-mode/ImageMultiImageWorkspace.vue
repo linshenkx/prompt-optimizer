@@ -1742,15 +1742,7 @@ const copyImageText = async (text: string) => {
   }
 }
 
-type TemplateEntryType =
-  | 'optimize'
-  | 'userOptimize'
-  | 'iterate'
-  | 'contextIterate'
-  | 'text2imageOptimize'
-  | 'image2imageOptimize'
-  | 'multiimageOptimize'
-  | 'imageIterate'
+type TemplateEntryType = Template['metadata']['templateType']
 
 const appOpenTemplateManager = inject<((type?: TemplateEntryType) => void) | null>('openTemplateManager', null)
 const appOpenModelManager = inject<((tab?: 'text' | 'image' | 'function') => void) | null>('openModelManager', null)

@@ -85,7 +85,7 @@
                   </NFormItem>
 
                   <NFormItem :show-feedback="!isCompact"
-                    v-else
+                    v-else-if="formData.functionMode === 'image'"
                     :label="t('favorites.dialog.imageModeLabel')"
                   >
                     <NSelect
@@ -450,14 +450,14 @@ interface Props {
   mode?: 'create' | 'save' | 'edit'
   content?: string
   originalContent?: string
-  currentFunctionMode?: 'basic' | 'context' | 'pro' | 'image' | 'arena'
+  currentFunctionMode?: 'basic' | 'context' | 'pro' | 'image' | 'video' | 'arena'
   currentOptimizationMode?: 'system' | 'user'
   prefill?: {
     title?: string
     description?: string
     category?: string
     tags?: string[]
-    functionMode?: 'basic' | 'context' | 'image'
+    functionMode?: 'basic' | 'context' | 'image' | 'video'
     optimizationMode?: 'system' | 'user'
     imageSubMode?: 'text2image' | 'image2image' | 'multiimage'
     metadata?: Record<string, unknown>
@@ -524,7 +524,7 @@ const formData = reactive({
   content: '',
   category: '',
   tags: [] as string[],
-  functionMode: 'basic' as 'basic' | 'context' | 'image',
+  functionMode: 'basic' as 'basic' | 'context' | 'image' | 'video',
   optimizationMode: 'system' as 'system' | 'user' | undefined,
   imageSubMode: undefined as 'text2image' | 'image2image' | 'multiimage' | undefined,
 })
@@ -1011,6 +1011,7 @@ const functionModeOptions = computed(() => [
   { label: t('favorites.dialog.functionModes.basic'), value: 'basic' },
   { label: t('favorites.dialog.functionModes.context'), value: 'context' },
   { label: t('favorites.dialog.functionModes.image'), value: 'image' },
+  { label: t('nav.videoMode'), value: 'video' },
 ])
 
 const optimizationModeOptions = computed(() => {
@@ -1038,14 +1039,14 @@ const imageSubModeOptions = computed(() => [
   { label: t('imageMode.multiimage'), value: 'multiimage' },
 ])
 
-const handleFunctionModeChange = (mode: 'basic' | 'context' | 'image') => {
+const handleFunctionModeChange = (mode: 'basic' | 'context' | 'image' | 'video') => {
   formData.functionMode = mode
 
   if (mode === 'basic' || mode === 'context') {
     formData.optimizationMode = formData.optimizationMode || 'system'
     formData.imageSubMode = undefined
   } else {
-    formData.imageSubMode = formData.imageSubMode || 'text2image'
+    formData.imageSubMode = mode === 'image' ? formData.imageSubMode || 'text2image' : undefined
     formData.optimizationMode = undefined
   }
 }
@@ -1357,7 +1358,9 @@ watch(() => [
     ? normalizeFavoriteFunctionMode(prefill.functionMode)
     : null
 
-  if (prefillFunctionMode === 'image') {
+  if (prefillFunctionMode === 'video' || (!prefillFunctionMode && props.currentFunctionMode === 'video')) {
+    handleFunctionModeChange('video')
+  } else if (prefillFunctionMode === 'image') {
     formData.functionMode = 'image'
     formData.imageSubMode =
       prefill?.imageSubMode === 'image2image'

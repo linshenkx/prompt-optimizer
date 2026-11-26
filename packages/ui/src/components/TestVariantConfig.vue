@@ -9,14 +9,14 @@
         :preview-source="previewSource" @preview="emit('preview')"
         @update:value="emit('update:version', $event)"
       />
-      <span class="test-variant-config__run-trigger" :title="runTooltip || t('test.layout.runThisColumn')">
+      <span v-if="!hideRun" class="test-variant-config__run-trigger" :title="runTooltip || t('test.layout.runThisColumn')">
         <NButton secondary circle size="small" class="test-variant-config__run"
           :loading="running" :disabled="runDisabled ?? (disabled && !running)" :data-testid="runTestId"
           :aria-label="`${label} ${t('test.layout.runThisColumn')}`"
           @click="emit('run')"><template #icon><Play /></template></NButton>
       </span>
     </div>
-    <div class="test-variant-config__model">
+    <div v-if="!hideModel" class="test-variant-config__model">
       <slot name="model">
         <TextModelSelector parameters :model-value="modelKey" :options="options || []"
           :aria-label="label + ' ' + t('test.model')" :data-testid="modelTestId"
@@ -46,6 +46,8 @@ const props = defineProps<{
   modelKey: string
   options?: ModelSelectOption[]
   disabled?: boolean
+  hideModel?: boolean
+  hideRun?: boolean
   runDisabled?: boolean
   runTooltip?: string
   running?: boolean

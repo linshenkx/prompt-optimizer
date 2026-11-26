@@ -167,7 +167,8 @@ const messages = {
     "about": "關於",
     "basicMode": "基礎",
     "contextMode": "情境",
-    "imageMode": "圖像"
+    "imageMode": "圖像",
+    "videoMode": "影片"
   },
   "about": {
     "title": "提示詞優化器",

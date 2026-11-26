@@ -157,6 +157,11 @@ export * from './services/prompt/errors'
 // 导出标准提示词领域模型
 export * from './services/prompt-model'
 
+// 导出视频提示词规格（schema 与容错解析）
+export * from './services/video-model/manager'
+export * from './services/video/seedance'
+export * from './services/video/session'
+
 // 导出对比服务相关
 export { CompareService, createCompareService } from './services/compare/service'
 export type { ICompareService } from './services/compare/types'
@@ -226,7 +231,8 @@ export {
   FUNCTION_MODEL_KEYS,
   getModeModelKey,
   ALL_STORAGE_KEYS,
-  ALL_STORAGE_KEYS_ARRAY
+  ALL_STORAGE_KEYS_ARRAY,
+  VIDEO_CREATE_SESSION_KEY
 } from './constants/storage-keys'
 export type {
   CoreServiceKey,

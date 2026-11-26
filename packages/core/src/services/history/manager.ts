@@ -285,6 +285,7 @@ export class HistoryManager implements IHistoryManager {
    */
   async addIteration(params: {
     chainId: string;
+    previousId?: string;
     originalPrompt: string;
     optimizedPrompt: string;
     modelKey: string;
@@ -313,6 +314,9 @@ export class HistoryManager implements IHistoryManager {
       }
 
       const currentRecord = sortedRecords[sortedRecords.length - 1];
+      if (params.previousId && !chainRecords.some(record => record.id === params.previousId)) {
+        throw new RecordNotFoundError('Iteration base is no longer in this chain', params.previousId);
+      }
       const record: PromptRecord = {
         id: uuidv4(),
         chainId: params.chainId,
@@ -320,7 +324,7 @@ export class HistoryManager implements IHistoryManager {
         optimizedPrompt: params.optimizedPrompt,
         type: 'iterate',
         version: currentRecord.version + 1,
-        previousId: currentRecord.id,
+        previousId: params.previousId ?? currentRecord.id,
         timestamp: Date.now(),
         modelKey: params.modelKey,
         ...(modelName !== undefined ? { modelName } : {}),

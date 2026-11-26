@@ -20,6 +20,7 @@ import { useProVariableSession } from './useProVariableSession'
 import { useImageText2ImageSession } from './useImageText2ImageSession'
 import { useImageImage2ImageSession } from './useImageImage2ImageSession'
 import { useImageMultiImageSession } from './useImageMultiImageSession'
+import { useVideoCreateSession } from './useVideoCreateSession'
 import {
   buildPromptSessionFromStores,
   buildPromptSessionRegistryFromStores,
@@ -100,6 +101,7 @@ export interface SubModeReaders {
   getBasicSubMode: () => BasicSubMode
   getProSubMode: () => ProSubMode
   getImageSubMode: () => ImageSubMode
+  getVideoSubMode?: () => 'create'
 }
 
 export const useSessionManager = defineStore('sessionManager', () => {
@@ -149,6 +151,9 @@ export const useSessionManager = defineStore('sessionManager', () => {
       case 'image':
         subMode = readers.getImageSubMode()
         break
+      case 'video':
+        subMode = readers.getVideoSubMode?.() ?? 'create'
+        break
       default:
         subMode = 'system'
     }
@@ -179,6 +184,9 @@ export const useSessionManager = defineStore('sessionManager', () => {
       case 'image':
         subMode = imageSubMode
         break
+      case 'video':
+        subMode = 'create'
+        break
       default:
         subMode = 'system'
     }
@@ -196,6 +204,7 @@ export const useSessionManager = defineStore('sessionManager', () => {
     'image-text2image': useImageText2ImageSession(pinia),
     'image-image2image': useImageImage2ImageSession(pinia),
     'image-multiimage': useImageMultiImageSession(pinia),
+    'video-create': useVideoCreateSession(pinia),
   })
 
   const stateVersions = shallowReactive(new Map<SubModeKey, number>())
@@ -350,6 +359,9 @@ export const useSessionManager = defineStore('sessionManager', () => {
             break
           case 'image-multiimage':
             await useImageMultiImageSession().restoreSession()
+            break
+          case 'video-create':
+            await useVideoCreateSession(pinia).restoreSession()
             break
         }
       } catch (error) {

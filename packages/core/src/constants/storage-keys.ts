@@ -13,6 +13,8 @@ export const CORE_SERVICE_KEYS = {
   PROMPT_HISTORY: "prompt_history", // 提示词历史记录存储键
 } as const;
 
+export const VIDEO_CREATE_SESSION_KEY = 'session/v1/video-create';
+
 // UI设置相关
 export const UI_SETTINGS_KEYS = {
   THEME_ID: "app:settings:ui:theme-id",

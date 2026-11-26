@@ -61,7 +61,7 @@ const objectStore = (): RemoteObjectStore => {
 }
 
 describe('full backup integrity with real services', () => {
-  it.each(['zip', 'remote'] as const)('restores seven workspaces, identities, variables, tools, models and image bytes through %s', async route => {
+  it.each(['zip', 'remote'] as const)('restores all workspaces, identities, variables, tools, models and image bytes through %s', async route => {
     const source = await createServices()
     const target = await createServices()
     const tokenKey = 'prompt-optimizer:google-drive-token:backup-boundary-test'
@@ -100,7 +100,8 @@ describe('full backup integrity with real services', () => {
       const asset = originalFirst.metadata!.promptAsset
       const snapshots = new Map<string, Record<string, unknown>>()
       for (const mode of LEGACY_SESSION_SUB_MODE_KEYS) {
-        const snapshot = mode === 'arena' ? { ...createArenaState(), prompt: 'Arena draft', images: [{ id: 'session-input', _type: 'image-ref' }] } : {
+        const snapshot = mode === 'video-create' ? { originalPrompt: 'rain', optimizedPrompt: 'a slow pan through rain',
+          images: [{ id: 'session-input', _type: 'image-ref', role: 'style', name: 'rain.png' }] } : mode === 'arena' ? { ...createArenaState(), prompt: 'Arena draft', images: [{ id: 'session-input', _type: 'image-ref' }] } : {
           ...(mode === 'pro-multi' ? { conversationMessagesSnapshot: messages, selectedMessageId: 'context-message', messageChainMap: { 'context-message': 'audit-chain' } }
             : mode.startsWith('image-') ? { originalPrompt: `original ${mode}` } : { prompt: `draft ${mode}`, testContent: 'test input' }),
           optimizedPrompt: `optimized ${mode}\nlast line`, reasoning: 'reasoning', chainId: 'audit-chain', versionId: 'audit-record',
