@@ -81,7 +81,7 @@ test('mixes providers, splits and merges parameters, and preserves input modes a
   await page.getByTestId('video-param-shared-duration-split').click()
   await expect(duration).toHaveCount(0)
   await expect(picker).toHaveAttribute('aria-expanded', 'false')
-  await expect(page.getByTestId('video-param-b-resolution')).toContainText('768P')
+  await expect(page.getByTestId('video-param-b-resolution')).toContainText('768p')
   await expect(aDuration).toContainText(/7\s*(s|秒)/)
   await expect(bDuration).toContainText(/7\s*(s|秒)/)
   await select(page, 'video-param-b-duration', /^9\s*(s|秒)$/)
@@ -101,7 +101,7 @@ test('mixes providers, splits and merges parameters, and preserves input modes a
   await expect(picker).toContainText('CN Lite')
   await chooseB('INTL H3', 'MiniMax-H3-Lite')
   await expect(picker).toContainText('MiniMax H3 Lite')
-  await select(page, 'video-param-b-resolution', '480P')
+  await select(page, 'video-param-b-resolution', '480p')
   await page.reload()
   await expect(picker).toContainText('MiniMax H3 Lite')
 

@@ -311,9 +311,17 @@ const matchesInputs = (id: VideoVariantId, run: VideoRun) => {
   const execution = renderPrompt(source.text)
   return !execution.missingVariables.length && !execution.forbiddenTemplateSyntax.length && (run.submittedPrompt ?? run.prompt) === execution.renderedContent
 }
+const shortTime = (time: number) => {
+  const value = new Date(time)
+  const today = new Date()
+  const sameDay = value.getFullYear() === today.getFullYear() && value.getMonth() === today.getMonth() && value.getDate() === today.getDate()
+  return value.toLocaleString(locale.value, sameDay
+    ? { hour: '2-digit', minute: '2-digit' }
+    : { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
 const resultOrigin = (run: VideoRun) => {
   const origin = t(run.variantId ? 'video.previousSubmission' : 'video.singleColumnResult')
-  return [origin, sourceLabel(run.source ?? 'workspace', run.sourceVersion), date(run.submittedAt)].join(' · ')
+  return [origin, sourceLabel(run.source ?? 'workspace', run.sourceVersion), shortTime(run.submittedAt)].join(' · ')
 }
 const results = computed(() => visibleIds.value.map(id => {
   const { runs } = state.value
