@@ -2,6 +2,10 @@
 
 Full release narratives now live in versioned files under `releases/`. This file stays as the index and summary entry point.
 
+## [2.17.0-beta.5] - 2026-11-28
+- EN: Compare generated videos side by side, optimize multi-image prompts while keeping the original references, and connect MCP clients through npm. [Release notes](releases/v2.17.0-beta.5.en.md)
+- 中文：新增视频工作区，可并排比较不同模型或提示词生成的视频。多图优化保留原始参考图，MCP 客户端改用 npm 包连接。[版本说明](releases/v2.17.0-beta.5.zh-CN.md)
+
 ## [2.17.0-beta.4] - 2026-11-24
 - EN: Compare configured models or prompt versions in a single MCP run. [Release Notes (EN)](releases/v2.17.0-beta.4.en.md)
 - 中文：MCP 对照统一使用产品批量测试，可在顶部运行成果中并排回看新旧结果。[版本说明（中文）](releases/v2.17.0-beta.4.zh-CN.md)
