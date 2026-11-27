@@ -31,8 +31,8 @@
     <template v-if="!extension" #config-summary>{{ describe(sharedParams) }}</template>
     <template #results>
       <div ref="deck" class="result-grid" :class="{ 'result-grid--compact': compact }" :style="{ gridTemplateColumns: compact ? 'minmax(0, 1fr)' : grid }">
-        <VideoResultCard v-for="{ id, run, origin, headerModelName, requestPrompt, referencesChanged } in results"
-          :key="id" :group="id" :run="run" :origin="origin" :request-prompt="requestPrompt" :references-changed="referencesChanged"
+        <VideoResultCard v-for="{ id, run, origin, headerModelName } in results"
+          :key="id" :group="id" :run="run" :origin="origin"
           :header-model-name="!extension ? headerModelName : undefined"
           :extension="extension"
           :status="run ? session.displayStatus(run) : ''" :now="now" :querying="!!run && session.isQuerying(run)"
@@ -305,9 +305,11 @@ const matchesReferences = (run: VideoRun) => {
   const images = session.activeImages
   return run.images.length === images.length && run.images.every((img, i) => img.id === images[i].id && img.role === images[i].role)
 }
-const matchesColumn = (id: VideoVariantId, run: VideoRun, source: ReturnType<typeof resolveSource>) => {
+const matchesColumn = (id: VideoVariantId, run: VideoRun) => {
   const column = state.value.columns[id]
+  const source = resolveSource(column.source)
   if (run.variantId !== id || run.source !== column.source || run.capabilityMode !== state.value.capabilityMode ||
+    !matchesReferences(run) ||
     !sameVideoSettings(run.params, resolvedColumns.value[id]?.params ?? {}) ||
     (run.sourceVersion != null && run.sourceVersion !== source.resolvedVersion)) return false
   const execution = renderPrompt(source.text)
@@ -331,12 +333,8 @@ const results = computed(() => visibleIds.value.map(id => {
     ?? (id === 'a' ? runs.filter(item => !item.variantId)[1] : undefined)
   const model = modelFor(id)
   const sameModel = !!model && !!run && model.id === run.configId && videoWireModel(model) === run.model && model.modelId === run.modelId && model.baseURL === run.baseURL
-  const source = resolveSource(state.value.columns[id].source)
-  const referencesChanged = !!run && !matchesReferences(run)
-  const origin = run && (!sameModel || referencesChanged || !matchesColumn(id, run, source)) ? resultOrigin(run) : ''
-  const submitted = run?.submittedPrompt ?? run?.prompt
-  const requestPrompt = extension || submitted !== source.text ? submitted : undefined
-  return { id, run, origin, headerModelName: sameModel ? model.name : undefined, requestPrompt, referencesChanged }
+  const origin = run && (!sameModel || !matchesColumn(id, run)) ? resultOrigin(run) : ''
+  return { id, run, origin, headerModelName: sameModel ? model.name : undefined }
 }))
 const confirming = ref(false)
 const disabled = (id: VideoVariantId) => extension || props.inputPending || confirming.value || session.submitting || saving.value.has(id) ||
@@ -416,7 +414,9 @@ const cancel = async (run: VideoRun) => {
   try { await session.cancel(run) } catch (e) { toast.error(message(e)); await check(run) }
 }
 const acknowledge = async (run: VideoRun) => {
-  if (await dialog.warning({ title: t('video.acknowledge'), content: t('video.untrackConfirm'),
+  const warning = t('video.untrackConfirm')
+  const content = run.id ? warning + ' ' + t('video.taskId', { id: run.id }) : warning
+  if (await dialog.warning({ title: t('video.acknowledge'), content,
     positiveText: t('video.acknowledge'), negativeText: t('common.cancel') })) {
     try { await session.acknowledge(run) } catch (error) { toast.error(message(error)) }
   }

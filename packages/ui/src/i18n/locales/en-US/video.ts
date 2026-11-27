@@ -73,12 +73,11 @@ export default {
     "open": "Open in new tab",
     "refresh": "Check task",
     "cancel": "Cancel task",
-    "expires": "Download before {time}",
     "linkExpired": "This video link has expired. Check the task for an available link.",
     "taskId": "Task ID · {id}",
     "unknownHint": "The provider may have received this request. Check the provider console before starting another paid test.",
     "acknowledge": "Stop local tracking",
-    "untrackConfirm": "Check the provider console before continuing. The task may still run and incur charges. Stopping local tracking lets you start a new task and leaves any provider task ID in the result.",
+    "untrackConfirm": "Check the provider console before continuing. The task may still run and incur charges. Stopping local tracking lets you start a new task.",
     "downloadFallback": "Direct download is restricted by the provider. Opened in a new tab to save from the player.",
     "downloadFallbackBlocked": "Direct download is restricted by the provider. Click Open in new tab to save from the player.",
     "roles": {

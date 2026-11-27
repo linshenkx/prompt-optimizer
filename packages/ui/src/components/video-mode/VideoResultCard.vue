@@ -9,27 +9,7 @@
         <ThemedTooltip v-if="elapsed" :label="t('video.taskElapsedHint')">
           <span class="task-elapsed" :data-testid="'video-elapsed-' + group">{{ t('video.taskElapsed', { time: elapsed }) }}</span>
         </ThemedTooltip>
-        <details v-if="hasGenerationDetails" :key="videoRunKey(run)" class="generation-details">
-          <summary :aria-label="[specsLabel, t('workspace.generationDetails')].filter(Boolean).join(' · ')">
-            {{ specsLabel || t('workspace.generationDetails') }}
-          </summary>
-          <div class="detail-content">
-            <p v-if="run.id">{{ t('video.taskId', { id: run.id }) }}</p>
-            <p v-if="customModel">{{ t('video.wireModel') }} · {{ customModel }}</p>
-            <p v-if="run.expiresAt && !expired">{{ t('video.expires', { time: date(run.expiresAt) }) }}</p>
-            <div v-if="referencesChanged">
-              <span>{{ t('video.refCount', { n: run.images.length }) }}</span>
-              <ul v-if="run.images.length">
-                <li v-for="(image, index) in run.images" :key="index">{{ t('video.roles.' + image.role) }} · {{ image.name }}</li>
-              </ul>
-            </div>
-            <div v-if="requestPrompt">
-              <span>{{ t('workspace.requestPrompt') }}</span>
-              <p class="snapshot">{{ requestPrompt }}</p>
-            </div>
-          </div>
-        </details>
-        <span v-else>{{ specsLabel }}</span>
+        <span v-if="specsLabel">{{ specsLabel }}</span>
       </div>
       <video v-if="hasPlayableVideo" :key="videoRunKey(run)" controls playsinline preload="metadata"
         :aria-label="group.toUpperCase() + ' · ' + (origin || sourceLabel)" :src="run.videoUrl" />
@@ -85,7 +65,6 @@ const props = defineProps<{
   group: VideoVariantId; run?: VideoRun
   extension: boolean; querying: boolean; origin: string; headerModelName?: string
   sourceLabel: string; specs: string; status: string; now: number; pollError?: string; canAcknowledge?: boolean
-  requestPrompt?: string; referencesChanged: boolean
 }>()
 const emit = defineEmits<{
   refresh: [run: VideoRun]; cancel: [run: VideoRun]; acknowledge: [run: VideoRun]
@@ -94,7 +73,6 @@ const { t, locale } = useI18n()
 const { formatMoney } = useVideoSettings()
 const toast = useToast()
 const theme = useThemeVars()
-const date = (time: number) => new Date(time).toLocaleString(locale.value)
 const tokenCount = (value: number) => value.toLocaleString(locale.value)
 const expired = computed(() => !!props.run?.expiresAt && props.run.expiresAt <= props.now)
 const hasPlayableVideo = computed(() => !!props.run?.videoUrl && !expired.value)
@@ -127,12 +105,6 @@ const missingUsage = computed(() => props.status === 'succeeded' && !!spec.value
 const supportsCancel = computed(() => spec.value?.capabilities.supportsCancel)
 const modelName = computed(() => props.run?.modelName || spec.value?.name || props.run?.model)
 const specsLabel = computed(() => [props.specs, modelName.value !== props.headerModelName && modelName.value].filter(Boolean).join(' · '))
-const customModel = computed(() => {
-  const run = props.run
-  return run && run.model !== run.modelId && run.model !== modelName.value ? run.model : undefined
-})
-const hasGenerationDetails = computed(() => props.run?.id || customModel.value || (props.run?.expiresAt && !expired.value) ||
-  props.requestPrompt || props.referencesChanged)
 const downloading = ref(false)
 const clickDownloadLink = (url: string, filename: string, external = false) => {
   const link = document.createElement('a')
@@ -179,7 +151,7 @@ const download = async () => {
 .result-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin-block: 8px; }
 .usage { font: inherit; font-size: 12px; color: v-bind('theme.textColor2'); font-variant-numeric: tabular-nums; }
 button.usage { padding: 2px 0; background: none; border: 0; cursor: pointer; }
-.usage:focus-visible, summary:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.usage:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .result-origin { color: v-bind('theme.textColor2'); }
 .result-meta, .result-origin, p { margin-block: 6px; font-size: 12px; overflow-wrap: anywhere; }
 .result-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: v-bind('theme.textColor3'); }
@@ -187,9 +159,4 @@ button.usage { padding: 2px 0; background: none; border: 0; cursor: pointer; }
 .result-empty { padding: 28px 0; }
 video { display: block; width: 100%; max-height: 50vh; object-fit: contain; background: #000; border-radius: v-bind('theme.borderRadius'); }
 .result-actions:empty { display: none; }
-.generation-details { min-width: 0; }
-summary { cursor: pointer; width: fit-content; }
-.detail-content { margin-top: 6px; padding-inline-start: 10px; border-inline-start: 1px solid v-bind('theme.dividerColor'); color: v-bind('theme.textColor2'); }
-.detail-content ul { padding-inline-start: 1.5em; margin-block: 2px; }
-.snapshot { white-space: pre-wrap; }
 </style>
