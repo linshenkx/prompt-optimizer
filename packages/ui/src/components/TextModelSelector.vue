@@ -1,6 +1,6 @@
 <template>
   <div class="model-selection">
-  <ModelSelector class="model-selection__picker" v-bind="$attrs" :model-value="modelValue ? normalizedValue : ''" :groups="groups"
+  <ModelSelector v-bind="$attrs" :model-value="modelValue ? normalizedValue : ''" :groups="groups"
     :selected-config="additionalSelection?.group.label || selected?.primary" :selected-label="additionalSelection?.choice.label || (selected ? compactName(selected.primary, selectedModelName).split('/').pop() : '')"
     :size="size" :disabled="disabled" :placeholder="placeholder" :aria-label="ariaLabel"
     :show-model-types="showModelTypes"
@@ -159,6 +159,5 @@ watch(options, () => { if (open.value) void refresh() })
 defineExpose({ refresh })
 </script>
 <style scoped>
-.model-selection { display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0; }
-.model-selection :deep(.model-selection__picker) { flex: 1; min-width: 0; width: 0; }
+.model-selection { width: 100%; min-width: 0; }
 </style>

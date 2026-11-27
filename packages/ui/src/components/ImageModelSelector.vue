@@ -1,6 +1,6 @@
 <template>
   <div class="model-selection">
-  <ModelSelector class="model-selection__picker" v-bind="$attrs" :model-value="selectedValue" :groups="groups"
+  <ModelSelector v-bind="$attrs" :model-value="selectedValue" :groups="groups"
     :selected-config="selected?.primary" :selected-label="parameterConfig?.model.name || selectedModelId"
     :placeholder="placeholder" :disabled="disabled" :size="size" :aria-label="ariaLabel"
     :show-config-action="showConfigAction"
@@ -93,6 +93,5 @@ async function configure(id?: string) {
 }
 </script>
 <style scoped>
-.model-selection { display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0; }
-.model-selection :deep(.model-selection__picker) { flex: 1; min-width: 0; width: 0; }
+.model-selection { width: 100%; min-width: 0; }
 </style>

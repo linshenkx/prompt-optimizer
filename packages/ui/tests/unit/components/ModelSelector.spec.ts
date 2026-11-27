@@ -54,6 +54,24 @@ describe('shared model selection surface', () => {
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
   })
 
+  it('keeps inline parameters visible with the model menu closed or open', async () => {
+    const wrapper = mount(ModelSelector, { attachTo: document.body, props: {
+      selectedLabel: 'One', parameterPlacement: 'inline',
+      groups: [{ value: 'group', label: 'Provider', choices: [{ value: 'one', label: 'One' }] }],
+    }, slots: { parameters: '<label>Duration<input aria-label="Duration" value="4" /></label>' } })
+    mounted.push(wrapper)
+    const trigger = wrapper.get('.text-model-selector')
+    const input = wrapper.get<HTMLInputElement>('input[aria-label="Duration"]')
+    expect(trigger.attributes('aria-expanded')).toBe('false')
+    expect(input.isVisible()).toBe(true)
+
+    await trigger.trigger('click')
+    await flushPromises()
+    expect(document.querySelector('.text-model-menu [data-model-choice]')).not.toBeNull()
+    expect(document.querySelectorAll('input[aria-label="Duration"]')).toHaveLength(1)
+    expect(input.isVisible()).toBe(true)
+  })
+
   it('positions the shared menu above the mobile keyboard without changing the selection', async () => {
     vi.stubGlobal('visualViewport', Object.assign(new EventTarget(), { offsetTop: 0, height: 299, scale: 1 }))
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ top: 225, bottom: 257, height: 32 } as DOMRect)

@@ -1,69 +1,74 @@
 <template>
-  <NPopover v-model:show="open" trigger="click" :placement="menuPlacement" :show-arrow="false"
-    :disabled="disabled" :style="{ padding: '0' }">
-    <template #trigger>
-      <button v-bind="$attrs" ref="trigger" type="button" class="text-model-selector"
-        :class="{ 'text-model-selector--small': size === 'small', 'text-model-selector--with-detail': !!$slots['selection-detail'], 'is-open': open }"
-        :style="colors" :disabled="disabled" :aria-expanded="open" aria-haspopup="dialog"
-        :aria-label="triggerLabel" :title="selectionTitle"
-        @focus="emit('focus')" @keydown.down.prevent="showFromKeyboard" @keydown.esc="close">
-        <span v-if="selectedLabel" class="text-model-selector__value">
-          <span v-if="selectedConfig" class="text-model-selector__config">{{ selectedConfig }}</span>
-          <span v-if="selectedConfig" class="text-model-selector__separator">·</span>
-          <span class="text-model-selector__name">{{ selectedLabel }}</span>
-        </span>
-        <span v-else class="text-model-selector__placeholder">{{ placeholder || t('model.select.placeholder') }}</span>
-        <span v-if="selectedLabel && $slots['selection-detail']" class="text-model-selector__detail"><slot name="selection-detail" /></span>
-        <ChevronDown class="text-model-selector__chevron" :size="14" :class="{ rotated: open }" />
-      </button>
-    </template>
-    <section ref="menu" class="text-model-menu" :style="[colors, { '--selector-list-height': listHeight + 'px' }]" role="dialog" :aria-label="ariaLabel || t('model.selector.choose')"
-      @keydown="navigate">
-      <div class="text-model-menu__search" data-header>
-        <NButton v-if="expanded" quaternary size="small" :aria-label="t('model.selector.back')" @click="expanded = ''; query = ''">
-          <template #icon><ArrowLeft /></template>
-        </NButton>
-        <NInput ref="searchInput" v-model:value="query" clearable size="small" :placeholder="t('model.selector.search')"
-          :input-props="{ 'aria-label': t('model.selector.search') }">
-          <template #prefix><Search :size="15" /></template>
-        </NInput>
-      </div>
-      <div class="text-model-menu__list">
-        <span v-if="loading" class="text-model-menu__status" role="status">{{ t('model.selector.loading') }}</span>
-        <section v-for="group in visibleGroups" :key="group.value" class="text-model-menu__group"
-          :aria-label="group.label" :data-config-id="group.value">
-          <div class="text-model-menu__heading">
-            <span>{{ group.label }}</span>
-            <span v-if="showModelTypes && group.kind" class="text-model-menu__kind"><component :is="kindIcon(group.kind)" :size="13" aria-hidden="true" />{{ kindLabel(group.kind) }}</span>
-            <button v-if="group.configurable" type="button" class="text-model-menu__configure"
-              :aria-label="t('model.selector.manage') + ' ' + group.label"
-              @click="configure(group.value)">{{ t('model.selector.configuration') }}</button>
-          </div>
-          <button v-for="model in group.visible" :key="model.value" type="button" data-model-choice
-            class="text-model-menu__choice" :class="{ 'is-selected': modelValue === model.value }"
-            :aria-pressed="modelValue === model.value"
-            :title="model.label + ' · ' + group.label"
-            :disabled="model.disabled" @click="choose(model.value)">
-            <span>{{ model.label }}</span><Check v-if="modelValue === model.value" :size="15" />
-          </button>
-          <button v-if="group.hidden > 0" type="button" class="text-model-menu__more"
-            @click="expanded = group.value">{{ t('model.selector.more', { count: group.hidden }) }}<ChevronRight :size="13" /></button>
-          <span v-if="group.loading" role="status" class="text-model-menu__status">{{ t('model.selector.loading') }}</span>
-          <button v-else-if="group.failed" type="button" class="text-model-menu__status"
-            @click="emit('retry', group.value)">{{ t('model.selector.retry') }}</button>
-        </section>
-        <button v-if="customValue" type="button" data-model-choice class="text-model-menu__choice" @click="choose(customValue)">{{ t('model.selector.useCustom', { model: customValue }) }}</button>
-        <div v-if="!visibleGroups.length && !customValue" role="status" class="text-model-menu__empty">{{ t('model.selector.empty') }}</div>
-      </div>
-      <div v-if="$slots.parameters || (clearable && modelValue) || showConfigAction" data-action>
-        <div v-if="$slots.parameters" class="text-model-menu__parameters"><slot name="parameters" /></div>
-      <footer v-if="(clearable && modelValue) || showConfigAction" class="text-model-menu__footer">
-        <button v-if="clearable && modelValue" type="button" @click="choose('')">{{ clearLabel || t('model.selector.clear') }}</button>
-        <button v-if="showConfigAction" type="button" @click="configure()">{{ t('model.selector.manage') }}</button>
-      </footer>
-      </div>
-    </section>
-  </NPopover>
+  <div class="model-selector">
+    <NPopover v-model:show="open" trigger="click" :placement="menuPlacement" :show-arrow="false"
+      :disabled="disabled" :style="{ padding: '0' }">
+      <template #trigger>
+        <button v-bind="$attrs" ref="trigger" type="button" class="text-model-selector"
+          :class="{ 'text-model-selector--small': size === 'small', 'text-model-selector--with-detail': !!$slots['selection-detail'], 'is-open': open }"
+          :style="colors" :disabled="disabled" :aria-expanded="open" aria-haspopup="dialog"
+          :aria-label="triggerLabel" :title="selectionTitle"
+          @focus="emit('focus')" @keydown.down.prevent="showFromKeyboard" @keydown.esc="close">
+          <span v-if="selectedLabel" class="text-model-selector__value">
+            <span v-if="selectedConfig" class="text-model-selector__config">{{ selectedConfig }}</span>
+            <span v-if="selectedConfig" class="text-model-selector__separator">·</span>
+            <span class="text-model-selector__name">{{ selectedLabel }}</span>
+          </span>
+          <span v-else class="text-model-selector__placeholder">{{ placeholder || t('model.select.placeholder') }}</span>
+          <span v-if="selectedLabel && $slots['selection-detail']" class="text-model-selector__detail"><slot name="selection-detail" /></span>
+          <ChevronDown class="text-model-selector__chevron" :size="14" :class="{ rotated: open }" />
+        </button>
+      </template>
+      <section ref="menu" class="text-model-menu" :style="[colors, { '--selector-list-height': listHeight + 'px' }]" role="dialog" :aria-label="ariaLabel || t('model.selector.choose')"
+        @keydown="navigate">
+        <div class="text-model-menu__search" data-header>
+          <NButton v-if="expanded" quaternary size="small" :aria-label="t('model.selector.back')" @click="expanded = ''; query = ''">
+            <template #icon><ArrowLeft /></template>
+          </NButton>
+          <NInput ref="searchInput" v-model:value="query" clearable size="small" :placeholder="t('model.selector.search')"
+            :input-props="{ 'aria-label': t('model.selector.search') }">
+            <template #prefix><Search :size="15" /></template>
+          </NInput>
+        </div>
+        <div class="text-model-menu__list">
+          <span v-if="loading" class="text-model-menu__status" role="status">{{ t('model.selector.loading') }}</span>
+          <section v-for="group in visibleGroups" :key="group.value" class="text-model-menu__group"
+            :aria-label="group.label" :data-config-id="group.value">
+            <div class="text-model-menu__heading">
+              <span>{{ group.label }}</span>
+              <span v-if="showModelTypes && group.kind" class="text-model-menu__kind"><component :is="kindIcon(group.kind)" :size="13" aria-hidden="true" />{{ kindLabel(group.kind) }}</span>
+              <button v-if="group.configurable" type="button" class="text-model-menu__configure"
+                :aria-label="t('model.selector.manage') + ' ' + group.label"
+                @click="configure(group.value)">{{ t('model.selector.configuration') }}</button>
+            </div>
+            <button v-for="model in group.visible" :key="model.value" type="button" data-model-choice
+              class="text-model-menu__choice" :class="{ 'is-selected': modelValue === model.value }"
+              :aria-pressed="modelValue === model.value"
+              :title="model.label + ' · ' + group.label"
+              :disabled="model.disabled" @click="choose(model.value)">
+              <span>{{ model.label }}</span><Check v-if="modelValue === model.value" :size="15" />
+            </button>
+            <button v-if="group.hidden > 0" type="button" class="text-model-menu__more"
+              @click="expanded = group.value">{{ t('model.selector.more', { count: group.hidden }) }}<ChevronRight :size="13" /></button>
+            <span v-if="group.loading" role="status" class="text-model-menu__status">{{ t('model.selector.loading') }}</span>
+            <button v-else-if="group.failed" type="button" class="text-model-menu__status"
+              @click="emit('retry', group.value)">{{ t('model.selector.retry') }}</button>
+          </section>
+          <button v-if="customValue" type="button" data-model-choice class="text-model-menu__choice" @click="choose(customValue)">{{ t('model.selector.useCustom', { model: customValue }) }}</button>
+          <div v-if="!visibleGroups.length && !customValue" role="status" class="text-model-menu__empty">{{ t('model.selector.empty') }}</div>
+        </div>
+        <div v-if="hasPopoverParameters() || (clearable && modelValue) || showConfigAction" data-action>
+          <div v-if="hasPopoverParameters()" class="text-model-menu__parameters"><slot name="parameters" /></div>
+          <footer v-if="(clearable && modelValue) || showConfigAction" class="text-model-menu__footer">
+            <button v-if="clearable && modelValue" type="button" @click="choose('')">{{ clearLabel || t('model.selector.clear') }}</button>
+            <button v-if="showConfigAction" type="button" @click="configure()">{{ t('model.selector.manage') }}</button>
+          </footer>
+        </div>
+      </section>
+    </NPopover>
+    <div v-if="parameterPlacement === 'inline' && $slots.parameters" class="model-selector__inline-parameters">
+      <slot name="parameters" />
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -80,6 +85,7 @@ const props = withDefaults(defineProps<{
   groups: ModelSelectorGroup[]
   selectedConfig?: string
   selectedLabel?: string
+  parameterPlacement?: 'popover' | 'inline'
   disabled?: boolean
   size?: 'small' | 'medium' | 'large'
   placeholder?: string
@@ -90,7 +96,7 @@ const props = withDefaults(defineProps<{
   clearLabel?: string
   allowCustom?: boolean
   loading?: boolean
-}>(), { modelValue: '', disabled: false, size: 'medium' })
+}>(), { modelValue: '', disabled: false, size: 'medium', parameterPlacement: 'popover' })
 const emit = defineEmits<{
   'update:modelValue': [value: string]; 'update:show': [value: boolean]; focus: []
   config: [id?: string]; retry: [id: string]
@@ -104,11 +110,12 @@ const trigger = ref<HTMLButtonElement>()
 const searchInput = ref<InstanceType<typeof NInput>>()
 const menu = ref<HTMLElement>()
 const slots = useSlots()
+const hasPopoverParameters = () => props.parameterPlacement === 'popover' && !!slots.parameters
 // The shared surface must also fit the visual viewport above an on-screen keyboard.
 const viewport = useSelectMenuViewport({
   show: open, isCompact: ref(true), getTrigger: () => trigger.value || null,
   getMenu: () => menu.value || null, getPlacement: () => 'bottom-start',
-  get maxHeight() { return slots.parameters ? 640 : 320 },
+  get maxHeight() { return hasPopoverParameters() ? 640 : 320 },
 })
 const menuPlacement = computed(() => viewport.layout.value?.placement || 'bottom-start')
 const listHeight = computed(() => Math.min(340, viewport.layout.value?.bodyMaxHeight ?? 340))
@@ -182,6 +189,8 @@ function navigate(event: KeyboardEvent) {
 watch(() => props.disabled, disabled => { if (disabled) open.value = false })
 </script>
 <style scoped>
+.model-selector { width: 100%; min-width: 0; }
+.model-selector__inline-parameters { margin-block-start: 8px; }
 .text-model-selector { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid var(--selector-border); border-radius: 5px; color: var(--selector-text); background: var(--selector-bg); font: inherit; font-size: 14px; text-align: start; cursor: pointer; }
 .text-model-selector--small { height: 28px; font-size: 13px; padding-inline: 8px; }
 .text-model-selector { container-type: inline-size; }
