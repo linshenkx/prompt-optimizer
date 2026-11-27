@@ -31,8 +31,8 @@
     <template v-if="!extension" #config-summary>{{ describe(sharedParams) }}</template>
     <template #results>
       <div ref="deck" class="result-grid" :class="{ 'result-grid--compact': compact }" :style="{ gridTemplateColumns: compact ? 'minmax(0, 1fr)' : grid }">
-        <VideoResultCard v-for="{ id, run, origin, headerModelName } in results"
-          :key="id" :group="id" :run="run" :origin="origin"
+        <VideoResultCard v-for="{ id, run, headerModelName } in results"
+          :key="id" :group="id" :run="run"
           :header-model-name="!extension ? headerModelName : undefined"
           :extension="extension"
           :status="run ? session.displayStatus(run) : ''" :now="now" :querying="!!run && session.isQuerying(run)"
@@ -109,7 +109,7 @@ import TestWorkspaceLayout from '../common/TestWorkspaceLayout.vue'
 import TestSourcePreview from '../common/TestSourcePreview.vue'
 import VideoResultCard from './VideoResultCard.vue'
 import VideoParamControl from './VideoParamControl.vue'
-import { sameVideoSettings, useVideoSettings } from './useVideoSettings'
+import { useVideoSettings } from './useVideoSettings'
 import { useTemporaryVariables } from '../../composables/variable/useTemporaryVariables'
 import type { VariableManagerHooks } from '../../composables/prompt/useVariableManager'
 
@@ -124,7 +124,7 @@ defineExpose<WorkspaceScrollHandle>({
 const session = useVideoCreateSession()
 const sessionManager = useSessionManager()
 const state = computed(() => session.state)
-const { t, locale } = useI18n()
+const { t } = useI18n()
 const variableManager = inject<VariableManagerHooks>('variableManager')
 const { temporaryVariables } = useTemporaryVariables()
 const { describe, formatMoney } = useVideoSettings()
@@ -301,40 +301,13 @@ const { show: showPreview, content: previewContent, editable: previewEditable, r
     },
     onEdit: props.editSource,
   })
-const matchesReferences = (run: VideoRun) => {
-  const images = session.activeImages
-  return run.images.length === images.length && run.images.every((img, i) => img.id === images[i].id && img.role === images[i].role)
-}
-const matchesColumn = (id: VideoVariantId, run: VideoRun) => {
-  const column = state.value.columns[id]
-  const source = resolveSource(column.source)
-  if (run.variantId !== id || run.source !== column.source || run.capabilityMode !== state.value.capabilityMode ||
-    !matchesReferences(run) ||
-    !sameVideoSettings(run.params, resolvedColumns.value[id]?.params ?? {}) ||
-    (run.sourceVersion != null && run.sourceVersion !== source.resolvedVersion)) return false
-  const execution = renderPrompt(source.text)
-  return !execution.missingVariables.length && !execution.forbiddenTemplateSyntax.length && (run.submittedPrompt ?? run.prompt) === execution.renderedContent
-}
-const shortTime = (time: number) => {
-  const value = new Date(time)
-  const today = new Date()
-  const sameDay = value.getFullYear() === today.getFullYear() && value.getMonth() === today.getMonth() && value.getDate() === today.getDate()
-  return value.toLocaleString(locale.value, sameDay
-    ? { hour: '2-digit', minute: '2-digit' }
-    : { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-}
-const resultOrigin = (run: VideoRun) => {
-  const origin = t(run.variantId ? 'video.previousSubmission' : 'video.singleColumnResult')
-  return [origin, sourceLabel(run.source ?? 'workspace', run.sourceVersion), shortTime(run.submittedAt)].join(' · ')
-}
 const results = computed(() => visibleIds.value.map(id => {
   const { runs } = state.value
   const run = session.activeFor(id) ?? runs.find(item => videoRunVariant(item) === id)
     ?? (id === 'a' ? runs.filter(item => !item.variantId)[1] : undefined)
   const model = modelFor(id)
   const sameModel = !!model && !!run && model.id === run.configId && videoWireModel(model) === run.model && model.modelId === run.modelId && model.baseURL === run.baseURL
-  const origin = run && (!sameModel || !matchesColumn(id, run)) ? resultOrigin(run) : ''
-  return { id, run, origin, headerModelName: sameModel ? model.name : undefined }
+  return { id, run, headerModelName: sameModel ? model.name : undefined }
 }))
 const confirming = ref(false)
 const disabled = (id: VideoVariantId) => extension || props.inputPending || confirming.value || session.submitting || saving.value.has(id) ||

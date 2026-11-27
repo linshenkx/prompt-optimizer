@@ -58,8 +58,6 @@ export default {
     "refreshUsage": "查询用量",
     "taskElapsed": "已用时 {time}",
     "taskElapsedHint": "从任务提交开始计时，包含排队时间。",
-    "previousSubmission": "上次结果",
-    "singleColumnResult": "历史单列结果",
     "savedPrompt": "历史提示词",
     "pinnedVersion": "已选历史版本 (v{n})",
     "outputTokens": "输出 token {n}",

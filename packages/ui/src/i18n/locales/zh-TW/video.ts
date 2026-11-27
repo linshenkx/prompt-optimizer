@@ -58,8 +58,6 @@ export default {
     "refreshUsage": "查詢用量",
     "taskElapsed": "已用時 {time}",
     "taskElapsedHint": "從任務提交開始計時，包含排隊時間。",
-    "previousSubmission": "上次結果",
-    "singleColumnResult": "歷史單欄結果",
     "savedPrompt": "歷史提示詞",
     "pinnedVersion": "已選歷史版本 (v{n})",
     "outputTokens": "輸出 token {n}",

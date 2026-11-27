@@ -12,8 +12,7 @@
         <span v-if="specsLabel">{{ specsLabel }}</span>
       </div>
       <video v-if="hasPlayableVideo" :key="videoRunKey(run)" controls playsinline preload="metadata"
-        :aria-label="group.toUpperCase() + ' · ' + (origin || sourceLabel)" :src="run.videoUrl" />
-      <p v-if="origin" class="result-origin" :data-testid="'video-origin-' + group">{{ origin }}</p>
+        :aria-label="group.toUpperCase() + ' · ' + sourceLabel" :src="run.videoUrl" />
       <p v-if="expired">{{ t('video.linkExpired') }}</p>
       <p v-if="status === 'unknown'">{{ t('video.unknownHint') }}</p>
       <p v-if="run.error">{{ run.error.startsWith('video.error.') ? t(run.error) : run.error }}</p>
@@ -63,7 +62,7 @@ import ThemedTooltip from '../common/ThemedTooltip.vue'
 
 const props = defineProps<{
   group: VideoVariantId; run?: VideoRun
-  extension: boolean; querying: boolean; origin: string; headerModelName?: string
+  extension: boolean; querying: boolean; headerModelName?: string
   sourceLabel: string; specs: string; status: string; now: number; pollError?: string; canAcknowledge?: boolean
 }>()
 const emit = defineEmits<{
@@ -152,8 +151,7 @@ const download = async () => {
 .usage { font: inherit; font-size: 12px; color: v-bind('theme.textColor2'); font-variant-numeric: tabular-nums; }
 button.usage { padding: 2px 0; background: none; border: 0; cursor: pointer; }
 .usage:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-.result-origin { color: v-bind('theme.textColor2'); }
-.result-meta, .result-origin, p { margin-block: 6px; font-size: 12px; overflow-wrap: anywhere; }
+.result-meta, p { margin-block: 6px; font-size: 12px; overflow-wrap: anywhere; }
 .result-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: v-bind('theme.textColor3'); }
 .task-elapsed { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .result-empty { padding: 28px 0; }

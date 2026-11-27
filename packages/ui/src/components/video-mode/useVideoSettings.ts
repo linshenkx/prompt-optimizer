@@ -1,10 +1,6 @@
 import type { VideoCostEstimate, VideoParams, VideoParamValue } from '@prompt-optimizer/core'
 import { useI18n } from 'vue-i18n'
 
-export function sameVideoSettings(a: VideoParams, b: VideoParams) {
-  return Object.keys(a).length === Object.keys(b).length && Object.entries(a).every(([key, value]) => b[key] === value)
-}
-
 export function useVideoSettings() {
   const { t, locale } = useI18n()
   const paramLabel = (key: string, value: VideoParamValue) => {

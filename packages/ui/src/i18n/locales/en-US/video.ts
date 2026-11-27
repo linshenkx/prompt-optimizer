@@ -58,8 +58,6 @@ export default {
     "refreshUsage": "Check usage",
     "taskElapsed": "Elapsed {time}",
     "taskElapsedHint": "Time since submission, including queue time.",
-    "previousSubmission": "Previous result",
-    "singleColumnResult": "Historical single-column result",
     "savedPrompt": "Saved prompt",
     "pinnedVersion": "Selected history version (v{n})",
     "outputTokens": "Output tokens {n}",
