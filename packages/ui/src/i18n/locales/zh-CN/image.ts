@@ -112,7 +112,7 @@ const messages = {
       "uploadSuccess": "上传成功",
       "preparedSuccess": "图片已完成模型兼容性处理：{before} → {after}",
       "preparedBatchSuccess": "已为模型兼容性处理 {count} 张图片",
-      "batchBudgetApplied": "多图已压缩，预计 API 上传大小为 {size}",
+      "batchBudgetApplied": "本次请求的参考图已压缩，预计上传 {size}",
       "processingFailed": "图片处理失败，请尝试更小的图片",
       "confirmTitle": "确认处理图片",
       "confirmDescription": "为满足模型输入限制，将调整 {count} 张图片的尺寸或重新编码；处理后的文件大小可能略有增加。",

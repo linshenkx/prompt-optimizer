@@ -19,6 +19,6 @@ describe('image multimodal optimize guards', () => {
     const source = readSource('src/components/image-mode/ImageMultiImageWorkspace.vue')
 
     expect(source).toMatch(/promptService(?:\.value)?\.optimizePromptStream\(/)
-    expect(source).toMatch(/inputImages:\s*session\.inputImages\.map/)
+    expect(source).toMatch(/inputImages:\s*preparedPayloads/)
   })
 })

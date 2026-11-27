@@ -119,7 +119,6 @@ describe('image multiimage input UI guards', () => {
     expect(source).toMatch(/MULTIIMAGE_MAX_BINARY_BYTES/)
     expect(source).toMatch(/estimateImageRequestBytes/)
     expect(source).toMatch(/requestSizeWillCompress/)
-    expect(source).toMatch(/replaceInputImagePayloads/)
     expect(source).toMatch(/OPTIMIZATION_FIRST_TOKEN_TIMEOUT_MS/)
     expect(source).toMatch(/OPTIMIZATION_TOTAL_TIMEOUT_MS/)
     expect(source).toMatch(/signal: controller\.signal/)

@@ -1321,8 +1321,6 @@ const optimizePrompt = async () => {
   optimizationController = controller
   optimizing.value = true
   optimizationAbortKind = null
-  optimizedPrompt.value = ''
-  optimizedReasoning.value = ''
 
   try {
     const inputImages = [...session.inputImages]
@@ -1332,26 +1330,20 @@ const optimizePrompt = async () => {
       maxTotalBytes: MULTIIMAGE_MAX_BINARY_BYTES,
     }, false)
     controller.signal.throwIfAborted()
-    if (!preparedPayloads || inputImages.length !== session.inputImages.length
-      || inputImages.some((image, index) => image !== session.inputImages[index])) return
+    const currentImages = session.inputImages
+    if (!preparedPayloads || currentImages.length !== inputImages.length || inputImages.some((image, index) => {
+      const current = currentImages[index]
+      return image.id !== current.id || image.b64 !== current.b64 || image.mimeType !== current.mimeType
+    })) return
     const imagesChanged = preparedPayloads.some((image, index) =>
-      image.b64 !== session.inputImages[index]?.b64 || image.mimeType !== session.inputImages[index]?.mimeType,
+      image.b64 !== inputImages[index].b64 || image.mimeType !== inputImages[index].mimeType,
     )
     if (imagesChanged) {
-      session.replaceInputImagePayloads(preparedPayloads)
-      await session.saveSession()
-      controller.signal.throwIfAborted()
       toast.success(t('imageWorkspace.upload.batchBudgetApplied', {
         size: formatImageBytes(estimateImageRequestBytes(preparedPayloads)),
       }))
     }
 
-    let firstTokenReceived = false
-    const markFirstToken = () => {
-      if (firstTokenReceived) return
-      firstTokenReceived = true
-      clearTimeout(firstTokenTimer)
-    }
     const abortWithKind = (kind: OptimizationAbortKind) => {
       if (controller.signal.aborted) return
       optimizationAbortKind = kind
@@ -1365,6 +1357,17 @@ const optimizePrompt = async () => {
       () => abortWithKind('total-timeout'),
       OPTIMIZATION_TOTAL_TIMEOUT_MS,
     )
+    let content = ''
+    let reasoning = ''
+    const appendOutput = (text: string, thought = '') => {
+      if (controller.signal.aborted || (!text && !thought)) return
+      if (!content && !reasoning) clearTimeout(firstTokenTimer)
+      content += text
+      reasoning += thought
+      session.updateOptimizedResult({
+        optimizedPrompt: content, reasoning, chainId: session.chainId, versionId: session.versionId,
+      })
+    }
 
     const request = {
       optimizationMode: 'user' as OptimizationMode,
@@ -1377,16 +1380,13 @@ const optimizePrompt = async () => {
     try {
       await promptService.value.optimizePromptStream(request, {
         signal: controller.signal,
-        onToken: (token) => {
-          markFirstToken()
-          optimizedPrompt.value = `${optimizedPrompt.value || ''}${token}`
-        },
-        onReasoningToken: (token) => {
-          markFirstToken()
-          optimizedReasoning.value = `${optimizedReasoning.value || ''}${token}`
-        },
-        onComplete: async () => {
-          markFirstToken()
+        onToken: (token) => appendOutput(token),
+        onReasoningToken: (token) => appendOutput('', token),
+        onComplete: async (response) => {
+          if (controller.signal.aborted) return
+          if (response) appendOutput(content ? '' : response.content, reasoning ? '' : response.reasoning)
+          if (!content) return
+          clearTimeout(totalTimer)
           try {
             await createHistoryRecord()
             if (typeof window !== 'undefined') {
@@ -1407,6 +1407,10 @@ const optimizePrompt = async () => {
     }
 
     controller.signal.throwIfAborted()
+    if (!content) {
+      toast.error(t('toast.error.optimizeFailed'))
+      return
+    }
     await session.saveSession()
     toast.success(t('toast.success.optimizeSuccess'))
   } catch (error) {

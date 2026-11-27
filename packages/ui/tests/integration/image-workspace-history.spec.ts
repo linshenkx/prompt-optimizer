@@ -29,6 +29,12 @@ const modes = [
   { name: 'multiimage', component: ImageMultiImageWorkspace, useStore: useImageMultiImageSession, metadata: { inputImageCount: 2 } },
 ] as const
 
+// Two distinct 1×1 PNGs keep the image order observable through file preparation.
+const multiImageInputs = [
+  { b64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', mimeType: 'image/png' },
+  { b64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgYPgPAAEDAQAIicLsAAAAAElFTkSuQmCC', mimeType: 'image/png' },
+]
+
 const template = (id: string) => ({ id, name: id, content: 'template', isBuiltin: false, metadata: { templateType: id, version: '1', lastModified: 1 } })
 const record = (id: string, extra: Partial<PromptRecord> = {}): PromptRecord => ({
   id, chainId: 'chain', originalPrompt: 'source', optimizedPrompt: id, type: 'iterate',
@@ -55,6 +61,7 @@ afterEach(() => {
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
   removeListeners.splice(0).forEach(remove => remove())
   resetFunctionModelManagerSingleton()
+  vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
 
@@ -99,10 +106,11 @@ async function setup(mode: typeof modes[number]) {
   store.assetBinding = { assetId: 'asset', versionId: 'asset-v1', status: 'linked' }
   store.origin = { kind: 'favorite', id: 'favorite-id' }
   if ('inputImageB64' in store) { store.inputImageB64 = 'input'; store.inputImageMime = 'image/png' }
-  if ('inputImages' in store) store.inputImages = [
-    { id: 'one', b64: 'first', mimeType: 'image/png' },
-    { id: 'two', b64: 'second', mimeType: 'image/jpeg' },
-  ]
+  if ('inputImages' in store) {
+    // jsdom has no native image decoder. Chromium covers the actual resize and encode.
+    vi.stubGlobal('createImageBitmap', async () => ({ width: 1, height: 1, close() {} }))
+    store.inputImages = multiImageInputs.map((image, index) => ({ ...image, id: String(index), assetId: null }))
+  }
   await nextTick()
   const save = vi.spyOn(store, 'saveSession').mockImplementation(async () => { order.push('save'); return true })
   const refresh = vi.fn(() => order.push('refresh'))
@@ -210,7 +218,7 @@ describe.each(modes)('$name image history behavior', (mode) => {
     promptService.optimizePromptStream.mockImplementationOnce(async (request, handlers) => {
       expect(request.targetPrompt).toBe('source')
       if (mode.name === 'image2image') expect(request.inputImages).toEqual([{ b64: 'input', mimeType: 'image/png' }])
-      if (mode.name === 'multiimage') expect(request.inputImages).toEqual([{ b64: 'first', mimeType: 'image/png' }, { b64: 'second', mimeType: 'image/jpeg' }])
+      if (mode.name === 'multiimage') expect(request.inputImages).toEqual(multiImageInputs)
       if (mode.name === 'text2image') expect(request.inputImages).toBeUndefined()
       handlers.onToken('optimized')
       handlers.onReasoningToken('thought')
@@ -252,5 +260,67 @@ describe.each(modes)('$name image history behavior', (mode) => {
     expect(page.isIterating).toBe(false)
     expect(save).toHaveBeenCalledOnce()
     expect(toast.error).toHaveBeenCalled()
+  })
+})
+
+describe('multi-image optimization', () => {
+  it('preserves the edited result when the provider fails before sending output', async () => {
+    const { page, store, promptService, historyManager, save } = await setup(modes[2])
+    promptService.optimizePromptStream.mockImplementationOnce(async (_request, handlers) => {
+      handlers.onToken('')
+      throw new Error('provider unavailable')
+    })
+    await page.optimizePrompt()
+    expect(store).toMatchObject({ optimizedPrompt: 'edited', reasoning: 'old reasoning' })
+    expect(promptService.optimizePromptStream).toHaveBeenCalledOnce()
+    expect(historyManager.createNewChain).not.toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
+    expect(toast.error).toHaveBeenCalled()
+  })
+
+  it('keeps the partial response and ignores late output after stopping a stream', async () => {
+    const { page, store, promptService, historyManager, save } = await setup(modes[2])
+    promptService.optimizePromptStream.mockImplementationOnce(async (_request, handlers) => {
+      handlers.onReasoningToken('new thought')
+      handlers.onToken('partial')
+      page.cancelOptimization()
+      expect(handlers.signal.aborted).toBe(true)
+      handlers.onToken('late chunk')
+      await handlers.onComplete()
+    })
+    await page.optimizePrompt()
+    expect(store).toMatchObject({ optimizedPrompt: 'partial', reasoning: 'new thought' })
+    expect(historyManager.createNewChain).not.toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
+    expect(toast.warning).toHaveBeenCalledWith('imageWorkspace.input.optimizationCancelled')
+  })
+
+  it.each([
+    { partial: '', limit: 90_000, errorKey: 'firstTokenTimeout' },
+    { partial: 'partial response', limit: 180_000, errorKey: 'totalTimeout' },
+  ])('stops the provider at the $errorKey deadline', async ({ partial, limit, errorKey }) => {
+    const { page, store, promptService, historyManager } = await setup(modes[2])
+    const started = deferred<void>()
+    promptService.optimizePromptStream.mockImplementationOnce(async (_request, handlers) => {
+      if (partial) handlers.onToken(partial)
+      started.resolve()
+      await new Promise<void>(resolve => handlers.signal.addEventListener('abort', () => resolve(), { once: true }))
+    })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const run = page.optimizePrompt()
+      await started.promise
+      await vi.advanceTimersByTimeAsync(limit - 1)
+      expect(page.optimizing).toBe(true)
+      await vi.advanceTimersByTimeAsync(1)
+      await run
+    } finally {
+      vi.useRealTimers()
+    }
+    expect(store.optimizedPrompt).toBe(partial || 'edited')
+    expect(store.reasoning).toBe(partial ? '' : 'old reasoning')
+    expect(historyManager.createNewChain).not.toHaveBeenCalled()
+    expect(toast.error).toHaveBeenCalledWith(`imageWorkspace.input.${errorKey}`)
+    expect(page.optimizing).toBe(false)
   })
 })

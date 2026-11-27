@@ -112,7 +112,7 @@ const messages = {
       "uploadSuccess": "Upload success",
       "preparedSuccess": "Image prepared for model compatibility: {before} → {after}",
       "preparedBatchSuccess": "Prepared {count} images for model compatibility",
-      "batchBudgetApplied": "Images compressed; estimated API upload is now {size}",
+      "batchBudgetApplied": "Reference images compressed for this request. Estimated upload is {size}.",
       "processingFailed": "Image preparation failed. Please try a smaller image.",
       "confirmTitle": "Confirm image processing",
       "confirmDescription": "To meet model input limits, {count} image(s) will be resized or re-encoded. The resulting file size may increase slightly.",
