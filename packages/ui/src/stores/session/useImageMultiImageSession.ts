@@ -505,6 +505,21 @@ export const useImageMultiImageSession = defineStore('imageMultiImageSession', (
     touch()
   }
 
+  const replaceInputImagePayloads = (images: ImageInputRef[]) => {
+    if (images.length !== inputImages.value.length) {
+      replaceInputImages(images)
+      return
+    }
+    inputImages.value = inputImages.value.map((current, index) => {
+      const image = images[index]
+      const b64 = image?.b64 || ''
+      const mimeType = image?.mimeType || 'image/png'
+      if (current.b64 === b64 && current.mimeType === mimeType) return current
+      return { ...current, assetId: null, b64, mimeType }
+    })
+    touch()
+  }
+
   const removeInputImage = (id: string) => {
     inputImages.value = inputImages.value.filter((item) => item.id !== id)
     touch()
@@ -808,6 +823,7 @@ export const useImageMultiImageSession = defineStore('imageMultiImageSession', (
     setTestVariantLastRunFingerprint,
     addInputImage,
     replaceInputImages,
+    replaceInputImagePayloads,
     removeInputImage,
     reorderInputImages,
     clearContent,

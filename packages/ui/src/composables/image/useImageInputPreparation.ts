@@ -9,7 +9,9 @@ import {
   formatImageDimensions,
   prepareImageFiles,
   type ImageCompressionResult,
+  type ImageCompressionOptions,
 } from '../../utils/image-compression'
+import { prepareImageBatchForBudget, type ImageBatchCompressionOptions } from '../../utils/image-batch-budget'
 
 export function useImageInputPreparation() {
   const { t } = useI18n()
@@ -34,14 +36,23 @@ export function useImageInputPreparation() {
     })
   }
 
-  const prepareFiles = async (files: readonly File[]): Promise<ImageCompressionResult[] | null> => {
+  const prepareFiles = async (
+    files: readonly File[],
+    options: ImageCompressionOptions | ImageBatchCompressionOptions = {},
+    notifySuccess = true,
+  ): Promise<ImageCompressionResult[] | null> => {
     if (files.length === 0) return []
 
     try {
-      const results = await prepareImageFiles(files, confirmMaterialChange)
+      const results = 'maxTotalBytes' in options
+        ? await prepareImageBatchForBudget(files, confirmMaterialChange, options)
+        : await prepareImageFiles(files, confirmMaterialChange, options)
       if (!results) return null
 
       const changed = results.filter((result) => result.compressed)
+      if (!notifySuccess) {
+        return results
+      }
       if (changed.length === 1) {
         const result = changed[0]
         toast.success(t('imageWorkspace.upload.preparedSuccess', {
@@ -72,8 +83,12 @@ export function useImageInputPreparation() {
     }
   }
 
-  const prepareInputRefs = async (files: readonly File[]) => {
-    const results = await prepareFiles(files)
+  const prepareInputRefs = async (
+    files: readonly File[],
+    options: ImageCompressionOptions | ImageBatchCompressionOptions = {},
+    notifySuccess = true,
+  ) => {
+    const results = await prepareFiles(files, options, notifySuccess)
     if (!results) return null
     return await Promise.all(results.map((result) => fileToImageInputRef(result.file)))
   }
