@@ -162,7 +162,7 @@ const isValidGlobalSettings = (value: unknown): boolean => {
     (value.selectedThemeId === undefined || typeof value.selectedThemeId === 'string') &&
     (value.preferredLanguage === undefined || typeof value.preferredLanguage === 'string') &&
     (value.builtinTemplateLanguage === undefined || typeof value.builtinTemplateLanguage === 'string') &&
-    (functionMode === undefined || functionMode === 'basic' || functionMode === 'pro' || functionMode === 'image') &&
+    (functionMode === undefined || functionMode === 'basic' || functionMode === 'pro' || functionMode === 'image' || functionMode === 'video' || functionMode === 'arena') &&
     (basicSubMode === undefined || basicSubMode === 'system' || basicSubMode === 'user') &&
     (proSubMode === undefined || proSubMode === 'multi' || proSubMode === 'variable') &&
     (
@@ -379,7 +379,9 @@ const collectSessionStorageKeys = async (storageProvider: StorageWithOptionalKey
   return Array.from(
     new Set([
       ...DEFAULT_SESSION_STORAGE_KEYS,
-      ...enumeratedKeys.filter((key) => key.startsWith('pref:session/v1/')),
+      ...enumeratedKeys.filter((key) =>
+        key.startsWith('pref:session/v1/') && key !== 'pref:session/v1/video-create',
+      ),
     ]),
   )
 }

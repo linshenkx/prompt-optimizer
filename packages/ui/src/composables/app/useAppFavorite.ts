@@ -708,7 +708,10 @@ export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
             if (await navigateToSubModeKey(targetKey) === false || store.busy) return false
             const brief = typeof favorite.metadata?.originalContent === 'string' ? favorite.metadata.originalContent : ''
             store.applyPrompt(brief, draft.content)
-            return store.saveSession()
+            const saved = await store.saveSession()
+            if (saved) toast.success(t('toast.success.favoriteLoaded'))
+            else toast.warning(t('video.error.save'))
+            return saved
         }
 
         // 🔧 Step D: 使用 navigateToSubModeKey 一次性导航到目标路由

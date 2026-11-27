@@ -1012,6 +1012,8 @@ export class PromptService implements IPromptService {
       | "text2imageOptimize"
       | "image2imageOptimize"
       | "multiimageOptimize"
+      | "videoOptimize"
+      | "videoIterate"
       | "imageIterate"
       | "iterate"
       | "conversationMessageOptimize"
@@ -1039,6 +1041,7 @@ export class PromptService implements IPromptService {
         | "text2imageOptimize"
         | "image2imageOptimize"
         | "multiimageOptimize"
+        | "videoOptimize"
         | "iterate"
       )[] = [];
 
@@ -1065,6 +1068,10 @@ export class PromptService implements IPromptService {
         fallbackTypes = ["image2imageOptimize", "text2imageOptimize", "userOptimize", "optimize"];
       } else if (templateType === "imageIterate") {
         fallbackTypes = ["iterate", "text2imageOptimize", "userOptimize"]; // 图像迭代回退到通用迭代/文生图
+      } else if (templateType === "videoOptimize") {
+        fallbackTypes = ["userOptimize", "optimize"];
+      } else if (templateType === "videoIterate") {
+        fallbackTypes = ["iterate", "videoOptimize", "userOptimize"];
       }
 
       for (const fallbackType of fallbackTypes) {

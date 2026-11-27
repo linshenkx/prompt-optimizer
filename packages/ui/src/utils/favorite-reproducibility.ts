@@ -335,7 +335,8 @@ const isFavoritePrompt = (value: unknown): value is FavoritePrompt => {
     typeof value.useCount === 'number' &&
     (value.functionMode === 'basic' ||
       value.functionMode === 'context' ||
-      value.functionMode === 'image')
+      value.functionMode === 'image' ||
+      value.functionMode === 'video')
   )
 }
 

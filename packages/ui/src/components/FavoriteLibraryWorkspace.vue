@@ -421,6 +421,8 @@ const favoriteMatchesModeFilter = (favorite: FavoritePrompt, filter: FavoriteMod
 
   if (normalizeFavoriteFunctionMode(favorite.functionMode) !== definition.functionMode) return false
 
+  if (definition.functionMode === 'video') return true
+
   if (definition.functionMode === 'image') {
     return favorite.imageSubMode === definition.imageSubMode
   }

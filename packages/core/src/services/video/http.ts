@@ -42,7 +42,7 @@ export async function requestVideoJSON(send: typeof fetch, config: VideoModelCon
   const key = resolveVideoApiKey(config)
   if (!key) throw new Error('video.error.key')
   const response = await send(config.baseURL + path, {
-    method, redirect: 'error', headers: { Authorization: 'Bearer ' + key, ...(body && { 'Content-Type': 'application/json' }) },
+    method, redirect: 'error', headers: { Authorization: 'Bearer ' + key, ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
     body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(60_000),
   })
   const raw = await response.text()

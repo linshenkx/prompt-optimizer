@@ -156,4 +156,26 @@ describe('runStorageStartupSafetyCheck', () => {
       ]),
     )
   })
+
+  it('preserves video and arena global settings and never auto-deletes video-create session snapshots', async () => {
+    const storage = new MemoryStorageProvider()
+    for (const functionMode of ['video', 'arena'] as const) {
+      const settings = JSON.stringify({
+        selectedThemeId: 'dark',
+        preferredLanguage: 'zh-CN',
+        functionMode,
+        lastActiveAt: 1_700_000_000_000,
+      })
+      await storage.setItem('pref:global-settings/v1', settings)
+      const report = await runStorageStartupSafetyCheck(storage)
+      expect(await storage.getItem('pref:global-settings/v1')).toBe(settings)
+      expect(report.actions).toEqual([])
+    }
+
+    const brokenVideoSession = '{invalid-json-with-paid-task-id'
+    await storage.setItem('pref:session/v1/video-create', brokenVideoSession)
+    const report = await runStorageStartupSafetyCheck(storage)
+    expect(await storage.getItem('pref:session/v1/video-create')).toBe(brokenVideoSession)
+    expect(report.actions).toEqual([])
+  })
 })

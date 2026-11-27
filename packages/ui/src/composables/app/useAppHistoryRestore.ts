@@ -145,6 +145,8 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
             if (record.type === 'iterate' && record.templateId) store.updateIterateTemplate(record.templateId)
             if (!await store.saveSession()) {
                 toast.warning(t('toast.warning.saveHistoryFailed'))
+            } else {
+                toast.success(t('toast.success.historyLoaded'))
             }
             return
         }

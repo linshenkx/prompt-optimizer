@@ -222,6 +222,9 @@ const clearWorkspace = async () => {
   if (workspaceBusy.value || session.activeRun) return
   session.applyPrompt('', '')
   state.value.runs = []
+  for (const [id, column] of Object.entries(state.value.columns)) {
+    column.source = id === 'a' ? 'original' : 'workspace'
+  }
   imageListOnly.value = false
   resetMobileView()
   try { if (!await session.saveSession()) throw new Error('video.error.save') } catch (e) { report(e) }

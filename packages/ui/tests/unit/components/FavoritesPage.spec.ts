@@ -169,20 +169,22 @@ describe('FavoritesPage', () => {
   })
 
   it('uses the workspace route query as the initial library mode filter', () => {
-    currentRoute.value = {
-      query: {
-        from: '/image/text2image',
-      },
-    }
-    const actions = {
-      useFavorite: vi.fn(),
-      returnToWorkspace: vi.fn(),
-    }
-    const wrapper = mountFavoritesPage(actions)
+    for (const [from, expected] of [
+      ['/image/text2image', 'image-text2image'],
+      ['/video/create', 'video-create'],
+      ['/arena', 'all'],
+    ] as const) {
+      currentRoute.value = { query: { from } }
+      const actions = {
+        useFavorite: vi.fn(),
+        returnToWorkspace: vi.fn(),
+      }
+      const wrapper = mountFavoritesPage(actions)
 
-    expect(wrapper.find('[data-testid="favorite-library-use"]').attributes('data-initial-mode-filter')).toBe('image-text2image')
+      expect(wrapper.find('[data-testid="favorite-library-use"]').attributes('data-initial-mode-filter')).toBe(expected)
 
-    wrapper.unmount()
+      wrapper.unmount()
+    }
   })
 
   it('returns to the workspace through the app action from the explicit button and Escape', async () => {

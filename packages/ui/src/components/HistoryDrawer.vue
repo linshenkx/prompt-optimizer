@@ -471,7 +471,9 @@ const getChainSource = (chain: PromptRecordChain) => {
 
 // 获取功能模式标签类型
 const getFunctionModeTagType = (recordType: string) => {
-  if (recordType.includes('image')) {
+  if (recordType === 'videoOptimize') {
+    return 'info'
+  } else if (recordType.includes('image')) {
     return 'warning'
   } else if (recordType.includes('context')) {
     return 'primary'
