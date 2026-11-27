@@ -449,7 +449,8 @@ test('opens two videos from a legacy single-column session with usage and no new
       const legacy = (id: string, time: number, prompt: string, tokens?: number) => ({ id, submittedAt: time, prompt, tokens,
         model: 'doubao-seedance-2-0-fast-260128', status: 'succeeded', params: { duration: 4, resolution: '480p', ratio: '16:9' },
         images: [], videoUrl: 'https://video-test.invalid/' + id + '.mp4', expiresAt: now + 86400000 })
-      const runs = [legacy('legacy-newer', now, 'Second video', 40000), legacy('legacy-older', now - 10000, 'First video')]
+      const runs = [{ ...legacy('legacy-newer', now, 'Second video', 40000), modelName: 'Old studio account' },
+        legacy('legacy-older', now - 10000, 'First video')]
       const originalPrompt = 'A red sail'
       const root = { id: 'red-v1', chainId: 'red', version: 1, type: 'videoOptimize', originalPrompt, optimizedPrompt: 'Harbor at dawn',
         modelKey: 'writer', templateId: 'video-natural', timestamp: now - 3000 }
@@ -474,6 +475,7 @@ test('opens two videos from a legacy single-column session with usage and no new
   await expect(legacyUsage).toContainText('¥1.48')
   await expect(legacyUsage).not.toContainText(/总 token|總 token|Total tokens/i)
   await expect(page.getByTestId('video-result-b').locator('.result-meta')).toContainText('Seedance 2.0 Fast')
+  await expect(page.getByTestId('video-result-b').locator('.result-meta')).not.toContainText('Old studio account')
   expect(calls).toEqual([])
   const source = page.getByTestId('video-source-a')
   await source.click()
@@ -599,8 +601,9 @@ test('manages video configurations and keeps a running task bound to its origina
   await page.route('https://ark-fixture.invalid/**', routeTasks)
   await page.goto('/#/video/create')
   const manager = page.getByTestId('video-model-manager')
-  const manage = page.getByTestId('video-manage-models')
+  const manage = page.getByRole('button', { name: /Model Manager|模型管理/i })
   const picker = page.getByTestId('video-model-b')
+  const defaultChoice = () => page.locator('[data-config-id="seedance"]').getByRole('button', { name: 'Seedance 2.0 Fast', exact: true })
   await expect(page.getByTestId('video-result-a').getByTestId('video-model-a')).toContainText('Seedance 2.0 Fast')
   await expect(picker).toContainText('Seedance 2.0 Fast')
   await expect(picker).toHaveRole('button')
@@ -635,18 +638,21 @@ test('manages video configurations and keeps a running task bound to its origina
   await page.keyboard.press('Escape')
   await expect(manager).toBeHidden()
   await picker.click()
-  await page.getByRole('button', { name: 'ep-studio-fast', exact: true }).click()
-  await expect(picker).toContainText('Studio Ark')
+  await page.locator('.text-model-menu:visible').getByRole('textbox').fill('ep-studio-fast')
+  await page.getByRole('region', { name: 'Studio Ark', exact: true }).getByRole('button', { name: 'ep-studio-fast', exact: true }).click()
+  await expect(picker).toHaveAttribute('title', 'Studio Ark · ep-studio-fast')
   const editor = page.getByTestId('video-output').locator('textarea')
   await editor.fill('A stationary camera watches the tide.')
   await page.getByTestId('video-run-b').click()
   const confirm = page.getByRole('alertdialog').or(page.getByRole('dialog')).last()
   await expect(confirm).toContainText('ep-studio-fast')
+  expect((await confirm.innerText()).match(/ep-studio-fast/g)).toHaveLength(1)
   await expect(confirm).not.toContainText('1.49')
   await confirm.getByRole('button', { name: /Confirm and generate|确认并生成|確認並產生/i }).click()
   await expect.poll(() => requests.filter(req => req.method === 'POST').length).toBe(1)
+  await expect(page.getByTestId('video-result-b').locator('.result-meta')).not.toContainText('ep-studio-fast')
   await picker.click()
-  await page.getByRole('button', { name: 'doubao-seedance-2-0-fast-260128', exact: true }).click()
+  await defaultChoice().click()
   await expect(picker).toContainText('Seedance 2.0 Fast')
   await expect(picker).toBeEnabled()
   await page.reload()
@@ -665,12 +671,12 @@ test('manages video configurations and keeps a running task bound to its origina
   await row.getByRole('button', { name: /^Disable$|禁用|停用/i }).click()
   await expect(row.getByRole('button', { name: /^Enable$|^启用$|^啟用$/i })).toBeVisible()
   await page.keyboard.press('Escape')
-  await expect(page.getByTestId('video-result-b')).toContainText('Studio Ark')
+  await expect(page.getByTestId('video-result-b').locator('.result-meta')).toContainText('ep-studio-fast')
   await expect(page.getByTestId('video-run-b')).toBeDisabled()
   await expect(page.getByTestId('video-model-a')).toContainText('Seedance 2.0 Fast')
   await expect(picker).toBeVisible()
   await picker.click()
-  await page.getByRole('button', { name: 'doubao-seedance-2-0-fast-260128', exact: true }).click()
+  await defaultChoice().click()
   await expect(page.getByTestId('video-run-b')).toBeEnabled()
   expect(requests.filter(req => req.method === 'POST')).toHaveLength(1)
   await manage.click()

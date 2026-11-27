@@ -8,13 +8,8 @@
     </template>
     <template #input>
       <NAlert v-if="extension" type="info" :show-icon="false">{{ t('video.extension') }}</NAlert>
-      <NCard v-else size="small">
-        <div class="parameter-heading">
-          <NText v-if="partition.shared.length" strong>{{ t('video.test') }}</NText>
-          <NButton text size="small" data-testid="video-manage-models" @click="openModels('video')">
-            <template #icon><Settings2 /></template>{{ t('video.configure') }}
-          </NButton>
-        </div>
+      <NCard v-else-if="partition.shared.length || notice" size="small">
+        <NText v-if="partition.shared.length" strong>{{ t('video.test') }}</NText>
         <div v-if="partition.shared.length" class="parameters">
           <VideoParamControl v-for="def in partition.shared" :key="def.key" :definition="def"
             :value="sharedValue(def.key)" :test-id="'video-param-shared-' + def.key" :disabled="confirming"
@@ -55,8 +50,8 @@
                 :aria-label="id.toUpperCase() + ' · ' + t('video.generate')" @click="confirmRuns([id])">{{ t('video.generate') }}</NButton>
               <div class="column-picker">
                 <ModelSelector :data-testid="'video-model-' + id" :model-value="selectionFor(id)?.key"
-                  :selected-config="selectionFor(id)?.providerLabel" :selected-label="modelFor(id)?.name"
-                  :aria-label="id.toUpperCase() + ' ' + t('video.models')" :groups="modelGroups" :placeholder="t('modelManager.selectModel')"
+                  :selected-config="selectionFor(id)?.groupLabel" :selected-label="selectionFor(id)?.modelLabel"
+                  :aria-label="id.toUpperCase() + ' ' + t('video.models')" :groups="groupsFor(id)" :placeholder="t('modelManager.selectModel')"
                   size="small" parameter-placement="inline" show-config-action :loading="!modelsLoaded" :disabled="saving.has(id) || confirming"
                   @update:model-value="setModel(id, $event)" @focus="refreshModels" @config="configId => openModels('video', configId)">
                   <template v-if="partition.perColumn[id]?.length" #parameters>
@@ -87,7 +82,6 @@ import { computed, h, inject, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useElementSize, useTimestamp } from '@vueuse/core'
 import { NAlert, NButton, NCard, NText } from 'naive-ui'
-import { Settings2 } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import { buildPromptExecutionContext, checkVideoInputCompatibility, getVideoModelSpec, listVideoModelPresets, MAX_STORED_VIDEO_REFERENCES,
   partitionVideoColumnParams, resolveVideoConfigModel, totalVideoCosts, VIDEO_PROVIDERS, VIDEO_VARIANT_IDS, videoRunKey, videoRunVariant, videoWireModel,
@@ -99,6 +93,7 @@ import {
   type DynamicTestPanelVersionValue, type TestPanelVersionOption,
 } from '../../utils/testPanelVersion'
 import type { WorkspaceScrollHandle } from '../../types/workspacePresentation'
+import { videoModelLabel } from '../../utils/video-model-label'
 import { useConfirmDialog } from '../../composables/ui/useConfirmDialog'
 import { useTestSourcePreview } from '../../composables/workspaces/useTestSourcePreview'
 import { useToast } from '../../composables/ui/useToast'
@@ -149,27 +144,31 @@ const grid = computed(() => 'repeat(' + visibleIds.value.length + ', minmax(0, 1
 const setCount = (count: 2 | 3 | 4) => { state.value.columnCount = count; void persist() }
 const models = ref<VideoModelSummary[]>([])
 const modelsLoaded = ref(false)
-const compatibilityReason = (model?: VideoModelSummary, unsupportedOnly = false) => {
+const inputCompatibility = (model?: VideoModelSummary) => {
   const spec = model && getVideoModelSpec(model.modelId, model.providerId)
-  if (!spec) return ''
+  if (!spec) return
   const { mode, images } = session.inputContext
   const result = checkVideoInputCompatibility(spec, mode, images)
-  return result.compatible || (unsupportedOnly && result.kind !== 'unsupported') ? '' : t(result.reasonKey, result.params ?? {})
+  if (!result.compatible) return { reason: t(result.reasonKey, result.params ?? {}), unsupported: result.kind === 'unsupported' }
 }
+const compatibilityReason = (model?: VideoModelSummary) => inputCompatibility(model)?.reason
 const selections = computed(() => models.value.map(config => {
   const providerLabel = t(VIDEO_PROVIDERS[config.providerId].labelKey)
   const groupLabel = config.name === getVideoModelSpec(config.modelId, config.providerId)?.name
-    ? providerLabel : [providerLabel, config.name].join(' · ')
+    ? providerLabel : config.name
   const choices = listVideoModelPresets(config.providerId, config.modelId).flatMap(spec => {
     const model = resolveVideoConfigModel(config, spec.id)
     if (!model) return []
     const configModelId = spec.id === config.modelId ? undefined : config.modelId
-    const reason = compatibilityReason(model, true)
-    return [{ key: JSON.stringify([config.id, spec.id]), providerLabel, configModelId,
-      model: configModelId ? { ...model, name: spec.name } : model,
-      label: [videoWireModel(model), reason].filter(Boolean).join(' · '), disabled: !!reason }]
+    const compatibility = inputCompatibility(model)
+    const unsupportedReason = compatibility?.unsupported ? compatibility.reason : ''
+    const modelLabel = videoModelLabel(model)
+    const wireModel = videoWireModel(model)
+    return [{ key: JSON.stringify([config.id, spec.id]), groupLabel, configModelId, model, modelLabel,
+      label: [modelLabel, unsupportedReason].filter(Boolean).join(' · '), disabled: !!unsupportedReason,
+      searchText: [wireModel, spec.name !== wireModel && spec.name].filter(Boolean).join(' ') }]
   })
-  return { config, groupLabel, choices }
+  return { config, groupLabel, searchText: [providerLabel, config.name].join(' '), choices }
 }))
 const selectionFor = (id: VideoVariantId) => {
   const { configId, modelId } = state.value.columns[id]
@@ -179,10 +178,16 @@ const selectionFor = (id: VideoVariantId) => {
 }
 const modelFor = (id: VideoVariantId) => selectionFor(id)?.model
 const modelUnavailable = (id: VideoVariantId) => modelsLoaded.value && !!state.value.columns[id].configId && !modelFor(id)
-const modelGroups = computed(() => selections.value.map(({ config, groupLabel, choices }) => ({
-  value: config.id, label: groupLabel, configurable: true,
-  choices: choices.map(({ key, label, disabled, model }) => ({ value: key, label, disabled, searchText: model.name })),
+const modelGroups = computed(() => selections.value.map(({ config, groupLabel, searchText, choices }) => ({
+  value: config.id, label: groupLabel, searchText, configurable: true,
+  choices: choices.map(({ key, label, disabled, searchText }) => ({ value: key, label, disabled, searchText })),
 })))
+const groupsFor = (id: VideoVariantId) => {
+  const groups = modelGroups.value
+  const configId = selectionFor(id)?.model.id
+  const index = groups.findIndex(group => group.value === configId)
+  return index > 0 ? [groups[index], ...groups.slice(0, index), ...groups.slice(index + 1)] : groups
+}
 const referenceLimit = computed(() => Math.max(0, ...visibleIds.value.map(id => {
   const model = modelFor(id)
   return model ? getVideoModelSpec(model.modelId, model.providerId)?.capabilities.maxReferenceImages ?? 0 : 0
@@ -305,9 +310,10 @@ const results = computed(() => visibleIds.value.map(id => {
   const { runs } = state.value
   const run = session.activeFor(id) ?? runs.find(item => videoRunVariant(item) === id)
     ?? (id === 'a' ? runs.filter(item => !item.variantId)[1] : undefined)
-  const model = modelFor(id)
+  const selection = selectionFor(id)
+  const model = selection?.model
   const sameModel = !!model && !!run && model.id === run.configId && videoWireModel(model) === run.model && model.modelId === run.modelId && model.baseURL === run.baseURL
-  return { id, run, headerModelName: sameModel ? model.name : undefined }
+  return { id, run, headerModelName: sameModel ? selection.modelLabel : undefined }
 }))
 const confirming = ref(false)
 const disabled = (id: VideoVariantId) => extension || props.inputPending || confirming.value || session.submitting || saving.value.has(id) ||
@@ -339,7 +345,8 @@ const confirmRuns = async (ids: readonly VideoVariantId[]) => {
       .map(([currency, amount]) => formatMoney(amount, currency)).join(' + ')
     const unpriced = drafts.some(run => !run.cost)
     const summaries = drafts.map(run => h('div', [
-      run.variantId!.toUpperCase(), sourceLabel(run.source, run.sourceVersion), run.modelName, run.model,
+      run.variantId!.toUpperCase(), sourceLabel(run.source, run.sourceVersion),
+      run.modelName, ...(run.modelName !== run.model ? [run.model] : []),
       describe(run.params), t('video.refCount', { n: run.images.length }),
       run.cost ? formatMoney(run.cost.amount, run.cost.currency) : t('video.billAtProvider'),
     ].join(' · ')))
@@ -398,8 +405,6 @@ const acknowledge = async (run: VideoRun) => {
 </script>
 
 <style scoped>
-.parameter-heading { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
-.parameter-heading > :only-child { margin-inline-start: auto; }
 .parameters { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; margin-top: 8px; }
 .column-note, .column-picker { grid-column: 1 / -1; }
 .column-picker { min-width: 0; margin-inline-start: 16px; }

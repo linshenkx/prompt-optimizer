@@ -9,6 +9,7 @@ import {
 } from '@prompt-optimizer/core'
 import { getPiniaServices } from '../../plugins/pinia'
 import { persistImagePayloadAsAssetId } from '../../utils/image-asset-storage'
+import { videoModelLabel } from '../../utils/video-model-label'
 import { pauseImageStorageGc, queueImageStorageMaintenance, scheduleImageStorageGc } from './imageStorageMaintenance'
 import { createSessionSnapshotWriter, hasSessionConflict, readSessionSnapshot, runSessionWrite, type SessionWritePermit } from './sessionPersistence'
 
@@ -236,7 +237,7 @@ export const useVideoCreateSession = defineStore('video-create-session', () => {
     if (!prompt.trim()) throw new Error('video.error.prompt')
     const { params } = resolveColumn(variantId, config)
     return copy({ localId: uuid(), variantId, source: state.value.columns[variantId].source, prompt,
-      model: videoWireModel(config), modelId: config.modelId, providerId: config.providerId, modelName: config.name,
+      model: videoWireModel(config), modelId: config.modelId, providerId: config.providerId, modelName: videoModelLabel(config),
       configId: config.id, ...(configModelId && { configModelId }), baseURL: config.baseURL, capabilityMode: context.mode,
       cost: config.customModel ? null : spec.pricing.estimate(params, { ...context, baseURL: config.baseURL }),
       images: context.images, params, status: 'submitting' } satisfies VideoRunDraft)

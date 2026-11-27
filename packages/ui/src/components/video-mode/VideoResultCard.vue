@@ -58,6 +58,7 @@ import { getVideoModelSpec, videoRunKey,
   type VideoRun, type VideoVariantId } from '@prompt-optimizer/core'
 import { useVideoSettings } from './useVideoSettings'
 import { useToast } from '../../composables/ui/useToast'
+import { videoModelLabel } from '../../utils/video-model-label'
 import ThemedTooltip from '../common/ThemedTooltip.vue'
 
 const props = defineProps<{
@@ -102,7 +103,13 @@ const usageTooltip = computed(() => {
 })
 const missingUsage = computed(() => props.status === 'succeeded' && !!spec.value?.pricing.actual && (props.run?.usage?.outputTokens == null || props.run?.usage?.totalTokens == null))
 const supportsCancel = computed(() => spec.value?.capabilities.supportsCancel)
-const modelName = computed(() => props.run?.modelName || spec.value?.name || props.run?.model)
+const modelName = computed(() => {
+  const run = props.run
+  if (!run) return undefined
+  // Older runs stored the config name. The wire model and preset preserve the actual selection.
+  const customModel = run.model !== run.modelId || run.modelName === run.model ? run.model : undefined
+  return videoModelLabel({ modelId: run.modelId, providerId: run.providerId, customModel })
+})
 const specsLabel = computed(() => [props.specs, modelName.value !== props.headerModelName && modelName.value].filter(Boolean).join(' · '))
 const downloading = ref(false)
 const clickDownloadLink = (url: string, filename: string, external = false) => {

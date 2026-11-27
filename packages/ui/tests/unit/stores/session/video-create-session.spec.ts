@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { MemoryStorageProvider, PreferenceService, WorkspaceSessionTransfer, defaultVideoConfig, summarizeVideoModel, MAX_VIDEO_SUBMIT_SNAPSHOT_BYTES, SEEDANCE_MODEL, VIDEO_MODEL_PREFERENCE, videoRunKey, type IImageStorageService, type VideoCreateSessionState } from '@prompt-optimizer/core'
+import { MemoryStorageProvider, PreferenceService, WorkspaceSessionTransfer, defaultVideoConfig, summarizeVideoModel, MAX_VIDEO_SUBMIT_SNAPSHOT_BYTES, SEEDANCE_FLAGSHIP, SEEDANCE_MODEL, VIDEO_MODEL_PREFERENCE, videoRunKey, type IImageStorageService, type VideoCreateSessionState } from '@prompt-optimizer/core'
 import { createTestPinia } from '../../../utils/pinia-test-helpers'
 import { setPiniaServices } from '../../../../src/plugins/pinia'
 import {
@@ -21,6 +21,19 @@ const ark = summarizeVideoModel({ ...defaultVideoConfig(), apiKey: 'test' })
 
 describe('video-create session', () => {
   afterEach(() => vi.restoreAllMocks())
+
+  it('records the concrete model label for preset, sibling, and custom endpoint runs', () => {
+    const ctx = createWindow(new MemoryStorageProvider())
+    const store = useVideoCreateSession(ctx.pinia)
+    const config = { ...ark, name: 'Studio Ark' }
+    const prompt = 'A crane shot of a small boat.'
+
+    expect(store.prepareRun(config, 'b', prompt)).toMatchObject({ model: SEEDANCE_MODEL, modelName: 'Seedance 2.0 Fast' })
+    expect(store.prepareRun({ ...config, modelId: SEEDANCE_FLAGSHIP }, 'b', prompt, SEEDANCE_MODEL))
+      .toMatchObject({ model: SEEDANCE_FLAGSHIP, modelName: 'Seedance 2.5', configModelId: SEEDANCE_MODEL })
+    expect(store.prepareRun({ ...config, customModel: 'ep-studio-fast' }, 'b', prompt))
+      .toMatchObject({ model: 'ep-studio-fast', modelName: 'ep-studio-fast' })
+  })
 
   it('sends one paid request on overlapping clicks, then cancels the queued task by ID', async () => {
     const ctx = createWindow(new MemoryStorageProvider())

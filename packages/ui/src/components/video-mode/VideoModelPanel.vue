@@ -113,20 +113,22 @@ const provider = computed(() => draft.value && VIDEO_PROVIDERS[draft.value.provi
 const setWireModel = (value: string) => {
   if (draft.value) draft.value.customModel = value || undefined
 }
-const setModel = (id: string, previousProvider?: VideoProviderId) => {
+const setModel = (id: string) => {
   if (!draft.value) return
-  const previousName = getVideoModelSpec(draft.value.modelId, previousProvider ?? draft.value.providerId)?.name
   draft.value.modelId = id
   draft.value.customModel = undefined
-  if (!draft.value.name || draft.value.name === previousName) draft.value.name = getVideoModelSpec(id, draft.value.providerId)?.name ?? ''
 }
 const setProvider = (id: VideoProviderId) => {
   if (!draft.value || draft.value.providerId === id) return
-  const previousProvider = draft.value.providerId
+  const { providerId, modelId, name } = draft.value
+  const previousModelName = getVideoModelSpec(modelId, providerId)?.name
+  if (!name.trim() || name === t(VIDEO_PROVIDERS[providerId].labelKey) || name === previousModelName) {
+    draft.value.name = t(VIDEO_PROVIDERS[id].labelKey)
+  }
   draft.value.providerId = id
   draft.value.apiKey = ''
   draft.value.baseURL = VIDEO_PROVIDERS[id].defaultBaseURL
-  setModel(VIDEO_PROVIDERS[id].defaultModelId, previousProvider)
+  setModel(VIDEO_PROVIDERS[id].defaultModelId)
 }
 const rows = computed<ModelConfigListItem[]>(() => models.value.map(config => ({
   id: config.id, name: config.name, provider: t(VIDEO_PROVIDERS[config.providerId].labelKey),
@@ -150,8 +152,9 @@ async function updated() {
   await refresh()
 }
 function openAdd() {
+  const config = defaultVideoConfig()
   original.value = null
-  draft.value = { ...defaultVideoConfig(), id: uuid() }
+  draft.value = { ...config, id: uuid(), name: t(VIDEO_PROVIDERS[config.providerId].labelKey) }
   error.value = ''
 }
 async function openEdit(id: string, clone = false) {
