@@ -40,12 +40,13 @@
         <template #label>
           <NSpace align="center" :size="4">
             <span>{{ t('video.key') }}</span>
-            <NButton v-if="provider?.apiKeyUrl" text size="tiny" type="primary" tag="a" :href="provider.apiKeyUrl"
-              target="_blank" rel="noopener noreferrer" style="padding: 0 4px;"
-              :title="t('modelManager.getApiKey')" :aria-label="t('modelManager.getApiKey')"
-              data-testid="video-config-key-link">
-              <template #icon><ExternalLink :size="14" /></template>
-            </NButton>
+            <ThemedTooltip v-if="provider?.apiKeyUrl" :label="t('modelManager.getApiKey')">
+              <NButton text size="tiny" type="primary" tag="a" :href="provider.apiKeyUrl"
+                target="_blank" rel="noopener noreferrer" style="padding: 0 4px;" :aria-label="t('modelManager.getApiKey')"
+                data-testid="video-config-key-link">
+                <template #icon><ExternalLink :size="14" /></template>
+              </NButton>
+            </ThemedTooltip>
           </NSpace>
         </template>
         <NInput v-model:value="draft.apiKey" type="password" show-password-on="click" autocomplete="off"
@@ -77,6 +78,7 @@ import { useToast } from '../../composables/ui/useToast'
 import { useConfirmDialog } from '../../composables/ui/useConfirmDialog'
 import { useWorkspaceLayout } from '../../composables/ui/useWorkspaceLayout'
 import AdaptiveModal from '../common/AdaptiveModal.vue'
+import ThemedTooltip from '../common/ThemedTooltip.vue'
 import ModelConfigList, { type ModelConfigListItem } from '../common/ModelConfigList.vue'
 
 const { t } = useI18n()

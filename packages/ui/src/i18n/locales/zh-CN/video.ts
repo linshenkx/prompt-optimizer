@@ -75,7 +75,7 @@ export default {
     "cancel": "取消任务",
     "expires": "请在 {time} 前下载",
     "linkExpired": "视频链接已过期，可查询任务查看可用链接。",
-    "submission": "提交详情",
+    "taskId": "任务 ID · {id}",
     "unknownHint": "服务商可能已经收到请求。再次付费生成前请先查看服务商控制台。",
     "acknowledge": "停止本地跟踪",
     "untrackConfirm": "请先查看服务商控制台。任务可能仍在运行并产生费用。停止本地跟踪后可以发起新任务，已有的服务商任务 ID 会保留在结果中。",

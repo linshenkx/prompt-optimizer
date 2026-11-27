@@ -2,10 +2,12 @@
   <div class="video-param" :data-testid="testId">
     <div class="video-param-label">
       <NText depth="2">{{ t(definition.labelKey) }}</NText>
-      <NButton v-if="action" text size="tiny" :aria-label="actionLabel" :title="actionLabel" :disabled="disabled"
-        :data-testid="testId + '-' + action" @click="emit('action')">
-        <template #icon><Split v-if="action === 'split'" /><Merge v-else /></template>
-      </NButton>
+      <ThemedTooltip v-if="action" :label="actionLabel">
+        <NButton text size="tiny" :aria-label="actionLabel" :disabled="disabled"
+          :data-testid="testId + '-' + action" @click="emit('action')">
+          <template #icon><Split v-if="action === 'split'" /><Merge v-else /></template>
+        </NButton>
+      </ThemedTooltip>
     </div>
     <NSelect :value="typeof value === 'boolean' ? String(value) : value ?? null" :aria-label="t(definition.labelKey)" :options="options"
       :disabled="disabled || options.length === 1" size="small"
@@ -19,6 +21,7 @@ import { Merge, Split } from '@lucide/vue'
 import { NButton, NSelect, NText } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import type { VideoParamDefinition, VideoParamValue } from '@prompt-optimizer/core'
+import ThemedTooltip from '../common/ThemedTooltip.vue'
 import { useVideoSettings } from './useVideoSettings'
 
 const props = defineProps<{

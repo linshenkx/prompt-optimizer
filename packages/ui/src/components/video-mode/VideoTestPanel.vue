@@ -31,7 +31,8 @@
     <template v-if="!extension" #config-summary>{{ describe(sharedParams) }}</template>
     <template #results>
       <div ref="deck" class="result-grid" :class="{ 'result-grid--compact': compact }" :style="{ gridTemplateColumns: compact ? 'minmax(0, 1fr)' : grid }">
-        <VideoResultCard v-for="{ id, run, origin, headerModelName } in results" :key="id" :group="id" :run="run" :origin="origin"
+        <VideoResultCard v-for="{ id, run, origin, headerModelName, requestPrompt, referencesChanged } in results"
+          :key="id" :group="id" :run="run" :origin="origin" :request-prompt="requestPrompt" :references-changed="referencesChanged"
           :header-model-name="!extension ? headerModelName : undefined"
           :extension="extension"
           :status="run ? session.displayStatus(run) : ''" :now="now" :querying="!!run && session.isQuerying(run)"
@@ -231,7 +232,6 @@ const refreshModels = async () => {
     modelsLoaded.value = true
   } catch (e) { toast.error(message(e)) }
 }
-const date = (time: number) => new Date(time).toLocaleString(locale.value)
 const notice = computed(() => {
   if (modelsLoaded.value && !models.value.length) return t('video.noEnabled')
   const blocked = visibleIds.value.filter(id => !!compatibilityReason(modelFor(id)))
@@ -301,13 +301,15 @@ const { show: showPreview, content: previewContent, editable: previewEditable, r
     },
     onEdit: props.editSource,
   })
-const matchesInputs = (id: VideoVariantId, run: VideoRun) => {
-  const column = state.value.columns[id]
-  if (run.variantId !== id || run.source !== column.source || run.capabilityMode !== state.value.capabilityMode || !sameVideoSettings(run.params, resolvedColumns.value[id]?.params ?? {})) return false
+const matchesReferences = (run: VideoRun) => {
   const images = session.activeImages
-  const sameImages = run.images.length === images.length && run.images.every((img, i) => img.id === images[i].id && img.role === images[i].role)
-  const source = resolveSource(column.source)
-  if (!sameImages || (run.sourceVersion != null && run.sourceVersion !== source.resolvedVersion)) return false
+  return run.images.length === images.length && run.images.every((img, i) => img.id === images[i].id && img.role === images[i].role)
+}
+const matchesColumn = (id: VideoVariantId, run: VideoRun, source: ReturnType<typeof resolveSource>) => {
+  const column = state.value.columns[id]
+  if (run.variantId !== id || run.source !== column.source || run.capabilityMode !== state.value.capabilityMode ||
+    !sameVideoSettings(run.params, resolvedColumns.value[id]?.params ?? {}) ||
+    (run.sourceVersion != null && run.sourceVersion !== source.resolvedVersion)) return false
   const execution = renderPrompt(source.text)
   return !execution.missingVariables.length && !execution.forbiddenTemplateSyntax.length && (run.submittedPrompt ?? run.prompt) === execution.renderedContent
 }
@@ -329,8 +331,12 @@ const results = computed(() => visibleIds.value.map(id => {
     ?? (id === 'a' ? runs.filter(item => !item.variantId)[1] : undefined)
   const model = modelFor(id)
   const sameModel = !!model && !!run && model.id === run.configId && videoWireModel(model) === run.model && model.modelId === run.modelId && model.baseURL === run.baseURL
-  const origin = run && (!sameModel || !matchesInputs(id, run)) ? resultOrigin(run) : ''
-  return { id, run, origin, headerModelName: sameModel ? model.name : undefined }
+  const source = resolveSource(state.value.columns[id].source)
+  const referencesChanged = !!run && !matchesReferences(run)
+  const origin = run && (!sameModel || referencesChanged || !matchesColumn(id, run, source)) ? resultOrigin(run) : ''
+  const submitted = run?.submittedPrompt ?? run?.prompt
+  const requestPrompt = extension || submitted !== source.text ? submitted : undefined
+  return { id, run, origin, headerModelName: sameModel ? model.name : undefined, requestPrompt, referencesChanged }
 }))
 const confirming = ref(false)
 const disabled = (id: VideoVariantId) => extension || props.inputPending || confirming.value || session.submitting || saving.value.has(id) ||

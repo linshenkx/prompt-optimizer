@@ -6,9 +6,30 @@
     <template v-else>
       <div class="result-meta">
         <NText v-if="!hasPlayableVideo" :data-testid="'video-status-' + group" role="status">{{ t('video.status.' + status) }}</NText>
-        <span v-if="elapsed" class="task-elapsed" :data-testid="'video-elapsed-' + group"
-          :title="t('video.taskElapsedHint')">{{ t('video.taskElapsed', { time: elapsed }) }}</span>
-        <span>{{ specs }}<template v-if="modelName && modelName !== headerModelName"> · {{ modelName }}</template></span>
+        <ThemedTooltip v-if="elapsed" :label="t('video.taskElapsedHint')">
+          <span class="task-elapsed" :data-testid="'video-elapsed-' + group">{{ t('video.taskElapsed', { time: elapsed }) }}</span>
+        </ThemedTooltip>
+        <details v-if="hasGenerationDetails" :key="videoRunKey(run)" class="generation-details">
+          <summary :aria-label="[specsLabel, t('workspace.generationDetails')].filter(Boolean).join(' · ')">
+            {{ specsLabel || t('workspace.generationDetails') }}
+          </summary>
+          <div class="detail-content">
+            <p v-if="run.id">{{ t('video.taskId', { id: run.id }) }}</p>
+            <p v-if="customModel">{{ t('video.wireModel') }} · {{ customModel }}</p>
+            <p v-if="run.expiresAt && !expired">{{ t('video.expires', { time: date(run.expiresAt) }) }}</p>
+            <div v-if="referencesChanged">
+              <span>{{ t('video.refCount', { n: run.images.length }) }}</span>
+              <ul v-if="run.images.length">
+                <li v-for="(image, index) in run.images" :key="index">{{ t('video.roles.' + image.role) }} · {{ image.name }}</li>
+              </ul>
+            </div>
+            <div v-if="requestPrompt">
+              <span>{{ t('workspace.requestPrompt') }}</span>
+              <p class="snapshot">{{ requestPrompt }}</p>
+            </div>
+          </div>
+        </details>
+        <span v-else>{{ specsLabel }}</span>
       </div>
       <video v-if="hasPlayableVideo" :key="videoRunKey(run)" controls playsinline preload="metadata"
         :aria-label="group.toUpperCase() + ' · ' + (origin || sourceLabel)" :src="run.videoUrl" />
@@ -18,20 +39,25 @@
       <p v-if="run.error">{{ run.error.startsWith('video.error.') ? t(run.error) : run.error }}</p>
       <p v-if="pollError" role="alert">{{ pollError }}</p>
       <div class="result-footer">
-        <div v-if="run.usage || status === 'succeeded'" :data-testid="'video-usage-' + group" class="usage" :title="usageTooltip">
-          <span v-if="showCost">{{ run.cost!.estimated ? t('video.estimatedCost', { price: formatMoney(run.cost!.amount, run.cost!.currency) }) : formatMoney(run.cost!.amount, run.cost!.currency) }}</span>
-          <span v-else>{{ t('video.billAtProvider') }}</span>
-        </div>
+        <template v-if="run.usage || status === 'succeeded'">
+          <ThemedTooltip v-if="usageTooltip" v-model:show="showUsage" :label="usageTooltip"
+            :trigger="canHover ? 'hover' : 'click'" placement="top-start">
+            <button type="button" class="usage" :data-testid="'video-usage-' + group" :aria-label="costLabel + ' · ' + usageTooltip"
+              @focus="canHover && (showUsage = true)" @blur="showUsage = false" @keydown.esc="showUsage = false">{{ costLabel }}</button>
+          </ThemedTooltip>
+          <span v-else class="usage" :data-testid="'video-usage-' + group">{{ costLabel }}</span>
+        </template>
         <NFlex align="center" :size="[6, 4]" class="result-actions">
           <template v-if="hasPlayableVideo">
             <NButton size="tiny" secondary :loading="downloading" @click="download">
               <template #icon><Download :size="13" /></template>
               {{ t('video.download') }}
             </NButton>
-            <NButton size="tiny" quaternary tag="a" :href="run.videoUrl" rel="noopener noreferrer" target="_blank"
-              :title="t('video.open')" :aria-label="t('video.open')">
-              <template #icon><ExternalLink :size="13" /></template>
-            </NButton>
+            <ThemedTooltip :label="t('video.open')">
+              <NButton size="tiny" quaternary tag="a" :href="run.videoUrl" rel="noopener noreferrer" target="_blank" :aria-label="t('video.open')">
+                <template #icon><ExternalLink :size="13" /></template>
+              </NButton>
+            </ThemedTooltip>
           </template>
           <NButton v-if="!extension && status !== 'untracked' && run.id && (['queued', 'running'].includes(status) || expired || missingUsage)"
             size="tiny" :loading="querying" @click="emit('refresh', run)">{{ t(missingUsage && !expired ? 'video.refreshUsage' : 'video.refresh') }}</NButton>
@@ -40,21 +66,12 @@
         </NFlex>
       </div>
     </template>
-    <details v-if="run">
-      <summary>{{ t('video.submission') }}</summary>
-      <p><template v-if="modelName && modelName !== run.model">{{ modelName }} · </template>{{ run.model }} · {{ date(run.submittedAt) }}<template v-if="run.id"> · {{ run.id }}</template></p>
-      <p v-if="usageSummary">{{ usageSummary }}</p>
-      <p v-if="run.images.length" class="ref-list" :title="run.images.map(i => t('video.roles.' + i.role) + ' · ' + i.name).join(', ')">
-        {{ run.images.map(i => t('video.roles.' + i.role) + ' · ' + shortName(i.name)).join(', ') }}
-      </p>
-      <p class="snapshot">{{ submittedPrompt }}</p>
-      <p v-if="run.expiresAt && !expired">{{ t('video.expires', { time: date(run.expiresAt) }) }}</p>
-    </details>
   </NCard>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useMediaQuery } from '@vueuse/core'
 import { NButton, NCard, NEmpty, NFlex, NText, useThemeVars } from 'naive-ui'
 import { Download, ExternalLink } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
@@ -62,11 +79,13 @@ import { getVideoModelSpec, videoRunKey,
   type VideoRun, type VideoVariantId } from '@prompt-optimizer/core'
 import { useVideoSettings } from './useVideoSettings'
 import { useToast } from '../../composables/ui/useToast'
+import ThemedTooltip from '../common/ThemedTooltip.vue'
 
 const props = defineProps<{
   group: VideoVariantId; run?: VideoRun
   extension: boolean; querying: boolean; origin: string; headerModelName?: string
   sourceLabel: string; specs: string; status: string; now: number; pollError?: string; canAcknowledge?: boolean
+  requestPrompt?: string; referencesChanged: boolean
 }>()
 const emit = defineEmits<{
   refresh: [run: VideoRun]; cancel: [run: VideoRun]; acknowledge: [run: VideoRun]
@@ -74,11 +93,6 @@ const emit = defineEmits<{
 const { t, locale } = useI18n()
 const { formatMoney } = useVideoSettings()
 const toast = useToast()
-const submittedPrompt = computed(() => {
-  const run = props.run
-  // Earlier tests added all role descriptions, even when the prompt already named the image.
-  return run ? run.submittedPrompt ?? run.prompt : ''
-})
 const theme = useThemeVars()
 const date = (time: number) => new Date(time).toLocaleString(locale.value)
 const tokenCount = (value: number) => value.toLocaleString(locale.value)
@@ -92,24 +106,33 @@ const elapsed = computed(() => {
 })
 const spec = computed(() => props.run && getVideoModelSpec(props.run.modelId, props.run.providerId))
 const showCost = computed(() => !!props.run?.cost && (props.status === 'succeeded' || (!props.run.cost.estimated && !!props.run.usage)))
-const usageSummary = computed(() => {
-  const usage = props.run?.usage
-  if (!usage) return ''
-  return [
-    usage.outputTokens != null ? t('video.outputTokens', { n: tokenCount(usage.outputTokens) }) : '',
-    usage.totalTokens != null ? t('video.totalTokens', { n: tokenCount(usage.totalTokens) }) : '',
-  ].filter(Boolean).join(' · ')
+const costLabel = computed(() => {
+  const cost = props.run?.cost
+  if (!showCost.value || !cost) return t('video.billAtProvider')
+  const price = formatMoney(cost.amount, cost.currency)
+  return cost.estimated ? t('video.estimatedCost', { price }) : price
 })
-const usageTooltip = computed(() => [
-  usageSummary.value,
-  showCost.value && props.run?.cost
-    ? t('video.costBasis.' + props.run.cost.basis) + ' · ' + formatMoney(props.run.cost.amount, props.run.cost.currency, 6)
-    : '',
-].filter(Boolean).join(' · '))
-const shortName = (name: string) => name.length > 24 ? name.slice(0, 14) + '…' + name.slice(-8) : name
+const showUsage = ref(false)
+const canHover = useMediaQuery('(hover: hover)')
+const usageTooltip = computed(() => {
+  const usage = props.run?.usage
+  const cost = props.run?.cost
+  return [
+    usage?.outputTokens != null && t('video.outputTokens', { n: tokenCount(usage.outputTokens) }),
+    usage?.totalTokens != null && t('video.totalTokens', { n: tokenCount(usage.totalTokens) }),
+    showCost.value && cost && t('video.costBasis.' + cost.basis) + ' · ' + formatMoney(cost.amount, cost.currency, 6),
+  ].filter(Boolean).join('\n')
+})
 const missingUsage = computed(() => props.status === 'succeeded' && !!spec.value?.pricing.actual && (props.run?.usage?.outputTokens == null || props.run?.usage?.totalTokens == null))
 const supportsCancel = computed(() => spec.value?.capabilities.supportsCancel)
 const modelName = computed(() => props.run?.modelName || spec.value?.name || props.run?.model)
+const specsLabel = computed(() => [props.specs, modelName.value !== props.headerModelName && modelName.value].filter(Boolean).join(' · '))
+const customModel = computed(() => {
+  const run = props.run
+  return run && run.model !== run.modelId && run.model !== modelName.value ? run.model : undefined
+})
+const hasGenerationDetails = computed(() => props.run?.id || customModel.value || (props.run?.expiresAt && !expired.value) ||
+  props.requestPrompt || props.referencesChanged)
 const downloading = ref(false)
 const clickDownloadLink = (url: string, filename: string, external = false) => {
   const link = document.createElement('a')
@@ -154,16 +177,19 @@ const download = async () => {
 <style scoped>
 .video-result-card { min-width: 0; min-height: 0; height: 100%; }
 .result-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin-block: 8px; }
-.usage { font-size: 12px; color: v-bind('theme.textColor2'); font-variant-numeric: tabular-nums; }
+.usage { font: inherit; font-size: 12px; color: v-bind('theme.textColor2'); font-variant-numeric: tabular-nums; }
+button.usage { padding: 2px 0; background: none; border: 0; cursor: pointer; }
+.usage:focus-visible, summary:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .result-origin { color: v-bind('theme.textColor2'); }
-.result-meta, .result-origin, details, p { margin-block: 6px; font-size: 12px; overflow-wrap: anywhere; }
+.result-meta, .result-origin, p { margin-block: 6px; font-size: 12px; overflow-wrap: anywhere; }
 .result-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: v-bind('theme.textColor3'); }
 .task-elapsed { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .result-empty { padding: 28px 0; }
 video { display: block; width: 100%; max-height: 50vh; object-fit: contain; background: #000; border-radius: v-bind('theme.borderRadius'); }
-details { color: v-bind('theme.textColor2'); }
 .result-actions:empty { display: none; }
-.ref-list { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-summary { cursor: pointer; }
+.generation-details { min-width: 0; }
+summary { cursor: pointer; width: fit-content; }
+.detail-content { margin-top: 6px; padding-inline-start: 10px; border-inline-start: 1px solid v-bind('theme.dividerColor'); color: v-bind('theme.textColor2'); }
+.detail-content ul { padding-inline-start: 1.5em; margin-block: 2px; }
 .snapshot { white-space: pre-wrap; }
 </style>

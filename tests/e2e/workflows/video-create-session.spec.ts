@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
+test.use({ hasTouch: true })
+
 const ark = 'https://ark.cn-beijing.volces.com'
 const minimax = 'https://api.minimax.io'
 const png = 'tests/e2e/fixtures/images/text2image-output.png'
@@ -148,6 +150,12 @@ test('mixes providers, splits and merges parameters, and preserves input modes a
   expect(h3Task.body?.content).toEqual([{ type: 'text', text: 'A narrow sailboat turns.' }])
   await expect(page.getByTestId('video-status-a')).toContainText(/Failed|失败|失敗/i, { timeout: 10000 })
   await expect(page.getByTestId('video-usage-a')).toHaveCount(0)
-  await expect(page.getByTestId('video-usage-b')).toContainText('$', { timeout: 10000 })
-  await expect(page.getByTestId('video-usage-b')).not.toContainText(/tokens?/i)
+  const usage = page.getByTestId('video-usage-b')
+  await expect(usage).toContainText('$', { timeout: 10000 })
+  await expect(usage).not.toContainText(/tokens?/i)
+  await usage.tap()
+  const tooltip = page.locator('.n-tooltip').filter({ hasText: '$' })
+  await expect(tooltip).toBeVisible()
+  await usage.tap()
+  await expect(tooltip).toBeHidden()
 })

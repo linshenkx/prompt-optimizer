@@ -75,7 +75,7 @@ export default {
     "cancel": "Cancel task",
     "expires": "Download before {time}",
     "linkExpired": "This video link has expired. Check the task for an available link.",
-    "submission": "Details",
+    "taskId": "Task ID · {id}",
     "unknownHint": "The provider may have received this request. Check the provider console before starting another paid test.",
     "acknowledge": "Stop local tracking",
     "untrackConfirm": "Check the provider console before continuing. The task may still run and incur charges. Stopping local tracking lets you start a new task and leaves any provider task ID in the result.",

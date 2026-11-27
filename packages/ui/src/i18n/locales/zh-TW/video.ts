@@ -75,7 +75,7 @@ export default {
     "cancel": "取消任務",
     "expires": "請在 {time} 前下載",
     "linkExpired": "影片連結已過期，可查詢任務查看可用連結。",
-    "submission": "提交詳情",
+    "taskId": "任務 ID · {id}",
     "unknownHint": "服務商可能已收到請求。再次付費產生前請先查看服務商控制台。",
     "acknowledge": "停止本機追蹤",
     "untrackConfirm": "請先查看服務商控制台。任務可能仍在執行並產生費用。停止本機追蹤後可以發起新任務，已有的服務商任務 ID 會保留在結果中。",
