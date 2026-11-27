@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { MemoryStorageProvider, PreferenceService, defaultVideoConfig, summarizeVideoModel, SEEDANCE_MODEL, VIDEO_MODEL_PREFERENCE, videoRunKey, type IImageStorageService, type VideoCreateSessionState } from '@prompt-optimizer/core'
+import { MemoryStorageProvider, PreferenceService, WorkspaceSessionTransfer, defaultVideoConfig, summarizeVideoModel, MAX_VIDEO_SUBMIT_SNAPSHOT_BYTES, SEEDANCE_MODEL, VIDEO_MODEL_PREFERENCE, videoRunKey, type IImageStorageService, type VideoCreateSessionState } from '@prompt-optimizer/core'
 import { createTestPinia } from '../../../utils/pinia-test-helpers'
 import { setPiniaServices } from '../../../../src/plugins/pinia'
 import {
@@ -349,6 +349,60 @@ describe('video-create session', () => {
     expect(await store.saveSession()).toBe(false)
     expect(manager.saveFailures.get('video-create')).toBe('failed')
     expect(manager.hasUnsavedSessions).toBe(true)
+  })
+
+  it('blocks paid submission before calling the provider when the snapshot lacks headroom for the task ID', async () => {
+    const ctx = createWindow(new MemoryStorageProvider())
+    await ctx.preferences.set(VIDEO_MODEL_PREFERENCE, { model: SEEDANCE_MODEL, apiKey: 'test' })
+    const store = useVideoCreateSession(ctx.pinia)
+    await store.restoreSession()
+    store.state.originalPrompt = 'a'.repeat(MAX_VIDEO_SUBMIT_SNAPSHOT_BYTES)
+    store.state.optimizedPrompt = 'A short video prompt.'
+    const send = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(Response.json({ id: 'cgt-never' }))
+    await expect(store.submit(store.prepareRun(ark))).rejects.toThrow('video.error.save')
+    expect(send).not.toHaveBeenCalled()
+    expect(store.state.runs).toEqual([])
+  })
+
+  it.each([
+    ['corrupted schema', (storage: MemoryStorageProvider, preferences: PreferenceService) =>
+      preferences.set(VIDEO_CREATE_SESSION_KEY, { runs: [{ id: 'cgt-paid' }] })],
+    ['oversized snapshot', (storage: MemoryStorageProvider) =>
+      storage.setItem('pref:' + VIDEO_CREATE_SESSION_KEY, JSON.stringify({ originalPrompt: 'x'.repeat(1024 * 1024), runs: [{ id: 'cgt-paid' }] }))],
+  ])('allows backup import recovery when the video session has a %s', async (_label, seed) => {
+    const storage = new MemoryStorageProvider()
+    const preferences = new PreferenceService(storage)
+    const ctx = createTestPinia({
+      preferenceService: preferences,
+      imageStorageService: {
+        getImage: vi.fn(async () => null),
+        listAllMetadata: vi.fn(async () => []),
+        deleteImages: vi.fn(async () => {}),
+      } as unknown as IImageStorageService,
+    })
+    await seed(storage, preferences)
+    const rawBefore = await storage.getItem('pref:' + VIDEO_CREATE_SESSION_KEY)
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const manager = useSessionManager(ctx.pinia)
+    await manager.restoreAllSessions()
+    expect(consoleError).toHaveBeenCalled()
+    expect(useVideoCreateSession(ctx.pinia).hasInvalidSnapshot).toBe(true)
+
+    const release = await manager.beginSessionRestore()
+    try {
+      expect(await storage.getItem('pref:' + VIDEO_CREATE_SESSION_KEY)).toBe(rawBefore)
+      await new WorkspaceSessionTransfer(preferences).importData({
+        version: 1,
+        sessions: {
+          'video-create': { originalPrompt: 'Restored brief', optimizedPrompt: 'Restored prompt' },
+        },
+      })
+    } finally {
+      release()
+    }
+    expect(await preferences.get(VIDEO_CREATE_SESSION_KEY, null)).toEqual({
+      originalPrompt: 'Restored brief', optimizedPrompt: 'Restored prompt',
+    })
   })
 
   it('restores the persisted draft in another window', async () => {

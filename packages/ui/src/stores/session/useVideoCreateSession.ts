@@ -2,7 +2,7 @@ import { computed, ref, shallowRef, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { v4 as uuid } from 'uuid'
 import {
-  createDefaultVideoCreateState, createVideoService, readVideoSession, MAX_STORED_VIDEO_REFERENCES, VIDEO_CREATE_SESSION_KEY,
+  createDefaultVideoCreateState, createVideoService, readVideoSession, MAX_STORED_VIDEO_REFERENCES, MAX_VIDEO_SUBMIT_SNAPSHOT_BYTES, VIDEO_CREATE_SESSION_KEY,
   checkVideoInputCompatibility, getVideoModelSpec, resolveVideoParams, isVideoRunActive, pruneVideoRuns, videoRunKey, videoRunVariant, videoWireModel,
   type PromptRecord, type ImageInputRef, type VideoImageRef, type VideoModelSummary, type VideoParamValue,
   type VideoReferenceRole, type VideoRun, type VideoService, type VideoVariantId,
@@ -105,7 +105,8 @@ export const useVideoCreateSession = defineStore('video-create-session', () => {
   const snapshotContent = () => ({ ...state.value, runs: pruneVideoRuns(state.value.runs) })
   const writer = createSessionSnapshotWriter(snapshotContent)
   const imageLeases = new Set<() => void>()
-  let invalidSnapshot = false
+  const invalidSnapshot = ref(false)
+  const hasInvalidSnapshot = computed(() => invalidSnapshot.value)
   const reset = () => {
     state.value = createDefaultVideoCreateState()
     pollErrors.value.clear()
@@ -121,10 +122,10 @@ export const useVideoCreateSession = defineStore('video-create-session', () => {
       if (raw === null) reset()
       else state.value = readVideoSession(typeof raw === 'string' ? JSON.parse(raw) : raw)
     } catch (error) {
-      invalidSnapshot = true
+      invalidSnapshot.value = true
       throw error
     }
-    invalidSnapshot = false
+    invalidSnapshot.value = false
     const activeKeys = new Set(activeRuns.value.map(videoRunKey))
     for (const key of pollErrors.value.keys()) {
       if (!activeKeys.has(key)) pollErrors.value.delete(key)
@@ -135,7 +136,7 @@ export const useVideoCreateSession = defineStore('video-create-session', () => {
     const services = getPiniaServices()
     const service = services?.preferenceService
     if (!service) return false
-    if (!invalidSnapshot) {
+    if (!invalidSnapshot.value) {
       const pruned = pruneVideoRuns(state.value.runs)
       if (pruned.length < state.value.runs.length) state.value.runs = pruned
     }
@@ -143,7 +144,7 @@ export const useVideoCreateSession = defineStore('video-create-session', () => {
     const value = { ...copy(snapshotContent()), lastActiveAt: Date.now() }
     const leases = [...imageLeases]
     return runSessionWrite(service, async () => {
-      if (invalidSnapshot) return false
+      if (invalidSnapshot.value) return false
       await writer.write(service, VIDEO_CREATE_SESSION_KEY, value, captured)
       for (const release of leases) { imageLeases.delete(release); release() }
       if (services.imageStorageService) scheduleImageStorageGc(service, services.imageStorageService)
@@ -156,7 +157,7 @@ export const useVideoCreateSession = defineStore('video-create-session', () => {
     } catch (error) {
       const services = getPiniaServices()
       const prefs = services?.preferenceService
-      if (invalidSnapshot || !prefs?.compareAndSet || !hasSessionConflict(prefs, VIDEO_CREATE_SESSION_KEY)) throw error
+      if (invalidSnapshot.value || !prefs?.compareAndSet || !hasSessionConflict(prefs, VIDEO_CREATE_SESSION_KEY)) throw error
       const key = videoRunKey(before)
       const saved = await runSessionWrite(prefs, async () => {
         // Keep the other window's draft and retry if it changes again before CAS.
@@ -184,7 +185,7 @@ export const useVideoCreateSession = defineStore('video-create-session', () => {
           }
           // A provider ID can arrive after another window stopped tracking the pending request.
           current.id ??= run.id
-          if (invalidSnapshot) return false
+          if (invalidSnapshot.value) return false
           if (await prefs.compareAndSet!(VIDEO_CREATE_SESSION_KEY, raw, { ...latest, runs: pruneVideoRuns(runs) })) {
             Object.assign(run, taskFields(current))
             if (services?.imageStorageService) scheduleImageStorageGc(prefs, services.imageStorageService)
@@ -254,6 +255,9 @@ export const useVideoCreateSession = defineStore('video-create-session', () => {
       state.value.runs.unshift(copy({ ...draft, submittedAt: Date.now() }))
       const run = state.value.runs[0]
       try {
+        // Reserve headroom so the returned task ID and terminal metadata still fit under the snapshot cap.
+        const snapshotBytes = new TextEncoder().encode(JSON.stringify({ ...snapshotContent(), lastActiveAt: Date.now() })).byteLength
+        if (snapshotBytes > MAX_VIDEO_SUBMIT_SNAPSHOT_BYTES) throw new Error('video.error.save')
         if (!await saveSession()) throw new Error('video.error.save')
       } catch (error) {
         state.value.runs = state.value.runs.filter(item => videoRunKey(item) !== key)
@@ -334,6 +338,6 @@ export const useVideoCreateSession = defineStore('video-create-session', () => {
       evaluation: null, images: [], capabilityMode: 'text2video' })
   }
   return { state, versions, currentVersion, historyById, historyReady, activeImages, referenceImages, firstFrame, lastFrame, inputContext, resolveColumn, setColumnModel, setColumnParam, refreshHistory, reset, updateTemplate, updateIterateTemplate, applyPrompt, saveSession, restoreSession, addImages, resolveImages, prepareRun, submit, refresh, cancel, acknowledge,
-    activeRun, activeRuns, activeFor, displayStatus, canAcknowledge, isQuerying, pollErrors, busy, optimizing, iterating, querying, submitting }
+    activeRun, activeRuns, activeFor, displayStatus, canAcknowledge, isQuerying, pollErrors, hasInvalidSnapshot, busy, optimizing, iterating, querying, submitting }
 })
 export type VideoCreateSessionApi = ReturnType<typeof useVideoCreateSession>

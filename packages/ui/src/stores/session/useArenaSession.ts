@@ -39,7 +39,8 @@ export const useArenaSession = defineStore('arena-session', () => {
     const base = configurations.value.image.find(c => c.id === model.configKey)
     return base && services?.imageAdapterRegistry ? resolveRuntimeImageModel(base, { modelId: model.modelId, paramOverrides: model.paramOverrides }, services.imageAdapterRegistry) : undefined
   }
-  let invalidSnapshot = false
+  const invalidSnapshot = ref(false)
+  const hasInvalidSnapshot = computed(() => invalidSnapshot.value)
   let hydrating = false
   const pendingGcResumes = new Set<() => void>()
   const controllers = new Map<string, AbortController>()
@@ -52,7 +53,7 @@ export const useArenaSession = defineStore('arena-session', () => {
     const service = getPiniaServices()?.preferenceService
     if (!service) return false
     return trackSessionSave(service, 'arena', async () => {
-      if (invalidSnapshot) return false
+      if (invalidSnapshot.value) return false
       const releasable = [...pendingGcResumes]
       try {
         await writer.write(service, KEY, state.value)
@@ -78,11 +79,11 @@ export const useArenaSession = defineStore('arena-session', () => {
     let value: unknown
     try { value = typeof raw === 'string' ? JSON.parse(raw) : raw } catch { value = undefined }
     if (value !== null && !isArenaState(value)) {
-      invalidSnapshot = true
+      invalidSnapshot.value = true
       saveError.value = 'arena.invalidSession'
       throw new Error('arena.invalidSession')
     }
-    invalidSnapshot = false
+    invalidSnapshot.value = false
     hydrating = true
     state.value = value ? normalizeArenaState(copy(value as ReturnType<typeof createArenaState>)) : createArenaState()
     for (const result of Object.values(state.value.results)) {
@@ -273,6 +274,6 @@ export const useArenaSession = defineStore('arena-session', () => {
     if (hydrating) return
     state.value.lastActiveAt = Date.now()
   }, { deep: true, flush: 'sync' })
-  return { state, configurations, refreshConfigs, resolveConfig, running, lastActiveAt, saveError, saveSession, restoreSession,
+  return { state, configurations, refreshConfigs, resolveConfig, running, lastActiveAt, saveError, hasInvalidSnapshot, saveSession, restoreSession,
     isStale, resolveImages, addImages, replaceInput, busy, cancellable, run, runAll, stop, addContestant, removeContestant }
 })

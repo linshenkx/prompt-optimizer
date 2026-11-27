@@ -232,4 +232,16 @@ describe('Workspace session transfer in unified backups', () => {
     } })).rejects.toThrow('rollback failed')
     expect(await preferences.get('session/v1/basic-system', null)).toEqual({ ...first, prompt: 'newer independent commit' })
   })
+
+  it('recovers an oversized or unreadable stored session when importing a valid backup', async () => {
+    const key = 'pref:session/v1/video-create'
+    const oversized = JSON.stringify({ originalPrompt: 'x'.repeat(1024 * 1024), runs: [{ id: 'cgt-old' }] })
+    await storage.setItem(key, oversized)
+    const replacement = snapshotFor('video-create')
+    await new WorkspaceSessionTransfer(preferences).importData({
+      version: 1,
+      sessions: { 'video-create': replacement },
+    })
+    expect(await preferences.get('session/v1/video-create', null)).toEqual(replacement)
+  })
 })

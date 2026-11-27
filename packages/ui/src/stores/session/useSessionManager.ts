@@ -499,9 +499,13 @@ export const useSessionManager = defineStore('sessionManager', () => {
           // Old backups and favorites-only imports have no workspace snapshots.
           // Preserve all current drafts before any import can request a reload.
           // Only this checkpoint's permit may write while the stores are frozen.
+          const stores = getProjectionStoreMap()
           let saved = true
           for (const key of SESSION_SUB_MODE_KEYS) {
             if (cancelled) return
+            const store = stores[key]
+            // Preserve corrupted/oversized stored snapshots untouched without blocking backup recovery.
+            if ('hasInvalidSnapshot' in store && store.hasInvalidSnapshot) continue
             if (!await persistSession(key, writes.permit)) saved = false
           }
           if (!saved) throw new Error('Failed to save current workspaces before import')

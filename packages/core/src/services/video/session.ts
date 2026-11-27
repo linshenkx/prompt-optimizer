@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MAX_SESSION_SNAPSHOT_BYTES } from '../preference/service'
 import { getVideoModelSpec, MINIMAX_INTL_VIDEO_BASE_URL, videoUsageCost } from '../video-model/catalog'
 import { defaultVideoConfig, legacyVideoModelId } from '../video-model/manager'
 import { inferVideoCapabilityMode } from './params'
@@ -93,6 +94,8 @@ export type VideoRun = z.infer<typeof job>
 export const videoRunKey = (run: VideoRun) =>
   run.localId ?? JSON.stringify([run.configId, run.id, run.submittedAt])
 export const videoRunVariant = (run: VideoRun): VideoVariantId => run.variantId ?? 'b'
+export const VIDEO_SUBMIT_SNAPSHOT_HEADROOM_BYTES = 4096
+export const MAX_VIDEO_SUBMIT_SNAPSHOT_BYTES = MAX_SESSION_SNAPSHOT_BYTES - VIDEO_SUBMIT_SNAPSHOT_HEADROOM_BYTES
 export const isVideoRunActive = (run: VideoRun) =>
   ['submitting', 'unknown', 'queued', 'running'].includes(run.status)
 

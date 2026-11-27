@@ -189,20 +189,48 @@ export class WorkspaceSessionTransfer implements IImportExportable {
   async importData(data: unknown): Promise<void> {
     this.assertValidData(data)
     const entries = Object.entries(data.sessions) as [LegacySessionSubModeKey, Snapshot][]
-    const previous = new Map<string, unknown>()
+    type PreviousSnapshot =
+      | { ok: true; value: unknown }
+      | { ok: false; removeIfUnchanged?: () => Promise<boolean> }
+    const previous = new Map<string, PreviousSnapshot>()
     // Read every original before the first write; validation or read failure cannot partially overwrite drafts.
     for (const [mode] of entries) {
       const key = sessionKey(mode)
-      previous.set(key, await this.preferences.get<unknown>(key, null))
+      if (this.preferences.readSnapshot) {
+        const snap = await this.preferences.readSnapshot<unknown>(key, null)
+        previous.set(key, snap.result.ok
+          ? { ok: true, value: snap.result.value }
+          : { ok: false, removeIfUnchanged: snap.removeIfUnchanged })
+      } else {
+        try {
+          previous.set(key, { ok: true, value: await this.preferences.get<unknown>(key, null) })
+        } catch {
+          previous.set(key, { ok: false })
+        }
+      }
     }
+    const orderedEntries = [
+      ...entries.filter(([mode]) => previous.get(sessionKey(mode))!.ok),
+      ...entries.filter(([mode]) => !previous.get(sessionKey(mode))!.ok),
+    ]
     const attempted: string[] = []
     const imported = new Map(entries.map(([mode, snapshot]) => [sessionKey(mode), snapshot]))
     try {
-      for (const [mode, snapshot] of entries) {
+      for (const [mode, snapshot] of orderedEntries) {
         const key = sessionKey(mode)
+        const original = previous.get(key)!
         if (this.preferences.compareAndSet) {
-          if (!await this.preferences.compareAndSet(key, previous.get(key), snapshot)) {
-            throw new Error('Workspace changed in another window during import')
+          if (original.ok) {
+            if (!await this.preferences.compareAndSet(key, original.value, snapshot)) {
+              throw new Error('Workspace changed in another window during import')
+            }
+          } else {
+            if (!original.removeIfUnchanged || !await original.removeIfUnchanged()) {
+              throw new Error('Workspace changed in another window during import')
+            }
+            if (!await this.preferences.compareAndSet(key, null, snapshot)) {
+              throw new Error('Workspace changed in another window during import')
+            }
           }
           attempted.push(key)
         } else {
@@ -214,13 +242,14 @@ export class WorkspaceSessionTransfer implements IImportExportable {
       const rollbackErrors: string[] = []
       for (const key of attempted.reverse()) {
         try {
-          const original = previous.get(key)
+          const original = previous.get(key)!
+          if (!original.ok) continue
           if (this.preferences.compareAndSet) {
-            if (!await this.preferences.compareAndSet(key, imported.get(key), original ?? null)) {
+            if (!await this.preferences.compareAndSet(key, imported.get(key), original.value ?? null)) {
               throw new Error('Workspace changed after import; rollback must not overwrite it')
             }
-          } else if (original === null || original === undefined) await this.preferences.delete(key)
-          else await this.preferences.set(key, original)
+          } else if (original.value === null || original.value === undefined) await this.preferences.delete(key)
+          else await this.preferences.set(key, original.value)
         } catch { rollbackErrors.push(key) }
       }
       if (rollbackErrors.length) {
