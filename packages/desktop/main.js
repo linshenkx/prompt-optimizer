@@ -1409,6 +1409,18 @@ function setupIPC() {
     const usesNetwork = ['testConnection', 'create', 'query', 'cancel'].includes(method);
     ipcMain.handle('video-' + method, usesNetwork ? withModelNetwork(handle, method === 'testConnection') : handle);
   }
+  ipcMain.handle('video-downloadResult', (event, url) => {
+    try {
+      if (!mainWindow || event.sender !== mainWindow.webContents || !event.senderFrame ||
+          event.senderFrame !== event.sender.mainFrame || typeof url !== 'string') throw new Error();
+      const destination = new URL(url);
+      if (destination.protocol !== 'https:' || destination.username || destination.password) throw new Error();
+      event.sender.downloadURL(url);
+      return createSuccessResponse(null);
+    } catch {
+      return createErrorResponse(new Error('Could not start video download'));
+    }
+  });
 
   // ===== Image Service handlers =====
   ipcMain.handle('image-generate', withModelNetwork(async (e, request) => {

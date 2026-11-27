@@ -78,7 +78,7 @@ export default {
     "submission": "Submitted prompt and settings",
     "unknownHint": "The provider may have received this request. Check the provider console before starting another paid test.",
     "acknowledge": "I checked the provider console",
-    "downloadFallback": "The download could not be started. Open the video and use your browser’s save option.",
+    "downloadFallback": "Use Open video to save the file from the browser player.",
     "roles": {
       "reference_image": "Reference image",
       "first_frame": "First frame",

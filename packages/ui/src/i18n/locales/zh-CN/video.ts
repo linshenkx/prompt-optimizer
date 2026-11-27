@@ -78,7 +78,7 @@ export default {
     "submission": "查看本次提交的提示词和参数",
     "unknownHint": "服务商可能已经收到请求。再次付费生成前请先查看服务商控制台。",
     "acknowledge": "已查看服务商控制台",
-    "downloadFallback": "下载未能开始，可打开视频后使用浏览器的保存功能。",
+    "downloadFallback": "请点击「打开视频」，从浏览器播放器中保存文件。",
     "roles": {
       "reference_image": "参考图",
       "first_frame": "首帧",

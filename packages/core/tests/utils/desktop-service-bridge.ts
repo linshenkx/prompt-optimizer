@@ -10,7 +10,7 @@ const desktopFile = (name: string) => readFileSync(
 )
 
 /** Execute the real preload and service handlers; only Electron's transport is simulated. */
-export function createDesktopServiceBridge(services: Record<string, unknown>): unknown {
+export function createDesktopServiceBridge(services: Record<string, unknown>, event: unknown = null): unknown {
   const source = desktopFile('main.js')
   const handlers = new Map<string, (...args: unknown[]) => Promise<unknown>>()
   const serializerStart = source.search(/function safeSerialize\(|const safeSerialize =/)
@@ -27,6 +27,7 @@ export function createDesktopServiceBridge(services: Record<string, unknown>): u
   ].join('\n'), {
     preferenceService: undefined,
     createVideoService,
+    URL,
     ...services,
     safeSerializeForIPC,
     ipcMain: { handle: (channel: string, handler: (...args: unknown[]) => Promise<unknown>) => handlers.set(channel, handler), on: () => {} },
@@ -52,7 +53,7 @@ export function createDesktopServiceBridge(services: Record<string, unknown>): u
             const handler = handlers.get(channel)
             if (!handler) throw new Error(`Desktop handler not registered: ${channel}`)
             // Electron IPC copies plain values with V8 structured-clone semantics, including undefined.
-            const result = await handler(null, ...deserialize(serialize(args)))
+            const result = await handler(event, ...deserialize(serialize(args)))
             return deserialize(serialize(result))
           },
         },

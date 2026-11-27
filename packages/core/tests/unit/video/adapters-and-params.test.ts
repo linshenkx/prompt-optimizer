@@ -139,6 +139,23 @@ describe('provider adapters', () => {
     expect(await service.getConfig(config.id)).toEqual(config)
   })
 
+  it('uses the desktop download manager for video results from the app frame', async () => {
+    const mainFrame = {}
+    const downloadURL = vi.fn()
+    const sender = { mainFrame, downloadURL }
+    const services = { mainWindow: { webContents: sender } }
+    type DownloadBridge = { video: { downloadResult(url: string): Promise<void> } }
+    const { video } = createDesktopServiceBridge(services, { sender, senderFrame: mainFrame }) as DownloadBridge
+    const url = 'https://cdn.example.test/video.mp4?signature=a%2Fb%2B%3D'
+    await video.downloadResult(url)
+    await expect(video.downloadResult('file:///local.mp4')).rejects.toMatchObject({ message: 'Could not start video download' })
+    await expect(video.downloadResult('https://name:secret@cdn.example.test/video.mp4'))
+      .rejects.toMatchObject({ message: 'Could not start video download' })
+    const child = createDesktopServiceBridge(services, { sender, senderFrame: {} }) as DownloadBridge
+    await expect(child.video.downloadResult(url)).rejects.toMatchObject({ message: 'Could not start video download' })
+    expect(downloadURL.mock.calls).toEqual([[url]])
+  })
+
   it('creates BytePlus Dreamina tasks and migrates legacy MiniMax international configs', async () => {
     const { service, config, send, create, calls } = await fixture(BYTEPLUS_SEEDANCE_FLAGSHIP, BYTEPLUS_VIDEO_BASE_URL, 'byteplus')
     send.mockResolvedValueOnce(Response.json({ id: 'bp-id' }))

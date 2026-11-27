@@ -38,9 +38,15 @@ test('author, edit and test a video prompt, then resume the paid task after a re
       content:complete?{video_url:'https://video-test.invalid/clip.mp4'}:{}}})
   })
   const mp4 = await readFile('tests/e2e/fixtures/video-preview.mp4')
+  let allowVideoFetch = true
+  let sendAttachment = true
   await page.context().route('https://video-test.invalid/clip.mp4', route => route.fulfill({
     status: 200, contentType: 'video/mp4', body: mp4,
-    headers: { 'cache-control': 'no-store', 'access-control-allow-origin': '*' },
+    headers: {
+      'cache-control': 'no-store',
+      'access-control-allow-origin': allowVideoFetch ? '*' : 'https://other.invalid',
+      ...(sendAttachment && route.request().isNavigationRequest() && { 'content-disposition': 'attachment; filename="provider-clip.mp4"' }),
+    },
   }))
   await page.goto('/')
   await page.getByTestId('function-mode-video').click()
@@ -150,11 +156,26 @@ test('author, edit and test a video prompt, then resume the paid task after a re
   })
   await expect.poll(() => player.evaluate(el => (el as HTMLVideoElement).currentTime)).toBeGreaterThan(0.2)
   await player.evaluate(el => (el as HTMLVideoElement).pause())
+  const downloadButton = page.getByRole('button', { name: /下载 MP4|下載 MP4|Download MP4/i })
   const download = page.waitForEvent('download')
-  await page.getByRole('button', {name:/下载 MP4|下載 MP4|Download MP4/i}).click()
+  await downloadButton.click()
   const file = await download
   expect(file.suggestedFilename()).toBe('cgt-e2e.mp4')
   expect(await readFile((await file.path())!)).toEqual(mp4)
+  allowVideoFetch = false
+  const deniedFetch = page.waitForEvent('requestfailed', request => request.url() === 'https://video-test.invalid/clip.mp4')
+  const nativeDownload = page.waitForEvent('download', { timeout: 8000 })
+  await downloadButton.click()
+  await deniedFetch
+  const nativeFile = await nativeDownload
+  expect(nativeFile.suggestedFilename()).toBe('provider-clip.mp4')
+  expect(await readFile((await nativeFile.path())!)).toEqual(mp4)
+  sendAttachment = false
+  const openedVideo = page.waitForEvent('popup', { timeout: 8000 })
+  await downloadButton.click()
+  const videoTab = await openedVideo
+  await expect(videoTab.locator('video')).toBeVisible()
+  await videoTab.close()
   await page.screenshot({path:info.outputPath('video-desktop.png')})
   await page.setViewportSize({width:390,height:844})
   await expect(brief).toBeVisible()

@@ -78,7 +78,7 @@ export default {
     "submission": "檢視本次提交的提示詞和參數",
     "unknownHint": "服務商可能已收到請求。再次付費產生前請先查看服務商控制台。",
     "acknowledge": "已查看服務商控制台",
-    "downloadFallback": "下載未能開始，可開啟影片後使用瀏覽器的儲存功能。",
+    "downloadFallback": "請按一下「開啟影片」，從瀏覽器播放器中儲存檔案。",
     "roles": {
       "reference_image": "參考圖",
       "first_frame": "首幀",

@@ -85,22 +85,40 @@ const missingUsage = computed(() => props.status === 'succeeded' && !!spec.value
 const supportsCancel = computed(() => spec.value?.capabilities.supportsCancel)
 const modelName = computed(() => props.run?.modelName || spec.value?.name || props.run?.model)
 const downloading = ref(false)
+const clickDownloadLink = (url: string, filename: string, external = false) => {
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  if (external) {
+    link.target = '_blank'
+    link.rel = 'noopener noreferrer'
+  }
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+}
 const download = async () => {
-  const item = props.run
-  if (!item?.videoUrl || downloading.value) return
+  const run = props.run
+  if (!run?.videoUrl || downloading.value) return
+  const { videoUrl } = run
+  const filename = (run.id ?? 'video') + '.mp4'
   downloading.value = true
   try {
-    const response = await fetch(item.videoUrl)
+    if (window.electronAPI?.video?.downloadResult) {
+      await window.electronAPI.video.downloadResult(videoUrl)
+      return
+    }
+    // Playback can cache a non-CORS response. Ask for a fresh response with Origin.
+    const response = await fetch(videoUrl, { cache: 'no-store' })
     if (!response.ok) throw new Error(String(response.status))
     const url = URL.createObjectURL(await response.blob())
-    const link = document.createElement('a')
-    link.href = url
-    link.download = (item.id ?? 'video') + '.mp4'
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
+    clickDownloadLink(url, filename)
     setTimeout(() => URL.revokeObjectURL(url), 1000)
-  } catch { toast.error(t('video.downloadFallback')) } finally { downloading.value = false }
+  } catch {
+    // Browsers can deny a new tab if the request outlasted the user's click.
+    if (navigator.userActivation?.isActive === false) toast.warning(t('video.downloadFallback'))
+    else clickDownloadLink(videoUrl, filename, true)
+  } finally { downloading.value = false }
 }
 </script>
 
