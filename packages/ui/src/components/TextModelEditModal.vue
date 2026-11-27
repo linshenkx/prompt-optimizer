@@ -553,7 +553,7 @@ const currentProviderHint = computed(() => {
     return t('modelManager.provider.customApiHint')
   }
 
-  if (provider.id === 'magpie' || provider.id === 'ollama') {
+  if (provider.id === 'magpie' || provider.id === 'ollama' || provider.id === 'rapid-mlx') {
     return t(`modelManager.localProviderHelp.${provider.id}Hint`)
   }
 

@@ -72,6 +72,8 @@ Select its provider in the **Add** form, enter its API key, choose a model avail
 
 For Ollama, select the built-in **Ollama** provider. Start Ollama and install a model first, then choose one of the models available on your computer. The default URL is usually `http://localhost:11434/v1`; an API key is generally not required.
 
+For Apple Silicon, choose the built-in **Rapid-MLX** provider and start `rapid-mlx serve qwen3.5-4b-4bit --port 8000`. Use `http://localhost:8000/v1`, fetch models, and select `qwen3.5-4b-4bit`. Leave API Key blank unless the server uses `--api-key`. The web version requires adding `--cors-origins <the page origin>` to the serve command (scheme, host and port, without a path); cross-origin browser access is disabled by default. The desktop app needs no CORS option.
+
 For LM Studio or another OpenAI-compatible service, select **OpenAI Compatible (Custom)**. Enter the service's actual URL, model ID, and any required key. The [desktop app](../deployment/desktop.md) is the easier choice for local or private-network HTTP services; a browser may block those requests.
 
 ### Image and function models

@@ -16,15 +16,15 @@
         <p>{{ t(`modelManager.localProviderHelp.${system === 'windows' ? 'windowsPath' : 'unixPath'}`) }}</p>
         <p>{{ t('modelManager.localProviderHelp.magpieCors') }}</p>
       </template>
-      <template v-else-if="helpKind === 'ollama'">
-        <p>{{ t('modelManager.localProviderHelp.ollamaAuth') }}</p>
-        <p>{{ t('modelManager.localProviderHelp.ollamaCors') }}</p>
+      <template v-else-if="helpKind === 'ollama' || helpKind === 'rapid-mlx'">
+        <p>{{ t(`modelManager.localProviderHelp.${helpKind}Auth`) }}</p>
+        <p>{{ t(`modelManager.localProviderHelp.${helpKind}Cors`) }}</p>
       </template>
       <template v-else-if="extraHelp">
         <p v-for="part in ['setup', 'auth', 'web']" :key="part">{{ t(`modelManager.localProviderHelp.services.${extraHelp.key}.${part}`) }}</p>
       </template>
       <p v-if="webOrigin">{{ t('modelManager.localProviderHelp.currentOrigin') }} <code>{{ webOrigin }}</code></p>
-      <a :href="extraHelp?.docs ?? (helpKind === 'magpie' ? 'https://usemagpie.ai/docs/remote' : 'https://docs.ollama.com/faq#how-can-i-allow-additional-web-origins-to-access-ollama')" target="_blank" rel="noopener noreferrer">
+      <a :href="extraHelp?.docs ?? (helpKind === 'rapid-mlx' ? 'https://github.com/raullenchai/Rapid-MLX' : helpKind === 'magpie' ? 'https://usemagpie.ai/docs/remote' : 'https://docs.ollama.com/faq#how-can-i-allow-additional-web-origins-to-access-ollama')" target="_blank" rel="noopener noreferrer">
         {{ t('modelManager.localProviderHelp.docs') }}
       </a>
     </div>
@@ -46,7 +46,7 @@ const services = {
   llamacpp: { name: 'llama.cpp', key: 'llamacpp', docs: 'https://github.com/ggml-org/llama.cpp/tree/master/tools/server#readme' },
 } as const
 const helpKind = computed(() => {
-  if (props.providerId === 'magpie' || props.providerId === 'ollama') return props.providerId
+  if (props.providerId === 'magpie' || props.providerId === 'ollama' || props.providerId === 'rapid-mlx') return props.providerId
   const kind = props.serviceKind
   if (typeof kind !== 'string' || !Object.prototype.hasOwnProperty.call(services, kind)) return ''
   if (props.providerId === 'openai-compatible') return kind

@@ -13,4 +13,6 @@ Start in **Model Manager** and click **Test Connection** for the model you are t
 
 For Ollama, start the local service and choose the built-in **Ollama** provider. Its usual URL is `http://localhost:11434/v1`; choose a model that is actually installed. For LM Studio or another compatible local server, choose **OpenAI Compatible (Custom)** and enter its real URL and model ID.
 
+For Apple Silicon, choose the built-in **Rapid-MLX** provider and start `rapid-mlx serve qwen3.5-4b-4bit --port 8000`. Use `http://localhost:8000/v1`, fetch models, and select `qwen3.5-4b-4bit`. Leave API Key blank unless the server uses `--api-key`. The web version requires adding `--cors-origins <the page origin>` to the serve command (scheme, host and port, without a path); cross-origin browser access is disabled by default. The desktop app needs no CORS option.
+
 See [Model Management](../basic/models.md) for setup. If the model connects but a button is unavailable, use [Troubleshooting](troubleshooting.md).

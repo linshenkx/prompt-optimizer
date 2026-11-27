@@ -198,7 +198,7 @@ export function useTextModelManager() {
       type: schema.fieldTypes[fieldName] || 'string',
       placeholder: fieldName === 'baseURL' ? provider.defaultBaseURL
         : fieldName === 'apiKey' && provider.id === 'magpie' ? t('modelManager.localProviderHelp.magpieKeyPlaceholder')
-          : fieldName === 'apiKey' && provider.id === 'ollama' ? t('modelManager.localProviderHelp.ollamaKeyPlaceholder')
+          : fieldName === 'apiKey' && (provider.id === 'ollama' || provider.id === 'rapid-mlx') ? t(`modelManager.localProviderHelp.${provider.id}KeyPlaceholder`)
             : fieldName === 'apiKey' && localServiceDraft.value ? localApiKeyHint.value : '',
       options: fieldName === 'requestStyle'
         ? [

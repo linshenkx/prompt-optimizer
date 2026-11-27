@@ -73,6 +73,10 @@ Model: qwen2.5:7b
 API Key: usually can be left empty
 ```
 
+#### Rapid-MLX
+
+For Apple Silicon, choose the built-in **Rapid-MLX** provider and start `rapid-mlx serve qwen3.5-4b-4bit --port 8000`. Use `http://localhost:8000/v1`, fetch models, and select `qwen3.5-4b-4bit`. Leave API Key blank unless the server uses `--api-key`. The web version requires adding `--cors-origins <the page origin>` to the serve command (scheme, host and port, without a path); cross-origin browser access is disabled by default. The desktop app needs no CORS option.
+
 #### LM Studio
 
 ```text

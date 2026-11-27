@@ -67,6 +67,16 @@ describe('ProviderPillSelect', () => {
     ])
   })
 
+  it('places Rapid-MLX next to Ollama as a visible provider', () => {
+    const wrapper = mountComponent({
+      value: 'rapid-mlx',
+      options: [...options, { label: 'Rapid-MLX', value: 'rapid-mlx' }]
+    })
+    expect(wrapper.findAll('button[role="radio"]').map(button => button.text()))
+      .toEqual(['OpenAI', 'Ollama', 'Rapid-MLX', 'Custom API'])
+    expect(wrapper.find('button[aria-checked="true"]').text()).toBe('Rapid-MLX')
+  })
+
   it('emits updates only for enabled non-current options', async () => {
     const wrapper = mountComponent({
       value: 'openai',

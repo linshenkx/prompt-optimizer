@@ -73,6 +73,10 @@ Base URL：http://localhost:11434/v1
 API Key：通常可留空
 ```
 
+#### Rapid-MLX
+
+Apple Silicon 用户可选择内置 **Rapid-MLX** 提供商，运行 `rapid-mlx serve qwen3.5-4b-4bit --port 8000`，地址使用 `http://localhost:8000/v1`，获取模型列表后选择 `qwen3.5-4b-4bit`。API Key 默认留空，仅在服务端使用 `--api-key` 时填写。网页版需在启动命令中添加 `--cors-origins <当前网页来源>`（协议、域名和端口，不含路径）；默认禁用浏览器跨域访问。桌面应用无需添加 CORS 选项。
+
 #### LM Studio
 
 ```text

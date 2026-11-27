@@ -49,6 +49,15 @@ describe('provider connection help', () => {
     wrapper.unmount()
   })
 
+  it('explains Rapid-MLX authentication and the required browser origin option', () => {
+    const wrapper = render('rapid-mlx')
+    expect(wrapper.text()).toContain('--api-key')
+    expect(wrapper.text()).toContain('--cors-origins followed by the current page origin')
+    expect(wrapper.text()).toContain('desktop app needs no CORS option')
+    expect(wrapper.get('a').attributes('href')).toBe('https://github.com/raullenchai/Rapid-MLX')
+    wrapper.unmount()
+  })
+
   it('does not show local gateway instructions for other providers', () => {
     const wrapper = render('openai-compatible')
     expect(wrapper.find('details').exists()).toBe(false)

@@ -72,6 +72,8 @@ Prompt Optimizer 使用你接入的模型来分析、优化和测试提示词。
 
 使用 Ollama 时，选择内置的 **Ollama** 提供商；启动 Ollama 并安装模型后，在表单中选择本机已有的模型。默认地址通常是 `http://localhost:11434/v1`，一般不需要 API Key。具体模型名称以本机实际安装列表为准。
 
+Apple Silicon 用户可选择内置 **Rapid-MLX** 提供商，运行 `rapid-mlx serve qwen3.5-4b-4bit --port 8000`，地址使用 `http://localhost:8000/v1`，获取模型列表后选择 `qwen3.5-4b-4bit`。API Key 默认留空，仅在服务端使用 `--api-key` 时填写。网页版需在启动命令中添加 `--cors-origins <当前网页来源>`（协议、域名和端口，不含路径）；默认禁用浏览器跨域访问。桌面应用无需添加 CORS 选项。
+
 LM Studio 或其他 OpenAI 兼容服务可选 **OpenAI 兼容（自定义）**，填服务实际提供的地址、模型 ID，以及服务要求的密钥。连接本机或局域网 HTTP 服务时，优先使用[桌面应用](../deployment/desktop.md)；浏览器版可能受到网络与跨域限制。
 
 ### 图像与功能模型

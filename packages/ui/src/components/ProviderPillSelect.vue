@@ -117,6 +117,7 @@ const providerOrder = [
   'zhipuai',
   'chrome-built-in',
   'ollama',
+  'rapid-mlx',
   'magpie',
   'seedream',
   'volcengine',

@@ -21,6 +21,7 @@ const PROVIDER_ENV_KEYS = {
   openrouter: ['VITE_OPENROUTER_API_KEY'],
   modelscope: ['VITE_MODELSCOPE_API_KEY'],
   ollama: [],
+  'rapid-mlx': [],
   minimax: ['VITE_MINIMAX_API_KEY'],
   cloudflare: ['VITE_CF_API_TOKEN'],
   grok: ['VITE_GROK_API_KEY', 'VITE_XAI_API_KEY'],
@@ -38,6 +39,7 @@ const PROVIDER_EXTRA_CONNECTION_ENV_KEYS: Record<string, Record<string, string[]
 
 const PROVIDER_REQUIRED_CONNECTION_FIELDS: Record<string, string[]> = {
   ollama: [],
+  'rapid-mlx': [],
   cloudflare: ['apiKey', 'accountId']
 };
 

@@ -150,11 +150,7 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
 
       // 检查返回格式
       if (response && response.data && Array.isArray(response.data)) {
-        const models = response.data
-          .map((model) => {
-            // 使用buildDefaultModel为每个模型ID创建TextModel对象
-            return this.buildDefaultModel(model.id)
-          })
+        const models = this.buildDynamicModels(response.data)
           .sort((a, b) => a.id.localeCompare(b.id))
 
         if (models.length === 0) {
@@ -188,6 +184,11 @@ export class OpenAIAdapter extends AbstractTextProviderAdapter {
       // 其他错误,保持原始信息
       throw new APIError(error.message || 'Unknown error')
     }
+  }
+
+  /** Map API model cards; compatible providers may filter or enrich them. */
+  protected buildDynamicModels(models: OpenAI.Models.Model[]): TextModel[] {
+    return models.map(model => this.buildDefaultModel(model.id))
   }
 
   // ===== 参数定义（用于buildDefaultModel） =====
