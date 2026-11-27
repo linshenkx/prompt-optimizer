@@ -143,7 +143,9 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
             const rootTemplate = chain.rootRecord.templateId
             if (rootTemplate && rootTemplate !== 'video-create') store.updateTemplate(rootTemplate)
             if (record.type === 'iterate' && record.templateId) store.updateIterateTemplate(record.templateId)
-            await store.saveSession()
+            if (!await store.saveSession()) {
+                toast.warning(t('toast.warning.saveHistoryFailed'))
+            }
             return
         }
 

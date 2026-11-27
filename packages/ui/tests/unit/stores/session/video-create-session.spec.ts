@@ -405,6 +405,33 @@ describe('video-create session', () => {
     })
   })
 
+  it('allows local untracking of imported active tasks in the browser extension', async () => {
+    const storage = new MemoryStorageProvider()
+    const ctx = createWindow(storage)
+    await ctx.preferences.set(VIDEO_CREATE_SESSION_KEY, {
+      originalPrompt: 'Imported brief',
+      optimizedPrompt: 'Imported prompt',
+      runs: [{
+        id: 'cgt-ext-imported', status: 'running', variantId: 'b',
+        prompt: 'Imported prompt', model: SEEDANCE_MODEL, params: {}, images: [], submittedAt: 1,
+      }],
+    })
+    const store = useVideoCreateSession(ctx.pinia)
+    await store.restoreSession()
+    const run = store.activeRun!
+    expect(store.canAcknowledge(run)).toBe(false)
+
+    vi.stubGlobal('location', { protocol: 'chrome-extension:' })
+    try {
+      expect(store.canAcknowledge(run)).toBe(true)
+      await store.acknowledge(run)
+      expect(store.activeRun).toBeUndefined()
+      expect(store.state.runs[0]).toMatchObject({ id: 'cgt-ext-imported', status: 'untracked' })
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('restores the persisted draft in another window', async () => {
     const storage = new MemoryStorageProvider()
     const first = createWindow(storage)

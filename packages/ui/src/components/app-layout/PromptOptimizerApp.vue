@@ -2180,7 +2180,7 @@ watch(() => sessionManager.hasUnsavedSessions, unsaved => {
 // Optional Web/PWA host API. No service worker or browser update state enters UI stores.
 const arenaSession = useArenaSession();
 const videoSession = useVideoCreateSession();
-const isWorkspaceBusy = () => !isReady.value || arenaSession.running || videoSession.busy || videoSession.querying || !!videoSession.activeRun ||
+const isWorkspaceBusy = () => !isReady.value || arenaSession.running || videoSession.busy || videoSession.querying || (!isVideoExtension() && !!videoSession.activeRun) ||
   hasSessionConflicts(services.value?.preferenceService) ||
   !!activeWorkspaceRef.value?.isUpdateBusy?.();
 const prepareSessionRestore = async (): Promise<(() => void) | null> => {

@@ -32,7 +32,7 @@
       <NButton v-if="!extension && status !== 'untracked' && run.id && (['queued', 'running'].includes(status) || expired || missingUsage)"
         size="tiny" :loading="querying" @click="emit('refresh', run)">{{ t(missingUsage && !expired ? 'video.refreshUsage' : 'video.refresh') }}</NButton>
       <NButton v-if="!extension && status === 'queued' && supportsCancel" size="tiny" :disabled="querying" @click="emit('cancel', run)">{{ t('video.cancel') }}</NButton>
-      <NButton v-if="!extension && canAcknowledge" size="tiny" @click="emit('acknowledge', run)">{{ t('video.acknowledge') }}</NButton>
+      <NButton v-if="canAcknowledge" size="tiny" @click="emit('acknowledge', run)">{{ t('video.acknowledge') }}</NButton>
     </NFlex>
     <details v-if="run">
       <summary>{{ t('video.submission') }}</summary>

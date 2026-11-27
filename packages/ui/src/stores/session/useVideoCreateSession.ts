@@ -101,7 +101,7 @@ export const useVideoCreateSession = defineStore('video-create-session', () => {
   const activeRun = computed(() => activeRuns.value[0])
   const activeFor = (id: VideoVariantId) => activeRuns.value.find(run => videoRunVariant(run) === id)
   const canAcknowledge = (run: VideoRun) => !isQuerying(run) && (displayStatus(run) === 'unknown' ||
-    (['queued', 'running'].includes(run.status) && pollErrors.value.has(videoRunKey(run))))
+    (['queued', 'running'].includes(run.status) && (pollErrors.value.has(videoRunKey(run)) || isVideoExtension())))
   const snapshotContent = () => ({ ...state.value, runs: pruneVideoRuns(state.value.runs) })
   const writer = createSessionSnapshotWriter(snapshotContent)
   const imageLeases = new Set<() => void>()
