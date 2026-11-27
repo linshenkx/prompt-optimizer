@@ -2,9 +2,10 @@ import { computed, ref, shallowRef, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { v4 as uuid } from 'uuid'
 import {
-  createDefaultVideoCreateState, createSeedanceService, isVideoParams, readVideoSession, videoReferenceError, VIDEO_CREATE_SESSION_KEY,
-  ARK_VIDEO_BASE_URL, seedancePromptText, videoRunKey, videoRunVariant, videoTokenRate,
-  type PromptRecord, type ImageInputRef, type VideoImageRef, type VideoParams, type VideoRun, type VideoService, type VideoVariantId,
+  createDefaultVideoCreateState, createVideoService, readVideoSession, MAX_STORED_VIDEO_REFERENCES, VIDEO_CREATE_SESSION_KEY,
+  checkVideoInputCompatibility, getVideoModelSpec, resolveVideoParams, videoRunKey, videoRunVariant, videoWireModel,
+  type PromptRecord, type ImageInputRef, type VideoImageRef, type VideoModelSummary, type VideoParamValue,
+  type VideoReferenceRole, type VideoRun, type VideoService, type VideoVariantId,
 } from '@prompt-optimizer/core'
 import { getPiniaServices } from '../../plugins/pinia'
 import { persistImagePayloadAsAssetId } from '../../utils/image-asset-storage'
@@ -19,8 +20,11 @@ export const isVideoExtension = () => typeof location !== 'undefined' && ['chrom
 export function getVideoService(): VideoService {
   const preferences = getPiniaServices()?.preferenceService
   if (!preferences || isVideoExtension()) throw new Error('video.error.unavailable')
-  return window.electronAPI?.video ?? createSeedanceService(preferences)
+  return window.electronAPI?.video ?? createVideoService(preferences)
 }
+type VideoRunDraft = Omit<VideoRun, 'submittedAt'> & { localId: string }
+const runIdentity = ({ providerId, modelId, configModelId }: VideoRun) => ({ providerId, modelId, configModelId })
+
 export const useVideoCreateSession = defineStore('video-create-session', () => {
   const state = ref(createDefaultVideoCreateState())
   const history = shallowRef<PromptRecord[]>([])
@@ -55,15 +59,30 @@ export const useVideoCreateSession = defineStore('video-create-session', () => {
     const chainId = currentVersion.value?.chainId ?? state.value.currentChainId
     return chainId ? history.value.filter(record => record.chainId === chainId).sort((a, b) => a.version - b.version) : []
   })
-  const draftParams = computed(() => {
-    const recorded = currentVersion.value?.metadata?.videoParams
-    return state.value.draftParams ?? (isVideoParams(recorded) ? recorded : undefined)
+  const referenceImages = computed(() => state.value.images.filter(image => image.role === 'reference_image'))
+  const firstFrame = computed(() => state.value.images.find(image => image.role === 'first_frame'))
+  const lastFrame = computed(() => state.value.images.find(image => image.role === 'last_frame'))
+  const activeImages = computed(() => {
+    if (state.value.capabilityMode === 'references') return referenceImages.value
+    if (state.value.capabilityMode === 'frames') return [firstFrame.value, lastFrame.value].filter(image => image !== undefined)
+    return []
   })
-  const updateParams = (change: Partial<VideoParams>) => {
-    const draft = state.value
-    // Older pasted drafts have no recorded settings. Remember the settings the user is changing.
-    if (draft.optimizedPrompt.trim() && !draftParams.value) draft.draftParams = { ...draft.params }
-    Object.assign(draft.params, change)
+  const inputContext = computed(() => ({ mode: state.value.capabilityMode, images: activeImages.value }))
+  const resolveColumn = (id: VideoVariantId, model?: VideoModelSummary) => {
+    const spec = model && getVideoModelSpec(model.modelId, model.providerId)
+    return spec ? resolveVideoParams(spec, state.value.columns[id].params, inputContext.value)
+      : { params: state.value.columns[id].params, definitions: [] }
+  }
+  const setColumnModel = (id: VideoVariantId, model: VideoModelSummary, configModelId?: string) => {
+    const column = state.value.columns[id]
+    column.configId = model.id
+    column.modelId = configModelId ? model.modelId : undefined
+    column.params = resolveColumn(id, model).params
+  }
+  const setColumnParam = (id: VideoVariantId, model: VideoModelSummary, key: string, value: VideoParamValue) => {
+    const column = state.value.columns[id]
+    column.params = { ...resolveColumn(id, model).params, [key]: value }
+    column.params = resolveColumn(id, model).params
   }
   const submittingKey = ref<string>()
   const submitting = computed(() => !!submittingKey.value)
@@ -103,17 +122,27 @@ export const useVideoCreateSession = defineStore('video-create-session', () => {
       for (const release of leases) { imageLeases.delete(release); release() }
     }, permit, 'video-create')
   }
-  const addImages = async (images: { name: string; payload: ImageInputRef }[]) => {
+  const addImages = async (images: { name: string; payload: ImageInputRef }[], role: VideoReferenceRole = 'reference_image') => {
+    if (!images.length) return
+    const draft = state.value
     const release = pauseImageStorageGc()
     try {
       const refs = await queueImageStorageMaintenance(async () => Promise.all(images.map(async ({ name, payload }) => {
         const id = await persistImagePayloadAsAssetId({ payload: { ...payload, mimeType: payload.mimeType || 'image/png' },
           storageService: getPiniaServices()?.imageStorageService, sourceType: 'uploaded' })
         if (!id) throw new Error('video.error.references')
-        return { _type: 'image-ref', id, name, role: 'character' } as VideoImageRef
+        return { _type: 'image-ref', id, name, role } satisfies VideoImageRef
       })))
-      if (refs.length + state.value.images.length > 4) throw new Error('video.error.references')
-      state.value.images.push(...refs)
+      if (state.value !== draft) { release(); return }
+      if (role === 'reference_image') {
+        if (refs.length + referenceImages.value.length > MAX_STORED_VIDEO_REFERENCES) throw new Error('video.error.references')
+        draft.images.push(...refs)
+      } else {
+        if (refs.length !== 1 || (role === 'last_frame' && !firstFrame.value)) throw new Error('video.error.frames')
+        const index = draft.images.findIndex(image => image.role === role)
+        if (index < 0) draft.images.push(refs[0])
+        else draft.images.splice(index, 1, refs[0])
+      }
     } catch (error) { release(); throw error }
     imageLeases.add(release)
     if (!await saveSession()) throw new Error('video.error.save')
@@ -123,46 +152,49 @@ export const useVideoCreateSession = defineStore('video-create-session', () => {
     if (!asset) throw new Error('video.error.missingImage')
     return { role: ref.role, b64: asset.data, mimeType: asset.metadata.mimeType }
   }))
-  const prepareRun = (model: string, configId?: string, baseURL?: string,
-    variantId: VideoVariantId = 'b', prompt = state.value.optimizedPrompt, modelName?: string) => {
-    const { columns, images, params } = state.value
-    const error = videoReferenceError(images.map(i => i.role))
-    if (error) throw new Error(`video.error.${error}`)
+  const prepareRun = (config: VideoModelSummary, variantId: VideoVariantId = 'b', prompt = state.value.optimizedPrompt, configModelId?: string) => {
+    const spec = getVideoModelSpec(config.modelId, config.providerId)
+    if (!spec || !config.enabled) throw new Error('video.error.configChanged')
+    const context = inputContext.value
+    const compatibility = checkVideoInputCompatibility(spec, context.mode, context.images)
+    if (!compatibility.compatible) throw new Error(compatibility.reasonKey)
     if (!prompt.trim()) throw new Error('video.error.prompt')
-    return copy({ localId: uuid(), variantId, source: columns[variantId].source, prompt, submittedPrompt: seedancePromptText(prompt, images),
-      model, modelName, configId, baseURL,
-      cnyPerMillionTokens: videoTokenRate(model, baseURL ?? (configId ? undefined : ARK_VIDEO_BASE_URL)),
-      images, params, status: 'submitting', submittedAt: Date.now() } satisfies VideoRun)
+    const { params } = resolveColumn(variantId, config)
+    return copy({ localId: uuid(), variantId, source: state.value.columns[variantId].source, prompt,
+      model: videoWireModel(config), modelId: config.modelId, providerId: config.providerId, modelName: config.name,
+      configId: config.id, ...(configModelId && { configModelId }), baseURL: config.baseURL, capabilityMode: context.mode,
+      cost: config.customModel ? null : spec.pricing.estimate(params, { ...context, baseURL: config.baseURL }),
+      images: context.images, params, status: 'submitting' } satisfies VideoRunDraft)
   }
-  const submit = async (draft: VideoRun) => {
-    const variant = videoRunVariant(draft)
-    const key = videoRunKey(draft)
+  const submit = async (draft: VideoRunDraft) => {
+    const variant = draft.variantId ?? 'b'
+    const key = draft.localId
     if (submitting.value || activeFor(variant) || state.value.runs.some(run => videoRunKey(run) === key)) return
     submittingKey.value = key
     try {
       const service = getVideoService()
       const references = (await resolveImages(draft.images)).map(i => ({ role: i.role, url: `data:${i.mimeType};base64,${i.b64}` }))
       const column = state.value.columns[variant]
-      const previousSelection = column.selectedRunKey
       const previousConfigId = column.configId
       if (!column.configId && draft.configId) column.configId = draft.configId
-      delete column.selectedRunKey
-      state.value.runs.unshift(copy(draft))
+      state.value.runs.unshift(copy({ ...draft, submittedAt: Date.now() }))
       const run = state.value.runs[0]
       try {
         if (!await saveSession()) throw new Error('video.error.save')
       } catch (error) {
         state.value.runs = state.value.runs.filter(item => videoRunKey(item) !== key)
         column.configId = previousConfigId
-        column.selectedRunKey = previousSelection
         throw error
       }
       try {
-        run.id = await service.create({ model: run.model, configId: run.configId, baseURL: run.baseURL, params: copy(run.params), prompt: run.prompt, references })
+        run.id = await service.create({ model: run.model, providerId: run.providerId, modelId: run.modelId, configModelId: run.configModelId,
+          capabilityMode: run.capabilityMode, configId: run.configId, baseURL: run.baseURL,
+          params: copy(run.params), prompt: run.prompt, references })
         run.status = 'queued'
       } catch (cause) {
-        const message = cause instanceof Error ? cause.message : String(cause)
-        run.status = /Ark HTTP 4(?!08)\d\d|video\.error\.(?:key|request|frames|references|configMissing|configChanged)/.test(message) ? 'failed' : 'unknown'
+        const failure = cause as { message?: string; code?: string } | null
+        const message = failure?.message ?? String(cause)
+        run.status = failure?.code === 'VIDEO_REQUEST_REJECTED' || /^video\.error\.(?!missingId)/.test(message) ? 'failed' : 'unknown'
         run.error = message
       }
       try {
@@ -187,28 +219,33 @@ export const useVideoCreateSession = defineStore('video-create-session', () => {
     if (!run.id || isQuerying(run)) return
     queryingKeys.value.add(videoRunKey(run))
     try {
-      const result = await getVideoService().query(run.id, run.configId, run.baseURL)
-      Object.assign(run, result)
+      const result = await getVideoService().query(run.id, run.configId, run.baseURL, runIdentity(run))
+      const { usage, ...task } = result
+      Object.assign(run, task)
+      if (usage) run.usage = { ...run.usage, ...usage }
+      if (run.usage && run.baseURL && run.model === run.modelId) {
+        const pricing = getVideoModelSpec(run.modelId, run.providerId)?.pricing
+        run.cost = pricing?.actual?.(run.usage, run.params, { mode: run.capabilityMode, images: run.images, baseURL: run.baseURL }) ?? run.cost
+      }
       if (!await saveSession()) throw new Error('video.error.save')
     } finally { queryingKeys.value.delete(videoRunKey(run)) }
   }
   const cancel = async (run: VideoRun) => {
-    if (!run.id || run.status !== 'queued' || isQuerying(run)) return
+    if (!run.id || run.status !== 'queued' || isQuerying(run) || !getVideoModelSpec(run.modelId, run.providerId)?.capabilities.supportsCancel) return
     queryingKeys.value.add(videoRunKey(run))
     try {
-      await getVideoService().cancel(run.id, run.configId, run.baseURL)
+      await getVideoService().cancel(run.id, run.configId, run.baseURL, runIdentity(run))
       run.status = 'cancelled'
       if (!await saveSession()) throw new Error('video.error.save')
     } finally { queryingKeys.value.delete(videoRunKey(run)) }
   }
   const updateTemplate = (id: string | null) => { state.value.selectedTemplateId = id }
   const updateIterateTemplate = (id: string | null) => { state.value.selectedIterateTemplateId = id }
-  const applyPrompt = (brief: string, prompt: string, params?: unknown, currentVersionId: string | null = null, currentChainId: string | null = null) => {
+  const applyPrompt = (brief: string, prompt: string, currentVersionId: string | null = null, currentChainId: string | null = null) => {
     Object.assign(state.value, { originalPrompt: brief, optimizedPrompt: prompt, currentVersionId, currentChainId, lastGeneratedPrompt: currentVersionId ? prompt : '',
-      evaluation: null, images: [], draftParams: isVideoParams(params) && prompt.trim() ? { ...params } : undefined,
-      ...(isVideoParams(params) ? { params: copy(params) } : {}) })
+      evaluation: null, images: [], capabilityMode: 'text2video' })
   }
-  return { state, versions, currentVersion, historyById, historyReady, draftParams, updateParams, refreshHistory, reset, updateTemplate, updateIterateTemplate, applyPrompt, saveSession, restoreSession, addImages, resolveImages, prepareRun, submit, refresh, cancel,
+  return { state, versions, currentVersion, historyById, historyReady, activeImages, referenceImages, firstFrame, lastFrame, inputContext, resolveColumn, setColumnModel, setColumnParam, refreshHistory, reset, updateTemplate, updateIterateTemplate, applyPrompt, saveSession, restoreSession, addImages, resolveImages, prepareRun, submit, refresh, cancel,
     activeRun, activeRuns, activeFor, displayStatus, isQuerying, busy, optimizing, iterating, querying, submitting }
 })
 export type VideoCreateSessionApi = ReturnType<typeof useVideoCreateSession>

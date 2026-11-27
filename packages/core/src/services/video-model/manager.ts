@@ -5,8 +5,13 @@ import { getEnvVar } from '../../utils/environment'
 import type { IPreferenceService } from '../preference/types'
 import type { VideoRun } from '../video/session'
 
-export const SEEDANCE_MODEL = 'doubao-seedance-2-0-fast-260128'
-export const ARK_VIDEO_BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3'
+import { ARK_VIDEO_BASE_URL, getVideoModelSpec, isOfficialVideoBaseURL, MINIMAX_INTL_VIDEO_BASE_URL,
+  SEEDANCE_MODEL, VIDEO_PROVIDERS, videoWireModel } from './catalog'
+import { VIDEO_PROVIDER_IDS } from '../video/types'
+
+export function legacyVideoModelId(wireModel: string) {
+  return getVideoModelSpec(wireModel, 'ark') ? wireModel : SEEDANCE_MODEL
+}
 export const DEFAULT_VIDEO_CONFIG_ID = 'seedance'
 export const VIDEO_MODEL_PREFERENCE = 'video-model/seedance'
 
@@ -22,9 +27,10 @@ export function normalizeVideoBaseURL(value: string): string {
 
 const configSchema = z.object({
   id: z.string().trim().min(1),
-  providerId: z.literal('ark'),
+  providerId: z.enum(VIDEO_PROVIDER_IDS),
   name: z.string().trim().min(1),
-  model: z.string().trim().min(1),
+  modelId: z.string().trim().min(1),
+  customModel: z.string().trim().min(1).optional(),
   baseURL: z.string(),
   apiKey: z.string().trim(),
   enabled: z.boolean(),
@@ -36,14 +42,30 @@ export type VideoModelSummary = Omit<VideoModelConfig, 'apiKey'> & {
 }
 
 export const defaultVideoConfig = (): VideoModelConfig => ({
-  id: DEFAULT_VIDEO_CONFIG_ID, providerId: 'ark', name: 'Seedance 2.0 Fast', model: SEEDANCE_MODEL,
+  id: DEFAULT_VIDEO_CONFIG_ID, providerId: 'ark', name: 'Seedance 2.0 Fast', modelId: SEEDANCE_MODEL,
   baseURL: ARK_VIDEO_BASE_URL, apiKey: '', enabled: true,
 })
 
+const legacyConfigSchema = configSchema.omit({ modelId: true, customModel: true }).extend({
+  providerId: z.literal('ark'),
+  model: z.string().trim().min(1),
+}).strict()
+
 function parseConfig(value: unknown): VideoModelConfig {
+  const legacy = legacyConfigSchema.safeParse(value)
+  if (legacy.success) {
+    const { model, ...fields } = legacy.data
+    const modelId = legacyVideoModelId(model)
+    return parseConfig({ ...fields, modelId, ...(model !== modelId && { customModel: model }) })
+  }
   const result = configSchema.safeParse(value)
   if (!result.success) throw new Error('video.error.config')
-  return { ...result.data, baseURL: normalizeVideoBaseURL(result.data.baseURL) }
+  const baseURL = normalizeVideoBaseURL(result.data.baseURL)
+  const providerId = result.data.providerId === 'minimax' && baseURL === MINIMAX_INTL_VIDEO_BASE_URL
+    ? 'minimax-intl' : result.data.providerId
+  const config = { ...result.data, providerId, baseURL }
+  if (!getVideoModelSpec(config.modelId, config.providerId)) throw new Error('video.error.config')
+  return config
 }
 
 function parseList(value: unknown): VideoModelConfig[] {
@@ -53,24 +75,33 @@ function parseList(value: unknown): VideoModelConfig[] {
   return configs
 }
 
-function readConfigs(raw: unknown): VideoModelConfig[] {
-  if (raw == null) return [defaultVideoConfig()]
-  if (Array.isArray(raw)) return parseList(raw)
+function parseLegacyPreference(raw: unknown): VideoModelConfig[] {
   const legacy = z.object({ model: z.string().optional(), apiKey: z.string().optional() }).strict().safeParse(raw)
   if (!legacy.success) throw new Error('video.error.config')
   const model = legacy.data.model?.trim() || SEEDANCE_MODEL
-  return [{ ...defaultVideoConfig(), model, name: model === SEEDANCE_MODEL ? 'Seedance 2.0 Fast' : model,
-    apiKey: legacy.data.apiKey?.trim() || '' }]
+  const modelId = legacyVideoModelId(model)
+  return [parseConfig({ ...defaultVideoConfig(), modelId, ...(model !== modelId && { customModel: model }),
+    name: model === modelId ? getVideoModelSpec(modelId)!.name : model, apiKey: legacy.data.apiKey?.trim() || '' })]
 }
 
-function environmentKey() {
-  return getEnvVar('VITE_SEEDANCE_API_KEY') || getEnvVar('ARK_API_KEY') ||
-    getEnvVar('VITE_ARK_API_KEY') || getEnvVar('VITE_SEEDREAM_API_KEY') || ''
+function readConfigs(raw: unknown): VideoModelConfig[] {
+  if (raw == null) return [defaultVideoConfig()]
+  return Array.isArray(raw) ? parseList(raw) : parseLegacyPreference(raw)
 }
 
-// Credentials from the app environment belong to the official Ark API.
+function parseImport(value: unknown): VideoModelConfig[] {
+  return Array.isArray(value) ? parseList(value) : parseLegacyPreference(value)
+}
+
+function sameTaskEndpoint(a: VideoModelConfig, b: VideoModelConfig) {
+  return a.baseURL === b.baseURL && a.providerId === b.providerId && a.modelId === b.modelId &&
+    videoWireModel(a) === videoWireModel(b)
+}
+
 export function resolveVideoApiKey(config: VideoModelConfig): string {
-  return config.apiKey || (config.baseURL === ARK_VIDEO_BASE_URL ? environmentKey() : '')
+  if (config.apiKey) return config.apiKey
+  if (!isOfficialVideoBaseURL(config.providerId, config.baseURL)) return ''
+  return VIDEO_PROVIDERS[config.providerId].envKeys.map(getEnvVar).find(Boolean) ?? ''
 }
 
 export function summarizeVideoModel(config: VideoModelConfig): VideoModelSummary {
@@ -121,7 +152,7 @@ export class VideoModelManager implements IImportExportable {
     if (JSON.stringify(existing ?? null) !== JSON.stringify(previous && parseConfig(previous))) {
       throw new Error('video.error.configChanged')
     }
-    if (existing && existing.baseURL !== config.baseURL) await this.assertTaskEndpointAvailable(config.id)
+    if (existing && !sameTaskEndpoint(existing, config)) await this.assertTaskEndpointAvailable(config.id)
     await this.write(raw, existing ? configs.map(item => item.id === config.id ? config : item) : [...configs, config])
   }
 
@@ -143,22 +174,23 @@ export class VideoModelManager implements IImportExportable {
   }
 
   async importData(value: unknown): Promise<void> {
-    const incoming = parseList(value)
+    const incoming = parseImport(value)
     const raw = await this.read()
-    if (raw == null && incoming.find(config => config.id === DEFAULT_VIDEO_CONFIG_ID)?.baseURL !== ARK_VIDEO_BASE_URL) {
+    const incomingDefault = incoming.find(config => config.id === DEFAULT_VIDEO_CONFIG_ID)
+    if (raw == null && (!incomingDefault || !sameTaskEndpoint(defaultVideoConfig(), incomingDefault))) {
       await this.assertTaskEndpointAvailable(DEFAULT_VIDEO_CONFIG_ID)
     }
     const configs = new Map((raw == null ? [] : readConfigs(raw)).map(config => [config.id, config]))
     for (const config of incoming) {
       const old = configs.get(config.id)
-      if (old && old.baseURL !== config.baseURL) await this.assertTaskEndpointAvailable(config.id)
+      if (old && !sameTaskEndpoint(old, config)) await this.assertTaskEndpointAvailable(config.id)
       configs.set(config.id, config)
     }
     await this.write(raw, [...configs.values()])
   }
 
   async validateData(data: unknown): Promise<boolean> {
-    try { parseList(data); return true } catch { return false }
+    try { parseImport(data); return true } catch { return false }
   }
 
   async getDataType(): Promise<string> { return 'videoModels' }

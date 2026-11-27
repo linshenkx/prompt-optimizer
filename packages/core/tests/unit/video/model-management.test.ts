@@ -2,8 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 import { PreferenceService } from '../../../src/services/preference/service'
 import { MemoryStorageProvider } from '../../../src/services/storage/memoryStorageProvider'
 import { VIDEO_CREATE_SESSION_KEY } from '../../../src/constants/storage-keys'
-import { ARK_VIDEO_BASE_URL, defaultVideoConfig, SEEDANCE_MODEL, VIDEO_MODEL_PREFERENCE, VideoModelManager } from '../../../src/services/video-model/manager'
-import { createSeedanceService, DEFAULT_VIDEO_PARAMS } from '../../../src/services/video/seedance'
+import { defaultVideoConfig, VIDEO_MODEL_PREFERENCE, VideoModelManager } from '../../../src/services/video-model/manager'
+import { createVideoService } from '../../../src/services/video/service'
+import { ARK_VIDEO_BASE_URL, DEFAULT_VIDEO_PARAMS, SEEDANCE_MODEL } from '../../../src/services/video-model/catalog'
 
 vi.mock('../../../src/utils/environment', async original => ({
   ...await original<typeof import('../../../src/utils/environment')>(),
@@ -20,10 +21,10 @@ describe('managed Ark video configurations', () => {
     const { prefs, manager } = fixture()
     await prefs.set(VIDEO_MODEL_PREFERENCE, { apiKey: 'old-key', model: 'ep-legacy' })
     const [legacy] = await manager.listModels()
-    expect(legacy).toMatchObject({ id: 'seedance', name: 'ep-legacy', model: 'ep-legacy', keySource: 'saved' })
+    expect(legacy).toMatchObject({ id: 'seedance', name: 'ep-legacy', modelId: SEEDANCE_MODEL, customModel: 'ep-legacy', keySource: 'saved' })
     expect(legacy).not.toHaveProperty('apiKey')
     const previous = await manager.getConfig(legacy.id)
-    await manager.saveConfig({ ...previous, name: 'Studio', model: SEEDANCE_MODEL }, previous)
+    await manager.saveConfig({ ...previous, name: 'Studio', customModel: undefined }, previous)
     await expect(manager.saveConfig({ ...previous, name: 'Stale' }, previous)).rejects.toThrow('configChanged')
     await manager.removeConfig(legacy.id)
     expect(await new VideoModelManager(prefs).listModels()).toEqual([])
@@ -48,16 +49,16 @@ describe('managed Ark video configurations', () => {
 
   it('checks connectivity with one read and uses the submitting config to poll and cancel even if disabled', async () => {
     const { manager, prefs } = fixture()
-    const custom = { ...defaultVideoConfig(), id: 'other', name: 'Other', model: 'ep-fast', baseURL: 'https://ark.invalid/v3', apiKey: 'saved-only' }
+    const custom = { ...defaultVideoConfig(), id: 'other', name: 'Other', customModel: 'ep-fast', baseURL: 'https://ark.invalid/v3', apiKey: 'saved-only' }
     await manager.saveConfig(custom, null)
     const send = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(Response.json({ items: [], total: 0 }))
       .mockResolvedValueOnce(Response.json({ id: 'cgt-test' }))
       .mockResolvedValueOnce(Response.json({ id: 'cgt-test', status: 'queued' }))
       .mockResolvedValueOnce(new Response(null, { status: 204 }))
-    const api = createSeedanceService(prefs, send)
+    const api = createVideoService(prefs, send)
     await api.testConnection(custom.id)
-    const input = { configId: custom.id, baseURL: custom.baseURL, model: custom.model, prompt: 'A pan', params: DEFAULT_VIDEO_PARAMS, references: [] }
+    const input = { configId: custom.id, baseURL: custom.baseURL, model: custom.customModel, prompt: 'A pan', params: DEFAULT_VIDEO_PARAMS, references: [] }
     const id = await api.create(input)
     await prefs.set(VIDEO_CREATE_SESSION_KEY, { runs: [{ configId: custom.id, status: 'queued' }] })
     await manager.setEnabled(custom.id, false)
@@ -75,7 +76,7 @@ describe('managed Ark video configurations', () => {
     ])
     expect(JSON.parse(String(send.mock.calls[1][1]?.body))).toMatchObject({ model: 'ep-fast' })
     expect(JSON.parse(String(send.mock.calls[1][1]?.body))).not.toHaveProperty('configId')
-    expect(await api.model()).toMatchObject({ id: 'seedance', model: SEEDANCE_MODEL, keySource: 'environment' })
+    expect(await api.model()).toMatchObject({ id: 'seedance', modelId: SEEDANCE_MODEL, keySource: 'environment' })
   })
 
   it('rejects non-Ark responses and never sends the environment key to a custom URL', async () => {
@@ -83,7 +84,7 @@ describe('managed Ark video configurations', () => {
     const custom = { ...defaultVideoConfig(), id: 'proxy', baseURL: 'https://proxy.invalid/api/v3' }
     await manager.saveConfig(custom, null)
     const send = vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json({}))
-    const api = createSeedanceService(prefs, send)
+    const api = createVideoService(prefs, send)
     await expect(api.testConnection(custom.id)).rejects.toThrow('video.error.key')
     expect(send).not.toHaveBeenCalled()
     await expect(api.testConnection('seedance')).rejects.toThrow('connectionResponse')

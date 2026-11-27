@@ -136,8 +136,7 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
             if (beforeApplyToWorkspace && !(await beforeApplyToWorkspace('video-create'))) return
             if (await navigateToSubModeKey('video-create') === false) return
             const store = useVideoCreateSession()
-            store.applyPrompt(chain.rootRecord.originalPrompt, record.optimizedPrompt,
-                record.metadata?.videoParams ?? chain.rootRecord.metadata?.videoParams, record.id, chain.chainId)
+            store.applyPrompt(chain.rootRecord.originalPrompt, record.optimizedPrompt, record.id, chain.chainId)
             const modelKey = record.modelKey || chain.rootRecord.modelKey
             if (modelKey) store.state.selectedTextModelKey = modelKey
             const rootTemplate = chain.rootRecord.templateId

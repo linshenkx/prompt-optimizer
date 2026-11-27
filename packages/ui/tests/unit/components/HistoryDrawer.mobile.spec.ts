@@ -51,16 +51,22 @@ describe('HistoryDrawer mobile flow', () => {
     wrapper.unmount()
   })
 
-  it('filters by all seven destinations and returns to the same list without applying a version', async () => {
-    const wrapper = mountHistory([chain('poetry'), chain('pictures', 'multiimageOptimize')])
+  it('filters video history and returns to the same list without applying a version', async () => {
+    const wrapper = mountHistory([
+      chain('poetry'), chain('pictures', 'multiimageOptimize'), chain('harbor', 'videoOptimize'),
+    ])
     const filter = wrapper.get('.mobile-history-filters select')
-    expect(filter.findAll('option')).toHaveLength(8)
+    expect(filter.findAll('option').map(option => option.attributes('value'))).toContain('video')
     await filter.setValue('multiimage')
     expect(wrapper.findAll('.mobile-history-open')).toHaveLength(1)
+    expect(wrapper.get('.mobile-history-open').text()).toContain('pictures')
+    await filter.setValue('video')
+    expect(wrapper.findAll('.mobile-history-open')).toHaveLength(1)
     await wrapper.get('.mobile-history-open').trigger('click')
+    expect(wrapper.get('.mobile-history-body').text()).toBe('harbor latest answer')
     await wrapper.get('.test-modal .test-modal header button').trigger('click')
     expect(wrapper.find('[data-testid="mobile-history-detail"]').exists()).toBe(false)
-    expect(wrapper.get('.mobile-history-open').text()).toContain('pictures')
+    expect(wrapper.get('.mobile-history-open').text()).toContain('harbor')
     expect(wrapper.emitted('reuse')).toBeUndefined()
     wrapper.unmount()
   })

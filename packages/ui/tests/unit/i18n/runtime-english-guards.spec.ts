@@ -22,15 +22,17 @@ describe('ui runtime english guards', () => {
 
   it('removes hardcoded chinese helper text from the multi-image workspace', () => {
     const source = readUiSource('src/components/image-mode/ImageMultiImageWorkspace.vue')
+    const picker = readUiSource('src/components/media/ReferenceImagePicker.vue')
 
+    expect(source).toMatch(/<ReferenceImagePicker/)
     expect(source).toMatch(/imageWorkspace\.input\.multiImagePromptPlaceholder/)
     expect(source).toMatch(/imageWorkspace\.input\.removeImageAriaLabel/)
-    expect(source).toMatch(/imageWorkspace\.input\.reorderImageAriaLabel/)
+    expect(picker).toMatch(/imageWorkspace\.input\.reorderImageAriaLabel/)
     expect(source).toMatch(/imageWorkspace\.input\.multiImageHint/)
     expect(source).toMatch(/imageWorkspace\.input\.multiImageMinHint/)
     expect(source).toMatch(/imageWorkspace\.input\.multiImageReadyHint/)
     expect(source).not.toMatch(/请使用图1 \/ 图2 \/ 图3 来描述图片关系和生成目标/)
-    expect(source).not.toMatch(/拖动卡片可调整图1 \/ 图2 \/ 图3 的顺序语义/)
+    expect(source + picker).not.toMatch(/拖动卡片可调整图1 \/ 图2 \/ 图3 的顺序语义/)
   })
 
   it('uses locale-backed messaging in context management and focus management', () => {

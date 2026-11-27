@@ -706,7 +706,7 @@ export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
             if (await navigateToSubModeKey(targetKey) === false) return false
             const store = useVideoCreateSession()
             const brief = typeof favorite.metadata?.originalContent === 'string' ? favorite.metadata.originalContent : ''
-            store.applyPrompt(brief, draft.content, favorite.metadata?.videoParams)
+            store.applyPrompt(brief, draft.content)
             return store.saveSession()
         }
 

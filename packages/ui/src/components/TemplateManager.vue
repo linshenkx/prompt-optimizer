@@ -937,8 +937,11 @@ const processedPreview = computed(() => {
   if (!form.value.isAdvanced || !form.value.messages.length) return []
 
   const sampleContext = ['videoOptimize', 'videoIterate'].includes(currentType.value)
-    ? { lastOptimizedPrompt: t('video.templatePreviewDraft'), iterateInput: t('video.templatePreviewFeedback'), originalPrompt: t('video.templatePreviewBrief'), duration: '4', ratio: '16:9', resolution: '480p',
-        referenceRoles: `1. ${t('video.roles.character')}` }
+    ? {
+        lastOptimizedPrompt: t('video.templatePreviewDraft'), iterateInput: t('video.templatePreviewFeedback'),
+        originalPrompt: t('video.templatePreviewBrief'), hasReferenceImages: true,
+        referenceRoles: `1. ${t('video.roles.reference_image')}`,
+      }
     : { prompt: 'Write a creative story about space exploration', originalPrompt: 'Write a story',
         iterateInput: 'Make it more creative and add space exploration theme' }
 

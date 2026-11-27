@@ -20,18 +20,36 @@
       <NFormItem :label="t('modelManager.enabledStatus')">
         <NCheckbox v-model:checked="draft.enabled" :aria-label="t('modelManager.enabledStatus')" />
       </NFormItem>
-      <NFormItem :label="t('modelManager.provider.label')"><NText>{{ t('video.provider') }}</NText></NFormItem>
+      <NFormItem :label="t('modelManager.provider.label')" required>
+        <NSelect :value="draft.providerId" :options="providerOptions" data-testid="video-config-provider"
+          :aria-label="t('modelManager.provider.label')" @update:value="setProvider" />
+      </NFormItem>
       <NFormItem :label="t('video.modelId')" required>
-        <NInput v-model:value="draft.model" :placeholder="SEEDANCE_MODEL"
-          :input-props="{ 'aria-label': t('video.modelId') }" data-testid="video-config-model" />
+        <NSelect :value="draft.modelId" :options="modelOptions" data-testid="video-config-model"
+          :aria-label="t('video.modelId')" @update:value="setModel" />
       </NFormItem>
       <NFormItem :label="t('modelManager.apiUrl')" required>
-        <NInput v-model:value="draft.baseURL" :placeholder="ARK_VIDEO_BASE_URL"
+        <NInput v-model:value="draft.baseURL" :placeholder="provider?.defaultBaseURL"
           :input-props="{ 'aria-label': t('modelManager.apiUrl') }" data-testid="video-config-url" />
       </NFormItem>
+      <NFormItem :label="t('video.wireModel')">
+        <NInput :value="draft.customModel ?? ''" :placeholder="draft.modelId"
+          :input-props="{ 'aria-label': t('video.wireModel') }" data-testid="video-config-wire-model" @update:value="setWireModel" />
+      </NFormItem>
       <NFormItem :label="t('video.key')">
+        <template #label>
+          <NSpace align="center" :size="4">
+            <span>{{ t('video.key') }}</span>
+            <NButton v-if="provider?.apiKeyUrl" text size="tiny" type="primary" tag="a" :href="provider.apiKeyUrl"
+              target="_blank" rel="noopener noreferrer" style="padding: 0 4px;"
+              :title="t('modelManager.getApiKey')" :aria-label="t('modelManager.getApiKey')"
+              data-testid="video-config-key-link">
+              <template #icon><ExternalLink :size="14" /></template>
+            </NButton>
+          </NSpace>
+        </template>
         <NInput v-model:value="draft.apiKey" type="password" show-password-on="click" autocomplete="off"
-          :placeholder="draft.baseURL.trim().replace(/\/+$/, '') === ARK_VIDEO_BASE_URL ? t('video.keyPlaceholder') : t('video.customKey')"
+          :placeholder="isOfficialVideoBaseURL(draft.providerId, draft.baseURL) ? t('video.keyPlaceholder') : t('video.customKey')"
           :input-props="{ 'aria-label': t('video.key') }" data-testid="video-config-key" />
       </NFormItem>
       <NText v-if="error" type="error" role="alert">{{ error }}</NText>
@@ -40,7 +58,7 @@
       <NSpace justify="end">
         <NButton :disabled="saving" @click="draft = null">{{ t('common.cancel') }}</NButton>
         <NButton type="primary" attr-type="submit" form="video-config-form" data-testid="video-config-save"
-          :loading="saving" :disabled="!draft.name.trim() || !draft.model.trim() || !draft.baseURL.trim()">{{ t('common.save') }}</NButton>
+          :loading="saving" :disabled="!draft.name.trim() || !draft.modelId || !draft.baseURL.trim()">{{ t('common.save') }}</NButton>
       </NSpace>
     </template>
   </AdaptiveModal>
@@ -49,9 +67,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NButton, NCheckbox, NEmpty, NForm, NFormItem, NInput, NSpace, NText } from 'naive-ui'
+import { ExternalLink } from '@lucide/vue'
+import { NButton, NCheckbox, NEmpty, NForm, NFormItem, NInput, NSelect, NSpace, NText } from 'naive-ui'
 import { v4 as uuid } from 'uuid'
-import { ARK_VIDEO_BASE_URL, defaultVideoConfig, SEEDANCE_MODEL, type VideoModelConfig, type VideoModelSummary } from '@prompt-optimizer/core'
+import { defaultVideoConfig, getVideoModelSpec, isOfficialVideoBaseURL, listVideoModelPresets, VIDEO_PROVIDERS, videoWireModel,
+  type VideoModelConfig, type VideoModelSummary, type VideoProviderId } from '@prompt-optimizer/core'
 import { getVideoService } from '../../stores/session/useVideoCreateSession'
 import { useToast } from '../../composables/ui/useToast'
 import { useConfirmDialog } from '../../composables/ui/useConfirmDialog'
@@ -70,13 +90,53 @@ const draft = ref<VideoModelConfig | null>(null)
 const original = shallowRef<VideoModelConfig | null>(null)
 const saving = ref(false)
 const error = ref('')
+const providerOptions = computed(() => Object.values(VIDEO_PROVIDERS).map(provider => ({ value: provider.id, label: t(provider.labelKey) })))
+const capabilityTags = (modelId: string, providerId?: VideoProviderId) => {
+  const capabilities = getVideoModelSpec(modelId, providerId)?.capabilities
+  if (!capabilities) return []
+  return [
+    capabilities.text2video && t('video.textMode'),
+    capabilities.firstFrame && t(capabilities.firstLastFrame ? 'video.frameMode' : 'video.roles.first_frame'),
+    capabilities.maxReferenceImages > 0 && t('video.referenceBadge', { n: capabilities.maxReferenceImages }),
+    capabilities.supportsCancel && t('video.cancel'),
+  ].filter((label): label is string => !!label)
+}
+const modelOptions = computed(() => {
+  const config = draft.value
+  return config ? listVideoModelPresets(config.providerId, config.modelId).map(spec => ({
+    value: spec.id, label: [spec.name, ...capabilityTags(spec.id, spec.providerId)].join(' · '),
+  })) : []
+})
+const provider = computed(() => draft.value && VIDEO_PROVIDERS[draft.value.providerId])
+const setWireModel = (value: string) => {
+  if (draft.value) draft.value.customModel = value || undefined
+}
+const setModel = (id: string, previousProvider?: VideoProviderId) => {
+  if (!draft.value) return
+  const previousName = getVideoModelSpec(draft.value.modelId, previousProvider ?? draft.value.providerId)?.name
+  draft.value.modelId = id
+  draft.value.customModel = undefined
+  if (!draft.value.name || draft.value.name === previousName) draft.value.name = getVideoModelSpec(id, draft.value.providerId)?.name ?? ''
+}
+const setProvider = (id: VideoProviderId) => {
+  if (!draft.value || draft.value.providerId === id) return
+  const previousProvider = draft.value.providerId
+  draft.value.providerId = id
+  draft.value.apiKey = ''
+  draft.value.baseURL = VIDEO_PROVIDERS[id].defaultBaseURL
+  setModel(VIDEO_PROVIDERS[id].defaultModelId, previousProvider)
+}
 const rows = computed<ModelConfigListItem[]>(() => models.value.map(config => ({
-  id: config.id, name: config.name, provider: t('video.provider'), model: config.model,
+  id: config.id, name: config.name, provider: t(VIDEO_PROVIDERS[config.providerId].labelKey),
+  model: [getVideoModelSpec(config.modelId, config.providerId)?.name, videoWireModel(config)].filter(Boolean).join(' · '),
   enabled: config.enabled, deletable: true,
-  tags: [{ label: t('video.keySource.' + config.keySource), type: config.configured ? 'default' : 'warning' }],
+  tags: [
+    ...capabilityTags(config.modelId, config.providerId).map(label => ({ label, type: 'default' as const })),
+    { label: t('video.keySource.' + config.keySource), type: config.configured ? 'default' : 'warning' },
+  ],
 })))
 function message(cause: unknown) {
-  const detail = cause instanceof Error ? cause.message : String(cause)
+  const detail = (cause as { message?: string } | null)?.message ?? String(cause)
   return detail.startsWith('video.error.') ? t(detail) : detail
 }
 async function refresh() {
@@ -89,7 +149,7 @@ async function updated() {
 }
 function openAdd() {
   original.value = null
-  draft.value = { ...defaultVideoConfig(), id: uuid(), name: '' }
+  draft.value = { ...defaultVideoConfig(), id: uuid() }
   error.value = ''
 }
 async function openEdit(id: string, clone = false) {
@@ -106,7 +166,7 @@ async function save() {
   saving.value = true
   error.value = ''
   try {
-    await getVideoService().saveConfig({ ...draft.value }, original.value)
+    await getVideoService().saveConfig({ ...draft.value, customModel: draft.value.customModel?.trim() || undefined }, original.value)
     draft.value = null
     await updated()
     toast.success(t('video.saved'))

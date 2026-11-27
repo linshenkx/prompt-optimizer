@@ -159,6 +159,10 @@ export * from './services/prompt-model'
 
 // 导出视频提示词规格（schema 与容错解析）
 export * from './services/video-model/manager'
+export * from './services/video-model/catalog'
+export * from './services/video/types'
+export * from './services/video/params'
+export * from './services/video/service'
 export * from './services/video/seedance'
 export * from './services/video/session'
 

@@ -26,43 +26,47 @@
                   :label="t('video.promptLabel')" :placeholder="t('video.placeholder')"
                   :selected-model="selectedTextModelKey" :model-label="t('promptOptimizer.optimizeModel')" :template-label="t('imageWorkspace.input.optimizeTemplate')"
                   :button-text="t('imageWorkspace.input.optimizePrompt')" :compact-button-text="t('common.optimize')" :loading-text="t('common.loading')" :loading="session.optimizing"
-                  :disabled="!selectedTextModelKey || !selectedTemplateId || !templateOptions.length || uploading || session.iterating" @submit="writePrompt()">
+                  :disabled="!selectedTextModelKey || !selectedTemplateId || !templateOptions.length || !!uploading || session.iterating" @submit="writePrompt()">
                   <template #header-extra>
                     <NButton type="tertiary" size="small" ghost round :aria-label="t('common.collapse')" @click="inputCollapsed = true">
                       <template #icon><ChevronUp /></template>
                     </NButton>
                   </template>
                   <template #input-extra>
-                    <ReferenceImagePicker
-                      :items="referenceItems"
-                      :label="t('video.refsLabel', { count: state.images.length })"
-                      :hint="state.images.length > 0 ? t('video.refsHint') : ''"
-                      accept="image/png,image/jpeg,image/webp"
-                      :max="4"
-                      :multiple="true"
-                      :reorderable="true"
-                      :compact="isCompact"
-                      :disabled="session.optimizing || session.iterating"
-                      :loading="uploading"
-                      upload-test-id="video-reference-upload"
-                      list-test-id="video-reference-list"
-                      card-test-id-prefix="video-reference-card"
-                      upload-card-test-id="video-reference-upload-card"
-                      @select-files="uploadFiles"
-                      @remove="removeReference"
-                      @reorder="reorderReferences"
-                    >
-                      <template #card-extra="{ index }">
-                        <NSelect
-                          :value="state.images[index]?.role"
-                          :aria-label="t('video.role')"
-                          :options="roles"
-                          :consistent-menu-width="false"
-                          size="tiny"
-                          @update:value="role => updateReferenceRole(index, role)"
-                        />
-                      </template>
-                    </ReferenceImagePicker>
+                    <div class="video-image-input">
+                      <div class="video-image-mode">
+                        <NRadioGroup :value="state.capabilityMode" size="small" :disabled="imageInputBusy"
+                          :aria-label="t('video.imageMode')" @update:value="setCapabilityMode">
+                          <NRadioButton value="text2video" data-testid="video-input-mode-text2video">{{ t('video.textMode') }}</NRadioButton>
+                          <NRadioButton value="frames" data-testid="video-input-mode-frames">{{ t('video.frameMode') }}</NRadioButton>
+                          <NRadioButton value="references" data-testid="video-input-mode-references">{{ t('video.referenceMode') }}</NRadioButton>
+                        </NRadioGroup>
+                        <NText v-if="state.capabilityMode === 'references'" depth="2" class="video-note">
+                          {{ t('video.refLimit', { count: referenceItems.length, max: refLimit }) }}
+                        </NText>
+                        <NButton v-else-if="state.capabilityMode === 'frames' && session.firstFrame && session.lastFrame" size="tiny" text
+                          data-testid="video-frame-swap" :disabled="imageInputBusy" @click="swapFrames">
+                          <template #icon><ArrowLeftRight /></template>
+                          {{ t('video.swapFrames') }}
+                        </NButton>
+                      </div>
+                      <ReferenceImagePicker v-if="state.capabilityMode === 'references'"
+                        :items="referenceItems" :hint="referenceItems.length ? t('video.refsHint') : ''"
+                        accept="image/png,image/jpeg,image/webp" :max="refLimit" reorderable
+                        :compact="isCompact" :disabled="imageInputBusy" :loading="uploading === 'reference_image'"
+                        upload-test-id="video-reference-upload" list-test-id="video-reference-list"
+                        card-test-id-prefix="video-reference-card" upload-card-test-id="video-reference-upload-card"
+                        @select-files="uploadFiles"
+                        @remove="index => removeImage(session.referenceImages[index])" @reorder="reorderReferences" />
+                      <div v-else-if="state.capabilityMode === 'frames'" class="video-frame-grid">
+                        <ReferenceImagePicker v-for="slot in frameSlots" :key="slot.role" :items="slot.items"
+                          :label="slot.label" :upload-text="slot.uploadText" :disabled="slot.disabled || imageInputBusy"
+                          :loading="uploading === slot.role" accept="image/png,image/jpeg,image/webp" :max="1"
+                          :multiple="false" replaceable preview-fit="contain" :compact="isCompact"
+                          :upload-test-id="slot.testId + '-upload'" :preview-test-id="slot.testId + '-preview'"
+                          @select-files="files => uploadFiles(files, slot.role)" @remove="removeImage(slot.image)" />
+                      </div>
+                    </div>
                   </template>
                   <template #model-select>
                     <TextModelSelector v-model="selectedTextModelKey" :options="textModelOptions" parameters
@@ -86,8 +90,7 @@
             <TestSourceLinkedCard class="compact-result-card video-editor-card"
               content-style="height: 100%; max-height: 100%; overflow: hidden;">
               <div class="video-editor">
-                <NText v-if="settingsNotice" depth="2" class="video-note" data-testid="video-draft-settings-notice" role="status">{{ settingsNotice }}</NText>
-                <PromptPanel ref="panel" v-model:optimized-prompt="editablePrompt"
+                <PromptPanel ref="panel" v-model:optimized-prompt="state.optimizedPrompt"
                   test-id="video" initial-view-mode="source" :mobile-layout="isCompact" :enable-evaluation="false"
                   :original-prompt="state.originalPrompt" :versions="session.versions" :current-version-id="state.currentVersionId || ''"
                   :is-optimizing="session.optimizing" :is-iterating="session.iterating" optimization-mode="user"
@@ -95,7 +98,7 @@
                   @update:selected-iterate-template="template => session.updateIterateTemplate(template?.id ?? null)"
                   @iterate="payload => writePrompt(payload)" @open-template-manager="openTemplates"
                   @switch-version="selectVersion" @switch-to-v0="selectOriginal" @save-local-edit="saveLocalEdit" @save-favorite="favorite" />
-                <NText v-if="rolesOnly" depth="2" class="video-note" role="status">{{ t('video.warning.rolesOnly') }}</NText>
+                <NText v-if="imageListOnly" depth="2" class="video-note" role="status">{{ t('video.warning.imageListOnly') }}</NText>
               </div>
             </TestSourceLinkedCard>
           </template>
@@ -107,8 +110,8 @@
         @pointerdown="onSplitPointerDown" @keydown="onSplitKeydown" />
 
       <div v-show="!isCompact || mobileRegion === 'test'" class="video-pane compact-test-region">
-        <VideoTestPanel ref="testLayoutRef" v-model:config-expanded="testConfigExpanded" :compact="isCompact"
-          :edit-source="editTestSource" @scroll="rememberTestScroll" />
+        <VideoTestPanel ref="testLayoutRef" v-model:config-expanded="testConfigExpanded" @reference-limit="refLimit = $event" :compact="isCompact"
+          :edit-source="editTestSource" :input-pending="!!uploading" @scroll="rememberTestScroll" />
       </div>
     </div>
     <WorkspaceRegionSwitch v-if="isCompact" v-model="mobileRegion" :optimizing="session.optimizing || session.iterating" :testing="testing" />
@@ -117,11 +120,12 @@
 </template>
 <script setup lang="ts">
 import { computed, inject, onMounted, onUnmounted, ref, watch, type Ref } from 'vue'
-import { NButton, NFlex, NSelect, NText } from 'naive-ui'
-import { ChevronDown, ChevronUp } from '@lucide/vue'
+import { NButton, NFlex, NRadioButton, NRadioGroup, NText } from 'naive-ui'
+import { ArrowLeftRight, ChevronDown, ChevronUp } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import { v4 as uuid } from 'uuid'
-import { isVideoParams, VIDEO_ROLES, type ImageInputRef, type PromptRecord, type TemplateType, type VideoImageRef } from '@prompt-optimizer/core'
+import { MAX_STORED_VIDEO_REFERENCES, type ImageInputRef, type PromptRecord, type TemplateType,
+  type VideoImageRef, type VideoReferenceRole } from '@prompt-optimizer/core'
 import { OptionAccessors } from '../../utils/data-transformer'
 import { useWorkspaceTemplatePicker } from '../../composables/workspaces/useWorkspaceTemplateSelection'
 import SelectWithConfig from '../SelectWithConfig.vue'
@@ -145,19 +149,8 @@ import TestSourcePreview from '../common/TestSourcePreview.vue'
 import TextModelSelector from '../TextModelSelector.vue'
 import VideoTestPanel from './VideoTestPanel.vue'
 import ReferenceImagePicker, { type ReferenceImageItem } from '../media/ReferenceImagePicker.vue'
-import { useVideoSettings } from './useVideoSettings'
 const session = useVideoCreateSession()
 const state = computed(() => session.state)
-const { changeNotice } = useVideoSettings()
-const editablePrompt = computed({
-  get: () => state.value.optimizedPrompt,
-  set: (text: string) => {
-    if (text === state.value.optimizedPrompt) return
-    state.value.optimizedPrompt = text
-    state.value.draftParams = text.trim() ? { ...state.value.params } : undefined
-  },
-})
-const settingsNotice = computed(() => state.value.optimizedPrompt.trim() && changeNotice(session.draftParams, state.value.params))
 const toast = useToast()
 const dialog = useConfirmDialog()
 const { t } = useI18n()
@@ -202,8 +195,7 @@ const refreshAllTemplates = async () => {
 }
 const refreshHistory = () => session.refreshHistory().catch(report)
 
-const roles = computed(() => VIDEO_ROLES.map(value => ({ value, label: t('video.roles.' + value) })))
-const rolesOnly = ref(false)
+const imageListOnly = ref(false)
 const evaluating = ref(false)
 const showEvaluation = ref(false)
 const currentEvaluation = computed(() => {
@@ -218,18 +210,19 @@ const handleUtilityAction = (key: string) => {
   if (key === 'view-evaluation') showEvaluation.value = true
   if (key === 'evaluate-prompt') void evaluate()
 }
-const uploading = ref(false)
+const uploading = ref<VideoReferenceRole>()
+const imageInputBusy = computed(() => !!uploading.value || session.optimizing || session.iterating)
 const thumbnails = ref<Record<string,string>>({})
 let thumbnailRevision = 0
 const { prepareInputRefs } = useImageInputPreparation()
 const report = (e: unknown) => { const m = e instanceof Error ? e.message : String(e); toast.error(m.startsWith('video.error.') ? t(m) : m) }
-const workspaceBusy = computed(() => session.busy || evaluating.value || uploading.value)
+const workspaceBusy = computed(() => session.busy || evaluating.value || !!uploading.value)
 const testing = computed(() => session.submitting || session.activeRuns.some(run => run.status === 'queued' || run.status === 'running'))
 const clearWorkspace = async () => {
   if (workspaceBusy.value || session.activeRun) return
   session.applyPrompt('', '')
   state.value.runs = []
-  rolesOnly.value = false
+  imageListOnly.value = false
   resetMobileView()
   try { if (!await session.saveSession()) throw new Error('video.error.save') } catch (e) { report(e) }
 }
@@ -256,71 +249,102 @@ watch(() => state.value.images.map(i => i.id), async () => {
     if (revision === thumbnailRevision) thumbnails.value = Object.fromEntries(entries)
   } catch (e) { report(e) }
 }, { immediate: true })
-const referenceItems = computed<ReferenceImageItem[]>(() =>
-  state.value.images.map((img, index) => ({
-    id: img.id,
-    key: `${index}:${img.id}`,
-    src: thumbnails.value[img.id] || '',
-    label: t('imageWorkspace.input.imageLabel', { index: index + 1 }),
-    alt: img.name,
-    title: img.name,
-    downloadFilename: img.name,
-    removeAriaLabel: t('video.removeRef', { name: img.name }),
-  })),
-)
-const persistReferences = async () => {
+const imageItem = (image: VideoImageRef, label: string): ReferenceImageItem => ({
+  id: image.id,
+  src: thumbnails.value[image.id] || '',
+  label,
+  alt: image.name,
+  title: image.name,
+  downloadFilename: image.name,
+  removeAriaLabel: t('video.removeRef', { name: image.name }),
+})
+const refLimit = ref(MAX_STORED_VIDEO_REFERENCES)
+const referenceItems = computed(() => session.referenceImages.map((image, index) => ({
+  ...imageItem(image, t('imageWorkspace.input.imageLabel', { index: index + 1 })),
+  key: index + ':' + image.id,
+})))
+const frameSlots = computed(() => [
+  {
+    role: 'first_frame' as const, image: session.firstFrame, testId: 'video-first-frame',
+    label: t('video.roles.first_frame'), disabled: false, uploadText: '',
+  },
+  {
+    role: 'last_frame' as const, image: session.lastFrame, testId: 'video-last-frame',
+    label: t('video.optionalLastFrame'), disabled: !session.firstFrame,
+    uploadText: session.firstFrame ? '' : t('video.addFirstFrame'),
+  },
+].map(slot => ({ ...slot, items: slot.image ? [imageItem(slot.image, slot.image.name)] : [] })))
+const persistImageInput = async () => {
   try {
     if (!await session.saveSession()) throw new Error('video.error.save')
   } catch (e) { report(e) }
 }
-const uploadFiles = async (files: File[]) => {
-  if (!files.length) return
-  if (files.length + state.value.images.length > 4) { report(new Error('video.error.references')); return }
-  uploading.value = true
+const setCapabilityMode = async (mode: string | number | boolean) => {
+  if ((mode !== 'references' && mode !== 'frames' && mode !== 'text2video') || mode === state.value.capabilityMode || imageInputBusy.value) return
+  state.value.capabilityMode = mode
+  await persistImageInput()
+}
+const uploadFiles = async (files: File[], role: VideoReferenceRole = 'reference_image') => {
+  if (!files.length || imageInputBusy.value) return
+  if (role === 'reference_image' && files.length + referenceItems.value.length > refLimit.value) {
+    report(new Error('video.error.references'))
+    return
+  }
+  const draft = state.value
+  uploading.value = role
   try {
     const inputs = await prepareInputRefs(files)
-    if (inputs) await session.addImages(inputs.map((payload, i) => ({ payload, name: files[i].name })))
-  } catch (e) { report(e) } finally { uploading.value = false }
+    if (inputs && draft === state.value) {
+      await session.addImages(inputs.map((payload, i) => ({ payload, name: files[i].name })), role)
+    }
+  } catch (e) { report(e) } finally { uploading.value = undefined }
 }
-const removeReference = async (index: number) => {
-  if (index < 0 || index >= state.value.images.length) return
+const removeImage = async (image?: VideoImageRef) => {
+  if (!image || imageInputBusy.value) return
+  const index = state.value.images.indexOf(image)
+  if (index < 0) return
+  if (image.role === 'first_frame' && session.lastFrame) {
+    toast.info(t('video.removeLastFirst'))
+    return
+  }
   state.value.images.splice(index, 1)
-  await persistReferences()
+  await persistImageInput()
 }
 const reorderReferences = async (fromIndex: number, toIndex: number) => {
-  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return
-  if (fromIndex >= state.value.images.length || toIndex >= state.value.images.length) return
-  const [moved] = state.value.images.splice(fromIndex, 1)
-  state.value.images.splice(toIndex, 0, moved)
-  await persistReferences()
+  if (imageInputBusy.value || fromIndex === toIndex) return
+  const images = state.value.images
+  const from = images.indexOf(session.referenceImages[fromIndex])
+  const to = images.indexOf(session.referenceImages[toIndex])
+  if (from < 0 || to < 0) return
+  const [moved] = images.splice(from, 1)
+  images.splice(to, 0, moved)
+  await persistImageInput()
 }
-const updateReferenceRole = async (index: number, role: VideoImageRef['role']) => {
-  const item = state.value.images[index]
-  if (!item || item.role === role) return
-  item.role = role
-  await persistReferences()
+const swapFrames = async () => {
+  const { firstFrame, lastFrame } = session
+  if (!firstFrame || !lastFrame || imageInputBusy.value) return
+  firstFrame.role = 'last_frame'
+  lastFrame.role = 'first_frame'
+  await persistImageInput()
 }
 const selectVersion = (record: PromptRecord) => {
   state.value.currentChainId = record.chainId
   state.value.currentVersionId = record.id
   state.value.optimizedPrompt = state.value.lastGeneratedPrompt = record.optimizedPrompt
-  const params = record.metadata?.videoParams
-  state.value.draftParams = isVideoParams(params) ? { ...params } : undefined
-  rolesOnly.value = false
+  imageListOnly.value = false
 }
 const selectOriginal = (root: PromptRecord) => {
   state.value.currentChainId = root.chainId
   state.value.currentVersionId = null
   state.value.optimizedPrompt = state.value.lastGeneratedPrompt = root.originalPrompt
-  state.value.draftParams = undefined
-  rolesOnly.value = false
+  imageListOnly.value = false
 }
 
 type Revision = { originalPrompt: string; optimizedPrompt: string; iterateInput: string }
 
 const writePrompt = async (revision?: Revision) => {
   const services = getPiniaServices()
-  if (!services || session.optimizing || session.iterating) return
+  if (!services || imageInputBusy.value) return
   const s = state.value
   const brief = s.originalPrompt.trim()
   const previous = s.optimizedPrompt
@@ -332,7 +356,7 @@ const writePrompt = async (revision?: Revision) => {
   if (!revision && previous && previous !== s.lastGeneratedPrompt && !await dialog.warning({
     title: t('video.replace'), content: t('video.replaceHint'), positiveText: t('imageWorkspace.input.optimizePrompt'), negativeText: t('common.cancel'),
   })) return
-  if (session.optimizing || session.iterating) return
+  if (imageInputBusy.value || s !== state.value) return
   if (revision) session.iterating = true
   else session.optimizing = true
 
@@ -343,11 +367,11 @@ const writePrompt = async (revision?: Revision) => {
     const versionId = s.currentVersionId
     const chainId = selectedVersion?.chainId ?? session.versions[0]?.chainId
     const rootTemplateId = s.selectedTemplateId ?? ''
-    const refs = s.images.map(image => ({ ...image }))
-    const params = { ...s.params }
-    const baseParams = session.draftParams ?? params
+    const { capabilityMode } = s
+    const refs = session.activeImages.map(image => ({ ...image }))
     const variables = {
-      duration: String(params.duration), ratio: params.ratio, resolution: params.resolution,
+      hasReferenceImages: capabilityMode === 'references' && refs.length ? 'true' : '',
+      hasFrameImages: capabilityMode === 'frames' && refs.length ? 'true' : '',
       referenceRoles: refs.map((image, index) => `${index + 1}. ${t('video.roles.' + image.role)}`).join('\n'),
     }
     const model = await services.modelManager.getModel(modelKey)
@@ -359,32 +383,31 @@ const writePrompt = async (revision?: Revision) => {
 
     const images = await session.resolveImages(refs)
     let prompt: string
-    let usedRolesOnly = false
+    let usedImageListOnly = false
     try {
       prompt = await generate(images)
     } catch (error) {
       if (!images.length || !/does not support (?:streaming )?image understanding|image input is not supported/i.test(String(error))) throw error
-      usedRolesOnly = true
+      usedImageListOnly = true
       prompt = await generate()
     }
 
-    const metadata = { videoParams: params }
-    const createRoot = (text: string, authoredParams = params) => services.historyManager.createNewChain({
+    const createRoot = (text: string) => services.historyManager.createNewChain({
       id: uuid(), type: 'videoOptimize', originalPrompt: brief || base, optimizedPrompt: text,
       modelKey: revision ? '' : modelKey, modelName: revision ? undefined : model.name,
-      templateId: revision ? '' : rootTemplateId, timestamp: Date.now(), metadata: { videoParams: authoredParams },
+      templateId: revision ? '' : rootTemplateId, timestamp: Date.now(),
     })
     let record: PromptRecord
     if (revision) {
       // A pasted draft needs a saved starting version so it can be compared with its first revision.
-      const parent = selectedVersion ?? (!chainId ? (await createRoot(base, baseParams)).rootRecord : undefined)
+      const parent = selectedVersion ?? (!chainId ? (await createRoot(base)).rootRecord : undefined)
       const targetChainId = parent?.chainId ?? chainId
       if (!targetChainId) throw new Error('video.error.save')
       const fromOriginal = !parent
       const chain = await services.historyManager.addIteration({
         chainId: targetChainId, previousId: parent?.id,
         originalPrompt: brief || base, optimizedPrompt: prompt, modelKey, templateId, iterationNote: revision.iterateInput,
-        metadata: { ...metadata, ...(fromOriginal ? { iterationBaseVersion: 0 } : {}),
+        metadata: { ...(fromOriginal ? { iterationBaseVersion: 0 } : {}),
           ...(base === parent?.optimizedPrompt ? {} : { iterationBasePrompt: base }) },
       })
       record = chain.currentRecord
@@ -393,12 +416,12 @@ const writePrompt = async (revision?: Revision) => {
     }
 
     const unchanged = s === state.value && s.optimizedPrompt === previous && s.originalPrompt.trim() === brief &&
-      s.currentVersionId === versionId && JSON.stringify(s.images) === JSON.stringify(refs) && JSON.stringify(s.params) === JSON.stringify(params) &&
+      s.currentVersionId === versionId && s.capabilityMode === capabilityMode && JSON.stringify(session.activeImages) === JSON.stringify(refs) &&
       (revision ? s.selectedIterateTemplateId : s.selectedTemplateId) === templateId
     window.dispatchEvent(new Event('prompt-optimizer:history-refresh'))
     if (!unchanged) { toast.info(t('video.historyOnly')); return }
     selectVersion(record)
-    rolesOnly.value = usedRolesOnly
+    imageListOnly.value = usedImageListOnly
     if (!await session.saveSession()) throw new Error('video.error.save')
     if (isCompact.value && mobileRegion.value === 'optimize') {
       inputCollapsed.value = true
@@ -415,8 +438,7 @@ const saveLocalEdit = async ({ note }: { note?: string }) => {
   const versionId = s.currentVersionId
   try {
     const chain = await history.addIteration({ chainId: s.currentChainId, previousId: versionId ?? undefined,
-      originalPrompt: s.originalPrompt.trim() || text, optimizedPrompt: text, templateId: '', modelKey: '', iterationNote: note,
-      metadata: { videoParams: { ...(session.draftParams ?? s.params) } } })
+      originalPrompt: s.originalPrompt.trim() || text, optimizedPrompt: text, templateId: '', modelKey: '', iterationNote: note })
     window.dispatchEvent(new Event('prompt-optimizer:history-refresh'))
     if (s === state.value && s.optimizedPrompt === text && s.currentVersionId === versionId) {
       selectVersion(chain.currentRecord)
@@ -425,7 +447,7 @@ const saveLocalEdit = async ({ note }: { note?: string }) => {
   } catch (error) { report(error) } finally { session.iterating = false }
 }
 const favorite = () => saveFavorite?.({ content: state.value.optimizedPrompt, originalContent: state.value.originalPrompt,
-  prefill: { functionMode: 'video', metadata: { videoParams: { ...(session.draftParams ?? state.value.params) } } } })
+  prefill: { functionMode: 'video' } })
 const evaluate = async () => {
   const service = getPiniaServices()?.evaluationService
   if (!service || evaluating.value) return
@@ -453,6 +475,12 @@ defineExpose({ isUpdateBusy: () => workspaceBusy.value })
 }
 .split-divider:hover, .split-divider:focus-visible { background: var(--n-primary-color, rgba(59, 130, 246, 0.5)); }
 .video-original { flex-shrink: 0; }
+.video-image-input { display: grid; gap: 8px; }
+.video-image-mode { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.video-frame-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.video-frame-grid :deep(.image-card) { width: 100%; min-width: 0; }
+.video-frame-grid :deep(.image-card__preview-wrap) { height: 84px; aspect-ratio: auto; }
+.video-frame-grid :deep(.image-upload-card--empty) { min-height: 84px; min-width: 0; }
 .source-summary-group { min-width: 0; }
 .source-summary-title { flex: none; font-size: 18px; font-weight: 500; }
 .source-summary-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

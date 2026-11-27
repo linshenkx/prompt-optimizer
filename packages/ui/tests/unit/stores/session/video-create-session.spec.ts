@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { MemoryStorageProvider, PreferenceService, SEEDANCE_MODEL, VIDEO_MODEL_PREFERENCE } from '@prompt-optimizer/core'
+import { MemoryStorageProvider, PreferenceService, defaultVideoConfig, summarizeVideoModel, SEEDANCE_MODEL, VIDEO_MODEL_PREFERENCE } from '@prompt-optimizer/core'
 import { createTestPinia } from '../../../utils/pinia-test-helpers'
 import { setPiniaServices } from '../../../../src/plugins/pinia'
 import {
@@ -15,6 +15,8 @@ const createWindow = (storage: MemoryStorageProvider) => {
   return { ...context, preferences, activate }
 }
 
+const ark = summarizeVideoModel({ ...defaultVideoConfig(), apiKey: 'test' })
+
 describe('video-create session', () => {
   afterEach(() => vi.restoreAllMocks())
 
@@ -26,10 +28,14 @@ describe('video-create session', () => {
     store.state.optimizedPrompt = 'A crane shot of a small boat.'
     const send = vi.spyOn(globalThis,'fetch').mockResolvedValueOnce(Response.json({id:'cgt-queued'}))
       .mockResolvedValueOnce(new Response(null,{status:204}))
-    const draft = store.prepareRun(SEEDANCE_MODEL)
+    const confirmationOpenedAt = Date.now()
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(confirmationOpenedAt)
+    const draft = store.prepareRun(ark)
+    const submittedAt = confirmationOpenedAt + 30_000
+    clock.mockReturnValue(submittedAt)
     await Promise.all([store.submit(draft),store.submit(draft)])
     expect(send).toHaveBeenCalledTimes(1)
-    expect(store.activeRun?.id).toBe('cgt-queued')
+    expect(store.activeRun).toMatchObject({ id: 'cgt-queued', submittedAt })
     await store.cancel(store.activeRun!)
     expect(send.mock.calls[1][1]?.method).toBe('DELETE')
     expect(store.activeRun).toBeUndefined()
@@ -49,7 +55,7 @@ describe('video-create session', () => {
       await other.set(VIDEO_CREATE_SESSION_KEY, { ...pending, optimizedPrompt: 'A newer draft in the other window.' })
       return Response.json({id:'cgt-accepted'})
     })
-    await expect(store.submit(store.prepareRun(SEEDANCE_MODEL))).rejects.toThrow()
+    await expect(store.submit(store.prepareRun(ark))).rejects.toThrow()
     expect(send).toHaveBeenCalledTimes(1)
     expect(await other.get(VIDEO_CREATE_SESSION_KEY, null)).toMatchObject({
       optimizedPrompt: 'A newer draft in the other window.', runs: [{id:'cgt-accepted', status:'queued', prompt:'A tracked shot.'}],
@@ -64,7 +70,7 @@ describe('video-create session', () => {
     await store.restoreSession()
     store.state.optimizedPrompt = 'A four second shot.'
     const send = vi.spyOn(globalThis,'fetch').mockRejectedValue(new TypeError('connection lost'))
-    const draft = store.prepareRun(SEEDANCE_MODEL)
+    const draft = store.prepareRun(ark)
     await store.submit(draft)
     expect(store.activeRun?.status).toBe('unknown')
     const second = createWindow(storage)
@@ -88,8 +94,8 @@ describe('video-create session', () => {
       .mockResolvedValueOnce(Response.json({ id: 'cgt-b' }))
       .mockResolvedValueOnce(Response.json({ id: 'cgt-b', status: 'running', usage: { completion_tokens: 0, total_tokens: 12 } }))
       .mockResolvedValueOnce(Response.json({ id: 'cgt-b', status: 'succeeded', content: { video_url: 'https://example.org/b.mp4' } }))
-    const a = session.prepareRun(SEEDANCE_MODEL, undefined, undefined, 'a', session.state.originalPrompt)
-    const b = session.prepareRun(SEEDANCE_MODEL)
+    const a = session.prepareRun(ark, 'a', session.state.originalPrompt)
+    const b = session.prepareRun(ark)
     await session.submit(a)
     await session.submit(b)
     await session.submit(a)
@@ -101,7 +107,7 @@ describe('video-create session', () => {
     await restored.restoreSession()
     expect(restored.activeFor('a')).toMatchObject({ status: 'unknown', prompt: 'Original request' })
     expect(restored.activeFor('b')).toBeUndefined()
-    expect(restored.state.runs[0]).toMatchObject({ source: 'workspace', status: 'succeeded', tokens: 0, totalTokens: 12 })
+    expect(restored.state.runs[0]).toMatchObject({ source: 'workspace', status: 'succeeded', usage: { outputTokens: 0, totalTokens: 12 } })
   })
 
   it('saves the first draft without reporting a cross-window conflict', async () => {
@@ -121,24 +127,29 @@ describe('video-create session', () => {
     })
   })
 
-  it('keeps the original settings of an older draft through multiple changes and a reload', async () => {
+  it('keeps generation settings independent of an older draft and prompt restore', async () => {
     const storage = new MemoryStorageProvider()
     const ctx = createWindow(storage)
     const params = { duration: 4, ratio: '16:9', resolution: '480p' }
-    await ctx.preferences.set(VIDEO_CREATE_SESSION_KEY, { originalPrompt: 'A harbor', optimizedPrompt: 'A four-second pan', params })
+    await ctx.preferences.set(VIDEO_CREATE_SESSION_KEY, {
+      originalPrompt: 'A harbor', optimizedPrompt: 'A four-second pan', params, draftParams: params,
+    })
     const session = useVideoCreateSession(ctx.pinia)
     await session.restoreSession()
-    session.updateParams({ duration: 8 })
-    session.updateParams({ resolution: '720p' })
+    session.setColumnParam('b', ark, 'duration', 8)
+    session.setColumnParam('b', ark, 'resolution', '720p')
+    const generation = { ...params, duration: 8, resolution: '720p', audio: false }
     expect(await session.saveSession()).toBe(true)
 
     const restored = useVideoCreateSession(createWindow(storage).pinia)
     await restored.restoreSession()
-    expect(restored.draftParams).toEqual(params)
-    expect(restored.state.params).toEqual({ ...params, duration: 8, resolution: '720p' })
+    expect(restored.state.columns.b.params).toEqual(generation)
+    expect(restored.state.columns.a.params).toEqual(params)
     expect(restored.state.optimizedPrompt).toBe('A four-second pan')
-    restored.applyPrompt('Another harbor', '')
-    expect(restored.draftParams).toBeUndefined()
+    expect(restored.state).not.toHaveProperty('draftParams')
+    restored.applyPrompt('Another harbor', 'Hold on the sailboat.', 'record', 'chain')
+    expect(restored.state).toMatchObject({ columns: { b: { params: generation } }, currentVersionId: 'record', currentChainId: 'chain' })
+    expect(restored.prepareRun(ark)).toMatchObject({ params: generation, prompt: 'Hold on the sailboat.' })
   })
 
   it('restores the persisted draft in another window', async () => {

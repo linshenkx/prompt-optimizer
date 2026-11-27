@@ -72,7 +72,7 @@
               :src="item.src"
               :alt="item.alt || item.label"
               :download-filename="item.downloadFilename"
-              object-fit="cover"
+              :object-fit="previewFit"
             />
           </div>
 
@@ -195,6 +195,7 @@ const props = withDefaults(defineProps<{
   listTestId?: string
   cardTestIdPrefix?: string
   uploadCardTestId?: string
+  previewFit?: 'cover' | 'contain'
   previewTestId?: string
   replaceTestId?: string
 }>(), {
@@ -213,6 +214,7 @@ const props = withDefaults(defineProps<{
   listTestId: undefined,
   cardTestIdPrefix: undefined,
   uploadCardTestId: undefined,
+  previewFit: 'cover',
   previewTestId: undefined,
   replaceTestId: undefined,
 })
@@ -465,7 +467,6 @@ defineExpose({ triggerUpload })
 .image-card__preview :deep(img) {
   width: 100%;
   height: 100%;
-  object-fit: cover;
   display: block;
   -webkit-user-drag: none;
   user-select: none;

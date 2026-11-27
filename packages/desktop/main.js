@@ -84,7 +84,7 @@ require('dotenv').config({ path: envPath });
 const {
   PreferenceService,
   createModelManager,
-  createSeedanceService,
+  createVideoService,
   createTemplateManager,
   createHistoryManager,
   createLLMService,
@@ -1397,7 +1397,7 @@ function setupIPC() {
     catch (error) { return createErrorResponse(error) }
   })
 
-  const videoService = createSeedanceService(preferenceService);
+  const videoService = createVideoService(preferenceService);
   for (const method of ['model', 'listModels', 'getConfig', 'saveConfig', 'setEnabled', 'removeConfig', 'testConnection', 'create', 'query', 'cancel']) {
     const handle = async (_event, ...args) => {
       try {

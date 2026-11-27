@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { runInNewContext } from 'node:vm'
 import { deserialize, serialize } from 'node:v8'
+import { createVideoService } from '../../src/services/video/service'
 import { safeSerializeForIPC } from '../../src/utils/ipc-serialization'
 
 const desktopFile = (name: string) => readFileSync(
@@ -24,6 +25,8 @@ export function createDesktopServiceBridge(services: Record<string, unknown>): u
     source.slice(setupStart, setupEnd),
     'setupIPC();',
   ].join('\n'), {
+    preferenceService: undefined,
+    createVideoService,
     ...services,
     safeSerializeForIPC,
     ipcMain: { handle: (channel: string, handler: (...args: unknown[]) => Promise<unknown>) => handlers.set(channel, handler), on: () => {} },
