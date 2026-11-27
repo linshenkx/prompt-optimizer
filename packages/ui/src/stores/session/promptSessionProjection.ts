@@ -264,16 +264,21 @@ export const buildLegacyPromptSessionSnapshot = (
       return buildImageImageSnapshot(stores[subModeKey])
     case 'image-multiimage':
       return buildImageMultiSnapshot(stores[subModeKey])
-    case 'video-create':
+    case 'video-create': {
+      const { state } = stores[subModeKey]
       return {
         subModeKey,
-        prompt: stores[subModeKey].state.originalPrompt,
-        optimizedPrompt: stores[subModeKey].state.optimizedPrompt,
-        selectedOptimizeModelKey: stores[subModeKey].state.selectedTextModelKey,
-        selectedTemplateId: stores[subModeKey].state.selectedTemplateId ?? undefined,
-        lastActiveAt: stores[subModeKey].state.lastActiveAt,
-        metadata: { video: { ...stores[subModeKey].state } },
+        prompt: state.originalPrompt,
+        optimizedPrompt: state.optimizedPrompt,
+        chainId: state.currentChainId ?? '',
+        versionId: state.currentVersionId ?? '',
+        inputImages: state.images.map(image => ({ _type: 'image-ref', id: image.id })),
+        selectedOptimizeModelKey: state.selectedTextModelKey,
+        selectedTemplateId: state.selectedTemplateId ?? undefined,
+        lastActiveAt: state.lastActiveAt,
+        metadata: { video: { ...state } },
       }
+    }
     case 'basic-system':
     default:
       return buildTextSnapshot('basic-system', stores['basic-system'])

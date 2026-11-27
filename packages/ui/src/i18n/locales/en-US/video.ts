@@ -77,7 +77,8 @@ export default {
     "linkExpired": "This video link has expired. Check the task for an available link.",
     "submission": "Submitted prompt and settings",
     "unknownHint": "The provider may have received this request. Check the provider console before starting another paid test.",
-    "acknowledge": "I checked the provider console",
+    "acknowledge": "Stop local tracking",
+    "untrackConfirm": "Check the provider console before continuing. The task may still run and incur charges. Stopping local tracking lets you start a new task and leaves any provider task ID in the result.",
     "downloadFallback": "Use Open video to save the file from the browser player.",
     "roles": {
       "reference_image": "Reference image",
@@ -100,7 +101,7 @@ export default {
       "baseURL": "Enter a complete HTTP or HTTPS API URL.",
       "configMissing": "This video model configuration could not be found.",
       "configChanged": "The video model configuration has changed. Reopen it or select the model again.",
-      "configInUse": "This model has an active task. Finish the task before deleting it or changing its provider, model, or API URL.",
+      "configInUse": "This model has an active task. Finish the task before deleting it or changing its provider, model, API URL, or API key.",
       "connectionResponse": "The provider returned an unexpected response. Check the API URL.",
       "request": "Check the prompt and generation settings.",
       "references": "Choose supported PNG, JPEG or WebP reference images within the limit.",

@@ -95,7 +95,7 @@ function parseImport(value: unknown): VideoModelConfig[] {
 
 function sameTaskEndpoint(a: VideoModelConfig, b: VideoModelConfig) {
   return a.baseURL === b.baseURL && a.providerId === b.providerId && a.modelId === b.modelId &&
-    videoWireModel(a) === videoWireModel(b)
+    videoWireModel(a) === videoWireModel(b) && a.apiKey === b.apiKey && resolveVideoApiKey(a) === resolveVideoApiKey(b)
 }
 
 export function resolveVideoApiKey(config: VideoModelConfig): string {

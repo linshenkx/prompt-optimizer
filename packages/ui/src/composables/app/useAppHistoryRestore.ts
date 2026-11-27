@@ -133,9 +133,10 @@ export function useAppHistoryRestore(options: AppHistoryRestoreOptions): AppHist
         // rootRecord.type 可能包含旧版本类型名，显式转为 string 以兼容历史数据
         const rt = chain.rootRecord.type as unknown as string
         if (rt === 'videoOptimize') {
-            if (beforeApplyToWorkspace && !(await beforeApplyToWorkspace('video-create'))) return
-            if (await navigateToSubModeKey('video-create') === false) return
             const store = useVideoCreateSession()
+            if (store.busy) return
+            if (beforeApplyToWorkspace && !(await beforeApplyToWorkspace('video-create'))) return
+            if (await navigateToSubModeKey('video-create') === false || store.busy) return
             store.applyPrompt(chain.rootRecord.originalPrompt, record.optimizedPrompt, record.id, chain.chainId)
             const modelKey = record.modelKey || chain.rootRecord.modelKey
             if (modelKey) store.state.selectedTextModelKey = modelKey

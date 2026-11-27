@@ -195,6 +195,62 @@ test('author, edit and test a video prompt, then resume the paid task after a re
   expect(posts).toHaveLength(1)
 })
 
+test('stops local tracking after a provider query error and unlocks the workspace', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.route('**/config.js', route => route.fulfill({ contentType: 'application/javascript',
+    body: 'window.runtime_config={SEEDANCE_API_KEY:"fixture-key"};' }))
+  const methods: string[] = []
+  await page.route('**/contents/generations/tasks**', route => {
+    const method = route.request().method()
+    methods.push(method)
+    return method === 'POST'
+      ? route.fulfill({ json: { id: 'cgt-query-expired' } })
+      : methods.length === 2
+        ? route.fulfill({ json: { id: 'cgt-query-expired', status: 'running' } })
+        : route.fulfill({ status: 404, json: { error: { message: 'This task can no longer be queried' } } })
+  })
+  await page.goto('/#/video/create')
+  const editor = page.getByTestId('video-output').locator('textarea')
+  const generate = page.getByTestId('video-run-b')
+  const tools = page.getByTestId('video-workspace-utility-menu')
+  const card = page.getByTestId('video-result-b')
+  const dialog = page.getByRole('alertdialog').or(page.getByRole('dialog')).last()
+  const stopTracking = /Stop local tracking|停止本地跟踪|停止本機追蹤/i
+
+  await editor.fill('A boat crosses the bay')
+  await generate.click()
+  await dialog.getByRole('button', { name: /确认并生成|確認並產生|Confirm and generate/i }).click()
+  await expect(card.getByTestId('video-status-b')).toContainText(/生成中|產生中|Generating/i, { timeout: 10000 })
+  await card.getByRole('button', { name: /^(Check task|查询任务|查詢任務)$/i }).click()
+  await expect(card.getByRole('alert')).toContainText('This task can no longer be queried')
+  await expect(generate).toBeDisabled()
+  await expect(tools).toBeDisabled()
+  await page.getByTestId('function-mode-basic').click()
+  await page.getByTestId('function-mode-video').click()
+  await expect(card.getByRole('alert')).toContainText('This task can no longer be queried')
+
+  await card.getByRole('button', { name: stopTracking }).click()
+  await expect(dialog).toContainText(/provider console|服务商控制台|服務商控制台/i)
+  await dialog.getByRole('button', { name: /cancel|取消/i }).click()
+  await expect(generate).toBeDisabled()
+  await card.getByRole('button', { name: stopTracking }).click()
+  await dialog.getByRole('button', { name: stopTracking }).click()
+  await expect(card.getByRole('alert')).toHaveCount(0)
+  await expect(generate).toBeEnabled()
+  await expect(tools).toBeEnabled()
+  await card.locator('summary').click()
+  await expect(card).toContainText('cgt-query-expired')
+  await page.reload()
+  await expect(generate).toBeEnabled()
+  await card.locator('summary').click()
+  await expect(card).toContainText('cgt-query-expired')
+  await tools.click()
+  await page.getByText(/^(Clear content|清理内容|清理內容)$/i).click()
+  await dialog.getByRole('button', { name: /^(Confirm|确认|確認|确定|確定)$/i }).click()
+  await expect(editor).toHaveValue('')
+  expect(methods).toEqual(['POST', 'GET', 'GET'])
+})
+
 test('compares videos with independent native playback and seeking, and keeps the latest result in its own column', async ({ page }, info) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.route('**/config.js', route => route.fulfill({ contentType: 'application/javascript', body: 'window.runtime_config={SEEDANCE_API_KEY:"mock-key"};' }))

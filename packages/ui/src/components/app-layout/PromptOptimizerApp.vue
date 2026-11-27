@@ -1519,7 +1519,7 @@ const beforeApplyToWorkspace = async (targetKey: string) => {
     if (!isCompact.value) return true;
     if (targetKey === 'pro-multi' || targetKey === 'pro-variable' ||
         targetKey === 'image-text2image' || targetKey === 'image-image2image' ||
-        targetKey === 'image-multiimage') {
+        targetKey === 'image-multiimage' || targetKey === 'video-create') {
         useWorkspaceViewState(targetKey).resetView();
         return true;
     }
@@ -2180,7 +2180,7 @@ watch(() => sessionManager.hasUnsavedSessions, unsaved => {
 // Optional Web/PWA host API. No service worker or browser update state enters UI stores.
 const arenaSession = useArenaSession();
 const videoSession = useVideoCreateSession();
-const isWorkspaceBusy = () => !isReady.value || arenaSession.running || videoSession.busy || videoSession.querying ||
+const isWorkspaceBusy = () => !isReady.value || arenaSession.running || videoSession.busy || videoSession.querying || !!videoSession.activeRun ||
   hasSessionConflicts(services.value?.preferenceService) ||
   !!activeWorkspaceRef.value?.isUpdateBusy?.();
 const prepareSessionRestore = async (): Promise<(() => void) | null> => {

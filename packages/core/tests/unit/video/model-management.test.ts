@@ -79,6 +79,26 @@ describe('managed Ark video configurations', () => {
     expect(await api.model()).toMatchObject({ id: 'seedance', modelId: SEEDANCE_MODEL, keySource: 'environment' })
   })
 
+  it.each([
+    ['saved-key', 'replacement-key'],
+    ['', 'saved-key'],
+    ['saved-key', ''],
+    ['', 'fixture-env-key'],
+  ])('protects credentials from %j to %j while a task is active', async (apiKey, nextKey) => {
+    const { prefs, manager } = fixture()
+    const initial = await manager.getConfig('seedance')
+    if (apiKey) await manager.saveConfig({ ...initial, apiKey }, initial)
+    const previous = await manager.getConfig('seedance')
+    const update = { ...previous, apiKey: nextKey }
+    await prefs.set(VIDEO_CREATE_SESSION_KEY, { runs: [{ configId: previous.id, status: 'running' }] })
+    await expect(manager.saveConfig(update, previous)).rejects.toThrow('configInUse')
+    await expect(manager.importData([update])).rejects.toThrow('configInUse')
+    expect((await manager.getConfig(previous.id)).apiKey).toBe(apiKey)
+    await prefs.set(VIDEO_CREATE_SESSION_KEY, { runs: [{ configId: previous.id, status: 'untracked' }] })
+    await manager.saveConfig(update, previous)
+    expect((await manager.getConfig(previous.id)).apiKey).toBe(nextKey)
+  })
+
   it('rejects non-Ark responses and never sends the environment key to a custom URL', async () => {
     const { manager, prefs } = fixture()
     const custom = { ...defaultVideoConfig(), id: 'proxy', baseURL: 'https://proxy.invalid/api/v3' }

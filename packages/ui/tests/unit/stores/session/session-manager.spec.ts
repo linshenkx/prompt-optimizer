@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { PromptRecordChain } from '@prompt-optimizer/core'
+import { useVideoCreateSession } from '../../../../src/stores/session/useVideoCreateSession'
+import { buildLegacyPromptSessionSnapshot, type PromptSessionProjectionStoreMap } from '../../../../src/stores/session/promptSessionProjection'
 
 import { createTestPinia, createPreferenceServiceStub } from '../../../utils/pinia-test-helpers'
 import { useSessionManager } from '../../../../src/stores/session/useSessionManager'
@@ -603,4 +605,22 @@ describe('SessionManager', () => {
     expect(JSON.stringify(session)).not.toContain('UNSAVED_BASIC_IMAGE')
     expect(JSON.stringify(session)).not.toContain('data:image/')
   })
+})
+
+it('projects video input images and hydrates the selected optimization record', async () => {
+  const chain = createHistoryChain()
+  chain.rootRecord.type = 'videoOptimize'
+  const getChain = vi.fn().mockResolvedValue(chain)
+  const { pinia } = createTestPinia({ historyManager: { getChain } as never })
+  const store = useVideoCreateSession(pinia)
+  const current = chain.currentRecord
+  store.applyPrompt(chain.rootRecord.originalPrompt, current.optimizedPrompt, current.id, chain.chainId)
+  store.state.images = [{ _type: 'image-ref', id: 'image-1', name: 'reference.png', role: 'reference_image' }]
+
+  expect(buildLegacyPromptSessionSnapshot('video-create', { 'video-create': store } as PromptSessionProjectionStoreMap)).toMatchObject({
+    chainId: chain.chainId, versionId: current.id, inputImages: [{ _type: 'image-ref', id: 'image-1' }],
+  })
+  const hydrated = await useSessionManager(pinia).getHydratedPromptSession('video-create')
+  expect(getChain).toHaveBeenCalledWith(chain.chainId)
+  expect(hydrated.optimization.currentRecordId).toBe(current.id)
 })

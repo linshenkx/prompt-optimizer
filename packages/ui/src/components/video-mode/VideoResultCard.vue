@@ -29,10 +29,10 @@
         <NButton size="tiny" :loading="downloading" @click="download">{{ t('video.download') }}</NButton>
         <a :href="run.videoUrl" rel="noopener noreferrer" target="_blank">{{ t('video.open') }}</a>
       </template>
-      <NButton v-if="!extension && run.id && (['queued', 'running'].includes(status) || expired || missingUsage)"
+      <NButton v-if="!extension && status !== 'untracked' && run.id && (['queued', 'running'].includes(status) || expired || missingUsage)"
         size="tiny" :loading="querying" @click="emit('refresh', run)">{{ t(missingUsage && !expired ? 'video.refreshUsage' : 'video.refresh') }}</NButton>
       <NButton v-if="!extension && status === 'queued' && supportsCancel" size="tiny" :disabled="querying" @click="emit('cancel', run)">{{ t('video.cancel') }}</NButton>
-      <NButton v-if="!extension && status === 'unknown'" size="tiny" @click="emit('acknowledge', run)">{{ t('video.acknowledge') }}</NButton>
+      <NButton v-if="!extension && canAcknowledge" size="tiny" @click="emit('acknowledge', run)">{{ t('video.acknowledge') }}</NButton>
     </NFlex>
     <details v-if="run">
       <summary>{{ t('video.submission') }}</summary>
@@ -56,7 +56,7 @@ import { useToast } from '../../composables/ui/useToast'
 const props = defineProps<{
   group: VideoVariantId; run?: VideoRun
   extension: boolean; querying: boolean; origin: string; headerModelName?: string
-  sourceLabel: string; specs: string; status: string; now: number; pollError?: string
+  sourceLabel: string; specs: string; status: string; now: number; pollError?: string; canAcknowledge?: boolean
 }>()
 const emit = defineEmits<{
   refresh: [run: VideoRun]; cancel: [run: VideoRun]; acknowledge: [run: VideoRun]

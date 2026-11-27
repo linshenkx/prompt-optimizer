@@ -36,7 +36,8 @@ import type { SessionSaveResult } from './sessionSaveResult'
 export type { SubModeKey } from './sessionKeys'
 
 const getSessionCleanupKey = (key: SubModeKey, error: unknown): string | null => {
-  if (!error || typeof error !== 'object') {
+  // A video snapshot may contain paid task IDs even when storage cannot decode it.
+  if (key === 'video-create' || !error || typeof error !== 'object') {
     return null
   }
 

@@ -77,7 +77,8 @@ export default {
     "linkExpired": "影片連結已過期，可查詢任務查看可用連結。",
     "submission": "檢視本次提交的提示詞和參數",
     "unknownHint": "服務商可能已收到請求。再次付費產生前請先查看服務商控制台。",
-    "acknowledge": "已查看服務商控制台",
+    "acknowledge": "停止本機追蹤",
+    "untrackConfirm": "請先查看服務商控制台。任務可能仍在執行並產生費用。停止本機追蹤後可以發起新任務，已有的服務商任務 ID 會保留在結果中。",
     "downloadFallback": "請按一下「開啟影片」，從瀏覽器播放器中儲存檔案。",
     "roles": {
       "reference_image": "參考圖",
@@ -100,7 +101,7 @@ export default {
       "baseURL": "請輸入完整的 HTTP 或 HTTPS API 位址。",
       "configMissing": "找不到這項影片模型設定。",
       "configChanged": "影片模型設定已變更，請重新開啟設定或重新選取模型。",
-      "configInUse": "此模型有進行中的任務。任務結束後可刪除設定或修改服務商、模型及 API 網址。",
+      "configInUse": "此模型有進行中的任務。任務結束後可刪除設定或修改服務商、模型、API 網址及 API 金鑰。",
       "connectionResponse": "服務商回傳了非預期的結果，請檢查 API 網址。",
       "request": "請檢查提示詞和生成參數。",
       "references": "請選擇符合數量限制的 PNG、JPEG 或 WebP 參考圖。",

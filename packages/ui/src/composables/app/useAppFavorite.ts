@@ -702,9 +702,10 @@ export function useAppFavorite(options: AppFavoriteOptions): AppFavoriteReturn {
         const favoriteMode = draft.favoriteMode
         const targetKey = draft.targetKey
         if (targetKey === 'video-create') {
-            if (beforeApplyToWorkspace && !(await beforeApplyToWorkspace(targetKey))) return false
-            if (await navigateToSubModeKey(targetKey) === false) return false
             const store = useVideoCreateSession()
+            if (store.busy) return false
+            if (beforeApplyToWorkspace && !(await beforeApplyToWorkspace(targetKey))) return false
+            if (await navigateToSubModeKey(targetKey) === false || store.busy) return false
             const brief = typeof favorite.metadata?.originalContent === 'string' ? favorite.metadata.originalContent : ''
             store.applyPrompt(brief, draft.content)
             return store.saveSession()

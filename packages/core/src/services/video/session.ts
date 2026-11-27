@@ -93,6 +93,22 @@ export type VideoRun = z.infer<typeof job>
 export const videoRunKey = (run: VideoRun) =>
   run.localId ?? JSON.stringify([run.configId, run.id, run.submittedAt])
 export const videoRunVariant = (run: VideoRun): VideoVariantId => run.variantId ?? 'b'
+export const isVideoRunActive = (run: VideoRun) =>
+  ['submitting', 'unknown', 'queued', 'running'].includes(run.status)
+
+export function pruneVideoRuns(runs: VideoRun[]): VideoRun[] {
+  const terminalVariants = new Set<VideoVariantId>()
+  // The result panel uses the second legacy run as column A's fallback.
+  // Keep its first legacy run too so the fallback keeps the same position.
+  const legacyFallback = runs.some(run => run.variantId === 'a') ? [] : runs.filter(run => !run.variantId).slice(0, 2)
+  return runs.filter(run => {
+    if (isVideoRunActive(run)) return true
+    const variant = videoRunVariant(run)
+    const latestTerminal = !terminalVariants.has(variant)
+    terminalVariants.add(variant)
+    return latestTerminal || (legacyFallback.length === 2 && legacyFallback.includes(run))
+  })
+}
 
 const snapshot = z.object({
   originalPrompt: z.string(), optimizedPrompt: z.string(), selectedTextModelKey: z.string().default(''),

@@ -77,7 +77,8 @@ export default {
     "linkExpired": "视频链接已过期，可查询任务查看可用链接。",
     "submission": "查看本次提交的提示词和参数",
     "unknownHint": "服务商可能已经收到请求。再次付费生成前请先查看服务商控制台。",
-    "acknowledge": "已查看服务商控制台",
+    "acknowledge": "停止本地跟踪",
+    "untrackConfirm": "请先查看服务商控制台。任务可能仍在运行并产生费用。停止本地跟踪后可以发起新任务，已有的服务商任务 ID 会保留在结果中。",
     "downloadFallback": "请点击「打开视频」，从浏览器播放器中保存文件。",
     "roles": {
       "reference_image": "参考图",
@@ -100,7 +101,7 @@ export default {
       "baseURL": "请输入完整的 HTTP 或 HTTPS API 地址。",
       "configMissing": "找不到这项视频模型配置。",
       "configChanged": "视频模型配置已更改，请重新打开配置或重新选择模型。",
-      "configInUse": "该模型有进行中的任务。任务结束后可删除配置或修改服务商、模型和 API 地址。",
+      "configInUse": "该模型有进行中的任务。任务结束后可删除配置或修改服务商、模型、API 地址和 API 密钥。",
       "connectionResponse": "服务商返回了意外的响应，请检查 API 地址。",
       "request": "请检查提示词和生成参数。",
       "references": "请选择符合数量限制的 PNG、JPEG 或 WebP 参考图。",

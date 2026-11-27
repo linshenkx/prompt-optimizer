@@ -8,7 +8,7 @@ async function exerciseDesktopBusiness(phase) {
   // Check the video bridge and persisted model selection without issuing an Ark request.
   if (phase === 'first') {
     const initial = await api.video.model();
-    check(initial.model === 'doubao-seedance-2-0-fast-260128' && !initial.configured, 'fresh video model');
+    check(initial.modelId === 'doubao-seedance-2-0-fast-260128' && !initial.customModel && !initial.configured, 'fresh video model');
     await api.preference.set('video-model/seedance', { model: 'ep-synthetic-fast', apiKey: 'fixture-only' });
   }
   const managedVideoId = 'video-ipc-studio';
@@ -21,7 +21,7 @@ async function exerciseDesktopBusiness(phase) {
   check(videoConfigs.some(item => item.id === managedVideoId && !item.enabled && item.keySource === 'saved' && !('apiKey' in item)),
     'persisted video configuration list over preload IPC');
   const video = await api.video.model();
-  check(video.model === 'ep-synthetic-fast' && video.configured && !('apiKey' in video), 'video model over preload IPC');
+  check(video.modelId === 'doubao-seedance-2-0-fast-260128' && video.customModel === 'ep-synthetic-fast' && video.keySource === 'saved' && video.configured && !('apiKey' in video), 'video model over preload IPC');
   const key = 'storage-main-r3-identities';
   const modelId = 'storage-ipc-model';
   const templateId = 'storage-ipc-template';

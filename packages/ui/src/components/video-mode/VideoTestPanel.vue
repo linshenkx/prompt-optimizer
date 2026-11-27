@@ -35,7 +35,7 @@
           :header-model-name="!extension ? headerModelName : undefined"
           :extension="extension"
           :status="run ? session.displayStatus(run) : ''" :now="now" :querying="!!run && session.isQuerying(run)"
-          :poll-error="run && pollErrors[videoRunKey(run)]" :source-label="sourceLabel(run ? run.source || 'workspace' : state.columns[id].source, run?.sourceVersion)"
+          :can-acknowledge="run && session.canAcknowledge(run)" :poll-error="run && pollError(run)" :source-label="sourceLabel(run ? run.source || 'workspace' : state.columns[id].source, run?.sourceVersion)"
           :specs="describe(run?.params ?? {})"
           @refresh="check" @cancel="cancel" @acknowledge="acknowledge">
           <template #header>
@@ -317,7 +317,7 @@ const resultOrigin = (run: VideoRun) => {
 }
 const results = computed(() => visibleIds.value.map(id => {
   const { runs } = state.value
-  const run = runs.find(item => videoRunVariant(item) === id)
+  const run = session.activeFor(id) ?? runs.find(item => videoRunVariant(item) === id)
     ?? (id === 'a' ? runs.filter(item => !item.variantId)[1] : undefined)
   const model = modelFor(id)
   const sameModel = !!model && !!run && model.id === run.configId && videoWireModel(model) === run.model && model.modelId === run.modelId && model.baseURL === run.baseURL
@@ -373,16 +373,19 @@ const confirmRuns = async (ids: readonly VideoVariantId[]) => {
 }
 
 const now = useTimestamp({ interval: 1000 })
-const pollErrors = ref<Record<string, string>>({})
+const pollError = (run: VideoRun) => {
+  const error = session.pollErrors.get(videoRunKey(run))
+  return error === undefined ? undefined : message(error)
+}
 const check = async (run: VideoRun) => {
-  const key = videoRunKey(run)
-  delete pollErrors.value[key]
-  try { await session.refresh(run) } catch (e) { pollErrors.value[key] = message(e) }
+  try { await session.refresh(run) } catch (error) {
+    if (!session.pollErrors.has(videoRunKey(run))) toast.error(message(error))
+  }
 }
 const poll = () => {
   if (extension) return
   for (const run of session.activeRuns) {
-    if (run.id && ['queued', 'running'].includes(run.status) && !session.isQuerying(run) && !pollErrors.value[videoRunKey(run)]) void check(run)
+    if (run.id && ['queued', 'running'].includes(run.status) && !session.isQuerying(run) && !session.pollErrors.has(videoRunKey(run))) void check(run)
   }
 }
 let timer: ReturnType<typeof setInterval> | undefined
@@ -399,9 +402,9 @@ const cancel = async (run: VideoRun) => {
   try { await session.cancel(run) } catch (e) { toast.error(message(e)); await check(run) }
 }
 const acknowledge = async (run: VideoRun) => {
-  if (await dialog.warning({ title: t('video.acknowledge'), content: t('video.unknownHint'), positiveText: t('common.confirm'), negativeText: t('common.cancel') })) {
-    run.status = 'untracked'
-    await persist()
+  if (await dialog.warning({ title: t('video.acknowledge'), content: t('video.untrackConfirm'),
+    positiveText: t('video.acknowledge'), negativeText: t('common.cancel') })) {
+    try { await session.acknowledge(run) } catch (error) { toast.error(message(error)) }
   }
 }
 
