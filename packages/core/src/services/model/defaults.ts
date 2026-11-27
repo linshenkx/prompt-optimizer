@@ -19,6 +19,7 @@ const PROVIDER_ENV_KEYS = {
   zhipu: ['VITE_ZHIPU_API_KEY'],
   dashscope: ['VITE_DASHSCOPE_API_KEY'],
   openrouter: ['VITE_OPENROUTER_API_KEY'],
+  llmtr: ['VITE_LLMTR_API_KEY'],
   modelscope: ['VITE_MODELSCOPE_API_KEY'],
   ollama: [],
   minimax: ['VITE_MINIMAX_API_KEY'],

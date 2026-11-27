@@ -113,6 +113,7 @@ const providerOrder = [
   'anthropic',
   'dashscope',
   'openrouter',
+  'llmtr',
   'zhipu',
   'zhipuai',
   'chrome-built-in',

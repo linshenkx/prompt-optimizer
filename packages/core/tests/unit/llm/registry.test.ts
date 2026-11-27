@@ -52,6 +52,20 @@ describe('TextAdapterRegistry', () => {
       expect(adapter.buildDefaultModel('codex/custom-model').providerId).toBe('magpie');
     });
 
+    it('registers LLMTR with the prepaid OpenAI-compatible endpoint', () => {
+      const adapter = registry.getAdapter('llmtr');
+      expect(adapter.getProvider()).toMatchObject({
+        id: 'llmtr',
+        name: 'LLMTR',
+        defaultBaseURL: 'https://llmtr.com/v1',
+        supportsDynamicModels: true,
+        requiresApiKey: true,
+        apiKeyUrl: 'https://llmtr.com/dashboard/keys',
+      });
+      expect(adapter.getModels().map((model) => model.id)).toEqual(['qwen/qwen3.8-27b-free']);
+      expect(adapter.buildDefaultModel('vendor/custom-model').providerId).toBe('llmtr');
+    });
+
     it('should return SiliconFlow adapter for "siliconflow" provider', () => {
       const adapter = registry.getAdapter('siliconflow');
 
@@ -128,11 +142,11 @@ describe('TextAdapterRegistry', () => {
       const providers = registry.getAllProviders();
 
       expect(Array.isArray(providers)).toBe(true);
-      expect(providers.length).toBe(17);
+      expect(providers.length).toBe(18);
 
       const providerIds = providers.map(p => p.id);
       expect(providerIds).toEqual(
-        expect.arrayContaining(['openai', 'openai-compatible', 'deepseek', 'siliconflow', 'zhipu', 'gemini', 'anthropic', 'dashscope', 'openrouter', 'modelscope', 'ollama', 'minimax', 'cloudflare', 'grok', 'chrome-built-in', 'xiaomi-mimo-token-plan'])
+        expect.arrayContaining(['openai', 'openai-compatible', 'deepseek', 'siliconflow', 'zhipu', 'gemini', 'anthropic', 'dashscope', 'openrouter', 'llmtr', 'modelscope', 'ollama', 'minimax', 'cloudflare', 'grok', 'chrome-built-in', 'xiaomi-mimo-token-plan'])
       );
     });
 

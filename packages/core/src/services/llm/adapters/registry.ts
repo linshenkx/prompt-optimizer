@@ -15,6 +15,7 @@ import { SiliconflowAdapter } from './siliconflow-adapter';
 import { ZhipuAdapter } from './zhipu-adapter';
 import { DashScopeAdapter } from './dashscope-adapter';
 import { OpenRouterAdapter } from './openrouter-adapter';
+import { LlmtrAdapter } from './llmtr-adapter';
 import { ModelScopeAdapter } from './modelscope-adapter';
 import { OllamaAdapter } from './ollama-adapter';
 import { MagpieAdapter } from './magpie-adapter';
@@ -64,6 +65,7 @@ export class TextAdapterRegistry
     const geminiAdapter = new GeminiAdapter();
     const dashscopeAdapter = new DashScopeAdapter();
     const openrouterAdapter = new OpenRouterAdapter();
+    const llmtrAdapter = new LlmtrAdapter();
     const modelscopeAdapter = new ModelScopeAdapter();
     const ollamaAdapter = new OllamaAdapter();
     const minimaxAdapter = new MinimaxAdapter();
@@ -81,6 +83,7 @@ export class TextAdapterRegistry
     this.adapters.set('gemini', geminiAdapter);
     this.adapters.set('dashscope', dashscopeAdapter);
     this.adapters.set('openrouter', openrouterAdapter);
+    this.adapters.set('llmtr', llmtrAdapter);
     this.adapters.set('modelscope', modelscopeAdapter);
     this.adapters.set('ollama', ollamaAdapter);
     this.adapters.set('magpie', new MagpieAdapter());

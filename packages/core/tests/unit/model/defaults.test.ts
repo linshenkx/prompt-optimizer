@@ -15,6 +15,7 @@ describe('model defaults provider env mapping', () => {
   const originalXaiApiKey = process.env.VITE_XAI_API_KEY
   const originalMimoTokenPlanApiKey = process.env.VITE_MIMO_TOKEN_PLAN_API_KEY
   const originalMimoTokenPlanApiBaseUrl = process.env.VITE_MIMO_TOKEN_PLAN_API_BASE_URL
+  const originalLlmtrApiKey = process.env.VITE_LLMTR_API_KEY
 
   beforeEach(() => {
     delete process.env.VITE_ANTHROPIC_API_KEY
@@ -30,6 +31,7 @@ describe('model defaults provider env mapping', () => {
     delete process.env.VITE_XAI_API_KEY
     delete process.env.VITE_MIMO_TOKEN_PLAN_API_KEY
     delete process.env.VITE_MIMO_TOKEN_PLAN_API_BASE_URL
+    delete process.env.VITE_LLMTR_API_KEY
   })
 
   afterAll(() => {
@@ -110,6 +112,12 @@ describe('model defaults provider env mapping', () => {
     } else {
       process.env.VITE_MIMO_TOKEN_PLAN_API_BASE_URL = originalMimoTokenPlanApiBaseUrl
     }
+
+    if (originalLlmtrApiKey === undefined) {
+      delete process.env.VITE_LLMTR_API_KEY
+    } else {
+      process.env.VITE_LLMTR_API_KEY = originalLlmtrApiKey
+    }
   })
 
   it('should include anthropic in builtin model ids', () => {
@@ -132,6 +140,31 @@ describe('model defaults provider env mapping', () => {
 
     expect(models.anthropic.enabled).toBe(true)
     expect(models.anthropic.connectionConfig.apiKey).toBe('test-anthropic-key')
+  })
+
+  it('should include llmtr in builtin model ids', () => {
+    const builtinModelIds = getBuiltinModelIds()
+    expect(builtinModelIds).toContain('llmtr')
+  })
+
+  it('should include llmtr config and keep it disabled when api key is empty', () => {
+    const models = getDefaultTextModels()
+
+    expect(models.llmtr).toBeDefined()
+    expect(models.llmtr.providerMeta.id).toBe('llmtr')
+    expect(models.llmtr.providerMeta.defaultBaseURL).toBe('https://llmtr.com/v1')
+    expect(models.llmtr.modelMeta.id).toBe('qwen/qwen3.8-27b-free')
+    expect(models.llmtr.enabled).toBe(false)
+  })
+
+  it('should enable llmtr when VITE_LLMTR_API_KEY is provided', () => {
+    process.env.VITE_LLMTR_API_KEY = 'test-llmtr-key'
+
+    const models = getDefaultTextModels()
+
+    expect(models.llmtr.enabled).toBe(true)
+    expect(models.llmtr.connectionConfig.apiKey).toBe('test-llmtr-key')
+    expect(models.llmtr.connectionConfig.baseURL).toBe('https://llmtr.com/v1')
   })
 
   it('should include cloudflare in builtin model ids', () => {
