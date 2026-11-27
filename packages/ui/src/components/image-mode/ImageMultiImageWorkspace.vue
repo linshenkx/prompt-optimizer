@@ -227,7 +227,12 @@
                   </div>
                 </div>
 
-                <NText depth="3">{{ imageInputHint }}</NText>
+                <NSpace vertical :size="2">
+                  <NText depth="3">{{ imageInputHint }}</NText>
+                  <NText v-if="session.inputImages.length" depth="3" class="image-request-size">
+                    {{ imageRequestSizeHint }}
+                  </NText>
+                </NSpace>
               </NSpace>
 
               <OptimizationControls :compact="isCompact">
@@ -268,15 +273,25 @@
                       {{ isAnalyzing ? t('promptOptimizer.analyzing') : t('promptOptimizer.analyze') }}
                     </NButton>
                     <NButton
+                      v-if="optimizing"
+                      type="error"
+                      secondary
+                      size="medium"
+                      data-testid="image-multiimage-cancel-optimize"
+                      @click="cancelOptimization"
+                    >
+                      {{ t('imageWorkspace.input.cancelOptimization') }}
+                    </NButton>
+                    <NButton
+                      v-else
                       type="primary"
                       size="medium"
                       data-testid="image-multiimage-optimize"
                       :aria-label="isCompact ? t('common.optimize') : undefined"
-                      :loading="optimizing"
-                      :disabled="isAnalyzing || optimizing || isIterating || !canOptimize"
+                      :disabled="isAnalyzing || isIterating || !canOptimize"
                       @click="optimizePrompt"
                     >
-                      {{ optimizing && !isCompact ? t('imageWorkspace.input.optimizing') : t('common.optimize') }}
+                      {{ t('common.optimize') }}
                     </NButton></template>
               </OptimizationControls>
             </NSpace></div>
@@ -647,6 +662,11 @@ import { buildTestPanelVersionOptions, resolveTestPanelVersionSelection } from '
 import { buildMultiImageVariantFingerprint } from '../../utils/multiimage-workspace'
 import { downloadImageSource } from '../../utils/image-download'
 import { getI18nErrorMessage } from '../../utils/error'
+import {
+  formatImageBytes,
+  imageInputRefToFile,
+} from '../../utils/image-compression'
+import { estimateImageRequestBytes } from '../../utils/image-batch-budget'
 import { withHistorySourceBindingMetadata } from '../../utils/history-source-binding'
 import { createImagePromptAnalysisVersion } from '../../utils/imagePromptAnalysis'
 import { resolveSourceAssetRef } from '../../utils/source-asset'
@@ -702,6 +722,15 @@ const {
 
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const optimizing = ref(false)
+// Base64 expands binary data by roughly 4/3, so 14 MiB stays below a 20 MiB API payload.
+const MULTIIMAGE_MAX_BINARY_BYTES = 14 * 1024 * 1024
+const MULTIIMAGE_MAX_REQUEST_BYTES = 20 * 1024 * 1024
+const MULTIIMAGE_MAX_DIMENSION = 2048
+const OPTIMIZATION_FIRST_TOKEN_TIMEOUT_MS = 90_000
+const OPTIMIZATION_TOTAL_TIMEOUT_MS = 180_000
+type OptimizationAbortKind = 'cancelled' | 'first-token-timeout' | 'total-timeout' | 'unmounted'
+let optimizationController: AbortController | null = null
+let optimizationAbortKind: OptimizationAbortKind | null = null
 const isAnalyzing = ref(false)
 const isIterating = ref(false)
 const {
@@ -999,6 +1028,17 @@ const imageInputHint = computed(() => {
     return t('imageWorkspace.input.multiImageMinHint')
   }
   return t('imageWorkspace.input.multiImageReadyHint')
+})
+const estimatedImageRequestBytes = computed(() => estimateImageRequestBytes(session.inputImages))
+const imageRequestSizeHint = computed(() => {
+  const key = estimatedImageRequestBytes.value > MULTIIMAGE_MAX_REQUEST_BYTES
+    ? 'imageWorkspace.input.requestSizeWillCompress'
+    : 'imageWorkspace.input.requestSize'
+  return t(key, {
+    count: session.inputImages.length,
+    size: formatImageBytes(estimatedImageRequestBytes.value),
+    limit: formatImageBytes(MULTIIMAGE_MAX_REQUEST_BYTES),
+  })
 })
 
 const {
@@ -1465,52 +1505,122 @@ const createHistoryRecord = async () => {
 }
 
 const optimizePrompt = async () => {
-  if (!promptService.value || !selectedTemplate.value) return
+  if (optimizing.value || !promptService.value || !selectedTemplate.value) return
 
+  const controller = new AbortController()
+  optimizationController = controller
   optimizing.value = true
+  optimizationAbortKind = null
   optimizedPrompt.value = ''
   optimizedReasoning.value = ''
 
   try {
+    const inputImages = [...session.inputImages]
+    const currentFiles = inputImages.map((image, index) => imageInputRefToFile(image, index))
+    const preparedPayloads = await prepareImageInputRefs(currentFiles, {
+      maxDimension: MULTIIMAGE_MAX_DIMENSION,
+      maxTotalBytes: MULTIIMAGE_MAX_BINARY_BYTES,
+    }, false)
+    controller.signal.throwIfAborted()
+    if (!preparedPayloads || inputImages.length !== session.inputImages.length
+      || inputImages.some((image, index) => image !== session.inputImages[index])) return
+    const imagesChanged = preparedPayloads.some((image, index) =>
+      image.b64 !== session.inputImages[index]?.b64 || image.mimeType !== session.inputImages[index]?.mimeType,
+    )
+    if (imagesChanged) {
+      session.replaceInputImagePayloads(preparedPayloads)
+      await session.saveSession()
+      controller.signal.throwIfAborted()
+      toast.success(t('imageWorkspace.upload.batchBudgetApplied', {
+        size: formatImageBytes(estimateImageRequestBytes(preparedPayloads)),
+      }))
+    }
+
+    let firstTokenReceived = false
+    const markFirstToken = () => {
+      if (firstTokenReceived) return
+      firstTokenReceived = true
+      clearTimeout(firstTokenTimer)
+    }
+    const abortWithKind = (kind: OptimizationAbortKind) => {
+      if (controller.signal.aborted) return
+      optimizationAbortKind = kind
+      controller.abort(new DOMException(kind, 'AbortError'))
+    }
+    const firstTokenTimer = setTimeout(
+      () => abortWithKind('first-token-timeout'),
+      OPTIMIZATION_FIRST_TOKEN_TIMEOUT_MS,
+    )
+    const totalTimer = setTimeout(
+      () => abortWithKind('total-timeout'),
+      OPTIMIZATION_TOTAL_TIMEOUT_MS,
+    )
+
     const request = {
       optimizationMode: 'user' as OptimizationMode,
       targetPrompt: originalPrompt.value,
       templateId: selectedTemplate.value.id,
       modelKey: selectedTextModelKey.value,
-      inputImages: session.inputImages.map(({ b64, mimeType }) => ({ b64, mimeType })),
+      inputImages: preparedPayloads,
     }
 
-    await promptService.value.optimizePromptStream(request, {
-      onToken: (token) => {
-        optimizedPrompt.value = `${optimizedPrompt.value || ''}${token}`
-      },
-      onReasoningToken: (token) => {
-        optimizedReasoning.value = `${optimizedReasoning.value || ''}${token}`
-      },
-      onComplete: async () => {
-        try {
-          await createHistoryRecord()
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('prompt-optimizer:history-refresh'))
+    try {
+      await promptService.value.optimizePromptStream(request, {
+        signal: controller.signal,
+        onToken: (token) => {
+          markFirstToken()
+          optimizedPrompt.value = `${optimizedPrompt.value || ''}${token}`
+        },
+        onReasoningToken: (token) => {
+          markFirstToken()
+          optimizedReasoning.value = `${optimizedReasoning.value || ''}${token}`
+        },
+        onComplete: async () => {
+          markFirstToken()
+          try {
+            await createHistoryRecord()
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('prompt-optimizer:history-refresh'))
+            }
+          } catch (error) {
+            console.error('[ImageMultiImageWorkspace] Failed to persist optimization history:', error)
+            toast.warning(t('toast.warning.saveHistoryFailed'))
           }
-        } catch (error) {
-          console.error('[ImageMultiImageWorkspace] Failed to persist optimization history:', error)
-          toast.warning(t('toast.warning.saveHistoryFailed'))
-        }
-      },
-      onError: (error: Error) => {
-        throw error
-      },
-    })
+        },
+        onError: (error: Error) => {
+          throw error
+        },
+      })
+    } finally {
+      clearTimeout(firstTokenTimer)
+      clearTimeout(totalTimer)
+    }
 
+    controller.signal.throwIfAborted()
     await session.saveSession()
     toast.success(t('toast.success.optimizeSuccess'))
   } catch (error) {
     console.error('[ImageMultiImageWorkspace] optimize failed:', error)
-    toast.error(getI18nErrorMessage(error, t('toast.error.optimizeFailed')))
+    if (optimizationAbortKind === 'cancelled') {
+      toast.warning(t('imageWorkspace.input.optimizationCancelled'))
+    } else if (optimizationAbortKind === 'first-token-timeout') {
+      toast.error(t('imageWorkspace.input.firstTokenTimeout'))
+    } else if (optimizationAbortKind === 'total-timeout') {
+      toast.error(t('imageWorkspace.input.totalTimeout'))
+    } else if (optimizationAbortKind !== 'unmounted') {
+      toast.error(getI18nErrorMessage(error, t('toast.error.optimizeFailed')))
+    }
   } finally {
+    optimizationController = null
+    optimizationAbortKind = null
     optimizing.value = false
   }
+}
+
+const cancelOptimization = () => {
+  if (!optimizationController || optimizationController.signal.aborted) return
+  optimizationAbortKind = 'cancelled'
+  optimizationController.abort(new DOMException('cancelled', 'AbortError'))
 }
 
 const handleIteratePrompt = async (payload: {
@@ -1953,6 +2063,10 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  if (optimizationController && !optimizationController.signal.aborted) {
+    optimizationAbortKind = 'unmounted'
+    optimizationController.abort(new DOMException('unmounted', 'AbortError'))
+  }
   if (typeof window !== 'undefined') {
     window.removeEventListener('image-workspace-refresh-iterate-select', refreshIterateHandler)
     window.removeEventListener('image-workspace-refresh-text-models', refreshTextModelsHandler)

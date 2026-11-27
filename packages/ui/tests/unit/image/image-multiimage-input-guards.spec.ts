@@ -108,4 +108,18 @@ describe('image multiimage input UI guards', () => {
     expect(source).not.toMatch(/已生成多图优化提示词/)
     expect(source).not.toMatch(/toast\.error\(error instanceof Error \? error\.message : '优化失败'\)/)
   })
+
+  it('bounds aggregate image payloads and allows a stalled optimization to be cancelled', () => {
+    const source = readWorkspaceSource()
+
+    expect(source).toMatch(/MULTIIMAGE_MAX_BINARY_BYTES/)
+    expect(source).toMatch(/estimateImageRequestBytes/)
+    expect(source).toMatch(/requestSizeWillCompress/)
+    expect(source).toMatch(/replaceInputImagePayloads/)
+    expect(source).toMatch(/OPTIMIZATION_FIRST_TOKEN_TIMEOUT_MS/)
+    expect(source).toMatch(/OPTIMIZATION_TOTAL_TIMEOUT_MS/)
+    expect(source).toMatch(/signal: controller\.signal/)
+    expect(source).toMatch(/image-multiimage-cancel-optimize/)
+    expect(source).toMatch(/cancelOptimization/)
+  })
 })

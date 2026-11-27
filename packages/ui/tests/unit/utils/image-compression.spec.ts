@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   compressImageFile,
+  imageInputRefToFile,
   prepareImageFiles,
   type ImageCompressionRuntime,
 } from '../../../src/utils/image-compression'
@@ -104,5 +105,17 @@ describe('compressImageFile', () => {
     expect(result).toBeNull()
     expect(confirm).toHaveBeenCalledOnce()
     expect(confirm.mock.calls[0][0]).toHaveLength(2)
+  })
+})
+
+describe('image input conversion', () => {
+
+  it('turns a stored input reference back into a typed file for batch rebalancing', async () => {
+    const file = imageInputRefToFile({ b64: 'AQIDBA==', mimeType: 'image/jpeg' }, 2)
+
+    expect(file.name).toBe('image-3.jpg')
+    expect(file.type).toBe('image/jpeg')
+    expect(file.size).toBe(4)
+    expect(Array.from(new Uint8Array(await file.arrayBuffer()))).toEqual([1, 2, 3, 4])
   })
 })

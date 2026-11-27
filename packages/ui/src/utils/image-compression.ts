@@ -299,6 +299,20 @@ export const fileToImageInputRef = async (file: File): Promise<ImageInputRef> =>
   }
 }
 
+export const imageInputRefToFile = (
+  image: Pick<ImageInputRef, 'b64' | 'mimeType'>,
+  index = 0,
+): File => {
+  const mimeType = normalizeImageMimeType(image.mimeType) || 'image/png'
+  const binary = atob(image.b64)
+  const bytes = new Uint8Array(binary.length)
+  for (let offset = 0; offset < binary.length; offset += 1) {
+    bytes[offset] = binary.charCodeAt(offset)
+  }
+  const extension = mimeType === 'image/jpeg' ? 'jpg' : 'png'
+  return new File([bytes], `image-${index + 1}.${extension}`, { type: mimeType })
+}
+
 export const formatImageBytes = (bytes: number) => {
   const megabytes = bytes / (1024 * 1024)
   return `${megabytes.toFixed(megabytes >= 10 ? 1 : 2)} MB`
