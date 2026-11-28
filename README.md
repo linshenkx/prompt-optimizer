@@ -54,6 +54,7 @@ Prompts can start from manual writing, templates, local imports, or sources such
 - 🔄 **Analysis and Compare Evaluation**: Supports analysis, single-result evaluation, and multi-result compare evaluation to help determine whether a prompt has truly improved
 - 🤖 **Multi-model Integration**: Support for mainstream AI models including OpenAI, Gemini, DeepSeek, Grok, Zhipu AI, SiliconFlow, MiniMax, etc.
 - 🖼️ **Image Generation**: Support for Text-to-Image (T2I), Image-to-Image (I2I), and Multi-Image generation with models like Gemini, Seedream, Grok
+- 🎬 Use the **Video workspace** to write and refine video prompts. On web and desktop, generate clips with Seedance or MiniMax Hailuo and compare them side by side.
 - 🌱 **Prompt Sources**: Start from manual writing, templates, local imports, or Prompt Garden import codes
 - ⭐ **Smart Favorites**: Resource-aware prompt assets with version history, reproducible examples, media support, source binding, and workspace application
 - 📊 **Advanced Testing Mode**: Context variable management, multi-turn conversation testing, Function Calling support
@@ -217,6 +218,8 @@ Use that URL with a client that supports Streamable HTTP.
 - **iterate-prompt**: Iteratively improve mature prompts based on specific requirements
 
 For more detailed information, please refer to the [MCP Server User Guide](docs/user/mcp-server_en.md).
+
+An AI assistant can also use the models you configure and prompts you save in the desktop or web app. See the [desktop and browser MCP preview guide (in Chinese)](docs/user/desktop-mcp.md).
 </details>
 
 ## ⚙️ API Key Configuration
