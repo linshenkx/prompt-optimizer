@@ -4,8 +4,8 @@ Full release narratives now live in versioned files under `releases/`. This file
 
 ## [2.17.0] - 2026-11-28
 
-- EN: Write video prompts and compare generated clips side by side. Multi-image optimization preserves your reference images, and the desktop app migrates existing data to SQLite on first launch after upgrading. [Release notes](releases/v2.17.0.en.md)
-- 中文：在视频工作区优化提示词、对比成片。多图优化保留原始参考图，桌面版升级后首次启动会将已有数据迁移到 SQLite。[版本说明](releases/v2.17.0.zh-CN.md)
+- EN: Write video prompts and compare generated clips side by side. The MCP preview lets an AI assistant test prompts with models you configured in the desktop or web app. Multi-image optimization preserves your reference images, and the desktop app migrates existing data to SQLite on first launch after upgrading. [Release notes](releases/v2.17.0.en.md)
+- 中文：视频工作区支持优化提示词和并排对比成片。通过 MCP 预览版，AI 助手可用桌面版或网页版里已配置的模型测试提示词。多图优化保留原始参考图，桌面版升级后首次启动会将已有数据迁移到 SQLite。[版本说明](releases/v2.17.0.zh-CN.md)
 
 ## [2.17.0-beta.5] - 2026-11-28
 - EN: Compare generated videos side by side, optimize multi-image prompts while keeping the original references, and connect MCP clients through npm. [Release notes](releases/v2.17.0-beta.5.en.md)
